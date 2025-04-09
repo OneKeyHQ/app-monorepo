@@ -70,8 +70,6 @@ export default function HardwareSalesReward() {
     ESpotlightTour.hardwareSalesRewardAlert,
   );
 
-  console.log('---tourTimes', tourTimes)
-
   const [loading, setLoading] = useState(false);
   const [sections, setSections] = useState<
     { title: string; data: IHardwareSalesRecord['items'] }[]
@@ -205,7 +203,7 @@ export default function HardwareSalesReward() {
               />
             }
             ListHeaderComponent={
-              <YStack px="$5">
+              <>
                 {tourTimes === 0 ? (
                   <Alert
                     closable
@@ -218,60 +216,62 @@ export default function HardwareSalesReward() {
                     onClose={tourVisited}
                   />
                 ) : null}
-                <SizableText size="$bodyLg">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_reward_undistributed,
-                  })}
-                </SizableText>
-                {Number(amount.available) > 0 ? (
-                  <NumberSizeableText
-                    formatter="value"
-                    formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
-                    }}
-                    size="$heading5xl"
-                    pr="$0.5"
-                  >
-                    {amount.available}
-                  </NumberSizeableText>
-                ) : (
-                  <SizableText size="$heading5xl">0</SizableText>
-                )}
-                {Number(amount.pending) > 0 ? (
-                  <XStack gap="$1">
+                <YStack px="$5">
+                  <SizableText size="$bodyLg">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_reward_undistributed,
+                    })}
+                  </SizableText>
+                  {Number(amount.available) > 0 ? (
                     <NumberSizeableText
                       formatter="value"
                       formatterOptions={{
                         currency: settings.currencyInfo.symbol,
-                        showPlusMinusSigns: true,
                       }}
-                      size="$bodyMdMedium"
+                      size="$heading5xl"
+                      pr="$0.5"
                     >
-                      {amount.pending}
+                      {amount.available}
                     </NumberSizeableText>
-                    <SizableText size="$bodyMd" color="t$extSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.global_pending,
-                      })}
-                    </SizableText>
-                  </XStack>
-                ) : null}
-                <Divider mt="$5" />
-                {sections.length ? (
-                  <XStack jc="space-between" h={38} ai="center">
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.referral_order_info,
-                      })}
-                    </SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.earn_rewards,
-                      })}
-                    </SizableText>
-                  </XStack>
-                ) : null}
-              </YStack>
+                  ) : (
+                    <SizableText size="$heading5xl">0</SizableText>
+                  )}
+                  {Number(amount.pending) > 0 ? (
+                    <XStack gap="$1">
+                      <NumberSizeableText
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settings.currencyInfo.symbol,
+                          showPlusMinusSigns: true,
+                        }}
+                        size="$bodyMdMedium"
+                      >
+                        {amount.pending}
+                      </NumberSizeableText>
+                      <SizableText size="$bodyMd" color="t$extSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.global_pending,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  ) : null}
+                  <Divider mt="$5" />
+                  {sections.length ? (
+                    <XStack jc="space-between" h={38} ai="center">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.referral_order_info,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.earn_rewards,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  ) : null}
+                </YStack>
+              </>
             }
             sections={sections}
             renderSectionHeader={renderSectionHeader}
