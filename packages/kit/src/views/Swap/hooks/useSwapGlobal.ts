@@ -127,18 +127,11 @@ export function useSwapInit(params?: ISwapInitParams) {
         await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
       const bridgeProviderManagerSimpleDb =
         await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
-      if (swapProviderManagerSimpleDb.length) {
-        setInAppNotification((pre) => ({
-          ...pre,
-          swapProviderManager: swapProviderManagerSimpleDb,
-        }));
-      }
-      if (bridgeProviderManagerSimpleDb.length) {
-        setInAppNotification((pre) => ({
-          ...pre,
-          bridgeProviderManager: bridgeProviderManagerSimpleDb,
-        }));
-      }
+      setInAppNotification((pre) => ({
+        ...pre,
+        swapProviderManager: swapProviderManagerSimpleDb,
+        bridgeProviderManager: bridgeProviderManagerSimpleDb,
+      }));
       if (noFetch) {
         return;
       }
