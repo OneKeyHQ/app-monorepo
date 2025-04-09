@@ -21,8 +21,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
+  onConfirm: (code: string) => void;
 }) {
-  const { email, sendCode, loginWithCode, onLoginSuccess } = props;
+  const { email, sendCode, loginWithCode, onLoginSuccess, onConfirm } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
@@ -72,6 +73,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   }, [intl, countdown]);
 
   const handleConfirm = useCallback(async () => {
+    if (onConfirm) {
+      onConfirm?.(verificationCode);
+      return;
+    }
     if (isSubmittingVerificationCode) {
       return;
     }
@@ -100,6 +105,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       setIsSubmittingVerificationCode(false);
     }
   }, [
+    onConfirm,
     isSubmittingVerificationCode,
     loginWithCode,
     verificationCode,

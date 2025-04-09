@@ -1,9 +1,10 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  type ESwapProviderSort,
-  maxRecentTokenPairs,
+import type {
+  ESwapProviderSort,
+  ISwapProviderManager,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -11,6 +12,8 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 export interface ISwapConfigs {
   providerSort?: ESwapProviderSort;
   recentTokenPairs?: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  swapProviderManager?: ISwapProviderManager[];
+  bridgeProviderManager?: ISwapProviderManager[];
 }
 
 export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> {
@@ -84,6 +87,36 @@ export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> 
     await this.setRawData({
       ...data,
       recentTokenPairs: newRecentTokenPairs,
+    });
+  }
+
+  @backgroundMethod()
+  async getSwapProviderManager() {
+    const data = await this.getRawData();
+    return data?.swapProviderManager ?? [];
+  }
+
+  @backgroundMethod()
+  async getBridgeProviderManager() {
+    const data = await this.getRawData();
+    return data?.bridgeProviderManager ?? [];
+  }
+
+  @backgroundMethod()
+  async setSwapProviderManager(providerManager: ISwapProviderManager[]) {
+    const data = await this.getRawData();
+    await this.setRawData({
+      ...data,
+      swapProviderManager: providerManager,
+    });
+  }
+
+  @backgroundMethod()
+  async setBridgeProviderManager(providerManager: ISwapProviderManager[]) {
+    const data = await this.getRawData();
+    await this.setRawData({
+      ...data,
+      bridgeProviderManager: providerManager,
     });
   }
 }

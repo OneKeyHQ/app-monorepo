@@ -11,9 +11,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 enum EPhaseState {
   next = 'next',
@@ -250,6 +252,9 @@ export default function ReferAFriend() {
             setPhaseState(EPhaseState.join);
             return;
           }
+          await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+            ESpotlightTour.referAFriend,
+          );
           navigation.popStack();
           setTimeout(() => {
             void toInviteRewardPage();
