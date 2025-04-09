@@ -6,7 +6,7 @@ import {
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
-  getDefaultEnabledEVMNetworksInAllNetworks,
+  getDefaultEnabledNetworksInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
 import {
@@ -24,8 +24,8 @@ import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
 
-const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
-const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
+const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
+const defaultEnabledNetworkIds = defaultEnabledNetworks.map((n) => n.id);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -135,14 +135,11 @@ export function isEnabledNetworksInAllNetworks({
     return !!enabledNetworks[networkId];
   }
 
-  if (isEvmNetwork({ networkId })) {
-    if (defaultEnabledEVMNetworkIds.includes(networkId)) {
-      return !disabledNetworks[networkId];
-    }
-
-    return !!enabledNetworks[networkId];
+  if (defaultEnabledNetworkIds.includes(networkId)) {
+    return !disabledNetworks[networkId];
   }
-  return !disabledNetworks[networkId];
+
+  return !!enabledNetworks[networkId];
 }
 
 function isAllNetwork({
