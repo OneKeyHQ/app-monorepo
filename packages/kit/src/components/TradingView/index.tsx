@@ -22,7 +22,7 @@ interface IBaseTradingViewProps {
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
-const EDGE_THRESHOLD = 100;
+const EDGE_THRESHOLD = 50;
 
 export function TradingView(props: ITradingViewProps & WebViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
@@ -65,7 +65,7 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
   ).current;
 
   return (
-    <Stack {...panResponder.panHandlers} bg="$red5" style={style as ViewStyle}>
+    <Stack {...panResponder.panHandlers} bg="$bgApp" style={style as ViewStyle}>
       <WebView
         tradingViewProps={tradingViewProps}
         style={{ flex: 1 }}
