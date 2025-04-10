@@ -105,8 +105,8 @@ export default function HardwareSalesReward() {
         if (summaryResult.status === 'fulfilled') {
           const data = summaryResult.value;
           setAmount({
-            available: data.HardwareSales.available.amount,
-            pending: data.HardwareSales.pending.amount,
+            available: data.HardwareSales.available?.amount || '0',
+            pending: data.HardwareSales.pending?.amount || '0',
           });
         }
         setIsLoading(false);

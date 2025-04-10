@@ -119,7 +119,7 @@ export function HeaderRight({
       platformEnv.isNativeAndroid ||
       media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
-          {children || primeButton ? (
+          {(children || primeButton) && media.gtMd ? (
             <Stack
               height="$4"
               borderRightWidth={1}
@@ -130,10 +130,6 @@ export function HeaderRight({
           <MoreActionButton key="more-action" />
         </Stack>
       ) : null;
-
-    // const searchInput = media.gtMd ? (
-    //   <UniversalSearchInput key="searchInput" />
-    // ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
@@ -152,7 +148,7 @@ export function HeaderRight({
       notificationsButton = null;
     }
 
-    const onekeyIdButton = (
+    const onekeyIdButton = media.gtMd ? (
       <HeaderIconButton
         title="OneKey ID"
         icon="PeopleOutline"
@@ -161,7 +157,7 @@ export function HeaderRight({
         }}
         testID="header-right-onekey-id"
       />
-    );
+    ) : null;
 
     return [
       primeButton,
