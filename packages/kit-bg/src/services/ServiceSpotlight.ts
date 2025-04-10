@@ -58,6 +58,7 @@ class ServiceSpotlight extends ServiceBase {
         [ESpotlightTour.showFloatingIconDialog]: 0,
         [ESpotlightTour.hardwareSalesRewardAlert]: 0,
         [ESpotlightTour.referAFriend]: 0,
+        [ESpotlightTour.earnRewardAlert]: 0,
       },
     });
   }

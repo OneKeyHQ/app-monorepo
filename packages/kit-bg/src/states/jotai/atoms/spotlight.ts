@@ -19,6 +19,7 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
         [ESpotlightTour.showFloatingIconDialog]: 0,
         [ESpotlightTour.referAFriend]: 0,
         [ESpotlightTour.hardwareSalesRewardAlert]: 0,
+        [ESpotlightTour.earnRewardAlert]: 0,
       },
     },
   });
