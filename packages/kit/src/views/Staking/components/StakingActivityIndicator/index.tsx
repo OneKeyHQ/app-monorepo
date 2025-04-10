@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, IconButton, Stack } from '@onekeyhq/components';
+import { Badge, Button, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
@@ -42,22 +42,20 @@ const StakingActivityIndicator = ({
   onPress,
 }: IStakingActivityIndicatorProps) => {
   const appNavigation = useAppNavigation();
+  const intl = useIntl();
   const headerRight = useCallback(() => {
     if (num > 0) {
       return <PendingIndicator num={num} onPress={onPress} />;
     }
     if (onPress) {
       return (
-        <IconButton
-          variant="tertiary"
-          size="medium"
-          icon="ClockTimeHistoryOutline"
-          onPress={onPress}
-        />
+        <Button variant="tertiary" size="medium" onPress={onPress}>
+          {intl.formatMessage({ id: ETranslations.global_history })}
+        </Button>
       );
     }
     return null;
-  }, [num, onPress]);
+  }, [intl, num, onPress]);
   useEffect(() => {
     appNavigation.setOptions({
       headerRight,
