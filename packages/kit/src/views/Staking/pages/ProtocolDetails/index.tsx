@@ -325,6 +325,7 @@ const ProtocolDetailsPage = () => {
                   onWithdraw={onWithdraw}
                   onPortfolioDetails={onPortfolioDetails}
                   unbondingDelegationList={unbondingDelegationList}
+                  onHistory={onHistory}
                 />
                 {trackingResp.length > 0 ? (
                   <BabylonTrackingAlert
