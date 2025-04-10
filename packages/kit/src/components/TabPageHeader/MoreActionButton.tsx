@@ -24,6 +24,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
@@ -89,6 +90,7 @@ function MoreActionButtonCmp() {
     },
     [openAddressBook],
   );
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   const { toReferFriendsPage } = useReferFriends();
   const popupMenu = useMemo(() => {
@@ -169,6 +171,26 @@ function MoreActionButtonCmp() {
             },
             ...popupMenu,
           ].filter(Boolean),
+        },
+        {
+          items: [
+            {
+              label: 'OneKey ID',
+              icon: 'PeopleOutline',
+              onPress: async () => {
+                await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+              },
+              testID: 'onekey_id',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.id_refer_a_friend,
+              }),
+              icon: 'GiftOutline',
+              onPress: toReferFriendsPage,
+              testID: 'refer-a-friend',
+            },
+          ],
         },
         {
           items: !isShowMyOneKeyOnTabbar

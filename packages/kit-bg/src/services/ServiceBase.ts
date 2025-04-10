@@ -3,6 +3,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  OneKeyErrorPrimeLoginExceedDeviceLimit,
+  OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyErrorPrimeMasterPasswordInvalid,
+  OneKeyErrorPrimePaidMembershipRequired,
+} from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -14,6 +20,7 @@ import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { getEndpointInfo } from '../endpoints';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { AxiosInstance } from 'axios';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
@@ -31,11 +38,70 @@ export default class ServiceBase {
 
   _currentAccountId: string | undefined;
 
+  _oneKeyIdAuthClient: AxiosInstance | undefined;
+
   getClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getClient(await getEndpointInfo({ name }));
 
   getRawDataClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getRawDataClient(await getEndpointInfo({ name }));
+
+  getOneKeyIdClient = async (name: EServiceEndpointEnum) => {
+    if (!this._oneKeyIdAuthClient) {
+      const client = await appApiClient.getClient(
+        await getEndpointInfo({ name }),
+      );
+      client.interceptors.request.use(async (config) => {
+        const authToken =
+          await this.backgroundApi.simpleDb.prime.getAuthToken();
+        if (authToken) {
+          // TODO use cookie instead of simpleDb
+          config.headers['X-Onekey-Request-Token'] = `${authToken}`;
+        }
+        return config;
+      });
+      client.interceptors.response.use(
+        (response) => response,
+        (error) => {
+          // check invalid token and logout
+          const errorCode: number | undefined = (
+            error as { data: { code: number } }
+          )?.data?.code;
+          // TODO 90_002 sdk refresh token required
+          // TODO 90_003 user login required
+          if ([90_002, 90_003, 90_008].includes(errorCode)) {
+            appEventBus.emit(
+              EAppEventBusNames.PrimeLoginInvalidToken,
+              undefined,
+            );
+            throw new OneKeyErrorPrimeLoginInvalidToken();
+          }
+          if ([90_004].includes(errorCode)) {
+            appEventBus.emit(
+              EAppEventBusNames.PrimeExceedDeviceLimit,
+              undefined,
+            );
+            throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
+          }
+          if ([90_005].includes(errorCode)) {
+            throw new OneKeyErrorPrimePaidMembershipRequired();
+          }
+          if ([90_006].includes(errorCode)) {
+            const e = new OneKeyErrorPrimeMasterPasswordInvalid();
+            void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfLocalPasswordInvalid(
+              {
+                error: e,
+              },
+            );
+            throw e;
+          }
+          throw error;
+        },
+      );
+      this._oneKeyIdAuthClient = client;
+    }
+    return this._oneKeyIdAuthClient;
+  };
 
   @backgroundMethod()
   async getActiveWalletAccount() {

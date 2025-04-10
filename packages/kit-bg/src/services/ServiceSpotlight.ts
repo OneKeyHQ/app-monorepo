@@ -15,7 +15,7 @@ class ServiceSpotlight extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async isFirstVisitTour(tourName: ESpotlightTour) {
+  public async isVisited(tourName: ESpotlightTour) {
     const { data } = await spotlightPersistAtom.get();
     return data[tourName] > 0;
   }
@@ -56,6 +56,8 @@ class ServiceSpotlight extends ServiceBase {
         [ESpotlightTour.switchDappAccount]: 0,
         [ESpotlightTour.allNetworkAccountValue]: 0,
         [ESpotlightTour.showFloatingIconDialog]: 0,
+        [ESpotlightTour.hardwareSalesRewardAlert]: 0,
+        [ESpotlightTour.referAFriend]: 0,
       },
     });
   }

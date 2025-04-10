@@ -252,7 +252,6 @@ const SwapSettingsDialogContent = () => {
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [{ swapProviderManager }] = useInAppNotificationAtom();
   const rightTrigger = useMemo(
     () => (
       <SegmentControl

@@ -43,6 +43,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Prime,
       env: 'test',
     }),
+    rebate: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Rebate,
+      env: 'test',
+    }),
   },
   prod: {
     wallet: buildServiceEndpoint({
@@ -76,6 +80,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
     }),
     prime: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Prime,
+      env: 'prod',
+    }),
+    rebate: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Rebate,
       env: 'prod',
     }),
   },

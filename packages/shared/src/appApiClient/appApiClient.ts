@@ -19,6 +19,7 @@ const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Notification]: null,
   [EServiceEndpointEnum.NotificationWebSocket]: null,
   [EServiceEndpointEnum.Prime]: null,
+  [EServiceEndpointEnum.Rebate]: null,
 };
 
 const rawDataClients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
@@ -30,7 +31,21 @@ const rawDataClients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Notification]: null,
   [EServiceEndpointEnum.NotificationWebSocket]: null,
   [EServiceEndpointEnum.Prime]: null,
+  [EServiceEndpointEnum.Rebate]: null,
 };
+
+const oneKeyIdAuthClients: Record<EServiceEndpointEnum, AxiosInstance | null> =
+  {
+    [EServiceEndpointEnum.Prime]: null,
+    [EServiceEndpointEnum.Rebate]: null,
+    [EServiceEndpointEnum.Wallet]: null,
+    [EServiceEndpointEnum.Swap]: null,
+    [EServiceEndpointEnum.Utility]: null,
+    [EServiceEndpointEnum.Lightning]: null,
+    [EServiceEndpointEnum.Earn]: null,
+    [EServiceEndpointEnum.Notification]: null,
+    [EServiceEndpointEnum.NotificationWebSocket]: null,
+  };
 
 const getBasicClient = async ({
   endpoint,
@@ -81,9 +96,22 @@ const getClient = memoizee(
   },
 );
 
-export interface IAxiosResponse<T> extends AxiosResponse<T> {
-  $requestId?: string;
-}
+const getOneKeyIdAuthClient = memoizee(
+  async (params: IEndpointInfo) => {
+    const existingClient = oneKeyIdAuthClients[params.name];
+    if (existingClient) {
+      return existingClient;
+    }
+    clients[params.name] = await getBasicClient(params);
+    return clients[params.name] as AxiosInstance;
+  },
+  {
+    promise: true,
+    primitive: true,
+    maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+    max: 2,
+  },
+);
 
 const getRawDataClient = memoizee(
   async (params: IEndpointInfo) => {
@@ -109,5 +137,10 @@ const appApiClient = {
   getBasicClient,
   getClient,
   getRawDataClient,
+  getOneKeyIdAuthClient,
 };
 export { appApiClient };
+
+export interface IAxiosResponse<T> extends AxiosResponse<T> {
+  $requestId?: string;
+}

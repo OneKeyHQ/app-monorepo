@@ -170,12 +170,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showParams: true,
     // },
 
-    // Permission WebUSB
-    [pagePath`${ERootRoutes.PermissionWebDevice}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
       {
         showUrl: true,
@@ -197,6 +191,14 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       },
   } as Record<string, IAllowSettingItem>;
+
+  if (platformEnv.isExtension) {
+    // Permission WebUSB
+    rules[pagePath`${ERootRoutes.PermissionWebDevice}`] = {
+      showUrl: true,
+      showParams: true,
+    };
+  }
 
   if (platformEnv.isDev) {
     Object.values(EGalleryRoutes).forEach((pageName) => {
