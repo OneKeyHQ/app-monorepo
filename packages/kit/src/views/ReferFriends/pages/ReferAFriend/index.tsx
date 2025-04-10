@@ -18,6 +18,7 @@ import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 enum EPhaseState {
   next = 'next',
@@ -190,6 +191,11 @@ export default function ReferAFriend() {
                         pt="$2"
                         textDecorationLine="underline"
                         cursor="pointer"
+                        onPress={() => {
+                          openUrlExternal(
+                            'https://help.onekey.so/hc/articles/12278189850127',
+                          );
+                        }}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_learn_more,
