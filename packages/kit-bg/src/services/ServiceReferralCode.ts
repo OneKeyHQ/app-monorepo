@@ -44,7 +44,7 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHardwareSalesReward(cursor?: string) {
+  async getHardwareSalesRewardHistory(cursor?: string) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
@@ -52,6 +52,26 @@ class ServiceReferralCode extends ServiceBase {
       cursor?: string;
     } = {
       subject: 'HardwareSales',
+      limit: 100,
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await client.get<{
+      data: IInviteHistory;
+    }>('/rebate/v1/invite/history', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getEarnRewardHistory(cursor?: string) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      subject: string;
+      limit: number;
+      cursor?: string;
+    } = {
+      subject: 'Earn',
       limit: 100,
     };
     if (cursor) {
