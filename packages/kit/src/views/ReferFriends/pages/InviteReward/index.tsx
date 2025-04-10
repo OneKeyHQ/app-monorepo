@@ -7,6 +7,7 @@ import { Share, StyleSheet } from 'react-native';
 import {
   Accordion,
   Button,
+  Divider,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -201,8 +202,8 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
-  const showAvailableFiat = Number(hardwareSales.available?.fiatValue || 0) > 0;
-  const showPendingFiat = Number(hardwareSales.pending?.fiatValue || 0) > 0;
+  const showHardwareSalesAvailableFiat = Number(hardwareSales.available?.fiatValue || 0) > 0;
+  const showHardwarePendingFiat = Number(hardwareSales.pending?.fiatValue || 0) > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -287,7 +288,7 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        // onPress={toEarnRewardPage}
+        onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
           <SizableText size="$headingMd">
@@ -299,7 +300,7 @@ function Dashboard({
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
         <NoRewardYet />
-        {/* <YStack gap="$2" pt="$4">
+        <YStack gap="$2" pt="$4">
           <XStack gap="$2">
             <Token size="xs" networkId="evm--1" />
             <NumberSizeableText
@@ -321,7 +322,7 @@ function Dashboard({
               0.1
             </NumberSizeableText>
           </XStack>
-        </YStack> */}
+        </YStack>
       </YStack>
       <YStack
         px="$5"
@@ -352,7 +353,7 @@ function Dashboard({
             </XStack>
             <Progress value={levelPercent} width="100%" size="medium" />
           </YStack>
-          {showAvailableFiat || showPendingFiat ? (
+          {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
               {hardwareSales.available?.token.networkId ? (
                 <Token
@@ -370,7 +371,7 @@ function Dashboard({
                 >
                   {hardwareSales.available?.fiatValue || 0}
                 </NumberSizeableText>
-                {showPendingFiat ? (
+                {showHardwarePendingFiat ? (
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
                     <NumberSizeableText
@@ -385,7 +386,7 @@ function Dashboard({
                   </>
                 ) : null}
               </SizableText>
-              {showPendingFiat ? (
+              {showHardwarePendingFiat ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.global_pending,
