@@ -43,6 +43,7 @@ const BasicApproveBaseStakePage = () => {
     async (params: IApproveConfirmFnParams) => {
       await handleStake({
         amount: params.amount,
+        inviteCode: params.inviteCode,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({

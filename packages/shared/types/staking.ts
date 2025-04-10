@@ -101,6 +101,8 @@ export type IStakeBaseParams = {
   morphoVault?: string; // morpho vault
   approveType?: EApproveType;
   permitSignature?: string;
+
+  inviteCode?: string;
 };
 
 export type IWithdrawBaseParams = {
@@ -513,4 +515,5 @@ export type IApproveConfirmFnParams = {
   amount: string;
   approveType?: EApproveType;
   permitSignature?: string;
+  inviteCode?: string;
 };

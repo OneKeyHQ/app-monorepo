@@ -1267,6 +1267,22 @@ class ServiceStaking extends ServiceBase {
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     return vaultSettings.stakingResultPollingInterval ?? 30;
   }
+
+  @backgroundMethod()
+  async queryInviteCodeByAddress(params: {
+    networkId: string;
+    accountAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: {
+        referCode: string;
+      };
+    }>(`/earn/v1/invite-code/query`, {
+      params,
+    });
+    return response.data.data.referCode;
+  }
 }
 
 export default ServiceStaking;
