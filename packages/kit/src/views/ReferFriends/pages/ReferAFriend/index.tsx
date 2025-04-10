@@ -63,6 +63,7 @@ export default function ReferAFriend() {
           <Video
             height={224}
             repeat
+            muted
             source={require('@onekeyhq/kit/assets/OP-Light.mp4')}
             resizeMode={EVideoResizeMode.COVER}
             controls={false}
