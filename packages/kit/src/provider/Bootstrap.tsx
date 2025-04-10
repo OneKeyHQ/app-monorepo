@@ -164,6 +164,12 @@ const useDesktopEvents = platformEnv.isDesktop
           case EShortcutEvents.TabMarket:
             navigation.switchTab(ETabRoutes.Market);
             break;
+          case EShortcutEvents.TabReferAFriend:
+            // open modal
+            break;
+          case EShortcutEvents.TabMyOneKey:
+            // open modal
+            break;
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);
             break;
