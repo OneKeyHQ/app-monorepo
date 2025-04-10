@@ -137,6 +137,25 @@ const useDesktopEvents = platformEnv.isDesktop
       const openSettingsRef = useRef(openSettings);
       openSettingsRef.current = openSettings;
 
+      const ensureModalClosedAndNavigate = useCallback(
+        (navigateAction: () => void) => {
+          const routeState = rootNavigationRef.current?.getRootState();
+          if (routeState?.routes) {
+            // Check if any route in the stack is a Modal
+            const isModalOpen = routeState.routes.some(
+              (route) => route.name === ERootRoutes.Modal,
+            );
+            if (isModalOpen) {
+              // If a modal is open anywhere in the stack, do nothing.
+              return;
+            }
+          }
+          // If no modal is open, navigate.
+          navigateAction();
+        },
+        [],
+      );
+
       useEffect(() => {
         globalThis.desktopApi.on(ipcMessageKeys.CHECK_FOR_UPDATES, () => {
           void onCheckUpdateRef.current();
@@ -170,10 +189,14 @@ const useDesktopEvents = platformEnv.isDesktop
             navigation.switchTab(ETabRoutes.Market);
             break;
           case EShortcutEvents.TabReferAFriend:
-            void toReferFriendsPage();
+            ensureModalClosedAndNavigate(() => {
+              void toReferFriendsPage();
+            });
             break;
           case EShortcutEvents.TabMyOneKey:
-            void toMyOneKeyModal();
+            ensureModalClosedAndNavigate(() => {
+              void toMyOneKeyModal();
+            });
             break;
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);
