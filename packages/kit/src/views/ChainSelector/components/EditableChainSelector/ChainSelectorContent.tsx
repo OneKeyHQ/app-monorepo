@@ -22,15 +22,13 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -60,12 +58,12 @@ const ListHeaderComponent = ({
   walletId,
   accountId,
   indexedAccountId,
-  allNetworksChanged,
+  setAllNetworksChanged,
 }: {
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
-  allNetworksChanged?: React.MutableRefObject<boolean>;
+  setAllNetworksChanged?: (value: boolean) => void;
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -73,42 +71,15 @@ const ListHeaderComponent = ({
     EditableChainSelectorContext,
   );
 
-  const { result: enabledNetworksCompatibleWithAccountId, run } =
-    usePromiseResult(
-      async () => {
-        const { enabledNetworks, disabledNetworks } =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
-        const { networks } =
-          await backgroundApiProxy.serviceNetwork.getAllNetworks({
-            excludeTestNetwork: true,
-            excludeAllNetworkItem: true,
-          });
-        const enabledNetworkIds = networks
-          .filter((n) =>
-            isEnabledNetworksInAllNetworks({
-              networkId: n.id,
-              disabledNetworks,
-              enabledNetworks,
-              isTestnet: n.isTestnet,
-            }),
-          )
-          .map((n) => n.id);
+  const { enabledNetworksCompatibleWithWalletId, run } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: walletId ?? '',
+    });
 
-        const compatibleNetworks =
-          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-            {
-              walletId,
-              networkIds: enabledNetworkIds,
-            },
-          );
-
-        return compatibleNetworks.mainnetItems;
-      },
-      [walletId],
-      {
-        initResult: [],
-      },
-    );
+  const handleNetworksChange = useCallback(async () => {
+    setAllNetworksChanged?.(true);
+    await run({ alwaysSetState: true });
+  }, [setAllNetworksChanged, run]);
 
   return (
     <Stack mt="$4">
@@ -119,27 +90,21 @@ const ListHeaderComponent = ({
             isEditable={false}
             actions={[
               {
-                title: intl.formatMessage(
+                title: `${intl.formatMessage(
                   {
                     id: ETranslations.network_enabled_count,
                   },
                   {
-                    'count': enabledNetworksCompatibleWithAccountId.length,
+                    'count': enabledNetworksCompatibleWithWalletId.length,
                   },
-                ),
-                trailingIcon: 'ChevronRightSmallOutline',
+                )} →`,
                 onPress: () => {
                   if (walletId) {
                     navigation.push(EChainSelectorPages.AllNetworksManager, {
                       walletId,
                       accountId,
                       indexedAccountId,
-                      onNetworksChanged: async () => {
-                        if (allNetworksChanged) {
-                          allNetworksChanged.current = true;
-                        }
-                        await run();
-                      },
+                      onNetworksChanged: handleNetworksChange,
                     });
                   }
                 },
@@ -168,7 +133,7 @@ type IEditableChainSelectorContentProps = {
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
-  allNetworksChanged?: React.MutableRefObject<boolean>;
+  setAllNetworksChanged?: (value: boolean) => void;
 };
 
 export const EditableChainSelectorContent = ({
@@ -186,7 +151,7 @@ export const EditableChainSelectorContent = ({
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
-  allNetworksChanged,
+  setAllNetworksChanged,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -505,7 +470,7 @@ export const EditableChainSelectorContent = ({
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
-                  allNetworksChanged={allNetworksChanged}
+                  setAllNetworksChanged={setAllNetworksChanged}
                 />
               }
               renderSectionHeader={renderSectionHeader}

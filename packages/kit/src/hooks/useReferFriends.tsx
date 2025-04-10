@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  rootNavigationRef,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,7 +21,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import useAppNavigation from './useAppNavigation';
 import { useLoginOneKeyId } from './useLoginOneKeyId';
@@ -74,6 +77,24 @@ function InviteCode({
   );
 }
 
+// use rootNavigationRef to navigate
+export function useToReferFriendsModalByRootNavigation() {
+  return useCallback(async () => {
+    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+
+    const screen = isLogin
+      ? EModalReferFriendsRoutes.InviteReward
+      : EModalReferFriendsRoutes.ReferAFriend;
+
+    rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+      screen: EModalRoutes.ReferFriendsModal,
+      params: {
+        screen,
+      },
+    });
+  }, []);
+}
+
 export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -92,7 +113,10 @@ export const useReferFriends = () => {
 
   const toReferFriendsPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-    if (isLogin) {
+    const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
+      ESpotlightTour.referAFriend,
+    );
+    if (isLogin && isVisited) {
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: EModalReferFriendsRoutes.InviteReward,
       });
@@ -146,8 +170,7 @@ export const useReferFriends = () => {
         await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
-        (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
-        'TEST_CODE';
+        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
       const handleConfirm = () => {
         if (isLogin) {

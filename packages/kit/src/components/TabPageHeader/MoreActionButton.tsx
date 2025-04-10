@@ -90,9 +90,9 @@ function MoreActionButtonCmp() {
     },
     [openAddressBook],
   );
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   const { toReferFriendsPage } = useReferFriends();
-  const { loginOneKeyId } = useLoginOneKeyId();
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       const routeInfo = {
@@ -146,9 +146,6 @@ function MoreActionButtonCmp() {
       title={intl.formatMessage({ id: ETranslations.explore_options })}
       renderTrigger={
         <HeaderIconButton
-          tooltipProps={{
-            placement: 'bottom',
-          }}
           title={intl.formatMessage({ id: ETranslations.explore_options })}
           icon="DotGridOutline"
         />
@@ -176,16 +173,28 @@ function MoreActionButtonCmp() {
           ].filter(Boolean),
         },
         {
-          items: devSettings.settings?.showOneKeyId
+          items: [
+            {
+              label: 'OneKey ID',
+              icon: 'PeopleOutline',
+              onPress: async () => {
+                await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+              },
+              testID: 'onekey_id',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.id_refer_a_friend,
+              }),
+              icon: 'GiftOutline',
+              onPress: toReferFriendsPage,
+              testID: 'refer-a-friend',
+            },
+          ],
+        },
+        {
+          items: !isShowMyOneKeyOnTabbar
             ? [
-                {
-                  label: 'OneKey ID',
-                  icon: 'PeopleOutline',
-                  onPress: async () => {
-                    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-                  },
-                  testID: 'onekey_id',
-                },
                 {
                   label: intl.formatMessage({
                     id: ETranslations.id_refer_a_friend,

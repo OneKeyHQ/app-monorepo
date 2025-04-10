@@ -9,10 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from './ChainSelectorContent';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 type IEditableChainSelectorProps = {
   mainnetItems: IServerNetwork[];
@@ -58,7 +58,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
 }) => {
   const intl = useIntl();
   const [isEditMode, setIsEditMode] = useState(false);
-  const allNetworksChanged = useRef(false);
+  const [allNetworksChanged, setAllNetworksChanged] = useState(false);
   const headerRight = useMemo(
     () => () =>
       getHeaderRightComponent(
@@ -73,10 +73,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
     <Page
       safeAreaEnabled={false}
       onClose={() => {
-        if (
-          allNetworksChanged.current &&
-          networkUtils.isAllNetwork({ networkId })
-        ) {
+        if (allNetworksChanged && networkUtils.isAllNetwork({ networkId })) {
           appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
         }
       }}
@@ -101,7 +98,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           onEditCustomNetwork={onEditCustomNetwork}
           allNetworkItem={allNetworkItem}
           onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
-          allNetworksChanged={allNetworksChanged}
+          setAllNetworksChanged={setAllNetworksChanged}
         />
       </Page.Body>
     </Page>

@@ -309,9 +309,6 @@ export const DevSettingsSection = () => {
       <SectionFieldItem name="showPrimeTest" title="开启 Prime" subtitle="">
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-      <SectionFieldItem name="showOneKeyId" title="开启 OneKeyId" subtitle="">
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
       <SectionFieldItem
         name="usePrimeSandboxPayment"
         title="Prime Sandbox 支付"

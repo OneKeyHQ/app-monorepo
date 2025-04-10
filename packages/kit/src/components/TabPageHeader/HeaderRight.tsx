@@ -25,6 +25,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 
@@ -45,6 +46,7 @@ export function HeaderRight({
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
   const isIpadLandscape = useIsIpadLandscape();
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   const openNotificationsModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
@@ -150,24 +152,37 @@ export function HeaderRight({
       notificationsButton = null;
     }
 
+    const onekeyIdButton = (
+      <HeaderIconButton
+        title="OneKey ID"
+        icon="PeopleOutline"
+        onPress={async () => {
+          await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+        }}
+        testID="header-right-onekey-id"
+      />
+    );
+
     return [
       primeButton,
       notificationsButton,
       children,
       moreActionButton,
+      onekeyIdButton,
     ].filter(Boolean);
   }, [
     devSettings.enabled,
-    devSettings?.settings?.showPrimeTest,
+    devSettings.settings?.showPrimeTest,
     intl,
     openNotificationsModal,
     firstTimeGuideOpened,
     badge,
     isIpadLandscape,
-    sceneName,
     tabRoute,
     media.gtMd,
     children,
+    sceneName,
+    loginOneKeyId,
   ]);
 
   return (

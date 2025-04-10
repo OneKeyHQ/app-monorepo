@@ -239,7 +239,7 @@ export const useFetchCurrencyList = () => {
 };
 
 const launchFloatingIconEvent = async (intl: IntlShape) => {
-  const visited = await backgroundApiProxy.serviceSpotlight.isFirstVisitTour(
+  const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
     ESpotlightTour.showFloatingIconDialog,
   );
   if (!visited) {

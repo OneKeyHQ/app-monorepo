@@ -13,6 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 
@@ -67,6 +68,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   );
 
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
+  const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
 
   return useMemo(
@@ -112,6 +114,15 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: earnRouters,
         },
+        isShowMyOneKeyOnTabbar
+          ? {
+              name: ETabRoutes.ReferFriends,
+              tabBarIcon: () => 'GiftOutline',
+              translationId: ETranslations.id_refer_a_friend,
+              tabbarOnPress: toReferFriendsPage,
+              children: null,
+            }
+          : undefined,
         isShowMyOneKeyOnTabbar
           ? {
               name: ETabRoutes.DeviceManagement,
@@ -160,6 +171,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       isShowMyOneKeyOnTabbar,
       params,
       toMyOneKeyModal,
+      toReferFriendsPage,
     ],
   );
 };

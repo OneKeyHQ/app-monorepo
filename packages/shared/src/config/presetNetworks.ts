@@ -2779,9 +2779,12 @@ export const presetNetworksMap = {
   neoN3,
 };
 
-// top 20 tvl evm networks
-export const getDefaultEnabledEVMNetworksInAllNetworks = memoFn(
+export const getDefaultEnabledNetworksInAllNetworks = memoFn(
   (): IServerNetwork[] => [
+    btc,
+    tron,
+    sol,
+    // top 20 tvl evm networks
     eth,
     bsc,
     base,
