@@ -516,27 +516,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 count: totalQuoteCount,
               });
               if (totalQuoteCount === 0) {
-                if (platformEnv.isExtension) {
-                  setTimeout(() => {
-                    set(swapQuoteListAtom(), [
-                      {
-                        info: { provider: '', providerName: '' },
-                        fromTokenInfo: event.tokenPairs.fromToken,
-                        toTokenInfo: event.tokenPairs.toToken,
-                        eventId: (dataJson as ISwapQuoteEventInfo).eventId,
-                      },
-                    ]);
-                  }, 200);
-                } else {
-                  set(swapQuoteListAtom(), [
-                    {
-                      info: { provider: '', providerName: '' },
-                      fromTokenInfo: event.tokenPairs.fromToken,
-                      toTokenInfo: event.tokenPairs.toToken,
-                      eventId: (dataJson as ISwapQuoteEventInfo).eventId,
-                    },
-                  ]);
-                }
+                set(swapQuoteListAtom(), [
+                  {
+                    info: { provider: '', providerName: '' },
+                    fromTokenInfo: event.tokenPairs.fromToken,
+                    toTokenInfo: event.tokenPairs.toToken,
+                    eventId: (dataJson as ISwapQuoteEventInfo).eventId,
+                  },
+                ]);
               }
             } else {
               const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
