@@ -60,6 +60,7 @@ export type IHardwareUiPayload = {
     message: EFirmwareUpdateTipMessages | string;
   };
   firmwareProgress?: number;
+  firmwareProgressType?: 'transferData' | 'installingFirmware';
   rawPayload: any;
 };
 export type IHardwareUiState = {
@@ -71,6 +72,7 @@ export type IHardwareUiState = {
 export enum EFirmwareUpdateSteps {
   init = 'init',
   error = 'error', // error occurred in whole update process, installing phase error will use retry
+  checkReleaseError = 'checkReleaseError', // check release error
   showChangeLog = 'showChangeLog',
   showCheckList = 'showCheckList',
   updateStart = 'updateStart', // updateStart
@@ -85,6 +87,12 @@ export type IFirmwareUpdateStepInfo =
     }
   | {
       step: EFirmwareUpdateSteps.error;
+      payload: {
+        error: IOneKeyError;
+      };
+    }
+  | {
+      step: EFirmwareUpdateSteps.checkReleaseError;
       payload: {
         error: IOneKeyError;
       };
@@ -181,4 +189,20 @@ export const {
 } = globalAtom<boolean>({
   initialValue: false,
   name: EAtomNames.firmwareUpdateWorkflowRunningAtom,
+});
+
+export const {
+  target: firmwareUpdateResultVerifyAtom,
+  use: useFirmwareUpdateResultVerifyAtom,
+} = globalAtom<{
+  finalBleVersion: string;
+  finalFirmwareVersion: string;
+  finalBootloaderVersion: string;
+}>({
+  initialValue: {
+    finalBleVersion: '',
+    finalFirmwareVersion: '',
+    finalBootloaderVersion: '',
+  },
+  name: EAtomNames.firmwareUpdateResultVerifyAtom,
 });

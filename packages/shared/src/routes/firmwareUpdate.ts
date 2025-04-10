@@ -3,6 +3,7 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 export enum EModalFirmwareUpdateRoutes {
   ChangeLog = 'ChangeLog',
   Install = 'Install',
+  InstallV2 = 'InstallV2', // for new bootloader version
 }
 
 export type IModalFirmwareUpdateParamList = {
@@ -10,6 +11,9 @@ export type IModalFirmwareUpdateParamList = {
     connectId: string | undefined;
   };
   [EModalFirmwareUpdateRoutes.Install]: {
+    result: ICheckAllFirmwareReleaseResult;
+  };
+  [EModalFirmwareUpdateRoutes.InstallV2]: {
     result: ICheckAllFirmwareReleaseResult;
   };
 };

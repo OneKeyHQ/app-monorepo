@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Accordion,
+  Divider,
   Icon,
-  IconButton,
   Markdown,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
@@ -28,9 +28,9 @@ import type {
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 
+import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
-import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
-import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
+import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
 
 function ChangeLogMarkdown({
   changelog,
@@ -58,107 +58,132 @@ function ChangeLogMarkdown({
 
 function ChangeLogSection({
   title,
-  icon,
-  isDone,
   updateInfo,
+  accordionValue,
 }: {
   title: string;
-  icon: IKeyOfIcons;
-  isDone?: boolean;
+  accordionValue: string;
   updateInfo:
     | IFirmwareUpdateInfo
     | IBleFirmwareUpdateInfo
     | IBootloaderUpdateInfo
     | undefined;
 }) {
-  const intl = useIntl();
-
-  const [collapse, setCollapse] = useState(isDone);
-  const onDropDownPressed = useCallback(() => {
-    setCollapse(!collapse);
-  }, [collapse]);
   return (
-    <Stack>
-      <XStack gap="$3" py="$2" ai="center" onPress={onDropDownPressed}>
-        <Icon name={icon} size="$5" />
-        <Stack flex={1}>
-          <SizableText size="$bodyLgMedium">{title}</SizableText>
-          <SizableText
-            size="$bodyMd"
-            color={isDone ? '$textSubdued' : '$textInfo'}
-          >
-            {isDone
-              ? intl.formatMessage(
-                  { id: ETranslations.update_updated_to_latest_version },
-                  {
-                    version:
-                      updateInfo?.toVersion ||
-                      intl.formatMessage({ id: ETranslations.global_unknown }),
-                  },
-                )
-              : intl.formatMessage(
-                  { id: ETranslations.global_version_is_available },
-                  {
-                    version:
-                      updateInfo?.toVersion ||
-                      intl.formatMessage({ id: ETranslations.global_unknown }),
-                  },
-                )}
-          </SizableText>
-        </Stack>
-        <IconButton
-          icon={collapse ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'}
-          variant="tertiary"
-          onPress={onDropDownPressed}
-        />
-      </XStack>
-      {collapse ? null : (
-        <Stack bg="$bgStrong" p="$5" borderRadius="$3">
-          <FirmwareVersionProgressBar
-            fromVersion={updateInfo?.fromVersion}
-            toVersion={updateInfo?.toVersion}
-          />
+    <Accordion.Item value={accordionValue}>
+      <Accordion.Trigger
+        unstyled
+        alignItems="center"
+        alignSelf="stretch"
+        flexDirection="row"
+        justifyContent="space-between"
+        px="$5"
+        py="$0"
+        borderRadius="$1"
+        borderWidth={0}
+        bg="$transparent"
+        hoverStyle={{
+          bg: '$bgSubdued',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineWidth: 2,
+          outlineStyle: 'solid',
+          outlineOffset: 0,
+        }}
+      >
+        {({ open }: { open: boolean }) => (
+          <Stack w="100%">
+            <Divider />
+            <XStack py="$3" ai="center" jc="space-between" w="100%">
+              <XStack ai="center" gap="$1.5">
+                <SizableText
+                  size="$bodyLgMedium"
+                  color={open ? '$text' : '$textSubdued'}
+                >
+                  {title}
+                </SizableText>
+                <FirmwareVersionProgressText
+                  fromVersion={updateInfo?.fromVersion}
+                  toVersion={updateInfo?.toVersion}
+                  githubReleaseUrl={updateInfo?.githubReleaseUrl}
+                  active={open}
+                />
+              </XStack>
+              <Icon
+                name={
+                  open ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'
+                }
+                size="$6"
+                color={open ? '$icon' : '$iconSubdued'}
+              />
+            </XStack>
+          </Stack>
+        )}
+      </Accordion.Trigger>
+      <Accordion.HeightAnimator animation="quick">
+        <Accordion.Content
+          animation="quick"
+          exitStyle={{ opacity: 0 }}
+          px="$5"
+          pb="$5"
+          pt="$0"
+        >
           <ChangeLogMarkdown changelog={updateInfo?.changelog} />
-        </Stack>
-      )}
-    </Stack>
+        </Accordion.Content>
+      </Accordion.HeightAnimator>
+    </Accordion.Item>
   );
 }
 
 export function FirmwareChangeLogContentView({
   result,
-  isDone,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
-  isDone?: boolean;
 }) {
   const intl = useIntl();
+  const defaultExpandedSections = useMemo(() => {
+    const sections: string[] = [];
+    if (result?.updateInfos?.firmware?.hasUpgrade) sections.push('firmware');
+    if (result?.updateInfos?.bootloader?.hasUpgrade)
+      sections.push('bootloader');
+    if (result?.updateInfos?.ble?.hasUpgrade) sections.push('ble');
+    return sections;
+  }, [result?.updateInfos]);
+
   return (
-    <Stack mt="$8">
-      {result?.updateInfos?.bootloader?.hasUpgrade ? (
-        <ChangeLogSection
-          title={intl.formatMessage({ id: ETranslations.global_bootloader })}
-          icon="StorageOutline"
-          updateInfo={result?.updateInfos?.bootloader}
-          isDone={isDone}
-        />
-      ) : null}
-      {result?.updateInfos?.ble?.hasUpgrade ? (
-        <ChangeLogSection
-          title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
-          icon="BluetoothOutline"
-          updateInfo={result?.updateInfos?.ble}
-          isDone={isDone}
-        />
-      ) : null}
-      {result?.updateInfos?.firmware?.hasUpgrade ? (
-        <ChangeLogSection
-          title={intl.formatMessage({ id: ETranslations.global_firmware })}
-          icon="LaunchOutline"
-          updateInfo={result?.updateInfos?.firmware}
-          isDone={isDone}
-        />
-      ) : null}
+    <Stack>
+      <Accordion
+        overflow="hidden"
+        width="100%"
+        type="multiple"
+        defaultValue={defaultExpandedSections}
+      >
+        {result?.updateInfos?.firmware?.hasUpgrade ? (
+          <ChangeLogSection
+            title={intl.formatMessage({ id: ETranslations.global_firmware })}
+            updateInfo={result?.updateInfos?.firmware}
+            accordionValue="firmware"
+          />
+        ) : null}
+        {result?.updateInfos?.bootloader?.hasUpgrade ? (
+          <ChangeLogSection
+            title={intl.formatMessage({ id: ETranslations.global_bootloader })}
+            updateInfo={result?.updateInfos?.bootloader}
+            accordionValue="bootloader"
+          />
+        ) : null}
+        {result?.updateInfos?.ble?.hasUpgrade ? (
+          <ChangeLogSection
+            title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
+            updateInfo={result?.updateInfos?.ble}
+            accordionValue="ble"
+          />
+        ) : null}
+      </Accordion>
     </Stack>
   );
 }
@@ -189,11 +214,8 @@ export function FirmwareChangeLogView({
           onConfirmClick?.();
         }}
       />
-      <Stack>
-        <FirmwareUpdateWalletProfile result={result} />
-
-        <FirmwareChangeLogContentView result={result} />
-      </Stack>
+      <FirmwareUpdateIntroduction />
+      <FirmwareChangeLogContentView result={result} />
     </>
   );
 }

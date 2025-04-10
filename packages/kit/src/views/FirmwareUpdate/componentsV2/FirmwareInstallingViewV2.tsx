@@ -13,9 +13,8 @@ import type {
   ICheckAllFirmwareReleaseResult,
 } from '@onekeyhq/shared/types/device';
 
-import { FirmwareUpdateDone } from './FirmwareUpdateDone';
-import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';
-import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
+import { FirmwareUpdateErrorV2 } from './FirmwareUpdateErrorV2';
+import { FirmwareUpdateProgressBarV2 } from './FirmwareUpdateProgressBarV2';
 
 export function FirmwareInstallingViewBase({
   result,
@@ -30,31 +29,38 @@ export function FirmwareInstallingViewBase({
   retryInfo?: IFirmwareUpdateRetry | undefined;
   progressBarKey?: number;
 }) {
+  const [resetKey, setResetKey] = useState(Date.now());
+
   const content = useMemo(() => {
-    if (isDone) {
-      return <FirmwareUpdateDone result={result} />;
-    }
     if (retryInfo) {
-      return (
-        <FirmwareUpdateErrors.InstallingErrors
-          retryInfo={retryInfo}
-          result={result}
-          lastFirmwareTipMessage={tipMessage}
-        />
+      console.log(
+        'FirmwareInstallingViewBase ====>>>>: retryInfo: ',
+        retryInfo,
       );
     }
     return (
-      <FirmwareUpdateProgressBar
-        lastFirmwareTipMessage={tipMessage}
-        isDone={isDone}
-        key={progressBarKey}
-      />
+      <>
+        <FirmwareUpdateProgressBarV2
+          result={result}
+          lastFirmwareTipMessage={tipMessage}
+          isDone={isDone}
+          key={`${String(progressBarKey)}-${resetKey}`}
+        />
+        <FirmwareUpdateErrorV2
+          retryInfo={retryInfo}
+          result={result}
+          lastFirmwareTipMessage={tipMessage}
+          onRetryBefore={() => {
+            setResetKey(Date.now());
+          }}
+        />
+      </>
     );
-  }, [isDone, progressBarKey, result, retryInfo, tipMessage]);
+  }, [isDone, progressBarKey, resetKey, result, retryInfo, tipMessage]);
   return <Stack>{content}</Stack>;
 }
 
-export function FirmwareInstallingView({
+export function FirmwareInstallingViewV2({
   result,
   isDone,
 }: {
@@ -78,6 +84,10 @@ export function FirmwareInstallingView({
 
   useEffect(() => {
     if (firmwareTipMessage) {
+      console.log(
+        'FirmwareInstallingViewV2 receive firmwareTipMessage: ',
+        firmwareTipMessage,
+      );
       setLastFirmwareTipMessage(firmwareTipMessage as any);
     }
   }, [firmwareTipMessage]);
