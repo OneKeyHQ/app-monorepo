@@ -85,6 +85,8 @@ export type IStakeProviderInfo = {
   approveType?: EApproveType;
 
   liquidity?: string;
+  vaultManager?: string;
+  vaultManagerName?: string;
 };
 
 export type IStakeBaseParams = {
