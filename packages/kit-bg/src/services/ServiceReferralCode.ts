@@ -82,6 +82,24 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getEarnReward(cursor?: string) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      subject: string;
+      cursor?: string;
+    } = {
+      subject: 'Earn',
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await client.get<{
+      data: IHardwareSalesRecord;
+    }>('/rebate/v1/invite/records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   async getMyReferralCode() {
     const myReferralCode =
       await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
