@@ -6,7 +6,6 @@ import {
   AnimatePresence,
   EVideoResizeMode,
   Icon,
-  Image,
   Page,
   SizableText,
   Video,
@@ -16,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
@@ -51,6 +51,7 @@ export default function ReferAFriend() {
   const [phaseState, setPhaseState] = useState(EPhaseState.next);
   const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
+  const themeName = useThemeVariant();
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -64,7 +65,11 @@ export default function ReferAFriend() {
             height={224}
             repeat
             muted
-            source={require('@onekeyhq/kit/assets/OP-Light.mp4')}
+            source={
+              themeName === 'dark'
+                ? require('@onekeyhq/kit/assets/OP-Dark.mp4')
+                : require('@onekeyhq/kit/assets/OP-Light.mp4')
+            }
             resizeMode={EVideoResizeMode.COVER}
             controls={false}
             playInBackground={false}
