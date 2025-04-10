@@ -1,13 +1,17 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Empty,
+  Icon,
   NumberSizeableText,
   Page,
   SectionList,
+  Select,
+  SizableText,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -92,6 +96,7 @@ type IHistorySectionItem = {
 };
 
 type IHistoryContentProps = {
+  filter: Record<string, string>;
   sections: IHistorySectionItem[];
   network?: { networkId: string; name: string; logoURI: string };
   tokenMap: Record<string, IToken>;
@@ -108,6 +113,7 @@ const HistoryContent = ({
   network,
   tokenMap,
   provider,
+  filter,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
     ({ item }: { item: IStakeHistory }) => (
@@ -134,32 +140,59 @@ const HistoryContent = ({
 
   const intl = useIntl();
 
+  const items = useMemo(() => {
+    const keys = Object.keys(filter);
+    return keys.map((key) => ({
+      label: filter[key],
+      value: key,
+    }));
+  }, [filter]);
+
+  const [filterValue, setFilterValue] = useState(items[0].value);
+
   return (
-    <SectionList
-      estimatedItemSize="$14"
-      sections={sections}
-      renderItem={renderItem}
-      renderSectionHeader={renderSectionHeader}
-      keyExtractor={keyExtractor}
-      contentContainerStyle={{
-        pb: '$12',
-      }}
-      ListEmptyComponent={
-        <Empty
-          pt="$46"
-          icon="ClockTimeHistoryOutline"
-          title={intl.formatMessage({
-            id: ETranslations.global_no_transactions_yet,
-          })}
-          description={intl.formatMessage({
-            id: ETranslations.global_no_transactions_yet_desc,
-          })}
+    <YStack flex={1}>
+      <XStack px="$5">
+        <Select
+          renderTrigger={({ label }) => (
+            <XStack h="$12" ai="center" gap="$1">
+              <Icon name="Filter2Outline" size="$4" mr="$1" />
+              <SizableText>{label}</SizableText>
+              <Icon name="ChevronDownSmallOutline" size="$4" />
+            </XStack>
+          )}
+          items={items}
+          value={filterValue}
+          onChange={setFilterValue}
+          title="Demo Title"
+          onOpenChange={console.log}
         />
-      }
-    />
+      </XStack>
+      <SectionList
+        estimatedItemSize="$14"
+        sections={sections}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={{
+          pb: '$12',
+        }}
+        ListEmptyComponent={
+          <Empty
+            pt="$46"
+            icon="ClockTimeHistoryOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_no_transactions_yet,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.global_no_transactions_yet_desc,
+            })}
+          />
+        }
+      />
+    </YStack>
   );
 };
-
 const HistoryList = () => {
   const route = useAppRoute<
     IModalStakingParamList,
@@ -231,7 +264,12 @@ const HistoryList = () => {
           } as IHistorySectionItem);
         }
       }
-      return { network: historyResp.network, sections, tokenMap };
+      return {
+        network: historyResp.network,
+        sections,
+        tokenMap,
+        filter: historyResp.filter,
+      };
     },
     [
       accountId,
@@ -263,6 +301,7 @@ const HistoryList = () => {
               sections={result.sections}
               network={result.network}
               tokenMap={result.tokenMap}
+              filter={result.filter}
               provider={provider}
             />
           ) : null}
