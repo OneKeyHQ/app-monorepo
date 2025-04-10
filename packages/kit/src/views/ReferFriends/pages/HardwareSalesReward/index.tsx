@@ -6,8 +6,10 @@ import {
   Alert,
   Divider,
   Empty,
+  IconButton,
   NumberSizeableText,
   Page,
+  RefreshControl,
   SectionList,
   SizableText,
   Spinner,
@@ -19,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import {
@@ -70,30 +73,50 @@ export default function HardwareSalesReward() {
     ESpotlightTour.hardwareSalesRewardAlert,
   );
 
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
     { title: string; data: IHardwareSalesRecord['items'] }[]
   >([]);
-  const [amount, setAmount] = useState({
-    available: '0',
-    pending: '0',
-  });
+  const [amount, setAmount] = useState<
+    | {
+        available: string;
+        pending: string;
+      }
+    | undefined
+  >();
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
   }, []);
 
+  const fetchSummaryInfo = useCallback(() => {
+    return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setIsLoading(true);
+    void Promise.allSettled([fetchSales(), fetchSummaryInfo()]).then(
+      ([salesResult, summaryResult]) => {
+        if (salesResult.status === 'fulfilled') {
+          const data = salesResult.value;
+          setSections(formatSections(data.items));
+          originalData.current.push(...data.items);
+        }
+
+        if (summaryResult.status === 'fulfilled') {
+          const data = summaryResult.value;
+          setAmount({
+            available: data.HardwareSales.available.amount,
+            pending: data.HardwareSales.pending.amount,
+          });
+        }
+        setIsLoading(false);
+      },
+    );
+  }, [fetchSales, fetchSummaryInfo]);
+
   useEffect(() => {
-    setLoading(true);
-    void fetchSales().then((data) => {
-      setAmount({
-        available: data.available.amount,
-        pending: data.pending.amount,
-      });
-      setSections(formatSections(data.items));
-      originalData.current.push(...data.items);
-      setLoading(false);
-    });
-  }, [fetchSales]);
+    onRefresh();
+  }, [fetchSales, fetchSummaryInfo, onRefresh]);
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
@@ -176,7 +199,7 @@ export default function HardwareSalesReward() {
         })}
       />
       <Page.Body>
-        {loading ? (
+        {amount === undefined ? (
           <YStack
             position="absolute"
             top={0}
@@ -191,6 +214,9 @@ export default function HardwareSalesReward() {
           </YStack>
         ) : (
           <SectionList
+            refreshControl={
+              <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+            }
             ListEmptyComponent={
               <Empty
                 icon="GiftOutline"
@@ -222,20 +248,40 @@ export default function HardwareSalesReward() {
                       id: ETranslations.referral_reward_undistributed,
                     })}
                   </SizableText>
-                  {Number(amount.available) > 0 ? (
-                    <NumberSizeableText
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
-                      }}
-                      size="$heading5xl"
-                      pr="$0.5"
-                    >
-                      {amount.available}
-                    </NumberSizeableText>
-                  ) : (
-                    <SizableText size="$heading5xl">0</SizableText>
-                  )}
+                  <XStack gap="$2" ai="center">
+                    {Number(amount.available) > 0 ? (
+                      <NumberSizeableText
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settings.currencyInfo.symbol,
+                        }}
+                        size="$heading5xl"
+                        pr="$0.5"
+                      >
+                        {amount.available}
+                      </NumberSizeableText>
+                    ) : (
+                      <SizableText size="$heading5xl">0</SizableText>
+                    )}
+                    <YStack>
+                      {platformEnv.isNative && isLoading ? (
+                        <IconButton
+                          loading
+                          icon="RefreshCcwOutline"
+                          variant="tertiary"
+                        />
+                      ) : null}
+                      {platformEnv.isNative ? null : (
+                        <IconButton
+                          icon="RefreshCcwOutline"
+                          variant="tertiary"
+                          loading={isLoading}
+                          onPress={onRefresh}
+                        />
+                      )}
+                    </YStack>
+                  </XStack>
+
                   {Number(amount.pending) > 0 ? (
                     <XStack gap="$1">
                       <NumberSizeableText

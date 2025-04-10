@@ -8,6 +8,9 @@ export interface IInviteSummary {
   withdrawAddresses: string[];
   enabledNetworks: string[];
   totalRewards: string;
+  levelPercent: string;
+  rebateLevel: string;
+  nextRebateLevel: string;
   rebateConfig: {
     rebate: number;
     discount: number;
@@ -38,7 +41,6 @@ export interface IInviteSummary {
       fiatValue: string;
     };
   };
-  rebateLevel: string;
   banners: any[];
 }
 
