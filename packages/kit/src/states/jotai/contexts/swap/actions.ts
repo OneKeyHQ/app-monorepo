@@ -8,7 +8,7 @@ import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -24,7 +24,6 @@ import {
   swapBridgeDefaultTokenExtraConfigs,
   swapDefaultSetTokens,
   swapHistoryStateFetchRiceIntervalCount,
-  swapQuoteFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
   swapTokenCatchMapMaxCount,
@@ -517,14 +516,27 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 count: totalQuoteCount,
               });
               if (totalQuoteCount === 0) {
-                set(swapQuoteListAtom(), [
-                  {
-                    info: { provider: '', providerName: '' },
-                    fromTokenInfo: event.tokenPairs.fromToken,
-                    toTokenInfo: event.tokenPairs.toToken,
-                    eventId: (dataJson as ISwapQuoteEventInfo).eventId,
-                  },
-                ]);
+                if (platformEnv.isExtension) {
+                  setTimeout(() => {
+                    set(swapQuoteListAtom(), [
+                      {
+                        info: { provider: '', providerName: '' },
+                        fromTokenInfo: event.tokenPairs.fromToken,
+                        toTokenInfo: event.tokenPairs.toToken,
+                        eventId: (dataJson as ISwapQuoteEventInfo).eventId,
+                      },
+                    ]);
+                  }, 200);
+                } else {
+                  set(swapQuoteListAtom(), [
+                    {
+                      info: { provider: '', providerName: '' },
+                      fromTokenInfo: event.tokenPairs.fromToken,
+                      toTokenInfo: event.tokenPairs.toToken,
+                      eventId: (dataJson as ISwapQuoteEventInfo).eventId,
+                    },
+                  ]);
+                }
               }
             } else {
               const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;

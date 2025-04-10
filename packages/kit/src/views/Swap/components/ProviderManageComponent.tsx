@@ -214,6 +214,7 @@ const ProviderFold = ({
             p="$2"
             animation="quick"
             gap="$2"
+            bg="$transparent"
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}
           >
