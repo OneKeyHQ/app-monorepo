@@ -34,6 +34,8 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
+import { useReferFriends } from '../hooks/useReferFriends';
+import { useToMyOneKeyModal } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
 
 import type { IntlShape } from 'react-intl';
@@ -53,6 +55,9 @@ const useDesktopEvents = platformEnv.isDesktop
       const onLock = useOnLockCallback();
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
+
+      const { toReferFriendsPage } = useReferFriends();
+      const toMyOneKeyModal = useToMyOneKeyModal();
 
       const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
@@ -165,10 +170,10 @@ const useDesktopEvents = platformEnv.isDesktop
             navigation.switchTab(ETabRoutes.Market);
             break;
           case EShortcutEvents.TabReferAFriend:
-            // open modal
+            void toReferFriendsPage();
             break;
           case EShortcutEvents.TabMyOneKey:
-            // open modal
+            void toMyOneKeyModal();
             break;
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);
