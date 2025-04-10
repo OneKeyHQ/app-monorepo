@@ -9,6 +9,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
@@ -30,6 +31,7 @@ const SwapMainLandModalPage = () => {
     importToToken,
     swapTabSwitchType,
     importDeriveType,
+    swapSource,
   } = route.params ?? {};
   const { activeAccount } = useActiveAccount({
     num: 0,
@@ -53,6 +55,15 @@ const SwapMainLandModalPage = () => {
       });
     }
   }, [importDeriveType, importNetworkId, activeAccount.ready]);
+
+  useEffect(() => {
+    if (swapSource) {
+      defaultLogger.swap.enterSwap.enterSwap({
+        enterFrom: swapSource,
+      });
+    }
+  }, [swapSource]);
+
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
