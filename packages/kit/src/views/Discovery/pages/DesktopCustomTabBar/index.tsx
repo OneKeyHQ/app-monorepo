@@ -176,8 +176,6 @@ function DesktopCustomTabBar() {
   const handleShortcuts = useCallback(
     (eventName: EShortcutEvents) => {
       switch (eventName) {
-        case EShortcutEvents.TabPin6:
-        case EShortcutEvents.TabPin7:
         case EShortcutEvents.TabPin8:
         case EShortcutEvents.TabPin9:
           if (result?.pinnedTabs?.length) {

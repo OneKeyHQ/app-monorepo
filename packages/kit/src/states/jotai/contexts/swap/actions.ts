@@ -8,6 +8,7 @@ import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
