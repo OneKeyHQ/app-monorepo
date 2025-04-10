@@ -8,7 +8,7 @@ import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -24,7 +24,6 @@ import {
   swapBridgeDefaultTokenExtraConfigs,
   swapDefaultSetTokens,
   swapHistoryStateFetchRiceIntervalCount,
-  swapQuoteFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
   swapTokenCatchMapMaxCount,
@@ -605,10 +604,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         case 'done': {
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+          if (platformEnv.isExtension) {
+            set(swapQuoteFetchingAtom(), false);
+          }
           this.closeQuoteEvent();
           break;
         }
         case 'error': {
+          if (platformEnv.isExtension) {
+            set(swapQuoteFetchingAtom(), false);
+          }
           this.closeQuoteEvent();
           break;
         }

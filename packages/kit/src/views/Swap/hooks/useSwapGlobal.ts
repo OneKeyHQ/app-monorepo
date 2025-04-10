@@ -226,14 +226,30 @@ export function useSwapInit(params?: ISwapInitParams) {
                 (p) =>
                   p.providerInfo.provider === provider.providerInfo.provider,
               );
+              let serviceDisable;
+              let serviceDisableNetworks;
               if (findProvider) {
-                return {
-                  ...provider,
-                  serviceDisable: findProvider.providerServiceDisable,
-                  serviceDisableNetworks: findProvider.serviceDisableNetworks,
-                };
+                serviceDisable = findProvider.providerServiceDisable;
+                serviceDisableNetworks = findProvider.serviceDisableNetworks;
               }
-              return provider;
+              let supportNetworks = provider.supportNetworks;
+              let disableNetworks = provider.disableNetworks;
+              if (
+                findProvider?.supportSingleSwapNetworks &&
+                findProvider.isSupportSingleSwap
+              ) {
+                supportNetworks = findProvider?.supportSingleSwapNetworks;
+                disableNetworks = provider.disableNetworks?.filter((net) =>
+                  findProvider?.supportSingleSwapNetworks?.includes(net),
+                );
+              }
+              return {
+                ...provider,
+                serviceDisable,
+                serviceDisableNetworks,
+                supportNetworks,
+                disableNetworks,
+              };
             },
           );
           await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
