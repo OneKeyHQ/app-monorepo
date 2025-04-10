@@ -316,11 +316,12 @@ const ProtocolDetailsPage = () => {
           },
         )}
       />
-      <Page.Body pb="$5" gap="$8">
+      <Page.Body pb="$5">
         {isShowAlert ? (
           <Alert
             type="success"
             icon="GiftOutline"
+            mb="$3"
             title={intl.formatMessage(
               {
                 id: ETranslations.earn_referral_enter_invite_code_subtitle,
@@ -340,7 +341,7 @@ const ProtocolDetailsPage = () => {
             fullBleed
           />
         ) : null}
-        <YStack px="$5">
+        <YStack px="$5" gap="$8">
           <PageFrame
             LoadingSkeleton={OverviewSkeleton}
             loading={isLoadingState({ result, isLoading })}
