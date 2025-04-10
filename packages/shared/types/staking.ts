@@ -515,5 +515,4 @@ export type IApproveConfirmFnParams = {
   amount: string;
   approveType?: EApproveType;
   permitSignature?: string;
-  inviteCode?: string;
 };
