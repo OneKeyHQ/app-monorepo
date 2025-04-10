@@ -29,12 +29,14 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import {
   EProtocolOfExchange,
+  ESwapCleanHistorySource,
   ESwapTxHistoryStatus,
   type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -153,6 +155,9 @@ const SwapHistoryListModal = ({
             id: ETranslations.settings_clear_successful,
           }),
         });
+        defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
+          cleanFrom: ESwapCleanHistorySource.LIST,
+        });
       },
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_clear,
@@ -181,6 +186,9 @@ const SwapHistoryListModal = ({
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems([
           ESwapTxHistoryStatus.PENDING,
         ]);
+        defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
+          cleanFrom: ESwapCleanHistorySource.LIST,
+        });
       },
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_clear,
