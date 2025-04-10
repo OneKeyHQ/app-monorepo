@@ -10,14 +10,12 @@ export class CancelLimitOrderScene extends BaseScene {
     sourceTokenSymbol,
     receivedTokenSymbol,
     sellTokenAmount,
-    sellTokenValue,
   }: {
     cancelFrom: string;
     chain: string;
     sourceTokenSymbol: string;
     receivedTokenSymbol: string;
     sellTokenAmount: string;
-    sellTokenValue: string;
   }) {
     return {
       cancelFrom,
@@ -25,7 +23,6 @@ export class CancelLimitOrderScene extends BaseScene {
       sourceTokenSymbol,
       receivedTokenSymbol,
       sellTokenAmount,
-      sellTokenValue,
     };
   }
 }

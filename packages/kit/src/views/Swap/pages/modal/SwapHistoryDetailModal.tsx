@@ -28,6 +28,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -37,6 +38,7 @@ import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils
 import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EExplorerType,
+  ESwapCleanHistorySource,
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -571,6 +573,9 @@ const SwapHistoryDetailModal = () => {
           title: intl.formatMessage({
             id: ETranslations.settings_clear_successful,
           }),
+        });
+        defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
+          cleanFrom: ESwapCleanHistorySource.DETAIL,
         });
         navigation.pop();
       },

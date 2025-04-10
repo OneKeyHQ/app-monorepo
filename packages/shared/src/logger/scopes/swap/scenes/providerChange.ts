@@ -7,16 +7,13 @@ export class ProviderChangeScene extends BaseScene {
   public providerChange({
     changeFrom,
     changeTo,
-    isClickRouter,
   }: {
     changeFrom: string;
     changeTo: string;
-    isClickRouter: boolean;
   }) {
     return {
       changeFrom,
       changeTo,
-      isClickRouter,
     };
   }
 }

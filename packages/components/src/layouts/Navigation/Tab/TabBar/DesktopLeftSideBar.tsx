@@ -14,8 +14,10 @@ import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hook
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import HeaderCollapseButton from '../../Header/HeaderCollapseButton';
 
@@ -112,7 +114,11 @@ export function DesktopLeftSideBar({
             target: route.key,
             canPreventDefault: true,
           });
-
+          if (route.name === 'Swap') {
+            defaultLogger.swap.enterSwap.enterSwap({
+              enterFrom: ESwapSource.TAB,
+            });
+          }
           if (!focus && !event.defaultPrevented) {
             navigation.dispatch({
               ...CommonActions.navigate({

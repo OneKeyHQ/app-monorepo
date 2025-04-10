@@ -10,6 +10,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { MobileTabItem } from './MobileTabItem';
 
@@ -69,7 +71,11 @@ export default function MobileBottomTabBar({
             target: route.key,
             canPreventDefault: true,
           });
-
+          if (route.name === 'Swap') {
+            defaultLogger.swap.enterSwap.enterSwap({
+              enterFrom: ESwapSource.TAB,
+            });
+          }
           if (!isActive && !event.defaultPrevented) {
             navigation.dispatch({
               ...CommonActions.navigate({ name: route.name, merge: true }),
