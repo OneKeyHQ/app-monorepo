@@ -257,6 +257,7 @@ export type IStakeProtocolDetails = {
   claimable?: string;
   rewards?: string;
   earnings24h?: string;
+  totalRewardAmount?: string
   provider: IStakeProviderInfo;
   totalStaked?: string;
   totalStakedFiatValue?: string;
