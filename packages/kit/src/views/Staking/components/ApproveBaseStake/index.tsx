@@ -849,7 +849,12 @@ export function ApproveBaseStake({
           })}
         </CalculationListItem.Label>
         <XStack alignItems="center" cursor="pointer" mr={-6}>
-          <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
+          <SizableText size="$bodyMdMedium">
+            {inviteCode ||
+              intl.formatMessage({
+                id: ETranslations.earn_referral_unlinked,
+              })}
+          </SizableText>
           <Icon
             name="ChevronRightSmallOutline"
             size="$5"

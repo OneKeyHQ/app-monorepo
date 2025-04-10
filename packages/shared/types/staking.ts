@@ -294,6 +294,9 @@ export type IRewardApys = {
 
   // Token rewards
   rewards: Record<string, string>;
+
+  // rebate reward
+  rebateReward: string;
 };
 
 export type IBabylonPortfolioStatus =
