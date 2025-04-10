@@ -75,8 +75,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       (item) => item.accountInfo?.networkId === networkId,
     );
     if (!isSameNetwork) {
-      const { accountInfo: { networkId: oldNetworkId } = {} } =
-        accounts?.[0] ?? {};
+      const oldNetworkId = accounts[0].accountInfo?.networkId;
 
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',

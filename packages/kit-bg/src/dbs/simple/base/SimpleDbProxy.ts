@@ -34,6 +34,7 @@ import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMark
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
@@ -206,4 +207,8 @@ export class SimpleDbProxy
   referralCode = this._createProxyService(
     'referralCode',
   ) as SimpleDbEntityReferralCode;
+
+  recentNetworks = this._createProxyService(
+    'recentNetworks',
+  ) as SimpleDbEntityRecentNetworks;
 }
