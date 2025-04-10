@@ -18,7 +18,7 @@ export interface IInviteSummary {
   };
   Earn: Record<string, any>;
   HardwareSales: {
-    available: {
+    available?: {
       token: {
         networkId: string;
         address: string;
@@ -29,7 +29,7 @@ export interface IInviteSummary {
       amount: string;
       fiatValue: string;
     };
-    pending: {
+    pending?: {
       token: {
         networkId: string;
         address: string;
