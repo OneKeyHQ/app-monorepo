@@ -924,7 +924,9 @@ function BasicEarnHome() {
     <Page fullPage>
       <TabPageHeader
         showHeaderRight
-        showCustomHeaderRight={renderCustomHeaderRight}
+        showCustomHeaderRight={
+          platformEnv.isNative ? renderCustomHeaderRight : undefined
+        }
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
       >
