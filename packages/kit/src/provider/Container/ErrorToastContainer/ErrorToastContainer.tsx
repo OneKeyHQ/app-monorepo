@@ -16,6 +16,9 @@ export function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       const message = p.message;
+      if (message) {
+        return;
+      }
       const toastIdByErrorCode = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)
         : undefined;
