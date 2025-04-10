@@ -200,6 +200,9 @@ function Dashboard({
   const toHardwareSalesRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
+
+  const showAvailableFiat = Number(hardwareSales.available?.fiatValue || 0) > 0;
+  const showPendingFiat = Number(hardwareSales.pending?.fiatValue || 0) > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -349,39 +352,40 @@ function Dashboard({
             </XStack>
             <Progress value={levelPercent} width="100%" size="medium" />
           </YStack>
-          {Number(hardwareSales.pending.fiatValue) > 0 ||
-          Number(hardwareSales.pending.fiatValue) > 0 ? (
+          {showAvailableFiat || showPendingFiat ? (
             <XStack pt="$4" gap="$2">
-              <Token
-                size="xs"
-                networkId={hardwareSales.available.token.networkId}
-              />
+              {hardwareSales.available?.token.networkId ? (
+                <Token
+                  size="xs"
+                  networkId={hardwareSales.available?.token.networkId}
+                />
+              ) : null}
               <SizableText size="$bodyMd">
                 <NumberSizeableText
                   formatter="balance"
                   size="$bodyMd"
                   formatterOptions={{
-                    tokenSymbol: hardwareSales.available.token.symbol,
+                    tokenSymbol: hardwareSales.available?.token.symbol,
                   }}
                 >
-                  {hardwareSales.available.fiatValue}
+                  {hardwareSales.available?.fiatValue || 0}
                 </NumberSizeableText>
-                {Number(hardwareSales.pending.fiatValue) > 0 ? (
+                {showPendingFiat ? (
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
                     <NumberSizeableText
                       formatter="balance"
                       size="$bodyMd"
                       formatterOptions={{
-                        tokenSymbol: hardwareSales.pending.token.symbol,
+                        tokenSymbol: hardwareSales.pending?.token.symbol,
                       }}
                     >
-                      {hardwareSales.pending.fiatValue}
+                      {hardwareSales.pending?.fiatValue || 0}
                     </NumberSizeableText>
                   </>
                 ) : null}
               </SizableText>
-              {Number(hardwareSales.pending.fiatValue) > 0 ? (
+              {showPendingFiat ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.global_pending,
