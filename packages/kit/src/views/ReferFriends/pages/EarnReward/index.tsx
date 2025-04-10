@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -41,7 +41,7 @@ export default function EarnReward() {
   );
 
   const fetchSales = useCallback((cursor?: string) => {
-    return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
+    return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor);
   }, []);
 
   const fetchSummaryInfo = useCallback(() => {
@@ -69,8 +69,12 @@ export default function EarnReward() {
     );
   }, [fetchSales, fetchSummaryInfo]);
 
+  useEffect(() => {
+    onRefresh();
+  }, [fetchSales, fetchSummaryInfo, onRefresh]);
+
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.referral_earn_reward })}
       />
