@@ -154,7 +154,7 @@ function ProfitInfo({
                 size="$bodyLgMedium"
                 formatterOptions={{
                   currency: symbol,
-                  showPlusMinusSigns: true,
+                  showPlusMinusSigns: Number(earningsIn24h) >= 0.01,
                 }}
               >
                 {earningsIn24h}
@@ -176,7 +176,7 @@ function ProfitInfo({
                 size="$bodyLgMedium"
                 formatterOptions={{
                   currency: symbol,
-                  showPlusMinusSigns: true,
+                  showPlusMinusSigns: Number(totalRewardAmount) >= 0.01,
                 }}
               >
                 {totalRewardAmount}
