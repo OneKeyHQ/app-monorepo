@@ -166,6 +166,7 @@ export type IStakeHistory = {
 };
 
 export type IStakeHistoriesResponse = {
+  filter: Record<string, string>;
   list: IStakeHistory[];
   tokenMap: Record<string, IToken>;
   nextKey?: string;
