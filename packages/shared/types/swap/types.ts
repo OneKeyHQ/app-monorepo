@@ -61,6 +61,23 @@ export enum ESwapSource {
   TOKEN_DETAIL = 'token_detail',
   EARN = 'earn',
   MARKET = 'market',
+  TAB = 'tab',
+}
+
+export enum ESwapSelectTokenSource {
+  NORMAL_SELECT = 'normal_select',
+  POPULAR_SELECT = 'popular_select',
+  RECENT_SELECT = 'recent_select',
+}
+
+export enum ESwapCleanHistorySource {
+  LIST = 'list',
+  DETAIL = 'detail',
+}
+
+export enum ESwapCancelLimitOrderSource {
+  LIST = 'list',
+  DETAIL = 'detail',
 }
 
 export enum ETokenRiskLevel {

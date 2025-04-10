@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/types/message';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapCancelLimitOrderSource,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IOneInchOrderStruct,
@@ -45,6 +46,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
+  ESwapCleanHistorySource,
   ESwapDirectionType,
   ESwapQuoteKind,
   EWrappedType,
@@ -1191,7 +1193,7 @@ export function useSwapBuildTx() {
   ]);
 
   const cancelLimitOrder = useCallback(
-    async (item: IFetchLimitOrderRes) => {
+    async (item: IFetchLimitOrderRes, source: ESwapCancelLimitOrderSource) => {
       if (item.cancelInfo) {
         const { domain, types, data, signedType } = item.cancelInfo;
         const populated = await ethers.utils._TypedDataEncoder.resolveNames(
@@ -1270,6 +1272,13 @@ export function useSwapBuildTx() {
                 : undefined,
               true,
             );
+            defaultLogger.swap.cancelLimitOrder.cancelLimitOrder({
+              cancelFrom: source,
+              chain: item.networkId,
+              sourceTokenSymbol: item.fromTokenInfo.symbol,
+              receivedTokenSymbol: item.toTokenInfo.symbol,
+              sellTokenAmount: item.fromAmount,
+            });
           }
         }
       }

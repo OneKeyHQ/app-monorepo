@@ -34,6 +34,8 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
+import { useReferFriends } from '../hooks/useReferFriends';
+import { useToMyOneKeyModal } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
 
 import type { IntlShape } from 'react-intl';
@@ -53,6 +55,9 @@ const useDesktopEvents = platformEnv.isDesktop
       const onLock = useOnLockCallback();
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
+
+      const { toReferFriendsPage } = useReferFriends();
+      const toMyOneKeyModal = useToMyOneKeyModal();
 
       const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
@@ -132,6 +137,25 @@ const useDesktopEvents = platformEnv.isDesktop
       const openSettingsRef = useRef(openSettings);
       openSettingsRef.current = openSettings;
 
+      const ensureModalClosedAndNavigate = useCallback(
+        (navigateAction: () => void) => {
+          const routeState = rootNavigationRef.current?.getRootState();
+          if (routeState?.routes) {
+            // Check if any route in the stack is a Modal
+            const isModalOpen = routeState.routes.some(
+              (route) => route.name === ERootRoutes.Modal,
+            );
+            if (isModalOpen) {
+              // If a modal is open anywhere in the stack, do nothing.
+              return;
+            }
+          }
+          // If no modal is open, navigate.
+          navigateAction();
+        },
+        [],
+      );
+
       useEffect(() => {
         globalThis.desktopApi.on(ipcMessageKeys.CHECK_FOR_UPDATES, () => {
           void onCheckUpdateRef.current();
@@ -163,6 +187,16 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabMarket:
             navigation.switchTab(ETabRoutes.Market);
+            break;
+          case EShortcutEvents.TabReferAFriend:
+            ensureModalClosedAndNavigate(() => {
+              void toReferFriendsPage();
+            });
+            break;
+          case EShortcutEvents.TabMyOneKey:
+            ensureModalClosedAndNavigate(() => {
+              void toMyOneKeyModal();
+            });
             break;
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);
