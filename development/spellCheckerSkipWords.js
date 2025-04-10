@@ -453,7 +453,7 @@ module.exports = [
   'nfts',
   'Nh64',
   'nhashtype',
-  'nist', // 美国国家标准与技术研究院（National Institute of Standards and Technology）
+  'nist',
   'nist256p1',
   'nistp256',
   'nmc',
@@ -490,7 +490,7 @@ module.exports = [
   'onsuccess',
   'Opcode',
   'opcodenum',
-  'opcodes', // 同上，小写形式
+  'opcodes',
   'Opcodes', // 操作码（Operation codes），常见于虚拟机或汇编语言
   'ord',
   'ordQueryStatus',
@@ -746,7 +746,7 @@ module.exports = [
   'uncompress',
   'undelegate',
   'Undelegate',
-  'unencoded', // 同上，小写形式
+  'unencoded',
   'Unencoded', // 未编码的数据（大写用于类型/类名）
   'unicode',
   'uniswap',
