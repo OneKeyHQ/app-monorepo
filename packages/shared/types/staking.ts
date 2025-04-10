@@ -148,6 +148,7 @@ export type IStakeClaimBaseParams = {
 };
 
 export type IStakeHistoryParams = {
+  type?: string;
   accountId: string;
   networkId: string;
   symbol: string;
@@ -271,6 +272,8 @@ export type IStakeProtocolDetails = {
   overflow?: string;
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
+  waitingRebateRewardAmount: string;
+  totalRewardAmount: string;
 };
 
 export type IStakeProtocolListItem = {

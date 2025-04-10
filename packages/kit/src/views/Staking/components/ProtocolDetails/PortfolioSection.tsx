@@ -9,6 +9,7 @@ import {
   Alert,
   Button,
   Divider,
+  Icon,
   IconButton,
   NumberSizeableText,
   Popover,
@@ -45,7 +46,7 @@ type IPortfolioItemProps = {
   useLoading?: boolean;
 };
 
-const PortfolioItem = ({
+function PortfolioItem({
   tokenImageUri,
   tokenSymbol,
   amount,
@@ -56,7 +57,7 @@ const PortfolioItem = ({
   renderTooltipContent,
   disabled,
   useLoading,
-}: IPortfolioItemProps) => {
+}: IPortfolioItemProps) {
   const [loading, setLoading] = useState(false);
   const handlePress = useCallback(async () => {
     try {
@@ -121,7 +122,7 @@ const PortfolioItem = ({
       ) : null}
     </XStack>
   );
-};
+}
 
 interface IUnbondingDelegationListItem {
   amount: string;
@@ -149,6 +150,9 @@ type IPortfolioInfoProps = {
   showDetailWithdrawalRequested: boolean;
   unbondingDelegationList?: IUnbondingDelegationListItem[];
   updateFrequency: string;
+
+  waitingRebateRewardAmount: number;
+  totalRewardAmount: number;
 
   onClaim?: (params?: {
     amount: string;
@@ -216,6 +220,9 @@ function PortfolioInfo({
 
   showDetailWithdrawalRequested,
   unbondingDelegationList,
+
+  waitingRebateRewardAmount,
+  totalRewardAmount,
 }: IPortfolioInfoProps) {
   const intl = useIntl();
 
@@ -381,6 +388,70 @@ function PortfolioInfo({
                   : undefined
               }
               disabled={isLessThanMinClaimable}
+            />
+          ) : null}
+          {waitingRebateRewardAmount > 0 || totalRewardAmount > 0 ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={String(totalRewardAmount)}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_referral_referral_reward,
+              })}
+              renderTooltipContent={
+                <YStack p="$5">
+                  <XStack>
+                    <SizableText size="$bodyLgMedium">
+                      <NumberSizeableText
+                        size="$bodyLgMedium"
+                        formatter="value"
+                        formatterOptions={{ tokenSymbol: token.symbol }}
+                      >
+                        {waitingRebateRewardAmount}
+                      </NumberSizeableText>
+                      <SizableText size="$bodyLgMedium">
+                        {` ${intl.formatMessage({
+                          id: ETranslations.earn_referral_undistributed,
+                        })}`}
+                      </SizableText>
+                    </SizableText>
+                  </XStack>
+                  <XStack pt="$2">
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.referral_earn_reward_tips,
+                      })}
+                    </SizableText>
+                  </XStack>
+                  <XStack jc="space-between" pt="$4">
+                    <SizableText size="$bodyMdMedium">
+                      <SizableText size="$bodyMdMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.earn_referral_total_earned,
+                        })}
+                      </SizableText>
+                      <NumberSizeableText
+                        size="$bodyMdMedium"
+                        formatterOptions={{ tokenSymbol: token.symbol }}
+                      >
+                        {totalRewardAmount}
+                      </NumberSizeableText>
+                    </SizableText>
+                    <XStack gap="$0.5">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.global_history,
+                        })}
+                      </SizableText>
+                      <Icon
+                        name="ChevronRightSmallOutline"
+                        color="$iconSubdued"
+                        size="$5"
+                      />
+                    </XStack>
+                  </XStack>
+                </YStack>
+              }
             />
           ) : null}
           {/* {rewardNum && Object.keys(rewardNum).length > 0
@@ -551,6 +622,8 @@ export const PortfolioSection = ({
     tooltipForClaimable,
     showDetailWithdrawalRequested: false,
     updateFrequency: details.updateFrequency,
+    waitingRebateRewardAmount: Number(details.waitingRebateRewardAmount),
+    totalRewardAmount: Number(details.totalRewardAmount),
   };
 
   let unbondingDelegationListResult: IUnbondingDelegationListItem[] = [];

@@ -98,6 +98,7 @@ type IHistorySectionItem = {
 type IHistoryContentProps = {
   filter: Record<string, string>;
   sections: IHistorySectionItem[];
+  onFilterTypeChange: (type: string) => void;
   network?: { networkId: string; name: string; logoURI: string };
   tokenMap: Record<string, IToken>;
   provider?: string;
@@ -114,6 +115,7 @@ const HistoryContent = ({
   tokenMap,
   provider,
   filter,
+  onFilterTypeChange,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
     ({ item }: { item: IStakeHistory }) => (
@@ -148,7 +150,12 @@ const HistoryContent = ({
     }));
   }, [filter]);
 
-  const [filterValue, setFilterValue] = useState(items[0].value);
+  const handleSelectChange = useCallback(
+    (v: string) => {
+      onFilterTypeChange(v);
+    },
+    [onFilterTypeChange],
+  );
 
   return (
     <YStack flex={1}>
@@ -162,8 +169,7 @@ const HistoryContent = ({
             </XStack>
           )}
           items={items}
-          value={filterValue}
-          onChange={setFilterValue}
+          onChange={handleSelectChange}
           title="Demo Title"
           onOpenChange={console.log}
         />
@@ -202,6 +208,7 @@ const HistoryList = () => {
   const labelFn = useEarnTxLabel();
   const { accountId, networkId, symbol, provider, stakeTag, morphoVault } =
     route.params;
+  const [filterType, setFilterType] = useState('');
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       // remote history items
@@ -212,6 +219,7 @@ const HistoryList = () => {
           symbol,
           provider,
           morphoVault,
+          type: filterType,
         });
       const listMap = groupBy(historyResp.list, (item) =>
         formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
@@ -276,8 +284,9 @@ const HistoryList = () => {
       networkId,
       symbol,
       provider,
-      stakeTag,
       morphoVault,
+      filterType,
+      stakeTag,
       labelFn,
       intl,
     ],
@@ -303,6 +312,7 @@ const HistoryList = () => {
               tokenMap={result.tokenMap}
               filter={result.filter}
               provider={provider}
+              onFilterTypeChange={setFilterType}
             />
           ) : null}
         </PageFrame>
