@@ -697,14 +697,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const tabId = tab?.id;
-        const maybeDeepLink =
-          !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
         const thisTab = this.getWebTabById.call(set, tabId ?? '');
         let isNewTab =
           typeof isNewWindow === 'boolean'
             ? isNewWindow
-            : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
+            : (isNewWindow || !tabId || tabId === 'home') &&
               browserTypeHandler === 'MultiTabBrowser';
 
         if (thisTab?.type === 'home') {
@@ -740,14 +738,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             url: validatedUrl,
             tabId,
           });
-        }
-        // close deep link tab after 1s
-        if (maybeDeepLink) {
-          if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
-            setTimeout(() => {
-              this.closeWebTab.call(set, { tabId, entry: 'Menu' });
-            }, 1000);
-          }
         }
 
         return true;
