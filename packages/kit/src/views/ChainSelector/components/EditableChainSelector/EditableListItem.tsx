@@ -116,6 +116,7 @@ export const EditableListItem = ({
       }
       renderItemText={(textProps) => (
         <ListItem.Text
+          userSelect="none"
           {...textProps}
           primary={
             <XStack alignItems="center" gap="$3">

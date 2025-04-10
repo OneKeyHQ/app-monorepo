@@ -22,15 +22,13 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -73,42 +71,10 @@ const ListHeaderComponent = ({
     EditableChainSelectorContext,
   );
 
-  const { result: enabledNetworksCompatibleWithAccountId, run } =
-    usePromiseResult(
-      async () => {
-        const { enabledNetworks, disabledNetworks } =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
-        const { networks } =
-          await backgroundApiProxy.serviceNetwork.getAllNetworks({
-            excludeTestNetwork: true,
-            excludeAllNetworkItem: true,
-          });
-        const enabledNetworkIds = networks
-          .filter((n) =>
-            isEnabledNetworksInAllNetworks({
-              networkId: n.id,
-              disabledNetworks,
-              enabledNetworks,
-              isTestnet: n.isTestnet,
-            }),
-          )
-          .map((n) => n.id);
-
-        const compatibleNetworks =
-          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-            {
-              walletId,
-              networkIds: enabledNetworkIds,
-            },
-          );
-
-        return compatibleNetworks.mainnetItems;
-      },
-      [walletId],
-      {
-        initResult: [],
-      },
-    );
+  const { enabledNetworksCompatibleWithWalletId, run } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: walletId ?? '',
+    });
 
   const handleNetworksChange = useCallback(async () => {
     setAllNetworksChanged?.(true);
@@ -124,15 +90,14 @@ const ListHeaderComponent = ({
             isEditable={false}
             actions={[
               {
-                title: intl.formatMessage(
+                title: `${intl.formatMessage(
                   {
                     id: ETranslations.network_enabled_count,
                   },
                   {
-                    'count': enabledNetworksCompatibleWithAccountId.length,
+                    'count': enabledNetworksCompatibleWithWalletId.length,
                   },
-                ),
-                trailingIcon: 'ChevronRightSmallOutline',
+                )} →`,
                 onPress: () => {
                   if (walletId) {
                     navigation.push(EChainSelectorPages.AllNetworksManager, {

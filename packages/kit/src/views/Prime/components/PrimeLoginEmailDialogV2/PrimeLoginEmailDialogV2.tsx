@@ -18,8 +18,9 @@ export function PrimeLoginEmailDialogV2(props: {
   onLoginSuccess?: () => void | Promise<void>;
   title?: string;
   description?: string;
+  onConfirm: (code: string) => void;
 }) {
-  const { onComplete, onLoginSuccess, title, description } = props;
+  const { onComplete, onLoginSuccess, title, description, onConfirm } = props;
 
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
     EAppSyncStorageKeys.last_onekey_id_login_email,
@@ -62,6 +63,7 @@ export function PrimeLoginEmailDialogV2(props: {
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}
+              onConfirm={onConfirm}
               onLoginSuccess={async () => {
                 try {
                   const token = await getAccessToken();
@@ -93,7 +95,15 @@ export function PrimeLoginEmailDialogV2(props: {
         throw error;
       }
     },
-    [form, getAccessToken, loginWithCode, onComplete, onLoginSuccess, sendCode],
+    [
+      form,
+      getAccessToken,
+      loginWithCode,
+      onComplete,
+      onConfirm,
+      onLoginSuccess,
+      sendCode,
+    ],
   );
 
   return (

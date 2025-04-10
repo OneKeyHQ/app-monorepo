@@ -15,14 +15,12 @@ import {
   YStack,
   useForm,
   useFormWatch,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   AddressInput,
@@ -30,11 +28,7 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReferFriendsRoutes,
@@ -59,20 +53,31 @@ function BasicEditAddress() {
     >();
   const onAddressAdded = route.params?.onAddressAdded;
   const intl = useIntl();
-  const media = useMedia();
   const navigation = useAppNavigation();
+  const enabledNetworks = useMemo(
+    () => route.params?.enabledNetworks || [],
+    [route.params?.enabledNetworks],
+  );
 
   const { result: networksResp } = usePromiseResult(
     async () => {
       const resp =
         await backgroundApiProxy.serviceNetwork.getPublicKeyExportOrWatchingAccountEnabledNetworks();
-      const networkIds = resp.map((o) => o.network.id);
+      const networkIds = resp
+        .filter((o) => enabledNetworks.includes(o.network.id))
+        .map((o) => o.network.id);
       const publicKeyExportEnabledNetworkIds = resp
-        .filter((o) => o.publicKeyExportEnabled)
+        .filter(
+          (o) =>
+            o.publicKeyExportEnabled && enabledNetworks.includes(o.network.id),
+        )
         .map((t) => t.network.id);
 
       const watchingAccountEnabledNetworkIds = resp
-        .filter((o) => o.watchingAccountEnabled)
+        .filter(
+          (o) =>
+            o.watchingAccountEnabled && enabledNetworks.includes(o.network.id),
+        )
         .map((t) => t.network.id);
       return {
         networkIds,
@@ -80,7 +85,7 @@ function BasicEditAddress() {
         watchingAccountEnabled: new Set(watchingAccountEnabledNetworkIds),
       };
     },
-    [],
+    [enabledNetworks],
     {
       initResult: {
         networkIds: [],
@@ -90,21 +95,13 @@ function BasicEditAddress() {
     },
   );
 
-  const actions = useAccountSelectorActions();
-  const {
-    activeAccount: { network },
-  } = useAccountSelectorTrigger({ num: 0 });
-
   const onSubmitRef = useRef<
     ((formContext: UseFormReturn<IFormValues>) => Promise<void>) | null
   >(null);
   const formOptions = useMemo(
     () => ({
       values: {
-        networkId:
-          network?.id && network.id !== getNetworkIdsMap().onekeyall
-            ? network?.id
-            : getNetworkIdsMap().btc,
+        networkId: enabledNetworks[0],
         deriveType: undefined,
         addressValue: { raw: '', resolved: undefined },
       },
@@ -114,59 +111,13 @@ function BasicEditAddress() {
         await onSubmitRef.current?.(formContext);
       },
     }),
-    [network?.id],
+    [enabledNetworks],
   );
   const form = useForm<IFormValues>(formOptions);
 
-  const { setValue, control } = form;
-  //   const [validateResult, setValidateResult] = useState<
-  //     IGeneralInputValidation | undefined
-  //   >();
-  //   const isValidating = useRef<boolean>(false);
-  const networkIdText = useFormWatch({ control, name: 'networkId' });
+  const { control } = form;
+  const networkIdValue = useFormWatch({ control, name: 'networkId' });
   const addressValue = useFormWatch({ control, name: 'addressValue' });
-
-  //   const validateFn = useCallback(async () => {
-  //     if (inputTextDebounced && networkIdText) {
-  //       const input =
-  //         await backgroundApiProxy.servicePassword.encodeSensitiveText({
-  //           text: inputTextDebounced,
-  //         });
-  //       try {
-  //         if (!networksResp.publicKeyExportEnabled.has(networkIdText)) {
-  //           throw new Error(`Network not supported: ${networkIdText}`);
-  //         }
-  //         const result =
-  //           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
-  //             {
-  //               input,
-  //               networkId: networkIdText,
-  //               validateXpub: true,
-  //             },
-  //           );
-  //         setValidateResult(result);
-  //         console.log('validateGeneralInputOfImporting result', result);
-  //       } catch (error) {
-  //         setValidateResult({
-  //           isValid: false,
-  //         });
-  //       }
-  //     } else {
-  //       setValidateResult(undefined);
-  //     }
-  //   }, [networkIdText, networksResp.publicKeyExportEnabled]);
-
-  //   useEffect(() => {
-  //     void (async () => {
-  //       try {
-  //         isValidating.current = true;
-  //         await validateFn();
-  //       } finally {
-  //         isValidating.current = false;
-  //       }
-  //     })();
-  //   }, [validateFn]);
-
   const accountInfo = useActiveAccount({ num: 0 });
   const isEnable = useMemo(() => {
     // filter out error parameters from different segments.
@@ -249,14 +200,14 @@ function BasicEditAddress() {
               enableAddressInteractionStatus
               enableAddressContract
               enableAllowListValidation
-              accountSelector={addressInputAccountSelectorArgs}
-              accountId={accountInfo?.activeAccount?.account?.id}
+              // accountSelector={addressInputAccountSelectorArgs}
+              // accountId={accountInfo?.activeAccount?.account?.id}
               contacts
               enableNameResolve
               placeholder={intl.formatMessage({
                 id: ETranslations.form_address_placeholder,
               })}
-              networkId={networkIdText ?? ''}
+              networkId={networkIdValue ?? ''}
               testID="import-address-input"
             />
           </Form.Field>
