@@ -303,7 +303,7 @@ function TotalList() {
                       key={itemIndex}
                       py="$2"
                     >
-                     <SizableText size="$bodyMd">{item.name}</SizableText>
+                      <SizableText size="$bodyMd">{item.name}</SizableText>
                       <XStack ai="center">
                         <Token size="xs" networkId="evm--1" mr="$2" />
                         <NumberSizeableText
@@ -344,6 +344,7 @@ function TotalList() {
       ))}
     </YStack>
   );
+}
 
 export default function EarnReward() {
   const intl = useIntl();
