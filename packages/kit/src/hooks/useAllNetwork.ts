@@ -12,6 +12,9 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -438,4 +441,61 @@ function useAllNetworkRequests<T>(params: {
   };
 }
 
-export { useAllNetworkRequests };
+function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+  walletId,
+  networkId,
+}: {
+  walletId: string;
+  networkId?: string;
+}) {
+  const { result: enabledNetworksCompatibleWithWalletId, run } =
+    usePromiseResult(
+      async () => {
+        if (networkId && !networkUtils.isAllNetwork({ networkId })) {
+          return [];
+        }
+
+        const { enabledNetworks, disabledNetworks } =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeTestNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        const enabledNetworkIds = networks
+          .filter((n) =>
+            isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
+          )
+          .map((n) => n.id);
+
+        const compatibleNetworks =
+          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            {
+              walletId,
+              networkIds: enabledNetworkIds,
+            },
+          );
+
+        return compatibleNetworks.mainnetItems;
+      },
+      [walletId, networkId],
+      {
+        initResult: [],
+      },
+    );
+
+  return {
+    enabledNetworksCompatibleWithWalletId,
+    run,
+  };
+}
+
+export {
+  useAllNetworkRequests,
+  useEnabledNetworksCompatibleWithWalletIdInAllNetworks,
+};

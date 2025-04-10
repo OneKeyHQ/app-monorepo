@@ -89,6 +89,7 @@ function MoreActionButtonCmp() {
     },
     [openAddressBook],
   );
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   const { toReferFriendsPage } = useReferFriends();
   const { loginOneKeyId } = useLoginOneKeyId();
