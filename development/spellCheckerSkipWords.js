@@ -44,7 +44,7 @@ module.exports = [
   'Apys',
   'arbitrum',
   'argv',
-  'Arweave', // 去中心化数据永久存储协议
+  'Arweave', // Decentralized data permanent storage protocol
   'ascii',
   'asm',
   'assignee',
@@ -56,7 +56,7 @@ module.exports = [
   'Axios',
   'babylon',
   'backends',
-  'backgrounded', // App 被置于后台的状态
+  'backgrounded', // The state when the app is put into the background
   'backuped',
   'bch',
   'Bch',
@@ -64,8 +64,7 @@ module.exports = [
   'bcs',
   'Bcs',
   'bech32',
-  'Bech32',
-  'Bech32', // 比特币地址编码格式的一种
+  'Bech32', // A type of Bitcoin address encoding format
   'benfen',
   'bezier',
   'bfc',
@@ -98,7 +97,7 @@ module.exports = [
   'bool',
   'Bool',
   'Bootloader',
-  'brc20', // 比特币生态的一种代币协议标准
+  'brc20', // A token protocol standard in the Bitcoin ecosystem
   'bs58',
   'bs58check',
   'bsc',
@@ -109,14 +108,14 @@ module.exports = [
   'Buf',
   'bufs',
   'bundler',
-  'bytify', // 自定义方法名：转字节格式
+  'bytify', // Custom method name: convert to byte format
   'cacheable',
   'caips',
   'calc',
   'camelcase',
   'cancelable',
   'Cancelled',
-  'cancelling', // 英式拼写的 canceling（取消）
+  'cancelling', // British spelling of canceling
   'captcha',
   'captcha',
   'Captcha',
@@ -141,7 +140,7 @@ module.exports = [
   'cip',
   'ciphertext',
   'ckb',
-  'Cleartext', // 明文（相对于 ciphertext 加密文本）
+  'Cleartext', // Plaintext (as opposed to ciphertext)
   'closable',
   'Cmd',
   'cmp',
@@ -160,7 +159,7 @@ module.exports = [
   'consts',
   'consts',
   'Consts',
-  'cooldowntime', // 冷却时间（例如操作间的等待时间）
+  'cooldowntime', // Cooldown time (e.g., waiting time between operations)
   'copyable',
   'cosmoshub',
   'cosmwasm',
@@ -169,8 +168,8 @@ module.exports = [
   'crc',
   'crc32',
   'Cron',
-  'crosshair', // 准星，通常用于地图或游戏 UI 元素
-  'Crosshair', // 同上，类名或组件名形式
+  'crosshair', // Crosshair, often used for map or game UI elements
+  'Crosshair', // Same as above, in class name or component name form
   'cryptoorgchain',
   'csp',
   'ctime',
@@ -210,17 +209,17 @@ module.exports = [
   'Deserializer',
   'dex',
   'Dex',
-  'Dexs', // 去中心化交易所 DEX 的复数形式
+  'Dexs', // Plural form of Decentralized Exchange (DEX)
   'dgb',
   'dkey',
   'dnt',
   'Dnx',
   'dom',
   'dont',
-  'dotmap', // 自定义命名，用于 UI 或可视化映射
+  'dotmap', // Custom naming, used for UI or visual mapping
   'dragover',
-  'dynex', // 区块链项目名或代币名（可能为 Dynex Network）
-  'Dynex', // 同上，项目名首字母大写形式
+  'dynex', // Blockchain project name or token name (possibly Dynex Network)
+  'Dynex', // Same as above, project name in capitalized form
   'ecc',
   'Ecc',
   'ecdsa',
@@ -268,16 +267,16 @@ module.exports = [
   'favicons',
   'fdv',
   'fe9e81633ce99ef11814b3b836fb2ac8e841ab45fe4e7d68422c2a6b6be7f3c2',
-  'feerate', // 交易手续费率（fee rate），区块链术语
+  'feerate', // Transaction fee rate (fee rate), blockchain term
   'fet',
-  'fevm', // Filecoin Ethereum 虚拟机（FEVM）
+  'fevm', // Filecoin Ethereum virtual machine (FEVM)
   'Fieldset',
   'Fil',
   'filecoin',
   'filepath',
   'filetype',
   'firefox',
-  'firmwares', // 固件的复数形式（虽然一般 firmware 不可数，但有时用于多版本/设备）
+  'firmwares', // Plural form of firmware (although firmware is usually uncountable, it's sometimes used for multiple versions/devices)
   'focusable',
   'Formatjs',
   'formatter',
@@ -305,22 +304,22 @@ module.exports = [
   'hasSysUpgrade',
   'hd',
   'hdk',
-  'hdkey', // Hierarchical Deterministic Key，BIP32 密钥格式
+  'hdkey', // Hierarchical Deterministic Key, BIP32 key format
   'heading2xl',
   'heading3xl',
   'heading4xl',
   'heading5xl',
   'hermes',
-  'hexify', // 自定义方法名：转十六进制
+  'hexify', // Custom method name: convert to hexadecimal
   'hexlify',
   'Hexs',
   'Hira',
   'hmac',
   'Hmac',
   'hodl',
-  'holesky', // 以太坊测试网名（Hol(E)sky）
+  'holesky', // Ethereum testnet name (Hol(E)sky)
   'homescreen',
-  'horz', // horizontal 的缩写，用于图形渲染中表示水平方向
+  'horz', // horizontal's abbreviation, used in graphical rendering to represent the horizontal direction
   'href',
   'hrp',
   'Huawei',
@@ -346,8 +345,8 @@ module.exports = [
   'instance’s',
   'instanceof',
   'instatiate',
-  'integrations', // 同上，小写变量或函数名
-  'Integrations', // 第三方系统集成模块名
+  'integrations', // Same as above, lowercase variable or function name
+  'Integrations', // Third-party system integration module name
   'Interpolator',
   'ints',
   'invoker',
@@ -377,9 +376,9 @@ module.exports = [
   'Keypair',
   'keyring',
   'keysend',
-  'keytag', // 密钥标签，自定义标识符
+  'keytag', // Key tag, custom identifier
   'keytar',
-  'krc20', // Klaytn 链上的代币协议标准
+  'krc20', // Klaytn chain token protocol standard
   'Lamports',
   'lang',
   'lasttime',
@@ -391,9 +390,9 @@ module.exports = [
   'Lnurl',
   'localhost',
   'locktime',
-  'logomark', // 品牌图形标记（非文字的 logo）
+  'logomark', // Brand graphic mark (non-text logo)
   'Lokalise',
-  'Lookups', // 查找操作（如哈希表等数据结构中的 lookup）
+  'Lookups', // Lookup operations (such as hash table data structures)
   'lottie',
   'lru',
   'ltc',
@@ -402,7 +401,7 @@ module.exports = [
   'macos',
   'mainnet',
   'malloc',
-  'mantapacific', // 区块链网络名（Mantle + Pacific）
+  'mantapacific', // Blockchain network name (Mantle + Pacific)
   'Markt',
   'Mastercard',
   'Matic',
@@ -412,7 +411,7 @@ module.exports = [
   'mempool',
   'Merkle',
   'metamask',
-  'metis', // 以太坊 L2 项目名
+  'metis', // Ethereum L2 project name
   'metrix',
   'Metrix',
   'mev',
@@ -427,7 +426,7 @@ module.exports = [
   'monero',
   'Monero',
   'monorepo',
-  'moonpay', // 一个加密货币支付服务商
+  'moonpay', // A cryptocurrency payment service provider
   'Morpho',
   'Moti',
   'msg',
@@ -485,13 +484,13 @@ module.exports = [
   'onekeyhq',
   'onekeyid',
   'onopen',
-  'onramper', // 加密货币“上车”服务商，用于法币转加密
+  'onramper', // Cryptocurrency "on-ramp" service provider for fiat-to-crypto conversion
   'Ons',
   'onsuccess',
   'Opcode',
   'opcodenum',
   'opcodes',
-  'Opcodes', // 操作码（Operation codes），常见于虚拟机或汇编语言
+  'Opcodes', // Operation codes, common in virtual machines or assembly languages
   'ord',
   'ordQueryStatus',
   'osx',
@@ -534,8 +533,8 @@ module.exports = [
   'Privatekey',
   'privkey',
   'privy',
-  'Profiler', // 性能分析器（如 Chrome Profiler）
-  'Profilers', // Profiler 的复数形式
+  'Profiler', // Performance profiler (like Chrome Profiler)
+  'Profilers', // Plural form of Profiler
   'promisify',
   'protobuf',
   'prv',
@@ -567,7 +566,7 @@ module.exports = [
   'readed',
   'Readonly',
   'readwrite',
-  'recompressed', // 重新压缩后的状态（如 recompressed image）
+  'recompressed', // Recompressed state (e.g., recompressed image)
   'Rect',
   'redelegate',
   'Redelegate',
@@ -601,7 +600,7 @@ module.exports = [
   'satoshis',
   'sats',
   'sbtc',
-  'scalable', // 可扩展的，常用于系统或架构描述
+  'scalable', // Scalable, commonly used to describe systems or architectures
   'scalarmult',
   'schemas',
   'schnorr',
@@ -611,7 +610,7 @@ module.exports = [
   'scrollable',
   'sdk',
   'Sdk',
-  'secp', // 椭圆曲线 secp256k1 的简称
+  'secp', // Elliptic curve secp256k1 abbreviation
   'secp256k1',
   'Secp256k1',
   'secretnetwork',
@@ -628,7 +627,7 @@ module.exports = [
   'serializable',
   'Serializable',
   'seriliazable',
-  'shasta', // TRON 区块链的测试网名称
+  'shasta', // TRON blockchain testnet name
   'shelley',
   'shortcode',
   'shortname',
@@ -670,12 +669,12 @@ module.exports = [
   'styleable',
   'Subaddress',
   'subarray',
-  'subheader', // 子标题，常用于 UI 中的结构层次
+  'subheader', // Subtitle, commonly used in UI structure hierarchy
   'submenu',
   'subnetwork',
   'subnetworks',
   'subtype',
-  'Sudt', // Simple User Defined Token，Nervos CKB 生态代币标准
+  'Sudt', // Simple User Defined Token, Nervos CKB ecosystem token standard
   'sui',
   'Svg',
   'swft',
@@ -687,7 +686,7 @@ module.exports = [
   'sys',
   'tabbar',
   'Tabview',
-  'taiko', // 以太坊 L2 项目名
+  'taiko', // Ethereum L2 project name
   'tamagui',
   'Tamagui',
   'Tarask',
@@ -702,7 +701,7 @@ module.exports = [
   'Themeable',
   'thor',
   'timelocks',
-  'Titlebar', // 窗口标题栏 UI 组件名
+  'Titlebar', // Window title bar UI component name
   'tlightning',
   'Tooltip',
   'totla',
@@ -713,7 +712,7 @@ module.exports = [
   'Trx',
   'Tryopen',
   'tsc',
-  'Tsecp', // 可能是基于 secp 的自定义前缀或类型
+  'Tsecp', // Custom prefix or type based on secp
   'tsx',
   'ttl',
   'tvl',
@@ -724,7 +723,7 @@ module.exports = [
   'txids',
   'txn',
   'Txn',
-  'txns', // 交易 (transactions) 的缩写
+  'txns', // Abbreviation for transactions
   'Txo',
   'Txs',
   'txt',
@@ -747,7 +746,7 @@ module.exports = [
   'undelegate',
   'Undelegate',
   'unencoded',
-  'Unencoded', // 未编码的数据（大写用于类型/类名）
+  'Unencoded', // Unencoded data (capitalized for type/class name)
   'unicode',
   'uniswap',
   'unittest',
@@ -784,7 +783,7 @@ module.exports = [
   'verifier',
   'Verifier',
   'Versioned',
-  'vert', // vertical 的缩写，用于图形渲染中表示垂直方向
+  'vert', // vertical's abbreviation, used in graphical rendering to represent the vertical direction
   'vespaiach',
   'viewability',
   'Viewable',
@@ -814,14 +813,14 @@ module.exports = [
   'wif',
   'wildcard',
   'withdrawable',
-  'withdrawer', // 发起提现操作的用户或模块名
+  'withdrawer', // User or module name initiating a withdrawal
   'wmic',
   'wmin',
   'wns',
   'won’t',
   'wordlist',
   'wordlists',
-  'worklet', // Web Audio / CSS Houdini 等中的小型工作脚本模块
+  'worklet', // Small worklet scripts in Web Audio / CSS Houdini, etc.
   'xbuf',
   'xfp',
   'xhr',
