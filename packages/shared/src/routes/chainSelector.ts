@@ -13,6 +13,7 @@ export enum EChainSelectorPages {
 export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
   IAccountSelectorAvailableNetworks & {
     editable?: boolean;
+    recordNetworkHistoryEnabled?: boolean;
   };
 
 export type IChainSelectorParams = {

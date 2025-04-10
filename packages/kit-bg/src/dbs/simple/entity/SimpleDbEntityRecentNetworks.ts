@@ -23,6 +23,11 @@ export class SimpleDbEntityRecentNetworks extends SimpleDbEntityBase<IRecentNetw
   }
 
   @backgroundMethod()
+  async clearRecentNetworks() {
+    await this.setRawData({ recentNetworks: {} });
+  }
+
+  @backgroundMethod()
   async getRecentNetworks({
     limit = 5,
   }: {

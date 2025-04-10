@@ -17,7 +17,7 @@ function HomeSelector(props: IProps) {
       gap="$3"
       {...rest}
     >
-      <NetworkSelectorTriggerHome num={num} />
+      <NetworkSelectorTriggerHome num={num} recordNetworkHistoryEnabled />
       {!createAddressDisabled ? (
         <AccountSelectorActiveAccountHome num={num} />
       ) : null}

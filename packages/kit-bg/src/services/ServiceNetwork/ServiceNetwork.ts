@@ -1115,7 +1115,7 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateRecentNetwork(networkId: string) {
+  async updateRecentNetwork({ networkId }: { networkId: string }) {
     if (!networkId && networkUtils.isAllNetwork({ networkId })) {
       return;
     }
@@ -1123,6 +1123,11 @@ class ServiceNetwork extends ServiceBase {
     return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
       [networkId]: { updatedAt: timestamp },
     });
+  }
+
+  @backgroundMethod()
+  async clearRecentNetworks() {
+    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
   }
 }
 
