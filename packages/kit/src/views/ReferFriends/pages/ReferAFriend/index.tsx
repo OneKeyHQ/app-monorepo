@@ -4,10 +4,12 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
+  EVideoResizeMode,
   Icon,
   Image,
   Page,
   SizableText,
+  Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -58,9 +60,13 @@ export default function ReferAFriend() {
       />
       <Page.Body>
         <YStack>
-          <Image
-            h={224}
-            source={require('@onekeyhq/kit/assets/refer_banner.jpg')}
+          <Video
+            height={224}
+            repeat
+            source={require('@onekeyhq/kit/assets/OP-Light.mp4')}
+            resizeMode={EVideoResizeMode.COVER}
+            controls={false}
+            playInBackground={false}
           />
           <AnimatePresence>
             {phaseState === EPhaseState.next ? (
