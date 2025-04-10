@@ -7,7 +7,6 @@ import { Share, StyleSheet } from 'react-native';
 import {
   Accordion,
   Button,
-  Divider,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -159,10 +158,16 @@ function Dashboard({
   totalRewards,
   enabledNetworks,
   hardwareSales,
+  levelPercent,
+  rebateLevel,
+  nextRebateLevel,
 }: {
   totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
   hardwareSales: IInviteSummary['HardwareSales'];
+  levelPercent: number;
+  rebateLevel: string;
+  nextRebateLevel: string;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -336,19 +341,13 @@ function Dashboard({
           <YStack gap="$2">
             <XStack jc="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.referral_sales_level_bronze,
-                })}
+                {rebateLevel}
               </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {`${intl.formatMessage({
-                  id: ETranslations.referral_sales_level_sliver,
-                })}(${intl.formatMessage({
-                  id: ETranslations.referral_sales_level_upgrade,
-                })})`}
+                {nextRebateLevel}
               </SizableText>
             </XStack>
-            <Progress value={1} width="100%" size="medium" />
+            <Progress value={levelPercent} width="100%" size="medium" />
           </YStack>
           {Number(hardwareSales.pending.fiatValue) > 0 ||
           Number(hardwareSales.pending.fiatValue) > 0 ? (
@@ -476,6 +475,9 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
     totalRewards,
     enabledNetworks,
     HardwareSales,
+    levelPercent,
+    rebateLevel,
+    nextRebateLevel,
   } = summaryInfo;
   return (
     <>
@@ -484,6 +486,9 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
         totalRewards={totalRewards}
         enabledNetworks={enabledNetworks}
         hardwareSales={HardwareSales}
+        levelPercent={Number(levelPercent)}
+        rebateLevel={rebateLevel}
+        nextRebateLevel={nextRebateLevel}
       />
       <FAQ faqs={faqs} />
     </>
@@ -497,6 +502,8 @@ export default function InviteReward() {
     [],
     {
       initResult: undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
   return (

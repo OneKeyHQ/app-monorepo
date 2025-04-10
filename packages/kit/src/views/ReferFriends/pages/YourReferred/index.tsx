@@ -2,7 +2,14 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Page, SizableText, Tab, YStack } from '@onekeyhq/components';
+import {
+  Empty,
+  Page,
+  SizableText,
+  Spinner,
+  Tab,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,22 +34,33 @@ function EmptyData() {
 function HardwareSales() {
   const intl = useIntl();
   const { result, isLoading } = usePromiseResult(
-    async () => backgroundApiProxy.serviceReferralCode.getHardwareSalesReward(),
+    () => backgroundApiProxy.serviceReferralCode.getHardwareSalesReward(),
     [],
     {
+      watchLoading: true,
       initResult: {
         total: 0,
         items: [],
       },
     },
   );
+
+  if (isLoading) {
+    return (
+      <YStack position="relative" mt="30%" ai="center" jc="center" flex={1}>
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
+
   const { total = 0, items } = result;
+
   return (
     <YStack pt="$5">
       <YStack px="$5">
         <SizableText size="$bodyLg">
           {intl.formatMessage({
-            id: ETranslations.referral_referred_total,
+            id: ETranslations.referral_referred_total_orders,
           })}
         </SizableText>
         <SizableText size="$heading5xl">{total}</SizableText>
@@ -52,7 +70,7 @@ function HardwareSales() {
       ) : (
         <YStack px="$5" pt="$5">
           {items.map((item, key) => (
-            <YStack key={key}>
+            <YStack key={key} py="$2">
               <SizableText size="$bodyLgMedium">{item.title}</SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
                 {formatDate(item.createdAt)}

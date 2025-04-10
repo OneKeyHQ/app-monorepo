@@ -48,9 +48,11 @@ class ServiceReferralCode extends ServiceBase {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
+      limit: number;
       cursor?: string;
     } = {
       subject: 'HardwareSales',
+      limit: 100,
     };
     if (cursor) {
       params.cursor = cursor;
