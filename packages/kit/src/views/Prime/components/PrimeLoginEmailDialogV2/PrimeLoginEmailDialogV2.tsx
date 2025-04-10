@@ -108,20 +108,22 @@ export function PrimeLoginEmailDialogV2(props: {
 
   return (
     <Stack>
-      <Dialog.Icon icon="EmailOutline" />
-      <Dialog.Title>
-        {title ||
-          intl.formatMessage({
-            id: ETranslations.prime_signup_login,
-          })}
-      </Dialog.Title>
-      <Dialog.Description>
-        {description ||
-          intl.formatMessage({
-            id: ETranslations.prime_onekeyid_continue_description,
-          })}
-      </Dialog.Description>
-      <Stack pt="$4">
+      <Dialog.Header>
+        <Dialog.Icon icon="EmailOutline" />
+        <Dialog.Title>
+          {title ||
+            intl.formatMessage({
+              id: ETranslations.prime_signup_login,
+            })}
+        </Dialog.Title>
+        <Dialog.Description>
+          {description ||
+            intl.formatMessage({
+              id: ETranslations.prime_onekeyid_continue_description,
+            })}
+        </Dialog.Description>
+      </Dialog.Header>
+      <Stack>
         <Form form={form}>
           <Form.Field
             name="email"

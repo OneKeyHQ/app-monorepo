@@ -18,6 +18,8 @@ export enum EShortcutEvents {
   TabEarn = 'TabEarn',
   TabSwap = 'TabSwap',
   TabMarket = 'TabMarket',
+  TabReferAFriend = 'TabReferAFriend',
+  TabMyOneKey = 'TabMyOneKey',
   TabBrowser = 'TabBrowser',
   ViewHistory = 'ViewHistory',
   ViewBookmark = 'ViewBookmark',
@@ -25,8 +27,6 @@ export enum EShortcutEvents {
   PinOrUnpinTab = 'PinOrUnpinTab',
   ChangeCurrentTabUrl = 'ChangeCurrentTabUrl',
   ReOpenLastClosedTab = 'ReOpenLastClosedTab',
-  TabPin6 = 'TabPin6',
-  TabPin7 = 'TabPin7',
   TabPin8 = 'TabPin8',
   TabPin9 = 'TabPin9',
 }
@@ -96,25 +96,25 @@ export const shortcutsMap: Record<
     keys: [shortcutsKeys.CmdOrCtrl, '4'],
     desc: 'Earn Tab',
   },
-  [EShortcutEvents.TabBrowser]: {
+  [EShortcutEvents.TabReferAFriend]: {
     keys: [shortcutsKeys.CmdOrCtrl, '5'],
-    desc: 'Browser Tab',
+    desc: 'Refer a Friend Tab',
   },
-  [EShortcutEvents.TabPin6]: {
+  [EShortcutEvents.TabMyOneKey]: {
     keys: [shortcutsKeys.CmdOrCtrl, '6'],
-    desc: 'Pin Tab 6',
+    desc: 'My OneKey Tab',
   },
-  [EShortcutEvents.TabPin7]: {
+  [EShortcutEvents.TabBrowser]: {
     keys: [shortcutsKeys.CmdOrCtrl, '7'],
-    desc: 'Pin Tab 6',
+    desc: 'Browser Tab',
   },
   [EShortcutEvents.TabPin8]: {
     keys: [shortcutsKeys.CmdOrCtrl, '8'],
-    desc: 'Pin Tab 6',
+    desc: 'Pin Tab 8',
   },
   [EShortcutEvents.TabPin9]: {
     keys: [shortcutsKeys.CmdOrCtrl, '9'],
-    desc: 'Pin Tab 6',
+    desc: 'Pin Tab 9',
   },
   [EShortcutEvents.ViewHistory]: {
     keys: [shortcutsKeys.CmdOrCtrl, 'Y'],
