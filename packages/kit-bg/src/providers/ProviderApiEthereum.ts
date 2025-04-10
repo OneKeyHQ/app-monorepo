@@ -832,11 +832,14 @@ class ProviderApiEthereum extends ProviderApiBase {
         // if not found connected accounts, connect first
         await this.eth_requestAccounts(request);
       }
+      const { accountInfo: { networkId: oldNetworkId } = {} } =
+        accountsInfo?.[0] ?? {};
 
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
         newNetworkId,
+        oldNetworkId,
       });
     },
     {
