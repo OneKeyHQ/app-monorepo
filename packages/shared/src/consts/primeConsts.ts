@@ -21,7 +21,7 @@ export enum EPrimeCloudSyncDataType {
   BrowserBookmark = 'BrowserBookmark',
   AddressBook = 'AddressBook',
   MarketWatchList = 'MarketWatchList',
-  // CustomToken = 'CustomToken',
+  CustomToken = 'CustomToken',
   CustomNetwork = 'CustomNetwork',
   CustomRpc = 'CustomRpc',
 }

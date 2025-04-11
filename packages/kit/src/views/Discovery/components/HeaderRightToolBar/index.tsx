@@ -88,7 +88,10 @@ function SingleAccountAndNetworkSelectorTrigger({
   });
   return (
     <XStack gap="$6" alignItems="center">
-      <NetworkSelectorTriggerBrowserSingle num={num} />
+      <NetworkSelectorTriggerBrowserSingle
+        num={num}
+        recordNetworkHistoryEnabled
+      />
       <AccountSelectorTriggerBrowserSingle num={num} />
     </XStack>
   );

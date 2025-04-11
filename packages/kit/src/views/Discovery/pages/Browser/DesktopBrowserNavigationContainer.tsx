@@ -97,6 +97,7 @@ function DesktopBrowserNavigationBar({
             url: tab?.url,
             title: tab?.title ?? '',
             logo: undefined,
+            sortIndex: undefined,
           });
         } else {
           void removeBrowserBookmark(tab?.url);
