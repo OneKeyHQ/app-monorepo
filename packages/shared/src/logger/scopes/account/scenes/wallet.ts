@@ -17,13 +17,106 @@ export class WalletScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public addWalletStarted(params: IWalletStartedParams) {
-    return params;
+    switch (params.addMethod) {
+      case 'CreateWallet':
+        return {
+          addMethod: 'CreateWallet',
+        };
+
+      case 'Import':
+        return {
+          addMethod: 'Import',
+          details: {
+            importSource: params.details.importSource,
+          },
+        };
+
+      case 'ConnectHardware':
+        return {
+          addMethod: 'ConnectHardware',
+          details: {
+            hardwareWalletType: params.details.hardwareWalletType,
+          },
+        };
+
+      case 'Connect3rdParty':
+        return {
+          addMethod: 'Connect3rdParty',
+        };
+
+      default: {
+        const _exhaustiveCheck: never = params;
+        throw new Error(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
+      }
+    }
   }
 
   @LogToServer()
   @LogToLocal()
   public walletAdded(params: IWalletAddedEventParams) {
-    return params;
+    switch (params.addMethod) {
+      case 'CreateWallet':
+        return {
+          status: params.status,
+          addMethod: 'CreateWallet',
+          details: {
+            isBiometricSet: params.details.isBiometricSet,
+          },
+          ...(params.errorCode && { errorCode: params.errorCode }),
+          ...(params.errorMessage && { errorMessage: params.errorMessage }),
+        };
+
+      case 'Import':
+        return {
+          status: params.status,
+          addMethod: 'Import',
+          details: {
+            importSource: params.details.importSource,
+          },
+          ...(params.errorCode && { errorCode: params.errorCode }),
+          ...(params.errorMessage && { errorMessage: params.errorMessage }),
+        };
+
+      case 'ConnectHardware':
+        return {
+          status: params.status,
+          addMethod: 'ConnectHardware',
+          details: {
+            connectionType: params.details.connectionType,
+            deviceType: params.details.deviceType,
+            hardwareWalletType: params.details.hardwareWalletType,
+            ...(params.details.firmwareVersions && {
+              firmwareVersions: params.details.firmwareVersions,
+            }),
+          },
+          ...(params.errorCode && { errorCode: params.errorCode }),
+          ...(params.errorMessage && { errorMessage: params.errorMessage }),
+        };
+
+      case 'Connect3rdParty':
+        return {
+          status: params.status,
+          addMethod: 'Connect3rdParty',
+          details: {
+            protocol: params.details.protocol,
+            network: params.details.network,
+            ...(params.details.walletName && {
+              walletName: params.details.walletName,
+            }),
+          },
+          ...(params.errorCode && { errorCode: params.errorCode }),
+          ...(params.errorMessage && { errorMessage: params.errorMessage }),
+        };
+
+      default: {
+        const _exhaustiveCheck: never = params;
+        throw new Error(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
+      }
+    }
   }
 
   @LogToServer()
