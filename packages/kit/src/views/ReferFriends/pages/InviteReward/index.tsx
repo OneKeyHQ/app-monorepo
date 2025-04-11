@@ -273,13 +273,18 @@ function Dashboard({
           />
         </XStack>
         <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.referral_reward_received_address,
             })}
           </SizableText>
-          <XStack ai="center" jc="space-between">
-            <SizableText size="$bodyMd" color="$textSubdued">
+          <XStack ai="center" jc="space-between" gap="$5">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={1}
+            >
               {withdrawAddresses.length
                 ? withdrawAddresses[0].address
                 : intl.formatMessage({
