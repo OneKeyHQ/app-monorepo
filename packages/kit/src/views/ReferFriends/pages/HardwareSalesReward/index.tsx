@@ -264,13 +264,6 @@ export default function HardwareSalesReward() {
                       <SizableText size="$heading5xl">0</SizableText>
                     )}
                     <YStack>
-                      {platformEnv.isNative && isLoading ? (
-                        <IconButton
-                          loading
-                          icon="RefreshCcwOutline"
-                          variant="tertiary"
-                        />
-                      ) : null}
                       {platformEnv.isNative ? null : (
                         <IconButton
                           icon="RefreshCcwOutline"
