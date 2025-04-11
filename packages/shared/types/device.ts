@@ -83,6 +83,7 @@ type IFirmwareUpdateInfoBase<T> = {
   toVersion: string;
   changelog: IFirmwareChangeLog | undefined;
   releasePayload: T;
+  githubReleaseUrl?: string;
 };
 export type IFirmwareUpdateInfo =
   IFirmwareUpdateInfoBase<IFirmwareReleasePayload>;
@@ -98,6 +99,7 @@ export type ICheckAllFirmwareReleaseResult = {
   deviceType: IDeviceType | undefined;
   deviceUUID: string;
   deviceName: string | undefined;
+  deviceBleName: string | undefined;
   updatingConnectId: string | undefined;
   originalConnectId: string | undefined;
   updateInfos: {
@@ -264,8 +266,14 @@ export enum EFirmwareUpdateTipMessages {
   UpdateSysResourceSuccess = 'UpdateSysResourceSuccess',
   StartTransferData = 'StartTransferData',
   InstallingFirmware = 'InstallingFirmware',
+
+  // For V3
+  StartDownloadFirmware = 'StartDownloadFirmware',
+  FinishDownloadFirmware = 'FinishDownloadFirmware',
+  FirmwareUpdateCompleted = 'FirmwareUpdateCompleted',
 }
 /*
+FirmwareUpdateV2 flow
 ,AutoRebootToBootloader,GoToBootloaderSuccess,DownloadFirmware,DownloadFirmwareSuccess,ConfirmOnDevice,FirmwareEraseSuccess,AutoRebootToBootloader,GoToBootloaderSuccess,DownloadFirmware,DownloadFirmwareSuccess,ConfirmOnDevice,FirmwareEraseSuccess
 
 1. CheckLatestUiResource
@@ -281,6 +289,18 @@ export enum EFirmwareUpdateTipMessages {
 11. ConfirmOnDevice
 12. InstallingFirmware
 */
+
+/**
+ * FirmwareUpdateV3 flow
+   1. StartDownloadFirmware
+   2. FinishDownloadFirmware
+   3. AutoRebootToBootloader
+   4. GoToBootloaderSuccess
+   5. StartTransferData
+   6. ConfirmOnDevice
+   7. FirmwareUpdating
+   8. FirmwareUpdateCompleted
+ */
 
 export enum EFirmwareVerifyType {
   System = 'system',
@@ -352,4 +372,11 @@ export type IDeviceVersionCacheInfo = {
   ble_ver: string | undefined;
   onekey_boot_version: string | undefined;
   bootloader_version: string | undefined;
+};
+
+export type IFirmwareUpdateV3VersionParams = {
+  connectId: string | undefined;
+  bleVersion: string | undefined;
+  firmwareVersion: string | undefined;
+  bootloaderVersion: string | undefined;
 };
