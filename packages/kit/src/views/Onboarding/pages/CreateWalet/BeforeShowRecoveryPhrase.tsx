@@ -7,6 +7,7 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -35,6 +36,9 @@ export function BeforeShowRecoveryPhrase() {
     navigation.push(EOnboardingPages.RecoveryPhrase, {
       mnemonic,
       isBackup: route.params?.isBackup,
+    });
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'CreateWallet',
     });
   };
 

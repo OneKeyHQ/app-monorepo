@@ -95,8 +95,12 @@ function ImportPrivateKey() {
           othersWalletAccountId: accountId,
         });
         navigation.popStack();
-        defaultLogger.account.wallet.importWallet({
-          importMethod: 'privatekey',
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'Import',
+          details: {
+            importSource: 'privateKey',
+          },
         });
       }}
       networkIds={networkIds}

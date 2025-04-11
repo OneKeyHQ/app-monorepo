@@ -67,8 +67,12 @@ export function ImportKeyTag() {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
       });
-      defaultLogger.account.wallet.importWallet({
-        importMethod: 'keyTag',
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'Import',
+        details: {
+          importSource: 'keyTag',
+        },
       });
       defaultLogger.setting.page.keyTagImportResult({ isSuccess: true });
     },

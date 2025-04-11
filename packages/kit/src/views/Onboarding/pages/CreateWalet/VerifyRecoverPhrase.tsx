@@ -114,8 +114,12 @@ export function VerifyRecoveryPhrase({
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
         });
-        defaultLogger.account.wallet.createWallet({
-          isBiometricVerificationSet: settings.isBiologyAuthSwitchOn,
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'CreateWallet',
+          details: {
+            isBiometricSet: settings.isBiologyAuthSwitchOn,
+          },
         });
       } else {
         Toast.error({

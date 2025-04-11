@@ -29,8 +29,12 @@ export function ImportRecoveryPhrase() {
             });
           },
         });
-        defaultLogger.account.wallet.importWallet({
-          importMethod: 'mnemonic-ton',
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'Import',
+          details: {
+            importSource: 'mnemonic',
+          },
         });
         return;
       }
@@ -39,7 +43,13 @@ export function ImportRecoveryPhrase() {
         mnemonic: params.mnemonic,
         mnemonicType: params.mnemonicType,
       });
-      defaultLogger.account.wallet.importWallet({ importMethod: 'mnemonic' });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'Import',
+        details: {
+          importSource: 'mnemonic',
+        },
+      });
     },
     [navigation],
   );

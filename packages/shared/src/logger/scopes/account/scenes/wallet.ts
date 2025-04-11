@@ -1,4 +1,8 @@
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type {
+  IWalletAddedEventParams,
+  IWalletStartedParams,
+} from '@onekeyhq/shared/types/analytics/onboarding';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -10,6 +14,18 @@ interface IToken {
 }
 
 export class WalletScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal()
+  public addWalletStarted(params: IWalletStartedParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public walletAdded(params: IWalletAddedEventParams) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal()
   public onboard(params: {
@@ -24,29 +40,7 @@ export class WalletScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public createWallet(params: { isBiometricVerificationSet: boolean }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
   public deleteWallet() {}
-
-  @LogToServer()
-  @LogToLocal()
-  public importWallet(params: { importMethod: string }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public connectHWWallet(params: {
-    connectType: string;
-    deviceType: string;
-    deviceFmVersion?: string;
-  }) {
-    return params;
-  }
 
   @LogToServer()
   @LogToLocal()

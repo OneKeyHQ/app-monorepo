@@ -780,6 +780,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       } = {},
     ) => {
       try {
+        defaultLogger.account.wallet.addWalletStarted({
+          addMethod: 'ConnectHardware',
+          details: {
+            hardwareWalletType: 'Hidden',
+          },
+        });
         const res = await serviceAccount.createHWHiddenWallet({
           walletId,
           skipDeviceCancel: options?.addDefaultNetworkAccounts
