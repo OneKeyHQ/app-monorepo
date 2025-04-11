@@ -142,12 +142,12 @@ function ProviderInfo({
             </SizableText>
           </GridItem>
         ) : null}
-        {isMorphoProvider && validator?.vaultManager ? (
+        {isMorphoProvider && validator?.vaultName ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_vault })}
             link={validator?.link}
           >
-            {validator?.vaultManager}
+            {validator?.vaultName}
           </GridItem>
         ) : null}
         {isMorphoProvider && validator?.vaultManagerName ? (
