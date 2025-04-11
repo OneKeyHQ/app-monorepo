@@ -20,14 +20,14 @@ jobs:
           build_number="${DATE}${run_number}"
           echo '$build_number='$build_number
           
-          #echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=1" >> $GITHUB_ENV
+          # echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=111000" >> $GITHUB_ENV
 
       - name: Save workflow parameters
         run: |
           mkdir -p ./workflow-data
           echo "WORKFLOW_GITHUB_REF_NAME=${{ github.ref_name }}" >> ./workflow-data/params.env
-          echo "WORKFLOW_BUILD_NUMBER=1" >> ./workflow-data/params.env
+          echo "WORKFLOW_BUILD_NUMBER=111000" >> ./workflow-data/params.env
       
       - name: Upload workflow parameters
         uses: actions/upload-artifact@v4
