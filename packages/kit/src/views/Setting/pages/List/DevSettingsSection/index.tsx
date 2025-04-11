@@ -676,7 +676,7 @@ export const DevSettingsSection = () => {
       <SectionPressItem
         title="WebEmbedDevConfig"
         onPress={() => {
-          const dialog = Dialog.cancel({
+          Dialog.cancel({
             title: 'WebEmbedDevConfig',
             renderContent: <WebEmbedDevConfig />,
           });
@@ -685,9 +685,11 @@ export const DevSettingsSection = () => {
       <AutoJumpSetting />
       <SectionFieldItem
         name="useTradingViewTestDomain"
-        title="Use TradingView Test Domain"
+        title="Use TradingView Test"
         subtitle={
-          devSettings.settings?.useTradingViewTestDomain ? 'Test' : 'Production'
+          devSettings.settings?.useTradingViewTestDomain
+            ? '新版 TradingView'
+            : '旧版 TradingView'
         }
       >
         <Switch size={ESwitchSize.small} />
