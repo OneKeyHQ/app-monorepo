@@ -34,12 +34,11 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async bindAddress(networkId: string, address: string, emailOTP: string) {
+  async bindAddress(networkId: string, address: string) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     await client.post('/rebate/v1/address', {
       address,
       networkId,
-      emailOTP,
     });
   }
 
@@ -145,6 +144,11 @@ class ServiceReferralCode extends ServiceBase {
     await this.backgroundApi.simpleDb.referralCode.updateCode({
       myReferralCode: code,
     });
+  }
+
+  @backgroundMethod()
+  async reset() {
+    await this.backgroundApi.simpleDb.referralCode.reset();
   }
 }
 

@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 module.exports = [
   'mixpanel',
   'Mixpanel',
@@ -83,6 +84,7 @@ module.exports = [
   'Apys',
   'arbitrum',
   'argv',
+  'Arweave', // Decentralized data permanent storage protocol
   'ascii',
   'asm',
   'assignee',
@@ -94,6 +96,7 @@ module.exports = [
   'Axios',
   'babylon',
   'backends',
+  'backgrounded', // The state when the app is put into the background
   'backuped',
   'bch',
   'Bch',
@@ -101,7 +104,7 @@ module.exports = [
   'bcs',
   'Bcs',
   'bech32',
-  'Bech32',
+  'Bech32', // A type of Bitcoin address encoding format
   'benfen',
   'bezier',
   'bfc',
@@ -134,6 +137,7 @@ module.exports = [
   'bool',
   'Bool',
   'Bootloader',
+  'brc20', // A token protocol standard in the Bitcoin ecosystem
   'bs58',
   'bs58check',
   'bsc',
@@ -144,12 +148,14 @@ module.exports = [
   'Buf',
   'bufs',
   'bundler',
+  'bytify', // Custom method name: convert to byte format
   'cacheable',
   'caips',
   'calc',
   'camelcase',
   'cancelable',
   'Cancelled',
+  'cancelling', // British spelling of canceling
   'captcha',
   'captcha',
   'Captcha',
@@ -174,6 +180,7 @@ module.exports = [
   'cip',
   'ciphertext',
   'ckb',
+  'Cleartext', // Plaintext (as opposed to ciphertext)
   'closable',
   'Cmd',
   'cmp',
@@ -192,6 +199,7 @@ module.exports = [
   'consts',
   'consts',
   'Consts',
+  'cooldowntime', // Cooldown time (e.g., waiting time between operations)
   'copyable',
   'cosmoshub',
   'cosmwasm',
@@ -200,6 +208,8 @@ module.exports = [
   'crc',
   'crc32',
   'Cron',
+  'crosshair', // Crosshair, often used for map or game UI elements
+  'Crosshair', // Same as above, in class name or component name form
   'cryptoorgchain',
   'csp',
   'ctime',
@@ -239,13 +249,17 @@ module.exports = [
   'Deserializer',
   'dex',
   'Dex',
+  'Dexs', // Plural form of Decentralized Exchange (DEX)
   'dgb',
   'dkey',
   'dnt',
   'Dnx',
   'dom',
   'dont',
+  'dotmap', // Custom naming, used for UI or visual mapping
   'dragover',
+  'dynex', // Blockchain project name or token name (possibly Dynex Network)
+  'Dynex', // Same as above, project name in capitalized form
   'ecc',
   'Ecc',
   'ecdsa',
@@ -293,13 +307,16 @@ module.exports = [
   'favicons',
   'fdv',
   'fe9e81633ce99ef11814b3b836fb2ac8e841ab45fe4e7d68422c2a6b6be7f3c2',
+  'feerate', // Transaction fee rate (fee rate), blockchain term
   'fet',
+  'fevm', // Filecoin Ethereum virtual machine (FEVM)
   'Fieldset',
   'Fil',
   'filecoin',
   'filepath',
   'filetype',
   'firefox',
+  'firmwares', // Plural form of firmware (although firmware is usually uncountable, it's sometimes used for multiple versions/devices)
   'focusable',
   'Formatjs',
   'formatter',
@@ -327,18 +344,22 @@ module.exports = [
   'hasSysUpgrade',
   'hd',
   'hdk',
+  'hdkey', // Hierarchical Deterministic Key, BIP32 key format
   'heading2xl',
   'heading3xl',
   'heading4xl',
   'heading5xl',
   'hermes',
+  'hexify', // Custom method name: convert to hexadecimal
   'hexlify',
   'Hexs',
   'Hira',
   'hmac',
   'Hmac',
   'hodl',
+  'holesky', // Ethereum testnet name (Hol(E)sky)
   'homescreen',
+  'horz', // horizontal's abbreviation, used in graphical rendering to represent the horizontal direction
   'href',
   'hrp',
   'Huawei',
@@ -364,6 +385,8 @@ module.exports = [
   'instance’s',
   'instanceof',
   'instatiate',
+  'integrations', // Same as above, lowercase variable or function name
+  'Integrations', // Third-party system integration module name
   'Interpolator',
   'ints',
   'invoker',
@@ -393,7 +416,9 @@ module.exports = [
   'Keypair',
   'keyring',
   'keysend',
+  'keytag', // Key tag, custom identifier
   'keytar',
+  'krc20', // Klaytn chain token protocol standard
   'Lamports',
   'lang',
   'lasttime',
@@ -405,7 +430,9 @@ module.exports = [
   'Lnurl',
   'localhost',
   'locktime',
+  'logomark', // Brand graphic mark (non-text logo)
   'Lokalise',
+  'Lookups', // Lookup operations (such as hash table data structures)
   'lottie',
   'lru',
   'ltc',
@@ -414,6 +441,7 @@ module.exports = [
   'macos',
   'mainnet',
   'malloc',
+  'mantapacific', // Blockchain network name (Mantle + Pacific)
   'Markt',
   'Mastercard',
   'Matic',
@@ -423,6 +451,7 @@ module.exports = [
   'mempool',
   'Merkle',
   'metamask',
+  'metis', // Ethereum L2 project name
   'metrix',
   'Metrix',
   'mev',
@@ -437,6 +466,7 @@ module.exports = [
   'monero',
   'Monero',
   'monorepo',
+  'moonpay', // A cryptocurrency payment service provider
   'Morpho',
   'Moti',
   'msg',
@@ -462,6 +492,7 @@ module.exports = [
   'nfts',
   'Nh64',
   'nhashtype',
+  'nist',
   'nist256p1',
   'nistp256',
   'nmc',
@@ -493,10 +524,13 @@ module.exports = [
   'onekeyhq',
   'onekeyid',
   'onopen',
+  'onramper', // Cryptocurrency "on-ramp" service provider for fiat-to-crypto conversion
   'Ons',
   'onsuccess',
   'Opcode',
   'opcodenum',
+  'opcodes',
+  'Opcodes', // Operation codes, common in virtual machines or assembly languages
   'ord',
   'ordQueryStatus',
   'osx',
@@ -539,6 +573,8 @@ module.exports = [
   'Privatekey',
   'privkey',
   'privy',
+  'Profiler', // Performance profiler (like Chrome Profiler)
+  'Profilers', // Plural form of Profiler
   'promisify',
   'protobuf',
   'prv',
@@ -570,6 +606,7 @@ module.exports = [
   'readed',
   'Readonly',
   'readwrite',
+  'recompressed', // Recompressed state (e.g., recompressed image)
   'Rect',
   'redelegate',
   'Redelegate',
@@ -603,6 +640,7 @@ module.exports = [
   'satoshis',
   'sats',
   'sbtc',
+  'scalable', // Scalable, commonly used to describe systems or architectures
   'scalarmult',
   'schemas',
   'schnorr',
@@ -612,6 +650,7 @@ module.exports = [
   'scrollable',
   'sdk',
   'Sdk',
+  'secp', // Elliptic curve secp256k1 abbreviation
   'secp256k1',
   'Secp256k1',
   'secretnetwork',
@@ -628,6 +667,7 @@ module.exports = [
   'serializable',
   'Serializable',
   'seriliazable',
+  'shasta', // TRON blockchain testnet name
   'shelley',
   'shortcode',
   'shortname',
@@ -669,10 +709,12 @@ module.exports = [
   'styleable',
   'Subaddress',
   'subarray',
+  'subheader', // Subtitle, commonly used in UI structure hierarchy
   'submenu',
   'subnetwork',
   'subnetworks',
   'subtype',
+  'Sudt', // Simple User Defined Token, Nervos CKB ecosystem token standard
   'sui',
   'Svg',
   'swft',
@@ -684,6 +726,7 @@ module.exports = [
   'sys',
   'tabbar',
   'Tabview',
+  'taiko', // Ethereum L2 project name
   'tamagui',
   'Tamagui',
   'Tarask',
@@ -698,6 +741,7 @@ module.exports = [
   'Themeable',
   'thor',
   'timelocks',
+  'Titlebar', // Window title bar UI component name
   'tlightning',
   'Tooltip',
   'totla',
@@ -708,6 +752,7 @@ module.exports = [
   'Trx',
   'Tryopen',
   'tsc',
+  'Tsecp', // Custom prefix or type based on secp
   'tsx',
   'ttl',
   'tvl',
@@ -718,6 +763,7 @@ module.exports = [
   'txids',
   'txn',
   'Txn',
+  'txns', // Abbreviation for transactions
   'Txo',
   'Txs',
   'txt',
@@ -739,6 +785,8 @@ module.exports = [
   'uncompress',
   'undelegate',
   'Undelegate',
+  'unencoded',
+  'Unencoded', // Unencoded data (capitalized for type/class name)
   'unicode',
   'uniswap',
   'unittest',
@@ -775,6 +823,7 @@ module.exports = [
   'verifier',
   'Verifier',
   'Versioned',
+  'vert', // vertical's abbreviation, used in graphical rendering to represent the vertical direction
   'vespaiach',
   'viewability',
   'Viewable',
@@ -804,12 +853,14 @@ module.exports = [
   'wif',
   'wildcard',
   'withdrawable',
+  'withdrawer', // User or module name initiating a withdrawal
   'wmic',
   'wmin',
   'wns',
   'won’t',
   'wordlist',
   'wordlists',
+  'worklet', // Small worklet scripts in Web Audio / CSS Houdini, etc.
   'xbuf',
   'xfp',
   'xhr',

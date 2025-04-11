@@ -243,6 +243,19 @@ export class KeyringHardware extends KeyringHardwareBase {
         };
         break;
       }
+      case 'VoteWitnessContract': {
+        const { votes } = encodedTx.raw_data.contract[0].parameter
+          .value as Types.VoteWitnessContract;
+        contractCall = {
+          voteWitnessContract: {
+            votes: votes.map((vote) => ({
+              voteAddress: utils.address.fromHex(vote.vote_address),
+              voteCount: vote.vote_count,
+            })),
+          },
+        };
+        break;
+      }
       default:
     }
 
