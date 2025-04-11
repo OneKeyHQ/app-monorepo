@@ -284,6 +284,10 @@ function WalletItem({
 
   const connectToWallet = useCallback(async () => {
     try {
+      defaultLogger.account.wallet.addWalletStarted({
+        addMethod: 'Connect3rdParty',
+        details: undefined,
+      });
       showLoading();
       const connectResult =
         await backgroundApiProxy.serviceDappSide.connectExternalWallet({
@@ -315,9 +319,26 @@ function WalletItem({
       await dialogRef.current?.close();
 
       // Currently, there are only walletconnect and evm.
-      defaultLogger.account.wallet.connect3rdPartyWallet({
-        '3rdpartyConnectNetwork': 'evm',
-        '3rdpartyConnectType': 'walletconnect',
+      let protocol: 'WalletConnect' | 'EIP6963' | 'EVMInjected' | 'unknown';
+      let walletName: string | undefined;
+      if (connectionInfo.walletConnect) {
+        protocol = 'WalletConnect';
+        walletName = connectResult.connectionInfo.walletConnect?.peerMeta?.name;
+      } else if (connectionInfo.evmEIP6963) {
+        protocol = 'EIP6963';
+        walletName = connectResult.connectionInfo.evmEIP6963?.info?.name;
+      } else if (connectionInfo.evmInjected) {
+        protocol = 'EVMInjected';
+        walletName = 'Injected';
+      }
+      defaultLogger.account.wallet.walletAdded({
+        addMethod: 'Connect3rdParty',
+        status: 'success',
+        details: {
+          protocol: protocol || 'unknown',
+          network: 'evm',
+          walletName: walletName || 'unknown',
+        },
       });
     } finally {
       hideLoading();

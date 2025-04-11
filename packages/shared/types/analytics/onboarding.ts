@@ -28,7 +28,7 @@ interface IConnectHardwareWalletPayload {
 }
 
 interface IConnectExternalWalletPayload {
-  protocol: 'WalletConnect' | string;
+  protocol: 'WalletConnect' | 'EIP6963' | 'EVMInjected' | 'unknown';
   network: string;
   walletName?: string;
 }
@@ -53,6 +53,10 @@ export type IWalletStartedParams =
       details: {
         hardwareWalletType: 'Hidden' | 'Standard' | 'QRCode';
       };
+    }
+  | {
+      addMethod: Extract<IWalletAddMethod, 'Connect3rdParty'>;
+      details: undefined;
     };
 
 export type IWalletAddedEventParams = IBaseEventPayload &
