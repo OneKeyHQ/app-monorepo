@@ -479,7 +479,7 @@ function PortfolioInfo({
               renderTooltipContent={
                 <RewardAmountPopoverContent
                   onHistory={onHistory}
-                  tokenSymbo={token.symbol}
+                  tokenSymbol={token.symbol}
                   totalRewardAmount={totalRewardAmount}
                   waitingRebateRewardAmount={waitingRebateRewardAmount}
                 />
