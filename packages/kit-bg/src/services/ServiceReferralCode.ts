@@ -145,6 +145,11 @@ class ServiceReferralCode extends ServiceBase {
       myReferralCode: code,
     });
   }
+
+  @backgroundMethod()
+  async reset() {
+    await this.backgroundApi.simpleDb.referralCode.reset();
+  }
 }
 
 export default ServiceReferralCode;

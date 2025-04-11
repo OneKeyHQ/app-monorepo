@@ -615,6 +615,12 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        title="Reset Invite Code"
+        onPress={() => {
+          void backgroundApiProxy.serviceReferralCode.reset();
+        }}
+      />
+      <SectionPressItem
         title="Reset Hidden Sites in Floating icon"
         onPress={() => {
           void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
