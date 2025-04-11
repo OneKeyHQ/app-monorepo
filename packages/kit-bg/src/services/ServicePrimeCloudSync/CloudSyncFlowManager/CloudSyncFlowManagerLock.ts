@@ -14,6 +14,10 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
   EPrimeCloudSyncDataType.Lock,
   any
 > {
+  override dataType = EPrimeCloudSyncDataType.Lock as const;
+
+  override removeSyncItemIfServerDeleted = true;
+
   getLockStaticSyncCredential(
     syncCredential: ICloudSyncCredential,
   ): ICloudSyncCredentialForLock {
@@ -37,8 +41,6 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
         params.payload.encryptedSecurityPasswordR1ForServer,
     };
   }
-
-  override dataType = EPrimeCloudSyncDataType.Lock as const;
 
   override async isSupportSync(target: ICloudSyncTargetLock): Promise<boolean> {
     return true;

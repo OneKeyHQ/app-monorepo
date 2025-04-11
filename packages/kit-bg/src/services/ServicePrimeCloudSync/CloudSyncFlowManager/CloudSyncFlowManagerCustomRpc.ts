@@ -17,6 +17,8 @@ export class CloudSyncFlowManagerCustomRpc extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.CustomRpc as any;
 
+  override removeSyncItemIfServerDeleted = true;
+
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetCustomRpc;
   }): Promise<string> {

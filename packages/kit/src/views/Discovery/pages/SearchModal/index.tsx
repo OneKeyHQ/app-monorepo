@@ -79,6 +79,7 @@ function SearchModal() {
                     url: searchValue,
                     title: searchValue,
                     logo: undefined,
+                    sortIndex: undefined,
                   },
                   useCurrentWindow,
                   tabId,

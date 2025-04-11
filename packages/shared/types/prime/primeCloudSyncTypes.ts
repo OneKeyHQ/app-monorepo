@@ -14,6 +14,7 @@ import type { EPrimeCloudSyncDataType } from '../../src/consts/primeConsts';
 import type { IAvatarInfo } from '../../src/utils/emojiUtils';
 import type { IDBCustomRpc } from '../customRpc';
 import type { IMarketWatchListItem } from '../market';
+import type { ICloudSyncCustomToken } from '../token';
 
 // for user to manual resolve diff items
 export type ICloudSyncServerDiffItem = {
@@ -27,6 +28,7 @@ export type ICloudSyncServerDiffItem = {
     | ICloudSyncPayloadBrowserBookmark
     | ICloudSyncPayloadMarketWatchList
     | ICloudSyncPayloadCustomRpc
+    | ICloudSyncPayloadCustomToken
     | ICloudSyncPayloadCustomNetwork
     | ICloudSyncPayloadAddressBook
     | undefined;
@@ -39,6 +41,7 @@ export type ICloudSyncServerDiffItem = {
     | IDBCustomRpc
     | IServerNetwork
     | IAddressItem
+    | ICloudSyncCustomToken // CustomToken
     | undefined;
 };
 
@@ -84,8 +87,9 @@ export type ICloudSyncDBRecord =
   | IBrowserBookmark
   | IMarketWatchListItem
   | IDBCustomRpc
-  | IServerNetwork
-  | IAddressItem;
+  | IServerNetwork // CustomNetwork
+  | IAddressItem
+  | ICloudSyncCustomToken; // CustomToken
 export type ICloudSyncDBRecords =
   | IDBWallet[]
   | IDBAccount[]
@@ -93,8 +97,9 @@ export type ICloudSyncDBRecords =
   | IBrowserBookmark[]
   | IMarketWatchListItem[]
   | IDBCustomRpc[]
-  | IServerNetwork[]
-  | IAddressItem[];
+  | IServerNetwork[] // CustomNetwork
+  | IAddressItem[]
+  | ICloudSyncCustomToken[]; // CustomToken
 
 // sync target --------------------------------
 
@@ -140,6 +145,11 @@ export type ICloudSyncTargetCustomRpc = ICloudSyncTargetBase & {
   customRpc: IDBCustomRpc;
 };
 
+export type ICloudSyncTargetCustomToken = ICloudSyncTargetBase & {
+  dataType: EPrimeCloudSyncDataType.CustomToken;
+  customToken: ICloudSyncCustomToken;
+};
+
 export type ICloudSyncTargetCustomNetwork = ICloudSyncTargetBase & {
   dataType: EPrimeCloudSyncDataType.CustomNetwork;
   customNetwork: IServerNetwork;
@@ -160,6 +170,7 @@ export interface ICloudSyncTargetMap {
   [EPrimeCloudSyncDataType.MarketWatchList]: ICloudSyncTargetMarketWatchList;
   [EPrimeCloudSyncDataType.AddressBook]: ICloudSyncTargetAddressBook;
   [EPrimeCloudSyncDataType.CustomRpc]: ICloudSyncTargetCustomRpc;
+  [EPrimeCloudSyncDataType.CustomToken]: ICloudSyncTargetCustomToken;
   [EPrimeCloudSyncDataType.CustomNetwork]: ICloudSyncTargetCustomNetwork;
 }
 
@@ -203,6 +214,11 @@ export type ICloudSyncKeyInfoCustomRpc = ICloudSyncKeyInfoBase & {
   payload: ICloudSyncPayloadCustomRpc;
 };
 
+export type ICloudSyncKeyInfoCustomToken = ICloudSyncKeyInfoBase & {
+  dataType: EPrimeCloudSyncDataType.CustomToken;
+  payload: ICloudSyncPayloadCustomToken;
+};
+
 export type ICloudSyncKeyInfoCustomNetwork = ICloudSyncKeyInfoBase & {
   dataType: EPrimeCloudSyncDataType.CustomNetwork;
   payload: ICloudSyncPayloadCustomNetwork;
@@ -222,6 +238,7 @@ export interface ICloudSyncKeyInfoMap {
   [EPrimeCloudSyncDataType.MarketWatchList]: ICloudSyncKeyInfoMarketWatchList;
   [EPrimeCloudSyncDataType.AddressBook]: ICloudSyncKeyInfoAddressBook;
   [EPrimeCloudSyncDataType.CustomRpc]: ICloudSyncKeyInfoCustomRpc;
+  [EPrimeCloudSyncDataType.CustomToken]: ICloudSyncKeyInfoCustomToken;
   [EPrimeCloudSyncDataType.CustomNetwork]: ICloudSyncKeyInfoCustomNetwork;
 }
 
@@ -264,6 +281,10 @@ export type ICloudSyncPayloadMarketWatchList = IMarketWatchListItem;
 
 export type ICloudSyncPayloadCustomRpc = IDBCustomRpc;
 
+export type ICloudSyncPayloadCustomToken = {
+  customToken: ICloudSyncCustomToken;
+};
+
 export type ICloudSyncPayloadCustomNetwork = {
   customNetwork: IServerNetwork;
   customRpc: IDBCustomRpc;
@@ -285,6 +306,7 @@ export type ICloudSyncPayload =
   | ICloudSyncPayloadMarketWatchList
   | ICloudSyncPayloadAddressBook
   | ICloudSyncPayloadCustomRpc
+  | ICloudSyncPayloadCustomToken
   | ICloudSyncPayloadCustomNetwork;
 
 export interface ICloudSyncPayloadMap {
@@ -296,6 +318,7 @@ export interface ICloudSyncPayloadMap {
   [EPrimeCloudSyncDataType.MarketWatchList]: ICloudSyncPayloadMarketWatchList;
   [EPrimeCloudSyncDataType.AddressBook]: ICloudSyncPayloadAddressBook;
   [EPrimeCloudSyncDataType.CustomRpc]: ICloudSyncPayloadCustomRpc;
+  [EPrimeCloudSyncDataType.CustomToken]: ICloudSyncPayloadCustomToken;
   [EPrimeCloudSyncDataType.CustomNetwork]: ICloudSyncPayloadCustomNetwork;
 }
 
@@ -341,6 +364,10 @@ export type ICloudSyncRawDataJson =
   | (ICloudSyncRawDataJsonBase & {
       dataType: EPrimeCloudSyncDataType.CustomRpc;
       payload: ICloudSyncPayloadCustomRpc;
+    })
+  | (ICloudSyncRawDataJsonBase & {
+      dataType: EPrimeCloudSyncDataType.CustomToken;
+      payload: ICloudSyncPayloadCustomToken;
     })
   | (ICloudSyncRawDataJsonBase & {
       dataType: EPrimeCloudSyncDataType.CustomNetwork;
