@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -26,6 +28,8 @@ type IProviderInfoProps = {
     link: string;
     vaultName?: string;
     vaultLink?: string;
+    vaultManager?: string;
+    vaultManagerName?: string;
     totalStaked?: string;
     totalStakedFiatValue?: string;
     liquidity?: string;
@@ -86,13 +90,20 @@ function ProviderInfo({
   }
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+  const isMorphoProvider = useMemo(
+    () =>
+      earnUtils.isMorphoProvider({
+        providerName: validator?.name ?? '',
+      }),
+    [validator?.name],
+  );
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
       <XStack flexWrap="wrap" m="$-5" p="$2">
-        {validator ? (
+        {!isMorphoProvider && validator ? (
           <GridItem
             title={
               validator.isProtocol
@@ -131,13 +142,12 @@ function ProviderInfo({
             </SizableText>
           </GridItem>
         ) : null}
-        {earnUtils.isMorphoProvider({ providerName: validator?.name ?? '' }) &&
-        validator?.vaultName ? (
+        {isMorphoProvider && validator?.vaultManagerName ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_vault })}
-            link={validator?.vaultLink}
+            link={validator?.vaultManager}
           >
-            {validator?.vaultName}
+            {validator?.vaultManagerName}
           </GridItem>
         ) : null}
         {validator?.totalStakedFiatValue ? (
@@ -203,6 +213,8 @@ export const ProviderSection = ({
     providerProps.validator = {
       name: details.provider.name,
       link: details.provider.website,
+      vaultManager: details.provider.vaultManager,
+      vaultManagerName: details.provider.vaultManagerName,
       vaultName: details.provider.vaultName,
       vaultLink: details.provider.url,
       isProtocol: details.provider.name.toLowerCase() !== 'everstake',

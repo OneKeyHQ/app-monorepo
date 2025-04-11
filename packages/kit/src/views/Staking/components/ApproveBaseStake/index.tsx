@@ -777,11 +777,43 @@ export function ApproveBaseStake({
 
   const { bindOrChangeInviteCode } = useReferFriends();
 
-  const { result: inviteCode, run: refetchInviteCode } = usePromiseResult(
-    async () => backgroundApiProxy.serviceReferralCode.getInviteCode(),
-    [],
+  const { result: inviteData, run: refetchInviteCode } = usePromiseResult(
+    async () => {
+      const response = await Promise.allSettled([
+        backgroundApiProxy.serviceReferralCode.getInviteCode(),
+        backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
+          networkId: approveTarget.networkId,
+          accountAddress: approveTarget.spenderAddress,
+        }),
+      ]);
+      if (response[1].status === 'fulfilled' && response[1].value) {
+        await backgroundApiProxy.serviceReferralCode.bindInviteCode(
+          response[1].value,
+        );
+        return {
+          code: response[1].value,
+          disabled: true,
+        };
+      }
+
+      if (response[0].status === 'fulfilled' && response[0].value) {
+        return {
+          code: response[0].value,
+          disabled: false,
+        };
+      }
+
+      return {
+        code: '',
+        disabled: false,
+      };
+    },
+    [approveTarget.networkId, approveTarget.spenderAddress],
     {
-      initResult: '',
+      initResult: {
+        code: '',
+        disabled: false,
+      },
     },
   );
 
@@ -842,19 +874,28 @@ export function ApproveBaseStake({
       );
     }
     items.push(
-      <CalculationListItem onPress={handleBindOrChangeInviteCode}>
+      <CalculationListItem
+        onPress={inviteData.disabled ? undefined : handleBindOrChangeInviteCode}
+      >
         <CalculationListItem.Label size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.referral_your_code,
           })}
         </CalculationListItem.Label>
         <XStack alignItems="center" cursor="pointer" mr={-6}>
-          <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
+          <SizableText size="$bodyMdMedium">
+            {inviteData.code ||
+              intl.formatMessage({
+                id: ETranslations.earn_referral_unlinked,
+              })}
+          </SizableText>
+          {inviteData.disabled ? undefined : (
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          )}
         </XStack>
       </CalculationListItem>,
     );
@@ -871,7 +912,7 @@ export function ApproveBaseStake({
     showEstimateGasAlert,
     daysSpent,
     handleBindOrChangeInviteCode,
-    inviteCode,
+    inviteData,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (

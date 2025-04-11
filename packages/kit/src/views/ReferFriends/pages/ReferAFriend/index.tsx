@@ -4,18 +4,21 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
+  EVideoResizeMode,
   Icon,
-  Image,
   Page,
   SizableText,
+  Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 enum EPhaseState {
   next = 'next',
@@ -49,6 +52,7 @@ export default function ReferAFriend() {
   const [phaseState, setPhaseState] = useState(EPhaseState.next);
   const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
+  const themeName = useThemeVariant();
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -58,9 +62,18 @@ export default function ReferAFriend() {
       />
       <Page.Body>
         <YStack>
-          <Image
-            h={224}
-            source={require('@onekeyhq/kit/assets/refer_banner.jpg')}
+          <Video
+            height={224}
+            repeat
+            muted
+            source={
+              themeName === 'dark'
+                ? require('@onekeyhq/kit/assets/OP-Dark.mp4')
+                : require('@onekeyhq/kit/assets/OP-Light.mp4')
+            }
+            resizeMode={EVideoResizeMode.COVER}
+            controls={false}
+            playInBackground={false}
           />
           <AnimatePresence>
             {phaseState === EPhaseState.next ? (
@@ -178,6 +191,11 @@ export default function ReferAFriend() {
                         pt="$2"
                         textDecorationLine="underline"
                         cursor="pointer"
+                        onPress={() => {
+                          openUrlExternal(
+                            'https://help.onekey.so/hc/articles/12278189850127',
+                          );
+                        }}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_learn_more,

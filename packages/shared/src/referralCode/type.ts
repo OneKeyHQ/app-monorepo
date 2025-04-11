@@ -1,3 +1,28 @@
+interface IReward {
+  available?: {
+    token: {
+      networkId: string;
+      address: string;
+      logoURI: string;
+      name: string;
+      symbol: string;
+    };
+    amount: string;
+    fiatValue: string;
+  };
+  pending?: {
+    token: {
+      networkId: string;
+      address: string;
+      logoURI: string;
+      name: string;
+      symbol: string;
+    };
+    amount: string;
+    fiatValue: string;
+  };
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;
@@ -16,31 +41,8 @@ export interface IInviteSummary {
     discount: number;
     threshold: number;
   };
-  Earn: Record<string, any>;
-  HardwareSales: {
-    available?: {
-      token: {
-        networkId: string;
-        address: string;
-        logoURI: string;
-        name: string;
-        symbol: string;
-      };
-      amount: string;
-      fiatValue: string;
-    };
-    pending?: {
-      token: {
-        networkId: string;
-        address: string;
-        logoURI: string;
-        name: string;
-        symbol: string;
-      };
-      amount: string;
-      fiatValue: string;
-    };
-  };
+  Earn: IReward;
+  HardwareSales: IReward;
   banners: any[];
 }
 
