@@ -243,6 +243,7 @@ export const WelcomeItem = memo(
             url,
             title: url,
             logo: undefined,
+            sortIndex: undefined,
           },
           shouldPopNavigation: false,
           enterMethod: EEnterMethod.dashboard,

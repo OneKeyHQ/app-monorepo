@@ -18,12 +18,22 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.AddressBook as any;
 
+  override removeSyncItemIfServerDeleted = true;
+
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetAddressBook;
   }): Promise<string> {
     const { address, networkId } = params.target.addressBookItem;
-    const networkImpl: string = networkUtils.getNetworkImpl({ networkId });
-    return Promise.resolve(`${networkImpl}--${address?.toLowerCase()}`);
+    const networkImpl = networkUtils.getNetworkImplOrNetworkId({
+      networkId,
+    });
+
+    return Promise.resolve(
+      [
+        networkImpl || 'unknown-network',
+        `address:${address?.toLowerCase()}`,
+      ].join('__'),
+    );
   }
 
   override async buildSyncPayload({

@@ -21,6 +21,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.Account as any;
 
+  override removeSyncItemIfServerDeleted = true;
+
   override async isSupportSync(
     target: ICloudSyncTargetAccount,
   ): Promise<boolean> {

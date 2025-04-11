@@ -22,6 +22,8 @@ export class CloudSyncFlowManagerBrowserBookmark extends CloudSyncFlowManagerBas
 > {
   override dataType = EPrimeCloudSyncDataType.BrowserBookmark as any;
 
+  override removeSyncItemIfServerDeleted = true;
+
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetBrowserBookmark;
   }): Promise<string> {
@@ -55,7 +57,9 @@ export class CloudSyncFlowManagerBrowserBookmark extends CloudSyncFlowManagerBas
       title: payload.title,
       url: payload.url,
       logo: payload.logo ?? undefined,
+      sortIndex: payload.sortIndex,
     };
+    // TODO remove bookmarks
     await this.backgroundApi.serviceDiscovery.setBrowserBookmarks({
       isRemove: item.isDeleted,
       bookmarks: [bookmark],
