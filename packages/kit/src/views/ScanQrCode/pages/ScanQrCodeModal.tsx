@@ -26,6 +26,8 @@ import type {
   EScanQrCodeModalPages,
   IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
@@ -38,7 +40,11 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
   appGlobals.$$scanNavigation = navigation;
 
-  const [inputText, setInputText] = useState<string>('');
+  const [inputText, setInputText] = useState<string>(
+    appStorage.syncStorage.getString(
+      EAppSyncStorageKeys.last_scan_qr_code_text,
+    ) || '',
+  );
   const [visible, setVisible] = useState(false);
 
   if (process.env.NODE_ENV === 'production') {
@@ -183,7 +189,32 @@ export default function ScanQrCodeModal() {
         EScanQrCodeModalPages.ScanQrCodeStack
       >
     >();
-  const { callback, qrWalletScene, showProTutorial } = route.params;
+  const {
+    callback: routeCallback,
+    qrWalletScene,
+    showProTutorial,
+  } = route.params;
+
+  const callback = useCallback(
+    async ({
+      value,
+      popNavigation,
+    }: {
+      value: string;
+      popNavigation: () => void;
+    }) => {
+      if (process.env.NODE_ENV !== 'production') {
+        if (value) {
+          appStorage.syncStorage.set(
+            EAppSyncStorageKeys.last_scan_qr_code_text,
+            value,
+          );
+        }
+      }
+      return routeCallback({ value, popNavigation });
+    },
+    [routeCallback],
+  );
 
   const navigation = useAppNavigation();
 

@@ -153,8 +153,11 @@ const HistoryContent = ({
     }));
   }, [filter]);
 
+  const [selectedValue, changeSelectedValue] = useState(items[0].value);
+
   const handleSelectChange = useCallback(
     (v: string) => {
+      changeSelectedValue(v);
       onFilterTypeChange(v);
     },
     [onFilterTypeChange],
