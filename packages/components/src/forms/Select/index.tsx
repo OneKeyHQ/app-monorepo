@@ -73,7 +73,6 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
     ? (value as ISelectItem)?.value
     : (value as string);
   const label = useTriggerLabel(renderValue);
-  console.log('select---', value, placeholder, disabled, labelInValue );
   return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
       {renderTrigger({
