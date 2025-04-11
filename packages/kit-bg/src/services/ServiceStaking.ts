@@ -1287,6 +1287,18 @@ class ServiceStaking extends ServiceBase {
     });
     return response.data.data.referCode;
   }
+
+  @backgroundMethod()
+  async checkInviteCode(inviteCode: string) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      code: number;
+    }>(`/earn/v1/account/invite-code/check`, {
+      params: { inviteCode },
+    });
+    console.log('response', response);
+    return response.data.code === 0;
+  }
 }
 
 export default ServiceStaking;
