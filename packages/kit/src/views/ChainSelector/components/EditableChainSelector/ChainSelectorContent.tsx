@@ -328,10 +328,6 @@ export const EditableChainSelectorContent = ({
   }, [sections, listHeaderHeight]);
 
   const initialScrollIndex = useMemo(() => {
-    if (!platformEnv.isNative) {
-      return undefined;
-    }
-
     if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
       return undefined;
     }
