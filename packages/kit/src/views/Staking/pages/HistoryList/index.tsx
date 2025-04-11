@@ -154,10 +154,10 @@ const HistoryContent = ({
 
   const handleSelectChange = useCallback(
     (v: string) => {
-      changeSelectedValue(selectedValue);
+      changeSelectedValue(v);
       onFilterTypeChange(v);
     },
-    [selectedValue, onFilterTypeChange],
+    [onFilterTypeChange],
   );
 
   return (
