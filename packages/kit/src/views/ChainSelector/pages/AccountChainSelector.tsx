@@ -39,6 +39,7 @@ type IChainSelectorBaseProps = {
   num: number;
   networkIds?: string[];
   editable?: boolean;
+  recordNetworkHistoryEnabled?: boolean;
 };
 
 type IAccountChainSelectorProps = IChainSelectorBaseProps & {
@@ -234,18 +235,29 @@ function AccountChainSelector({
   num,
   networkIds,
   editable,
+  recordNetworkHistoryEnabled,
 }: IChainSelectorBaseProps) {
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
+  const {
+    activeAccount: { network: activeNetwork },
+  } = useActiveAccount({ num });
   const handleListItemPress = useCallback(
     (item: IServerNetwork) => {
+      if (recordNetworkHistoryEnabled && activeNetwork) {
+        void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
+          networkId: activeNetwork.id,
+        });
+      }
+
       void actions.current.updateSelectedAccountNetwork({
         num,
         networkId: item.id,
       });
+
       navigation.popStack();
     },
-    [actions, num, navigation],
+    [actions, num, navigation, recordNetworkHistoryEnabled, activeNetwork],
   );
   const onAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPages.AddCustomNetwork, {
@@ -306,7 +318,14 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.AccountChainSelector
 >) {
-  const { num, sceneName, sceneUrl, networkIds, editable } = route.params;
+  const {
+    num,
+    sceneName,
+    sceneUrl,
+    networkIds,
+    editable,
+    recordNetworkHistoryEnabled,
+  } = route.params;
 
   return (
     <AccountSelectorProviderMirror
@@ -320,6 +339,7 @@ export default function ChainSelectorPage({
         num={num}
         networkIds={networkIds}
         editable={editable}
+        recordNetworkHistoryEnabled={recordNetworkHistoryEnabled}
       />
     </AccountSelectorProviderMirror>
   );

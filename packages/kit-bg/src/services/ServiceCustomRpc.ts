@@ -98,7 +98,8 @@ class ServiceCustomRpc extends ServiceBase {
     customRpcItems,
     isDeleted,
     skipSaveLocalSyncItem,
-  }: {
+  }: // skipEventEmit,
+  {
     fn: () => Promise<void>;
     customRpcItems: IDBCustomRpc[];
     isDeleted: boolean;
@@ -128,7 +129,8 @@ class ServiceCustomRpc extends ServiceBase {
     customNetworks,
     isDeleted,
     skipSaveLocalSyncItem,
-  }: {
+  }: // skipEventEmit,
+  {
     fn: () => Promise<void>;
     customNetworks: IServerNetwork[];
     isDeleted: boolean;

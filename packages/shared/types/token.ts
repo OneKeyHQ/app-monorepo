@@ -17,7 +17,6 @@ export type IToken = {
   order?: number;
   networkId?: string;
   accountId?: string;
-  allNetworkAccountId?: string;
   mergeAssets?: boolean;
 };
 
@@ -35,7 +34,20 @@ export type ITokenFiat = {
   price24h?: number;
 };
 
+export enum ECustomTokenStatus {
+  Hidden = 'hidden',
+  Custom = 'custom',
+}
+
 export type IAccountToken = { $key: string } & IToken;
+export type IAccountTokenWithAccountId = IAccountToken & {
+  accountId: string;
+};
+export type ICloudSyncCustomTokenInfo = Omit<IAccountToken, 'accountId'>;
+export type ICloudSyncCustomToken = ICloudSyncCustomTokenInfo & {
+  accountXpubOrAddress: string;
+  tokenStatus: ECustomTokenStatus;
+};
 export type ICustomTokenItem = IAccountToken;
 
 export type IFetchAccountTokensParams = {

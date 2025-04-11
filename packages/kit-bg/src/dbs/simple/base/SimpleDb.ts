@@ -30,6 +30,7 @@ import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWat
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
@@ -119,4 +120,6 @@ export class SimpleDb {
   allNetworks = new SimpleDbEntityAllNetworks();
 
   changeHistory = new SimpleDbEntityChangeHistory();
+
+  recentNetworks = new SimpleDbEntityRecentNetworks();
 }

@@ -79,7 +79,10 @@ function BasicStakePage() {
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
     async (amount: string) => {
+      const inviteCode =
+        await backgroundApiProxy.serviceReferralCode.getInviteCode();
       await handleStake({
+        inviteCode,
         amount,
         symbol: tokenInfo.symbol,
         provider: provider.name,

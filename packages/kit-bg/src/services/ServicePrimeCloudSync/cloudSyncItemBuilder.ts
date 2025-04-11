@@ -94,7 +94,7 @@ class CloudSyncItemBuilder {
       isNil(accountIndex) ? '' : accountIndex?.toString() || '',
     ]
       .filter(Boolean)
-      .join('--');
+      .join('__'); // --
     const key = bufferUtils.bytesToHex(sha512(rawKey));
     return {
       rawKey,

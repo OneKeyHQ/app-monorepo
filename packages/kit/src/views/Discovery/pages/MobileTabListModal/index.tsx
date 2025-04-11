@@ -153,7 +153,12 @@ function MobileTabListModal() {
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        void addBrowserBookmark({ url, title, logo: undefined });
+        void addBrowserBookmark({
+          url,
+          title,
+          logo: undefined,
+          sortIndex: undefined,
+        });
       } else {
         void removeBrowserBookmark(url);
       }

@@ -70,6 +70,19 @@ export function MorphoApy({
             </XStack>
           );
         })}
+        <XStack gap="$2" alignItems="center" justifyContent="space-between">
+          <XStack gap="$2" alignItems="center">
+            <Icon name="GiftOutline" size="$5" />
+            <SizableText color="$textSubdued" size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.earn_referral_referral_reward,
+              })}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodyMdMedium">
+            {`+${formatApy(apys.rebateReward)}%`}
+          </SizableText>
+        </XStack>
         {showTotalApy ? (
           <XStack gap="$2" alignItems="center" justifyContent="space-between">
             <XStack gap="$2" alignItems="center">

@@ -1651,6 +1651,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async removeCloudSyncPoolItems({ keys }: { keys: string[] }) {
+    await this.withTransaction(async (tx) => {
+      await this.txRemoveCloudSyncPoolItems({ tx, keys });
+    });
+  }
+
   async txRemoveCloudSyncPoolItems({
     tx,
     keys,
@@ -1659,6 +1665,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     keys: string[];
   }) {
     try {
+      console.log('txRemoveCloudSyncPoolItems', keys);
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,
@@ -2098,20 +2105,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
 
     await this.withTransaction(async (tx) => {
-      if (existingDevice) {
-        await this.txUpdateRecords({
-          tx,
-          name: ELocalDBStoreNames.Device,
-          ids: [dbDeviceId],
-          updater: async (item) => {
-            item.updatedAt = now;
-            // TODO update qrDevice last version(not updated version)
-            return item;
-          },
-        });
-        return;
-      }
-
       await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
         tx,
         targets: [

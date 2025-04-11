@@ -42,14 +42,10 @@ function SearchModal() {
     SEARCH_ITEM_ID,
   } = useSearchModalData(searchValue);
 
-  const jumpPageRef = useRef(false);
   useFocusEffect(() => {
-    if (jumpPageRef.current) {
-      setTimeout(() => {
-        void refreshLocalData();
-      }, 300);
-      jumpPageRef.current = false;
-    }
+    setTimeout(() => {
+      void refreshLocalData();
+    }, 300);
   });
 
   return (
@@ -79,6 +75,7 @@ function SearchModal() {
                     url: searchValue,
                     title: searchValue,
                     logo: undefined,
+                    sortIndex: undefined,
                   },
                   useCurrentWindow,
                   tabId,

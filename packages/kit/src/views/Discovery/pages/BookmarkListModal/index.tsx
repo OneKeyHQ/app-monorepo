@@ -103,6 +103,14 @@ function BookmarkListModal() {
                     id: ETranslations.explore_bookmark_at_least,
                   }),
                 },
+                validate: (value: string) => {
+                  if (!value?.trim()) {
+                    return intl.formatMessage({
+                      id: ETranslations.explore_bookmark_at_least,
+                    });
+                  }
+                  return true;
+                },
               }}
             >
               <RenameInputWithNameSelector
@@ -174,6 +182,7 @@ function BookmarkListModal() {
           url: item.url,
           title: item.title,
           logo: item.logo,
+          sortIndex: undefined,
         },
         enterMethod: EEnterMethod.bookmark,
         shouldPopNavigation: true,
