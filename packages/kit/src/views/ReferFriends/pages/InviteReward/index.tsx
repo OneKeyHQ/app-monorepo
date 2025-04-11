@@ -25,7 +25,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -163,6 +162,7 @@ function Dashboard({
   levelPercent,
   rebateLevel,
   nextRebateLevel,
+  fetchSummaryInfo,
 }: {
   totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
@@ -171,11 +171,11 @@ function Dashboard({
   levelPercent: number;
   rebateLevel: string;
   nextRebateLevel: string;
+  fetchSummaryInfo: () => void;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { verifyOneKeyId } = useLoginOneKeyId();
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
@@ -186,15 +186,16 @@ function Dashboard({
         address: string;
         networkId: string;
       }) => {
-        const emailOTP = await verifyOneKeyId();
-        void backgroundApiProxy.serviceReferralCode.bindAddress(
+        await backgroundApiProxy.serviceReferralCode.bindAddress(
           networkId,
           address,
-          emailOTP,
         );
+        setTimeout(() => {
+          fetchSummaryInfo();
+        }, 50);
       },
     });
-  }, [enabledNetworks, navigation, verifyOneKeyId]);
+  }, [enabledNetworks, fetchSummaryInfo, navigation]);
 
   const toEarnRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EarnReward);
@@ -481,7 +482,13 @@ function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
   );
 }
 
-function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
+function InviteRewardContent({
+  summaryInfo,
+  fetchSummaryInfo,
+}: {
+  summaryInfo: IInviteSummary;
+  fetchSummaryInfo: () => void;
+}) {
   const {
     faqs,
     inviteUrl,
@@ -505,6 +512,7 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
         levelPercent={Number(levelPercent)}
         rebateLevel={rebateLevel}
         nextRebateLevel={nextRebateLevel}
+        fetchSummaryInfo={fetchSummaryInfo}
       />
       <FAQ faqs={faqs} />
     </>
@@ -513,7 +521,7 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
 
 export default function InviteReward() {
   const intl = useIntl();
-  const { result: summaryInfo, isLoading } = usePromiseResult(
+  const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
     async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
     [],
     {
@@ -530,7 +538,7 @@ export default function InviteReward() {
         })}
       />
       <Page.Body>
-        {!summaryInfo || isLoading ? (
+        {!summaryInfo ? (
           <Stack
             position="absolute"
             top={0}
@@ -545,7 +553,10 @@ export default function InviteReward() {
           </Stack>
         ) : (
           <ScrollView>
-            <InviteRewardContent summaryInfo={summaryInfo} />
+            <InviteRewardContent
+              summaryInfo={summaryInfo}
+              fetchSummaryInfo={fetchSummaryInfo}
+            />
           </ScrollView>
         )}
       </Page.Body>
