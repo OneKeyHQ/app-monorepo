@@ -103,7 +103,6 @@ type IHistoryContentProps = {
   network?: { networkId: string; name: string; logoURI: string };
   tokenMap: Record<string, IToken>;
   provider?: string;
-  defaultFilterType?: string;
 };
 
 const keyExtractor = (item: unknown) => {
