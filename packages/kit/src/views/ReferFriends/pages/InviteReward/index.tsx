@@ -70,11 +70,15 @@ function ShareCode({
     copyText(inviteCode);
   }, [copyText, inviteCode]);
 
+  const inviteCodeUrl = useMemo(() => {
+    return inviteUrl.replace('https://', '');
+  }, [inviteUrl]);
+
   const toYourReferredPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.YourReferred);
   }, [navigation]);
   const intl = useIntl();
-  const sharedUrl = useMemo(() => `https://${inviteUrl}`, [inviteUrl]);
+  const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
   return (
     <YStack px="$5" pt="$6" pb="$8">
       <YStack>
@@ -114,7 +118,7 @@ function ShareCode({
           borderRadius="$2.5"
         >
           <SizableText size="$bodyLg" flexShrink={1}>
-            {inviteUrl}
+            {inviteCodeUrl}
           </SizableText>
           <XStack ai="center" gap="$2.5">
             <IconButton
