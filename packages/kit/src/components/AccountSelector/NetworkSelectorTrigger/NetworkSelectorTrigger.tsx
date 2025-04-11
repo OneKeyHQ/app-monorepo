@@ -88,7 +88,13 @@ export const NetworkSelectorTriggerLegacy = memo(
   NetworkSelectorTriggerLegacyCmp,
 );
 
-function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
+function NetworkSelectorTriggerHomeCmp({
+  num,
+  recordNetworkHistoryEnabled,
+}: {
+  num: number;
+  recordNetworkHistoryEnabled?: boolean;
+}) {
   const {
     activeAccount: { network, wallet },
     showChainSelector,
@@ -139,7 +145,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
       }}
       hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
-      onPress={showChainSelector}
+      onPress={() => showChainSelector({ recordNetworkHistoryEnabled })}
     >
       <NetworkAvatar networkId={network?.id} size="$5" />
       <SizableText

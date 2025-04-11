@@ -20,6 +20,7 @@ import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -34,6 +35,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
+  ESwapSelectTokenSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -119,6 +121,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }) => {
       void selectFromToken(fromToken, true);
       void selectToToken(toToken);
+      defaultLogger.swap.selectToken.selectToken({
+        selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
+      });
     },
     [selectFromToken, selectToToken],
   );

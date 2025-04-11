@@ -4,13 +4,18 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import {
+  ECustomTokenStatus,
+  type IAccountToken,
+  type ICloudSyncCustomToken,
+} from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountsParamsForApi } from './ServiceAllNetwork/ServiceAllNetwork';
+import type { IDBCloudSyncItem } from '../dbs/local/types';
 import type { ICustomTokenDBStruct } from '../dbs/simple/entity/SimpleDbEntityCustomTokens';
 
 @backgroundClass()
@@ -19,39 +24,151 @@ class ServiceCustomToken extends ServiceBase {
     super({ backgroundApi });
   }
 
-  @backgroundMethod()
-  public async addCustomToken({ token }: { token: IAccountToken }) {
-    return this.backgroundApi.simpleDb.customTokens.addCustomToken({ token });
+  async buildCustomTokenSyncItems({
+    customTokens,
+    isDeleted,
+  }: {
+    customTokens: ICloudSyncCustomToken[];
+    isDeleted: boolean;
+  }) {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+
+    const syncItems = (
+      await Promise.all(
+        customTokens.map(async (customToken) => {
+          return syncManagers.customToken.buildSyncItemByDBQuery({
+            syncCredential,
+            dbRecord: customToken,
+            dataTime: now,
+            isDeleted,
+          });
+        }),
+      )
+    ).filter(Boolean);
+    return syncItems;
   }
 
-  @backgroundMethod()
-  public async addCustomTokenBatch({ tokens }: { tokens: IAccountToken[] }) {
-    return this.backgroundApi.simpleDb.customTokens.addCustomTokensBatch({
-      tokens,
+  async withCustomTokenCloudSync({
+    fn,
+    customTokens,
+    isDeleted,
+    skipSaveLocalSyncItem,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    skipEventEmit,
+  }: {
+    fn: () => Promise<void>;
+    customTokens: ICloudSyncCustomToken[];
+    isDeleted: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    let syncItems: IDBCloudSyncItem[] = [];
+    if (!skipSaveLocalSyncItem) {
+      syncItems = await this.buildCustomTokenSyncItems({
+        customTokens,
+        isDeleted,
+      });
+    }
+    await this.backgroundApi.localDb.withTransaction(async (tx) => {
+      if (syncItems?.length) {
+        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+          tx,
+          items: syncItems,
+        });
+      }
+      await fn();
     });
   }
 
   @backgroundMethod()
-  public async hideToken({ token }: { token: IAccountToken }) {
-    return this.backgroundApi.simpleDb.customTokens.hideToken({ token });
+  public async addCustomToken({
+    token,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    token: ICloudSyncCustomToken;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    return this.addCustomTokenBatch({
+      tokens: [token],
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+    });
+  }
+
+  @backgroundMethod()
+  public async addCustomTokenBatch({
+    tokens,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    tokens: ICloudSyncCustomToken[];
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    return this.withCustomTokenCloudSync({
+      fn: () =>
+        this.backgroundApi.simpleDb.customTokens.addCustomTokensBatch({
+          tokens,
+        }),
+      customTokens: [...tokens].map((item) => {
+        const newItem: ICloudSyncCustomToken = {
+          ...item,
+        };
+        newItem.tokenStatus = ECustomTokenStatus.Custom;
+        return newItem;
+      }),
+      isDeleted: false,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+    });
+  }
+
+  @backgroundMethod()
+  public async hideToken({
+    token,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    token: ICloudSyncCustomToken;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    return this.withCustomTokenCloudSync({
+      fn: () =>
+        this.backgroundApi.simpleDb.customTokens.hideToken({
+          token,
+        }),
+      customTokens: [token].map((item) => {
+        const newItem: ICloudSyncCustomToken = {
+          ...item,
+        };
+        newItem.tokenStatus = ECustomTokenStatus.Hidden;
+        return newItem;
+      }),
+      isDeleted: false,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+    });
   }
 
   @backgroundMethod()
   public async getCustomTokens({
     accountId,
     networkId,
-    allNetworkAccountId,
     customTokensRawData,
   }: {
     accountId: string;
     networkId: string;
-    allNetworkAccountId?: string;
     customTokensRawData?: ICustomTokenDBStruct;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getCustomTokens({
       accountId,
       networkId,
-      allNetworkAccountId,
       customTokensRawData,
     });
   }
@@ -60,20 +177,55 @@ class ServiceCustomToken extends ServiceBase {
   public async getHiddenTokens({
     accountId,
     networkId,
-    allNetworkAccountId,
     customTokensRawData,
   }: {
     accountId: string;
     networkId: string;
-    allNetworkAccountId?: string;
     customTokensRawData?: ICustomTokenDBStruct;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getHiddenTokens({
       accountId,
       networkId,
-      allNetworkAccountId,
       customTokensRawData,
     });
+  }
+
+  async getAllCustomTokensByStatus(
+    tokenStatusMap: 'customMap' | 'hiddenMap',
+  ): Promise<ICloudSyncCustomToken[]> {
+    const data = await this.backgroundApi.simpleDb.customTokens.getRawData();
+    const tokens: ICloudSyncCustomToken[] = [];
+    const tokensMap = data?.tokens || {};
+    const customMap = data?.[tokenStatusMap] || {};
+    Object.entries(customMap).forEach(([accountKey, tokenMap]) => {
+      Object.entries(tokenMap).forEach(([tokenKey]) => {
+        const token = tokensMap[tokenKey];
+        const accountXpubOrAddress =
+          this.backgroundApi.simpleDb.customTokens.getXpubOrAddressFromAccountKey(
+            accountKey,
+          );
+        if (token && accountXpubOrAddress) {
+          const tokenStatus =
+            tokenStatusMap === 'hiddenMap'
+              ? ECustomTokenStatus.Hidden
+              : ECustomTokenStatus.Custom;
+          tokens.push({
+            ...token,
+            accountXpubOrAddress,
+            tokenStatus,
+          });
+        }
+      });
+    });
+    return tokens;
+  }
+
+  async getAllCustomTokens(): Promise<ICloudSyncCustomToken[]> {
+    return this.getAllCustomTokensByStatus('customMap');
+  }
+
+  async getAllHiddenTokens(): Promise<ICloudSyncCustomToken[]> {
+    return this.getAllCustomTokensByStatus('hiddenMap');
   }
 
   @backgroundMethod()

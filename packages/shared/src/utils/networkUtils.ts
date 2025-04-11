@@ -54,6 +54,21 @@ function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
   return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
 }
 
+function getNetworkImplOrNetworkId({
+  networkId,
+}: {
+  networkId: string | undefined;
+}): string | undefined {
+  if (networkId) {
+    const impl = getNetworkImpl({ networkId });
+    if (impl === IMPL_EVM) {
+      return impl;
+    }
+    return networkId;
+  }
+  return networkId;
+}
+
 function isLightningNetwork(coinType: string) {
   return (
     coinType === COINTYPE_LIGHTNING || coinType === COINTYPE_LIGHTNING_TESTNET
@@ -194,6 +209,7 @@ function getLocalNetworkInfo(networkId: string) {
 export default {
   getNetworkChainId,
   getNetworkImpl,
+  getNetworkImplOrNetworkId,
   isEvmNetwork,
   parseNetworkId,
   isLightningNetwork,

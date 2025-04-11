@@ -21,8 +21,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
+  onConfirm: (code: string) => void;
 }) {
-  const { email, sendCode, loginWithCode, onLoginSuccess } = props;
+  const { email, sendCode, loginWithCode, onLoginSuccess, onConfirm } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
@@ -72,6 +73,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   }, [intl, countdown]);
 
   const handleConfirm = useCallback(async () => {
+    if (onConfirm) {
+      onConfirm?.(verificationCode);
+      return;
+    }
     if (isSubmittingVerificationCode) {
       return;
     }
@@ -100,6 +105,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       setIsSubmittingVerificationCode(false);
     }
   }, [
+    onConfirm,
     isSubmittingVerificationCode,
     loginWithCode,
     verificationCode,
@@ -115,54 +121,50 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
   return (
     <Stack>
-      <Dialog.Icon icon="BarcodeSolid" />
-      <Dialog.Title>
-        {intl.formatMessage({
-          id: ETranslations.prime_enter_verification_code,
-        })}
-      </Dialog.Title>
+      <Dialog.Header>
+        <Dialog.Icon icon="BarcodeSolid" />
+        <Dialog.Title>
+          {intl.formatMessage({
+            id: ETranslations.prime_enter_verification_code,
+          })}
+        </Dialog.Title>
+        <Dialog.Description>
+          {intl.formatMessage({ id: ETranslations.prime_sent_to }, { email })}
+        </Dialog.Description>
+      </Dialog.Header>
 
-      <SizableText size="$bodyLg" color="$text">
-        {`${intl.formatMessage(
-          { id: ETranslations.prime_sent_to },
-          { email },
-        )}`}
-      </SizableText>
+      <YStack gap="$2">
+        <XStack>
+          <Button
+            width="auto"
+            size="small"
+            variant="tertiary"
+            disabled={countdown > 0 || isResending}
+            onPress={sendEmailVerificationCode}
+          >
+            {buttonText}
+          </Button>
+        </XStack>
 
-      <Stack pt="$4">
-        <YStack gap="$2">
-          <XStack>
-            <Button
-              width="auto"
-              size="small"
-              variant="tertiary"
-              disabled={countdown > 0 || isResending}
-              onPress={sendEmailVerificationCode}
-            >
-              {buttonText}
-            </Button>
-          </XStack>
+        <OTPInput
+          autoFocus
+          status={state.status === 'error' ? 'error' : 'normal'}
+          numberOfDigits={6}
+          value={verificationCode}
+          onTextChange={(value) => {
+            setVerificationCode(value);
+            setState({ status: 'initial' });
+          }}
+        />
 
-          <OTPInput
-            autoFocus
-            status={state.status === 'error' ? 'error' : 'normal'}
-            numberOfDigits={6}
-            value={verificationCode}
-            onTextChange={(value) => {
-              setVerificationCode(value);
-              setState({ status: 'initial' });
-            }}
-          />
-
-          {state.status === 'error' ? (
-            <SizableText size="$bodyMd" color="$red9">
-              {intl.formatMessage({
-                id: ETranslations.prime_invalid_verification_code,
-              })}
-            </SizableText>
-          ) : null}
-        </YStack>
-      </Stack>
+        {state.status === 'error' ? (
+          <SizableText size="$bodyMd" color="$red9">
+            {intl.formatMessage({
+              id: ETranslations.prime_invalid_verification_code,
+            })}
+          </SizableText>
+        ) : null}
+      </YStack>
       <Dialog.Footer
         showCancelButton={false}
         confirmButtonProps={{

@@ -323,6 +323,7 @@ class ServiceHardware extends ServiceBase {
 
     if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
       newPayload.firmwareProgress = originEvent.payload.progress;
+      newPayload.firmwareProgressType = originEvent.payload.progressType;
     }
 
     return {
@@ -482,6 +483,11 @@ class ServiceHardware extends ServiceBase {
         },
       );
     }
+  }
+
+  @backgroundMethod()
+  async init() {
+    await this.getSDKInstance();
   }
 
   @backgroundMethod()

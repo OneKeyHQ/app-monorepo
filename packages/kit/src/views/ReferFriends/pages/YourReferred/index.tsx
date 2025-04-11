@@ -2,9 +2,19 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Page, SizableText, Tab, YStack } from '@onekeyhq/components';
+import {
+  Empty,
+  Page,
+  SizableText,
+  Spinner,
+  Tab,
+  YStack,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 function EmptyData() {
   const intl = useIntl();
@@ -22,15 +32,106 @@ function EmptyData() {
 }
 
 function HardwareSales() {
-  return (
-    <YStack>
-      <YStack px="$5" pt="$5">
-        <SizableText size="$bodyLgMedium">OneKey Pro*2 + Keytag*1</SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          2025-01-26 21:46
-        </SizableText>
-        <EmptyData />
+  const intl = useIntl();
+  const { result, isLoading } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceReferralCode.getHardwareSalesRewardHistory(),
+    [],
+    {
+      watchLoading: true,
+      initResult: {
+        total: 0,
+        items: [],
+      },
+    },
+  );
+
+  if (isLoading) {
+    return (
+      <YStack position="relative" mt="30%" ai="center" jc="center" flex={1}>
+        <Spinner size="large" />
       </YStack>
+    );
+  }
+
+  const { total = 0, items } = result;
+
+  return (
+    <YStack pt="$5">
+      <YStack px="$5">
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.referral_referred_total_orders,
+          })}
+        </SizableText>
+        <SizableText size="$heading5xl">{total}</SizableText>
+      </YStack>
+      {total === 0 && !isLoading ? (
+        <EmptyData />
+      ) : (
+        <YStack px="$5" pt="$5">
+          {items.map((item, key) => (
+            <YStack key={key} py="$2">
+              <SizableText size="$bodyLgMedium">{item.title}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {formatDate(item.createdAt)}
+              </SizableText>
+            </YStack>
+          ))}
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
+function EarnList() {
+  const intl = useIntl();
+  const { result, isLoading } = usePromiseResult(
+    () => backgroundApiProxy.serviceReferralCode.getEarnRewardHistory(),
+    [],
+    {
+      watchLoading: true,
+      initResult: {
+        total: 0,
+        items: [],
+      },
+    },
+  );
+
+  if (isLoading) {
+    return (
+      <YStack position="relative" mt="30%" ai="center" jc="center" flex={1}>
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
+
+  const { total = 0, items } = result;
+
+  return (
+    <YStack pt="$5">
+      <YStack px="$5">
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.referral_referred_total_addresses,
+          })}
+        </SizableText>
+        <SizableText size="$heading5xl">{total}</SizableText>
+      </YStack>
+      {total === 0 && !isLoading ? (
+        <EmptyData />
+      ) : (
+        <YStack px="$5" pt="$5">
+          {items.map((item, key) => (
+            <YStack key={key} py="$2">
+              <SizableText size="$bodyLgMedium">{item.title}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {formatDate(item.createdAt)}
+              </SizableText>
+            </YStack>
+          ))}
+        </YStack>
+      )}
     </YStack>
   );
 }
@@ -39,15 +140,15 @@ export default function YourReferred() {
   const intl = useIntl();
   const tabs = useMemo(
     () => [
-      {
-        title: 'OneKey ID',
-        page: HardwareSales,
-      },
+      // {
+      //   title: 'OneKey ID',
+      //   page: HardwareSales,
+      // },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_type_2,
         }),
-        page: HardwareSales,
+        page: EarnList,
       },
       {
         title: intl.formatMessage({
@@ -59,30 +160,16 @@ export default function YourReferred() {
     [intl],
   );
 
-  const onRefresh = useCallback(() => {}, []);
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
       />
       <Page.Body>
-        <Tab
-          disableRefresh={!platformEnv.isNative}
+        <Tab.Page
           data={tabs}
-          ListHeaderComponent={
-            <YStack px="$5">
-              <SizableText size="$bodyLg">
-                {intl.formatMessage({
-                  id: ETranslations.referral_referred_total,
-                })}
-              </SizableText>
-              <SizableText size="$heading5xl">245</SizableText>
-            </YStack>
-          }
           initialScrollIndex={0}
-          initialHeaderHeight={220}
           showsVerticalScrollIndicator={false}
-          onRefresh={onRefresh}
         />
       </Page.Body>
     </Page>

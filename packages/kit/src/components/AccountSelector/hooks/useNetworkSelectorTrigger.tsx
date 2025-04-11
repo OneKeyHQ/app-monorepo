@@ -21,27 +21,33 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
 
   const navigation = useAppNavigation();
 
-  const showChainSelector = useCallback(() => {
-    actions.current.showChainSelector({
+  const showChainSelector = useCallback(
+    ({
+      recordNetworkHistoryEnabled,
+    }: { recordNetworkHistoryEnabled?: boolean } = {}) => {
+      actions.current.showChainSelector({
+        navigation,
+        num,
+        sceneName,
+        sceneUrl,
+        networkIds,
+        defaultNetworkId,
+        recordNetworkHistoryEnabled,
+        editable:
+          sceneName === EAccountSelectorSceneName.home ||
+          sceneName === EAccountSelectorSceneName.homeUrlAccount,
+      });
+    },
+    [
+      actions,
+      defaultNetworkId,
+      networkIds,
       navigation,
       num,
       sceneName,
       sceneUrl,
-      networkIds,
-      defaultNetworkId,
-      editable:
-        sceneName === EAccountSelectorSceneName.home ||
-        sceneName === EAccountSelectorSceneName.homeUrlAccount,
-    });
-  }, [
-    actions,
-    defaultNetworkId,
-    networkIds,
-    navigation,
-    num,
-    sceneName,
-    sceneUrl,
-  ]);
+    ],
+  );
 
   return {
     activeAccount,

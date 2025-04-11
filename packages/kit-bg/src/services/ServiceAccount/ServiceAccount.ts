@@ -2715,6 +2715,83 @@ class ServiceAccount extends ServiceBase {
     return result;
   }
 
+  getAccountXpubOrAddressWithMemo = memoizee(
+    async ({
+      accountId,
+      networkId,
+      addressToLowerCase = true,
+    }: {
+      accountId: string | undefined;
+      networkId: string | undefined;
+      addressToLowerCase?: boolean;
+    }): Promise<string | null> => {
+      // console.log('getAccountXpubOrAddressWithMemo', accountId, networkId);
+      if (!networkId || !accountId) {
+        return null;
+      }
+      let accountXpubOrAddress: string | undefined;
+
+      let accountXpub: string | undefined;
+      try {
+        accountXpub = await this.getAccountXpub({
+          networkId,
+          accountId,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+      if (accountXpub) {
+        accountXpubOrAddress = accountXpub;
+      } else {
+        let accountAddress: string | undefined;
+        try {
+          accountAddress = await this.getAccountAddressForApi({
+            networkId,
+            accountId,
+          });
+        } catch (error) {
+          console.error(error);
+        }
+        if (accountAddress) {
+          accountXpubOrAddress = accountAddress;
+          if (addressToLowerCase) {
+            accountXpubOrAddress = accountXpubOrAddress?.toLowerCase();
+          }
+        }
+      }
+
+      return accountXpubOrAddress || null;
+    },
+    {
+      max: 100,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async getAccountXpubOrAddress({
+    accountId,
+    networkId,
+    addressToLowerCase = true,
+  }: {
+    accountId: string | undefined;
+    networkId: string | undefined;
+    addressToLowerCase?: boolean;
+  }): Promise<string | null> {
+    // Because all EVM networks use the same address, so the networkId is unified to eth to better utilize the cache
+    if (networkUtils.isEvmNetwork({ networkId })) {
+      // eslint-disable-next-line no-param-reassign
+      networkId = getNetworkIdsMap().eth;
+    }
+
+    return this.getAccountXpubOrAddressWithMemo({
+      accountId,
+      networkId,
+      addressToLowerCase,
+    });
+  }
+
   @backgroundMethod()
   async getAccountXpub({
     accountId,

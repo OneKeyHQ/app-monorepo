@@ -174,6 +174,7 @@ function BookmarkListModal() {
           url: item.url,
           title: item.title,
           logo: item.logo,
+          sortIndex: undefined,
         },
         enterMethod: EEnterMethod.bookmark,
         shouldPopNavigation: true,

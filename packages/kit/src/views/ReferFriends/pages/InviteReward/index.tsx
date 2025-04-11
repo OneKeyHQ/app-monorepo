@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -11,8 +12,11 @@ import {
   IconButton,
   NumberSizeableText,
   Page,
+  Popover,
   Progress,
+  ScrollView,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -21,38 +25,55 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
-function ShareCode() {
+function PopoverLine({ children }: PropsWithChildren) {
+  return (
+    <XStack gap="$3" ai="center">
+      <Stack w="$1.5" h="$1.5" bg="$textSubdued" borderRadius="$full" />
+      <SizableText size="$bodyLg">{children}</SizableText>
+    </XStack>
+  );
+}
+
+function NoRewardYet() {
+  const intl = useIntl();
+  return (
+    <XStack pt="$4" gap="$2.5" ai="center">
+      <XStack>
+        <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
+      </XStack>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.referral_no_reward })}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function ShareCode({
+  inviteUrl,
+  inviteCode,
+}: {
+  inviteUrl: string;
+  inviteCode: string;
+}) {
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
 
-  const { result: myReferralCode } = usePromiseResult(
-    async () =>
-      (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
-      'TEST_CODE',
-    [],
-    {
-      initResult: '',
-    },
-  );
-
   const handleCopy = useCallback(() => {
-    copyText(myReferralCode);
-  }, [copyText, myReferralCode]);
+    copyText(inviteCode);
+  }, [copyText, inviteCode]);
 
   const toYourReferredPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.YourReferred);
   }, [navigation]);
   const intl = useIntl();
-  const sharedUrl = useMemo(
-    () => `https://onekey.so/r/${myReferralCode}`,
-    [myReferralCode],
-  );
+  const sharedUrl = useMemo(() => `https://${inviteUrl}`, [inviteUrl]);
   return (
     <YStack px="$5" pt="$6" pb="$8">
       <YStack>
@@ -70,7 +91,7 @@ function ShareCode() {
           </Button>
         </XStack>
         <XStack gap="$3" pt="$2" ai="center">
-          <SizableText size="$heading4xl">{myReferralCode}</SizableText>
+          <SizableText size="$heading4xl">{inviteCode}</SizableText>
           <IconButton
             title={intl.formatMessage({ id: ETranslations.global_copy })}
             variant="tertiary"
@@ -92,7 +113,7 @@ function ShareCode() {
           borderRadius="$2.5"
         >
           <SizableText size="$bodyLg" flexShrink={1}>
-            {`onekey.so/r/${myReferralCode}`}
+            {inviteUrl}
           </SizableText>
           <XStack ai="center" gap="$2.5">
             <IconButton
@@ -134,25 +155,46 @@ function ShareCode() {
   );
 }
 
-function Dashboard() {
-  const [settings] = useSettingsPersistAtom();
+function Dashboard({
+  totalRewards,
+  enabledNetworks,
+  hardwareSales,
+  earn,
+  levelPercent,
+  rebateLevel,
+  nextRebateLevel,
+}: {
+  totalRewards: string;
+  enabledNetworks: IInviteSummary['enabledNetworks'];
+  earn: IInviteSummary['Earn'];
+  hardwareSales: IInviteSummary['HardwareSales'];
+  levelPercent: number;
+  rebateLevel: string;
+  nextRebateLevel: string;
+}) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const currencySymbol = settings.currencyInfo.symbol;
 
+  const { verifyOneKeyId } = useLoginOneKeyId();
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
-      onAddressAdded: ({
+      enabledNetworks,
+      onAddressAdded: async ({
         address,
         networkId,
       }: {
         address: string;
         networkId: string;
       }) => {
-        alert(`address-networkId: ${address}, ${networkId}`);
+        const emailOTP = await verifyOneKeyId();
+        void backgroundApiProxy.serviceReferralCode.bindAddress(
+          networkId,
+          address,
+          emailOTP,
+        );
       },
     });
-  }, [navigation]);
+  }, [enabledNetworks, navigation, verifyOneKeyId]);
 
   const toEarnRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EarnReward);
@@ -161,6 +203,13 @@ function Dashboard() {
   const toHardwareSalesRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
+
+  const showEarnSalesAvailableFiat = Number(earn.available?.fiatValue || 0) > 0;
+  const showEarnSalesPendingFiat = Number(earn.pending?.fiatValue || 0) > 0;
+  const showHardwareSalesAvailableFiat =
+    Number(hardwareSales.available?.fiatValue || 0) > 0;
+  const showHardwarePendingFiat =
+    Number(hardwareSales.pending?.fiatValue || 0) > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -178,17 +227,43 @@ function Dashboard() {
               id: ETranslations.referral_total_reward,
             })}
           </SizableText>
-          <NumberSizeableText
-            color="$textSuccess"
-            formatter="balance"
-            size="$bodyLgMedium"
-            textDecorationLine="underline"
-            textDecorationColor="$textSuccess"
-            textDecorationStyle="dotted"
-            formatterOptions={{ tokenSymbol: 'USD' }}
-          >
-            38485.93
-          </NumberSizeableText>
+          <Popover
+            title={intl.formatMessage({
+              id: ETranslations.referral_total_reward,
+            })}
+            renderTrigger={
+              <NumberSizeableText
+                pb={1}
+                color="$textSuccess"
+                formatter="balance"
+                size="$bodyLgMedium"
+                cursor="pointer"
+                textDecorationLine="underline"
+                textDecorationColor="$textSuccess"
+                textDecorationStyle="dotted"
+                formatterOptions={{ tokenSymbol: 'USD' }}
+                style={{
+                  textUnderlineOffset: 4,
+                }}
+              >
+                {totalRewards}
+              </NumberSizeableText>
+            }
+            renderContent={
+              <Stack gap="$2.5" p="$5">
+                <PopoverLine>
+                  {intl.formatMessage({
+                    id: ETranslations.referral_total_reward_pop1,
+                  })}
+                </PopoverLine>
+                <PopoverLine>
+                  {intl.formatMessage({
+                    id: ETranslations.referral_total_reward_pop2,
+                  })}
+                </PopoverLine>
+              </Stack>
+            }
+          />
         </XStack>
         <YStack gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
@@ -227,32 +302,36 @@ function Dashboard() {
           </SizableText>
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
-        <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        <YStack gap="$2" pt="$4">
-          <XStack gap="$2">
-            <Token size="xs" networkId="evm--1" />
-            <NumberSizeableText
-              formatter="balance"
-              size="$bodyMd"
-              formatterOptions={{ tokenSymbol: 'USDT' }}
-            >
-              0.1
-            </NumberSizeableText>
-          </XStack>
-          <Divider bg="$borderSubdued" />
-          <XStack gap="$2">
-            <Token size="xs" networkId="evm--1" />
-            <NumberSizeableText
-              formatter="balance"
-              size="$bodyMd"
-              formatterOptions={{ tokenSymbol: 'ETH' }}
-            >
-              0.1
-            </NumberSizeableText>
-          </XStack>
-        </YStack>
+        {showEarnSalesAvailableFiat || showEarnSalesPendingFiat ? (
+          <YStack gap="$2" pt="$4">
+            <XStack gap="$2">
+              <Token size="xs" networkId="evm--1" />
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMd"
+                formatterOptions={{ tokenSymbol: earn.available?.token.symbol }}
+              >
+                {earn.available?.fiatValue}
+              </NumberSizeableText>
+            </XStack>
+            <Divider bg="$borderSubdued" />
+            <XStack gap="$2">
+              <Token size="xs" networkId="evm--1" />
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMd"
+                formatterOptions={{ tokenSymbol: earn.pending?.token.symbol }}
+              >
+                {earn.pending?.fiatValue}
+              </NumberSizeableText>
+            </XStack>
+          </YStack>
+        ) : (
+          <NoRewardYet />
+        )}
       </YStack>
       <YStack
         px="$5"
@@ -268,73 +347,81 @@ function Dashboard() {
           </SizableText>
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
-        <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_sales_reward_desc })}
         </SizableText>
         <YStack pt="$4">
           <YStack gap="$2">
             <XStack jc="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.referral_sales_level_bronze,
-                })}
+                {rebateLevel}
               </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {`${intl.formatMessage({
-                  id: ETranslations.referral_sales_level_sliver,
-                })}(${intl.formatMessage({
-                  id: ETranslations.referral_sales_level_upgrade,
-                })})`}
+                {nextRebateLevel}
               </SizableText>
             </XStack>
-            <Progress value={1} width="100%" size="medium" />
+            <Progress value={levelPercent} width="100%" size="medium" />
           </YStack>
-          <XStack pt="$4" gap="$2">
-            <Token size="xs" networkId="evm--1" />
-            <SizableText size="$bodyMd">
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: 'USDC' }}
-              >
-                0
-              </NumberSizeableText>
-              {` + `}
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: 'USDC' }}
-              >
-                55.52
-              </NumberSizeableText>
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.global_pending,
-              })}
-            </SizableText>
-          </XStack>
+          {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
+            <XStack pt="$4" gap="$2">
+              {hardwareSales.available?.token.networkId ? (
+                <Token
+                  size="xs"
+                  networkId={hardwareSales.available?.token.networkId}
+                />
+              ) : null}
+              <SizableText size="$bodyMd">
+                <NumberSizeableText
+                  formatter="balance"
+                  size="$bodyMd"
+                  formatterOptions={{
+                    tokenSymbol: hardwareSales.available?.token.symbol,
+                  }}
+                >
+                  {hardwareSales.available?.fiatValue || 0}
+                </NumberSizeableText>
+                {showHardwarePendingFiat ? (
+                  <>
+                    <SizableText size="$bodyMd">{` + `}</SizableText>
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: hardwareSales.pending?.token.symbol,
+                      }}
+                    >
+                      {hardwareSales.pending?.fiatValue || 0}
+                    </NumberSizeableText>
+                  </>
+                ) : null}
+              </SizableText>
+              {showHardwarePendingFiat ? (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.global_pending,
+                  })}
+                </SizableText>
+              ) : null}
+            </XStack>
+          ) : (
+            <NoRewardYet />
+          )}
         </YStack>
       </YStack>
     </YStack>
   );
 }
 
-interface ISolution {
-  question: string;
-  answer: string;
-}
-
-function FAQ({ solutions }: { solutions: ISolution[] }) {
+function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
   const intl = useIntl();
   return (
-    <YStack gap="$6">
+    <YStack gap="$6" px="$5" py="$8">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>
       <YStack>
         <Accordion type="multiple" gap="$2">
-          {solutions.map(({ question, answer }, index) => (
+          {faqs.map(({ q, a }, index) => (
             <Accordion.Item value={String(index)} key={String(index)}>
               <Accordion.Trigger
                 unstyled
@@ -362,7 +449,7 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
                       size="$bodyLgMedium"
                       color={open ? '$text' : '$textSubdued'}
                     >
-                      {question}
+                      {q}
                     </SizableText>
                     <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
                       <Icon
@@ -383,7 +470,7 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >
-                  <SizableText size="$bodyMd">{answer}</SizableText>
+                  <SizableText size="$bodyMd">{a}</SizableText>
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>
@@ -394,19 +481,73 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
   );
 }
 
+function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
+  const {
+    faqs,
+    inviteUrl,
+    inviteCode,
+    totalRewards,
+    enabledNetworks,
+    Earn,
+    HardwareSales,
+    levelPercent,
+    rebateLevel,
+    nextRebateLevel,
+  } = summaryInfo;
+  return (
+    <>
+      <ShareCode inviteUrl={inviteUrl} inviteCode={inviteCode} />
+      <Dashboard
+        totalRewards={totalRewards}
+        enabledNetworks={enabledNetworks}
+        earn={Earn}
+        hardwareSales={HardwareSales}
+        levelPercent={Number(levelPercent)}
+        rebateLevel={rebateLevel}
+        nextRebateLevel={nextRebateLevel}
+      />
+      <FAQ faqs={faqs} />
+    </>
+  );
+}
+
 export default function InviteReward() {
   const intl = useIntl();
+  const { result: summaryInfo, isLoading } = usePromiseResult(
+    async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+    [],
+    {
+      initResult: undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
+  );
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.referral_title,
         })}
       />
       <Page.Body>
-        <ShareCode />
-        <Dashboard />
-        {/* <FAQ /> */}
+        {!summaryInfo || isLoading ? (
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            ai="center"
+            jc="center"
+            flex={1}
+          >
+            <Spinner size="large" />
+          </Stack>
+        ) : (
+          <ScrollView>
+            <InviteRewardContent summaryInfo={summaryInfo} />
+          </ScrollView>
+        )}
       </Page.Body>
     </Page>
   );

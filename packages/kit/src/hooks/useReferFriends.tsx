@@ -23,6 +23,7 @@ import {
   EModalRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import useAppNavigation from './useAppNavigation';
 import { useLoginOneKeyId } from './useLoginOneKeyId';
@@ -112,7 +113,10 @@ export const useReferFriends = () => {
 
   const toReferFriendsPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-    if (isLogin) {
+    const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
+      ESpotlightTour.referAFriend,
+    );
+    if (isLogin && isVisited) {
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: EModalReferFriendsRoutes.InviteReward,
       });
@@ -166,13 +170,12 @@ export const useReferFriends = () => {
         await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
-        (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
-        'TEST_CODE';
+        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
       const handleConfirm = () => {
         if (isLogin) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-            screen: EModalReferFriendsRoutes.ReferAFriend,
+            screen: EModalReferFriendsRoutes.InviteReward,
           });
         } else {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
@@ -312,7 +315,6 @@ export const useReferFriends = () => {
           </YStack>
         ),
         showCancelButton: !isLogin || !isBindInviteCode,
-        dismissOnOverlayPress: !isBindInviteCode,
         onCancelText: intl.formatMessage({
           id: ETranslations.earn_referral_add_invite_code,
         }),

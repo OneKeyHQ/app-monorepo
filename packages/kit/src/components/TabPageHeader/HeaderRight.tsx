@@ -118,8 +118,13 @@ export function HeaderRight({
       tabRoute === ETabRoutes.Home ||
       platformEnv.isNativeAndroid ||
       media.gtMd ? (
-        <Stack flexDirection="row" alignItems="center" gap="$4">
-          {children || primeButton ? (
+        <Stack
+          key="more-action"
+          flexDirection="row"
+          alignItems="center"
+          gap="$4"
+        >
+          {(children || primeButton) && media.gtMd ? (
             <Stack
               height="$4"
               borderRightWidth={1}
@@ -130,10 +135,6 @@ export function HeaderRight({
           <MoreActionButton key="more-action" />
         </Stack>
       ) : null;
-
-    // const searchInput = media.gtMd ? (
-    //   <UniversalSearchInput key="searchInput" />
-    // ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
@@ -152,8 +153,9 @@ export function HeaderRight({
       notificationsButton = null;
     }
 
-    const onekeyIdButton = (
+    const onekeyIdButton = media.gtMd ? (
       <HeaderIconButton
+        key="onekey-id"
         title="OneKey ID"
         icon="PeopleOutline"
         onPress={async () => {
@@ -161,7 +163,7 @@ export function HeaderRight({
         }}
         testID="header-right-onekey-id"
       />
-    );
+    ) : null;
 
     return [
       primeButton,

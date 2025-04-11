@@ -109,7 +109,12 @@ function DesktopCustomTabBar() {
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        void addOrUpdateBrowserBookmark({ url, title, logo: undefined });
+        void addOrUpdateBrowserBookmark({
+          url,
+          title,
+          logo: undefined,
+          sortIndex: undefined,
+        });
       } else {
         void removeBrowserBookmark(url);
       }
@@ -176,8 +181,6 @@ function DesktopCustomTabBar() {
   const handleShortcuts = useCallback(
     (eventName: EShortcutEvents) => {
       switch (eventName) {
-        case EShortcutEvents.TabPin6:
-        case EShortcutEvents.TabPin7:
         case EShortcutEvents.TabPin8:
         case EShortcutEvents.TabPin9:
           if (result?.pinnedTabs?.length) {
