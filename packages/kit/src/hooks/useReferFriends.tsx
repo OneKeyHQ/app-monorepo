@@ -340,10 +340,10 @@ export const useReferFriends = () => {
       if (isBindInviteCode) {
         changeInviteCode(onSuccess, onFail);
       } else {
-        void shareReferRewards(onSuccess, onFail);
+        void bindInviteCode(onSuccess, onFail);
       }
     },
-    [changeInviteCode, shareReferRewards],
+    [bindInviteCode, changeInviteCode],
   );
 
   return useMemo(
