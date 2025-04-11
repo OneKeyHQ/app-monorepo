@@ -115,10 +115,13 @@ class ServiceCustomToken extends ServiceBase {
         this.backgroundApi.simpleDb.customTokens.addCustomTokensBatch({
           tokens,
         }),
-      customTokens: [...tokens].map((item) => ({
-        ...item,
-        tokenStatus: ECustomTokenStatus.Custom,
-      })),
+      customTokens: [...tokens].map((item) => {
+        const newItem: ICloudSyncCustomToken = {
+          ...item,
+        };
+        newItem.tokenStatus = ECustomTokenStatus.Custom;
+        return newItem;
+      }),
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
@@ -140,10 +143,13 @@ class ServiceCustomToken extends ServiceBase {
         this.backgroundApi.simpleDb.customTokens.hideToken({
           token,
         }),
-      customTokens: [token].map((item) => ({
-        ...item,
-        tokenStatus: ECustomTokenStatus.Hidden,
-      })),
+      customTokens: [token].map((item) => {
+        const newItem: ICloudSyncCustomToken = {
+          ...item,
+        };
+        newItem.tokenStatus = ECustomTokenStatus.Hidden;
+        return newItem;
+      }),
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
