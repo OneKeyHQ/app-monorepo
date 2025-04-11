@@ -9,7 +9,7 @@ interface IReward {
     };
     amount: string;
     fiatValue: string;
-  };
+  }[];
   pending?: {
     token: {
       networkId: string;
@@ -20,7 +20,7 @@ interface IReward {
     };
     amount: string;
     fiatValue: string;
-  };
+  }[];
 }
 
 export interface IInviteSummary {
