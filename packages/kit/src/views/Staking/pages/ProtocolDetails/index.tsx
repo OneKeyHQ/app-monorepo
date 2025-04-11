@@ -306,7 +306,7 @@ const ProtocolDetailsPage = () => {
             networkId,
             accountAddress: earnAccount?.accountAddress,
           });
-        if (!inviteCodeOnServer) {
+        if (inviteCodeOnServer) {
           return false;
         }
       }
