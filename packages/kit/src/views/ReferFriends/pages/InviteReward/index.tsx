@@ -30,6 +30,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
 
 function PopoverLine({ children }: PropsWithChildren) {
   return (
@@ -484,6 +486,22 @@ function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
   );
 }
 
+function Link() {
+  const intl = useIntl();
+
+  return (
+    <SizableText
+      color="$textInfo"
+      size="$bodyMdMedium"
+      mt={30}
+      textDecorationLine="underline"
+      onPress={() => openUrlExternal(referralLink)}
+    >
+      {intl.formatMessage({ id: ETranslations.referral_more_questions })}
+    </SizableText>
+  );
+}
+
 function InviteRewardContent({
   summaryInfo,
   fetchSummaryInfo,
@@ -519,6 +537,7 @@ function InviteRewardContent({
         withdrawAddresses={withdrawAddresses}
       />
       <FAQ faqs={faqs} />
+      <Link />
     </>
   );
 }
