@@ -1282,7 +1282,7 @@ class ServiceStaking extends ServiceBase {
       data: {
         referCode: string;
       };
-    }>(`/earn/v1/invite-code/query`, {
+    }>(`/earn/v1/account/invite-code/query`, {
       params,
     });
     return response.data.data.referCode;
