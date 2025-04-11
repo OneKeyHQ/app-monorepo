@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Share, StyleSheet } from 'react-native';
@@ -209,10 +209,10 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
-  const showEarnSalesAvailableFiat = earn.available?.length > 0;
-  const showEarnSalesPendingFiat = earn.pending?.length > 0;
-  const showHardwareSalesAvailableFiat = hardwareSales.available?.length > 0;
-  const showHardwarePendingFiat = hardwareSales.pending?.length > 0;
+  const showEarnSalesAvailableFiat = (earn.available.length || 0) > 0;
+  const showHardwareSalesAvailableFiat =
+    (hardwareSales.available?.length || 0) > 0;
+  const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -310,29 +310,29 @@ function Dashboard({
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        {showEarnSalesAvailableFiat || showEarnSalesPendingFiat ? (
+        {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
-            <XStack gap="$2">
-              <Token size="xs" networkId="evm--1" />
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: earn.available?.token.symbol }}
-              >
-                {earn.available?.fiatValue}
-              </NumberSizeableText>
-            </XStack>
-            <Divider bg="$borderSubdued" />
-            <XStack gap="$2">
-              <Token size="xs" tokenImageUri={earn.available?.token.logoURI} />
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: earn.pending?.token.symbol }}
-              >
-                {earn.pending?.fiatValue}
-              </NumberSizeableText>
-            </XStack>
+            {earn.available?.map(({ token, fiatValue }, index) => {
+              return (
+                <Fragment key={index}>
+                  <XStack gap="$2">
+                    <Token size="xs" tokenImageUri={token.logoURI} />
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: token.symbol,
+                      }}
+                    >
+                      {fiatValue}
+                    </NumberSizeableText>
+                  </XStack>
+                  {index !== (earn.available?.length || 1) - 1 ? (
+                    <Divider bg="$borderSubdued" />
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </YStack>
         ) : (
           <NoRewardYet />
