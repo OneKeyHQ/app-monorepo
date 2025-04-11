@@ -164,10 +164,7 @@ function ProfitInfo({
           {totalRewardAmount && Number(totalRewardAmount) > 0 ? (
             <GridItem
               title={intl.formatMessage({
-                id: ETranslations.earn_24h_earnings,
-              })}
-              tooltip={intl.formatMessage({
-                id: ETranslations.earn_24h_earnings_tooltip,
+                id: ETranslations.earn_referral_total_earned,
               })}
             >
               <NumberSizeableText
