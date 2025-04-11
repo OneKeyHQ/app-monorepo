@@ -30,6 +30,7 @@ type IProfitInfoProps = {
   apys?: IRewardApys;
   rewardUnit: IEarnRewardUnit;
   rewardAssets?: Record<string, IEarnTokenItem>;
+  totalRewardAmount?: string;
   earningsIn24h?: string;
   rewardToken?: string;
   rewardTokens?: string;
@@ -54,6 +55,7 @@ function ProfitInfo({
   updateFrequency,
   unstakingPeriod,
   stakingTime,
+  totalRewardAmount,
   earnPoints,
   rewardUnit,
   providerName,
@@ -150,9 +152,34 @@ function ProfitInfo({
                 formatter="value"
                 color="$textSuccess"
                 size="$bodyLgMedium"
-                formatterOptions={{ currency: symbol }}
+                formatterOptions={{
+                  currency: symbol,
+                  showPlusMinusSigns: Number(earningsIn24h) >= 0.01,
+                }}
               >
                 {earningsIn24h}
+              </NumberSizeableText>
+            </GridItem>
+          ) : null}
+          {totalRewardAmount && Number(totalRewardAmount) > 0 ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_24h_earnings,
+              })}
+              tooltip={intl.formatMessage({
+                id: ETranslations.earn_24h_earnings_tooltip,
+              })}
+            >
+              <NumberSizeableText
+                formatter="value"
+                color="$textSuccess"
+                size="$bodyLgMedium"
+                formatterOptions={{
+                  currency: symbol,
+                  showPlusMinusSigns: Number(totalRewardAmount) >= 0.01,
+                }}
+              >
+                {totalRewardAmount}
               </NumberSizeableText>
             </GridItem>
           ) : null}
@@ -231,6 +258,7 @@ export const ProfitSection = ({
     apys: details.provider.apys,
     rewardAssets: details.rewardAssets,
     earningsIn24h: details.earnings24h,
+    totalRewardAmount: details.totalRewardAmount,
     rewardToken: details.rewardToken,
     rewardTokens: details.rewardToken,
     receiptToken: details.provider.receiptToken,

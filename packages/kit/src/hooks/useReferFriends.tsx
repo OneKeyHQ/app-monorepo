@@ -175,7 +175,7 @@ export const useReferFriends = () => {
       const handleConfirm = () => {
         if (isLogin) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-            screen: EModalReferFriendsRoutes.ReferAFriend,
+            screen: EModalReferFriendsRoutes.InviteReward,
           });
         } else {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
@@ -315,7 +315,6 @@ export const useReferFriends = () => {
           </YStack>
         ),
         showCancelButton: !isLogin || !isBindInviteCode,
-        dismissOnOverlayPress: !isBindInviteCode,
         onCancelText: intl.formatMessage({
           id: ETranslations.earn_referral_add_invite_code,
         }),
