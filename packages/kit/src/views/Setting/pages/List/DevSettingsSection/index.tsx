@@ -644,8 +644,9 @@ export const DevSettingsSection = () => {
         <>
           <SectionPressItem
             copyable
-            title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${globalThis?.desktopApi?.channel || ''
-              } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
+            title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
+              globalThis?.desktopApi?.channel || ''
+            } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
           />
           <SectionPressItem
             copyable
@@ -661,8 +662,9 @@ export const DevSettingsSection = () => {
             switchWebDappMode();
             globalThis.location.reload();
           }}
-          title={`Switch web mode: ${isWebInDappMode() ? 'dapp' : 'wallet'
-            } mode`}
+          title={`Switch web mode: ${
+            isWebInDappMode() ? 'dapp' : 'wallet'
+          } mode`}
           titleProps={{ color: '$textCritical' }}
         />
       ) : null}

@@ -9,11 +9,11 @@ export interface IDevSettings {
   enableTestEndpoint?: boolean;
   // enable dev overlay window
   showDevOverlayWindow?:
-  | boolean
-  | {
-    top: number;
-    align: 'left' | 'right';
-  };
+    | boolean
+    | {
+        top: number;
+        align: 'left' | 'right';
+      };
   // always signOnly send tx
   alwaysSignOnlySendTx?: boolean;
   // show dev export private key
