@@ -85,6 +85,8 @@ export type IStakeProviderInfo = {
   approveType?: EApproveType;
 
   liquidity?: string;
+  vaultManager?: string;
+  vaultManagerName?: string;
 };
 
 export type IStakeBaseParams = {
@@ -101,6 +103,8 @@ export type IStakeBaseParams = {
   morphoVault?: string; // morpho vault
   approveType?: EApproveType;
   permitSignature?: string;
+
+  inviteCode?: string;
 };
 
 export type IWithdrawBaseParams = {
@@ -146,6 +150,7 @@ export type IStakeClaimBaseParams = {
 };
 
 export type IStakeHistoryParams = {
+  type?: string;
   accountId: string;
   networkId: string;
   symbol: string;
@@ -164,6 +169,7 @@ export type IStakeHistory = {
 };
 
 export type IStakeHistoriesResponse = {
+  filter: Record<string, string>;
   list: IStakeHistory[];
   tokenMap: Record<string, IToken>;
   nextKey?: string;
@@ -251,6 +257,7 @@ export type IStakeProtocolDetails = {
   claimable?: string;
   rewards?: string;
   earnings24h?: string;
+  totalRewardAmount?: string;
   provider: IStakeProviderInfo;
   totalStaked?: string;
   totalStakedFiatValue?: string;
@@ -268,6 +275,7 @@ export type IStakeProtocolDetails = {
   overflow?: string;
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
+  waitingRebateRewardAmount: string;
 };
 
 export type IStakeProtocolListItem = {
@@ -294,6 +302,9 @@ export type IRewardApys = {
 
   // Token rewards
   rewards: Record<string, string>;
+
+  // rebate reward
+  rebateReward: string;
 };
 
 export type IBabylonPortfolioStatus =

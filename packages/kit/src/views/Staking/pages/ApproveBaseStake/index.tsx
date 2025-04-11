@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -41,8 +42,11 @@ const BasicApproveBaseStakePage = () => {
   const handleStake = useUniversalStake({ accountId, networkId });
   const onConfirm = useCallback(
     async (params: IApproveConfirmFnParams) => {
+      const inviteCode =
+        await backgroundApiProxy.serviceReferralCode.getInviteCode();
       await handleStake({
         amount: params.amount,
+        inviteCode,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
