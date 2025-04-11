@@ -155,10 +155,6 @@ function AllNetworksManager() {
 
   const handleEnableAllNetworks = useCallback(async () => {
     setIsLoading(true);
-    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-      enabledNetworks: networksState.enabledNetworks,
-      disabledNetworks: networksState.disabledNetworks,
-    });
 
     const { accountsInfo } =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
@@ -233,6 +229,11 @@ function AllNetworksManager() {
         customNetworks: enabledNetworksWithoutAccountTemp,
       });
     }
+
+    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+      enabledNetworks: networksState.enabledNetworks,
+      disabledNetworks: networksState.disabledNetworks,
+    });
 
     navigation.pop();
 
