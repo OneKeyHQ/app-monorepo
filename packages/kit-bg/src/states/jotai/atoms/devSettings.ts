@@ -23,8 +23,6 @@ export interface IDevSettings {
   disableAllShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
-  // show trading view
-  showTradingView?: boolean;
   // use trading view test domain
   useTradingViewTestDomain?: boolean;
   showPrimeTest?: boolean;

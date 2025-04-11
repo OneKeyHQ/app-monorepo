@@ -681,14 +681,6 @@ export const DevSettingsSection = () => {
         }}
       />
       <AutoJumpSetting />
-
-      <SectionFieldItem
-        name="showTradingView"
-        title="Show TradingView"
-        subtitle={devSettings.settings?.showTradingView ? 'Shown' : 'Hidden'}
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
       <SectionFieldItem
         name="useTradingViewTestDomain"
         title="Use TradingView Test Domain"
