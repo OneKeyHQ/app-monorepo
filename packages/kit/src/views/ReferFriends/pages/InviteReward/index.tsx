@@ -209,12 +209,10 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
-  const showEarnSalesAvailableFiat = Number(earn.available?.fiatValue || 0) > 0;
-  const showEarnSalesPendingFiat = Number(earn.pending?.fiatValue || 0) > 0;
-  const showHardwareSalesAvailableFiat =
-    Number(hardwareSales.available?.fiatValue || 0) > 0;
-  const showHardwarePendingFiat =
-    Number(hardwareSales.pending?.fiatValue || 0) > 0;
+  const showEarnSalesAvailableFiat = earn.available?.length > 0;
+  const showEarnSalesPendingFiat = earn.pending?.length > 0;
+  const showHardwareSalesAvailableFiat = hardwareSales.available?.length > 0;
+  const showHardwarePendingFiat = hardwareSales.pending?.length > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -371,10 +369,10 @@ function Dashboard({
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
-              {hardwareSales.available?.token.networkId ? (
+              {hardwareSales.available?.[0].token.networkId ? (
                 <Token
                   size="xs"
-                  tokenImageUri={hardwareSales.available?.token.logoURI}
+                  tokenImageUri={hardwareSales.available?.[0].token.logoURI}
                 />
               ) : null}
               <SizableText size="$bodyMd">
@@ -382,10 +380,10 @@ function Dashboard({
                   formatter="balance"
                   size="$bodyMd"
                   formatterOptions={{
-                    tokenSymbol: hardwareSales.available?.token.symbol,
+                    tokenSymbol: hardwareSales.available?.[0].token.symbol,
                   }}
                 >
-                  {hardwareSales.available?.fiatValue || 0}
+                  {hardwareSales.available?.[0].fiatValue || 0}
                 </NumberSizeableText>
                 {showHardwarePendingFiat ? (
                   <>
@@ -394,10 +392,10 @@ function Dashboard({
                       formatter="balance"
                       size="$bodyMd"
                       formatterOptions={{
-                        tokenSymbol: hardwareSales.pending?.token.symbol,
+                        tokenSymbol: hardwareSales.pending?.[0].token.symbol,
                       }}
                     >
-                      {hardwareSales.pending?.fiatValue || 0}
+                      {hardwareSales.pending?.[0].fiatValue || 0}
                     </NumberSizeableText>
                   </>
                 ) : null}
