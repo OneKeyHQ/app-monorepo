@@ -163,11 +163,13 @@ function Dashboard({
   rebateLevel,
   nextRebateLevel,
   fetchSummaryInfo,
+  withdrawAddresses,
 }: {
   totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
   earn: IInviteSummary['Earn'];
   hardwareSales: IInviteSummary['HardwareSales'];
+  withdrawAddresses: IInviteSummary['withdrawAddresses'];
   levelPercent: number;
   rebateLevel: string;
   nextRebateLevel: string;
@@ -368,7 +370,7 @@ function Dashboard({
               {hardwareSales.available?.token.networkId ? (
                 <Token
                   size="xs"
-                  networkId={hardwareSales.available?.token.networkId}
+                  tokenImageUri={hardwareSales.available?.token.logoURI}
                 />
               ) : null}
               <SizableText size="$bodyMd">
@@ -500,6 +502,7 @@ function InviteRewardContent({
     levelPercent,
     rebateLevel,
     nextRebateLevel,
+    withdrawAddresses,
   } = summaryInfo;
   return (
     <>
@@ -513,6 +516,7 @@ function InviteRewardContent({
         rebateLevel={rebateLevel}
         nextRebateLevel={nextRebateLevel}
         fetchSummaryInfo={fetchSummaryInfo}
+        withdrawAddresses={withdrawAddresses}
       />
       <FAQ faqs={faqs} />
     </>
