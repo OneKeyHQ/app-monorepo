@@ -276,7 +276,6 @@ export type IStakeProtocolDetails = {
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
   waitingRebateRewardAmount: string;
-  totalRewardAmount: string;
 };
 
 export type IStakeProtocolListItem = {
