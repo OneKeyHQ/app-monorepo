@@ -37,6 +37,7 @@ import type {
   IPrimeConfigFlushInfo,
   IPrimeLockChangedInfo,
 } from '@onekeyhq/shared/types/socket';
+import type { ICloudSyncCustomToken } from '@onekeyhq/shared/types/token';
 
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
@@ -53,6 +54,7 @@ import { CloudSyncFlowManagerAddressBook } from './CloudSyncFlowManager/CloudSyn
 import { CloudSyncFlowManagerBrowserBookmark } from './CloudSyncFlowManager/CloudSyncFlowManagerBrowserBookmark';
 import { CloudSyncFlowManagerCustomNetwork } from './CloudSyncFlowManager/CloudSyncFlowManagerCustomNetwork';
 import { CloudSyncFlowManagerCustomRpc } from './CloudSyncFlowManager/CloudSyncFlowManagerCustomRpc';
+import { CloudSyncFlowManagerCustomToken } from './CloudSyncFlowManager/CloudSyncFlowManagerCustomToken';
 import { CloudSyncFlowManagerIndexedAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerIndexedAccount';
 import { CloudSyncFlowManagerLock } from './CloudSyncFlowManager/CloudSyncFlowManagerLock';
 import { CloudSyncFlowManagerMarketWatchList } from './CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList';
@@ -99,6 +101,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     customNetwork: new CloudSyncFlowManagerCustomNetwork({
       backgroundApi: this.backgroundApi,
     }),
+    customToken: new CloudSyncFlowManagerCustomToken({
+      backgroundApi: this.backgroundApi,
+    }),
     addressBook: new CloudSyncFlowManagerAddressBook({
       backgroundApi: this.backgroundApi,
     }),
@@ -124,6 +129,8 @@ class ServicePrimeCloudSync extends ServiceBase {
         return this.syncManagers.customRpc;
       case EPrimeCloudSyncDataType.CustomNetwork:
         return this.syncManagers.customNetwork;
+      case EPrimeCloudSyncDataType.CustomToken:
+        return this.syncManagers.customToken;
       default: {
         const exhaustiveCheck: never = dataType;
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
@@ -383,21 +390,20 @@ class ServicePrimeCloudSync extends ServiceBase {
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
 
     const now = await this.timeNow();
-    const localData: ICloudSyncServerItem[] = localItems
-      .map((item) => {
-        let dataTimestamp = item.dataTime;
-        if (setUndefinedTimeToNow && isNil(dataTimestamp)) {
-          dataTimestamp = now;
-        }
-        return this.convertLocalItemToServerItem({
-          localItem: item,
-          dataTimestamp,
-        });
-      })
-      .filter(
-        (item) =>
-          (item.data || item.isDeleted) && item.pwdHash === pwdHash && pwdHash,
-      );
+    let localData: ICloudSyncServerItem[] = localItems.map((item) => {
+      let dataTimestamp = item.dataTime;
+      if (setUndefinedTimeToNow && isNil(dataTimestamp)) {
+        dataTimestamp = now;
+      }
+      return this.convertLocalItemToServerItem({
+        localItem: item,
+        dataTimestamp,
+      });
+    });
+    localData = localData.filter(
+      (item) =>
+        (item.data || item.isDeleted) && item.pwdHash === pwdHash && pwdHash,
+    );
 
     // TODO save localData to DB if setUndefinedTimeToNow available
 
@@ -561,6 +567,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const marketWatchListItems: IDBCloudSyncItem[] = [];
     const customRpcItems: IDBCloudSyncItem[] = [];
     const customNetworkItems: IDBCloudSyncItem[] = [];
+    const customTokenItems: IDBCloudSyncItem[] = [];
     const addressBookItems: IDBCloudSyncItem[] = [];
 
     for (const item of items) {
@@ -591,6 +598,9 @@ class ServicePrimeCloudSync extends ServiceBase {
           break;
         case EPrimeCloudSyncDataType.AddressBook:
           addressBookItems.push(item);
+          break;
+        case EPrimeCloudSyncDataType.CustomToken:
+          customTokenItems.push(item);
           break;
         default: {
           const exhaustiveCheck: never = item.dataType;
@@ -669,6 +679,17 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (customNetworkItems?.length) {
       emitEventsStack.push(() => {
         appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+      });
+    }
+
+    // custom token sync
+    await this.syncManagers.customToken.syncToScene({
+      syncCredential,
+      items: customTokenItems,
+    });
+    if (customTokenItems?.length) {
+      emitEventsStack.push(() => {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
       });
     }
 
@@ -791,13 +812,20 @@ class ServicePrimeCloudSync extends ServiceBase {
         items: items.filter(Boolean),
         syncCredential,
       });
-      const deletedItems = items
-        .filter(Boolean)
-        .filter((item) => item.isDeleted);
+      const deletedItems = items.filter(Boolean).filter((item) => {
+        if (item && item.isDeleted) {
+          const manager = this.getSyncManager(item.dataType);
+          if (manager) {
+            return manager.removeSyncItemIfServerDeleted;
+          }
+          return true;
+        }
+        return false;
+      });
+
       if (deletedItems.length) {
-        await localDb.removeRecords({
-          name: ELocalDBStoreNames.CloudSyncItem,
-          ids: deletedItems.map((item) => item.id),
+        await localDb.removeCloudSyncPoolItems({
+          keys: deletedItems.map((item) => item.id),
         });
       }
     }
@@ -1289,6 +1317,28 @@ class ServicePrimeCloudSync extends ServiceBase {
         });
     }
 
+    const allHiddenTokens: ICloudSyncCustomToken[] =
+      (await this.backgroundApi.serviceCustomToken.getAllHiddenTokens()) || [];
+    const syncItemsForHiddenTokens: IDBCloudSyncItem[] =
+      await this.syncManagers.customToken.buildInitSyncDBItems({
+        dbRecords: allHiddenTokens,
+        allDevices,
+        syncCredential,
+        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
+        initDataTime: undefined,
+      });
+
+    const allCustomTokens: ICloudSyncCustomToken[] =
+      (await this.backgroundApi.serviceCustomToken.getAllCustomTokens()) || [];
+    const syncItemsForCustomTokens: IDBCloudSyncItem[] =
+      await this.syncManagers.customToken.buildInitSyncDBItems({
+        dbRecords: allCustomTokens,
+        allDevices,
+        syncCredential,
+        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
+        initDataTime: undefined,
+      });
+
     const totalItems = [
       ...syncItemsForWallets,
       ...syncItemsForAccounts,
@@ -1298,7 +1348,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       ...syncItemsForCustomRpc,
       ...syncItemsForCustomNetwork,
       ...syncItemsForAddressBook,
+      ...syncItemsForHiddenTokens,
+      ...syncItemsForCustomTokens,
     ];
+
+    // const totalItemsUniqById = uniqBy(totalItems, (item) => item.id);
+    // const totalItemsUniqByDeleted = uniqBy(totalItems, (item) => item.isDeleted);
 
     await localDb.withTransaction(async (tx) => {
       await localDb.txAddAndUpdateSyncItems({
@@ -1630,9 +1685,15 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async decryptAllServerSyncItems() {
+  async decryptAllServerSyncItems({
+    includeDeleted,
+  }: {
+    includeDeleted?: boolean;
+  } = {}) {
     await this.getSyncCredentialWithCache();
-    const { serverData: items, pwdHash } = await this.apiDownloadItems();
+    const { serverData: items, pwdHash } = await this.apiDownloadItems({
+      includeDeleted,
+    });
     const localItems: IDBCloudSyncItem[] = [];
     const syncCredential = await this.getSyncCredentialSafe();
     for (const item of items) {

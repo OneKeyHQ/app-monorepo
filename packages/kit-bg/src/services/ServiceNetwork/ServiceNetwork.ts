@@ -1084,6 +1084,51 @@ class ServiceNetwork extends ServiceBase {
   async clearAllNetworksCache() {
     void this.getAllNetworksWithCache.clear();
   }
+
+  @backgroundMethod()
+  async getRecentNetworks({
+    limit,
+  }: {
+    limit?: number;
+  } = {}) {
+    return this.backgroundApi.simpleDb.recentNetworks.getRecentNetworks({
+      limit,
+    });
+  }
+
+  @backgroundMethod()
+  async updateRecentNetworks(data: Record<string, { updatedAt: number }>) {
+    if (!data) {
+      return;
+    }
+
+    // filter out all network
+    const filteredData = Object.fromEntries(
+      Object.entries(data).filter(
+        ([networkId]) => !networkUtils.isAllNetwork({ networkId }),
+      ),
+    );
+
+    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
+      filteredData,
+    );
+  }
+
+  @backgroundMethod()
+  async updateRecentNetwork({ networkId }: { networkId: string }) {
+    if (!networkId && networkUtils.isAllNetwork({ networkId })) {
+      return;
+    }
+    const timestamp = Date.now();
+    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
+      [networkId]: { updatedAt: timestamp },
+    });
+  }
+
+  @backgroundMethod()
+  async clearRecentNetworks() {
+    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+  }
 }
 
 export default ServiceNetwork;

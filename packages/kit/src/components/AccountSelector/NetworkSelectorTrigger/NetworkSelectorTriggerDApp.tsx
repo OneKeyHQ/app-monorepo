@@ -142,7 +142,13 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   );
 });
 
-export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
+export function NetworkSelectorTriggerBrowserSingle({
+  num,
+  recordNetworkHistoryEnabled,
+}: {
+  num: number;
+  recordNetworkHistoryEnabled?: boolean;
+}) {
   const {
     activeAccount: { network },
     showChainSelector,
@@ -153,8 +159,8 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
 
   const triggerDisabled = (networkIds ?? []).length <= 1;
   const handlePress = useCallback(async () => {
-    showChainSelector();
-  }, [showChainSelector]);
+    showChainSelector({ recordNetworkHistoryEnabled });
+  }, [showChainSelector, recordNetworkHistoryEnabled]);
 
   useShortcutsOnRouteFocused(EShortcutEvents.NetworkSelector, handlePress);
 

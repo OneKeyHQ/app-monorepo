@@ -44,7 +44,7 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHardwareSalesReward(cursor?: string) {
+  async getHardwareSalesRewardHistory(cursor?: string) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
@@ -64,6 +64,26 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getEarnRewardHistory(cursor?: string) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      subject: string;
+      limit: number;
+      cursor?: string;
+    } = {
+      subject: 'Earn',
+      limit: 100,
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await client.get<{
+      data: IInviteHistory;
+    }>('/rebate/v1/invite/history', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   async getHardwareSales(cursor?: string) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
@@ -71,6 +91,24 @@ class ServiceReferralCode extends ServiceBase {
       cursor?: string;
     } = {
       subject: 'HardwareSales',
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await client.get<{
+      data: IHardwareSalesRecord;
+    }>('/rebate/v1/invite/records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getEarnReward(cursor?: string) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      subject: string;
+      cursor?: string;
+    } = {
+      subject: 'Earn',
     };
     if (cursor) {
       params.cursor = cursor;
