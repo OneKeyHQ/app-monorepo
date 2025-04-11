@@ -297,7 +297,7 @@ const ProtocolDetailsPage = () => {
   const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
     async () => {
       const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
-      if (!code) {
+      if (code) {
         return false;
       }
       if (earnAccount?.accountAddress) {
