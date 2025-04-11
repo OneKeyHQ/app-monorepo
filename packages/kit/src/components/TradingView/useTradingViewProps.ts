@@ -122,13 +122,14 @@ export const useTradingViewProps = ({
             body {
               border-width: 0px !important;
             }  
-              ${md
-        ? `
+              ${
+                md
+                  ? `
               .layout__area--top>div {
                 padding: 0 10px;
               }`
-        : ''
-      }
+                  : ''
+              }
 
             div:has(>#header-toolbar-compare) {
               display: none;
