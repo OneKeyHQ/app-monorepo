@@ -35,7 +35,6 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
@@ -900,7 +899,6 @@ function BasicEarnHome() {
     void shareReferRewards();
   }, [shareReferRewards]);
 
-  const [devSettings] = useDevSettingsPersistAtom();
   const renderCustomHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup
@@ -926,6 +924,9 @@ function BasicEarnHome() {
     <Page fullPage>
       <TabPageHeader
         showHeaderRight
+        showCustomHeaderRight={
+          platformEnv.isNative ? renderCustomHeaderRight : undefined
+        }
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
       >
