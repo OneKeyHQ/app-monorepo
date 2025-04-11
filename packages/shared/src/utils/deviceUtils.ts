@@ -1,4 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import semver from 'semver';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -413,6 +414,28 @@ export function compareDeviceVersions({
   );
 }
 
+async function shouldUseV2FirmwareUpdateFlow({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+}) {
+  if (!features) {
+    return false;
+  }
+
+  const { getDeviceBootloaderVersion, getDeviceType } = await CoreSDKLoader();
+  const deviceType = getDeviceType(features);
+  if (deviceType !== EDeviceType.Pro) {
+    return false;
+  }
+  const bootloaderVersion = getDeviceBootloaderVersion(features)?.join('.');
+  return !!(
+    semver.valid(bootloaderVersion) &&
+    // TODO: use constant
+    semver.gte(bootloaderVersion, '2.8.0')
+  );
+}
+
 function getRawDeviceId({
   device,
   features,
@@ -449,5 +472,6 @@ export default {
   parseLocalDeviceVersions,
   parseServerVersionInfos,
   compareDeviceVersions,
+  shouldUseV2FirmwareUpdateFlow,
   getRawDeviceId,
 };

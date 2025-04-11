@@ -1,19 +1,53 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
-import { Page, Stack } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
+import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
+import { DeviceAvatar } from '../../../components/DeviceAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-export function FirmwareUpdatePageHeader() {
+export function FirmwareUpdatePageHeaderTitle(props: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+}) {
+  const { result } = props;
+  if (!result) {
+    return null;
+  }
+  return (
+    <XStack ai="center" gap={6}>
+      <DeviceAvatar
+        size="$6"
+        deviceType={result.deviceType || EDeviceType.Unknown}
+      />
+      <SizableText size="$headingMd">{result.deviceName}</SizableText>
+      <SizableText size="$bodyLg" color="$textSubdued">
+        {result.deviceBleName}
+      </SizableText>
+    </XStack>
+  );
+}
+
+export function FirmwareUpdatePageHeader({
+  headerTitle,
+}: {
+  headerTitle?: React.ReactNode;
+}) {
   const intl = useIntl();
   return (
     <Page.Header
       dismissOnOverlayPress={false}
       // disableClose
-      title={intl.formatMessage({
-        id: ETranslations.update_hardware_update,
-      })}
+      title={
+        headerTitle
+          ? undefined
+          : intl.formatMessage({
+              id: ETranslations.update_hardware_update,
+            })
+      }
+      headerTitle={headerTitle ? () => headerTitle : undefined}
     />
   );
 }
@@ -22,8 +56,12 @@ export const FirmwareUpdatePageFooter = Page.Footer;
 
 export function FirmwareUpdatePageLayout({
   children,
+  headerTitle,
+  containerStyle,
 }: {
   children: React.ReactNode;
+  headerTitle?: React.ReactNode;
+  containerStyle?: IStackProps;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
@@ -31,9 +69,11 @@ export function FirmwareUpdatePageLayout({
 
   return (
     <Stack>
-      <FirmwareUpdatePageHeader />
+      <FirmwareUpdatePageHeader headerTitle={headerTitle} />
       <Page.Body>
-        <Stack p="$5">{children}</Stack>
+        <Stack p="$5" {...containerStyle}>
+          {children}
+        </Stack>
       </Page.Body>
     </Stack>
   );
