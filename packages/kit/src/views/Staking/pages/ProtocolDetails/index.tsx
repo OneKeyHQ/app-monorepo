@@ -233,7 +233,8 @@ const ProtocolDetailsPage = () => {
     if (!result?.earnHistoryEnable || !earnAccount?.accountId) {
       return undefined;
     }
-    return () => {
+    return (params?: { filterType?: string }) => {
+      const { filterType } = params || {};
       appNavigation.navigate(EModalStakingRoutes.HistoryList, {
         accountId: earnAccount?.accountId,
         networkId,
@@ -241,6 +242,7 @@ const ProtocolDetailsPage = () => {
         provider,
         stakeTag: buildLocalTxStatusSyncId(result),
         morphoVault: vault,
+        filterType,
       });
     };
   }, [

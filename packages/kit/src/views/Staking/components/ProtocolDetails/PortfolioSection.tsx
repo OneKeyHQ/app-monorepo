@@ -163,7 +163,7 @@ type IPortfolioInfoProps = {
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
-  onHistory?: () => void;
+  onHistory?: (params?: { filterType: string }) => void;
 };
 
 function PendingInactiveItem({
@@ -206,13 +206,13 @@ function RewardAmountPopoverContent({
   totalRewardAmount: number;
   waitingRebateRewardAmount: number;
   tokenSymbol: string;
-  onHistory?: () => void;
+  onHistory?: IPortfolioInfoProps['onHistory'];
 }) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
     await closePopover?.();
     setTimeout(() => {
-      onHistory?.();
+      onHistory?.({ filterType: 'rebate' });
     }, 50);
   }, [closePopover, onHistory]);
   const intl = useIntl();
@@ -584,7 +584,7 @@ export const PortfolioSection = ({
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
-  onHistory?: () => void;
+  onHistory?: IPortfolioInfoProps['onHistory'];
   unbondingDelegationList: IEarnUnbondingDelegationList;
 }) => {
   const intl = useIntl();
