@@ -812,7 +812,7 @@ export function ApproveBaseStake({
         disabled: false,
       };
     },
-    [approveTarget.networkId, approveTarget.spenderAddress],
+    [approveTarget.accountId, approveTarget.networkId],
     {
       initResult: {
         code: '',
