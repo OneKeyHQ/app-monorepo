@@ -150,8 +150,11 @@ const HistoryContent = ({
     }));
   }, [filter]);
 
+  const [selectedValue, changeSelectedValue] = useState(items[0].value);
+
   const handleSelectChange = useCallback(
     (v: string) => {
+      changeSelectedValue(v);
       onFilterTypeChange(v);
     },
     [onFilterTypeChange],
@@ -161,10 +164,13 @@ const HistoryContent = ({
     <YStack flex={1}>
       <XStack px="$5">
         <Select
+          value={selectedValue}
           renderTrigger={({ label }) => (
             <XStack h="$12" ai="center" gap="$1">
               <Icon name="Filter2Outline" size="$4" mr="$1" />
-              <SizableText>{label}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {label}
+              </SizableText>
               <Icon name="ChevronDownSmallOutline" size="$4" />
             </XStack>
           )}
@@ -185,7 +191,7 @@ const HistoryContent = ({
         }}
         ListEmptyComponent={
           <Empty
-            pt="$46"
+            pt={40}
             icon="ClockTimeHistoryOutline"
             title={intl.formatMessage({
               id: ETranslations.global_no_transactions_yet,

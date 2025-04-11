@@ -779,11 +779,15 @@ export function ApproveBaseStake({
 
   const { result: inviteData, run: refetchInviteCode } = usePromiseResult(
     async () => {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
       const response = await Promise.allSettled([
         backgroundApiProxy.serviceReferralCode.getInviteCode(),
         backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
           networkId: approveTarget.networkId,
-          accountAddress: approveTarget.spenderAddress,
+          accountAddress: account?.address || '',
         }),
       ]);
       if (response[1].status === 'fulfilled' && response[1].value) {
@@ -808,7 +812,7 @@ export function ApproveBaseStake({
         disabled: false,
       };
     },
-    [approveTarget.networkId, approveTarget.spenderAddress],
+    [approveTarget.accountId, approveTarget.networkId],
     {
       initResult: {
         code: '',
