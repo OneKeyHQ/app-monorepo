@@ -63,8 +63,6 @@ export function useSearchModalData(searchValue: string) {
         return;
       }
 
-      console.log('searchResult', searchResult);
-
       const exactUrlResults =
         searchResult?.filter((item) => item.isExactUrl) || [];
       const otherResults =
