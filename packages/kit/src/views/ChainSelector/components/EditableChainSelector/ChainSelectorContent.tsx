@@ -328,6 +328,10 @@ export const EditableChainSelectorContent = ({
   }, [sections, listHeaderHeight]);
 
   const initialScrollIndex = useMemo(() => {
+    if (platformEnv.isNative) {
+      return undefined;
+    }
+
     if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
       return undefined;
     }
@@ -446,6 +450,8 @@ export const EditableChainSelectorContent = ({
   );
 
   useEffect(() => {
+    // For non-native platforms, initialScrollIndex causes display bugs
+    // Handle it by manually scrolling to the target position
     if (!platformEnv.isNative) {
       if (!initialScrollIndex || layoutList.length === 0) return;
 
@@ -519,9 +525,7 @@ export const EditableChainSelectorContent = ({
                   ?.data as IServerNetwork[];
                 setTempFrequentlyUsedItems(itemList);
               }}
-              initialScrollIndex={
-                platformEnv.isNative ? initialScrollIndex : undefined
-              }
+              initialScrollIndex={initialScrollIndex}
               dragItemOverflowHitSlop={dragItemOverflowHitSlop}
               getItemLayout={(_, index) => {
                 if (index === -1) {
