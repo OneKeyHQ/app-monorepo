@@ -225,7 +225,7 @@ export const useReferFriends = () => {
                     icon="Copy3Outline"
                     size="large"
                     iconColor="$iconSubdued"
-                    onPress={() => copyText(myReferralCode)}
+                    onPress={() => copyText(sharedUrl)}
                   />
                   {platformEnv.isNative ? (
                     <IconButton
