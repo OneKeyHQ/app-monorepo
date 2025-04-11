@@ -140,6 +140,7 @@ class ServiceReferralCode extends ServiceBase {
         inviteCode: code,
       });
     }
+    return valid;
   }
 
   @backgroundMethod()

@@ -1296,7 +1296,6 @@ class ServiceStaking extends ServiceBase {
     }>(`/earn/v1/account/invite-code/check`, {
       params: { inviteCode },
     });
-    console.log('response', response);
     return response.data.code === 0;
   }
 }
