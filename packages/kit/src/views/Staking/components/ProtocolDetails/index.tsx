@@ -19,6 +19,7 @@ export function ProtocolDetails({
   if (!details) {
     return null;
   }
+
   return (
     <>
       <YStack gap="$8">{children}</YStack>

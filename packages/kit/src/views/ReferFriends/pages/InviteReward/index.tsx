@@ -7,6 +7,7 @@ import { Share, StyleSheet } from 'react-native';
 import {
   Accordion,
   Button,
+  Divider,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -158,12 +159,14 @@ function Dashboard({
   totalRewards,
   enabledNetworks,
   hardwareSales,
+  earn,
   levelPercent,
   rebateLevel,
   nextRebateLevel,
 }: {
   totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
+  earn: IInviteSummary['Earn'];
   hardwareSales: IInviteSummary['HardwareSales'];
   levelPercent: number;
   rebateLevel: string;
@@ -201,8 +204,12 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
-  const showAvailableFiat = Number(hardwareSales.available?.fiatValue || 0) > 0;
-  const showPendingFiat = Number(hardwareSales.pending?.fiatValue || 0) > 0;
+  const showEarnSalesAvailableFiat = Number(earn.available?.fiatValue || 0) > 0;
+  const showEarnSalesPendingFiat = Number(earn.pending?.fiatValue || 0) > 0;
+  const showHardwareSalesAvailableFiat =
+    Number(hardwareSales.available?.fiatValue || 0) > 0;
+  const showHardwarePendingFiat =
+    Number(hardwareSales.pending?.fiatValue || 0) > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -287,7 +294,7 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        // onPress={toEarnRewardPage}
+        onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
           <SizableText size="$headingMd">
@@ -298,30 +305,33 @@ function Dashboard({
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        <NoRewardYet />
-        {/* <YStack gap="$2" pt="$4">
-          <XStack gap="$2">
-            <Token size="xs" networkId="evm--1" />
-            <NumberSizeableText
-              formatter="balance"
-              size="$bodyMd"
-              formatterOptions={{ tokenSymbol: 'USDT' }}
-            >
-              0.1
-            </NumberSizeableText>
-          </XStack>
-          <Divider bg="$borderSubdued" />
-          <XStack gap="$2">
-            <Token size="xs" networkId="evm--1" />
-            <NumberSizeableText
-              formatter="balance"
-              size="$bodyMd"
-              formatterOptions={{ tokenSymbol: 'ETH' }}
-            >
-              0.1
-            </NumberSizeableText>
-          </XStack>
-        </YStack> */}
+        {showEarnSalesAvailableFiat || showEarnSalesPendingFiat ? (
+          <YStack gap="$2" pt="$4">
+            <XStack gap="$2">
+              <Token size="xs" networkId="evm--1" />
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMd"
+                formatterOptions={{ tokenSymbol: earn.available?.token.symbol }}
+              >
+                {earn.available?.fiatValue}
+              </NumberSizeableText>
+            </XStack>
+            <Divider bg="$borderSubdued" />
+            <XStack gap="$2">
+              <Token size="xs" networkId="evm--1" />
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMd"
+                formatterOptions={{ tokenSymbol: earn.pending?.token.symbol }}
+              >
+                {earn.pending?.fiatValue}
+              </NumberSizeableText>
+            </XStack>
+          </YStack>
+        ) : (
+          <NoRewardYet />
+        )}
       </YStack>
       <YStack
         px="$5"
@@ -352,7 +362,7 @@ function Dashboard({
             </XStack>
             <Progress value={levelPercent} width="100%" size="medium" />
           </YStack>
-          {showAvailableFiat || showPendingFiat ? (
+          {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
               {hardwareSales.available?.token.networkId ? (
                 <Token
@@ -370,7 +380,7 @@ function Dashboard({
                 >
                   {hardwareSales.available?.fiatValue || 0}
                 </NumberSizeableText>
-                {showPendingFiat ? (
+                {showHardwarePendingFiat ? (
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
                     <NumberSizeableText
@@ -385,7 +395,7 @@ function Dashboard({
                   </>
                 ) : null}
               </SizableText>
-              {showPendingFiat ? (
+              {showHardwarePendingFiat ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.global_pending,
@@ -478,6 +488,7 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
     inviteCode,
     totalRewards,
     enabledNetworks,
+    Earn,
     HardwareSales,
     levelPercent,
     rebateLevel,
@@ -489,6 +500,7 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
       <Dashboard
         totalRewards={totalRewards}
         enabledNetworks={enabledNetworks}
+        earn={Earn}
         hardwareSales={HardwareSales}
         levelPercent={Number(levelPercent)}
         rebateLevel={rebateLevel}
