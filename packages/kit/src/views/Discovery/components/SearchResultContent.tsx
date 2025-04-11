@@ -374,7 +374,7 @@ export function SearchResultContent({
               {item?.keyword
                 ? item.name.replace(
                     new RegExp(item.keyword, 'ig'),
-                    `<a>${item.keyword}</a>`,
+                    (match) => `<a>${match}</a>`,
                   )
                 : item.name}
             </RichSizeableText>
