@@ -278,9 +278,11 @@ function Dashboard({
           </SizableText>
           <XStack ai="center" jc="space-between">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.referral_reward_received_address_notset,
-              })}
+              {withdrawAddresses.length
+                ? withdrawAddresses[0].address
+                : intl.formatMessage({
+                    id: ETranslations.referral_reward_received_address_notset,
+                  })}
             </SizableText>
             <IconButton
               title={intl.formatMessage({ id: ETranslations.global_edit })}
