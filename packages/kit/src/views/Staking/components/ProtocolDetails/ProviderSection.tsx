@@ -145,7 +145,7 @@ function ProviderInfo({
         {isMorphoProvider && validator?.vaultName ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_vault })}
-            link={validator?.link}
+            link={validator?.vaultLink}
           >
             {validator?.vaultName}
           </GridItem>
