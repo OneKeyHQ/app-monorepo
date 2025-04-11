@@ -821,7 +821,7 @@ class ServiceDApp extends ServiceBase {
       newNetworkId: string;
     },
   ) {
-    const { newNetworkId } = params;
+    const { newNetworkId, oldNetworkId } = params;
     const containsNetwork =
       await this.backgroundApi.serviceNetwork.containsNetwork({
         networkId: newNetworkId,
@@ -833,6 +833,12 @@ class ServiceDApp extends ServiceBase {
       await this.getSwitchNetworkInfo(params);
     if (!shouldSwitchNetwork) {
       return;
+    }
+
+    if (oldNetworkId) {
+      await this.backgroundApi.serviceNetwork.updateRecentNetwork({
+        networkId: oldNetworkId,
+      });
     }
 
     const { storageType, networkImpls } = getQueryDAppAccountParams(params);

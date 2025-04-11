@@ -313,7 +313,7 @@ function Dashboard({
         {showEarnSalesAvailableFiat || showEarnSalesPendingFiat ? (
           <YStack gap="$2" pt="$4">
             <XStack gap="$2">
-              <Token size="xs" tokenImageUri={earn.available?.token.logoURI} />
+              <Token size="xs" networkId="evm--1" />
               <NumberSizeableText
                 formatter="balance"
                 size="$bodyMd"

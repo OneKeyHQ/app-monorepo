@@ -109,7 +109,12 @@ function DesktopCustomTabBar() {
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        void addOrUpdateBrowserBookmark({ url, title, logo: undefined });
+        void addOrUpdateBrowserBookmark({
+          url,
+          title,
+          logo: undefined,
+          sortIndex: undefined,
+        });
       } else {
         void removeBrowserBookmark(url);
       }

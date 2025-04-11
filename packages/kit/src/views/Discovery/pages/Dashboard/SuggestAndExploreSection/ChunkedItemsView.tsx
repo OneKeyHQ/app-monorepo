@@ -144,6 +144,7 @@ export function ChunkedItemsView({
                     url: item.url,
                     title: item.name,
                     logo: undefined,
+                    sortIndex: undefined,
                   },
                 })
               }

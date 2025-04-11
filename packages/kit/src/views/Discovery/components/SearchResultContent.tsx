@@ -206,6 +206,7 @@ export function SearchResultContent({
             url: searchValue,
             title: searchValue,
             logo: undefined,
+            sortIndex: undefined,
           },
           useCurrentWindow,
           tabId,
@@ -239,6 +240,7 @@ export function SearchResultContent({
           url: item.url,
           title: item.title,
           logo: item.logo,
+          sortIndex: undefined,
         },
         useCurrentWindow,
         tabId,
@@ -257,6 +259,7 @@ export function SearchResultContent({
           url: item.url,
           title: item.title,
           logo: item.logo,
+          sortIndex: undefined,
         },
         useCurrentWindow,
         tabId,
@@ -371,7 +374,7 @@ export function SearchResultContent({
               {item?.keyword
                 ? item.name.replace(
                     new RegExp(item.keyword, 'ig'),
-                    `<a>${item.keyword}</a>`,
+                    (match) => `<a>${match}</a>`,
                   )
                 : item.name}
             </RichSizeableText>
