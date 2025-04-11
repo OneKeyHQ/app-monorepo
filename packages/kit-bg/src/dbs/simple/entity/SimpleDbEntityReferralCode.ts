@@ -29,4 +29,11 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     const rawData = await this.getRawData();
     return rawData?.inviteCode ?? '';
   }
+
+  async reset() {
+    return this.setRawData({
+      myReferralCode: '',
+      inviteCode: '',
+    });
+  }
 }

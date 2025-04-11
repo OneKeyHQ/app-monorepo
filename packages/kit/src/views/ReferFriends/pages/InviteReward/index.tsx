@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Share, StyleSheet } from 'react-native';
@@ -25,12 +25,13 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
 
 function PopoverLine({ children }: PropsWithChildren) {
   return (
@@ -163,19 +164,22 @@ function Dashboard({
   levelPercent,
   rebateLevel,
   nextRebateLevel,
+  fetchSummaryInfo,
+  withdrawAddresses,
 }: {
   totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
   earn: IInviteSummary['Earn'];
   hardwareSales: IInviteSummary['HardwareSales'];
+  withdrawAddresses: IInviteSummary['withdrawAddresses'];
   levelPercent: number;
   rebateLevel: string;
   nextRebateLevel: string;
+  fetchSummaryInfo: () => void;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { verifyOneKeyId } = useLoginOneKeyId();
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
@@ -186,15 +190,16 @@ function Dashboard({
         address: string;
         networkId: string;
       }) => {
-        const emailOTP = await verifyOneKeyId();
-        void backgroundApiProxy.serviceReferralCode.bindAddress(
+        await backgroundApiProxy.serviceReferralCode.bindAddress(
           networkId,
           address,
-          emailOTP,
         );
+        setTimeout(() => {
+          fetchSummaryInfo();
+        }, 50);
       },
     });
-  }, [enabledNetworks, navigation, verifyOneKeyId]);
+  }, [enabledNetworks, fetchSummaryInfo, navigation]);
 
   const toEarnRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EarnReward);
@@ -204,12 +209,10 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
-  const showEarnSalesAvailableFiat = Number(earn.available?.fiatValue || 0) > 0;
-  const showEarnSalesPendingFiat = Number(earn.pending?.fiatValue || 0) > 0;
+  const showEarnSalesAvailableFiat = (earn.available?.length || 0) > 0;
   const showHardwareSalesAvailableFiat =
-    Number(hardwareSales.available?.fiatValue || 0) > 0;
-  const showHardwarePendingFiat =
-    Number(hardwareSales.pending?.fiatValue || 0) > 0;
+    (hardwareSales.available?.length || 0) > 0;
+  const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -273,9 +276,11 @@ function Dashboard({
           </SizableText>
           <XStack ai="center" jc="space-between">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.referral_reward_received_address_notset,
-              })}
+              {withdrawAddresses.length
+                ? withdrawAddresses[0].address
+                : intl.formatMessage({
+                    id: ETranslations.referral_reward_received_address_notset,
+                  })}
             </SizableText>
             <IconButton
               title={intl.formatMessage({ id: ETranslations.global_edit })}
@@ -305,29 +310,29 @@ function Dashboard({
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        {showEarnSalesAvailableFiat || showEarnSalesPendingFiat ? (
+        {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
-            <XStack gap="$2">
-              <Token size="xs" networkId="evm--1" />
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: earn.available?.token.symbol }}
-              >
-                {earn.available?.fiatValue}
-              </NumberSizeableText>
-            </XStack>
-            <Divider bg="$borderSubdued" />
-            <XStack gap="$2">
-              <Token size="xs" networkId="evm--1" />
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: earn.pending?.token.symbol }}
-              >
-                {earn.pending?.fiatValue}
-              </NumberSizeableText>
-            </XStack>
+            {earn.available?.map(({ token, fiatValue }, index) => {
+              return (
+                <Fragment key={index}>
+                  <XStack gap="$2">
+                    <Token size="xs" tokenImageUri={token.logoURI} />
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: token.symbol,
+                      }}
+                    >
+                      {fiatValue}
+                    </NumberSizeableText>
+                  </XStack>
+                  {index !== (earn.available?.length || 1) - 1 ? (
+                    <Divider bg="$borderSubdued" />
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </YStack>
         ) : (
           <NoRewardYet />
@@ -364,10 +369,10 @@ function Dashboard({
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
-              {hardwareSales.available?.token.networkId ? (
+              {hardwareSales.available?.[0].token.networkId ? (
                 <Token
                   size="xs"
-                  networkId={hardwareSales.available?.token.networkId}
+                  tokenImageUri={hardwareSales.available?.[0].token.logoURI}
                 />
               ) : null}
               <SizableText size="$bodyMd">
@@ -375,10 +380,10 @@ function Dashboard({
                   formatter="balance"
                   size="$bodyMd"
                   formatterOptions={{
-                    tokenSymbol: hardwareSales.available?.token.symbol,
+                    tokenSymbol: hardwareSales.available?.[0].token.symbol,
                   }}
                 >
-                  {hardwareSales.available?.fiatValue || 0}
+                  {hardwareSales.available?.[0].fiatValue || 0}
                 </NumberSizeableText>
                 {showHardwarePendingFiat ? (
                   <>
@@ -387,10 +392,10 @@ function Dashboard({
                       formatter="balance"
                       size="$bodyMd"
                       formatterOptions={{
-                        tokenSymbol: hardwareSales.pending?.token.symbol,
+                        tokenSymbol: hardwareSales.pending?.[0].token.symbol,
                       }}
                     >
-                      {hardwareSales.pending?.fiatValue || 0}
+                      {hardwareSales.pending?.[0].fiatValue || 0}
                     </NumberSizeableText>
                   </>
                 ) : null}
@@ -481,7 +486,31 @@ function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
   );
 }
 
-function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
+function Link() {
+  const intl = useIntl();
+
+  return (
+    <SizableText
+      color="$textInfo"
+      cursor="pointer"
+      size="$bodyMdMedium"
+      px="$5"
+      mb="$5"
+      textDecorationLine="underline"
+      onPress={() => openUrlExternal(referralLink)}
+    >
+      {intl.formatMessage({ id: ETranslations.referral_more_questions })}
+    </SizableText>
+  );
+}
+
+function InviteRewardContent({
+  summaryInfo,
+  fetchSummaryInfo,
+}: {
+  summaryInfo: IInviteSummary;
+  fetchSummaryInfo: () => void;
+}) {
   const {
     faqs,
     inviteUrl,
@@ -493,6 +522,7 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
     levelPercent,
     rebateLevel,
     nextRebateLevel,
+    withdrawAddresses,
   } = summaryInfo;
   return (
     <>
@@ -505,15 +535,18 @@ function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
         levelPercent={Number(levelPercent)}
         rebateLevel={rebateLevel}
         nextRebateLevel={nextRebateLevel}
+        fetchSummaryInfo={fetchSummaryInfo}
+        withdrawAddresses={withdrawAddresses}
       />
       <FAQ faqs={faqs} />
+      <Link />
     </>
   );
 }
 
 export default function InviteReward() {
   const intl = useIntl();
-  const { result: summaryInfo, isLoading } = usePromiseResult(
+  const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
     async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
     [],
     {
@@ -530,7 +563,7 @@ export default function InviteReward() {
         })}
       />
       <Page.Body>
-        {!summaryInfo || isLoading ? (
+        {!summaryInfo ? (
           <Stack
             position="absolute"
             top={0}
@@ -545,7 +578,10 @@ export default function InviteReward() {
           </Stack>
         ) : (
           <ScrollView>
-            <InviteRewardContent summaryInfo={summaryInfo} />
+            <InviteRewardContent
+              summaryInfo={summaryInfo}
+              fetchSummaryInfo={fetchSummaryInfo}
+            />
           </ScrollView>
         )}
       </Page.Body>
