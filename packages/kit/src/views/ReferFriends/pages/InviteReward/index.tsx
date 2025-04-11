@@ -492,8 +492,10 @@ function Link() {
   return (
     <SizableText
       color="$textInfo"
+      cursor="pointer"
       size="$bodyMdMedium"
-      mt={30}
+      px="$5"
+      mb="$5"
       textDecorationLine="underline"
       onPress={() => openUrlExternal(referralLink)}
     >
