@@ -36,6 +36,8 @@ export abstract class CloudSyncFlowManagerBase<
 
   backgroundApi: IBackgroundApi;
 
+  removeSyncItemIfServerDeleted = true;
+
   abstract dataType: T;
 
   abstract isSupportSync(target: ICloudSyncTargetMap[T]): Promise<boolean>;
@@ -306,11 +308,13 @@ export abstract class CloudSyncFlowManagerBase<
       ) {
         const syncPayload = existingSyncItem?.rawDataJson.payload;
 
-        existingSyncItemsInfo[target.targetId] = {
-          syncPayload: syncPayload as any,
-          syncItem: existingSyncItem,
-          target,
-        };
+        if (target.targetId) {
+          existingSyncItemsInfo[target.targetId] = {
+            syncPayload: syncPayload as any,
+            syncItem: existingSyncItem,
+            target,
+          };
+        }
         existingSyncItems.push(existingSyncItem);
       } else if (
         canSyncWithoutServer &&
@@ -322,11 +326,13 @@ export abstract class CloudSyncFlowManagerBase<
             existingSyncItem.rawData,
           ) as ICloudSyncRawDataJson;
           if (rawDataJson.payload) {
-            existingSyncItemsInfo[target.targetId] = {
-              syncPayload: rawDataJson.payload as any,
-              syncItem: existingSyncItem,
-              target,
-            };
+            if (target.targetId) {
+              existingSyncItemsInfo[target.targetId] = {
+                syncPayload: rawDataJson.payload as any,
+                syncItem: existingSyncItem,
+                target,
+              };
+            }
             existingSyncItems.push(existingSyncItem);
           }
         } catch (error) {

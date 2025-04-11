@@ -18,6 +18,8 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.Wallet as any;
 
+  override removeSyncItemIfServerDeleted = true;
+
   override async isSupportSync(
     target: ICloudSyncTargetWallet,
   ): Promise<boolean> {

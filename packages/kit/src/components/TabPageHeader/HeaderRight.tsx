@@ -118,7 +118,12 @@ export function HeaderRight({
       tabRoute === ETabRoutes.Home ||
       platformEnv.isNativeAndroid ||
       media.gtMd ? (
-        <Stack flexDirection="row" alignItems="center" gap="$4">
+        <Stack
+          key="more-action"
+          flexDirection="row"
+          alignItems="center"
+          gap="$4"
+        >
           {(children || primeButton) && media.gtMd ? (
             <Stack
               height="$4"
@@ -150,6 +155,7 @@ export function HeaderRight({
 
     const onekeyIdButton = media.gtMd ? (
       <HeaderIconButton
+        key="onekey-id"
         title="OneKey ID"
         icon="PeopleOutline"
         onPress={async () => {
