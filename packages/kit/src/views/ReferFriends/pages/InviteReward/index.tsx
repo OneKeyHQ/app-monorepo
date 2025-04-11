@@ -209,7 +209,7 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
-  const showEarnSalesAvailableFiat = (earn.available.length || 0) > 0;
+  const showEarnSalesAvailableFiat = (earn.available?.length || 0) > 0;
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
