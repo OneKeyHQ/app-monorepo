@@ -375,7 +375,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getStakeHistory(params: IStakeHistoryParams) {
-    const { networkId, accountId, morphoVault, ...rest } = params;
+    const { networkId, accountId, morphoVault, type, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -383,15 +383,19 @@ class ServiceStaking extends ServiceBase {
         accountId,
       });
 
+    const data: Record<string, string | undefined> & { type?: string } = {
+      accountAddress,
+      networkId,
+      vault: morphoVault,
+      ...rest,
+    };
+    if (type) {
+      data.type = params.type;
+    }
     const resp = await client.get<{
       data: IStakeHistoriesResponse;
     }>(`/earn/v1/stake-histories`, {
-      params: {
-        accountAddress,
-        networkId,
-        vault: morphoVault,
-        ...rest,
-      },
+      params: data,
     });
     return resp.data.data;
   }
@@ -1266,6 +1270,22 @@ class ServiceStaking extends ServiceBase {
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     return vaultSettings.stakingResultPollingInterval ?? 30;
+  }
+
+  @backgroundMethod()
+  async queryInviteCodeByAddress(params: {
+    networkId: string;
+    accountAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: {
+        referCode: string;
+      };
+    }>(`/earn/v1/invite-code/query`, {
+      params,
+    });
+    return response.data.data.referCode;
   }
 }
 

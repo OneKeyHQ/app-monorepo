@@ -32,6 +32,8 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
 > {
   override dataType = EPrimeCloudSyncDataType.IndexedAccount as any;
 
+  override removeSyncItemIfServerDeleted = true;
+
   override async isSupportSync(
     target: ICloudSyncTargetIndexedAccount,
   ): Promise<boolean> {
@@ -71,9 +73,7 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
       throw new Error('buildWalletSyncKey ERROR: accountIndex is required');
     }
 
-    const rawKey = [walletXfp, accountIndex.toString()]
-      .filter(Boolean)
-      .join('--');
+    const rawKey = [walletXfp, accountIndex.toString()].join('__');
     return rawKey;
   }
 

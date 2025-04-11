@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Button } from '@onekeyhq/components';
-import { Page, useMedia } from '@onekeyhq/components';
+import { Alert, Page, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -232,7 +233,8 @@ const ProtocolDetailsPage = () => {
     if (!result?.earnHistoryEnable || !earnAccount?.accountId) {
       return undefined;
     }
-    return () => {
+    return (params?: { filterType?: string }) => {
+      const { filterType } = params || {};
       appNavigation.navigate(EModalStakingRoutes.HistoryList, {
         accountId: earnAccount?.accountId,
         networkId,
@@ -240,6 +242,7 @@ const ProtocolDetailsPage = () => {
         provider,
         stakeTag: buildLocalTxStatusSyncId(result),
         morphoVault: vault,
+        filterType,
       });
     };
   }, [
@@ -291,6 +294,33 @@ const ProtocolDetailsPage = () => {
       disableUnstakeButton,
     ],
   );
+
+  const { bindInviteCode } = useReferFriends();
+  const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
+    async () => {
+      const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
+      if (code) {
+        return false;
+      }
+      if (earnAccount?.accountAddress) {
+        const inviteCodeOnServer =
+          await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
+            networkId,
+            accountAddress: earnAccount?.accountAddress,
+          });
+        if (inviteCodeOnServer) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [earnAccount?.accountAddress, networkId],
+    {
+      revalidateOnFocus: true,
+      initResult: false,
+    },
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -303,70 +333,97 @@ const ProtocolDetailsPage = () => {
           },
         )}
       />
-      <Page.Body px="$5" pb="$5" gap="$8">
-        <PageFrame
-          LoadingSkeleton={OverviewSkeleton}
-          loading={isLoadingState({ result, isLoading })}
-          error={isErrorState({ result, isLoading })}
-          onRefresh={run}
-        >
-          <ProtocolDetails details={result}>
-            {earnAccount?.accountAddress ? (
-              <>
-                <StakedValueSection
-                  details={result}
-                  stakeButtonProps={stakeButtonProps}
-                  withdrawButtonProps={withdrawButtonProps}
-                  alerts={result?.provider.alerts}
-                />
-                <PortfolioSection
-                  details={result}
-                  onClaim={onClaim}
-                  onWithdraw={onWithdraw}
-                  onPortfolioDetails={onPortfolioDetails}
-                  unbondingDelegationList={unbondingDelegationList}
-                />
-                {trackingResp.length > 0 ? (
-                  <BabylonTrackingAlert
-                    accountId={earnAccount.accountId}
-                    networkId={networkId}
-                    provider={provider}
-                    symbol={symbol}
-                    onRefresh={onRefreshTracking}
-                  />
-                ) : null}
-              </>
-            ) : (
-              <NoAddressWarning
-                accountId={accountId}
-                networkId={networkId}
-                indexedAccountId={indexedAccountId}
-                onCreateAddress={onCreateAddress}
-              />
+      <Page.Body pb="$5">
+        {isShowAlert ? (
+          <Alert
+            type="success"
+            icon="GiftOutline"
+            mb="$3"
+            title={intl.formatMessage(
+              {
+                id: ETranslations.earn_referral_enter_invite_code_subtitle,
+              },
+              {
+                number: '1.5%',
+              },
             )}
-          </ProtocolDetails>
-          {!media.gtMd ? (
-            <Page.Footer
-              onConfirmText={intl.formatMessage({
-                id: ETranslations.earn_deposit,
-              })}
-              confirmButtonProps={stakeButtonProps}
-              onCancelText={intl.formatMessage({
-                id: ETranslations.global_withdraw,
-              })}
-              cancelButtonProps={withdrawButtonProps}
-            />
-          ) : null}
-          {result ? (
-            <StakingTransactionIndicator
-              accountId={earnAccount?.accountId ?? ''}
-              networkId={networkId}
-              stakeTag={buildLocalTxStatusSyncId(result)}
-              onRefresh={run}
-              onPress={onHistory}
-            />
-          ) : null}
-        </PageFrame>
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.earn_referral_add_invite_code,
+              }),
+              onPrimaryPress: () => {
+                bindInviteCode(refetchInviteCode);
+              },
+            }}
+            fullBleed
+          />
+        ) : null}
+        <YStack px="$5" gap="$8">
+          <PageFrame
+            LoadingSkeleton={OverviewSkeleton}
+            loading={isLoadingState({ result, isLoading })}
+            error={isErrorState({ result, isLoading })}
+            onRefresh={run}
+          >
+            <ProtocolDetails details={result}>
+              {earnAccount?.accountAddress ? (
+                <>
+                  <StakedValueSection
+                    details={result}
+                    stakeButtonProps={stakeButtonProps}
+                    withdrawButtonProps={withdrawButtonProps}
+                    alerts={result?.provider.alerts}
+                  />
+                  <PortfolioSection
+                    details={result}
+                    onClaim={onClaim}
+                    onWithdraw={onWithdraw}
+                    onPortfolioDetails={onPortfolioDetails}
+                    unbondingDelegationList={unbondingDelegationList}
+                    onHistory={onHistory}
+                  />
+                  {trackingResp.length > 0 ? (
+                    <BabylonTrackingAlert
+                      accountId={earnAccount.accountId}
+                      networkId={networkId}
+                      provider={provider}
+                      symbol={symbol}
+                      onRefresh={onRefreshTracking}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <NoAddressWarning
+                  accountId={accountId}
+                  networkId={networkId}
+                  indexedAccountId={indexedAccountId}
+                  onCreateAddress={onCreateAddress}
+                />
+              )}
+            </ProtocolDetails>
+            {!media.gtMd ? (
+              <Page.Footer
+                onConfirmText={intl.formatMessage({
+                  id: ETranslations.earn_deposit,
+                })}
+                confirmButtonProps={stakeButtonProps}
+                onCancelText={intl.formatMessage({
+                  id: ETranslations.global_withdraw,
+                })}
+                cancelButtonProps={withdrawButtonProps}
+              />
+            ) : null}
+            {result ? (
+              <StakingTransactionIndicator
+                accountId={earnAccount?.accountId ?? ''}
+                networkId={networkId}
+                stakeTag={buildLocalTxStatusSyncId(result)}
+                onRefresh={run}
+                onPress={onHistory}
+              />
+            ) : null}
+          </PageFrame>
+        </YStack>
       </Page.Body>
     </Page>
   );

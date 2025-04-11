@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { ICheckedState, ISizableTextProps } from '@onekeyhq/components';
 import {
   Button,
+  Checkbox,
   Dialog,
   Page,
   Select,
@@ -153,6 +154,8 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
     EPrimeCloudSyncDataType | '$ALL'
   >('$ALL');
 
+  const [includingServerDeleted, setIncludingServerDeleted] = useState(false);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -163,7 +166,11 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
           await backgroundApiProxy.servicePrimeCloudSync.decryptAllLocalSyncItems();
       } else {
         items =
-          await backgroundApiProxy.servicePrimeCloudSync.decryptAllServerSyncItems();
+          await backgroundApiProxy.servicePrimeCloudSync.decryptAllServerSyncItems(
+            {
+              includeDeleted: includingServerDeleted,
+            },
+          );
       }
       setSyncItems(items || []);
     } catch (err) {
@@ -173,7 +180,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, includingServerDeleted]);
 
   useEffect(() => {
     if (activeTab) {
@@ -263,6 +270,10 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
               value: EPrimeCloudSyncDataType.CustomNetwork,
             },
             { label: 'CustomRpc', value: EPrimeCloudSyncDataType.CustomRpc },
+            {
+              label: 'CustomToken',
+              value: EPrimeCloudSyncDataType.CustomToken,
+            },
           ]}
         />
         <Stack flex={1} />
@@ -283,6 +294,15 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
       <XStack gap="$1" alignItems="center">
         <SizableText>{filteredItems?.length}条</SizableText>
         <Stack flex={1} />
+        {activeTab === 'server' ? (
+          <Checkbox
+            label="包含已删除数据"
+            value={includingServerDeleted}
+            onChange={(v: ICheckedState) =>
+              setIncludingServerDeleted(v === true)
+            }
+          />
+        ) : null}
         <Button loading={isLoading} size="small" onPress={fetchData}>
           刷新
         </Button>
@@ -365,6 +385,15 @@ function StatusPanel() {
 function DebugPanel() {
   return (
     <YStack p="$4" gap="$2">
+      <Button
+        mt="$4"
+        onPress={() => {
+          void backgroundApiProxy.servicePassword.promptPasswordVerify({});
+        }}
+      >
+        激活锁屏密码
+      </Button>
+      <Stack h="$8" />
       <Button
         mt="$4"
         onPress={() => {

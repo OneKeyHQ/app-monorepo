@@ -29,6 +29,7 @@ export class V4MigrationForDiscover extends V4MigrationManagerBase {
       title: v4item.title ?? uriUtils.getHostNameFromUrl({ url: v4item.url }),
       url: v4item.url,
       logo: v4item.icon,
+      sortIndex: undefined,
     }));
     const currentV5Items =
       await this.backgroundApi.serviceDiscovery.getBrowserBookmarks();

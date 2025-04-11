@@ -81,5 +81,6 @@ export type IModalStakingParamList = {
     provider: string;
     stakeTag?: string;
     morphoVault?: string;
+    filterType?: string;
   };
 };

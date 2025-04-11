@@ -9,6 +9,7 @@ import {
   Alert,
   Button,
   Divider,
+  Icon,
   IconButton,
   NumberSizeableText,
   Popover,
@@ -16,6 +17,7 @@ import {
   Stack,
   XStack,
   YStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,7 +47,7 @@ type IPortfolioItemProps = {
   useLoading?: boolean;
 };
 
-const PortfolioItem = ({
+function PortfolioItem({
   tokenImageUri,
   tokenSymbol,
   amount,
@@ -56,7 +58,7 @@ const PortfolioItem = ({
   renderTooltipContent,
   disabled,
   useLoading,
-}: IPortfolioItemProps) => {
+}: IPortfolioItemProps) {
   const [loading, setLoading] = useState(false);
   const handlePress = useCallback(async () => {
     try {
@@ -121,7 +123,7 @@ const PortfolioItem = ({
       ) : null}
     </XStack>
   );
-};
+}
 
 interface IUnbondingDelegationListItem {
   amount: string;
@@ -150,6 +152,9 @@ type IPortfolioInfoProps = {
   unbondingDelegationList?: IUnbondingDelegationListItem[];
   updateFrequency: string;
 
+  waitingRebateRewardAmount: number;
+  totalRewardAmount: number;
+
   onClaim?: (params?: {
     amount: string;
     claimTokenAddress?: string;
@@ -158,6 +163,7 @@ type IPortfolioInfoProps = {
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
+  onHistory?: (params?: { filterType: string }) => void;
 };
 
 function PendingInactiveItem({
@@ -191,6 +197,82 @@ function PendingInactiveItem({
   );
 }
 
+function RewardAmountPopoverContent({
+  totalRewardAmount,
+  waitingRebateRewardAmount,
+  tokenSymbol,
+  onHistory,
+}: {
+  totalRewardAmount: number;
+  waitingRebateRewardAmount: number;
+  tokenSymbol: string;
+  onHistory?: IPortfolioInfoProps['onHistory'];
+}) {
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    setTimeout(() => {
+      onHistory?.({ filterType: 'rebate' });
+    }, 50);
+  }, [closePopover, onHistory]);
+  const intl = useIntl();
+  return (
+    <YStack p="$5">
+      <XStack>
+        <SizableText size="$bodyLgMedium">
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol }}
+          >
+            {waitingRebateRewardAmount}
+          </NumberSizeableText>
+          <SizableText size="$bodyLgMedium">
+            {` ${intl.formatMessage({
+              id: ETranslations.earn_referral_undistributed,
+            })}`}
+          </SizableText>
+        </SizableText>
+      </XStack>
+      <XStack pt="$2">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.referral_earn_reward_tips,
+          })}
+        </SizableText>
+      </XStack>
+      <XStack jc="space-between" pt="$4">
+        <SizableText size="$bodyMdMedium">
+          <SizableText size="$bodyMdMedium">
+            {`${intl.formatMessage({
+              id: ETranslations.earn_referral_total_earned,
+            })} `}
+          </SizableText>
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol }}
+          >
+            {totalRewardAmount}
+          </NumberSizeableText>
+        </SizableText>
+        <XStack gap="$0.5" cursor="pointer" onPress={handlePress}>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_history,
+            })}
+          </SizableText>
+          <Icon
+            name="ChevronRightSmallOutline"
+            color="$iconSubdued"
+            size="$5"
+          />
+        </XStack>
+      </XStack>
+    </YStack>
+  );
+}
+
 function PortfolioInfo({
   token,
   active,
@@ -216,6 +298,10 @@ function PortfolioInfo({
 
   showDetailWithdrawalRequested,
   unbondingDelegationList,
+
+  waitingRebateRewardAmount,
+  totalRewardAmount,
+  onHistory,
 }: IPortfolioInfoProps) {
   const intl = useIntl();
 
@@ -383,6 +469,24 @@ function PortfolioInfo({
               disabled={isLessThanMinClaimable}
             />
           ) : null}
+          {waitingRebateRewardAmount > 0 ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={String(waitingRebateRewardAmount)}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_referral_referral_reward,
+              })}
+              renderTooltipContent={
+                <RewardAmountPopoverContent
+                  onHistory={onHistory}
+                  tokenSymbol={token.symbol}
+                  totalRewardAmount={totalRewardAmount}
+                  waitingRebateRewardAmount={waitingRebateRewardAmount}
+                />
+              }
+            />
+          ) : null}
           {/* {rewardNum && Object.keys(rewardNum).length > 0
             ? Object.entries(rewardNum).map(([rewardTokenAddress, amount]) => {
                 const rewardToken = rewardAssets?.[rewardTokenAddress];
@@ -470,6 +574,7 @@ export const PortfolioSection = ({
   onWithdraw,
   onPortfolioDetails,
   unbondingDelegationList,
+  onHistory,
 }: {
   details?: IStakeProtocolDetails;
   onClaim?: (params?: {
@@ -479,6 +584,7 @@ export const PortfolioSection = ({
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
+  onHistory?: IPortfolioInfoProps['onHistory'];
   unbondingDelegationList: IEarnUnbondingDelegationList;
 }) => {
   const intl = useIntl();
@@ -551,6 +657,8 @@ export const PortfolioSection = ({
     tooltipForClaimable,
     showDetailWithdrawalRequested: false,
     updateFrequency: details.updateFrequency,
+    waitingRebateRewardAmount: Number(details.waitingRebateRewardAmount),
+    totalRewardAmount: Number(details.totalRewardAmount),
   };
 
   let unbondingDelegationListResult: IUnbondingDelegationListItem[] = [];
@@ -587,6 +695,7 @@ export const PortfolioSection = ({
       onClaim={onClaim}
       onPortfolioDetails={onPortfolioDetails}
       onWithdraw={onWithdraw}
+      onHistory={onHistory}
     />
   );
 };

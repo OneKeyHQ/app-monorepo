@@ -72,6 +72,7 @@ export function useUniversalStake({
       symbol,
       term,
       feeRate,
+      inviteCode,
       morphoVault,
       approveType,
       permitSignature,
@@ -82,6 +83,7 @@ export function useUniversalStake({
     }: {
       amount: string;
       symbol: string;
+      inviteCode: string | undefined;
       term?: number;
       feeRate?: number;
       morphoVault?: string;
@@ -104,6 +106,7 @@ export function useUniversalStake({
           morphoVault,
           approveType,
           permitSignature,
+          inviteCode,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({

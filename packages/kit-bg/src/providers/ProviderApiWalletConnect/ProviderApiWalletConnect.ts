@@ -365,6 +365,7 @@ class ProviderApiWalletConnect {
     }
     await this.backgroundApi.serviceDApp.switchConnectedNetwork({
       newNetworkId: chainInfo.networkId,
+      oldNetworkId: accountsInfo[0].accountInfo.networkId,
       origin,
       scope: requestProxy.providerName,
       isWalletConnectRequest: true,
