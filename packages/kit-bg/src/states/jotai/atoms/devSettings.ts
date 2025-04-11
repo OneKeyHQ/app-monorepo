@@ -9,11 +9,11 @@ export interface IDevSettings {
   enableTestEndpoint?: boolean;
   // enable dev overlay window
   showDevOverlayWindow?:
-    | boolean
-    | {
-        top: number;
-        align: 'left' | 'right';
-      };
+  | boolean
+  | {
+    top: number;
+    align: 'left' | 'right';
+  };
   // always signOnly send tx
   alwaysSignOnlySendTx?: boolean;
   // show dev export private key
@@ -25,6 +25,8 @@ export interface IDevSettings {
   allowAddSameHDWallet?: boolean;
   // show trading view
   showTradingView?: boolean;
+  // use trading view test domain
+  useTradingViewTestDomain?: boolean;
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
   // strict signature alert display

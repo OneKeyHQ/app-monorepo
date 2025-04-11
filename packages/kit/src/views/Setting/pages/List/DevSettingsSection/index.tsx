@@ -644,9 +644,8 @@ export const DevSettingsSection = () => {
         <>
           <SectionPressItem
             copyable
-            title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
-              globalThis?.desktopApi?.channel || ''
-            } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
+            title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${globalThis?.desktopApi?.channel || ''
+              } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
           />
           <SectionPressItem
             copyable
@@ -662,9 +661,8 @@ export const DevSettingsSection = () => {
             switchWebDappMode();
             globalThis.location.reload();
           }}
-          title={`Switch web mode: ${
-            isWebInDappMode() ? 'dapp' : 'wallet'
-          } mode`}
+          title={`Switch web mode: ${isWebInDappMode() ? 'dapp' : 'wallet'
+            } mode`}
           titleProps={{ color: '$textCritical' }}
         />
       ) : null}
@@ -683,6 +681,23 @@ export const DevSettingsSection = () => {
         }}
       />
       <AutoJumpSetting />
+
+      <SectionFieldItem
+        name="showTradingView"
+        title="Show TradingView"
+        subtitle={devSettings.settings?.showTradingView ? 'Shown' : 'Hidden'}
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="useTradingViewTestDomain"
+        title="Use TradingView Test Domain"
+        subtitle={
+          devSettings.settings?.useTradingViewTestDomain ? 'Test' : 'Production'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
     </Section>
   );
 };
