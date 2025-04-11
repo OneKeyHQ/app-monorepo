@@ -1651,6 +1651,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async removeCloudSyncPoolItems({ keys }: { keys: string[] }) {
+    await this.withTransaction(async (tx) => {
+      await this.txRemoveCloudSyncPoolItems({ tx, keys });
+    });
+  }
+
   async txRemoveCloudSyncPoolItems({
     tx,
     keys,
@@ -1659,6 +1665,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     keys: string[];
   }) {
     try {
+      console.log('txRemoveCloudSyncPoolItems', keys);
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,

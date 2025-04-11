@@ -31,7 +31,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IAddCustomTokenRouteParams } from '@onekeyhq/shared/types/token';
+import {
+  ECustomTokenStatus,
+  type IAccountToken,
+  type IAddCustomTokenRouteParams,
+} from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
@@ -175,6 +179,10 @@ function AddCustomTokenModal() {
 
   const onConfirm = useCallback(
     async (close?: () => void) => {
+      if (!searchedTokenRef.current) {
+        Toast.error({ title: 'Searching token, please try again later' });
+        return;
+      }
       setIsLoading(true);
       // Step1 -> Create Address
       const { hasExistAccountFlag, accountIdForNetwork } =
@@ -215,14 +223,25 @@ function AddCustomTokenModal() {
         return;
       }
       try {
-        const tokenInfo = {
-          address: contractAddress,
+        if (searchedTokenRef.current?.networkId !== selectedNetworkIdValue) {
+          throw new Error('Token networkId not matched');
+        }
+        if (searchedTokenRef.current?.address !== contractAddress) {
+          throw new Error('Token address not matched');
+        }
+        const decimalsBN = new BigNumber(searchedTokenRef.current?.decimals);
+        const decimalsBN2 = new BigNumber(undefined as any);
+        if (decimalsBN.isNaN()) {
+          throw new Error('Token decimal is invalid');
+        }
+
+        const tokenInfo: IAccountToken = {
           ...searchedTokenRef.current,
+          address: contractAddress,
           symbol,
-          decimals: new BigNumber(decimals).toNumber(),
+          decimals: decimalsBN.toNumber(),
           accountId: accountIdForNetwork,
           networkId: selectedNetworkIdValue,
-          allNetworkAccountId: isAllNetwork ? accountId : undefined,
           name: searchedTokenRef.current?.name || symbol || '',
           isNative: searchedTokenRef.current?.isNative ?? false,
           $key: `${selectedNetworkIdValue}_${contractAddress}`,
@@ -232,9 +251,21 @@ function AddCustomTokenModal() {
           networkId: selectedNetworkIdValue,
           token: tokenInfo,
         });
+        const accountXpubOrAddress =
+          await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
+            accountId: accountIdForNetwork,
+            networkId: selectedNetworkIdValue,
+          });
         await backgroundApiProxy.serviceCustomToken.addCustomToken({
-          token: tokenInfo,
+          token: {
+            ...tokenInfo,
+            accountXpubOrAddress: accountXpubOrAddress || '',
+            tokenStatus: ECustomTokenStatus.Custom,
+          },
         });
+      } catch (error) {
+        Toast.error({ title: (error as Error)?.message });
+        throw error;
       } finally {
         setIsLoading(false);
       }
@@ -256,8 +287,6 @@ function AddCustomTokenModal() {
       token?.isNative,
       intl,
       onSuccess,
-      isAllNetwork,
-      accountId,
       searchedTokenRef,
       dappApprove,
     ],

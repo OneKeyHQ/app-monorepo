@@ -35,7 +35,8 @@ import { useFuseSearch } from '../../hooks/useFuseSearch';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { CELL_HEIGHT, HEADER_HEIGHT } from './type';
+import RecentNetworks from './RecentNetworks';
+import { ALL_NETWORK_HEADER_HEIGHT, CELL_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -83,6 +84,7 @@ const ListHeaderComponent = ({
 
   return (
     <Stack mt="$4">
+      <RecentNetworks />
       {!allNetworkItem || searchText?.trim() ? null : (
         <Stack>
           <EditableListItem
@@ -166,6 +168,8 @@ export const EditableChainSelectorContent = ({
     () => (allNetworkItem && !searchText?.trim?.()) ?? true,
     [allNetworkItem, searchText],
   );
+
+  const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -268,28 +272,60 @@ export const EditableChainSelectorContent = ({
     return { bottom: (dragCount + 1) * CELL_HEIGHT + 8 };
   }, [tempFrequentlyUsedItems]);
 
+  const listHeaderHeight = useMemo(() => {
+    return (
+      recentNetworksHeight +
+      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0)
+    );
+  }, [showAllNetworkHeader, recentNetworksHeight]);
+
   const layoutList = useMemo(() => {
-    let offset = 16 + (showAllNetworkHeader ? HEADER_HEIGHT : 0);
-    const layouts: { offset: number; length: number; index: number }[] = [];
+    let offset = 16 + listHeaderHeight;
+    const layouts: {
+      offset: number;
+      length: number;
+      index: number;
+      sectionIndex?: number;
+    }[] = [];
     sections.forEach((section, sectionIndex) => {
       if (sectionIndex !== 0) {
-        layouts.push({ offset, length: 20, index: layouts.length });
+        layouts.push({
+          offset,
+          length: 20,
+          index: layouts.length,
+          sectionIndex,
+        });
         offset += 20;
       }
       const headerHeight = section.title ? 36 : 0;
-      layouts.push({ offset, length: headerHeight, index: layouts.length });
+      layouts.push({
+        offset,
+        length: headerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
       offset += headerHeight;
       section.data.forEach(() => {
-        layouts.push({ offset, length: CELL_HEIGHT, index: layouts.length });
+        layouts.push({
+          offset,
+          length: CELL_HEIGHT,
+          index: layouts.length,
+          sectionIndex,
+        });
         offset += CELL_HEIGHT;
       });
       const footerHeight = 0;
-      layouts.push({ offset, length: footerHeight, index: layouts.length });
+      layouts.push({
+        offset,
+        length: footerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
       offset += footerHeight;
     });
     layouts.push({ offset, length: 16, index: layouts.length });
     return layouts;
-  }, [sections, showAllNetworkHeader]);
+  }, [sections, listHeaderHeight]);
 
   const initialScrollIndex = useMemo(() => {
     if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
@@ -359,6 +395,7 @@ export const EditableChainSelectorContent = ({
       isEditMode,
       searchText: searchTextTrim,
       allNetworkItem,
+      setRecentNetworksHeight,
     }),
     [
       tempFrequentlyUsedItems,
@@ -407,6 +444,37 @@ export const EditableChainSelectorContent = ({
     },
     [],
   );
+
+  useEffect(() => {
+    // For non-native platforms, initialScrollIndex causes display bugs
+    // Handle it by manually scrolling to the target position
+    if (!platformEnv.isNative) {
+      if (!initialScrollIndex || layoutList.length === 0) return;
+
+      let offset = 0;
+
+      if (initialScrollIndex.sectionIndex !== 0) {
+        const index = layoutList.findIndex(
+          (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
+        );
+
+        if (index === -1) return;
+
+        offset =
+          layoutList[index].offset +
+          CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      }
+
+      setTimeout(() => {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        listRef.current?._listRef?._scrollRef?.scrollTo?.({
+          y: offset,
+          animated: false,
+        });
+      }, 100);
+    }
+  }, [initialScrollIndex, layoutList]);
 
   return (
     <EditableChainSelectorContext.Provider value={context}>
@@ -459,7 +527,7 @@ export const EditableChainSelectorContent = ({
                 if (index === -1) {
                   return {
                     index,
-                    offset: showAllNetworkHeader ? HEADER_HEIGHT : 0,
+                    offset: showAllNetworkHeader ? listHeaderHeight : 0,
                     length: 0,
                   };
                 }

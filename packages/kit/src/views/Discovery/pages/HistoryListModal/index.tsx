@@ -184,6 +184,7 @@ function HistoryListModal() {
                       url: item.url,
                       title: item.title,
                       logo: item.logo,
+                      sortIndex: undefined,
                     },
                     shouldPopNavigation: true,
                     enterMethod: EEnterMethod.history,

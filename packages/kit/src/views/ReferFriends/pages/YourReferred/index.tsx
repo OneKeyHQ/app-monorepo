@@ -34,7 +34,8 @@ function EmptyData() {
 function HardwareSales() {
   const intl = useIntl();
   const { result, isLoading } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getHardwareSalesReward(),
+    () =>
+      backgroundApiProxy.serviceReferralCode.getHardwareSalesRewardHistory(),
     [],
     {
       watchLoading: true,
@@ -83,6 +84,58 @@ function HardwareSales() {
   );
 }
 
+function EarnList() {
+  const intl = useIntl();
+  const { result, isLoading } = usePromiseResult(
+    () => backgroundApiProxy.serviceReferralCode.getEarnRewardHistory(),
+    [],
+    {
+      watchLoading: true,
+      initResult: {
+        total: 0,
+        items: [],
+      },
+    },
+  );
+
+  if (isLoading) {
+    return (
+      <YStack position="relative" mt="30%" ai="center" jc="center" flex={1}>
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
+
+  const { total = 0, items } = result;
+
+  return (
+    <YStack pt="$5">
+      <YStack px="$5">
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.referral_referred_total_addresses,
+          })}
+        </SizableText>
+        <SizableText size="$heading5xl">{total}</SizableText>
+      </YStack>
+      {total === 0 && !isLoading ? (
+        <EmptyData />
+      ) : (
+        <YStack px="$5" pt="$5">
+          {items.map((item, key) => (
+            <YStack key={key} py="$2">
+              <SizableText size="$bodyLgMedium">{item.title}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {formatDate(item.createdAt)}
+              </SizableText>
+            </YStack>
+          ))}
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
 export default function YourReferred() {
   const intl = useIntl();
   const tabs = useMemo(
@@ -91,12 +144,12 @@ export default function YourReferred() {
       //   title: 'OneKey ID',
       //   page: HardwareSales,
       // },
-      // {
-      //   title: intl.formatMessage({
-      //     id: ETranslations.referral_referred_type_2,
-      //   }),
-      //   page: HardwareSales,
-      // },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.referral_referred_type_2,
+        }),
+        page: EarnList,
+      },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_type_3,

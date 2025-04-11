@@ -21,6 +21,7 @@
     "views/*/hooks/usePrivyUniversalV2",
     "views/*/purchasesSdk",
     "views/*/router",
-    "views/*/utils/**"
+    "views/*/utils/**",
+    "views/FirmwareUpdate/componentsV2/**"
   ]
 }

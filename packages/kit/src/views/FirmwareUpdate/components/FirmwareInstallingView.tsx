@@ -16,7 +16,6 @@ import type {
 import { FirmwareUpdateDone } from './FirmwareUpdateDone';
 import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';
 import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
-import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
 
 export function FirmwareInstallingViewBase({
   result,
@@ -31,9 +30,6 @@ export function FirmwareInstallingViewBase({
   retryInfo?: IFirmwareUpdateRetry | undefined;
   progressBarKey?: number;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const profile = <FirmwareUpdateWalletProfile result={result} />;
-
   const content = useMemo(() => {
     if (isDone) {
       return <FirmwareUpdateDone result={result} />;
@@ -55,12 +51,7 @@ export function FirmwareInstallingViewBase({
       />
     );
   }, [isDone, progressBarKey, result, retryInfo, tipMessage]);
-  return (
-    <Stack>
-      {/* {profile} */}
-      {content}
-    </Stack>
-  );
+  return <Stack>{content}</Stack>;
 }
 
 export function FirmwareInstallingView({
