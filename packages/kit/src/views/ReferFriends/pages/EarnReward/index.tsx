@@ -385,8 +385,8 @@ export default function EarnReward() {
         if (summaryResult.status === 'fulfilled') {
           const data = summaryResult.value;
           setAmount({
-            available: data.Earn.available?.amount || '0',
-            pending: data.Earn.pending?.amount || '0',
+            available: data.Earn.available?.[0].amount || '0',
+            pending: data.Earn.pending?.[0].amount || '0',
           });
         }
         setIsLoading(false);

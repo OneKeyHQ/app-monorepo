@@ -294,15 +294,30 @@ const ProtocolDetailsPage = () => {
   );
 
   const { bindInviteCode } = useReferFriends();
-  const { result: code, run: refetchInviteCode } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getInviteCode(),
-    [],
+  const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
+    async () => {
+      const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
+      if (code) {
+        return false;
+      }
+      if (earnAccount?.accountAddress) {
+        const inviteCodeOnServer =
+          await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
+            networkId,
+            accountAddress: earnAccount?.accountAddress,
+          });
+        if (inviteCodeOnServer) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [earnAccount?.accountAddress, networkId],
     {
       revalidateOnFocus: true,
-      initResult: '',
+      initResult: false,
     },
   );
-  const isShowAlert = !!code;
 
   return (
     <Page scrollEnabled>
