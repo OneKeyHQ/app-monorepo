@@ -115,7 +115,10 @@ class ServiceCustomToken extends ServiceBase {
         this.backgroundApi.simpleDb.customTokens.addCustomTokensBatch({
           tokens,
         }),
-      customTokens: [...tokens],
+      customTokens: [...tokens].map((item) => ({
+        ...item,
+        tokenStatus: ECustomTokenStatus.Custom,
+      })),
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
@@ -137,7 +140,10 @@ class ServiceCustomToken extends ServiceBase {
         this.backgroundApi.simpleDb.customTokens.hideToken({
           token,
         }),
-      customTokens: [token],
+      customTokens: [token].map((item) => ({
+        ...item,
+        tokenStatus: ECustomTokenStatus.Hidden,
+      })),
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
