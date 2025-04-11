@@ -328,7 +328,7 @@ export const EditableChainSelectorContent = ({
   }, [sections, listHeaderHeight]);
 
   const initialScrollIndex = useMemo(() => {
-    if (platformEnv.isNative) {
+    if (!platformEnv.isNative) {
       return undefined;
     }
 
