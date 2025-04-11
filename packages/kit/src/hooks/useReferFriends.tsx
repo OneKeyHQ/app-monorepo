@@ -236,7 +236,8 @@ export const useReferFriends = () => {
                       icon="ShareOutline"
                       size="large"
                       iconColor="$iconSubdued"
-                      onPress={() => {
+                      onPress={async () => {
+                        await dialog.close();
                         setTimeout(() => {
                           void Share.share(
                             platformEnv.isNativeIOS
@@ -247,7 +248,7 @@ export const useReferFriends = () => {
                                   message: sharedUrl,
                                 },
                           );
-                        }, 300);
+                        }, 250);
                       }}
                     />
                   ) : null}
