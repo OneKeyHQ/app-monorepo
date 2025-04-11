@@ -183,7 +183,12 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                   { 'num': 24 },
                 ),
               },
-              validate: async (text) => {
+              validate: async (text: string) => {
+                if (!text?.trim()) {
+                  return intl.formatMessage({
+                    id: ETranslations.address_book_add_address_name_empty_error,
+                  });
+                }
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
                     name: text,
