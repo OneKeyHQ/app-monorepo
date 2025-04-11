@@ -833,10 +833,13 @@ class ProviderApiEthereum extends ProviderApiBase {
         await this.eth_requestAccounts(request);
       }
 
+      const oldNetworkId = accountsInfo?.[0].accountInfo?.networkId;
+
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
         newNetworkId,
+        oldNetworkId,
       });
     },
     {
