@@ -319,25 +319,34 @@ function WalletItem({
       await dialogRef.current?.close();
 
       // Currently, there are only walletconnect and evm.
-      let protocol: 'WalletConnect' | 'EIP6963' | 'EVMInjected' | 'unknown';
-      let walletName: string | undefined;
-      if (connectionInfo.walletConnect) {
-        protocol = 'WalletConnect';
-        walletName = connectResult.connectionInfo.walletConnect?.peerMeta?.name;
-      } else if (connectionInfo.evmEIP6963) {
-        protocol = 'EIP6963';
-        walletName = connectResult.connectionInfo.evmEIP6963?.info?.name;
-      } else if (connectionInfo.evmInjected) {
-        protocol = 'EVMInjected';
-        walletName = 'Injected';
-      }
+      const protocol: 'WalletConnect' | 'EIP6963' | 'EVMInjected' | 'unknown' =
+        (() => {
+          if (connectionInfo.walletConnect) return 'WalletConnect';
+          if (connectionInfo.evmEIP6963) return 'EIP6963';
+          if (connectionInfo.evmInjected) return 'EVMInjected';
+          return 'unknown';
+        })();
+
+      const walletName = (() => {
+        if (connectionInfo.walletConnect?.peerMeta?.name) {
+          return connectionInfo.walletConnect.peerMeta.name;
+        }
+        if (connectionInfo.evmEIP6963?.info?.name) {
+          return connectionInfo.evmEIP6963.info.name;
+        }
+        if (connectionInfo.evmInjected) {
+          return 'Injected';
+        }
+        return 'unknown';
+      })();
+
       defaultLogger.account.wallet.walletAdded({
         addMethod: 'Connect3rdParty',
         status: 'success',
         details: {
-          protocol: protocol || 'unknown',
+          protocol,
           network: 'evm',
-          walletName: walletName || 'unknown',
+          walletName,
         },
       });
     } finally {
