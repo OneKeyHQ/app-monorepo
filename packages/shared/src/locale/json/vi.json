@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Không thể giao dịch với một tài khoản đang được theo dõi.",
   "wallet.generic_string_length_requirement": "Tên tài khoản vượt quá giới hạn độ dài.",
   "wallet.history_settings_hide_risk_transaction_desc": "Hỗ trợ các blockchain chính, bao gồm ETH, BNB, TRX và nhiều hơn nữa.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "Mạng {networkName} chưa được hỗ trợ.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Mạng {networkName} chưa được hỗ trợ.",
   "wallet.history_settings_hide_risk_transaction_title": "Ẩn các giao dịch rủi ro",
   "wallet.last_ledger_sequence": "Số hạch toán cuối cùng",
   "wallet.ledger_index": "Chỉ số sổ cái",

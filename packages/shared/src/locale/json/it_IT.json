@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Non è possibile fare trading con un account monitorato.",
   "wallet.generic_string_length_requirement": "La lunghezza del nome dell'account supera il limite.",
   "wallet.history_settings_hide_risk_transaction_desc": "Supporta le principali blockchain, inclusi ETH, BNB, TRX e altro.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "La rete {networkName} non è ancora supportata.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "La rete {networkName} non è ancora supportata.",
   "wallet.history_settings_hide_risk_transaction_title": "Nascondi le transazioni rischiose",
   "wallet.last_ledger_sequence": "Ultima sequenza del registro",
   "wallet.ledger_index": "Indice del libro mastro",
