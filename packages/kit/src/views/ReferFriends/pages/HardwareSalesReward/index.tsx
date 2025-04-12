@@ -170,7 +170,7 @@ export default function HardwareSalesReward() {
             </XStack>
 
             <NumberSizeableText
-              formatter="value"
+              formatter="balance"
               formatterOptions={{
                 currency: settings.currencyInfo.symbol,
                 showPlusMinusSigns: true,
