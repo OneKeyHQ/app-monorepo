@@ -126,10 +126,11 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
                   }
                 >
                   <Switch
+                    isUncontrolled
                     disabled={!filterScamHistorySupported}
                     size={ESwitchSize.small}
                     onChange={handleFilterScamHistoryOnChange}
-                    value={
+                    defaultChecked={
                       filterScamHistorySupported
                         ? settings.isFilterScamHistoryEnabled
                         : false
