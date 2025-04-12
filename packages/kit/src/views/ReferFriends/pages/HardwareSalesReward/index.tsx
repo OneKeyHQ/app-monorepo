@@ -105,8 +105,8 @@ export default function HardwareSalesReward() {
         if (summaryResult.status === 'fulfilled') {
           const data = summaryResult.value;
           setAmount({
-            available: data.HardwareSales.available?.[0].amount || '0',
-            pending: data.HardwareSales.pending?.[0].amount || '0',
+            available: data.HardwareSales.available?.[0]?.amount || '0',
+            pending: data.HardwareSales.pending?.[0]?.amount || '0',
           });
         }
         setIsLoading(false);
@@ -159,7 +159,6 @@ export default function HardwareSalesReward() {
               <>
                 <SizableText size="$bodyLgMedium">{` - `}</SizableText>
                 <SizableText size="$bodyLgMedium">
-                  {' '}
                   {intl.formatMessage({
                     id: ETranslations.global_pending,
                   })}
@@ -181,7 +180,12 @@ export default function HardwareSalesReward() {
             {item.amount}
           </NumberSizeableText>
         </XStack>
-        <SizableText color="$textSubdued" size="$bodyMd">
+        <SizableText
+          color="$textSubdued"
+          size="$bodyMd"
+          numberOfLines={1}
+          flexShrink={1}
+        >
           {`${formatTime(new Date(item.createdAt), {
             hideSeconds: true,
             hideMilliseconds: true,
@@ -264,13 +268,6 @@ export default function HardwareSalesReward() {
                       <SizableText size="$heading5xl">0</SizableText>
                     )}
                     <YStack>
-                      {platformEnv.isNative && isLoading ? (
-                        <IconButton
-                          loading
-                          icon="RefreshCcwOutline"
-                          variant="tertiary"
-                        />
-                      ) : null}
                       {platformEnv.isNative ? null : (
                         <IconButton
                           icon="RefreshCcwOutline"

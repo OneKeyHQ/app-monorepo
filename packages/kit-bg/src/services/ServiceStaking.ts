@@ -1282,10 +1282,21 @@ class ServiceStaking extends ServiceBase {
       data: {
         referCode: string;
       };
-    }>(`/earn/v1/invite-code/query`, {
+    }>(`/earn/v1/account/invite-code/query`, {
       params,
     });
     return response.data.data.referCode;
+  }
+
+  @backgroundMethod()
+  async checkInviteCode(inviteCode: string) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      code: number;
+    }>(`/earn/v1/account/invite-code/check`, {
+      params: { inviteCode },
+    });
+    return response.data.code === 0;
   }
 }
 
