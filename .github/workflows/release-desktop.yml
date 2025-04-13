@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - daily-build
+      - daily-build-dev
     types:
       - completed
   workflow_dispatch:
