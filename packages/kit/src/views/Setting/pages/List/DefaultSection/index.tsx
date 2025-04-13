@@ -68,7 +68,8 @@ const LockNowButton = () => {
   return (
     <ListItem
       icon="LockOutline"
-      title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
+      // title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
+      title="Lock Now-2222"
       onPress={handlePress}
     />
   );
