@@ -83,6 +83,10 @@ runs:
         echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
         # echo "::set-env name=GITHUB_TAG::$github_ref"
         # Generate github tag ------- end
+
+        # Generate github sha ------- start
+        echo "GITHUB_SHA=${{ github.sha }}" >> $GITHUB_ENV
+        # Generate github sha ------- end
       env:
         github_ref: ${{ github.ref }}
         workflow_run_number: ${{ github.event.workflow_run.run_number}}
@@ -123,7 +127,6 @@ runs:
     - name: Inject Environment Variables
       shell: bash
       env:
-        GITHUB_SHA: ${{ github.sha }}
         COVALENT_KEY: ${{ inputs.covalent_key }}
         SENTRY_TOKEN: ${{ inputs.sentry_token }}
         SENTRY_PROJECT: ${{ inputs.sentry_project || '' }}
