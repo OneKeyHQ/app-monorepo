@@ -100,12 +100,14 @@ import type { ImageSourcePropType } from 'react-native';
 const trackHardwareWalletConnection = async ({
   status,
   deviceType,
+  isSoftwareWalletOnlyUser,
   features,
   hardwareTransportType,
   errorMessage,
 }: {
   status: 'success' | 'failure';
   deviceType: IDeviceType;
+  isSoftwareWalletOnlyUser: boolean;
   features?: Features;
   hardwareTransportType: EHardwareTransportType | undefined;
   errorMessage?: string;
@@ -135,6 +137,7 @@ const trackHardwareWalletConnection = async ({
       deviceType,
       ...(firmwareVersions && { firmwareVersions }),
     },
+    isSoftwareWalletOnlyUser,
     ...(errorMessage && { errorMessage }),
   });
 };
@@ -586,6 +589,8 @@ function ConnectByUSBOrBLE() {
       isFirmwareVerified?: boolean;
       features: IOneKeyDeviceFeatures;
     }) => {
+      const isSoftwareWalletOnlyUser =
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
 
@@ -604,6 +609,7 @@ function ConnectByUSBOrBLE() {
           deviceType: device.deviceType,
           features,
           hardwareTransportType,
+          isSoftwareWalletOnlyUser,
         });
 
         if (createResult.wallet && createResult.isOverrideWallet) {
@@ -628,6 +634,7 @@ function ConnectByUSBOrBLE() {
           deviceType: device.deviceType,
           features,
           hardwareTransportType,
+          isSoftwareWalletOnlyUser,
           errorMessage:
             error instanceof Error ? error.message : 'create hw wallet failed',
         });
@@ -646,11 +653,14 @@ function ConnectByUSBOrBLE() {
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
+      const isSoftwareWalletOnlyUser =
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHardware',
         details: {
           hardwareWalletType: 'Standard',
         },
+        isSoftwareWalletOnlyUser,
       });
       if (device.deviceType === 'unknown') {
         Toast.error({
@@ -690,6 +700,7 @@ function ConnectByUSBOrBLE() {
         if (!features) {
           await trackHardwareWalletConnection({
             status: 'failure',
+            isSoftwareWalletOnlyUser,
             deviceType: device.deviceType,
             features,
             hardwareTransportType,
@@ -721,6 +732,7 @@ function ConnectByUSBOrBLE() {
           await trackHardwareWalletConnection({
             status: 'failure',
             deviceType,
+            isSoftwareWalletOnlyUser,
             features,
             hardwareTransportType,
             errorMessage: 'Device is in backup mode',

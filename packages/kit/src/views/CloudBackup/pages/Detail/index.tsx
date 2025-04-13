@@ -316,6 +316,8 @@ export default function Detail() {
       details: {
         importSource: 'cloud',
       },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
     });
   }, [
     intl,

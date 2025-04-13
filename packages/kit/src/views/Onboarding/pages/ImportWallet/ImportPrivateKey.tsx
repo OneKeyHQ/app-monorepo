@@ -101,6 +101,8 @@ function ImportPrivateKey() {
           details: {
             importSource: 'privateKey',
           },
+          isSoftwareWalletOnlyUser:
+            await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
       }}
       networkIds={networkIds}

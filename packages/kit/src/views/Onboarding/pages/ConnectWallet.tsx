@@ -283,10 +283,13 @@ function WalletItem({
   }, [hideLoading, loading]);
 
   const connectToWallet = useCallback(async () => {
+    const isSoftwareWalletOnlyUser =
+      await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
     try {
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'Connect3rdParty',
         details: undefined,
+        isSoftwareWalletOnlyUser,
       });
       showLoading();
       const connectResult =
@@ -348,6 +351,7 @@ function WalletItem({
           network: 'evm',
           walletName,
         },
+        isSoftwareWalletOnlyUser,
       });
     } finally {
       hideLoading();

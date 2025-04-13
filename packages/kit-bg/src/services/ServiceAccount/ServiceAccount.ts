@@ -2317,6 +2317,8 @@ class ServiceAccount extends ServiceBase {
               : undefined,
             hardwareWalletType: 'Hidden',
           },
+          isSoftwareWalletOnlyUser:
+            await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
         return dbWallet;

@@ -43,20 +43,24 @@ export type IWalletAddMethod =
 export type IWalletStartedParams =
   | {
       addMethod: Extract<IWalletAddMethod, 'CreateWallet'>;
+      isSoftwareWalletOnlyUser: boolean;
     }
   | {
       addMethod: Extract<IWalletAddMethod, 'Import'>;
       details: IImportWalletPayload;
+      isSoftwareWalletOnlyUser: boolean;
     }
   | {
       addMethod: Extract<IWalletAddMethod, 'ConnectHardware'>;
       details: {
         hardwareWalletType: 'Hidden' | 'Standard' | 'QRCode';
       };
+      isSoftwareWalletOnlyUser: boolean;
     }
   | {
       addMethod: Extract<IWalletAddMethod, 'Connect3rdParty'>;
       details: undefined;
+      isSoftwareWalletOnlyUser: boolean;
     };
 
 export type IWalletAddedEventParams = IBaseEventPayload &
@@ -64,17 +68,21 @@ export type IWalletAddedEventParams = IBaseEventPayload &
     | {
         addMethod: Extract<IWalletAddMethod, 'CreateWallet'>;
         details: ICreateWalletPayload;
+        isSoftwareWalletOnlyUser: boolean;
       }
     | {
         addMethod: Extract<IWalletAddMethod, 'Import'>;
         details: IImportWalletPayload;
+        isSoftwareWalletOnlyUser: boolean;
       }
     | {
         addMethod: Extract<IWalletAddMethod, 'ConnectHardware'>;
         details: IConnectHardwareWalletPayload;
+        isSoftwareWalletOnlyUser: boolean;
       }
     | {
         addMethod: Extract<IWalletAddMethod, 'Connect3rdParty'>;
         details: IConnectExternalWalletPayload;
+        isSoftwareWalletOnlyUser: boolean;
       }
   );

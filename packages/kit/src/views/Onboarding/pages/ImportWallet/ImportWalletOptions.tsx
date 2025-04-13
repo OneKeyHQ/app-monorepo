@@ -94,6 +94,8 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'mnemonic',
       },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
     });
   };
 
@@ -105,6 +107,8 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'keyTag',
       },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
     });
   };
 
@@ -117,6 +121,8 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'privateKey',
       },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
     });
   };
 
@@ -127,6 +133,8 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'watchOnly',
       },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
     });
   };
 
@@ -138,6 +146,8 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'cloud',
       },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
     });
   };
 

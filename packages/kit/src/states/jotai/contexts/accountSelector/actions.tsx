@@ -785,6 +785,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           details: {
             hardwareWalletType: 'Hidden',
           },
+          isSoftwareWalletOnlyUser:
+            await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
         const res = await serviceAccount.createHWHiddenWallet({
           walletId,

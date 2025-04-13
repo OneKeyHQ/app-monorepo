@@ -103,7 +103,7 @@ export function VerifyRecoveryPhrase({
 
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
 
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback(async () => {
     if (verifyRecoveryPhrases && phrases) {
       const isValid = selectedWords.every((word, index) => {
         const [wordIndex] = verifyRecoveryPhrases[index];
@@ -120,6 +120,8 @@ export function VerifyRecoveryPhrase({
           details: {
             isBiometricSet: settings.isBiologyAuthSwitchOn,
           },
+          isSoftwareWalletOnlyUser:
+            await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
       } else {
         Toast.error({

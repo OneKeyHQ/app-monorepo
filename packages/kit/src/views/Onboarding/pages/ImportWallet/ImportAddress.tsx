@@ -345,6 +345,8 @@ function ImportAddress() {
         details: {
           importSource: 'watchOnly',
         },
+        isSoftwareWalletOnlyUser:
+          await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
       });
     },
     [actions, intl, isPublicKeyImport, navigation],

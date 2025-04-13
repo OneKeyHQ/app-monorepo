@@ -95,11 +95,14 @@ export default function useLiteCard() {
     ],
   );
   const importWallet = useCallback(async () => {
+    const isSoftwareWalletOnlyUser =
+      await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'Import',
       details: {
         importSource: 'liteCard',
       },
+      isSoftwareWalletOnlyUser,
     });
     try {
       await nfc.checkNFCEnabledPermission();
@@ -139,6 +142,7 @@ export default function useLiteCard() {
         details: {
           importSource: 'liteCard',
         },
+        isSoftwareWalletOnlyUser,
       });
     } catch {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: false });
@@ -148,6 +152,7 @@ export default function useLiteCard() {
         details: {
           importSource: 'liteCard',
         },
+        isSoftwareWalletOnlyUser,
       });
     }
   }, [nfc, showPINFormDialog, navigation]);

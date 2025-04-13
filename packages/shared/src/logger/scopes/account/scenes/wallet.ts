@@ -21,11 +21,13 @@ export class WalletScene extends BaseScene {
       case 'CreateWallet':
         return {
           addMethod: 'CreateWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
         };
 
       case 'Import':
         return {
           addMethod: 'Import',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             importSource: params.details.importSource,
           },
@@ -34,6 +36,7 @@ export class WalletScene extends BaseScene {
       case 'ConnectHardware':
         return {
           addMethod: 'ConnectHardware',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             hardwareWalletType: params.details.hardwareWalletType,
           },
@@ -42,6 +45,7 @@ export class WalletScene extends BaseScene {
       case 'Connect3rdParty':
         return {
           addMethod: 'Connect3rdParty',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
         };
 
       default: {
@@ -61,6 +65,7 @@ export class WalletScene extends BaseScene {
         return {
           status: params.status,
           addMethod: 'CreateWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             isBiometricSet: params.details.isBiometricSet,
           },
@@ -72,6 +77,7 @@ export class WalletScene extends BaseScene {
         return {
           status: params.status,
           addMethod: 'Import',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             importSource: params.details.importSource,
           },
@@ -83,6 +89,7 @@ export class WalletScene extends BaseScene {
         return {
           status: params.status,
           addMethod: 'ConnectHardware',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             connectionType: params.details.connectionType,
             deviceType: params.details.deviceType,
@@ -99,6 +106,7 @@ export class WalletScene extends BaseScene {
         return {
           status: params.status,
           addMethod: 'Connect3rdParty',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             protocol: params.details.protocol,
             network: params.details.network,
