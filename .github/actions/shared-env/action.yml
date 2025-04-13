@@ -79,14 +79,23 @@ runs:
         github_ref="${github_ref////-}"
         github_ref="${github_ref/refs-heads-/}"
         github_ref="${github_ref/refs-tags-/}"
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
+          github_ref=${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        fi
         echo '$github_ref='$github_ref
         echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
         # echo "::set-env name=GITHUB_TAG::$github_ref"
         # Generate github tag ------- end
 
         # Generate github sha ------- start
-        echo "GITHUB_SHA=${{ github.sha }}" >> $GITHUB_ENV
+        github_sha=${{ github.sha }}
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_SHA }}" ]; then
+          github_sha=${{ env.WORKFLOW_GITHUB_SHA }}
+        fi
+        echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
         # Generate github sha ------- end
+
+        
       env:
         github_ref: ${{ github.ref }}
         workflow_run_number: ${{ github.event.workflow_run.run_number}}
