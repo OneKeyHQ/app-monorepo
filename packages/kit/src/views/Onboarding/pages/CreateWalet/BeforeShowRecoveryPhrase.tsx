@@ -30,7 +30,7 @@ export function BeforeShowRecoveryPhrase() {
       RouteProp<IOnboardingParamList, EOnboardingPages.BeforeShowRecoveryPhrase>
     >();
 
-  const handleShowRecoveryPhrasePress = () => {
+  const handleShowRecoveryPhrasePress = async () => {
     const mnemonic = route.params?.mnemonic;
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
 
