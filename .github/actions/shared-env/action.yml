@@ -76,6 +76,7 @@ runs:
         # Generate app version ------- end
 
         # Generate github tag ------- start
+        github_ref=${{ github.ref }}
         github_ref="${github_ref////-}"
         github_ref="${github_ref/refs-heads-/}"
         github_ref="${github_ref/refs-tags-/}"
@@ -92,13 +93,10 @@ runs:
         if [ ! -z "${{ env.WORKFLOW_GITHUB_SHA }}" ]; then
           github_sha=${{ env.WORKFLOW_GITHUB_SHA }}
         fi
+        echo '$github_sha='$github_sha
         echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
         # Generate github sha ------- end
 
-        
-      env:
-        github_ref: ${{ github.ref }}
-        workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
     - name: Setup ENV BUILD_NUMBER to 1
       if: ${{ !github.event.workflow_run }}
@@ -107,9 +105,6 @@ runs:
         # Generate build number ------- start
         echo "BUILD_NUMBER=1" >> $GITHUB_ENV
         # Generate build number ------- end
-      env:
-        github_ref: ${{ github.ref }}
-        workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
 
     - name: Setup ENV BUILD_NUMBER by workflow_run
@@ -130,7 +125,6 @@ runs:
           # Generate build number ------- end
         fi
       env:
-        github_ref: ${{ github.ref }}
         workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
     - name: Inject Environment Variables
