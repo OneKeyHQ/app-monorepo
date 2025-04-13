@@ -75,6 +75,18 @@ runs:
         echo "BUILD_APP_VERSION=$app_version" >> $GITHUB_ENV
         # Generate app version ------- end
 
+
+        # Generate github sha ------- start
+        github_sha=${{ github.sha }}
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_SHA }}" ]; then
+          github_sha=${{ env.WORKFLOW_GITHUB_SHA }}
+        fi
+        echo '$github_sha='$github_sha
+        echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
+        # Generate github sha ------- end
+
+
+
         # Generate github tag ------- start
         github_ref=${{ github.ref }}
         github_ref="${github_ref////-}"
@@ -87,15 +99,6 @@ runs:
         echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
         # echo "::set-env name=GITHUB_TAG::$github_ref"
         # Generate github tag ------- end
-
-        # Generate github sha ------- start
-        github_sha=${{ github.sha }}
-        if [ ! -z "${{ env.WORKFLOW_GITHUB_SHA }}" ]; then
-          github_sha=${{ env.WORKFLOW_GITHUB_SHA }}
-        fi
-        echo '$github_sha='$github_sha
-        echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
-        # Generate github sha ------- end
 
 
     - name: Setup ENV BUILD_NUMBER to 1
