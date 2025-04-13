@@ -21,7 +21,6 @@ jobs:
           echo '$build_number='$build_number
           
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
-          # echo "BUILD_NUMBER=111000" >> $GITHUB_ENV
 
       - name: Save workflow parameters
         run: |
