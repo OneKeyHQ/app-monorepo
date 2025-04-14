@@ -529,7 +529,9 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   } = value;
   const isNegativeNumber =
     formattedValue[0] === '-' || (isZero && rawValue[0] === '-');
-  const startsNumberIndex = isNegativeNumber ? 1 : 0;
+  const valueWithoutSign =
+    isNegativeNumber && !isZero ? formattedValue.slice(1) : formattedValue;
+  const startsNumberIndex = 0;
 
   if (invalid) {
     if (platformEnv.isDev && !platformEnv.isJest) {
@@ -543,8 +545,11 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (leading) {
     strings.push(leading);
   }
-  if (showPlusMinusSigns && !isNegativeNumber) {
-    strings.push('+');
+  if (isNegativeNumber && !isZero) {
+    strings.push('-');
+  } else if (showPlusMinusSigns) {
+    // -0/+0
+    strings.push(isNegativeNumber ? '-' : '+');
   }
 
   if (currency) {
@@ -552,9 +557,6 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   }
 
   if (leadingZeros && leadingZeros > 4) {
-    if (isNegativeNumber) {
-      strings.push('-');
-    }
     const { value: formattedZero } = formatLocalNumber('0', {
       digits: 1,
       removeTrailingZeros: false,
@@ -562,12 +564,9 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     });
     strings.push(formattedZero);
     strings.push({ value: leadingZeros, type: 'sub' });
-    strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
+    strings.push(valueWithoutSign.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
-    if (showPlusMinusSigns && isZero && isNegativeNumber) {
-      strings.push('-');
-    }
-    strings.push(formattedValue);
+    strings.push(valueWithoutSign);
   }
   if (unit) {
     strings.push(unit);
