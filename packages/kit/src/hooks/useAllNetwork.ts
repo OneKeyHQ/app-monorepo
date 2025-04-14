@@ -16,6 +16,7 @@ import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
@@ -444,53 +445,89 @@ function useAllNetworkRequests<T>(params: {
 function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   walletId,
   networkId,
+  filterNetworksWithoutAccount,
+  indexedAccountId,
 }: {
   walletId: string;
   networkId?: string;
+  filterNetworksWithoutAccount?: boolean;
+  indexedAccountId?: string;
 }) {
-  const { result: enabledNetworksCompatibleWithWalletId, run } =
-    usePromiseResult(
-      async () => {
-        if (networkId && !networkUtils.isAllNetwork({ networkId })) {
-          return [];
+  const { result, run } = usePromiseResult(
+    async () => {
+      if (networkId && !networkUtils.isAllNetwork({ networkId })) {
+        return {
+          compatibleNetworks: [],
+          compatibleNetworksWithoutAccount: [],
+        };
+      }
+
+      const { enabledNetworks, disabledNetworks } =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+      const { networks } =
+        await backgroundApiProxy.serviceNetwork.getAllNetworks({
+          excludeTestNetwork: true,
+          excludeAllNetworkItem: true,
+        });
+      const enabledNetworkIds = networks
+        .filter((n) =>
+          isEnabledNetworksInAllNetworks({
+            networkId: n.id,
+            disabledNetworks,
+            enabledNetworks,
+            isTestnet: n.isTestnet,
+          }),
+        )
+        .map((n) => n.id);
+
+      const compatibleNetworks =
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          {
+            walletId,
+            networkIds: enabledNetworkIds,
+          },
+        );
+
+      const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
+
+      if (filterNetworksWithoutAccount && indexedAccountId) {
+        for (const network of compatibleNetworks.mainnetItems) {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                indexedAccountId,
+                networkId: network.id,
+                excludeEmptyAccount: true,
+              },
+            );
+          if (networkAccounts.length === 0) {
+            compatibleNetworksWithoutAccount.push(network);
+          }
         }
+      }
 
-        const { enabledNetworks, disabledNetworks } =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
-        const { networks } =
-          await backgroundApiProxy.serviceNetwork.getAllNetworks({
-            excludeTestNetwork: true,
-            excludeAllNetworkItem: true,
-          });
-        const enabledNetworkIds = networks
-          .filter((n) =>
-            isEnabledNetworksInAllNetworks({
-              networkId: n.id,
-              disabledNetworks,
-              enabledNetworks,
-              isTestnet: n.isTestnet,
-            }),
-          )
-          .map((n) => n.id);
-
-        const compatibleNetworks =
-          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-            {
-              walletId,
-              networkIds: enabledNetworkIds,
-            },
-          );
-
-        return compatibleNetworks.mainnetItems;
+      return {
+        compatibleNetworks: compatibleNetworks.mainnetItems,
+        compatibleNetworksWithoutAccount,
+      };
+    },
+    [walletId, networkId, filterNetworksWithoutAccount, indexedAccountId],
+    {
+      initResult: {
+        compatibleNetworks: [],
+        compatibleNetworksWithoutAccount: [],
       },
-      [walletId, networkId],
-      {
-        initResult: [],
-      },
-    );
+    },
+  );
+
+  const enabledNetworksCompatibleWithWalletId =
+    result?.compatibleNetworks ?? [];
+  const enabledNetworksWithoutAccount =
+    result?.compatibleNetworksWithoutAccount ?? [];
 
   return {
     enabledNetworksCompatibleWithWalletId,
+    enabledNetworksWithoutAccount,
     run,
   };
 }

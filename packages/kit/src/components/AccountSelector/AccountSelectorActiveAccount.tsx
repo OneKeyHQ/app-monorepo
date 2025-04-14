@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,6 +8,7 @@ import {
   IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
+  Stack,
   Tooltip,
   XStack,
   useClipboard,
@@ -15,6 +16,10 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -27,6 +32,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
@@ -42,6 +48,24 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     useAllNetworkCopyAddressHandler({
       activeAccount,
     });
+
+  const { enabledNetworksWithoutAccount, run } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: activeAccount?.wallet?.id ?? '',
+      networkId: activeAccount?.network?.id,
+      indexedAccountId: activeAccount?.indexedAccount?.id,
+      filterNetworksWithoutAccount: true,
+    });
+
+  useEffect(() => {
+    const refresh = async () => {
+      await run({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+    };
+  }, [run]);
 
   if (!isAllNetworkEnabled) {
     return null;
@@ -74,6 +98,33 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       onPress={() => handleAllNetworkCopyAddress(true)}
     >
       <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
+      {enabledNetworksWithoutAccount.length > 0 ? (
+        <Stack
+          position="absolute"
+          right="$-0.5"
+          top="$-0.5"
+          alignItems="flex-end"
+          w="$3"
+          pointerEvents="none"
+        >
+          <Stack
+            bg="$bgApp"
+            borderRadius="$full"
+            borderWidth={2}
+            borderColor="$transparent"
+          >
+            <Stack
+              px="$1"
+              borderRadius="$full"
+              bg="$caution10"
+              minWidth="$2"
+              height="$2"
+              alignItems="center"
+              justifyContent="center"
+            />
+          </Stack>
+        </Stack>
+      ) : null}
     </XStack>
   );
 

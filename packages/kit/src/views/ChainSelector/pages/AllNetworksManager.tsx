@@ -10,6 +10,7 @@ import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/Servi
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
@@ -129,10 +130,21 @@ function AllNetworksManager() {
   const renderHeaderTitle = useCallback(() => {
     return (
       <YStack>
-        <SizableText size="$headingLg">
+        <SizableText
+          size="$headingLg"
+          {...(platformEnv.isNativeIOS && {
+            textAlign: 'center',
+          })}
+        >
           {intl.formatMessage({ id: ETranslations.global_all_networks })}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          {...(platformEnv.isNativeIOS && {
+            textAlign: 'center',
+          })}
+        >
           {intl.formatMessage({
             id: ETranslations.network_selection_prompt,
           })}
@@ -143,10 +155,6 @@ function AllNetworksManager() {
 
   const handleEnableAllNetworks = useCallback(async () => {
     setIsLoading(true);
-    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-      enabledNetworks: networksState.enabledNetworks,
-      disabledNetworks: networksState.disabledNetworks,
-    });
 
     const { accountsInfo } =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
@@ -221,6 +229,11 @@ function AllNetworksManager() {
         customNetworks: enabledNetworksWithoutAccountTemp,
       });
     }
+
+    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+      enabledNetworks: networksState.enabledNetworks,
+      disabledNetworks: networksState.disabledNetworks,
+    });
 
     navigation.pop();
 
