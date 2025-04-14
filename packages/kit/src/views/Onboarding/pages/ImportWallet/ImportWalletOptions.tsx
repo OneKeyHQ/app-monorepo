@@ -21,6 +21,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -88,26 +89,66 @@ export function ImportWalletOptions() {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'mnemonic',
+      },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+    });
   };
 
   const handleImportKeyTag = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.ImportKeyTag);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'keyTag',
+      },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+    });
   };
 
   const handleImportPrivateKeyPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportPrivateKey);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'privateKey',
+      },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+    });
   };
 
   const handleImportAddressPress = async () => {
     navigation.push(EOnboardingPages.ImportAddress);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'watchOnly',
+      },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+    });
   };
 
   const handleImportFromCloud = async () => {
     await backupEntryStatus.check();
     navigation.push(EOnboardingPages.ImportCloudBackup);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'cloud',
+      },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+    });
   };
 
   const options: IOptionSection[] = [

@@ -93,9 +93,51 @@ import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmw
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
-import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
+
+const trackHardwareWalletConnection = async ({
+  status,
+  deviceType,
+  isSoftwareWalletOnlyUser,
+  features,
+  hardwareTransportType,
+}: {
+  status: 'success' | 'failure';
+  deviceType: IDeviceType;
+  isSoftwareWalletOnlyUser: boolean;
+  features?: Features;
+  hardwareTransportType: EHardwareTransportType | undefined;
+}) => {
+  let connectionType: 'Bluetooth' | 'WebUSB' | 'USB';
+  if (hardwareTransportType === EHardwareTransportType.BLE) {
+    connectionType = 'Bluetooth';
+  } else if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+    connectionType = 'WebUSB';
+  } else {
+    connectionType = 'USB';
+  }
+
+  const firmwareVersions = features
+    ? await deviceUtils.getDeviceVersion({
+        device: undefined,
+        features,
+      })
+    : undefined;
+
+  defaultLogger.account.wallet.walletAdded({
+    status,
+    addMethod: 'ConnectHardware',
+    details: {
+      hardwareWalletType: 'Standard',
+      connectionType,
+      deviceType,
+      ...(firmwareVersions && { firmwareVersions }),
+    },
+    isSoftwareWalletOnlyUser,
+  });
+};
 
 type IConnectYourDeviceItem = {
   title: string;
@@ -544,14 +586,10 @@ function ConnectByUSBOrBLE() {
       isFirmwareVerified?: boolean;
       features: IOneKeyDeviceFeatures;
     }) => {
+      const isSoftwareWalletOnlyUser =
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
-
-        defaultLogger.account.wallet.connectHWWallet({
-          connectType: platformEnv.isNative ? 'ble' : 'usb',
-          deviceType: device.deviceType,
-          deviceFmVersion: features.onekey_firmware_version,
-        });
 
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
@@ -563,6 +601,14 @@ function ConnectByUSBOrBLE() {
           isFirmwareVerified,
           defaultIsTemp: true,
         });
+        await trackHardwareWalletConnection({
+          status: 'success',
+          deviceType: device.deviceType,
+          features,
+          hardwareTransportType,
+          isSoftwareWalletOnlyUser,
+        });
+
         if (createResult.wallet && createResult.isOverrideWallet) {
           Toast.success({
             title: intl.formatMessage({
@@ -580,6 +626,13 @@ function ConnectByUSBOrBLE() {
       } catch (error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();
+        await trackHardwareWalletConnection({
+          status: 'failure',
+          deviceType: device.deviceType,
+          features,
+          hardwareTransportType,
+          isSoftwareWalletOnlyUser,
+        });
         throw error;
       } finally {
         setIsChecking(false);
@@ -590,11 +643,20 @@ function ConnectByUSBOrBLE() {
         });
       }
     },
-    [navigation, actions, intl],
+    [navigation, actions, intl, hardwareTransportType],
   );
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
+      const isSoftwareWalletOnlyUser =
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
+      defaultLogger.account.wallet.addWalletStarted({
+        addMethod: 'ConnectHardware',
+        details: {
+          hardwareWalletType: 'Standard',
+        },
+        isSoftwareWalletOnlyUser,
+      });
       if (device.deviceType === 'unknown') {
         Toast.error({
           title: intl.formatMessage({
@@ -631,6 +693,13 @@ function ConnectByUSBOrBLE() {
         const features = await connectDevice(device);
 
         if (!features) {
+          await trackHardwareWalletConnection({
+            status: 'failure',
+            isSoftwareWalletOnlyUser,
+            deviceType: device.deviceType,
+            features,
+            hardwareTransportType,
+          });
           throw new Error('connect device failed, no features returned');
         }
 
@@ -654,6 +723,13 @@ function ConnectByUSBOrBLE() {
         });
         // const deviceMode = EOneKeyDeviceMode.notInitialized;
         if (deviceMode === EOneKeyDeviceMode.backupMode) {
+          await trackHardwareWalletConnection({
+            status: 'failure',
+            deviceType,
+            isSoftwareWalletOnlyUser,
+            features,
+            hardwareTransportType,
+          });
           Toast.error({
             title: 'Device is in backup mode',
           });
@@ -709,6 +785,7 @@ function ConnectByUSBOrBLE() {
       scanDevice,
       showFirmwareVerifyDialog,
       stopScan,
+      hardwareTransportType,
     ],
   );
 
