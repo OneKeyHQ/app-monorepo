@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Tidak dapat berdagang dengan akun yang sedang dipantau.",
   "wallet.generic_string_length_requirement": "Panjang nama akun melebihi batas.",
   "wallet.history_settings_hide_risk_transaction_desc": "Mendukung blockchain utama, termasuk ETH, BNB, TRX, dan lainnya.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "Jaringan {networkName} belum didukung.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Jaringan {networkName} belum didukung.",
   "wallet.history_settings_hide_risk_transaction_title": "Sembunyikan transaksi berisiko",
   "wallet.last_ledger_sequence": "Urutan buku besar terakhir",
   "wallet.ledger_index": "Indeks buku besar",

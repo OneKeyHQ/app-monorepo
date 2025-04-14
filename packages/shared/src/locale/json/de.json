@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Kann nicht mit einem beobachteten Konto handeln.",
   "wallet.generic_string_length_requirement": "Die Länge des Kontonamens überschreitet das Limit.",
   "wallet.history_settings_hide_risk_transaction_desc": "Unterstützt große Blockchains, einschließlich ETH, BNB, TRX und mehr.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "Das {networkName} Netzwerk wird noch nicht unterstützt.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Das {networkName} Netzwerk wird noch nicht unterstützt.",
   "wallet.history_settings_hide_risk_transaction_title": "Riskante Transaktionen verbergen",
   "wallet.last_ledger_sequence": "Letzte Ledger-Sequenz",
   "wallet.ledger_index": "Kontenindex",

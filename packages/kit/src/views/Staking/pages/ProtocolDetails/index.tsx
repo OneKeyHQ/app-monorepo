@@ -334,7 +334,7 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
-        {isShowAlert ? (
+        {result?.buttons?.addInviteCode && isShowAlert ? (
           <Alert
             type="success"
             icon="GiftOutline"

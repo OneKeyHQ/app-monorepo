@@ -2306,6 +2306,21 @@ class ServiceAccount extends ServiceBase {
           });
         }
 
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'ConnectHardware',
+          details: {
+            deviceType: dbDevice.featuresInfo
+              ? await deviceUtils.getDeviceTypeFromFeatures({
+                  features: dbDevice.featuresInfo,
+                })
+              : undefined,
+            hardwareWalletType: 'Hidden',
+          },
+          isSoftwareWalletOnlyUser:
+            await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+        });
+
         return dbWallet;
       },
       {

@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Impossible de faire du commerce avec un compte surveillé.",
   "wallet.generic_string_length_requirement": "La longueur du nom de compte dépasse la limite.",
   "wallet.history_settings_hide_risk_transaction_desc": "Prend en charge les principales blockchains, y compris ETH, BNB, TRX, et plus encore.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "Le réseau {networkName} n'est pas encore pris en charge.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Le réseau {networkName} n'est pas encore pris en charge.",
   "wallet.history_settings_hide_risk_transaction_title": "Masquer les transactions à risque",
   "wallet.last_ledger_sequence": "Dernière séquence de grand livre",
   "wallet.ledger_index": "Index du grand livre",
