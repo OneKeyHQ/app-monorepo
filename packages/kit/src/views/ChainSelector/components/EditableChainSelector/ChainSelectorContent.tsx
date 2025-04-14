@@ -95,7 +95,9 @@ const ListHeaderComponent = ({
       <Spotlight
         delayMs={500}
         isVisible
-        message='When you select "All Networks", you can customize which networks to include. To keep loading fast, only popular networks are enabled by default—but you can easily enable additional networks here.'
+        message={intl.formatMessage({
+          id: ETranslations.network_all_networks_selection_tip,
+        })}
         tourName={ESpotlightTour.allNetworksInfo}
       >
         <Button
