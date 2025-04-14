@@ -1053,7 +1053,7 @@ PODS:
     - React-Core
   - react-native-view-shot (3.1.2):
     - React
-  - react-native-webview (13.13.5):
+  - react-native-webview (13.8.2):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1781,7 +1781,7 @@ SPEC CHECKSUMS:
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   PurchasesHybridCommon: ea662e5a551e6fc79c1eb17feb0478c01c59f3e6
-  RCT-Folly: cd21f1661364f975ae76b3308167ad66b09f53f5
+  RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 77f73950d15b8c1a2b48ba5b79020c3003d1c9b5
   RCTTypeSafety: ede1e2576424d89471ef553b2aed09fbbcc038e3
   React: 2ddb437e599df2f1bffa9b248de2de4cfa0227f0
@@ -1819,7 +1819,7 @@ SPEC CHECKSUMS:
   react-native-tcp-socket: ae8abcfebc071216302a09d9ed1e375d4e877484
   react-native-video: 2ebadb73ee3f6614841434a7e7dbefbd788adab8
   react-native-view-shot: bb8934cb93bf8ec740c81ed94f93244778797b6c
-  react-native-webview: f45b9a223a1fdb6a26aa77224146c71932f7749b
+  react-native-webview: decc3f683e8ed8671fab0d3d73f24db1c63a2b41
   react-native-webview-cleaner: c2d3bbb850105553c845303044234ca82062d592
   React-nativeconfig: 1c018931dcd44532a5df80426c4387d71f66c737
   React-NativeModulesApple: 21e99badc890e1551808b0567ce225123e641785
