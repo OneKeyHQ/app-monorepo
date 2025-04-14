@@ -118,6 +118,7 @@ function AllNetworksManager() {
           accountId,
           walletId,
           networkIds: allNetworks.map((network) => network.id),
+          excludeTestNetwork: true,
         },
       );
     setNetworks({
