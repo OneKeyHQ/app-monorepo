@@ -310,7 +310,15 @@ export default function Detail() {
     } finally {
       setSubmitLoading(false);
     }
-    defaultLogger.account.wallet.importWallet({ importMethod: 'cloud' });
+    defaultLogger.account.wallet.walletAdded({
+      status: 'success',
+      addMethod: 'Import',
+      details: {
+        importSource: 'cloud',
+      },
+      isSoftwareWalletOnlyUser:
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+    });
   }, [
     intl,
     restorePasswordVerifyDialog,

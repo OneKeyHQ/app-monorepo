@@ -339,8 +339,14 @@ function ImportAddress() {
       });
       navigation.popStack();
 
-      defaultLogger.account.wallet.importWallet({
-        importMethod: 'address',
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'Import',
+        details: {
+          importSource: 'watchOnly',
+        },
+        isSoftwareWalletOnlyUser:
+          await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
       });
     },
     [actions, intl, isPublicKeyImport, navigation],

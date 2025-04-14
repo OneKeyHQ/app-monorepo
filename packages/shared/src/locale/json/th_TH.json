@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "ไม่สามารถซื้อขายกับบัญชีที่ถูกตรวจสอบ",
   "wallet.generic_string_length_requirement": "ความยาวของชื่อบัญชีเกินขีดจำกัด",
   "wallet.history_settings_hide_risk_transaction_desc": "รองรับบล็อกเชนหลัก ๆ รวมถึง ETH, BNB, TRX และอื่น ๆ",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "เครือข่าย {networkName} ยังไม่รองรับในขณะนี้",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "เครือข่าย {networkName} ยังไม่รองรับในขณะนี้",
   "wallet.history_settings_hide_risk_transaction_title": "ซ่อนธุรกรรมที่มีความเสี่ยง",
   "wallet.last_ledger_sequence": "ลำดับบัญชีสุดท้าย",
   "wallet.ledger_index": "ดัชนีบัญชี",
