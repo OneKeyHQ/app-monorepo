@@ -225,7 +225,7 @@ export const useReferFriends = () => {
                     icon="Copy3Outline"
                     size="large"
                     iconColor="$iconSubdued"
-                    onPress={() => copyText(myReferralCode)}
+                    onPress={() => copyText(sharedUrl)}
                   />
                   {platformEnv.isNative ? (
                     <IconButton
@@ -236,7 +236,8 @@ export const useReferFriends = () => {
                       icon="ShareOutline"
                       size="large"
                       iconColor="$iconSubdued"
-                      onPress={() => {
+                      onPress={async () => {
+                        await dialog.close();
                         setTimeout(() => {
                           void Share.share(
                             platformEnv.isNativeIOS
@@ -247,7 +248,7 @@ export const useReferFriends = () => {
                                   message: sharedUrl,
                                 },
                           );
-                        }, 300);
+                        }, 250);
                       }}
                     />
                   ) : null}
@@ -339,10 +340,10 @@ export const useReferFriends = () => {
       if (isBindInviteCode) {
         changeInviteCode(onSuccess, onFail);
       } else {
-        void shareReferRewards(onSuccess, onFail);
+        void bindInviteCode(onSuccess, onFail);
       }
     },
-    [changeInviteCode, shareReferRewards],
+    [bindInviteCode, changeInviteCode],
   );
 
   return useMemo(

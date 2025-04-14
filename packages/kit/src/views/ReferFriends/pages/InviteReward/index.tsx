@@ -70,11 +70,15 @@ function ShareCode({
     copyText(inviteCode);
   }, [copyText, inviteCode]);
 
+  const inviteCodeUrl = useMemo(() => {
+    return inviteUrl.replace('https://', '');
+  }, [inviteUrl]);
+
   const toYourReferredPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.YourReferred);
   }, [navigation]);
   const intl = useIntl();
-  const sharedUrl = useMemo(() => `https://${inviteUrl}`, [inviteUrl]);
+  const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
   return (
     <YStack px="$5" pt="$6" pb="$8">
       <YStack>
@@ -114,7 +118,7 @@ function ShareCode({
           borderRadius="$2.5"
         >
           <SizableText size="$bodyLg" flexShrink={1}>
-            {inviteUrl}
+            {inviteCodeUrl}
           </SizableText>
           <XStack ai="center" gap="$2.5">
             <IconButton
@@ -269,13 +273,18 @@ function Dashboard({
           />
         </XStack>
         <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.referral_reward_received_address,
             })}
           </SizableText>
-          <XStack ai="center" jc="space-between">
-            <SizableText size="$bodyMd" color="$textSubdued">
+          <XStack ai="center" jc="space-between" gap="$5">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={1}
+            >
               {withdrawAddresses.length
                 ? withdrawAddresses[0].address
                 : intl.formatMessage({
