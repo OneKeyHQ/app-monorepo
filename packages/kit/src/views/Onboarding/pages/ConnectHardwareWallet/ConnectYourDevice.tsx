@@ -103,14 +103,12 @@ const trackHardwareWalletConnection = async ({
   isSoftwareWalletOnlyUser,
   features,
   hardwareTransportType,
-  errorMessage,
 }: {
   status: 'success' | 'failure';
   deviceType: IDeviceType;
   isSoftwareWalletOnlyUser: boolean;
   features?: Features;
   hardwareTransportType: EHardwareTransportType | undefined;
-  errorMessage?: string;
 }) => {
   let connectionType: 'Bluetooth' | 'WebUSB' | 'USB';
   if (hardwareTransportType === EHardwareTransportType.BLE) {
@@ -138,7 +136,6 @@ const trackHardwareWalletConnection = async ({
       ...(firmwareVersions && { firmwareVersions }),
     },
     isSoftwareWalletOnlyUser,
-    ...(errorMessage && { errorMessage }),
   });
 };
 
@@ -635,8 +632,6 @@ function ConnectByUSBOrBLE() {
           features,
           hardwareTransportType,
           isSoftwareWalletOnlyUser,
-          errorMessage:
-            error instanceof Error ? error.message : 'create hw wallet failed',
         });
         throw error;
       } finally {
@@ -704,7 +699,6 @@ function ConnectByUSBOrBLE() {
             deviceType: device.deviceType,
             features,
             hardwareTransportType,
-            errorMessage: 'connect device failed, no features returned',
           });
           throw new Error('connect device failed, no features returned');
         }
@@ -735,7 +729,6 @@ function ConnectByUSBOrBLE() {
             isSoftwareWalletOnlyUser,
             features,
             hardwareTransportType,
-            errorMessage: 'Device is in backup mode',
           });
           Toast.error({
             title: 'Device is in backup mode',

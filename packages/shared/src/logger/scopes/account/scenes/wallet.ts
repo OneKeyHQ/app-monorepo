@@ -69,8 +69,6 @@ export class WalletScene extends BaseScene {
           details: {
             isBiometricSet: params.details.isBiometricSet,
           },
-          ...(params.errorCode && { errorCode: params.errorCode }),
-          ...(params.errorMessage && { errorMessage: params.errorMessage }),
         };
 
       case 'Import':
@@ -81,8 +79,6 @@ export class WalletScene extends BaseScene {
           details: {
             importSource: params.details.importSource,
           },
-          ...(params.errorCode && { errorCode: params.errorCode }),
-          ...(params.errorMessage && { errorMessage: params.errorMessage }),
         };
 
       case 'ConnectHardware':
@@ -98,8 +94,6 @@ export class WalletScene extends BaseScene {
               firmwareVersions: params.details.firmwareVersions,
             }),
           },
-          ...(params.errorCode && { errorCode: params.errorCode }),
-          ...(params.errorMessage && { errorMessage: params.errorMessage }),
         };
 
       case 'Connect3rdParty':
@@ -114,8 +108,6 @@ export class WalletScene extends BaseScene {
               walletName: params.details.walletName,
             }),
           },
-          ...(params.errorCode && { errorCode: params.errorCode }),
-          ...(params.errorMessage && { errorMessage: params.errorMessage }),
         };
 
       default: {
