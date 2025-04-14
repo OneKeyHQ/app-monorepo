@@ -1,14 +1,11 @@
 import type { ReactNode } from 'react';
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
-import { useIntl } from 'react-intl';
 import { useMedia } from 'tamagui';
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { type IIconButtonProps, Shortcut, Tooltip } from '../../../actions';
-import { XStack } from '../../../primitives';
+import { type IIconButtonProps } from '../../../actions';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
 import HeaderCollapseButton from './HeaderCollapseButton';
@@ -31,25 +28,8 @@ export function NavBackButton(props: INavButtonProps) {
 }
 
 export function NavCloseButton(props: INavButtonProps) {
-  const intl = useIntl();
-  const title = useMemo(
-    () => (
-      <XStack>
-        <Tooltip.Text>
-          {intl.formatMessage({ id: ETranslations.global_close })}
-        </Tooltip.Text>
-        {!platformEnv.isExtensionUiPopup ? (
-          <Shortcut pl="$2">
-            <Shortcut.Key>ESC</Shortcut.Key>
-          </Shortcut>
-        ) : null}
-      </XStack>
-    ),
-    [intl],
-  );
   return (
     <HeaderIconButton
-      title={title}
       icon="CrossedLargeOutline"
       testID="nav-header-close"
       {...props}

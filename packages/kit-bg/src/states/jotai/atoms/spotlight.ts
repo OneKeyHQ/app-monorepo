@@ -20,6 +20,7 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
         [ESpotlightTour.referAFriend]: 0,
         [ESpotlightTour.hardwareSalesRewardAlert]: 0,
         [ESpotlightTour.earnRewardAlert]: 0,
+        [ESpotlightTour.allNetworksInfo]: 0,
       },
     },
   });
