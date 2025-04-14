@@ -120,6 +120,33 @@ test('formatBalance', () => {
     '-4,512.1242',
   );
 
+  expect(
+    formatDisplayNumber(
+      formatBalance('-4512.1242', {
+        showPlusMinusSigns: true,
+        currency: '$',
+      }),
+    ),
+  ).toEqual('-$4,512.1242');
+
+  expect(
+    formatDisplayNumber(
+      formatBalance('-0', {
+        showPlusMinusSigns: true,
+        currency: '$',
+      }),
+    ),
+  ).toEqual('-$0');
+
+  expect(
+    formatDisplayNumber(
+      formatBalance('0', {
+        showPlusMinusSigns: true,
+        currency: '$',
+      }),
+    ),
+  ).toEqual('+$0');
+
   // less then 1 billion
   expect(formatBalance('382134512.1242')).toEqual({
     'formattedValue': '382,134,512.1242',
