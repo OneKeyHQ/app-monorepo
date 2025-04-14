@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Невозможно торговать с контролируемым аккаунтом.",
   "wallet.generic_string_length_requirement": "Длина имени учетной записи превышает допустимый предел.",
   "wallet.history_settings_hide_risk_transaction_desc": "Поддерживает основные блокчейны, включая ETH, BNB, TRX и другие.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "Сеть {networkName} пока не поддерживается.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Сеть {networkName} пока не поддерживается.",
   "wallet.history_settings_hide_risk_transaction_title": "Скрыть рискованные транзакции",
   "wallet.last_ledger_sequence": "Последняя последовательность журнала",
   "wallet.ledger_index": "Индекс журнала",

@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "No se puede comerciar con una cuenta vigilada.",
   "wallet.generic_string_length_requirement": "La longitud del nombre de la cuenta supera el límite.",
   "wallet.history_settings_hide_risk_transaction_desc": "Soporta las principales cadenas de bloques, incluidas ETH, BNB, TRX y más.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "La red {networkName} aún no es compatible.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "La red {networkName} aún no es compatible.",
   "wallet.history_settings_hide_risk_transaction_title": "Ocultar transacciones riesgosas",
   "wallet.last_ledger_sequence": "Última secuencia de libro mayor",
   "wallet.ledger_index": "Índice de libro mayor",
