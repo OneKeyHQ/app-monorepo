@@ -108,11 +108,12 @@ const ProviderManageContainer = ({
   }, [onSaved, providerManageNewData, isBridge]);
   return (
     <YStack>
-      <Accordion type="single" pb="$5" collapsible>
+      <Accordion type="single" pb="$5" collapsible gap="$2">
         {isBridge
           ? providerManageNewData.map((item) => (
               <ProviderSwitch
                 serviceDisable={item.serviceDisable}
+                isBridge={isBridge}
                 key={item.providerInfo.provider}
                 providerInfo={item.providerInfo}
                 providerEnable={item.enable}

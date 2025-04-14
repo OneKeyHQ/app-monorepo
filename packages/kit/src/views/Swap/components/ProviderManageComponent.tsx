@@ -35,6 +35,7 @@ interface IProviderSwitchProps {
   withNetwork?: boolean;
   openFold?: boolean;
   serviceDisable?: boolean;
+  isBridge?: boolean;
   onProviderSwitchEnable: (enable: boolean) => void;
 }
 
@@ -44,9 +45,10 @@ export const ProviderSwitch = ({
   onProviderSwitchEnable,
   serviceDisable,
   openFold,
+  isBridge,
 }: IProviderSwitchProps) => {
   return (
-    <XStack justifyContent="space-between">
+    <XStack justifyContent="space-between" pt="$2">
       <XStack alignItems="center" gap="$3">
         <XStack alignItems="center" gap="$2">
           <Image
@@ -74,13 +76,15 @@ export const ProviderSwitch = ({
             onChange={onProviderSwitchEnable}
           />
         </Stack>
-        <Icon
-          name={
-            openFold ? 'ChevronDownSmallOutline' : 'ChevronRightSmallOutline'
-          }
-          color={openFold ? '$iconActive' : '$iconSubdued'}
-          size="$5"
-        />
+        {isBridge ? null : (
+          <Icon
+            name={
+              openFold ? 'ChevronDownSmallOutline' : 'ChevronRightSmallOutline'
+            }
+            color={openFold ? '$iconActive' : '$iconSubdued'}
+            size="$5"
+          />
+        )}
       </XStack>
     </XStack>
   );
@@ -192,7 +196,7 @@ const ProviderFold = ({
   ]);
   const intl = useIntl();
   return (
-    <Accordion.Item value={providerInfo.provider} pt="$2" pb="$2">
+    <Accordion.Item value={providerInfo.provider}>
       <Accordion.Trigger
         unstyled
         borderWidth={0}
