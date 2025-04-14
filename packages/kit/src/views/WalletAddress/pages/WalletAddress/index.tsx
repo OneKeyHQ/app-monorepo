@@ -72,6 +72,7 @@ import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { WalletAddressContext } from './WalletAddressContext';
 import WalletAddressHeaderRight from './WalletAddressHeaderRight';
+import WalletAddressListHeader from './WalletAddressListHeader';
 
 import type { IWalletAddressContext } from './WalletAddressContext';
 
@@ -276,7 +277,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       try {
         setLoading(true);
         const { walletId } = accountUtils.parseIndexedAccountId({
-          indexedAccountId,
+          indexedAccountId: indexedAccountId ?? '',
         });
         const globalDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
@@ -543,6 +544,7 @@ function WalletAddressContent({
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
+        ListHeaderComponent={WalletAddressListHeader}
         ListEmptyComponent={
           <Empty
             icon="SearchOutline"
@@ -897,6 +899,7 @@ function WalletAddressPageMainView({
       networkDeriveTypeMap,
       originalAllNetworksState,
       accountId,
+      walletId,
       indexedAccountId,
       refreshLocalData,
       accountsCreated,
@@ -908,14 +911,14 @@ function WalletAddressPageMainView({
     };
     return contextData;
   }, [
-    // checkDeps,
     originalAllNetworksState,
-    result.networksAccount,
     accountId,
+    walletId,
     indexedAccountId,
     refreshLocalData,
     accountsCreated,
     isAllNetworksEnabled,
+    result.networksAccount,
   ]);
 
   return (

@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   HeaderButtonGroup,
-  HeaderIconButton,
   Image,
   Popover,
   SizableText,
