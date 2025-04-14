@@ -13,8 +13,10 @@ import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 export function PrimeUserInfo({
   doPurchase,
   onLogoutSuccess,
+  email,
   ...stackProps
 }: {
+  email?: string;
   doPurchase?: () => Promise<void>;
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
@@ -48,7 +50,7 @@ export function PrimeUserInfo({
         ellipsizeMode="middle"
         ellipse
       >
-        {user?.email}
+        {email || user?.email}
       </SizableText>
       {isPrime ? (
         <Badge bg="$brand3" badgeSize="sm">
