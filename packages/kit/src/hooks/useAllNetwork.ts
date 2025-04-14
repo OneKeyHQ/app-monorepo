@@ -500,7 +500,8 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
                 excludeEmptyAccount: true,
               },
             );
-          if (networkAccounts.length === 0) {
+
+          if (!networkAccounts || networkAccounts.length === 0) {
             compatibleNetworksWithoutAccount.push(network);
           }
         }
