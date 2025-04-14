@@ -279,18 +279,20 @@ function Dashboard({
             })}
           </SizableText>
           <XStack ai="center" jc="space-between" gap="$5">
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              flexShrink={1}
-              numberOfLines={1}
-            >
-              {withdrawAddresses.length
-                ? withdrawAddresses[0].address
-                : intl.formatMessage({
-                    id: ETranslations.referral_reward_received_address_notset,
-                  })}
-            </SizableText>
+            <XStack flexShrink={1}>
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                flexShrink={1}
+                numberOfLines={10}
+              >
+                {withdrawAddresses.length
+                  ? withdrawAddresses[0].address
+                  : intl.formatMessage({
+                      id: ETranslations.referral_reward_received_address_notset,
+                    })}
+              </SizableText>
+            </XStack>
             <IconButton
               title={intl.formatMessage({ id: ETranslations.global_edit })}
               variant="tertiary"
