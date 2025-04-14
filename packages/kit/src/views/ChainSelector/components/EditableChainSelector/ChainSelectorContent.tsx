@@ -29,6 +29,7 @@ import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -42,7 +43,6 @@ import type {
   IEditableChainSelectorContext,
   IEditableChainSelectorSection,
 } from './type';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
