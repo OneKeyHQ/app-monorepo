@@ -42,6 +42,7 @@ import type {
   IEditableChainSelectorContext,
   IEditableChainSelectorSection,
 } from './type';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
@@ -82,6 +83,43 @@ const ListHeaderComponent = ({
     await run({ alwaysSetState: true });
   }, [setAllNetworksChanged, run]);
 
+  const allNetworksActions = useMemo(() => {
+    if (accountUtils.isOthersWallet({ walletId: walletId ?? '' })) {
+      return [];
+    }
+
+    return [
+      {
+        title: `${intl.formatMessage(
+          {
+            id: ETranslations.network_enabled_count,
+          },
+          {
+            'count': enabledNetworksCompatibleWithWalletId.length,
+          },
+        )} →`,
+        onPress: () => {
+          if (walletId) {
+            navigation.push(EChainSelectorPages.AllNetworksManager, {
+              walletId,
+              accountId,
+              indexedAccountId,
+              onNetworksChanged: handleNetworksChange,
+            });
+          }
+        },
+      },
+    ];
+  }, [
+    accountId,
+    enabledNetworksCompatibleWithWalletId.length,
+    handleNetworksChange,
+    indexedAccountId,
+    intl,
+    navigation,
+    walletId,
+  ]);
+
   return (
     <Stack mt="$4">
       <RecentNetworks />
@@ -90,28 +128,7 @@ const ListHeaderComponent = ({
           <EditableListItem
             item={allNetworkItem}
             isEditable={false}
-            actions={[
-              {
-                title: `${intl.formatMessage(
-                  {
-                    id: ETranslations.network_enabled_count,
-                  },
-                  {
-                    'count': enabledNetworksCompatibleWithWalletId.length,
-                  },
-                )} →`,
-                onPress: () => {
-                  if (walletId) {
-                    navigation.push(EChainSelectorPages.AllNetworksManager, {
-                      walletId,
-                      accountId,
-                      indexedAccountId,
-                      onNetworksChanged: handleNetworksChange,
-                    });
-                  }
-                },
-              },
-            ]}
+            actions={allNetworksActions}
           />
           <Divider m="$5" />
         </Stack>

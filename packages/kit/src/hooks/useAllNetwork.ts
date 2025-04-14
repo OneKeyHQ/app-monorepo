@@ -196,8 +196,8 @@ function useAllNetworkRequests<T>(params: {
         nftEnabledOnly: isNFTRequests,
         // disable test network in all networks
         excludeTestNetwork: true,
-        // For watching accounts, display all available network data without filtering
-        networksEnabledOnly: !accountUtils.isWatchingAccount({
+        // For single network accounts, display all available network data without filtering
+        networksEnabledOnly: !accountUtils.isOthersAccount({
           accountId: currentAccountId,
         }),
       });
