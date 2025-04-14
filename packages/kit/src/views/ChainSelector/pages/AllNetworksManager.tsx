@@ -175,13 +175,18 @@ function AllNetworksManager() {
     for (let i = 0; i < enabledNetworks.length; i += 1) {
       const network = enabledNetworks[i];
 
-      enabledNetworksWithoutAccountTemp.push({
-        networkId: network.id,
-        deriveType:
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          }),
-      });
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network.id,
+        });
+
+      const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
+      if (!networkAccount) {
+        enabledNetworksWithoutAccountTemp.push({
+          networkId: network.id,
+          deriveType,
+        });
+      }
     }
 
     setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
