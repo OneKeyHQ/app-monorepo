@@ -1,12 +1,13 @@
 import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { LogToServer } from '../../../base/decorators';
 
 type IWalletActionBaseParams = {
   walletType: string;
   networkId: string;
   source: 'homePage' | 'tokenDetails' | 'earn' | 'swap';
+  isSoftwareWalletOnlyUser: boolean;
 };
 
 export class WalletActionsScene extends BaseScene {
@@ -50,27 +51,37 @@ export class WalletActionsScene extends BaseScene {
   }
 
   @LogToServer()
-  public actionViewInExplorer(params: IWalletActionBaseParams) {
+  public actionViewInExplorer(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
     return params;
   }
 
   @LogToServer()
-  public actionExportPublicKey(params: IWalletActionBaseParams) {
+  public actionExportPublicKey(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
     return params;
   }
 
   @LogToServer()
-  public actionExportXpub(params: IWalletActionBaseParams) {
+  public actionExportXpub(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
     return params;
   }
 
   @LogToServer()
-  public actionExportPrivateKey(params: IWalletActionBaseParams) {
+  public actionExportPrivateKey(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
     return params;
   }
 
   @LogToServer()
-  public actionExportXprvt(params: IWalletActionBaseParams) {
+  public actionExportXprvt(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
     return params;
   }
 }

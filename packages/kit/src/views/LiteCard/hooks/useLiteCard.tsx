@@ -5,6 +5,7 @@ import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -17,6 +18,7 @@ import useReadMnemonic from './useReadMnemonic';
 
 export default function useLiteCard() {
   const nfc = useNFC();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const { showPINFormDialog } = usePIN();
   const { readMnemonicWithWalletId } = useReadMnemonic();
   const {
@@ -95,8 +97,6 @@ export default function useLiteCard() {
     ],
   );
   const importWallet = useCallback(async () => {
-    const isSoftwareWalletOnlyUser =
-      await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'Import',
       details: {
@@ -155,7 +155,7 @@ export default function useLiteCard() {
         isSoftwareWalletOnlyUser,
       });
     }
-  }, [nfc, showPINFormDialog, navigation]);
+  }, [nfc, showPINFormDialog, navigation, isSoftwareWalletOnlyUser]);
   const changePIN = useCallback(async () => {
     await nfc.checkNFCEnabledPermission();
     const createPINConnection = async () => {

@@ -47,6 +47,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -576,6 +577,7 @@ function ConnectByUSBOrBLE() {
     }
   }, [connectStatus, isFocused, scanDevice, stopScan]);
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const createHwWallet = useCallback(
     async ({
       device,
@@ -586,8 +588,6 @@ function ConnectByUSBOrBLE() {
       isFirmwareVerified?: boolean;
       features: IOneKeyDeviceFeatures;
     }) => {
-      const isSoftwareWalletOnlyUser =
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
 
@@ -643,13 +643,17 @@ function ConnectByUSBOrBLE() {
         });
       }
     },
-    [navigation, actions, intl, hardwareTransportType],
+    [
+      navigation,
+      actions,
+      intl,
+      hardwareTransportType,
+      isSoftwareWalletOnlyUser,
+    ],
   );
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
-      const isSoftwareWalletOnlyUser =
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHardware',
         details: {
@@ -786,6 +790,7 @@ function ConnectByUSBOrBLE() {
       showFirmwareVerifyDialog,
       stopScan,
       hardwareTransportType,
+      isSoftwareWalletOnlyUser,
     ],
   );
 
