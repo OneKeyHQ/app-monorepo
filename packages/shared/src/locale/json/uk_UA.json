@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Не можна торгувати з обліковим записом, за яким ведеться спостереження.",
   "wallet.generic_string_length_requirement": "Довжина назви облікового запису перевищує ліміт.",
   "wallet.history_settings_hide_risk_transaction_desc": "Підтримує основні блокчейни, включаючи ETH, BNB, TRX та інші.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "Мережа {networkName} поки що не підтримується.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Мережа {networkName} поки що не підтримується.",
   "wallet.history_settings_hide_risk_transaction_title": "Приховати ризиковані транзакції",
   "wallet.last_ledger_sequence": "Остання послідовність реєстру",
   "wallet.ledger_index": "Індекс бухгалтерського журналу",

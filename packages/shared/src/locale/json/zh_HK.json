@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "觀察錢包無法進行交易",
   "wallet.generic_string_length_requirement": "帳戶名長度超出限制",
   "wallet.history_settings_hide_risk_transaction_desc": "支持熱門網絡，包括 ETH、BNB、TRX 等。",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "{networkName} 網絡尚未支援。",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} 網絡尚未支援。",
   "wallet.history_settings_hide_risk_transaction_title": "隱藏 高風險 交易",
   "wallet.last_ledger_sequence": "最後的帳本序列",
   "wallet.ledger_index": "帳本索引",

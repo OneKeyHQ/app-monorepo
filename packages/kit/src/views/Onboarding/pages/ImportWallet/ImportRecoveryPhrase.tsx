@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -18,7 +19,9 @@ export function ImportRecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = useCallback(
-    (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
+    async (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
+      const isSoftwareWalletOnlyUser =
+        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
       if (params.mnemonicType === EMnemonicType.TON) {
         // **** TON mnemonic case - Show dialog
         showTonMnemonicDialog({
@@ -29,8 +32,13 @@ export function ImportRecoveryPhrase() {
             });
           },
         });
-        defaultLogger.account.wallet.importWallet({
-          importMethod: 'mnemonic-ton',
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'Import',
+          details: {
+            importSource: 'mnemonic',
+          },
+          isSoftwareWalletOnlyUser,
         });
         return;
       }
@@ -39,7 +47,14 @@ export function ImportRecoveryPhrase() {
         mnemonic: params.mnemonic,
         mnemonicType: params.mnemonicType,
       });
-      defaultLogger.account.wallet.importWallet({ importMethod: 'mnemonic' });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'Import',
+        details: {
+          importSource: 'mnemonic',
+        },
+        isSoftwareWalletOnlyUser,
+      });
     },
     [navigation],
   );

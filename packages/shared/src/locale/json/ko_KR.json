@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "감시 중인 계정과 거래할 수 없습니다.",
   "wallet.generic_string_length_requirement": "계정 이름의 길이가 제한을 초과하였습니다.",
   "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX 등을 포함한 주요 블록체인을 지원합니다.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "{networkName} 네트워크는 아직 지원되지 않습니다.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} 네트워크는 아직 지원되지 않습니다.",
   "wallet.history_settings_hide_risk_transaction_title": "위험한 거래 숨기기",
   "wallet.last_ledger_sequence": "마지막 원장 순서",
   "wallet.ledger_index": "원장 인덱스",
