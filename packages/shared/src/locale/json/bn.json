@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "নজরদারি করা অ্যাকাউন্টের সাথে বিনিময় করা যাবে না।",
   "wallet.generic_string_length_requirement": "অ্যাকাউন্টের নামের দৈর্ঘ্য সীমা অতিক্রম করেছে।",
   "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX এবং আরও অনেক কিছুর মতো প্রধান ব্লকচেইনগুলিকে সমর্থন করে।",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "{networkName} নেটওয়ার্ক এখনও সমর্থিত নয়।",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} নেটওয়ার্ক এখনও সমর্থিত নয়।",
   "wallet.history_settings_hide_risk_transaction_title": "ঝুঁকিপূর্ণ লেনদেন লুকান",
   "wallet.last_ledger_sequence": "শেষ খাতা ধারাবাহিকতা",
   "wallet.ledger_index": "খাতার সূচী",

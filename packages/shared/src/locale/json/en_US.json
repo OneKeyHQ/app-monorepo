@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "Cannot trade with a watch-only wallet.",
   "wallet.generic_string_length_requirement": "Account name length exceeds the limit.",
   "wallet.history_settings_hide_risk_transaction_desc": "Supports major blockchains, including ETH, BNB, TRX, and more.",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "{networkName} network is not supported yet.",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} network is not supported yet.",
   "wallet.history_settings_hide_risk_transaction_title": "Hide risky transactions",
   "wallet.last_ledger_sequence": "Last ledger sequence",
   "wallet.ledger_index": "Ledger index",

@@ -2674,7 +2674,7 @@
   wallet_error_trade_with_watched_acocunt = 'wallet.error_trade_with_watched_acocunt',
   wallet_generic_string_length_requirement = 'wallet.generic_string_length_requirement',
   wallet_history_settings_hide_risk_transaction_desc = 'wallet.history_settings_hide_risk_transaction_desc',
-  wallet_history_settings_hide_risk_transaction_desc_unsupprted = 'wallet.history_settings_hide_risk_transaction_desc_unsupprted',
+  wallet_history_settings_hide_risk_transaction_desc_unsupported = 'wallet.history_settings_hide_risk_transaction_desc_unsupported',
   wallet_history_settings_hide_risk_transaction_title = 'wallet.history_settings_hide_risk_transaction_title',
   wallet_last_ledger_sequence = 'wallet.last_ledger_sequence',
   wallet_ledger_index = 'wallet.ledger_index',
