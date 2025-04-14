@@ -13,8 +13,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -26,6 +28,14 @@ export default function OneKeyId() {
   const toInviteRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.InviteReward);
   }, [navigation]);
+
+  const { result: userInfo } = usePromiseResult(
+    () => backgroundApiProxy.servicePrime.callApiFetchPrimeUserInfo(),
+    [],
+    {
+      initResult: undefined,
+    },
+  );
 
   return (
     <Page scrollEnabled>
@@ -53,6 +63,7 @@ export default function OneKeyId() {
           </YStack>
           <Stack p="$5">
             <PrimeUserInfo
+              email={userInfo?.emails[0]}
               onLogoutSuccess={async () => {
                 navigation.popStack();
               }}
