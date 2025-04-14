@@ -2669,7 +2669,7 @@
   "wallet.error_trade_with_watched_acocunt": "監視中のアカウントとは取引できません。",
   "wallet.generic_string_length_requirement": "アカウント名の長さが制限を超えています。",
   "wallet.history_settings_hide_risk_transaction_desc": "ETH、BNB、TRXなど、主要なブロックチェーンをサポートしています。",
-  "wallet.history_settings_hide_risk_transaction_desc_unsupprted": "{networkName} ネットワークはまだサポートされていません。",
+  "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} ネットワークはまだサポートされていません。",
   "wallet.history_settings_hide_risk_transaction_title": "リスクのある取引を隠す",
   "wallet.last_ledger_sequence": "最後の元帳シーケンス",
   "wallet.ledger_index": "元帳インデックス",
