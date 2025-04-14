@@ -98,6 +98,7 @@ type IHistorySectionItem = {
 type IHistoryContentProps = {
   filter: Record<string, string>;
   sections: IHistorySectionItem[];
+  filterType?: string;
   onFilterTypeChange: (type: string) => void;
   network?: { networkId: string; name: string; logoURI: string };
   tokenMap: Record<string, IToken>;
@@ -115,6 +116,7 @@ const HistoryContent = ({
   tokenMap,
   provider,
   filter,
+  filterType,
   onFilterTypeChange,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
@@ -161,10 +163,13 @@ const HistoryContent = ({
     <YStack flex={1}>
       <XStack px="$5">
         <Select
+          value={filterType}
           renderTrigger={({ label }) => (
             <XStack h="$12" ai="center" gap="$1">
               <Icon name="Filter2Outline" size="$4" mr="$1" />
-              <SizableText>{label}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {label}
+              </SizableText>
               <Icon name="ChevronDownSmallOutline" size="$4" />
             </XStack>
           )}
@@ -185,7 +190,7 @@ const HistoryContent = ({
         }}
         ListEmptyComponent={
           <Empty
-            pt="$46"
+            pt={40}
             icon="ClockTimeHistoryOutline"
             title={intl.formatMessage({
               id: ETranslations.global_no_transactions_yet,
@@ -199,16 +204,23 @@ const HistoryContent = ({
     </YStack>
   );
 };
-const HistoryList = () => {
+function HistoryList() {
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.HistoryList
   >();
   const intl = useIntl();
   const labelFn = useEarnTxLabel();
-  const { accountId, networkId, symbol, provider, stakeTag, morphoVault } =
-    route.params;
-  const [filterType, setFilterType] = useState('');
+  const {
+    accountId,
+    networkId,
+    symbol,
+    provider,
+    stakeTag,
+    morphoVault,
+    filterType: defaultFilterType,
+  } = route.params;
+  const [filterType, setFilterType] = useState(defaultFilterType);
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       // remote history items
@@ -313,12 +325,13 @@ const HistoryList = () => {
               filter={result.filter}
               provider={provider}
               onFilterTypeChange={setFilterType}
+              filterType={filterType}
             />
           ) : null}
         </PageFrame>
       </Page.Body>
     </Page>
   );
-};
+}
 
 export default HistoryList;

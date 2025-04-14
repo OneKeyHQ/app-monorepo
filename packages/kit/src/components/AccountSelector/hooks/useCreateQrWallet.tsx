@@ -14,6 +14,8 @@ import { OneKeyErrorAirGapWalletMismatch } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -80,7 +82,16 @@ export function useCreateQrWallet() {
         qrWalletScene: true,
         autoHandleResult: false,
       });
-      console.log('startScan:', scanResult.raw?.trim());
+      const fullURText = scanResult.raw?.trim();
+      console.log('startScan:', fullURText);
+      if (process.env.NODE_ENV !== 'production') {
+        if (fullURText) {
+          appStorage.syncStorage.set(
+            EAppSyncStorageKeys.last_scan_qr_code_text,
+            fullURText,
+          );
+        }
+      }
 
       const urScanResult =
         scanResult as IQRCodeHandlerParseResult<IAnimationValue>;

@@ -95,7 +95,15 @@ export default function useLiteCard() {
     ],
   );
   const importWallet = useCallback(async () => {
-    defaultLogger.account.wallet.importWallet({ importMethod: 'liteCard' });
+    const isSoftwareWalletOnlyUser =
+      await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'liteCard',
+      },
+      isSoftwareWalletOnlyUser,
+    });
     try {
       await nfc.checkNFCEnabledPermission();
       const createPINConnection = async () => {
@@ -128,8 +136,24 @@ export default function useLiteCard() {
       });
       await createGetMnemonicConnection();
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: true });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'Import',
+        details: {
+          importSource: 'liteCard',
+        },
+        isSoftwareWalletOnlyUser,
+      });
     } catch {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: false });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'failure',
+        addMethod: 'Import',
+        details: {
+          importSource: 'liteCard',
+        },
+        isSoftwareWalletOnlyUser,
+      });
     }
   }, [nfc, showPINFormDialog, navigation]);
   const changePIN = useCallback(async () => {

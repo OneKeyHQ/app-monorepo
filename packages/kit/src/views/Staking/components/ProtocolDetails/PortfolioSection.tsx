@@ -163,7 +163,7 @@ type IPortfolioInfoProps = {
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
-  onHistory?: () => void;
+  onHistory?: (params?: { filterType: string }) => void;
 };
 
 function PendingInactiveItem({
@@ -206,13 +206,13 @@ function RewardAmountPopoverContent({
   totalRewardAmount: number;
   waitingRebateRewardAmount: number;
   tokenSymbol: string;
-  onHistory?: () => void;
+  onHistory?: IPortfolioInfoProps['onHistory'];
 }) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
     await closePopover?.();
     setTimeout(() => {
-      onHistory?.();
+      onHistory?.({ filterType: 'rebate' });
     }, 50);
   }, [closePopover, onHistory]);
   const intl = useIntl();
@@ -222,7 +222,7 @@ function RewardAmountPopoverContent({
         <SizableText size="$bodyLgMedium">
           <NumberSizeableText
             size="$bodyLgMedium"
-            formatter="value"
+            formatter="balance"
             formatterOptions={{ tokenSymbol }}
           >
             {waitingRebateRewardAmount}
@@ -244,12 +244,13 @@ function RewardAmountPopoverContent({
       <XStack jc="space-between" pt="$4">
         <SizableText size="$bodyMdMedium">
           <SizableText size="$bodyMdMedium">
-            {intl.formatMessage({
+            {`${intl.formatMessage({
               id: ETranslations.earn_referral_total_earned,
-            })}
+            })} `}
           </SizableText>
           <NumberSizeableText
             size="$bodyMdMedium"
+            formatter="balance"
             formatterOptions={{ tokenSymbol }}
           >
             {totalRewardAmount}
@@ -468,11 +469,11 @@ function PortfolioInfo({
               disabled={isLessThanMinClaimable}
             />
           ) : null}
-          {waitingRebateRewardAmount > 0 || totalRewardAmount > 0 ? (
+          {waitingRebateRewardAmount > 0 ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
-              amount={String(totalRewardAmount)}
+              amount={String(waitingRebateRewardAmount)}
               statusText={intl.formatMessage({
                 id: ETranslations.earn_referral_referral_reward,
               })}
@@ -583,7 +584,7 @@ export const PortfolioSection = ({
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
-  onHistory?: () => void;
+  onHistory?: IPortfolioInfoProps['onHistory'];
   unbondingDelegationList: IEarnUnbondingDelegationList;
 }) => {
   const intl = useIntl();

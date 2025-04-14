@@ -233,7 +233,8 @@ const ProtocolDetailsPage = () => {
     if (!result?.earnHistoryEnable || !earnAccount?.accountId) {
       return undefined;
     }
-    return () => {
+    return (params?: { filterType?: string }) => {
+      const { filterType } = params || {};
       appNavigation.navigate(EModalStakingRoutes.HistoryList, {
         accountId: earnAccount?.accountId,
         networkId,
@@ -241,6 +242,7 @@ const ProtocolDetailsPage = () => {
         provider,
         stakeTag: buildLocalTxStatusSyncId(result),
         morphoVault: vault,
+        filterType,
       });
     };
   }, [
@@ -294,15 +296,30 @@ const ProtocolDetailsPage = () => {
   );
 
   const { bindInviteCode } = useReferFriends();
-  const { result: code, run: refetchInviteCode } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getInviteCode(),
-    [],
+  const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
+    async () => {
+      const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
+      if (code) {
+        return false;
+      }
+      if (earnAccount?.accountAddress) {
+        const inviteCodeOnServer =
+          await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
+            networkId,
+            accountAddress: earnAccount?.accountAddress,
+          });
+        if (inviteCodeOnServer) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [earnAccount?.accountAddress, networkId],
     {
       revalidateOnFocus: true,
-      initResult: '',
+      initResult: false,
     },
   );
-  const isShowAlert = !!code;
 
   return (
     <Page scrollEnabled>
@@ -317,7 +334,7 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
-        {isShowAlert ? (
+        {result?.buttons?.addInviteCode && isShowAlert ? (
           <Alert
             type="success"
             icon="GiftOutline"

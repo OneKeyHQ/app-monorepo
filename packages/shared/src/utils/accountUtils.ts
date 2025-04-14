@@ -426,6 +426,9 @@ function buildIndexedAccountId({
   walletId: string;
   index: number;
 }) {
+  if (index < 0) {
+    throw new Error('buildIndexedAccountId ERROR: index must be positive');
+  }
   return `${walletId}--${index}`;
 }
 

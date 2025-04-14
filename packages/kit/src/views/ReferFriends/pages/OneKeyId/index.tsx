@@ -50,11 +50,6 @@ export default function OneKeyId() {
             <SizableText color="$textSubdued" size="$bodyLg">
               {intl.formatMessage({ id: ETranslations.id_desc })}
             </SizableText>
-            <SizableText color="$textSubdued" size="$bodyLg">
-              {intl.formatMessage({
-                id: ETranslations.earn_referral_referral_reward,
-              })}
-            </SizableText>
           </YStack>
           <Stack p="$5">
             <PrimeUserInfo

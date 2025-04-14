@@ -105,8 +105,8 @@ export default function HardwareSalesReward() {
         if (summaryResult.status === 'fulfilled') {
           const data = summaryResult.value;
           setAmount({
-            available: data.HardwareSales.available?.amount || '0',
-            pending: data.HardwareSales.pending?.amount || '0',
+            available: data.HardwareSales.available?.[0]?.amount || '0',
+            pending: data.HardwareSales.pending?.[0]?.amount || '0',
           });
         }
         setIsLoading(false);
@@ -146,49 +146,56 @@ export default function HardwareSalesReward() {
     }: {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
-    }) => (
-      <YStack px="$5">
-        <XStack jc="space-between">
-          <XStack>
-            <SizableText size="$bodyLgMedium">
-              {intl.formatMessage({
-                id: ETranslations.referral_sales_order_regular,
-              })}
-            </SizableText>
-            {item.status === 'PENDING' ? (
-              <>
-                <SizableText size="$bodyLgMedium">{` - `}</SizableText>
-                <SizableText size="$bodyLgMedium">
-                  {' '}
-                  {intl.formatMessage({
-                    id: ETranslations.global_pending,
-                  })}
-                </SizableText>
-              </>
-            ) : null}
-          </XStack>
+    }) => {
+      const isPositiveAmount = ['PENDING', 'AVAILABLE'].includes(item.status);
+      return (
+        <YStack px="$5">
+          <XStack jc="space-between">
+            <XStack>
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage({
+                  id: ETranslations.referral_sales_order_regular,
+                })}
+              </SizableText>
+              {item.status === 'PENDING' ? (
+                <>
+                  <SizableText size="$bodyLgMedium">{` - `}</SizableText>
+                  <SizableText size="$bodyLgMedium">
+                    {intl.formatMessage({
+                      id: ETranslations.global_pending,
+                    })}
+                  </SizableText>
+                </>
+              ) : null}
+            </XStack>
 
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{
-              currency: settings.currencyInfo.symbol,
-              showPlusMinusSigns: true,
-            }}
-            color={Number(item.amount) > 0 ? '$textSuccess' : '$textCritical'}
-            size="$bodyLgMedium"
-            pr="$0.5"
+            <NumberSizeableText
+              formatter="balance"
+              formatterOptions={{
+                currency: settings.currencyInfo.symbol,
+                showPlusMinusSigns: true,
+              }}
+              color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
+              size="$bodyLgMedium"
+              pr="$0.5"
+            >
+              {Number(item.amount) * (isPositiveAmount ? 1 : -1)}
+            </NumberSizeableText>
+          </XStack>
+          <SizableText
+            color="$textSubdued"
+            size="$bodyMd"
+            numberOfLines={1}
+            flexShrink={1}
           >
-            {item.amount}
-          </NumberSizeableText>
-        </XStack>
-        <SizableText color="$textSubdued" size="$bodyMd">
-          {`${formatTime(new Date(item.createdAt), {
-            hideSeconds: true,
-            hideMilliseconds: true,
-          })} ${item.title}`}
-        </SizableText>
-      </YStack>
-    ),
+            {`${formatTime(new Date(item.createdAt), {
+              hideSeconds: true,
+              hideMilliseconds: true,
+            })} ${item.title}`}
+          </SizableText>
+        </YStack>
+      );
+    },
     [intl, settings.currencyInfo.symbol],
   );
   return (
@@ -264,13 +271,6 @@ export default function HardwareSalesReward() {
                       <SizableText size="$heading5xl">0</SizableText>
                     )}
                     <YStack>
-                      {platformEnv.isNative && isLoading ? (
-                        <IconButton
-                          loading
-                          icon="RefreshCcwOutline"
-                          variant="tertiary"
-                        />
-                      ) : null}
                       {platformEnv.isNative ? null : (
                         <IconButton
                           icon="RefreshCcwOutline"

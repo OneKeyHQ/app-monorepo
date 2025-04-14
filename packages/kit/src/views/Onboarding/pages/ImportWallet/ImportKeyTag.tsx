@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { EMnemonicType } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BIP39_DOT_MAP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -63,12 +64,18 @@ export function ImportKeyTag() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = useCallback(
-    (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
+    async (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
       });
-      defaultLogger.account.wallet.importWallet({
-        importMethod: 'keyTag',
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'Import',
+        details: {
+          importSource: 'keyTag',
+        },
+        isSoftwareWalletOnlyUser:
+          await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
       });
       defaultLogger.setting.page.keyTagImportResult({ isSuccess: true });
     },
