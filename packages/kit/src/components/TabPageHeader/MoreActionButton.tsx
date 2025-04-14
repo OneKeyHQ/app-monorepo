@@ -228,18 +228,20 @@ function MoreActionButtonCmp() {
                 },
               ],
         },
-        {
-          items: [
-            {
-              label: intl.formatMessage({
-                id: ETranslations.settings_settings,
-              }),
-              icon: 'SettingsOutline',
-              onPress: handleSettings,
-            },
-          ],
-        },
-      ]}
+        !isShowMyOneKeyOnTabbar
+          ? {
+              items: [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.settings_settings,
+                  }),
+                  icon: 'SettingsOutline',
+                  onPress: handleSettings,
+                },
+              ],
+            }
+          : null,
+      ].filter(Boolean)}
     />
   );
 }
