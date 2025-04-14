@@ -48,17 +48,22 @@ function ChangeHistoryDialogContent({
             {intl.formatMessage({ id: ETranslations.explore_no_history })}
           </SizableText>
         ) : (
-          items?.map((item) => (
-            <Button
-              key={item.value}
-              onPress={() => {
-                onChange?.(item.value);
-              }}
-              textEllipsis
-            >
-              {item.value}
-            </Button>
-          ))
+          items?.map((item) => {
+            if (!item?.value?.trim()) {
+              return null;
+            }
+            return (
+              <Button
+                key={item.value}
+                onPress={() => {
+                  onChange?.(item.value);
+                }}
+                textEllipsis
+              >
+                {item.value || '   '}
+              </Button>
+            );
+          })
         )}
       </YStack>
     </ScrollView>
