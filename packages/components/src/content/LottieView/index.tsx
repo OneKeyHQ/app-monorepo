@@ -59,6 +59,7 @@ export const LottieView = forwardRef<
       style={style as any}
       {...restProps}
       ref={animationRef as LegacyRef<AnimatedLottieView>}
+      renderMode="SOFTWARE"
     />
   );
 });
