@@ -103,7 +103,7 @@ export function VerifyRecoveryPhrase({
 
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
 
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback(async () => {
     if (verifyRecoveryPhrases && phrases) {
       const isValid = selectedWords.every((word, index) => {
         const [wordIndex] = verifyRecoveryPhrases[index];
@@ -114,8 +114,14 @@ export function VerifyRecoveryPhrase({
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
         });
-        defaultLogger.account.wallet.createWallet({
-          isBiometricVerificationSet: settings.isBiologyAuthSwitchOn,
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'CreateWallet',
+          details: {
+            isBiometricSet: settings.isBiologyAuthSwitchOn,
+          },
+          isSoftwareWalletOnlyUser:
+            await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
       } else {
         Toast.error({
