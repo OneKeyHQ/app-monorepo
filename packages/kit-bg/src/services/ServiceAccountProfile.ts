@@ -677,6 +677,15 @@ class ServiceAccountProfile extends ServiceBase {
     await this.updateAccountValue(params);
   }
 
+  @backgroundMethod()
+  async isSoftwareWalletOnlyUser() {
+    const hwQrWallets =
+      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+      });
+    return Object.keys(hwQrWallets).length === 0;
+  }
+
   // Get wallet type
   // hd
   // private-key

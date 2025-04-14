@@ -324,7 +324,7 @@ function Dashboard({
             {earn.available?.map(({ token, fiatValue }, index) => {
               return (
                 <Fragment key={index}>
-                  <XStack gap="$2">
+                  <XStack gap="$2" py={5}>
                     <Token size="xs" tokenImageUri={token.logoURI} />
                     <NumberSizeableText
                       formatter="balance"

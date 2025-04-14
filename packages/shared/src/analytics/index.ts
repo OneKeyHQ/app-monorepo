@@ -20,6 +20,8 @@ export class Analytics {
 
   private cacheEvents = [] as [string, Record<string, any> | undefined][];
 
+  private cacheUserProfile = [] as Record<string, any>[];
+
   private request: AxiosInstance | null = null;
 
   private basicInfo = {} as {
@@ -38,6 +40,12 @@ export class Analytics {
         this.trackEvent(eventName as any, eventProps);
       }
     }
+    while (this.cacheUserProfile.length) {
+      const attributes = this.cacheUserProfile.pop();
+      if (attributes) {
+        this.updateUserProfile(attributes);
+      }
+    }
   }
 
   private lazyAxios() {
@@ -54,10 +62,10 @@ export class Analytics {
     if (eventProps?.pageName) {
       this.basicInfo.pageName = eventProps.pageName;
     }
-    if (!this.instanceId || !this.baseURL) {
-      this.cacheEvents.push([eventName, eventProps]);
-    } else {
+    if (this.instanceId && this.baseURL) {
       void this.requestEvent(eventName, eventProps);
+    } else {
+      this.cacheEvents.push([eventName, eventProps]);
     }
   }
 
@@ -119,7 +127,11 @@ export class Analytics {
     appWalletCount?: number;
     hwWalletCount?: number;
   }) {
-    void this.requestUserProfile(attributes);
+    if (this.instanceId && this.baseURL) {
+      void this.requestUserProfile(attributes);
+    } else {
+      this.cacheUserProfile.push(attributes);
+    }
   }
 }
 
