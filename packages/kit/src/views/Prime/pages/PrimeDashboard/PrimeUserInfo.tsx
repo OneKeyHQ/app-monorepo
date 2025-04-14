@@ -50,7 +50,7 @@ export function PrimeUserInfo({
         ellipsizeMode="middle"
         ellipse
       >
-        {email || user?.email}
+        {email}
       </SizableText>
       {isPrime ? (
         <Badge bg="$brand3" badgeSize="sm">
