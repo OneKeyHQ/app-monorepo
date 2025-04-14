@@ -187,16 +187,21 @@ function AllNetworksManager() {
     setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
 
     if (enabledNetworksWithoutAccountTemp.length > 0) {
-      await createAddress({
-        num: 0,
-        account: {
-          walletId,
-          networkId: getNetworkIdsMap().onekeyall,
-          indexedAccountId,
-          deriveType: 'default',
-        },
-        customNetworks: enabledNetworksWithoutAccountTemp,
-      });
+      try {
+        await createAddress({
+          num: 0,
+          account: {
+            walletId,
+            networkId: getNetworkIdsMap().onekeyall,
+            indexedAccountId,
+            deriveType: 'default',
+          },
+          customNetworks: enabledNetworksWithoutAccountTemp,
+        });
+      } catch (error) {
+        setIsLoading(false);
+        throw error;
+      }
     }
 
     navigation.pop();

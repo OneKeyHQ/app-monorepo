@@ -261,15 +261,19 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     () => networkAccountMap[network.id]?.[0],
     [networkAccountMap, network.id],
   );
-  const subtitle = useMemo(
-    () =>
-      account
-        ? accountUtils.shortenAddress({ address: account.apiAddress })
-        : intl.formatMessage({
-            id: ETranslations.copy_address_modal_item_create_address_instruction,
-          }),
-    [account, intl],
-  );
+  const subtitle = useMemo(() => {
+    if (account) {
+      if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+        return '';
+      }
+
+      return accountUtils.shortenAddress({ address: account.apiAddress });
+    }
+
+    return intl.formatMessage({
+      id: ETranslations.copy_address_modal_item_create_address_instruction,
+    });
+  }, [account, intl, network.id]);
 
   const onPress = useCallback(async () => {
     if (!account) {
@@ -376,6 +380,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                 )}
               </XStack>
             }
+            flex={1}
           />
         )}
         subtitle={subtitle}
