@@ -134,9 +134,13 @@ class ServiceReferralCode extends ServiceBase {
 
   @backgroundMethod()
   async bindInviteCode(code: string) {
-    await this.backgroundApi.simpleDb.referralCode.updateCode({
-      inviteCode: code,
-    });
+    const valid = await this.backgroundApi.serviceStaking.checkInviteCode(code);
+    if (valid) {
+      await this.backgroundApi.simpleDb.referralCode.updateCode({
+        inviteCode: code,
+      });
+    }
+    return valid;
   }
 
   @backgroundMethod()

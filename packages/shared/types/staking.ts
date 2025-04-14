@@ -266,6 +266,9 @@ export type IStakeProtocolDetails = {
   network?: {
     name: string;
   };
+  buttons?: {
+    addInviteCode?: boolean;
+  };
   updateFrequency: string;
   rewardToken: string;
   approveTarget?: string;

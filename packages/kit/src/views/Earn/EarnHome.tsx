@@ -450,9 +450,6 @@ function Overview({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          {platformEnv.isNative && isLoading ? (
-            <IconButton loading icon="RefreshCcwOutline" variant="tertiary" />
-          ) : null}
           {platformEnv.isNative ? null : (
             <IconButton
               icon="RefreshCcwOutline"
