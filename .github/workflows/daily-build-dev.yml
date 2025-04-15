@@ -14,10 +14,10 @@ jobs:
     steps:
       - name: 'Setup ENV'
         run: |
-          DATE=`date "+%Y%m%d"`
+          DATE=`date "+%m%d"`
           run_number=$(($GITHUB_RUN_NUMBER % 100))
           run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}00001111"
+          build_number="1000${DATE}${run_number}"
           echo '$build_number='$build_number
           
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
