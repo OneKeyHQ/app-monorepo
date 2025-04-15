@@ -149,23 +149,35 @@ export default function HardwareSalesReward() {
       const isPositiveAmount = item.side !== 'out';
       return (
         <YStack px="$5">
-          <XStack jc="space-between">
-            <XStack>
-              <SizableText size="$bodyLgMedium">
-                {item.heading || '-'}
+          <XStack jc="space-between" gap="$4">
+            <YStack flexShrink={1}>
+              <XStack flexShrink={1}>
+                <SizableText size="$bodyLgMedium" flexShrink={1}>
+                  {item.heading || '-'}
+                </SizableText>
+                {item.status === 'PENDING' ? (
+                  <>
+                    <SizableText size="$bodyLgMedium">{` - `}</SizableText>
+                    <SizableText size="$bodyLgMedium">
+                      {intl.formatMessage({
+                        id: ETranslations.global_pending,
+                      })}
+                    </SizableText>
+                  </>
+                ) : null}
+              </XStack>
+              <SizableText
+                color="$textSubdued"
+                size="$bodyMd"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {`${formatTime(new Date(item.createdAt), {
+                  hideSeconds: true,
+                  hideMilliseconds: true,
+                })} ${item.title}`}
               </SizableText>
-              {item.status === 'PENDING' ? (
-                <>
-                  <SizableText size="$bodyLgMedium">{` - `}</SizableText>
-                  <SizableText size="$bodyLgMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.global_pending,
-                    })}
-                  </SizableText>
-                </>
-              ) : null}
-            </XStack>
-
+            </YStack>
             <NumberSizeableText
               formatter="balance"
               formatterOptions={{
@@ -179,17 +191,6 @@ export default function HardwareSalesReward() {
               {Number(item.amount) * (isPositiveAmount ? 1 : -1)}
             </NumberSizeableText>
           </XStack>
-          <SizableText
-            color="$textSubdued"
-            size="$bodyMd"
-            numberOfLines={1}
-            flexShrink={1}
-          >
-            {`${formatTime(new Date(item.createdAt), {
-              hideSeconds: true,
-              hideMilliseconds: true,
-            })} ${item.title}`}
-          </SizableText>
         </YStack>
       );
     },
