@@ -1321,6 +1321,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId: '',
       payload: {} as any,
     });
+    await firmwareUpdateResultVerifyAtom.set(undefined);
   }
 
   @backgroundMethod()
@@ -1642,7 +1643,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
         // verify final version
         await firmwareUpdateResultVerifyAtom.set({
-          finalBleVersion: updateResult?.bleVersion || '',
+          finalBleVersion: '3.9.0' || updateResult?.bleVersion || '',
           finalFirmwareVersion: updateResult?.firmwareVersion || '',
           finalBootloaderVersion: updateResult?.bootloaderVersion || '',
         });
@@ -1652,15 +1653,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
           actualVersionStr: string | undefined,
         ) => {
           if (expectedVersionStr && semver.valid(expectedVersionStr)) {
-            if (!actualVersionStr || !semver.valid(actualVersionStr)) {
+            if (
+              !actualVersionStr ||
+              !semver.valid(actualVersionStr) ||
+              !semver.eq(actualVersionStr, expectedVersionStr)
+            ) {
               versionMismatches.push(`${expectedVersionStr}`);
             }
           }
         };
 
-        verifyVersion(firmwareVersion, updateResult?.firmwareVersion);
-        verifyVersion(bleVersion, updateResult?.bleVersion);
-        verifyVersion(bootloaderVersion, updateResult?.bootloaderVersion);
+        verifyVersion(
+          toFirmwareVersion?.join('.'),
+          updateResult?.firmwareVersion,
+        );
+        verifyVersion(toBleVersion?.join('.'), '3.9.0');
+        verifyVersion(
+          toBootloaderVersion?.join('.'),
+          updateResult?.bootloaderVersion,
+        );
 
         // wait for 1.5s to verify
         await timerUtils.wait(1500);

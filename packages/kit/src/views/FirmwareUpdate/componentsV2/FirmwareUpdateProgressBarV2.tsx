@@ -24,10 +24,8 @@ import {
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateResultVerifyAtom,
-  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
-  useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -43,7 +41,7 @@ import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 interface IFirmwareUpdateVersionInfo {
   fromVersion: string;
   toVersion: string;
-  verifyVersion: string;
+  verifyVersion: string | undefined;
   hasUpgrade: boolean;
   title: string;
   githubReleaseUrl?: string;
@@ -94,6 +92,7 @@ function FirmwareUpdateVersionItem({
   verifyVersion,
   githubReleaseUrl,
   isDone,
+  isVerified,
 }: {
   title: string;
   fromVersion: string;
@@ -101,10 +100,11 @@ function FirmwareUpdateVersionItem({
   verifyVersion: string;
   githubReleaseUrl?: string;
   isDone?: boolean;
+  isVerified?: boolean;
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
   const renderToVersion = () => {
-    if (!isDone) {
+    if (!isDone && !isVerified) {
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
           {versionValid(toVersion) ? toVersion : unknownMessage}
@@ -112,8 +112,8 @@ function FirmwareUpdateVersionItem({
       );
     }
 
-    const isVerified = verifyVersion === toVersion;
-    const textColor = isVerified ? '$textSuccess' : '$textCritical';
+    const isVerifiedVersion = verifyVersion === toVersion;
+    const textColor = isVerifiedVersion ? '$textSuccess' : '$textCritical';
     const displayVersion = verifyVersion || toVersion;
 
     if (githubReleaseUrl) {
@@ -164,12 +164,14 @@ export function FirmwareUpdateProgressBarView({
   progress,
   desc,
   isDone,
+  isVerified,
 }: {
   versions: IFirmwareUpdateVersions[];
   title: string;
   progress: number | null | undefined;
   desc: string;
   isDone?: boolean;
+  isVerified?: boolean;
 }) {
   return (
     <>
@@ -196,10 +198,11 @@ export function FirmwareUpdateProgressBarView({
             <Fragment key={version.type}>
               <FirmwareUpdateVersionItem
                 isDone={isDone}
+                isVerified={isVerified}
                 title={version.type}
                 fromVersion={version.info.fromVersion}
                 toVersion={version.info.toVersion}
-                verifyVersion={version.info.verifyVersion}
+                verifyVersion={version.info.verifyVersion ?? ''}
                 githubReleaseUrl={version.info.githubReleaseUrl}
               />
               {index < versions.length - 1 ? <Divider /> : null}
@@ -415,6 +418,17 @@ export function FirmwareUpdateProgressBarV2({
   }, [result]);
 
   const [resultVerifyVersions] = useFirmwareUpdateResultVerifyAtom();
+  const [isVerified, setIsVerified] = useState(false);
+  useEffect(() => {
+    setTimeout(() => {
+      setIsVerified(
+        resultVerifyVersions
+          ? Object.keys(resultVerifyVersions).length > 0
+          : false,
+      );
+    }, 1500);
+  }, [resultVerifyVersions]);
+
   const upgradeVersions = useMemo(() => {
     if (!result?.updateInfos) return [];
 
@@ -427,7 +441,7 @@ export function FirmwareUpdateProgressBarV2({
           title: intl.formatMessage({ id: ETranslations.global_firmware }),
           fromVersion: result.updateInfos.firmware.fromVersion ?? '',
           toVersion: result.updateInfos.firmware.toVersion ?? '',
-          verifyVersion: resultVerifyVersions.finalFirmwareVersion,
+          verifyVersion: resultVerifyVersions?.finalFirmwareVersion,
           hasUpgrade: true,
           githubReleaseUrl: result.updateInfos.firmware.githubReleaseUrl,
         },
@@ -441,7 +455,7 @@ export function FirmwareUpdateProgressBarV2({
           title: intl.formatMessage({ id: ETranslations.global_bootloader }),
           fromVersion: result.updateInfos.bootloader.fromVersion ?? '',
           toVersion: result.updateInfos.bootloader.toVersion ?? '',
-          verifyVersion: resultVerifyVersions.finalBootloaderVersion,
+          verifyVersion: resultVerifyVersions?.finalBootloaderVersion,
           hasUpgrade: true,
           githubReleaseUrl: result.updateInfos.bootloader.githubReleaseUrl,
         },
@@ -455,7 +469,7 @@ export function FirmwareUpdateProgressBarV2({
           title: intl.formatMessage({ id: ETranslations.global_bluetooth }),
           fromVersion: result.updateInfos.ble.fromVersion ?? '',
           toVersion: result.updateInfos.ble.toVersion ?? '',
-          verifyVersion: resultVerifyVersions.finalBleVersion,
+          verifyVersion: resultVerifyVersions?.finalBleVersion,
           hasUpgrade: true,
           githubReleaseUrl: result.updateInfos.ble.githubReleaseUrl,
         },
@@ -544,6 +558,7 @@ export function FirmwareUpdateProgressBarV2({
         progress={progress}
         desc={desc}
         isDone={isDoneInternal}
+        isVerified={isVerified}
       />
       {renderGrantUSBAccessButton()}
       {debugInfo}
