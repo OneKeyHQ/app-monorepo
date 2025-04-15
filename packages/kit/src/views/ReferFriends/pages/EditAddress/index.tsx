@@ -37,11 +37,13 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AddressInputContext } from '../../../../components/AddressInput/AddressInputContext';
+
 import type { RouteProp } from '@react-navigation/native';
 
 type IFormValues = {
   networkId: string;
-  addressValue: IAddressInputValue;
+  to: IAddressInputValue;
 };
 
 function BasicEditAddress() {
@@ -104,7 +106,7 @@ function BasicEditAddress() {
       values: {
         networkId: enabledNetworks[0],
         deriveType: undefined,
-        addressValue: { raw: '', resolved: undefined },
+        to: { raw: '', resolved: undefined },
       },
       mode: 'onChange' as IFormMode,
       reValidateMode: 'onBlur' as IReValidateMode,
@@ -118,7 +120,7 @@ function BasicEditAddress() {
 
   const { control } = form;
   const networkIdValue = useFormWatch({ control, name: 'networkId' });
-  const addressValue = useFormWatch({ control, name: 'addressValue' });
+  const addressValue = useFormWatch({ control, name: 'to' });
   const accountInfo = useActiveAccount({ num: 0 });
   const isEnable = useMemo(() => {
     // filter out error parameters from different segments.
@@ -157,12 +159,21 @@ function BasicEditAddress() {
       navigation.pop();
       setTimeout(() => {
         onAddressAdded?.({
-          address: values.addressValue.resolved ?? '',
+          address: values.to.resolved ?? '',
           networkId: values.networkId ?? '',
         });
       });
     },
     [navigation, onAddressAdded],
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      name: 'to',
+      networkId: networkIdValue,
+      accountId: accountInfo?.activeAccount?.account?.id,
+    }),
+    [accountInfo?.activeAccount?.account?.id, networkIdValue],
   );
 
   return (
@@ -173,47 +184,49 @@ function BasicEditAddress() {
         })}
       />
       <Page.Body px="$5">
-        <Form form={form}>
-          <Form.Field
-            label={intl.formatMessage({ id: ETranslations.global_network })}
-            name="networkId"
-          >
-            <ControlledNetworkSelectorTrigger
-              networkIds={networksResp.networkIds}
-            />
-          </Form.Field>
+        <AddressInputContext.Provider value={contextValue}>
+          <Form form={form}>
+            <Form.Field
+              label={intl.formatMessage({ id: ETranslations.global_network })}
+              name="networkId"
+            >
+              <ControlledNetworkSelectorTrigger
+                networkIds={networksResp.networkIds}
+              />
+            </Form.Field>
 
-          <Form.Field
-            label={intl.formatMessage({ id: ETranslations.global_address })}
-            name="addressValue"
-            renderErrorMessage={renderAddressInputHyperlinkText}
-            rules={{
-              validate: createValidateAddressRule({
-                defaultErrorMessage: intl.formatMessage({
-                  id: ETranslations.form_address_error_invalid,
+            <Form.Field
+              label={intl.formatMessage({ id: ETranslations.global_address })}
+              name="to"
+              renderErrorMessage={renderAddressInputHyperlinkText}
+              rules={{
+                validate: createValidateAddressRule({
+                  defaultErrorMessage: intl.formatMessage({
+                    id: ETranslations.form_address_error_invalid,
+                  }),
                 }),
-              }),
-            }}
-          >
-            <AddressInput
-              enableAddressBook
-              enableWalletName
-              enableVerifySendFundToSelf
-              enableAddressInteractionStatus
-              enableAddressContract
-              enableAllowListValidation
-              // accountSelector={addressInputAccountSelectorArgs}
-              // accountId={accountInfo?.activeAccount?.account?.id}
-              contacts
-              enableNameResolve
-              placeholder={intl.formatMessage({
-                id: ETranslations.form_address_placeholder,
-              })}
-              networkId={networkIdValue ?? ''}
-              testID="import-address-input"
-            />
-          </Form.Field>
-        </Form>
+              }}
+            >
+              <AddressInput
+                enableAddressBook
+                enableWalletName
+                enableVerifySendFundToSelf
+                enableAddressInteractionStatus
+                enableAddressContract
+                enableAllowListValidation
+                // accountSelector={addressInputAccountSelectorArgs}
+                // accountId={accountInfo?.activeAccount?.account?.id}
+                contacts
+                enableNameResolve
+                placeholder={intl.formatMessage({
+                  id: ETranslations.form_address_placeholder,
+                })}
+                networkId={networkIdValue ?? ''}
+                testID="import-address-input"
+              />
+            </Form.Field>
+          </Form>
+        </AddressInputContext.Provider>
         <YStack gap="$5" mt="$1.5">
           <SizableText color="$textSubdued" size="$bodyMd">
             {intl.formatMessage({
