@@ -380,7 +380,7 @@ function Dashboard({
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
-              {hardwareSales.available?.[0].token.networkId ? (
+              {hardwareSales.available?.[0]?.token?.networkId ? (
                 <Token
                   size="xs"
                   tokenImageUri={hardwareSales.available?.[0].token.logoURI}
@@ -391,10 +391,10 @@ function Dashboard({
                   formatter="balance"
                   size="$bodyMd"
                   formatterOptions={{
-                    tokenSymbol: hardwareSales.available?.[0].token.symbol,
+                    tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
                   }}
                 >
-                  {hardwareSales.available?.[0].fiatValue || 0}
+                  {hardwareSales.available?.[0]?.fiatValue || 0}
                 </NumberSizeableText>
                 {showHardwarePendingFiat ? (
                   <>
@@ -403,10 +403,10 @@ function Dashboard({
                       formatter="balance"
                       size="$bodyMd"
                       formatterOptions={{
-                        tokenSymbol: hardwareSales.pending?.[0].token.symbol,
+                        tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
                       }}
                     >
-                      {hardwareSales.pending?.[0].fiatValue || 0}
+                      {hardwareSales.pending?.[0]?.fiatValue || 0}
                     </NumberSizeableText>
                   </>
                 ) : null}
