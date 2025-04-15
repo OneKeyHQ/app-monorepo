@@ -184,7 +184,7 @@ export default function HardwareSalesReward() {
         </YStack>
       );
     },
-    [intl, settings.currencyInfo.symbol],
+    [settings.currencyInfo.symbol],
   );
   return (
     <Page>
