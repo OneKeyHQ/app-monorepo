@@ -48,9 +48,9 @@ export function PrimeUserInfo({
         ellipsizeMode="middle"
         ellipse
       >
-        {user?.email}
+        {user?.displayEmail}
       </SizableText>
-      {isPrime ? (
+      {/* {isPrime ? (
         <Badge bg="$brand3" badgeSize="sm">
           <Badge.Text color="$brand11">Prime</Badge.Text>
         </Badge>
@@ -60,7 +60,7 @@ export function PrimeUserInfo({
             id: ETranslations.prime_status_free,
           })}
         </Badge>
-      )}
+      )} */}
       <PrimeUserInfoMoreButton
         doPurchase={doPurchase}
         onLogoutSuccess={onLogoutSuccess}

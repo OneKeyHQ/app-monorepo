@@ -858,6 +858,30 @@ export class HardwareWebDeviceCommunicationError extends OneKeyHardwareError {
   override autoToast = false;
 }
 
+export class FirmwareUpdateTransferInterruptedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateTransferInterruptedError',
+        defaultKey: ETranslations.firmware_update_error_transfer_interrupted,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.EmmcFileWriteFirmwareError;
+}
+
+export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateVersionMismatch',
+        defaultKey: ETranslations.global_version_mismatch,
+      }),
+    );
+  }
+}
+
 // UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =

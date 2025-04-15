@@ -117,7 +117,7 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
                         })
                       : intl.formatMessage(
                           {
-                            id: ETranslations.wallet_history_settings_hide_risk_transaction_desc_unsupprted,
+                            id: ETranslations.wallet_history_settings_hide_risk_transaction_desc_unsupported,
                           },
                           {
                             networkName: network?.name ?? '',
@@ -126,10 +126,11 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
                   }
                 >
                   <Switch
+                    isUncontrolled
                     disabled={!filterScamHistorySupported}
                     size={ESwitchSize.small}
                     onChange={handleFilterScamHistoryOnChange}
-                    value={
+                    defaultChecked={
                       filterScamHistorySupported
                         ? settings.isFilterScamHistoryEnabled
                         : false

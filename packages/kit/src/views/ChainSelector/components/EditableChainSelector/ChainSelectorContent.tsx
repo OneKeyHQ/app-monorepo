@@ -12,6 +12,7 @@ import { StyleSheet } from 'react-native';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
+  Button,
   Divider,
   Empty,
   Icon,
@@ -23,12 +24,15 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -60,11 +64,13 @@ const ListHeaderComponent = ({
   accountId,
   indexedAccountId,
   setAllNetworksChanged,
+  initialScrollIndex,
 }: {
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
   setAllNetworksChanged?: (value: boolean) => void;
+  initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -82,6 +88,57 @@ const ListHeaderComponent = ({
     await run({ alwaysSetState: true });
   }, [setAllNetworksChanged, run]);
 
+  const allNetworksActions = useMemo(() => {
+    if (accountUtils.isOthersWallet({ walletId: walletId ?? '' })) {
+      return [];
+    }
+
+    return (
+      <Spotlight
+        delayMs={500}
+        isVisible={
+          !initialScrollIndex || initialScrollIndex?.sectionIndex === 0
+        }
+        message={intl.formatMessage({
+          id: ETranslations.network_all_networks_selection_tip,
+        })}
+        tourName={ESpotlightTour.allNetworksInfo}
+      >
+        <Button
+          size="small"
+          variant="secondary"
+          onPress={() => {
+            if (walletId) {
+              navigation.push(EChainSelectorPages.AllNetworksManager, {
+                walletId,
+                accountId,
+                indexedAccountId,
+                onNetworksChanged: handleNetworksChange,
+              });
+            }
+          }}
+        >
+          {intl.formatMessage(
+            {
+              id: ETranslations.network_enabled_count,
+            },
+            { 'count': enabledNetworksCompatibleWithWalletId.length },
+          )}{' '}
+          →
+        </Button>
+      </Spotlight>
+    );
+  }, [
+    accountId,
+    enabledNetworksCompatibleWithWalletId.length,
+    handleNetworksChange,
+    indexedAccountId,
+    initialScrollIndex,
+    intl,
+    navigation,
+    walletId,
+  ]);
+
   return (
     <Stack mt="$4">
       <RecentNetworks />
@@ -90,28 +147,7 @@ const ListHeaderComponent = ({
           <EditableListItem
             item={allNetworkItem}
             isEditable={false}
-            actions={[
-              {
-                title: `${intl.formatMessage(
-                  {
-                    id: ETranslations.network_enabled_count,
-                  },
-                  {
-                    'count': enabledNetworksCompatibleWithWalletId.length,
-                  },
-                )} →`,
-                onPress: () => {
-                  if (walletId) {
-                    navigation.push(EChainSelectorPages.AllNetworksManager, {
-                      walletId,
-                      accountId,
-                      indexedAccountId,
-                      onNetworksChanged: handleNetworksChange,
-                    });
-                  }
-                },
-              },
-            ]}
+            actions={allNetworksActions}
           />
           <Divider m="$5" />
         </Stack>
@@ -521,7 +557,9 @@ export const EditableChainSelectorContent = ({
                   ?.data as IServerNetwork[];
                 setTempFrequentlyUsedItems(itemList);
               }}
-              initialScrollIndex={initialScrollIndex}
+              initialScrollIndex={
+                platformEnv.isNative ? initialScrollIndex : undefined
+              }
               dragItemOverflowHitSlop={dragItemOverflowHitSlop}
               getItemLayout={(_, index) => {
                 if (index === -1) {
@@ -535,6 +573,7 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={
                 <ListHeaderComponent
+                  initialScrollIndex={initialScrollIndex}
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}

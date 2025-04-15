@@ -1,4 +1,4 @@
-import { memo, useCallback, useContext } from 'react';
+import { memo, useCallback, useContext, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -73,6 +77,16 @@ function RecentNetworks() {
     },
     [setRecentNetworksHeight],
   );
+
+  useEffect(() => {
+    const fn = async () => {
+      await run({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
+    };
+  }, [run]);
 
   return (
     <Stack onLayout={handleLayout}>

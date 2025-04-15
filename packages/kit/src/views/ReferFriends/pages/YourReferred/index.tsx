@@ -72,9 +72,11 @@ function HardwareSales() {
         <YStack px="$5" pt="$5">
           {items.map((item, key) => (
             <YStack key={key} py="$2">
-              <SizableText size="$bodyLgMedium">{item.title}</SizableText>
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {item.title}
+              </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {formatDate(item.createdAt)}
+                {item.createdAt ? formatDate(item.createdAt) : ''}
               </SizableText>
             </YStack>
           ))}
@@ -126,7 +128,7 @@ function EarnList() {
             <YStack key={key} py="$2">
               <SizableText size="$bodyLgMedium">{item.title}</SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {formatDate(item.createdAt)}
+                {item.effectiveTime ? formatDate(item.effectiveTime) : ''}
               </SizableText>
             </YStack>
           ))}

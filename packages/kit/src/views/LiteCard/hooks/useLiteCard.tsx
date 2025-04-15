@@ -5,6 +5,7 @@ import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -17,6 +18,7 @@ import useReadMnemonic from './useReadMnemonic';
 
 export default function useLiteCard() {
   const nfc = useNFC();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const { showPINFormDialog } = usePIN();
   const { readMnemonicWithWalletId } = useReadMnemonic();
   const {
@@ -95,7 +97,13 @@ export default function useLiteCard() {
     ],
   );
   const importWallet = useCallback(async () => {
-    defaultLogger.account.wallet.importWallet({ importMethod: 'liteCard' });
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'liteCard',
+      },
+      isSoftwareWalletOnlyUser,
+    });
     try {
       await nfc.checkNFCEnabledPermission();
       const createPINConnection = async () => {
@@ -128,10 +136,26 @@ export default function useLiteCard() {
       });
       await createGetMnemonicConnection();
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: true });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'Import',
+        details: {
+          importSource: 'liteCard',
+        },
+        isSoftwareWalletOnlyUser,
+      });
     } catch {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: false });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'failure',
+        addMethod: 'Import',
+        details: {
+          importSource: 'liteCard',
+        },
+        isSoftwareWalletOnlyUser,
+      });
     }
-  }, [nfc, showPINFormDialog, navigation]);
+  }, [nfc, showPINFormDialog, navigation, isSoftwareWalletOnlyUser]);
   const changePIN = useCallback(async () => {
     await nfc.checkNFCEnabledPermission();
     const createPINConnection = async () => {

@@ -16,6 +16,7 @@ module.exports = [
   'subnetworks',
   'tatom',
   'Eip1559',
+  'emmc',
   'Boardloader',
   'fs',
   'hdk',

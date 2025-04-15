@@ -28,6 +28,15 @@ export class SimpleDbEntityRecentNetworks extends SimpleDbEntityBase<IRecentNetw
   }
 
   @backgroundMethod()
+  async deleteRecentNetwork({ networkId }: { networkId: string }) {
+    await this.setRawData((rawData) => {
+      const recentNetworks = rawData?.recentNetworks ?? {};
+      delete recentNetworks[networkId];
+      return { recentNetworks };
+    });
+  }
+
+  @backgroundMethod()
   async getRecentNetworks({
     limit = 5,
   }: {
