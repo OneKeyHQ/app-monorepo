@@ -17,7 +17,7 @@ jobs:
           DATE=`date "+%Y%m%d"`
           run_number=$(($GITHUB_RUN_NUMBER % 100))
           run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}_DEV"
+          build_number="${DATE}${run_number}00001111"
           echo '$build_number='$build_number
           
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
