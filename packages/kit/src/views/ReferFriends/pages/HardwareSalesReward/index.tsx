@@ -155,16 +155,6 @@ export default function HardwareSalesReward() {
                 <SizableText size="$bodyLgMedium" flexShrink={1}>
                   {item.heading || '-'}
                 </SizableText>
-                {item.status === 'PENDING' ? (
-                  <>
-                    <SizableText size="$bodyLgMedium">{` - `}</SizableText>
-                    <SizableText size="$bodyLgMedium">
-                      {intl.formatMessage({
-                        id: ETranslations.global_pending,
-                      })}
-                    </SizableText>
-                  </>
-                ) : null}
               </XStack>
               <SizableText
                 color="$textSubdued"
