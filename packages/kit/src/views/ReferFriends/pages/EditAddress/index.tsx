@@ -26,6 +26,7 @@ import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -36,8 +37,6 @@ import type {
   IModalReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { AddressInputContext } from '../../../../components/AddressInput/AddressInputContext';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -143,13 +142,10 @@ function BasicEditAddress() {
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      accountInfo?.activeAccount?.network?.id &&
-      addressBookEnabledNetworkIds.includes(
-        accountInfo.activeAccount.network.id,
-      )
+      addressBookEnabledNetworkIds.includes(networkIdValue)
         ? { num: 0, clearNotMatch: true }
         : undefined,
-    [accountInfo?.activeAccount?.network?.id, addressBookEnabledNetworkIds],
+    [addressBookEnabledNetworkIds, networkIdValue],
   );
 
   onSubmitRef.current = useCallback(
@@ -171,7 +167,7 @@ function BasicEditAddress() {
     () => ({
       name: 'to',
       networkId: networkIdValue,
-      accountId: accountInfo?.activeAccount?.account?.id,
+      accountId: `hd-1--m/44'/60'/0'/0/0`,
     }),
     [accountInfo?.activeAccount?.account?.id, networkIdValue],
   );
@@ -214,15 +210,15 @@ function BasicEditAddress() {
                 enableAddressInteractionStatus
                 enableAddressContract
                 enableAllowListValidation
-                // accountSelector={addressInputAccountSelectorArgs}
-                // accountId={accountInfo?.activeAccount?.account?.id}
-                contacts
+                accountSelector={addressInputAccountSelectorArgs}
+                accountId={accountInfo?.activeAccount?.account?.id}
+                networkId={networkIdValue ?? ''}
+                contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
                 enableNameResolve
                 placeholder={intl.formatMessage({
                   id: ETranslations.form_address_placeholder,
                 })}
-                networkId={networkIdValue ?? ''}
-                testID="import-address-input"
+                testID="refer-friends-edit-address-input"
               />
             </Form.Field>
           </Form>
@@ -255,7 +251,8 @@ function EditAddress() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName: EAccountSelectorSceneName.addressInput,
+        sceneUrl: '',
       }}
       enabledNum={[0]}
     >
