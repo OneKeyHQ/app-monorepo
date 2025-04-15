@@ -37,6 +37,7 @@ runs:
     - name: Download workflow parameters
       if: ${{ github.event.workflow_run }}
       uses: dawidd6/action-download-artifact@v2
+      continue-on-error: true
       with:
         workflow: daily-build-dev
         name: workflow-params
