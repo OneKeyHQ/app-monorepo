@@ -7288,7 +7288,7 @@ __metadata:
     expo-web-browser: "npm:12.8.2"
     folderslint: "npm:^1.2.0"
     https-browserify: "npm:^1.0.0"
-    jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#2cadf288224242cec715a2e260f872235c58874c"
+    jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#aa463b7296cf9e7095a3ba9965e97c1d3d03df56"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7"
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:6.3.1"
@@ -28371,12 +28371,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#2cadf288224242cec715a2e260f872235c58874c":
+"jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#aa463b7296cf9e7095a3ba9965e97c1d3d03df56":
   version: 2.0.3
-  resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=2cadf288224242cec715a2e260f872235c58874c"
+  resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=aa463b7296cf9e7095a3ba9965e97c1d3d03df56"
   peerDependencies:
     react-native: ">= 0.60"
-  checksum: 10/577b53bcc4b9d95d379f260944d7501e2b28e50812c34da87fa658892354d68680fa20ac39b3b94eaef549b5e99a081d8dce556eef559bba056f6a0c8ca52f2b
+  checksum: 10/9e5ac48196bae1ed0ac9f8d5730b482a3f91348f7b73a383017855e7c4c5b924363bbc3ce5f664bf7f86e57b17f602b8ee8460d43cf2ed0d8caf0c5ffcd523e6
   languageName: node
   linkType: hard
 
