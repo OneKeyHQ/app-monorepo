@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
@@ -51,6 +52,7 @@ export function WalletActionBuy() {
     return false;
   }, [isSupported, wallet?.type]);
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleBuyToken = useCallback(async () => {
     if (isBuyDisabled) return;
 
@@ -58,6 +60,7 @@ export function WalletActionBuy() {
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
+      isSoftwareWalletOnlyUser,
     });
 
     if (vaultSettings?.isSingleToken) {
@@ -116,6 +119,7 @@ export function WalletActionBuy() {
     navigation,
     indexedAccount?.id,
     map,
+    isSoftwareWalletOnlyUser,
   ]);
 
   return <RawActions.Buy onPress={handleBuyToken} disabled={isBuyDisabled} />;

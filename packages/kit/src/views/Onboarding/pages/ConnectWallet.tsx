@@ -17,6 +17,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -282,9 +283,8 @@ function WalletItem({
     };
   }, [hideLoading, loading]);
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const connectToWallet = useCallback(async () => {
-    const isSoftwareWalletOnlyUser =
-      await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
     try {
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'Connect3rdParty',
@@ -364,6 +364,7 @@ function WalletItem({
     navigation,
     selectedAccount.networkId,
     showLoading,
+    isSoftwareWalletOnlyUser,
   ]);
 
   const connectToWalletWithDialog = useCallback(async () => {
