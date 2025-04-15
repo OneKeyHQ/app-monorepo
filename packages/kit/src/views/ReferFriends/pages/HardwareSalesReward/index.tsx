@@ -146,15 +146,13 @@ export default function HardwareSalesReward() {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
     }) => {
-      const isPositiveAmount = ['PENDING', 'AVAILABLE'].includes(item.status);
+      const isPositiveAmount = item.side !== 'out';
       return (
         <YStack px="$5">
           <XStack jc="space-between">
             <XStack>
               <SizableText size="$bodyLgMedium">
-                {intl.formatMessage({
-                  id: ETranslations.referral_sales_order_regular,
-                })}
+                {item.heading || '-'}
               </SizableText>
               {item.status === 'PENDING' ? (
                 <>
