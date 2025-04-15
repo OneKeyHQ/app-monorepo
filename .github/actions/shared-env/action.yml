@@ -25,6 +25,7 @@ inputs:
     type: string
     description: "Sentry Auth Token"
 
+
 runs:
   using: "composite"
   steps:
@@ -32,6 +33,32 @@ runs:
       uses: actions/checkout@v3
       with:
         lfs: true
+
+    - name: Download workflow parameters
+      if: ${{ github.event.workflow_run }}
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: daily-build-dev
+        name: workflow-params
+        run_id: ${{ github.event.workflow_run.id }}
+      
+    - name: Load workflow parameters
+      if: ${{ github.event.workflow_run }}
+      shell: bash
+      run: |
+        if [ -f params.env ]; then
+          cat params.env >> $GITHUB_ENV
+        fi
+
+    - name: Switch to target branch
+      if: ${{ github.event.workflow_run }}
+      shell: bash
+      run: |
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
+          echo "Switching to branch: ${{ env.WORKFLOW_GITHUB_REF_NAME }}"
+          git fetch origin ${{ env.WORKFLOW_GITHUB_REF_NAME }}
+          git checkout ${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        fi
 
     - name: Dotenv Action
       id: dotenv
@@ -48,17 +75,31 @@ runs:
         echo "BUILD_APP_VERSION=$app_version" >> $GITHUB_ENV
         # Generate app version ------- end
 
+
+        # Generate github sha ------- start
+        github_sha=${{ github.sha }}
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_SHA }}" ]; then
+          github_sha=${{ env.WORKFLOW_GITHUB_SHA }}
+        fi
+        echo '$github_sha='$github_sha
+        echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
+        # Generate github sha ------- end
+
+
+
         # Generate github tag ------- start
+        github_ref=${{ github.ref }}
         github_ref="${github_ref////-}"
         github_ref="${github_ref/refs-heads-/}"
         github_ref="${github_ref/refs-tags-/}"
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
+          github_ref=${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        fi
         echo '$github_ref='$github_ref
         echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
         # echo "::set-env name=GITHUB_TAG::$github_ref"
         # Generate github tag ------- end
-      env:
-        github_ref: ${{ github.ref }}
-        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
 
     - name: Setup ENV BUILD_NUMBER to 1
       if: ${{ !github.event.workflow_run }}
@@ -67,9 +108,6 @@ runs:
         # Generate build number ------- start
         echo "BUILD_NUMBER=1" >> $GITHUB_ENV
         # Generate build number ------- end
-      env:
-        github_ref: ${{ github.ref }}
-        workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
 
     - name: Setup ENV BUILD_NUMBER by workflow_run
@@ -77,27 +115,29 @@ runs:
       shell: bash
       run: |
         echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
-
-        # Generate build number ------- start
-        DATE=`date "+%Y%m%d"`
-        run_number=$(($workflow_run_number % 100))
-        run_number=$(printf "%02d" $run_number)
-        build_number="${DATE}${run_number}"
-        echo '$build_number='$build_number
-        echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
-        # Generate build number ------- end
+        if [ ! -z "${{ env.WORKFLOW_BUILD_NUMBER }}" ]; then
+          echo "BUILD_NUMBER=${{ env.WORKFLOW_BUILD_NUMBER }}" >> $GITHUB_ENV
+        else
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+        fi
       env:
-        github_ref: ${{ github.ref }}
         workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
     - name: Inject Environment Variables
       shell: bash
       env:
-        GITHUB_SHA: ${{ github.sha }}
         COVALENT_KEY: ${{ inputs.covalent_key }}
         SENTRY_TOKEN: ${{ inputs.sentry_token }}
         SENTRY_PROJECT: ${{ inputs.sentry_project || '' }}
         TARGET_ENV_FILE: ${{ inputs.env_file_name || '.env' }}
+
       run: |
         echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> ${TARGET_ENV_FILE}
         echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
@@ -110,6 +150,7 @@ runs:
         echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}
+
         if [[ ! -z "${{ inputs.additional_env }}" ]]; then
           echo "${{ inputs.additional_env }}" >> ${TARGET_ENV_FILE}
         fi 
@@ -134,5 +175,6 @@ runs:
         #   cat .env.version
         # fi
         # echo "--------------------------------"
+
 
 

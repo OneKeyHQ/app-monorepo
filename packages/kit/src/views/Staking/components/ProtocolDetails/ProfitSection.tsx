@@ -42,6 +42,7 @@ type IProfitInfoProps = {
   nextLaunchLeft?: string;
   providerName?: string;
   poolFee?: string;
+  token: IStakeProtocolDetails['token'];
 };
 
 function ProfitInfo({
@@ -60,6 +61,7 @@ function ProfitInfo({
   rewardUnit,
   providerName,
   poolFee,
+  token,
 }: IProfitInfoProps) {
   const intl = useIntl();
 
@@ -168,12 +170,12 @@ function ProfitInfo({
               })}
             >
               <NumberSizeableText
-                formatter="value"
+                formatter="balance"
                 color="$textSuccess"
                 size="$bodyLgMedium"
                 formatterOptions={{
-                  currency: symbol,
-                  showPlusMinusSigns: Number(totalRewardAmount) >= 0.01,
+                  tokenSymbol: token.info.symbol,
+                  showPlusMinusSigns: Number(totalRewardAmount) > 0,
                 }}
               >
                 {totalRewardAmount}
@@ -267,6 +269,7 @@ export const ProfitSection = ({
     rewardUnit: details.provider.rewardUnit,
     providerName: details.provider.name,
     poolFee: details.provider.poolFee,
+    token: details.token,
   };
   return <ProfitInfo {...props} />;
 };

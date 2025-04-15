@@ -279,18 +279,20 @@ function Dashboard({
             })}
           </SizableText>
           <XStack ai="center" jc="space-between" gap="$5">
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              flexShrink={1}
-              numberOfLines={1}
-            >
-              {withdrawAddresses.length
-                ? withdrawAddresses[0].address
-                : intl.formatMessage({
-                    id: ETranslations.referral_reward_received_address_notset,
-                  })}
-            </SizableText>
+            <XStack flexShrink={1}>
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                flexShrink={1}
+                numberOfLines={10}
+              >
+                {withdrawAddresses.length
+                  ? withdrawAddresses[0].address
+                  : intl.formatMessage({
+                      id: ETranslations.referral_reward_received_address_notset,
+                    })}
+              </SizableText>
+            </XStack>
             <IconButton
               title={intl.formatMessage({ id: ETranslations.global_edit })}
               variant="tertiary"
@@ -378,7 +380,7 @@ function Dashboard({
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
-              {hardwareSales.available?.[0].token.networkId ? (
+              {hardwareSales.available?.[0]?.token?.networkId ? (
                 <Token
                   size="xs"
                   tokenImageUri={hardwareSales.available?.[0].token.logoURI}
@@ -389,10 +391,10 @@ function Dashboard({
                   formatter="balance"
                   size="$bodyMd"
                   formatterOptions={{
-                    tokenSymbol: hardwareSales.available?.[0].token.symbol,
+                    tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
                   }}
                 >
-                  {hardwareSales.available?.[0].fiatValue || 0}
+                  {hardwareSales.available?.[0]?.fiatValue || 0}
                 </NumberSizeableText>
                 {showHardwarePendingFiat ? (
                   <>
@@ -401,10 +403,10 @@ function Dashboard({
                       formatter="balance"
                       size="$bodyMd"
                       formatterOptions={{
-                        tokenSymbol: hardwareSales.pending?.[0].token.symbol,
+                        tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
                       }}
                     >
-                      {hardwareSales.pending?.[0].fiatValue || 0}
+                      {hardwareSales.pending?.[0]?.fiatValue || 0}
                     </NumberSizeableText>
                   </>
                 ) : null}
