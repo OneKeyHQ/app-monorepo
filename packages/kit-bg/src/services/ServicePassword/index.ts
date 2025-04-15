@@ -189,6 +189,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
+    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
 
     // TODO clear cached sync credential only when app is locked
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
