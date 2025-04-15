@@ -10,6 +10,7 @@ import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
@@ -96,11 +97,13 @@ export function WalletActionMore() {
     return settings;
   }, [network?.id]).result;
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleCopyAddress = useCallback(() => {
     defaultLogger.wallet.walletActions.actionCopyAddress({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
+      isSoftwareWalletOnlyUser,
     });
     if (isAllNetworkEnabled) {
       void handleAllNetworkCopyAddress();
@@ -135,6 +138,7 @@ export function WalletActionMore() {
     account?.indexedAccountId,
     account?.address,
     copyText,
+    isSoftwareWalletOnlyUser,
   ]);
 
   const handleSellToken = useCallback(async () => {
@@ -142,6 +146,7 @@ export function WalletActionMore() {
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
+      isSoftwareWalletOnlyUser,
     });
     if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
@@ -197,6 +202,7 @@ export function WalletActionMore() {
     vaultSettings?.isSingleToken,
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
+    isSoftwareWalletOnlyUser,
   ]);
 
   const viewExplorerDisabled = usePromiseResult(async () => {

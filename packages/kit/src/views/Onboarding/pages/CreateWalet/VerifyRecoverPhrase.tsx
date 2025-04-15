@@ -15,6 +15,7 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -102,7 +103,7 @@ export function VerifyRecoveryPhrase({
   }, [mnemonic, servicePassword]);
 
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
-
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleConfirm = useCallback(async () => {
     if (verifyRecoveryPhrases && phrases) {
       const isValid = selectedWords.every((word, index) => {
@@ -120,8 +121,7 @@ export function VerifyRecoveryPhrase({
           details: {
             isBiometricSet: settings.isBiologyAuthSwitchOn,
           },
-          isSoftwareWalletOnlyUser:
-            await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+          isSoftwareWalletOnlyUser,
         });
       } else {
         Toast.error({
@@ -142,6 +142,7 @@ export function VerifyRecoveryPhrase({
     selectedWords,
     settings.isBiologyAuthSwitchOn,
     verifyRecoveryPhrases,
+    isSoftwareWalletOnlyUser,
   ]);
 
   return (

@@ -32,6 +32,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -85,6 +86,54 @@ const ListHeaderComponent = ({
     await run({ alwaysSetState: true });
   }, [setAllNetworksChanged, run]);
 
+  const allNetworksActions = useMemo(() => {
+    if (accountUtils.isOthersWallet({ walletId: walletId ?? '' })) {
+      return [];
+    }
+
+    return (
+      <Spotlight
+        delayMs={500}
+        isVisible
+        message={intl.formatMessage({
+          id: ETranslations.network_all_networks_selection_tip,
+        })}
+        tourName={ESpotlightTour.allNetworksInfo}
+      >
+        <Button
+          size="small"
+          variant="secondary"
+          onPress={() => {
+            if (walletId) {
+              navigation.push(EChainSelectorPages.AllNetworksManager, {
+                walletId,
+                accountId,
+                indexedAccountId,
+                onNetworksChanged: handleNetworksChange,
+              });
+            }
+          }}
+        >
+          {intl.formatMessage(
+            {
+              id: ETranslations.network_enabled_count,
+            },
+            { 'count': enabledNetworksCompatibleWithWalletId.length },
+          )}{' '}
+          →
+        </Button>
+      </Spotlight>
+    );
+  }, [
+    accountId,
+    enabledNetworksCompatibleWithWalletId.length,
+    handleNetworksChange,
+    indexedAccountId,
+    intl,
+    navigation,
+    walletId,
+  ]);
+
   return (
     <Stack mt="$4">
       <RecentNetworks />
@@ -93,37 +142,7 @@ const ListHeaderComponent = ({
           <EditableListItem
             item={allNetworkItem}
             isEditable={false}
-            actions={
-              <Spotlight
-                delayMs={500}
-                isVisible
-                message='When you select "All Networks", you can customize which networks to include. To keep loading fast, only popular networks are enabled by default—but you can easily enable additional networks here.'
-                tourName={ESpotlightTour.allNetworksInfo}
-              >
-                <Button
-                  size="small"
-                  variant="secondary"
-                  onPress={() => {
-                    if (walletId) {
-                      navigation.push(EChainSelectorPages.AllNetworksManager, {
-                        walletId,
-                        accountId,
-                        indexedAccountId,
-                        onNetworksChanged: handleNetworksChange,
-                      });
-                    }
-                  }}
-                >
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.network_enabled_count,
-                    },
-                    { 'count': enabledNetworksCompatibleWithWalletId.length },
-                  )}{' '}
-                  →
-                </Button>
-              </Spotlight>
-            }
+            actions={allNetworksActions}
           />
           <Divider m="$5" />
         </Stack>

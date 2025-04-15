@@ -233,9 +233,8 @@ export function FirmwareUpdateProgressBarV2({
   const intl = useIntl();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
-  const [stateFull] = useHardwareUiStateCompletedAtom();
   const [progress, setProgress] = useState(1);
-  const [retryInfo] = useFirmwareUpdateRetryAtom();
+  const [isDoneInternal, setIsDoneInternal] = useState(!!isDone);
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -382,8 +381,11 @@ export function FirmwareUpdateProgressBarV2({
     if (isDone) {
       setTimeout(() => {
         updateProgressRef.current('done');
-      }, 1000);
+      });
     }
+    setTimeout(() => {
+      setIsDoneInternal(!!isDone);
+    }, 1500);
   }, [isDone]);
 
   useEffect(() => {
@@ -531,15 +533,17 @@ export function FirmwareUpdateProgressBarV2({
       <FirmwareUpdateProgressBarView
         versions={upgradeVersions}
         title={
-          isDone
+          isDoneInternal
             ? intl.formatMessage({
                 id: ETranslations.update_all_updates_complete,
               })
-            : 'Installing firmware'
+            : intl.formatMessage({
+                id: ETranslations.global_installing_firmware,
+              })
         }
         progress={progress}
         desc={desc}
-        isDone={isDone}
+        isDone={isDoneInternal}
       />
       {renderGrantUSBAccessButton()}
       {debugInfo}

@@ -1381,7 +1381,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
         }
         // wait verify
-        await timerUtils.wait(3000);
+        await timerUtils.wait(2000);
       },
       {
         deviceParams: {
@@ -1643,10 +1643,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           ),
         );
 
-        // 升级成功埋点数据
         return { message: 'success', ...result };
       } catch (error) {
-        // 埋点数据
         console.log('updatingFirmwareV3 error: ', error);
         throw error;
       }

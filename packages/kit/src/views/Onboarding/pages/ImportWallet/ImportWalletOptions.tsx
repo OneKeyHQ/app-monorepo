@@ -18,6 +18,7 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -80,6 +81,7 @@ export function ImportWalletOptions() {
   );
 
   const v4MigrationActions = useV4MigrationActions();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleConnectHardwareWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
@@ -94,8 +96,7 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'mnemonic',
       },
-      isSoftwareWalletOnlyUser:
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+      isSoftwareWalletOnlyUser,
     });
   };
 
@@ -107,8 +108,7 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'keyTag',
       },
-      isSoftwareWalletOnlyUser:
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+      isSoftwareWalletOnlyUser,
     });
   };
 
@@ -121,8 +121,7 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'privateKey',
       },
-      isSoftwareWalletOnlyUser:
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+      isSoftwareWalletOnlyUser,
     });
   };
 
@@ -133,8 +132,7 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'watchOnly',
       },
-      isSoftwareWalletOnlyUser:
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+      isSoftwareWalletOnlyUser,
     });
   };
 
@@ -146,8 +144,7 @@ export function ImportWalletOptions() {
       details: {
         importSource: 'cloud',
       },
-      isSoftwareWalletOnlyUser:
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+      isSoftwareWalletOnlyUser,
     });
   };
 
