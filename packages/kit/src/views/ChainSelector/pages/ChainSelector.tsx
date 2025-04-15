@@ -25,7 +25,7 @@ export default function ChainSelectorPage({
     defaultNetworkId,
     networkIds,
     disableNetworkIds,
-    grouped,
+    grouped = true,
     title = intl.formatMessage({ id: ETranslations.global_networks }),
   } = route.params ?? {};
   const { result } = usePromiseResult(async () => {

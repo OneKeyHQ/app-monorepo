@@ -14,9 +14,9 @@ type IPureChainSelectorProps = {
   title?: string;
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
-
   unavailable?: IServerNetwork[];
   grouped?: boolean;
+  recentNetworksEnabled?: boolean;
 };
 
 export const PureChainSelector: FC<IPureChainSelectorProps> = ({
@@ -26,6 +26,7 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
   onPressItem,
   unavailable,
   grouped = true,
+  recentNetworksEnabled = true,
 }) => {
   const intl = useIntl();
 
@@ -43,6 +44,7 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
             networks={networks}
             onPressItem={onPressItem}
             unavailable={unavailable}
+            recentNetworksEnabled={recentNetworksEnabled}
           />
         ) : (
           <ChainSelectorListView
