@@ -220,6 +220,9 @@ export const useReferFriends = () => {
                   bg="$bgDisabled"
                   px="$3"
                   py="$1.5"
+                  $platform-native={{
+                    width: '100%',
+                  }}
                   borderWidth={StyleSheet.hairlineWidth}
                   jc="space-between"
                   ai="center"
