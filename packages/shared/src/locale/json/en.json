@@ -2718,7 +2718,7 @@
   "wallet.wallet_device_has_been_reset_alert_title": "Wallet device has been reset",
   "wallet.you_need_str_accounts_on_any_network_to_create": "You need at least {0} accounts on any single network to create.",
   "wallet_backup.backup_confirmation": "I've backed up",
-  "wallet_backup.backup_reminder": "Make sure to backup your recovery phrase before viewing your address or making any deposits",
+  "wallet_backup.backup_reminder": "Ensure you back up your recovery phrase before viewing your address or making any deposits",
   "wallet_backup.backup_warning": "Backup your wallet — losing this device means losing access to your funds",
   "wallet_backup.save_recovery_phrase": "Save recovery phrase",
   "wallet_backup.status_not_backed_up": "Not backed up",
