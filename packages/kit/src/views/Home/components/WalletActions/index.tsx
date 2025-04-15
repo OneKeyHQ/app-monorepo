@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
@@ -63,6 +64,7 @@ function WalletActionSend() {
     });
     return settings;
   }, [network?.id]).result;
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleOnSend = useCallback(async () => {
     if (!network) return;
@@ -71,6 +73,7 @@ function WalletActionSend() {
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
+      isSoftwareWalletOnlyUser,
     });
 
     const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
@@ -199,6 +202,7 @@ function WalletActionSend() {
     tokenListState,
     deriveInfoItems.length,
     indexedAccount?.id,
+    isSoftwareWalletOnlyUser,
   ]);
 
   return (
@@ -223,12 +227,14 @@ function WalletActionSwap() {
     });
     return settings;
   }, [network?.id]).result;
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleOnSwap = useCallback(() => {
     defaultLogger.wallet.walletActions.actionTrade({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
       tradeType: ESwapTabSwitchType.SWAP,
+      isSoftwareWalletOnlyUser,
     });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
@@ -237,7 +243,7 @@ function WalletActionSwap() {
         swapSource: ESwapSource.WALLET_HOME,
       },
     });
-  }, [navigation, network?.id, wallet?.type]);
+  }, [navigation, network?.id, wallet?.type, isSoftwareWalletOnlyUser]);
   return (
     <RawActions.Swap
       onPress={handleOnSwap}

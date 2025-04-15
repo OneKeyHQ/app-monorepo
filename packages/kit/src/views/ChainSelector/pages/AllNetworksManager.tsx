@@ -119,6 +119,7 @@ function AllNetworksManager() {
           accountId,
           walletId,
           networkIds: allNetworks.map((network) => network.id),
+          excludeTestNetwork: true,
         },
       );
     setNetworks({
@@ -180,54 +181,40 @@ function AllNetworksManager() {
     }[] = [];
 
     for (let i = 0; i < enabledNetworks.length; i += 1) {
-      const deriveTypes: IAccountDeriveTypes[] = [];
       const network = enabledNetworks[i];
-      const vaultSettings =
-        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: network.id,
         });
 
-      if (vaultSettings.createAllDeriveTypeAccountsByDefault) {
-        const deriveInfoItems =
-          await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
-            networkId: network.id,
-          });
-        deriveTypes.push(
-          ...deriveInfoItems.map((item) => item.value as IAccountDeriveTypes),
-        );
-      } else {
-        deriveTypes.push(
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          }),
-        );
-      }
-
-      for (let j = 0; j < deriveTypes.length; j += 1) {
-        const deriveType = deriveTypes[j];
-        const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
-        if (!networkAccount) {
-          enabledNetworksWithoutAccountTemp.push({
-            networkId: network.id,
-            deriveType,
-          });
-        }
+      const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
+      if (!networkAccount) {
+        enabledNetworksWithoutAccountTemp.push({
+          networkId: network.id,
+          deriveType,
+        });
       }
     }
 
     setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
 
     if (enabledNetworksWithoutAccountTemp.length > 0) {
-      await createAddress({
-        num: 0,
-        account: {
-          walletId,
-          networkId: getNetworkIdsMap().onekeyall,
-          indexedAccountId,
-          deriveType: 'default',
-        },
-        customNetworks: enabledNetworksWithoutAccountTemp,
-      });
+      try {
+        await createAddress({
+          num: 0,
+          account: {
+            walletId,
+            networkId: getNetworkIdsMap().onekeyall,
+            indexedAccountId,
+            deriveType: 'default',
+          },
+          customNetworks: enabledNetworksWithoutAccountTemp,
+        });
+      } catch (error) {
+        setIsLoading(false);
+        throw error;
+      }
     }
 
     await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({

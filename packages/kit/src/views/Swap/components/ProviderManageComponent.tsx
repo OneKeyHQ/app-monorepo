@@ -1,14 +1,20 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Accordion,
+  Badge,
+  Divider,
   Icon,
   Image,
   SizableText,
   Stack,
   Switch,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
@@ -29,6 +35,7 @@ interface IProviderSwitchProps {
   withNetwork?: boolean;
   openFold?: boolean;
   serviceDisable?: boolean;
+  isBridge?: boolean;
   onProviderSwitchEnable: (enable: boolean) => void;
 }
 
@@ -36,49 +43,48 @@ export const ProviderSwitch = ({
   providerInfo,
   providerEnable,
   onProviderSwitchEnable,
-  withNetwork,
   serviceDisable,
   openFold,
+  isBridge,
 }: IProviderSwitchProps) => {
   return (
-    <XStack justifyContent="space-between">
-      <XStack alignItems="center" gap="$2">
-        <Image
-          source={{ uri: providerInfo.logo }}
-          borderRadius="$1"
-          w="$5"
-          h="$5"
-        />
-        <SizableText size="$bodyLgMedium">
-          {providerInfo.providerName}
-        </SizableText>
+    <XStack justifyContent="space-between" pt="$2">
+      <XStack alignItems="center" gap="$3">
+        <XStack alignItems="center" gap="$2">
+          <Image
+            source={{ uri: providerInfo.logo }}
+            borderRadius="$1"
+            w="$5"
+            h="$5"
+          />
+          <SizableText size="$bodyLgMedium">
+            {providerInfo.providerName}
+          </SizableText>
+        </XStack>
       </XStack>
-      <XStack alignItems="center" gap="$2">
-        {!openFold ? (
-          <Stack
-            onPress={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            mr={withNetwork ? '$0' : '$7'}
-          >
-            <Switch
-              value={serviceDisable ? false : providerEnable}
-              size="small"
-              disabled={serviceDisable}
-              onChange={onProviderSwitchEnable}
-            />
-          </Stack>
-        ) : null}
-        {withNetwork ? (
-          <Stack animation="quick" rotate={openFold ? '180deg' : '0deg'}>
-            <Icon
-              name="ChevronDownSmallOutline"
-              color={openFold ? '$iconActive' : '$iconSubdued'}
-              size="$5"
-            />
-          </Stack>
-        ) : null}
+      <XStack animation="quick" gap="$2">
+        <Stack
+          onPress={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <Switch
+            value={serviceDisable ? false : providerEnable}
+            size="small"
+            disabled={serviceDisable}
+            onChange={onProviderSwitchEnable}
+          />
+        </Stack>
+        {isBridge ? null : (
+          <Icon
+            name={
+              openFold ? 'ChevronDownSmallOutline' : 'ChevronRightSmallOutline'
+            }
+            color={openFold ? '$iconActive' : '$iconSubdued'}
+            size="$5"
+          />
+        )}
       </XStack>
     </XStack>
   );
@@ -87,7 +93,6 @@ export const ProviderSwitch = ({
 interface INetworkSwitchProps {
   networkId: string;
   networkName: string;
-  logo?: string;
   enable: boolean;
   serviceDisable?: boolean;
   onNetworkSwitch: (networkId: string, value: boolean) => void;
@@ -96,28 +101,32 @@ interface INetworkSwitchProps {
 const NetworkSwitch = ({
   networkId,
   networkName,
-  logo,
   enable,
   serviceDisable,
   onNetworkSwitch,
 }: INetworkSwitchProps) => {
   return (
-    <XStack justifyContent="space-between">
-      <XStack alignItems="center" gap="$2">
-        <Image source={{ uri: logo }} borderRadius="$full" w="$4" h="$4" />
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {networkName}
-        </SizableText>
-      </XStack>
-      <Switch
-        size="small"
-        value={serviceDisable ? false : enable}
-        disabled={serviceDisable}
-        onChange={(value) => {
-          onNetworkSwitch(networkId, value);
-        }}
-      />
-    </XStack>
+    <Badge
+      bg={enable ? '$bgSubdued' : '$bgApp'}
+      borderRadius="$2.5"
+      h="$6"
+      borderWidth={1}
+      borderCurve="continuous"
+      borderColor={enable ? '$borderActive' : '$borderSubdued'}
+      disabled={serviceDisable}
+      onPress={() => {
+        onNetworkSwitch(networkId, !enable);
+      }}
+      hoverStyle={{
+        bg: '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: '$bgStrongActive',
+      }}
+      cursor="pointer"
+    >
+      {networkName}
+    </Badge>
   );
 };
 
@@ -185,54 +194,64 @@ const ProviderFold = ({
     providerSupportNetworks,
     serviceDisableNetworks,
   ]);
+  const intl = useIntl();
   return (
-    <Accordion type="single" collapsible>
-      <Accordion.Item value="1">
-        <Accordion.Trigger
-          unstyled
-          borderWidth={0}
+    <Accordion.Item value={providerInfo.provider}>
+      <Accordion.Trigger
+        unstyled
+        borderWidth={0}
+        bg="$transparent"
+        p="$0"
+        disabled={serviceDisable}
+        cursor={serviceDisable ? 'not-allowed' : 'pointer'}
+      >
+        {({ open }: { open: boolean }) => (
+          <ProviderSwitch
+            providerEnable={providerEnable}
+            providerInfo={providerInfo}
+            withNetwork={!!(parsSupportNetwork?.length > 0 && !serviceDisable)}
+            onProviderSwitchEnable={onProviderSwitchEnable}
+            openFold={open}
+            serviceDisable={serviceDisable}
+          />
+        )}
+      </Accordion.Trigger>
+      <Accordion.HeightAnimator animation="quick">
+        <Accordion.Content
+          animation="quick"
           bg="$transparent"
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
           p="$0"
-          disabled={serviceDisable}
-          cursor={serviceDisable ? 'not-allowed' : 'pointer'}
         >
-          {({ open }: { open: boolean }) => (
-            <ProviderSwitch
-              providerEnable={providerEnable}
-              providerInfo={providerInfo}
-              withNetwork={
-                !!(parsSupportNetwork?.length > 0 && !serviceDisable)
-              }
-              onProviderSwitchEnable={onProviderSwitchEnable}
-              openFold={open}
-              serviceDisable={serviceDisable}
-            />
-          )}
-        </Accordion.Trigger>
-        <Accordion.HeightAnimator animation="quick">
-          <Accordion.Content
-            p="$2"
-            animation="quick"
-            gap="$2"
-            bg="$transparent"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          >
-            {parsSupportNetwork.map((net) => (
-              <NetworkSwitch
-                key={`${providerInfo.provider} - ${net.networkId}`}
-                networkId={net.networkId}
-                enable={net.enable}
-                logo={net.logo}
-                serviceDisable={net.serviceDisable}
-                networkName={net.networkName}
-                onNetworkSwitch={onProviderNetworkEnable}
-              />
-            ))}
-          </Accordion.Content>
-        </Accordion.HeightAnimator>
-      </Accordion.Item>
-    </Accordion>
+          <YStack pt="$3" gap="$3">
+            <Stack
+              flexWrap="wrap"
+              alignItems="center"
+              flexDirection="row"
+              gap="$2"
+            >
+              {parsSupportNetwork.map((net) => (
+                <NetworkSwitch
+                  key={`${providerInfo.provider} - ${net.networkId}`}
+                  networkId={net.networkId}
+                  enable={net.enable}
+                  serviceDisable={net.serviceDisable}
+                  networkName={net.networkName}
+                  onNetworkSwitch={onProviderNetworkEnable}
+                />
+              ))}
+            </Stack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_settings_manage_chain_tip,
+              })}
+            </SizableText>
+            <Divider />
+          </YStack>
+        </Accordion.Content>
+      </Accordion.HeightAnimator>
+    </Accordion.Item>
   );
 };
 

@@ -4,8 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { EMnemonicType } from '@onekeyhq/core/src/secret';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { BIP39_DOT_MAP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -63,6 +63,7 @@ export function ImportKeyTag() {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleConfirmPress = useCallback(
     async (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
@@ -74,12 +75,11 @@ export function ImportKeyTag() {
         details: {
           importSource: 'keyTag',
         },
-        isSoftwareWalletOnlyUser:
-          await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+        isSoftwareWalletOnlyUser,
       });
       defaultLogger.setting.page.keyTagImportResult({ isSuccess: true });
     },
-    [navigation],
+    [navigation, isSoftwareWalletOnlyUser],
   );
 
   const renderPhaseInputArea = useMemo(
