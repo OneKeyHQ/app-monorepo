@@ -96,7 +96,9 @@ const ListHeaderComponent = ({
     return (
       <Spotlight
         delayMs={500}
-        isVisible={initialScrollIndex?.sectionIndex === 0}
+        isVisible={
+          !initialScrollIndex || initialScrollIndex?.sectionIndex === 0
+        }
         message={intl.formatMessage({
           id: ETranslations.network_all_networks_selection_tip,
         })}
@@ -131,7 +133,7 @@ const ListHeaderComponent = ({
     enabledNetworksCompatibleWithWalletId.length,
     handleNetworksChange,
     indexedAccountId,
-    initialScrollIndex?.sectionIndex,
+    initialScrollIndex,
     intl,
     navigation,
     walletId,
