@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, YStack } from '@onekeyhq/components';
+import { Accordion, Button, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -107,40 +107,43 @@ const ProviderManageContainer = ({
     onSaved();
   }, [onSaved, providerManageNewData, isBridge]);
   return (
-    <YStack gap="$4">
-      {isBridge
-        ? providerManageNewData.map((item) => (
-            <ProviderSwitch
-              serviceDisable={item.serviceDisable}
-              key={item.providerInfo.provider}
-              providerInfo={item.providerInfo}
-              providerEnable={item.enable}
-              onProviderSwitchEnable={(enable) => {
-                onProviderSwitchEnable(item.providerInfo.provider, enable);
-              }}
-            />
-          ))
-        : providerManageNewData.map((item) => (
-            <ProviderManageComponent
-              key={item.providerInfo.provider}
-              providerInfo={item.providerInfo}
-              providerEnable={item.enable}
-              serviceDisable={!!item.serviceDisable}
-              serviceDisableNetworks={item.serviceDisableNetworks ?? []}
-              providerSupportNetworks={item.supportNetworks ?? []}
-              providerDisableNetworks={item.disableNetworks ?? []}
-              onProviderSwitchEnable={(enable) => {
-                onProviderSwitchEnable(item.providerInfo.provider, enable);
-              }}
-              onProviderNetworkEnable={(networkId, enable) => {
-                onProviderNetworkEnable(
-                  item.providerInfo.provider,
-                  networkId,
-                  enable,
-                );
-              }}
-            />
-          ))}
+    <YStack>
+      <Accordion type="single" pb="$5" collapsible gap="$2">
+        {isBridge
+          ? providerManageNewData.map((item) => (
+              <ProviderSwitch
+                serviceDisable={item.serviceDisable}
+                isBridge={isBridge}
+                key={item.providerInfo.provider}
+                providerInfo={item.providerInfo}
+                providerEnable={item.enable}
+                onProviderSwitchEnable={(enable) => {
+                  onProviderSwitchEnable(item.providerInfo.provider, enable);
+                }}
+              />
+            ))
+          : providerManageNewData.map((item) => (
+              <ProviderManageComponent
+                key={item.providerInfo.provider}
+                providerInfo={item.providerInfo}
+                providerEnable={item.enable}
+                serviceDisable={!!item.serviceDisable}
+                serviceDisableNetworks={item.serviceDisableNetworks ?? []}
+                providerSupportNetworks={item.supportNetworks ?? []}
+                providerDisableNetworks={item.disableNetworks ?? []}
+                onProviderSwitchEnable={(enable) => {
+                  onProviderSwitchEnable(item.providerInfo.provider, enable);
+                }}
+                onProviderNetworkEnable={(networkId, enable) => {
+                  onProviderNetworkEnable(
+                    item.providerInfo.provider,
+                    networkId,
+                    enable,
+                  );
+                }}
+              />
+            ))}
+      </Accordion>
       <Button loading={isSaving} variant="primary" onPress={() => onSave()}>
         {intl.formatMessage({ id: ETranslations.action_save })}
       </Button>

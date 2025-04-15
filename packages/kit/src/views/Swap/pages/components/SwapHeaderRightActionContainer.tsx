@@ -353,10 +353,14 @@ const SwapSettingsDialogContent = () => {
       {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
         <>
           <SwapProviderSettingItem
-            title="Enable dex aggregator"
+            title={intl.formatMessage({
+              id: ETranslations.swap_settings_manage_swap,
+            })}
             onPress={() => {
               dialogRef.current = Dialog.show({
-                title: 'Enable dex aggregator',
+                title: intl.formatMessage({
+                  id: ETranslations.swap_settings_manage_swap,
+                }),
                 renderContent: (
                   <ProviderManageContainer
                     onSaved={() => {
@@ -371,10 +375,14 @@ const SwapSettingsDialogContent = () => {
             }}
           />
           <SwapProviderSettingItem
-            title="Enable bridges"
+            title={intl.formatMessage({
+              id: ETranslations.swap_settings_manage_bridge,
+            })}
             onPress={() => {
               dialogRef.current = Dialog.show({
-                title: 'Enable bridges',
+                title: intl.formatMessage({
+                  id: ETranslations.swap_settings_manage_bridge,
+                }),
                 renderContent: (
                   <ProviderManageContainer
                     onSaved={() => {
