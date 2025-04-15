@@ -28,6 +28,7 @@ type IEditableChainSelectorProps = {
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
+  recentNetworksEnabled?: boolean;
 };
 
 function getHeaderRightComponent(
@@ -55,6 +56,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   onEditCustomNetwork,
   onFrequentlyUsedItemsChange,
   allNetworkItem,
+  recentNetworksEnabled = true,
 }) => {
   const intl = useIntl();
   const [isEditMode, setIsEditMode] = useState(false);
@@ -99,6 +101,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           allNetworkItem={allNetworkItem}
           onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
           setAllNetworksChanged={setAllNetworksChanged}
+          recentNetworksEnabled={recentNetworksEnabled}
         />
       </Page.Body>
     </Page>

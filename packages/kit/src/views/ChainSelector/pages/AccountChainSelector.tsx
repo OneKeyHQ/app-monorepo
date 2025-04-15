@@ -40,6 +40,7 @@ type IChainSelectorBaseProps = {
   networkIds?: string[];
   editable?: boolean;
   recordNetworkHistoryEnabled?: boolean;
+  recentNetworksEnabled?: boolean;
 };
 
 type IAccountChainSelectorProps = IChainSelectorBaseProps & {
@@ -325,6 +326,7 @@ export default function ChainSelectorPage({
     networkIds,
     editable,
     recordNetworkHistoryEnabled,
+    recentNetworksEnabled,
   } = route.params;
 
   return (
@@ -340,6 +342,7 @@ export default function ChainSelectorPage({
         networkIds={networkIds}
         editable={editable}
         recordNetworkHistoryEnabled={recordNetworkHistoryEnabled}
+        recentNetworksEnabled={recentNetworksEnabled}
       />
     </AccountSelectorProviderMirror>
   );

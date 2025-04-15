@@ -56,17 +56,19 @@ export const useSharedPress = ({
 
   const handleLongPress = useCallback(
     (event: GestureResponderEvent) => {
-      if (onLongPress && stopPropagation) {
-        event.stopPropagation();
-      }
+      if (onLongPress) {
+        if (stopPropagation) {
+          event.stopPropagation();
+        }
 
-      if (trackingId) {
-        defaultLogger.ui.button.longPress({
-          trackId: trackingId,
-        });
-      }
+        if (trackingId) {
+          defaultLogger.ui.button.longPress({
+            trackId: trackingId,
+          });
+        }
 
-      onLongPress?.(event);
+        onLongPress(event);
+      }
     },
     [onLongPress, stopPropagation, trackingId],
   );

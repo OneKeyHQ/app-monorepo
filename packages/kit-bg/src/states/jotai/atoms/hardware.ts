@@ -194,15 +194,14 @@ export const {
 export const {
   target: firmwareUpdateResultVerifyAtom,
   use: useFirmwareUpdateResultVerifyAtom,
-} = globalAtom<{
-  finalBleVersion: string;
-  finalFirmwareVersion: string;
-  finalBootloaderVersion: string;
-}>({
-  initialValue: {
-    finalBleVersion: '',
-    finalFirmwareVersion: '',
-    finalBootloaderVersion: '',
-  },
+} = globalAtom<
+  | {
+      finalBleVersion: string;
+      finalFirmwareVersion: string;
+      finalBootloaderVersion: string;
+    }
+  | undefined
+>({
+  initialValue: undefined,
   name: EAtomNames.firmwareUpdateResultVerifyAtom,
 });
