@@ -7,6 +7,7 @@ export enum ESpotlightTour {
   referAFriend = 'referAFriend',
   hardwareSalesRewardAlert = 'hardwareSalesRewardAlert',
   earnRewardAlert = 'earnRewardAlert',
+  allNetworksInfo = 'allNetworksInfo',
 }
 
 export type ITourTripTimes = number;

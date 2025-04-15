@@ -20,9 +20,11 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 
 import { useAccountSelectorCreateAddress } from './hooks/useAccountSelectorCreateAddress';
 
@@ -36,6 +38,7 @@ export function AccountSelectorCreateAddressButton({
   onCreateDone,
   onPressLog,
   createAllDeriveTypes,
+  createAllEnabledNetworks,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -59,6 +62,7 @@ export function AccountSelectorCreateAddressButton({
   ) => void;
   onPressLog?: () => void;
   createAllDeriveTypes?: boolean;
+  createAllEnabledNetworks?: boolean;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -77,6 +81,13 @@ export function AccountSelectorCreateAddressButton({
   accountRef.current = account;
 
   const { createAddress } = useAccountSelectorCreateAddress();
+  const { enabledNetworksWithoutAccount } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: walletId ?? '',
+      networkId,
+      indexedAccountId,
+      filterNetworksWithoutAccount: true,
+    });
   const manualCreatingKey = useMemo(
     () =>
       networkId && walletId && (deriveType || indexedAccountId)
@@ -156,11 +167,35 @@ export function AccountSelectorCreateAddressButton({
         });
         console.log({ wallet });
       }
+
+      const customNetworks: {
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }[] = [];
+
+      if (
+        createAllEnabledNetworks &&
+        networkUtils.isAllNetwork({ networkId })
+      ) {
+        for (const network of enabledNetworksWithoutAccount) {
+          customNetworks.push({
+            networkId: network.id,
+            deriveType:
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId: network.id,
+                },
+              ),
+          });
+        }
+      }
+
       resp = await createAddress({
         num,
         selectAfterCreate,
         account,
         createAllDeriveTypes,
+        customNetworks,
       });
       defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       await timerUtils.wait(300);
@@ -178,11 +213,14 @@ export function AccountSelectorCreateAddressButton({
     setAccountIsAutoCreating,
     manualCreatingKey,
     account,
+    createAllEnabledNetworks,
+    networkId,
     createAddress,
     num,
     selectAfterCreate,
     createAllDeriveTypes,
     serviceAccount,
+    enabledNetworksWithoutAccount,
     onCreateDone,
   ]);
 

@@ -26,6 +26,7 @@ import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/ho
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 // TODO: Move lightning utils to shared module
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -241,6 +242,7 @@ export default function Detail() {
     [diffData],
   );
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handlerImport = useCallback(async () => {
     if (
       semver.gt(
@@ -316,8 +318,7 @@ export default function Detail() {
       details: {
         importSource: 'cloud',
       },
-      isSoftwareWalletOnlyUser:
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+      isSoftwareWalletOnlyUser,
     });
   }, [
     intl,
@@ -326,6 +327,7 @@ export default function Detail() {
     navigation,
     appUpdateInfo,
     handlerImportFromPassword,
+    isSoftwareWalletOnlyUser,
   ]);
 
   return (

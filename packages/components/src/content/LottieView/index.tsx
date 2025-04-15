@@ -5,6 +5,8 @@ import AnimatedLottieView from 'lottie-react-native';
 import { AppState } from 'react-native';
 import { usePropsAndStyle } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { ILottieViewProps } from './type';
 import type { LottieViewProps as LottieNativeProps } from 'lottie-react-native';
 import type { AppStateStatus } from 'react-native';
@@ -59,6 +61,7 @@ export const LottieView = forwardRef<
       style={style as any}
       {...restProps}
       ref={animationRef as LegacyRef<AnimatedLottieView>}
+      renderMode={platformEnv.isNativeIOS ? 'SOFTWARE' : undefined}
     />
   );
 });

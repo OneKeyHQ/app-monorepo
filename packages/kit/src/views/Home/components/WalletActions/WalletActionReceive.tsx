@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
@@ -48,14 +49,16 @@ function WalletActionReceive() {
     isMultipleDerive: deriveInfoItems.length > 1,
   });
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleReceiveOnPress = useCallback(() => {
     defaultLogger.wallet.walletActions.actionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
+      isSoftwareWalletOnlyUser,
     });
     handleOnReceive();
-  }, [wallet?.type, network?.id, handleOnReceive]);
+  }, [wallet?.type, network?.id, handleOnReceive, isSoftwareWalletOnlyUser]);
 
   return (
     <RawActions.Receive

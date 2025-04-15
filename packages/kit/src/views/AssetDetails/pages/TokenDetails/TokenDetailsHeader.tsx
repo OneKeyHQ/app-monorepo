@@ -24,6 +24,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -53,7 +54,6 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     networkId,
     walletId,
-    deriveInfo,
     deriveType,
     tokenInfo,
     isAllNetworks,
@@ -140,6 +140,8 @@ function TokenDetailsHeader(props: IProps) {
     return isLoadingTokenDetails?.[accountId];
   }, [isLoadingTokenDetails, tokenDetailsContext, accountId]);
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+
   const createSwapActionHandler = useCallback(
     (actionType: ESwapTabSwitchType) => async () => {
       defaultLogger.wallet.walletActions.actionTrade({
@@ -147,6 +149,7 @@ function TokenDetailsHeader(props: IProps) {
         networkId: network?.id ?? '',
         source: 'tokenDetails',
         tradeType: actionType,
+        isSoftwareWalletOnlyUser,
       });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
@@ -183,6 +186,7 @@ function TokenDetailsHeader(props: IProps) {
       tokenInfo.name,
       tokenInfo.logoURI,
       deriveType,
+      isSoftwareWalletOnlyUser,
     ],
   );
 
@@ -194,6 +198,7 @@ function TokenDetailsHeader(props: IProps) {
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'tokenDetails',
+      isSoftwareWalletOnlyUser,
     });
     navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
       screen: EModalSignatureConfirmRoutes.TxDataInput,
@@ -214,6 +219,7 @@ function TokenDetailsHeader(props: IProps) {
     tokenDetails?.info,
     tokenInfo,
     wallet?.type,
+    isSoftwareWalletOnlyUser,
   ]);
 
   const isReceiveDisabled = useMemo(
@@ -324,6 +330,7 @@ function TokenDetailsHeader(props: IProps) {
                   walletType: wallet?.type ?? '',
                   networkId: network?.id ?? '',
                   source: 'tokenDetails',
+                  isSoftwareWalletOnlyUser,
                 });
                 handleOnReceive(tokenInfo);
               }}

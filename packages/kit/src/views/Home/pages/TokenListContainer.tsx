@@ -1559,6 +1559,8 @@ function TokenListContainer(_props: ITabPageProps) {
         isAllNetworkEmptyAccount ? (
           <Stack py="$20">
             <EmptyAccount
+              createAllDeriveTypes
+              createAllEnabledNetworks
               autoCreateAddress={false}
               name={accountName}
               chain={network?.name ?? ''}

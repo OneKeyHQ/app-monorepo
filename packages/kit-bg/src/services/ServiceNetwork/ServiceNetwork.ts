@@ -1116,7 +1116,7 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async updateRecentNetwork({ networkId }: { networkId: string }) {
-    if (!networkId && networkUtils.isAllNetwork({ networkId })) {
+    if (!networkId || networkUtils.isAllNetwork({ networkId })) {
       return;
     }
     const timestamp = Date.now();

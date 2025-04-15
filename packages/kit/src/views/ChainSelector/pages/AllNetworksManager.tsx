@@ -10,6 +10,7 @@ import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/Servi
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
@@ -118,6 +119,7 @@ function AllNetworksManager() {
           accountId,
           walletId,
           networkIds: allNetworks.map((network) => network.id),
+          excludeTestNetwork: true,
         },
       );
     setNetworks({
@@ -129,10 +131,21 @@ function AllNetworksManager() {
   const renderHeaderTitle = useCallback(() => {
     return (
       <YStack>
-        <SizableText size="$headingLg">
+        <SizableText
+          size="$headingLg"
+          {...(platformEnv.isNativeIOS && {
+            textAlign: 'center',
+          })}
+        >
           {intl.formatMessage({ id: ETranslations.global_all_networks })}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          {...(platformEnv.isNativeIOS && {
+            textAlign: 'center',
+          })}
+        >
           {intl.formatMessage({
             id: ETranslations.network_selection_prompt,
           })}
@@ -143,10 +156,6 @@ function AllNetworksManager() {
 
   const handleEnableAllNetworks = useCallback(async () => {
     setIsLoading(true);
-    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-      enabledNetworks: networksState.enabledNetworks,
-      disabledNetworks: networksState.disabledNetworks,
-    });
 
     const { accountsInfo } =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
@@ -172,55 +181,46 @@ function AllNetworksManager() {
     }[] = [];
 
     for (let i = 0; i < enabledNetworks.length; i += 1) {
-      const deriveTypes: IAccountDeriveTypes[] = [];
       const network = enabledNetworks[i];
-      const vaultSettings =
-        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: network.id,
         });
 
-      if (vaultSettings.createAllDeriveTypeAccountsByDefault) {
-        const deriveInfoItems =
-          await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
-            networkId: network.id,
-          });
-        deriveTypes.push(
-          ...deriveInfoItems.map((item) => item.value as IAccountDeriveTypes),
-        );
-      } else {
-        deriveTypes.push(
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          }),
-        );
-      }
-
-      for (let j = 0; j < deriveTypes.length; j += 1) {
-        const deriveType = deriveTypes[j];
-        const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
-        if (!networkAccount) {
-          enabledNetworksWithoutAccountTemp.push({
-            networkId: network.id,
-            deriveType,
-          });
-        }
+      const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
+      if (!networkAccount) {
+        enabledNetworksWithoutAccountTemp.push({
+          networkId: network.id,
+          deriveType,
+        });
       }
     }
 
     setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
 
     if (enabledNetworksWithoutAccountTemp.length > 0) {
-      await createAddress({
-        num: 0,
-        account: {
-          walletId,
-          networkId: getNetworkIdsMap().onekeyall,
-          indexedAccountId,
-          deriveType: 'default',
-        },
-        customNetworks: enabledNetworksWithoutAccountTemp,
-      });
+      try {
+        await createAddress({
+          num: 0,
+          account: {
+            walletId,
+            networkId: getNetworkIdsMap().onekeyall,
+            indexedAccountId,
+            deriveType: 'default',
+          },
+          customNetworks: enabledNetworksWithoutAccountTemp,
+        });
+      } catch (error) {
+        setIsLoading(false);
+        throw error;
+      }
     }
+
+    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+      enabledNetworks: networksState.enabledNetworks,
+      disabledNetworks: networksState.disabledNetworks,
+    });
 
     navigation.pop();
 

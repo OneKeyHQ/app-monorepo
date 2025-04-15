@@ -8,7 +8,8 @@ export type IWalletAddressContext = {
   networkAccountMap: Record<string, IAllNetworkAccountInfo[]>;
   networkDeriveTypeMap: Record<string, IAccountDeriveTypes[]>;
   accountId?: string;
-  indexedAccountId: string;
+  walletId?: string;
+  indexedAccountId?: string;
   refreshLocalData: () => void;
   accountsCreated: boolean;
   setAccountsCreated: (accountsCreated: boolean) => void;
@@ -24,6 +25,7 @@ export const WalletAddressContext = createContext<IWalletAddressContext>({
   networkAccountMap: {},
   networkDeriveTypeMap: {},
   accountId: '',
+  walletId: '',
   indexedAccountId: '',
   refreshLocalData: () => {},
   originalAllNetworksState: {

@@ -37,6 +37,7 @@ import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDial
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
@@ -292,6 +293,7 @@ function ImportAddress() {
     [networkIdText, networksResp.publicKeyExportEnabled],
   );
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const isPublicKeyImport = useMemo(
     () => method === EImportMethod.PublicKey && isKeyExportEnabled,
     [method, isKeyExportEnabled],
@@ -345,11 +347,10 @@ function ImportAddress() {
         details: {
           importSource: 'watchOnly',
         },
-        isSoftwareWalletOnlyUser:
-          await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+        isSoftwareWalletOnlyUser,
       });
     },
-    [actions, intl, isPublicKeyImport, navigation],
+    [actions, intl, isPublicKeyImport, navigation, isSoftwareWalletOnlyUser],
   );
 
   return (
