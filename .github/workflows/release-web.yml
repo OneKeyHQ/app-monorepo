@@ -48,9 +48,6 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
-        env:
-          github_ref: ${{ github.ref }}
-          workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
       - name: Install Dependency
         env:
