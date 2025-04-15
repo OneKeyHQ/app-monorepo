@@ -36,7 +36,9 @@ function PrimeGlobalEffectView() {
 
       // only fetch user info if accessToken is valid (server api login success)
       if (accessToken) {
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        const response =
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        console.log('response----', response);
       }
     }
   }, [isReady, user?.privyUserId, user?.isLoggedInOnServer]);
