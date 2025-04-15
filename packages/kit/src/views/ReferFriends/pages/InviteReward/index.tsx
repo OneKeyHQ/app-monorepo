@@ -344,51 +344,6 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        onPress={toEarnRewardPage}
-      >
-        <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-          </SizableText>
-          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
-        </XStack>
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
-        </SizableText>
-        {showEarnSalesAvailableFiat ? (
-          <YStack gap="$2" pt="$4">
-            {earn.available?.map(({ token, fiatValue }, index) => {
-              return (
-                <Fragment key={index}>
-                  <XStack gap="$2" py={5}>
-                    <Token size="xs" tokenImageUri={token.logoURI} />
-                    <NumberSizeableText
-                      formatter="balance"
-                      size="$bodyMd"
-                      formatterOptions={{
-                        tokenSymbol: token.symbol,
-                      }}
-                    >
-                      {fiatValue}
-                    </NumberSizeableText>
-                  </XStack>
-                  {index !== (earn.available?.length || 1) - 1 ? (
-                    <Divider bg="$borderSubdued" />
-                  ) : null}
-                </Fragment>
-              );
-            })}
-          </YStack>
-        ) : (
-          <NoRewardYet />
-        )}
-      </YStack>
-      <YStack
-        px="$5"
-        py="$4"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderRadius="$3"
         onPress={toHardwareSalesRewardPage}
       >
         <XStack ai="center" jc="space-between">
@@ -457,6 +412,59 @@ function Dashboard({
             <NoRewardYet />
           )}
         </YStack>
+      </YStack>
+      <YStack
+        px="$5"
+        py="$4"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+        // onPress={toEarnRewardPage}
+      >
+        <XStack ai="center" jc="space-between">
+          <SizableText size="$headingMd">
+            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
+          </SizableText>
+          {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
+        </XStack>
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
+        </SizableText>
+        <XStack pt="$4" gap="$2.5" ai="center">
+          <XStack>
+            <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.coming_soon })}
+          </SizableText>
+        </XStack>
+        {/* {showEarnSalesAvailableFiat ? (
+          <YStack gap="$2" pt="$4">
+            {earn.available?.map(({ token, fiatValue }, index) => {
+              return (
+                <Fragment key={index}>
+                  <XStack gap="$2" py={5}>
+                    <Token size="xs" tokenImageUri={token.logoURI} />
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: token.symbol,
+                      }}
+                    >
+                      {fiatValue}
+                    </NumberSizeableText>
+                  </XStack>
+                  {index !== (earn.available?.length || 1) - 1 ? (
+                    <Divider bg="$borderSubdued" />
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </YStack>
+        ) : (
+          <NoRewardYet />
+        )} */}
       </YStack>
     </YStack>
   );
