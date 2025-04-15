@@ -15,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
@@ -144,11 +145,15 @@ const ProviderFold = ({
     const evmNet = providerSupportNetworks?.filter((p) =>
       p.networkId.startsWith('evm'),
     );
-    const noEvmNet = providerSupportNetworks?.filter(
+    let noEvmNet = providerSupportNetworks?.filter(
       (p) => !p.networkId.startsWith('evm'),
     );
+    noEvmNet = noEvmNet.map((n) => {
+      const net = networkUtils.getLocalNetworkInfo(n.networkId);
+      return { ...n, name: net?.name ?? n.name, shortcode: net?.shortname };
+    });
     let res = noEvmNet.map((n) => ({
-      networkName: n.name,
+      networkName: n.name || n.shortcode || n.symbol,
       logo: n.logoURI,
       networkId: n.networkId,
       enable: true,
