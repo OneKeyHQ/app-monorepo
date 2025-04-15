@@ -60,8 +60,11 @@ jobs:
       - name: 'Save workflow parameters'
         run: |
           mkdir -p ./workflow-data
-          echo "WORKFLOW_GITHUB_SHA=${{ github.sha }}" >> ./workflow-data/params.env
-          echo "WORKFLOW_GITHUB_REF_NAME=${{ github.ref_name }}" >> ./workflow-data/params.env
+
+          ### do not set WORKFLOW_GITHUB_SHA and WORKFLOW_GITHUB_REF_NAME, always use the main branch
+          # echo "WORKFLOW_GITHUB_SHA=${{ github.sha }}" >> ./workflow-data/params.env
+          # echo "WORKFLOW_GITHUB_REF_NAME=${{ github.ref_name }}" >> ./workflow-data/params.env
+
           echo "WORKFLOW_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ./workflow-data/params.env
       
       - name: Upload workflow parameters
