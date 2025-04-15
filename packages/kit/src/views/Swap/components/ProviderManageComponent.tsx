@@ -148,7 +148,7 @@ const ProviderFold = ({
       (p) => !p.networkId.startsWith('evm'),
     );
     let res = noEvmNet.map((n) => ({
-      networkName: n.symbol,
+      networkName: n.name,
       logo: n.logoURI,
       networkId: n.networkId,
       enable: true,

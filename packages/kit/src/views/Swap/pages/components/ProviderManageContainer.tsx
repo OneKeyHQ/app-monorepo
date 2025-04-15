@@ -65,6 +65,7 @@ const ProviderManageContainer = ({
               if (disNetsEnable?.length) {
                 return {
                   ...item,
+                  enable: true,
                   disableNetworks: (item.disableNetworks ?? []).filter(
                     (net) =>
                       !disNetsEnable.find(
