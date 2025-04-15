@@ -1643,7 +1643,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
         // verify final version
         await firmwareUpdateResultVerifyAtom.set({
-          finalBleVersion: '3.9.0' || updateResult?.bleVersion || '',
+          finalBleVersion: updateResult?.bleVersion || '',
           finalFirmwareVersion: updateResult?.firmwareVersion || '',
           finalBootloaderVersion: updateResult?.bootloaderVersion || '',
         });

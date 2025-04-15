@@ -187,7 +187,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const Component = renderText;
   return Component ? (
     <XStack alignItems="center" gap="$2" flexShrink={1}>
-      <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
+      <Icon name={iconName} color={iconColor} size="$5" flexShrink={0} />
       <SizableText size="$bodyMdMedium" color="$text" flexShrink={1}>
         <Component updateInfo={updateInfo} />
       </SizableText>
