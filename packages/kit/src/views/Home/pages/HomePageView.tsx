@@ -158,6 +158,7 @@ export function HomePageView({
       <EmptyAccount
         autoCreateAddress
         createAllDeriveTypes
+        createAllEnabledNetworks
         name={accountName}
         chain={network?.name ?? ''}
         type={

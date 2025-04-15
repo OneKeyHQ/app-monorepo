@@ -197,8 +197,8 @@ function useAllNetworkRequests<T>(params: {
         nftEnabledOnly: isNFTRequests,
         // disable test network in all networks
         excludeTestNetwork: true,
-        // For watching accounts, display all available network data without filtering
-        networksEnabledOnly: !accountUtils.isWatchingAccount({
+        // For single network accounts, display all available network data without filtering
+        networksEnabledOnly: !accountUtils.isOthersAccount({
           accountId: currentAccountId,
         }),
       });
@@ -500,7 +500,8 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
                 excludeEmptyAccount: true,
               },
             );
-          if (networkAccounts.length === 0) {
+
+          if (!networkAccounts || networkAccounts.length === 0) {
             compatibleNetworksWithoutAccount.push(network);
           }
         }

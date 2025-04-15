@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -122,6 +123,35 @@ function NetworkSelectorTriggerHomeCmp({
     };
   }, [run]);
 
+  const networkTriggerText = useMemo(() => {
+    if (network?.isAllNetworks) {
+      if (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })) {
+        return `${intl.formatMessage({
+          id: ETranslations.global_all_networks,
+        })}`;
+      }
+
+      return `${intl.formatMessage({
+        id: ETranslations.global_all_networks,
+      })}(${intl.formatMessage(
+        {
+          id: ETranslations.network_enabled_count,
+        },
+        {
+          'count': enabledNetworksCompatibleWithWalletId.length,
+        },
+      )})`;
+    }
+
+    return network?.name;
+  }, [
+    enabledNetworksCompatibleWithWalletId.length,
+    intl,
+    network?.isAllNetworks,
+    network?.name,
+    wallet?.id,
+  ]);
+
   return (
     <XStack
       testID="account-network-trigger-button"
@@ -155,18 +185,7 @@ function NetworkSelectorTriggerHomeCmp({
         flexShrink={1}
         numberOfLines={1}
       >
-        {network?.isAllNetworks
-          ? `${intl.formatMessage({
-              id: ETranslations.global_all_networks,
-            })} (${intl.formatMessage(
-              {
-                id: ETranslations.network_enabled_count,
-              },
-              {
-                'count': enabledNetworksCompatibleWithWalletId.length,
-              },
-            )})`
-          : network?.name}
+        {networkTriggerText}
       </SizableText>
       <Icon
         name="ChevronDownSmallOutline"
