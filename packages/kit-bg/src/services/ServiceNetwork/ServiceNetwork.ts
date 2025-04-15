@@ -1129,6 +1129,13 @@ class ServiceNetwork extends ServiceBase {
   async clearRecentNetworks() {
     return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
   }
+
+  @backgroundMethod()
+  async deleteRecentNetwork({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
+      networkId,
+    });
+  }
 }
 
 export default ServiceNetwork;
