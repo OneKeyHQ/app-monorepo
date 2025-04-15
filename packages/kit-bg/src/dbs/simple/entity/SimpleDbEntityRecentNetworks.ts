@@ -68,6 +68,8 @@ export class SimpleDbEntityRecentNetworks extends SimpleDbEntityBase<IRecentNetw
           return recentNetworksTemp;
         }
       }
+
+      return recentNetworksTemp;
     }
 
     return recentNetworksSorted.slice(0, limit).map(([networkId]) => networkId);

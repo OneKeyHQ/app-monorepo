@@ -13,7 +13,6 @@ import { StyleSheet } from 'react-native';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Button,
-  Divider,
   Empty,
   Icon,
   Page,
@@ -154,14 +153,11 @@ const ListHeaderComponent = ({
         />
       ) : null}
       {!allNetworkItem || searchText?.trim() ? null : (
-        <Stack>
-          <EditableListItem
-            item={allNetworkItem}
-            isEditable={false}
-            actions={allNetworksActions}
-          />
-          <Divider m="$5" />
-        </Stack>
+        <EditableListItem
+          item={allNetworkItem}
+          isEditable={false}
+          actions={allNetworksActions}
+        />
       )}
     </Stack>
   );
