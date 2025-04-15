@@ -927,7 +927,7 @@ function BasicEarnHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
       >
-        {headerRight}
+        {/* {headerRight} */}
       </TabPageHeader>
       <Page.Body>
         <ScrollView
