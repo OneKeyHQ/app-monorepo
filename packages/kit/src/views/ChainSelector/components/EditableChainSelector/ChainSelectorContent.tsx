@@ -36,10 +36,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import RecentNetworks from './RecentNetworks';
 import { ALL_NETWORK_HEADER_HEIGHT, CELL_HEIGHT } from './type';
 
 import type {
@@ -65,18 +65,23 @@ const ListHeaderComponent = ({
   indexedAccountId,
   setAllNetworksChanged,
   initialScrollIndex,
+  recentNetworksEnabled,
+  mainnetItems,
+  testnetItems,
 }: {
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
   setAllNetworksChanged?: (value: boolean) => void;
   initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
+  recentNetworksEnabled?: boolean;
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { allNetworkItem, searchText } = useContext(
-    EditableChainSelectorContext,
-  );
+  const { allNetworkItem, searchText, onPressItem, setRecentNetworksHeight } =
+    useContext(EditableChainSelectorContext);
 
   const { enabledNetworksCompatibleWithWalletId, run } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
@@ -141,7 +146,13 @@ const ListHeaderComponent = ({
 
   return (
     <Stack mt="$4">
-      <RecentNetworks />
+      {recentNetworksEnabled ? (
+        <RecentNetworks
+          onPressItem={onPressItem}
+          setRecentNetworksHeight={setRecentNetworksHeight}
+          availableNetworks={[...mainnetItems, ...testnetItems]}
+        />
+      ) : null}
       {!allNetworkItem || searchText?.trim() ? null : (
         <Stack>
           <EditableListItem
@@ -158,6 +169,7 @@ const ListHeaderComponent = ({
 
 type IEditableChainSelectorContentProps = {
   isEditMode?: boolean;
+  recentNetworksEnabled?: boolean;
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   unavailableItems: IServerNetwork[];
@@ -190,6 +202,7 @@ export const EditableChainSelectorContent = ({
   allNetworkItem,
   onFrequentlyUsedItemsChange,
   setAllNetworksChanged,
+  recentNetworksEnabled,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -573,11 +586,14 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={
                 <ListHeaderComponent
+                  recentNetworksEnabled={recentNetworksEnabled}
                   initialScrollIndex={initialScrollIndex}
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
                   setAllNetworksChanged={setAllNetworksChanged}
+                  mainnetItems={mainnetItems}
+                  testnetItems={testnetItems}
                 />
               }
               renderSectionHeader={renderSectionHeader}

@@ -17,12 +17,15 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { ISectionListProps } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import RecentNetworks from '../RecentNetworks';
 
 import type {
   IPureChainSelectorSectionListItem,
@@ -45,6 +48,8 @@ type IChainSelectorSectionListContentProps = {
   sections: IPureChainSelectorSectionListItem[];
   networkId?: string;
   onPressItem?: (network: IServerNetworkMatch) => void;
+  recentNetworksEnabled?: boolean;
+  networks: IServerNetworkMatch[];
 };
 
 const ChainSelectorSectionListContent = ({
@@ -52,6 +57,8 @@ const ChainSelectorSectionListContent = ({
   onPressItem,
   networkId,
   initialScrollIndex,
+  recentNetworksEnabled,
+  networks,
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
 }) => {
@@ -76,6 +83,14 @@ const ChainSelectorSectionListContent = ({
           : {
               minHeight: '100vh',
             }
+      }
+      ListHeaderComponent={
+        recentNetworksEnabled ? (
+          <RecentNetworks
+            onPressItem={onPressItem}
+            availableNetworks={networks}
+          />
+        ) : null
       }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
@@ -126,6 +141,7 @@ type IChainSelectorSectionListProps = {
   networkId?: string;
   onPressItem?: (network: IServerNetworkMatch) => void;
   unavailable?: IServerNetworkMatch[];
+  recentNetworksEnabled?: boolean;
 };
 
 const usePending = () => {
@@ -160,6 +176,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   networkId,
   unavailable,
   onPressItem,
+  recentNetworksEnabled,
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
@@ -173,14 +190,32 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     [setIsPending],
   );
 
+  const { result: frequentlyUsedNetworks } = usePromiseResult(
+    async () => {
+      const _frequentlyUsed =
+        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
+      const availableNetworksMapFromNetworks = new Map(
+        networks.map((network) => [network.id, network]),
+      );
+      return _frequentlyUsed.filter((network) =>
+        availableNetworksMapFromNetworks.has(network.id),
+      );
+    },
+    [networks],
+    {
+      initResult: [],
+    },
+  );
+
   const { sections } = usePureChainSelectorSections({
     networks,
     searchKey: text,
     unavailableNetworks: unavailable,
+    frequentlyUsedNetworks,
   });
 
   const initialScrollIndex = useMemo(() => {
-    if (text.trim()) {
+    if (!networkId || !text.trim()) {
       return undefined;
     }
     let _initialScrollIndex:
@@ -235,15 +270,24 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     () =>
       sections.length ? (
         <ChainSelectorSectionListContent
+          networks={networks}
           sections={sections}
           networkId={networkId}
           onPressItem={onPressItem}
           initialScrollIndex={initialScrollIndex}
+          recentNetworksEnabled={recentNetworksEnabled}
         />
       ) : (
         <ListEmptyComponent />
       ),
-    [initialScrollIndex, networkId, onPressItem, sections],
+    [
+      initialScrollIndex,
+      networkId,
+      onPressItem,
+      sections,
+      recentNetworksEnabled,
+      networks,
+    ],
   );
   return (
     <Stack flex={1}>

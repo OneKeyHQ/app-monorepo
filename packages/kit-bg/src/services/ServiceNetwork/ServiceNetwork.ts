@@ -1088,11 +1088,14 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getRecentNetworks({
     limit,
+    availableNetworks,
   }: {
     limit?: number;
+    availableNetworks?: IServerNetwork[];
   } = {}) {
     return this.backgroundApi.simpleDb.recentNetworks.getRecentNetworks({
       limit,
+      availableNetworks,
     });
   }
 
