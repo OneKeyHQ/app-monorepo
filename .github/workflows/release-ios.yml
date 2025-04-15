@@ -98,12 +98,18 @@ jobs:
         if: ${{ github.event.workflow_run }}
         run: |
           cd apps/mobile
-          # eas build --profile=production --platform ios --non-interactive --no-wait
-          # replace APP STORE provision
-          echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
-          echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
 
-          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
+          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
+            eas build --profile=production --platform ios --non-interactive --no-wait
+          else
+            # eas build --profile=production --platform ios --non-interactive --no-wait
+            # replace APP STORE provision
+            echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
+            echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
+
+            eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+          fi
 
       - name: Build on EAS
         if: ${{ !github.event.workflow_run }}
