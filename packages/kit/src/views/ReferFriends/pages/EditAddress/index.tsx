@@ -212,7 +212,7 @@ function BasicEditAddress() {
                 enableAllowListValidation
                 accountSelector={addressInputAccountSelectorArgs}
                 accountId={accountInfo?.activeAccount?.account?.id}
-                networkId={networkIdValue ?? ''}
+                networkId={networkIdValue}
                 contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
                 enableNameResolve
                 placeholder={intl.formatMessage({
@@ -248,6 +248,18 @@ function BasicEditAddress() {
 }
 
 function EditAddress() {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EditAddress
+      >
+    >();
+  const enabledNetworks = useMemo(
+    () => route.params?.enabledNetworks || [],
+    [route.params?.enabledNetworks],
+  );
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -255,6 +267,12 @@ function EditAddress() {
         sceneUrl: '',
       }}
       enabledNum={[0]}
+      availableNetworksMap={{
+        0: {
+          networkIds: enabledNetworks,
+          defaultNetworkId: enabledNetworks[0],
+        },
+      }}
     >
       <BasicEditAddress />
     </AccountSelectorProviderMirror>
