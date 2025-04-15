@@ -26,6 +26,7 @@ import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -185,6 +186,7 @@ function BasicEditAddress() {
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_address })}
             name="addressValue"
+            renderErrorMessage={renderAddressInputHyperlinkText}
             rules={{
               validate: createValidateAddressRule({
                 defaultErrorMessage: intl.formatMessage({
