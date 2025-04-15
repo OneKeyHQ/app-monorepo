@@ -19,6 +19,7 @@ import {
   NeedOneKeyBridgeUpgrade,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
+import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -30,7 +31,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -1321,6 +1321,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId: '',
       payload: {} as any,
     });
+    await firmwareUpdateResultVerifyAtom.set(undefined);
   }
 
   @backgroundMethod()
@@ -1354,11 +1355,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
         const updateResult =
           await this.startUpdateFirmwareTaskForNewBootVersion(params);
-        await firmwareUpdateResultVerifyAtom.set({
-          finalBleVersion: updateResult?.bleVersion || '',
-          finalFirmwareVersion: updateResult?.firmwareVersion || '',
-          finalBootloaderVersion: updateResult?.bootloaderVersion || '',
-        });
         console.log(
           'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
           updateResult,
@@ -1617,9 +1613,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         step: EFirmwareUpdateSteps.installing,
         payload: {
           installingTarget: {} as any,
-          // totalPhase: workflowParams.releaseResult.totalPhase,
-          // currentPhase: firmwareType,
-          // updateInfo,
         },
       });
 
@@ -1630,20 +1623,64 @@ class ServiceFirmwareUpdate extends ServiceBase {
         return undefined;
       };
 
+      const toFirmwareVersion = convertVersion(params.firmwareVersion);
+      const toBleVersion = convertVersion(params.bleVersion);
+      const toBootloaderVersion = convertVersion(params.bootloaderVersion);
+      const versionMismatches: string[] = [];
+
       try {
-        const result = await convertDeviceResponse(async () =>
+        const updateResult = await convertDeviceResponse(async () =>
           hardwareSDK.firmwareUpdateV3(
             deviceUtils.getUpdatingConnectId({ connectId }),
             {
               platform: platformEnv.symbol ?? 'web',
-              bleVersion: convertVersion(bleVersion),
-              firmwareVersion: convertVersion(firmwareVersion),
-              bootloaderVersion: convertVersion(bootloaderVersion),
+              bleVersion: toBleVersion,
+              firmwareVersion: toFirmwareVersion,
+              bootloaderVersion: toBootloaderVersion,
             },
           ),
         );
 
-        return { message: 'success', ...result };
+        // verify final version
+        await firmwareUpdateResultVerifyAtom.set({
+          finalBleVersion: updateResult?.bleVersion || '',
+          finalFirmwareVersion: updateResult?.firmwareVersion || '',
+          finalBootloaderVersion: updateResult?.bootloaderVersion || '',
+        });
+
+        const verifyVersion = (
+          expectedVersionStr: string | undefined,
+          actualVersionStr: string | undefined,
+        ) => {
+          if (expectedVersionStr && semver.valid(expectedVersionStr)) {
+            if (
+              !actualVersionStr ||
+              !semver.valid(actualVersionStr) ||
+              !semver.eq(actualVersionStr, expectedVersionStr)
+            ) {
+              versionMismatches.push(`${expectedVersionStr}`);
+            }
+          }
+        };
+
+        verifyVersion(
+          toFirmwareVersion?.join('.'),
+          updateResult?.firmwareVersion,
+        );
+        verifyVersion(toBleVersion?.join('.'), '3.9.0');
+        verifyVersion(
+          toBootloaderVersion?.join('.'),
+          updateResult?.bootloaderVersion,
+        );
+
+        // wait for 1.5s to verify
+        await timerUtils.wait(1500);
+
+        if (versionMismatches.length > 0) {
+          throw new FirmwareUpdateVersionMismatchError();
+        }
+
+        return { message: 'success', ...updateResult };
       } catch (error) {
         console.log('updatingFirmwareV3 error: ', error);
         throw error;
