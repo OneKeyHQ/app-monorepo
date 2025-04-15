@@ -256,6 +256,13 @@ export class KeyringHardware extends KeyringHardwareBase {
         };
         break;
       }
+      case 'CancelAllUnfreezeV2Contract': {
+        contractCall = {
+          // @ts-expect-error
+          cancelAllUnfreezeV2Contract: {},
+        };
+        break;
+      }
       default:
     }
 

@@ -76,7 +76,6 @@ function PageFirmwareUpdateChangeLog() {
         } else {
           //
         }
-        console.log('======>>>>>>changelog result: ', r);
         return r;
       } catch (error) {
         setStepInfo({

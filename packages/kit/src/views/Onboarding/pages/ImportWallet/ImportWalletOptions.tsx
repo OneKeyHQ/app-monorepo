@@ -18,9 +18,11 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -79,6 +81,7 @@ export function ImportWalletOptions() {
   );
 
   const v4MigrationActions = useV4MigrationActions();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleConnectHardwareWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
@@ -88,26 +91,61 @@ export function ImportWalletOptions() {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'mnemonic',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportKeyTag = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.ImportKeyTag);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'keyTag',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportPrivateKeyPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportPrivateKey);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'privateKey',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportAddressPress = async () => {
     navigation.push(EOnboardingPages.ImportAddress);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'watchOnly',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportFromCloud = async () => {
     await backupEntryStatus.check();
     navigation.push(EOnboardingPages.ImportCloudBackup);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'Import',
+      details: {
+        importSource: 'cloud',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const options: IOptionSection[] = [

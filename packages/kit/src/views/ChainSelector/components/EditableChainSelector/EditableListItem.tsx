@@ -21,12 +21,14 @@ type IEditableListItemProps = {
   isCustomNetworkEditable?: boolean;
   drag?: () => void;
   dragProps?: Record<string, any>;
-  actions?: {
-    leadingIcon?: IKeyOfIcons;
-    trailingIcon?: IKeyOfIcons;
-    title?: string;
-    onPress?: () => void;
-  }[];
+  actions?:
+    | {
+        leadingIcon?: IKeyOfIcons;
+        trailingIcon?: IKeyOfIcons;
+        title?: string;
+        onPress?: () => void;
+      }[]
+    | React.ReactNode;
 };
 
 const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
@@ -127,18 +129,20 @@ export const EditableListItem = ({
                     })
                   : item.name}
               </SizableText>
-              {actions?.map((action) => (
-                <Button
-                  key={action.title}
-                  size="small"
-                  variant="secondary"
-                  icon={action.leadingIcon}
-                  iconAfter={action.trailingIcon}
-                  onPress={action.onPress}
-                >
-                  {action.title}
-                </Button>
-              ))}
+              {Array.isArray(actions)
+                ? actions?.map((action) => (
+                    <Button
+                      key={action.title}
+                      size="small"
+                      variant="secondary"
+                      icon={action.leadingIcon}
+                      iconAfter={action.trailingIcon}
+                      onPress={action.onPress}
+                    >
+                      {action.title}
+                    </Button>
+                  ))
+                : actions}
             </XStack>
           }
         />

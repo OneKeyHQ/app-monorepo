@@ -72,6 +72,7 @@ import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { WalletAddressContext } from './WalletAddressContext';
 import WalletAddressHeaderRight from './WalletAddressHeaderRight';
+import WalletAddressListHeader from './WalletAddressListHeader';
 
 import type { IWalletAddressContext } from './WalletAddressContext';
 
@@ -261,22 +262,26 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     () => networkAccountMap[network.id]?.[0],
     [networkAccountMap, network.id],
   );
-  const subtitle = useMemo(
-    () =>
-      account
-        ? accountUtils.shortenAddress({ address: account.apiAddress })
-        : intl.formatMessage({
-            id: ETranslations.copy_address_modal_item_create_address_instruction,
-          }),
-    [account, intl],
-  );
+  const subtitle = useMemo(() => {
+    if (account) {
+      if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+        return '';
+      }
+
+      return accountUtils.shortenAddress({ address: account.apiAddress });
+    }
+
+    return intl.formatMessage({
+      id: ETranslations.copy_address_modal_item_create_address_instruction,
+    });
+  }, [account, intl, network.id]);
 
   const onPress = useCallback(async () => {
     if (!account) {
       try {
         setLoading(true);
         const { walletId } = accountUtils.parseIndexedAccountId({
-          indexedAccountId,
+          indexedAccountId: indexedAccountId ?? '',
         });
         const globalDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
@@ -376,6 +381,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                 )}
               </XStack>
             }
+            flex={1}
           />
         )}
         subtitle={subtitle}
@@ -543,6 +549,7 @@ function WalletAddressContent({
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
+        ListHeaderComponent={WalletAddressListHeader}
         ListEmptyComponent={
           <Empty
             icon="SearchOutline"
@@ -897,6 +904,7 @@ function WalletAddressPageMainView({
       networkDeriveTypeMap,
       originalAllNetworksState,
       accountId,
+      walletId,
       indexedAccountId,
       refreshLocalData,
       accountsCreated,
@@ -908,14 +916,14 @@ function WalletAddressPageMainView({
     };
     return contextData;
   }, [
-    // checkDeps,
     originalAllNetworksState,
-    result.networksAccount,
     accountId,
+    walletId,
     indexedAccountId,
     refreshLocalData,
     accountsCreated,
     isAllNetworksEnabled,
+    result.networksAccount,
   ]);
 
   return (

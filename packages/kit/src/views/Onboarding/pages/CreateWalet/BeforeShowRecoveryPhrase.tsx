@@ -6,7 +6,9 @@ import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -28,13 +30,18 @@ export function BeforeShowRecoveryPhrase() {
       RouteProp<IOnboardingParamList, EOnboardingPages.BeforeShowRecoveryPhrase>
     >();
 
-  const handleShowRecoveryPhrasePress = () => {
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const handleShowRecoveryPhrasePress = async () => {
     const mnemonic = route.params?.mnemonic;
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
 
     navigation.push(EOnboardingPages.RecoveryPhrase, {
       mnemonic,
       isBackup: route.params?.isBackup,
+    });
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'CreateWallet',
+      isSoftwareWalletOnlyUser,
     });
   };
 

@@ -1,4 +1,8 @@
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type {
+  IWalletAddedEventParams,
+  IWalletStartedParams,
+} from '@onekeyhq/shared/types/analytics/onboarding';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -10,6 +14,111 @@ interface IToken {
 }
 
 export class WalletScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal()
+  public addWalletStarted(params: IWalletStartedParams) {
+    switch (params.addMethod) {
+      case 'CreateWallet':
+        return {
+          addMethod: 'CreateWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+        };
+
+      case 'Import':
+        return {
+          addMethod: 'Import',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            importSource: params.details.importSource,
+          },
+        };
+
+      case 'ConnectHardware':
+        return {
+          addMethod: 'ConnectHardware',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            hardwareWalletType: params.details.hardwareWalletType,
+          },
+        };
+
+      case 'Connect3rdParty':
+        return {
+          addMethod: 'Connect3rdParty',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+        };
+
+      default: {
+        const _exhaustiveCheck: never = params;
+        throw new Error(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
+      }
+    }
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public walletAdded(params: IWalletAddedEventParams) {
+    switch (params.addMethod) {
+      case 'CreateWallet':
+        return {
+          status: params.status,
+          addMethod: 'CreateWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            isBiometricSet: params.details.isBiometricSet,
+          },
+        };
+
+      case 'Import':
+        return {
+          status: params.status,
+          addMethod: 'Import',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            importSource: params.details.importSource,
+          },
+        };
+
+      case 'ConnectHardware':
+        return {
+          status: params.status,
+          addMethod: 'ConnectHardware',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            connectionType: params.details.connectionType,
+            deviceType: params.details.deviceType,
+            hardwareWalletType: params.details.hardwareWalletType,
+            ...(params.details.firmwareVersions && {
+              firmwareVersions: params.details.firmwareVersions,
+            }),
+          },
+        };
+
+      case 'Connect3rdParty':
+        return {
+          status: params.status,
+          addMethod: 'Connect3rdParty',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            protocol: params.details.protocol,
+            network: params.details.network,
+            ...(params.details.walletName && {
+              walletName: params.details.walletName,
+            }),
+          },
+        };
+
+      default: {
+        const _exhaustiveCheck: never = params;
+        throw new Error(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
+      }
+    }
+  }
+
   @LogToServer()
   @LogToLocal()
   public onboard(params: {
@@ -24,38 +133,7 @@ export class WalletScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public createWallet(params: { isBiometricVerificationSet: boolean }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
   public deleteWallet() {}
-
-  @LogToServer()
-  @LogToLocal()
-  public importWallet(params: { importMethod: string }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public connectHWWallet(params: {
-    connectType: string;
-    deviceType: string;
-    deviceFmVersion?: string;
-  }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public connect3rdPartyWallet(params: {
-    ['3rdpartyConnectNetwork']: string;
-    ['3rdpartyConnectType']: string;
-  }) {
-    return params;
-  }
 
   @LogToServer()
   @LogToLocal()
