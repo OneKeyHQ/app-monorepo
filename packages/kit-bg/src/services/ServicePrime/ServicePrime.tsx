@@ -135,6 +135,7 @@ class ServicePrime extends ServiceBase {
         }
         await primePersistAtom.set((v) => ({
           ...v,
+          displayEmail: response.data.data.emails[0],
           isLoggedInOnServer: true,
         }));
       } catch (error) {
@@ -276,6 +277,7 @@ class ServicePrime extends ServiceBase {
       isLoggedInOnServer: false,
       privyUserId: undefined,
       email: undefined,
+      displayEmail: undefined,
       primeSubscription: undefined,
       subscriptionManageUrl: undefined,
       salt: undefined,

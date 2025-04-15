@@ -6,6 +6,7 @@ export type IPrimeUserInfo = {
   isLoggedIn: boolean; // privy login status
   isLoggedInOnServer: boolean; // server login status
   email: string | undefined;
+  displayEmail: string | undefined;
   privyUserId: string | undefined;
   subscriptionManageUrl: string | undefined;
   primeSubscription: IPrimeSubscriptionInfo | undefined;

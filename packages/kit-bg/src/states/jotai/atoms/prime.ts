@@ -15,6 +15,7 @@ export const {
     isLoggedIn: false,
     isLoggedInOnServer: false,
     email: undefined,
+    displayEmail: undefined,
     privyUserId: undefined,
     primeSubscription: undefined,
     subscriptionManageUrl: undefined,
