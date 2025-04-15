@@ -112,20 +112,22 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    const { isSafe, items: contacts } =
-      await serviceAddressBook.getSafeRawItems();
-    defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
-      contacts.length,
-    );
+    if (password) {
+      const { isSafe, items: contacts } =
+        await serviceAddressBook.getSafeRawItems({ password });
+      defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
+        contacts.length,
+      );
 
-    contacts.forEach((contact) => {
-      const contactUUID = getContactUUID(contact);
-      privateBackupData.contacts[contactUUID] = contact;
-      publicBackupData.contacts[contactUUID] = {
-        ...contact,
-        address: shortenAddress({ address: contact.address }),
-      };
-    });
+      contacts.forEach((contact) => {
+        const contactUUID = getContactUUID(contact);
+        privateBackupData.contacts[contactUUID] = contact;
+        publicBackupData.contacts[contactUUID] = {
+          ...contact,
+          address: shortenAddress({ address: contact.address }),
+        };
+      });
+    }
 
     const bookmarks = await serviceDiscovery.getBookmarkData(undefined);
     publicBackupData.discoverBookmarks = bookmarks;

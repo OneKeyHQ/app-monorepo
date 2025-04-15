@@ -189,9 +189,12 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                     id: ETranslations.address_book_add_address_name_empty_error,
                   });
                 }
+                const { password } =
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify();
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
                     name: text,
+                    password,
                   });
                 if (!searched || item.id === searched.id) {
                   return undefined;
@@ -241,9 +244,12 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                     })
                   );
                 }
+                const { password } =
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify();
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
                     address: output.resolved,
+                    password,
                   });
                 if (!searched || item.id === searched.id) {
                   return undefined;

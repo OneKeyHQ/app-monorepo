@@ -71,14 +71,16 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
 
     const password =
       await this.backgroundApi.servicePassword.getCachedPassword();
+    if (!password) {
+      return false;
+    }
+
     const existingAddressBookItem =
       await this.backgroundApi.serviceAddressBook.findItem({
         networkImpl: payload.networkImpl,
         address: payload.addressBookItem.address,
+        password,
       });
-    if (!password) {
-      return false;
-    }
 
     if (item.isDeleted) {
       if (existingAddressBookItem && password) {
@@ -128,9 +130,15 @@ export class CloudSyncFlowManagerAddressBook extends CloudSyncFlowManagerBase<
     payload: ICloudSyncPayloadAddressBook;
   }): Promise<IAddressItem | undefined> {
     const { payload } = params;
+    const password =
+      await this.backgroundApi.servicePassword.getCachedPassword();
+    if (!password) {
+      return undefined;
+    }
     const item = await this.backgroundApi.serviceAddressBook.findItem({
       networkImpl: payload.networkImpl,
       address: payload.addressBookItem.address,
+      password,
     });
     return cloneDeep(item);
   }
