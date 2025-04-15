@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -40,6 +40,14 @@ function PageFirmwareUpdateInstallV2() {
   const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [isDoneInternal, setIsDoneInternal] = useState(false);
+  const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
+
+  useEffect(() => {
+    setTimeout(() => {
+      setIsDoneInternal(isDone);
+    }, 1500);
+  }, [isDone]);
 
   /*
      await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
@@ -62,10 +70,9 @@ function PageFirmwareUpdateInstallV2() {
         EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice ||
       stepInfo.step === EFirmwareUpdateSteps.updateDone
     ) {
-      const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
       return (
         <>
-          {!isDone ? (
+          {!isDoneInternal ? (
             <>
               <FirmwareUpdateExitPrevent />
               <FirmwareUpdateAlertInfoMessage />
@@ -73,7 +80,7 @@ function PageFirmwareUpdateInstallV2() {
           ) : null}
           {/* FirmwareInstallingViewV2 ->  FirmwareInstallingViewBase -> FirmwareUpdateProgressBar */}
           <FirmwareInstallingViewV2 result={result} isDone={isDone} />
-          {isDone ? (
+          {isDoneInternal ? (
             <FirmwareUpdatePageFooter
               onConfirmText={intl.formatMessage({
                 id: ETranslations.global_close,
@@ -99,7 +106,15 @@ function PageFirmwareUpdateInstallV2() {
         <FirmwareLatestVersionInstalled />
       </>
     );
-  }, [stepInfo.step, result, navigation, intl, actions]);
+  }, [
+    stepInfo.step,
+    result,
+    navigation,
+    intl,
+    actions,
+    isDoneInternal,
+    isDone,
+  ]);
 
   return (
     <Page

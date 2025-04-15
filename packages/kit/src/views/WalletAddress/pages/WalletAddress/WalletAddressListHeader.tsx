@@ -98,7 +98,14 @@ function WalletAddressListHeader() {
     <Stack mt="$4" px="$5" pb="$5">
       <Alert
         type="warning"
-        title={`You have ${enabledNetworksCompatibleWithWalletId.length} enabled networks, but some don’t have addresses yet`}
+        title={intl.formatMessage(
+          {
+            id: ETranslations.network_enabled_but_no_address_notice,
+          },
+          {
+            count: enabledNetworksCompatibleWithWalletId.length,
+          },
+        )}
         action={{
           primary: intl.formatMessage({
             id: isCreatingAllAddresses

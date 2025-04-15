@@ -6,7 +6,7 @@ import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
-import { DeviceAvatar } from '../../../components/DeviceAvatar';
+import { DeviceAvatarWithColor } from '../../../components/DeviceAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 export function FirmwareUpdatePageHeaderTitle(props: {
@@ -18,9 +18,10 @@ export function FirmwareUpdatePageHeaderTitle(props: {
   }
   return (
     <XStack ai="center" gap={6}>
-      <DeviceAvatar
+      <DeviceAvatarWithColor
         size="$6"
         deviceType={result.deviceType || EDeviceType.Unknown}
+        features={result.features}
       />
       <SizableText size="$headingMd">{result.deviceName}</SizableText>
       <SizableText size="$bodyLg" color="$textSubdued">

@@ -45,7 +45,7 @@ export function FirmwareUpdateCheckList({
           ? ETranslations.update_device_connected_via_bluetooth
           : ETranslations.update_device_connected_via_usb,
       }),
-      emoji: '📲',
+      emoji: platformEnv.isNative ? '📲' : '🔌',
       value: false,
     },
     // {
