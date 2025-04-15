@@ -42,9 +42,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <Stack px="$2" py="$2.5" gap="$1">
       <XStack alignItems="center" gap="$2">
         <SizableText flex={1} size="$headingSm">
-          {user?.email}
+          {user?.displayEmail}
         </SizableText>
-        {isPrime ? (
+        {/* {isPrime ? (
           <Badge bg="$brand3" badgeSize="sm">
             <Badge.Text color="$brand11">Prime</Badge.Text>
           </Badge>
@@ -54,7 +54,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               id: ETranslations.prime_status_free,
             })}
           </Badge>
-        )}
+        )} */}
       </XStack>
       {primeExpiredAt && isPrime ? (
         <SizableText size="$bodyMd" color="$textSubdued">

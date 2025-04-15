@@ -278,7 +278,7 @@ export const useReferFriends = () => {
               <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgSuccess">
                 <Icon name="PeopleOutline" color="$iconSuccess" size={20} />
               </XStack>
-              <YStack>
+              <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
                   {intl.formatMessage({
                     id: ETranslations.referral_intro_for_you,
@@ -295,7 +295,7 @@ export const useReferFriends = () => {
               <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgInfo">
                 <Icon name="PeopleLikeOutline" color="$iconInfo" size={20} />
               </XStack>
-              <YStack>
+              <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
                   {intl.formatMessage({
                     id: ETranslations.referral_intro_for_your_friend,
