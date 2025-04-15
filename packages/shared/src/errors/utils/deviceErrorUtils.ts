@@ -199,6 +199,10 @@ export function convertDeviceError(
       return new HardwareErrors.HardwareWebDeviceCommunicationError({
         payload,
       });
+    case HardwareErrorCode.EmmcFileWriteFirmwareError:
+      return new HardwareErrors.FirmwareUpdateTransferInterruptedError({
+        payload,
+      });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
