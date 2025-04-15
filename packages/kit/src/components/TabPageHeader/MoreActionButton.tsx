@@ -185,16 +185,16 @@ function MoreActionButtonCmp() {
                   testID: 'onekey_id',
                 }
               : null,
-            !isShowMyOneKeyOnTabbar
-              ? {
-                  label: intl.formatMessage({
-                    id: ETranslations.id_refer_a_friend,
-                  }),
-                  icon: 'GiftOutline',
-                  onPress: toReferFriendsPage,
-                  testID: 'refer-a-friend',
-                }
-              : null,
+            // !isShowMyOneKeyOnTabbar
+            //   ? {
+            //       label: intl.formatMessage({
+            //         id: ETranslations.id_refer_a_friend,
+            //       }),
+            //       icon: 'GiftOutline',
+            //       onPress: toReferFriendsPage,
+            //       testID: 'refer-a-friend',
+            //     }
+            //   : null,
           ].filter(Boolean) as IActionListItemProps[],
         },
         {
