@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Accordion,
   Badge,
-  Divider,
   Icon,
   Image,
   SizableText,
@@ -49,8 +48,17 @@ export const ProviderSwitch = ({
   isBridge,
 }: IProviderSwitchProps) => {
   return (
-    <XStack justifyContent="space-between" pt="$2">
-      <XStack alignItems="center" gap="$3">
+    <XStack justifyContent="space-between" p="$1">
+      <XStack alignItems="center" gap="$2">
+        {isBridge ? null : (
+          <Icon
+            name={
+              openFold ? 'ChevronDownSmallOutline' : 'ChevronRightSmallOutline'
+            }
+            color={openFold ? '$iconActive' : '$iconSubdued'}
+            size="$5"
+          />
+        )}
         <XStack alignItems="center" gap="$2">
           <Image
             source={{ uri: providerInfo.logo }}
@@ -77,15 +85,6 @@ export const ProviderSwitch = ({
             onChange={onProviderSwitchEnable}
           />
         </Stack>
-        {isBridge ? null : (
-          <Icon
-            name={
-              openFold ? 'ChevronDownSmallOutline' : 'ChevronRightSmallOutline'
-            }
-            color={openFold ? '$iconActive' : '$iconSubdued'}
-            size="$5"
-          />
-        )}
       </XStack>
     </XStack>
   );
@@ -126,7 +125,12 @@ const NetworkSwitch = ({
       }}
       cursor="pointer"
     >
-      {networkName}
+      <SizableText
+        size={enable ? '$bodySmMedium' : '$bodySm'}
+        color={enable ? '$text' : '$textSubdued'}
+      >
+        {networkName}
+      </SizableText>
     </Badge>
   );
 };
@@ -209,6 +213,7 @@ const ProviderFold = ({
         p="$0"
         disabled={serviceDisable}
         cursor={serviceDisable ? 'not-allowed' : 'pointer'}
+        hoverStyle={{ bg: '$bgHover', borderRadius: '$2' }}
       >
         {({ open }: { open: boolean }) => (
           <ProviderSwitch
@@ -229,7 +234,7 @@ const ProviderFold = ({
           exitStyle={{ opacity: 0 }}
           p="$0"
         >
-          <YStack pt="$3" gap="$3">
+          <YStack pt="$3" gap="$3" px="$8">
             <Stack
               flexWrap="wrap"
               alignItems="center"
@@ -252,7 +257,6 @@ const ProviderFold = ({
                 id: ETranslations.swap_settings_manage_chain_tip,
               })}
             </SizableText>
-            <Divider />
           </YStack>
         </Accordion.Content>
       </Accordion.HeightAnimator>
