@@ -24,10 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import {
-  formatRelativeDate,
-  formatTime,
-} from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 type ISectionListItem = {
   title?: string;
@@ -60,7 +57,9 @@ const formatSections = (items: IHardwareSalesRecord['items']) => {
   return Object.keys(groupedData).map((dateKey) => {
     const date = new Date(groupedData[dateKey][0].createdAt);
     return {
-      title: formatRelativeDate(date),
+      title: formatDate(date, {
+        hideTimeForever: true,
+      }),
       data: groupedData[dateKey],
     };
   });

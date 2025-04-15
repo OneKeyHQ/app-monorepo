@@ -145,6 +145,7 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async resetApp() {
+    await this.backgroundApi.servicePrime.apiLogout();
     resetUtils.startResetting();
     try {
       await this.resetData();

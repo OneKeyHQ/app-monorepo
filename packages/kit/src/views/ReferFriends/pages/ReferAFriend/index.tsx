@@ -118,7 +118,7 @@ export default function ReferAFriend() {
                         size={20}
                       />
                     </XStack>
-                    <YStack>
+                    <YStack flexShrink={1}>
                       <SizableText size="$headingMd">
                         {intl.formatMessage({
                           id: ETranslations.referral_intro_for_you,
@@ -157,7 +157,7 @@ export default function ReferAFriend() {
                         size={20}
                       />
                     </XStack>
-                    <YStack>
+                    <YStack flexShrink={1}>
                       <SizableText size="$headingMd">
                         {intl.formatMessage({
                           id: ETranslations.referral_intro_for_your_friend,

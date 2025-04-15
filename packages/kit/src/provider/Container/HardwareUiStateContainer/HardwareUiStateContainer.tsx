@@ -278,7 +278,7 @@ function HardwareSingletonDialogCmp(
     return undefined;
   }
 
-  return (
+  return open ? (
     <DialogContainer
       ref={ref}
       // title change will not re-render, so we need to use key to force update, but the closing animation will be lost
@@ -295,7 +295,7 @@ function HardwareSingletonDialogCmp(
           : undefined
       }
     />
-  );
+  ) : null;
 }
 
 const hasConfirmAction = (localState: IHardwareUiState | undefined) => {
