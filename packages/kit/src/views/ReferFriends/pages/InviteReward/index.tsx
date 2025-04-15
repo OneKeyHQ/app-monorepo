@@ -23,15 +23,18 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function PopoverLine({ children }: PropsWithChildren) {
   return (
@@ -207,9 +210,12 @@ function Dashboard({
   const navigation = useAppNavigation();
   const intl = useIntl();
 
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
+      accountId: activeAccount.account?.id ?? '',
       onAddressAdded: async ({
         address,
         networkId,
@@ -226,7 +232,12 @@ function Dashboard({
         }, 50);
       },
     });
-  }, [enabledNetworks, fetchSummaryInfo, navigation]);
+  }, [
+    activeAccount.account?.id,
+    enabledNetworks,
+    fetchSummaryInfo,
+    navigation,
+  ]);
 
   const toEarnRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EarnReward);
@@ -561,17 +572,25 @@ function InviteRewardContent({
   return (
     <>
       <ShareCode inviteUrl={inviteUrl} inviteCode={inviteCode} />
-      <Dashboard
-        totalRewards={totalRewards}
-        enabledNetworks={enabledNetworks}
-        earn={Earn}
-        hardwareSales={HardwareSales}
-        levelPercent={Number(levelPercent)}
-        rebateLevel={rebateLevel}
-        nextRebateLevel={nextRebateLevel}
-        fetchSummaryInfo={fetchSummaryInfo}
-        withdrawAddresses={withdrawAddresses}
-      />
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+        }}
+        enabledNum={[0]}
+      >
+        <Dashboard
+          totalRewards={totalRewards}
+          enabledNetworks={enabledNetworks}
+          earn={Earn}
+          hardwareSales={HardwareSales}
+          levelPercent={Number(levelPercent)}
+          rebateLevel={rebateLevel}
+          nextRebateLevel={nextRebateLevel}
+          fetchSummaryInfo={fetchSummaryInfo}
+          withdrawAddresses={withdrawAddresses}
+        />
+      </AccountSelectorProviderMirror>
+
       <FAQ faqs={faqs} />
       <Link />
     </>

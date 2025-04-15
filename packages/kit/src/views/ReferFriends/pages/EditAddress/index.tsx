@@ -30,7 +30,6 @@ import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/A
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReferFriendsRoutes,
@@ -60,6 +59,8 @@ function BasicEditAddress() {
     () => route.params?.enabledNetworks || [],
     [route.params?.enabledNetworks],
   );
+
+  const accountId = route.params?.accountId ?? '';
 
   const { result: networksResp } = usePromiseResult(
     async () => {
@@ -120,7 +121,6 @@ function BasicEditAddress() {
   const { control } = form;
   const networkIdValue = useFormWatch({ control, name: 'networkId' });
   const addressValue = useFormWatch({ control, name: 'to' });
-  const accountInfo = useActiveAccount({ num: 0 });
   const isEnable = useMemo(() => {
     // filter out error parameters from different segments.
     const errors = Object.values(form.formState.errors);
@@ -167,9 +167,9 @@ function BasicEditAddress() {
     () => ({
       name: 'to',
       networkId: networkIdValue,
-      accountId: `hd-1--m/44'/60'/0'/0/0`,
+      accountId,
     }),
-    [accountInfo?.activeAccount?.account?.id, networkIdValue],
+    [accountId, networkIdValue],
   );
 
   return (
@@ -211,7 +211,7 @@ function BasicEditAddress() {
                 enableAddressContract
                 enableAllowListValidation
                 accountSelector={addressInputAccountSelectorArgs}
-                accountId={accountInfo?.activeAccount?.account?.id}
+                accountId={accountId}
                 networkId={networkIdValue}
                 contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
                 enableNameResolve
