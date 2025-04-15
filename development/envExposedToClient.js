@@ -19,6 +19,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'COVALENT_KEY',
     'HARDWARE_SDK_CONNECT_SRC',
     'GITHUB_SHA',
+    'WORKFLOW_GITHUB_SHA',
     'STORYBOOK_ENABLED',
     'WALLETCONNECT_PROJECT_ID',
   ];
