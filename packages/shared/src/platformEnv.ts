@@ -439,7 +439,7 @@ const platformEnv: IPlatformEnv = {
   appFullName: '',
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
-  githubSHA: process.env.GITHUB_SHA,
+  githubSHA: process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA,
 
   isJest,
 
