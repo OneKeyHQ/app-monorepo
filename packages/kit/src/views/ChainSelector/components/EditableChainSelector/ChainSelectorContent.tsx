@@ -64,11 +64,13 @@ const ListHeaderComponent = ({
   accountId,
   indexedAccountId,
   setAllNetworksChanged,
+  initialScrollIndex,
 }: {
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
   setAllNetworksChanged?: (value: boolean) => void;
+  initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -94,7 +96,7 @@ const ListHeaderComponent = ({
     return (
       <Spotlight
         delayMs={500}
-        isVisible
+        isVisible={initialScrollIndex?.sectionIndex === 0}
         message={intl.formatMessage({
           id: ETranslations.network_all_networks_selection_tip,
         })}
@@ -129,6 +131,7 @@ const ListHeaderComponent = ({
     enabledNetworksCompatibleWithWalletId.length,
     handleNetworksChange,
     indexedAccountId,
+    initialScrollIndex?.sectionIndex,
     intl,
     navigation,
     walletId,
@@ -568,6 +571,7 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={
                 <ListHeaderComponent
+                  initialScrollIndex={initialScrollIndex}
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
