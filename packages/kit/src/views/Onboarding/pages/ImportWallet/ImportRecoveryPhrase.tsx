@@ -4,8 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
@@ -17,11 +17,10 @@ import { Tutorials } from '../../components/Tutorials';
 export function ImportRecoveryPhrase() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleConfirmPress = useCallback(
     async (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
-      const isSoftwareWalletOnlyUser =
-        await backgroundApiProxy.serviceAccountProfile.isSoftwareWalletOnlyUser();
       if (params.mnemonicType === EMnemonicType.TON) {
         // **** TON mnemonic case - Show dialog
         showTonMnemonicDialog({
@@ -56,7 +55,7 @@ export function ImportRecoveryPhrase() {
         isSoftwareWalletOnlyUser,
       });
     },
-    [navigation],
+    [navigation, isSoftwareWalletOnlyUser],
   );
 
   const renderPhaseInputArea = useMemo(

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -40,6 +41,7 @@ function BasicTradeOrBuy({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleOnSwap = useCallback(async () => {
     const { isSupportSwap } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
@@ -58,6 +60,7 @@ function BasicTradeOrBuy({
       networkId,
       source: 'earn',
       tradeType: ESwapTabSwitchType.SWAP,
+      isSoftwareWalletOnlyUser,
     });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
@@ -73,7 +76,7 @@ function BasicTradeOrBuy({
         swapSource: ESwapSource.EARN,
       },
     });
-  }, [navigation, networkId, token, wallet?.type]);
+  }, [navigation, networkId, token, wallet?.type, isSoftwareWalletOnlyUser]);
 
   const isHiddenComponent = networkId === networkIdsMap.cosmoshub;
 
