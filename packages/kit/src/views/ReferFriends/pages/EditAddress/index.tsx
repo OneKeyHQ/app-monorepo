@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -178,6 +179,7 @@ function BasicEditAddress() {
         title={intl.formatMessage({
           id: ETranslations.address_book_edit_address_title,
         })}
+        headerRight={renderAddressSecurityHeaderRightButton}
       />
       <Page.Body px="$5">
         <AddressInputContext.Provider value={contextValue}>

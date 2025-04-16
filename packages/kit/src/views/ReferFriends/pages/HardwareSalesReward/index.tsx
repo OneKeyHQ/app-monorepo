@@ -284,7 +284,7 @@ export default function HardwareSalesReward() {
                       </NumberSizeableText>
                       <SizableText size="$bodyMd" color="t$extSubdued">
                         {intl.formatMessage({
-                          id: ETranslations.global_pending,
+                          id: ETranslations.referral_reward_undistributed_pending,
                         })}
                       </SizableText>
                     </XStack>
