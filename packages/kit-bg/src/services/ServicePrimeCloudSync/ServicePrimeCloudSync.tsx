@@ -1305,7 +1305,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     let syncItemsForAddressBook: IDBCloudSyncItem[] = [];
     const { isSafe, items: safeAddressBookItems } =
-      await this.backgroundApi.serviceAddressBook.getSafeRawItems();
+      await this.backgroundApi.serviceAddressBook.getSafeRawItems({ password });
     if (isSafe && safeAddressBookItems?.length) {
       syncItemsForAddressBook =
         await this.syncManagers.addressBook.buildInitSyncDBItems({

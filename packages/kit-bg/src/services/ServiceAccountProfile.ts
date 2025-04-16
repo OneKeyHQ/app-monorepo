@@ -299,7 +299,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     skipValidateAddress,
-  }: IQueryCheckAddressArgs) {
+  }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
     let address = rawAddress.trim();
@@ -354,26 +354,35 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     if (enableAddressBook && resolveAddress) {
-      // handleAddressBookName
-      const addressBookItem =
-        await this.backgroundApi.serviceAddressBook.findItem({
-          networkId: !networkUtils.isEvmNetwork({ networkId })
-            ? networkId
-            : undefined,
-          address: resolveAddress,
-        });
-      result.addressBookId = addressBookItem?.id;
-      result.isAllowListed = addressBookItem?.isAllowListed;
-      if (addressBookItem?.name) {
-        if (addressBookItem?.isAllowListed) {
-          result.addressBookName = `${appLocale.intl.formatMessage({
-            id: ETranslations.address_label_allowlist,
-          })} / ${addressBookItem?.name}`;
-        } else {
-          result.addressBookName = `${appLocale.intl.formatMessage({
-            id: ETranslations.global_contact,
-          })} / ${addressBookItem?.name}`;
+      try {
+        const password =
+          await this.backgroundApi.servicePassword.getCachedPassword();
+        if (password) {
+          // handleAddressBookName
+          const addressBookItem =
+            await this.backgroundApi.serviceAddressBook.findItem({
+              networkId: !networkUtils.isEvmNetwork({ networkId })
+                ? networkId
+                : undefined,
+              address: resolveAddress,
+              password,
+            });
+          result.addressBookId = addressBookItem?.id;
+          result.isAllowListed = addressBookItem?.isAllowListed;
+          if (addressBookItem?.name) {
+            if (addressBookItem?.isAllowListed) {
+              result.addressBookName = `${appLocale.intl.formatMessage({
+                id: ETranslations.address_label_allowlist,
+              })} / ${addressBookItem?.name}`;
+            } else {
+              result.addressBookName = `${appLocale.intl.formatMessage({
+                id: ETranslations.global_contact,
+              })} / ${addressBookItem?.name}`;
+            }
+          }
         }
+      } catch (e) {
+        console.error(e);
       }
     }
 
