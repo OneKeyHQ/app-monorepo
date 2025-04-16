@@ -1,15 +1,10 @@
 import { useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -82,8 +77,6 @@ function AccountValue(accountValue: {
 
 function AccountValueWithSpotlight({
   accountValue,
-  isOthersUniversal,
-  index,
   linkedAccountId,
   linkedNetworkId,
 }: {
@@ -99,38 +92,23 @@ function AccountValueWithSpotlight({
   linkedAccountId?: string;
   linkedNetworkId?: string;
 }) {
-  const isFocused = useIsFocused();
-  const shouldShowSpotlight = isFocused && !isOthersUniversal && index === 0;
-  const intl = useIntl();
-  return (
-    <Spotlight
-      delayMs={300}
-      containerProps={{ flexShrink: 1 }}
-      isVisible={shouldShowSpotlight}
-      message={intl.formatMessage({
-        id: ETranslations.spotlight_enable_account_asset_message,
-      })}
-      tourName={ESpotlightTour.allNetworkAccountValue}
+  return accountValue && accountValue.currency ? (
+    <AccountValue
+      accountId={accountValue.accountId}
+      currency={accountValue.currency}
+      value={accountValue.value ?? ''}
+      linkedAccountId={linkedAccountId}
+      linkedNetworkId={linkedNetworkId}
+    />
+  ) : (
+    <NumberSizeableTextWrapper
+      formatter="value"
+      hideValue
+      size="$bodyMd"
+      color="$textDisabled"
     >
-      {accountValue && accountValue.currency ? (
-        <AccountValue
-          accountId={accountValue.accountId}
-          currency={accountValue.currency}
-          value={accountValue.value ?? ''}
-          linkedAccountId={linkedAccountId}
-          linkedNetworkId={linkedNetworkId}
-        />
-      ) : (
-        <NumberSizeableTextWrapper
-          formatter="value"
-          hideValue
-          size="$bodyMd"
-          color="$textDisabled"
-        >
-          --
-        </NumberSizeableTextWrapper>
-      )}
-    </Spotlight>
+      --
+    </NumberSizeableTextWrapper>
   );
 }
 

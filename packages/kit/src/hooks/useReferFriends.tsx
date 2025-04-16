@@ -4,11 +4,13 @@ import { useIntl } from 'react-intl';
 import { Share, StyleSheet } from 'react-native';
 
 import {
+  Button,
   Dialog,
   Icon,
   IconButton,
   OTPInput,
   SizableText,
+  Stack,
   XStack,
   YStack,
   rootNavigationRef,
@@ -203,39 +205,59 @@ export const useReferFriends = () => {
                   id: ETranslations.earn_referral_your_referral_link,
                 })}
               </SizableText>
-              <XStack
-                borderColor="rgba(0, 0, 0, 0.13)"
-                bg="$bgDisabled"
-                px="$3"
-                py="$1.5"
-                borderWidth={StyleSheet.hairlineWidth}
-                jc="space-between"
+              <Stack
                 ai="center"
-                borderRadius="$2.5"
+                gap="$2.5"
+                flexDirection="row"
+                $platform-native={{
+                  flexDirection: 'column',
+                  gap: '$6',
+                }}
               >
-                <SizableText size="$bodyLg" flexShrink={1}>
-                  {`onekey.so/r/${myReferralCode}`}
-                </SizableText>
-                <XStack ai="center" gap="$2.5">
-                  <IconButton
-                    title={intl.formatMessage({
-                      id: ETranslations.global_copy,
-                    })}
-                    variant="tertiary"
+                <XStack
+                  flex={1}
+                  borderColor="rgba(0, 0, 0, 0.13)"
+                  bg="$bgDisabled"
+                  px="$3"
+                  py="$1.5"
+                  $platform-native={{
+                    width: '100%',
+                  }}
+                  borderWidth={StyleSheet.hairlineWidth}
+                  jc="space-between"
+                  ai="center"
+                  borderRadius="$2.5"
+                >
+                  <SizableText size="$bodyLg" flexShrink={1}>
+                    {`onekey.so/r/${myReferralCode}`}
+                  </SizableText>
+                </XStack>
+                <XStack
+                  ai="center"
+                  gap="$2.5"
+                  $platform-native={{
+                    width: '100%',
+                  }}
+                >
+                  <Button
                     icon="Copy3Outline"
-                    size="large"
-                    iconColor="$iconSubdued"
+                    variant={platformEnv.isNative ? undefined : 'primary'}
+                    $md={{
+                      flex: 1,
+                    }}
+                    size="medium"
                     onPress={() => copyText(sharedUrl)}
-                  />
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_copy })}
+                  </Button>
                   {platformEnv.isNative ? (
-                    <IconButton
-                      title={intl.formatMessage({
-                        id: ETranslations.global_copy,
-                      })}
-                      variant="tertiary"
+                    <Button
+                      variant="primary"
                       icon="ShareOutline"
-                      size="large"
-                      iconColor="$iconSubdued"
+                      size="medium"
+                      $md={{
+                        flex: 1,
+                      }}
                       onPress={async () => {
                         await dialog.close();
                         setTimeout(() => {
@@ -250,10 +272,12 @@ export const useReferFriends = () => {
                           );
                         }, 250);
                       }}
-                    />
+                    >
+                      {intl.formatMessage({ id: ETranslations.explore_share })}
+                    </Button>
                   ) : null}
                 </XStack>
-              </XStack>
+              </Stack>
             </YStack>
             <YStack gap="$1">
               <SizableText size="$bodyMdMedium">

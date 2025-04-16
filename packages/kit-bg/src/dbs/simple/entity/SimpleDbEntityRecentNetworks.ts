@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -39,19 +40,39 @@ export class SimpleDbEntityRecentNetworks extends SimpleDbEntityBase<IRecentNetw
   @backgroundMethod()
   async getRecentNetworks({
     limit = 5,
+    availableNetworks,
   }: {
     limit?: number;
+    availableNetworks?: IServerNetwork[];
   } = {}) {
     const rawData = await this.getRawData();
     const recentNetworks = rawData?.recentNetworks ?? {};
 
-    return Object.entries(recentNetworks)
-      .sort(
-        ([, { updatedAt: timestampA }], [, { updatedAt: timestampB }]) =>
-          Number(timestampB) - Number(timestampA),
-      )
-      .slice(0, limit)
-      .map(([networkId]) => networkId);
+    const recentNetworksSorted = Object.entries(recentNetworks).sort(
+      ([, { updatedAt: timestampA }], [, { updatedAt: timestampB }]) =>
+        Number(timestampB) - Number(timestampA),
+    );
+
+    if (availableNetworks && availableNetworks.length > 0) {
+      const availableNetworksMap = new Map(
+        availableNetworks.map((network) => [network.id, network]),
+      );
+
+      const recentNetworksTemp = [];
+
+      for (const [networkId] of recentNetworksSorted) {
+        if (availableNetworksMap.has(networkId)) {
+          recentNetworksTemp.push(networkId);
+        }
+        if (recentNetworksTemp.length >= limit) {
+          return recentNetworksTemp;
+        }
+      }
+
+      return recentNetworksTemp;
+    }
+
+    return recentNetworksSorted.slice(0, limit).map(([networkId]) => networkId);
   }
 
   @backgroundMethod()

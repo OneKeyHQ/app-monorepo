@@ -1,4 +1,4 @@
-import { memo, useCallback, useContext, useEffect } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,8 +17,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-
-import { EditableChainSelectorContext } from './context';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -41,26 +39,36 @@ function RecentNetworkItem({
   );
 }
 
-function RecentNetworks() {
+function RecentNetworks({
+  onPressItem,
+  setRecentNetworksHeight,
+  availableNetworks,
+}: {
+  onPressItem?: (network: IServerNetwork) => void;
+  setRecentNetworksHeight?: (height: number) => void;
+  availableNetworks?: IServerNetwork[];
+}) {
   const intl = useIntl();
-
-  const { onPressItem, setRecentNetworksHeight } = useContext(
-    EditableChainSelectorContext,
-  );
 
   const { result: recentNetworks, run } = usePromiseResult(
     async () => {
       const networks: IServerNetwork[] = [];
-      const resp = await backgroundApiProxy.serviceNetwork.getRecentNetworks();
+      const resp = await backgroundApiProxy.serviceNetwork.getRecentNetworks({
+        availableNetworks,
+      });
       for (const networkId of resp) {
-        const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-          networkId,
-        });
-        networks.push(network);
+        try {
+          const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+            networkId,
+          });
+          networks.push(network);
+        } catch (error) {
+          // ignore
+        }
       }
       return networks;
     },
-    [],
+    [availableNetworks],
     {
       initResult: [],
     },
