@@ -3,6 +3,7 @@ export enum EEarnProviderEnum {
   Everstake = 'Everstake',
   Babylon = 'Babylon',
   Morpho = 'Morpho',
+  Falcon = 'Falcon',
 }
 
 export type ISupportedSymbol =
@@ -18,7 +19,8 @@ export type ISupportedSymbol =
   | 'ATOM'
   | 'APT'
   | 'BTC'
-  | 'SBTC';
+  | 'SBTC'
+  | 'USDf';
 
 export interface IStakingFlowConfig {
   enabled: boolean;
