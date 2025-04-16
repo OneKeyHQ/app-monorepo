@@ -146,12 +146,12 @@ export default function YourReferred() {
       //   title: 'OneKey ID',
       //   page: HardwareSales,
       // },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.referral_referred_type_2,
-        }),
-        page: EarnList,
-      },
+      // {
+      //   title: intl.formatMessage({
+      //     id: ETranslations.referral_referred_type_2,
+      //   }),
+      //   page: EarnList,
+      // },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_type_3,

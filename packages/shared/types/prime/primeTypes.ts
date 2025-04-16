@@ -24,6 +24,8 @@ export type IPrimeServerUserInfo = {
   userId: string;
   emails: string[];
   // isLogin
+
+  inviteCode: string;
 };
 
 export enum ESecurityPasswordType {

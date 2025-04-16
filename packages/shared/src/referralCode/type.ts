@@ -52,7 +52,7 @@ export interface IInviteSummary {
 interface IHardwareSalesRecordItem {
   _id: string;
   itemUniqueId: string;
-  side: string;
+  side: 'in' | 'out';
   subject: string;
   userId: string;
   amount: string;
@@ -62,6 +62,7 @@ interface IHardwareSalesRecordItem {
   payReceipt: string | null;
   payTime: string | null;
   receivceAddress: string | null;
+  heading: string;
   title: string;
   token: {
     networkId: string;
