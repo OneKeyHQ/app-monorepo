@@ -47,6 +47,7 @@ export const ProviderSwitch = ({
   openFold,
   isBridge,
 }: IProviderSwitchProps) => {
+  const intl = useIntl();
   return (
     <XStack justifyContent="space-between" p="$1">
       <XStack alignItems="center" gap="$2">
@@ -69,6 +70,21 @@ export const ProviderSwitch = ({
           <SizableText size="$bodyLgMedium">
             {providerInfo.providerName}
           </SizableText>
+          {serviceDisable ? (
+            <Badge
+              bg="$bgSubdued"
+              borderRadius="$2.5"
+              h="$6"
+              borderWidth={1}
+              borderColor="$borderCritical"
+            >
+              <SizableText size="$bodySm" color="$textCritical">
+                {intl.formatMessage({
+                  id: ETranslations.provider_unavailable,
+                })}
+              </SizableText>
+            </Badge>
+          ) : null}
         </XStack>
       </XStack>
       <XStack animation="quick" gap="$2">
