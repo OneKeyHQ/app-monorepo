@@ -34,7 +34,10 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
-import { useReferFriends } from '../hooks/useReferFriends';
+import {
+  isOpenedReferFriendsPage,
+  useReferFriends,
+} from '../hooks/useReferFriends';
 import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,
@@ -210,9 +213,13 @@ const useDesktopEvents = platformEnv.isDesktop
             navigation.switchTab(ETabRoutes.Market);
             break;
           case EShortcutEvents.TabReferAFriend:
-            ensureModalClosedAndNavigate(() => {
-              void toReferFriendsPage();
-            });
+            if (!isOpenedReferFriendsPage()) {
+              ensureModalClosedAndNavigate(() => {
+                void toReferFriendsPage();
+              });
+            } else {
+              rootNavigationRef.current?.goBack();
+            }
             break;
           case EShortcutEvents.TabMyOneKey:
             if (!isOpenedMyOneKeyModal()) {

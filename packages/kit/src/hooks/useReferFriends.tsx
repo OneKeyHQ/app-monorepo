@@ -97,6 +97,17 @@ export function useToReferFriendsModalByRootNavigation() {
   }, []);
 }
 
+export const isOpenedReferFriendsPage = () => {
+  const routeState = rootNavigationRef.current?.getRootState();
+  if (routeState?.routes) {
+    return routeState.routes.find(
+      // @ts-expect-error
+      (route) => route.params?.screen === EModalRoutes.ReferFriendsModal,
+    );
+  }
+  return false;
+};
+
 export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
