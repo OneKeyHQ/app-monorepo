@@ -285,7 +285,7 @@ function Dashboard({
               <NumberSizeableText
                 pb={1}
                 color="$textSuccess"
-                formatter="balance"
+                formatter="value"
                 size="$bodyLgMedium"
                 cursor="pointer"
                 textDecorationLine="underline"
@@ -431,23 +431,27 @@ function Dashboard({
         // onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-          </SizableText>
+          <XStack ai="flex-end">
+            <SizableText size="$headingMd">
+              {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              position="relative"
+              top={-2}
+            >
+              {`  (${intl.formatMessage({
+                id: ETranslations.coming_soon,
+              })})`}
+            </SizableText>
+          </XStack>
           {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
         </XStack>
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        <XStack pt="$4" gap="$2.5" ai="center">
-          <XStack>
-            <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
-          </XStack>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.coming_soon })}
-          </SizableText>
-        </XStack>
-        {/* {showEarnSalesAvailableFiat ? (
+        {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
             {earn.available?.map(({ token, fiatValue }, index) => {
               return (
@@ -473,7 +477,7 @@ function Dashboard({
           </YStack>
         ) : (
           <NoRewardYet />
-        )} */}
+        )}
       </YStack>
     </YStack>
   );
