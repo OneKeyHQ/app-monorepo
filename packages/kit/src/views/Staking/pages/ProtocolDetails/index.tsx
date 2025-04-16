@@ -357,31 +357,31 @@ const ProtocolDetailsPage = () => {
     withdrawButtonProps,
   ]);
 
-  const { bindInviteCode } = useReferFriends();
-  const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
-    async () => {
-      const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
-      if (code) {
-        return false;
-      }
-      if (earnAccount?.accountAddress) {
-        const inviteCodeOnServer =
-          await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
-            networkId,
-            accountAddress: earnAccount?.accountAddress,
-          });
-        if (inviteCodeOnServer) {
-          return false;
-        }
-      }
-      return true;
-    },
-    [earnAccount?.accountAddress, networkId],
-    {
-      revalidateOnFocus: true,
-      initResult: false,
-    },
-  );
+  // const { bindInviteCode } = useReferFriends();
+  // const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
+  //   async () => {
+  //     const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
+  //     if (code) {
+  //       return false;
+  //     }
+  //     if (earnAccount?.accountAddress) {
+  //       const inviteCodeOnServer =
+  //         await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
+  //           networkId,
+  //           accountAddress: earnAccount?.accountAddress,
+  //         });
+  //       if (inviteCodeOnServer) {
+  //         return false;
+  //       }
+  //     }
+  //     return true;
+  //   },
+  //   [earnAccount?.accountAddress, networkId],
+  //   {
+  //     revalidateOnFocus: true,
+  //     initResult: false,
+  //   },
+  // );
 
   return (
     <Page scrollEnabled>
@@ -396,7 +396,7 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
-        {result?.buttons?.addInviteCode && isShowAlert ? (
+        {/* {result?.buttons?.addInviteCode && isShowAlert ? (
           <Alert
             type="success"
             icon="GiftOutline"
@@ -419,7 +419,7 @@ const ProtocolDetailsPage = () => {
             }}
             fullBleed
           />
-        ) : null}
+        ) : null} */}
         <YStack px="$5" gap="$8">
           <PageFrame
             LoadingSkeleton={OverviewSkeleton}
