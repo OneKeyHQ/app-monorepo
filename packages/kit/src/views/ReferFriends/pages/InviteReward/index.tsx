@@ -479,6 +479,35 @@ function Dashboard({
           <NoRewardYet />
         )}
       </YStack>
+      <YStack
+        px="$5"
+        py="$4"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+      >
+        <XStack ai="center" jc="space-between">
+          <XStack ai="flex-end">
+            <SizableText size="$headingMd">
+              {intl.formatMessage({ id: ETranslations.referral_swap_reward })}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              position="relative"
+              top={-2}
+            >
+              {`  (${intl.formatMessage({
+                id: ETranslations.coming_soon,
+              })})`}
+            </SizableText>
+          </XStack>
+        </XStack>
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.referral_swap_reward_desc })}
+        </SizableText>
+        <NoRewardYet />
+      </YStack>
     </YStack>
   );
 }
