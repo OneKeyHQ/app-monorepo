@@ -296,23 +296,20 @@ const ProtocolDetailsPage = () => {
     ],
   );
 
-  // TODO: 判断是否需要注册
   const falconUSDfRegister = useFalconUSDfRegister();
   const shouldRegisterBeforeStake = useMemo(() => {
-    // return provider.toLowerCase() === EEarnProviderEnum.Falcon.toLowerCase();
-    return false;
-  }, []);
+    return !result?.hasRegister;
+  }, [result?.hasRegister]);
 
   const registerButtonProps = useMemo<ComponentProps<typeof Button>>(
     () => ({
       variant: 'primary',
       loading: stakeLoading,
       onPress: () => {
-        // TODO: add register logic
-        console.log('Register button pressed');
         void falconUSDfRegister({
           accountId: earnAccount?.accountId ?? '',
           networkId: earnAccount?.networkId ?? '',
+          details: result,
         });
       },
     }),
@@ -321,6 +318,7 @@ const ProtocolDetailsPage = () => {
       earnAccount?.accountId,
       earnAccount?.networkId,
       falconUSDfRegister,
+      result,
     ],
   );
 

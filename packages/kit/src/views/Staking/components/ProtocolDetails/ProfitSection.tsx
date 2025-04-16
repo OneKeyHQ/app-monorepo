@@ -107,7 +107,7 @@ function ProfitInfo({
                     earnUtils.isFalconProvider({
                       providerName: providerName || '',
                     })
-                      ? apys?.weeklyNetApy
+                      ? apr
                       : apys?.dailyNetApy,
                   )}% ${rewardUnit}`}
                 </SizableText>

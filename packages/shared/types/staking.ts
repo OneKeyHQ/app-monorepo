@@ -282,6 +282,10 @@ export type IStakeProtocolDetails = {
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
   waitingRebateRewardAmount: string;
+
+  // falcon
+  preStaked?: boolean; // pre stake usdf user
+  hasRegister?: boolean; // register falcon user
 };
 
 export type IStakeProtocolListItem = {
@@ -524,6 +528,24 @@ export interface IEarnPermit2ApproveSignData {
       type: string;
     }[];
   };
+}
+
+export interface IBuildRegisterSignMessageParams {
+  networkId: string;
+  provider: string;
+  symbol: string;
+  accountAddress: string;
+}
+
+export interface IEarnRegisterSignMessageResponse {
+  expiredAt: string;
+  message: string;
+}
+
+export interface IVerifyRegisterSignMessageParams
+  extends IBuildRegisterSignMessageParams {
+  signature: string;
+  expiredAt: string;
 }
 
 export type IApproveConfirmFnParams = {

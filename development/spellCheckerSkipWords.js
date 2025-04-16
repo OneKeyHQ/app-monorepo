@@ -927,4 +927,5 @@ module.exports = [
   "ttf'",
   "xmr'",
   "xrp'",
+  'usdf',
 ];
