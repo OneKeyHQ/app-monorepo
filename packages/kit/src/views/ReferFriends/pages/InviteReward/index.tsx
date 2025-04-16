@@ -626,7 +626,7 @@ export default function InviteReward() {
     },
   );
 
-  const renderHeader = useCallback(
+  const renderHeaderTitle = useCallback(
     () => (
       <XStack gap="$2">
         <SizableText size="$headingLg">
