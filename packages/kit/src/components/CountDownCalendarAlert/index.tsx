@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,6 +25,7 @@ const calculateTimeLeft = (effectiveTimeAt: number) => {
   return { days, hours, minutes };
 };
 
+const TEMPLATE_PLACEHOLDER = '#00#';
 function TimeItem({
   translationId,
   timeLeft,
@@ -33,22 +34,47 @@ function TimeItem({
   timeLeft: number;
 }) {
   const intl = useIntl();
-  return (
-    <SizableText size="$bodyMdMedium" display="flex" ai="center">
-      {intl.formatMessage(
+  const templates = useMemo(() => {
+    intl
+      .formatMessage(
         { id: translationId },
         {
-          number: (
-            <Badge badgeType="info">
-              <Badge.Text size="$bodyMdMedium" color="$textInfo">
-                {timeLeft}
-              </Badge.Text>
-            </Badge>
-          ),
+          number: TEMPLATE_PLACEHOLDER,
         },
-      )}
-    </SizableText>
-  );
+      )
+      .split(TEMPLATE_PLACEHOLDER);
+    return intl
+      .formatMessage(
+        { id: translationId },
+        {
+          number: TEMPLATE_PLACEHOLDER,
+        },
+      )
+      .split(TEMPLATE_PLACEHOLDER);
+  }, [intl, translationId]);
+
+  return templates.map((item: string) => {
+    if (item === '') {
+      return (
+        <Badge badgeType="info" key={item}>
+          <Badge.Text size="$bodyMdMedium" color="$textInfo">
+            {timeLeft}
+          </Badge.Text>
+        </Badge>
+      );
+    }
+    return (
+      <SizableText
+        key={item}
+        size="$bodyMdMedium"
+        display="flex"
+        ai="center"
+        position="relative"
+      >
+        {item}
+      </SizableText>
+    );
+  });
 }
 
 export function CountDownCalendarAlert({
