@@ -218,17 +218,7 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
-      onAddressAdded: async ({
-        address,
-        networkId,
-      }: {
-        address: string;
-        networkId: string;
-      }) => {
-        await backgroundApiProxy.serviceReferralCode.bindAddress(
-          networkId,
-          address,
-        );
+      onAddressAdded: async () => {
         setTimeout(() => {
           fetchSummaryInfo();
         }, 50);
