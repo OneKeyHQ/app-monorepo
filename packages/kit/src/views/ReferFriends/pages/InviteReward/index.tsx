@@ -412,7 +412,7 @@ function Dashboard({
               {showHardwarePendingFiat ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
-                    id: ETranslations.global_pending,
+                    id: ETranslations.referral_sales_reward_pending,
                   })}
                 </SizableText>
               ) : null}
