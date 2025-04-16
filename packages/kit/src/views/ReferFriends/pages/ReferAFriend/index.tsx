@@ -179,15 +179,6 @@ export default function ReferAFriend() {
                       </SizableText>
                       <SizableText
                         size="$bodyMd"
-                        color="$textSubdued"
-                        pt="$0.5"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.referral_intro_for_your_friend_2,
-                        })}
-                      </SizableText>
-                      <SizableText
-                        size="$bodyMd"
                         color="$textInfo"
                         pt="$2"
                         textDecorationLine="underline"
