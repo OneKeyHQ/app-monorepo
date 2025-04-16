@@ -192,8 +192,8 @@ export const useLoginOneKeyId = () => {
               onConfirm={async (code: string) => {
                 await timerUtils.wait(120);
                 await onConfirm(code);
-                resolve();
                 await dialog.close();
+                resolve();
               }}
               sendCode={async () => {
                 return backgroundApiProxy.servicePrime.sendEmailOTP(
