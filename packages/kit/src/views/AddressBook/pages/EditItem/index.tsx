@@ -109,10 +109,16 @@ function EditItemPage() {
       if (isCreateMode) {
         return { ...defaultValues, ...addressBookParams };
       }
+      const { password } =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      if (!password) {
+        throw new Error('No password');
+      }
       const addressBookItem =
-        await backgroundApiProxy.serviceAddressBook.findItemById(
-          addressBookParams.id,
-        );
+        await backgroundApiProxy.serviceAddressBook.findItemById({
+          id: addressBookParams.id,
+          password,
+        });
       return {
         ...addressBookItem,
         ...addressBookParams,

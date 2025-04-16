@@ -1,3 +1,5 @@
+import { Semaphore } from 'async-mutex';
+
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type {
   IDecryptStringParams,
@@ -529,64 +531,69 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // ui ------------------------------
+  promptPasswordVerifyMutex = new Semaphore(1);
+
   @backgroundMethod()
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
   }): Promise<IPasswordRes> {
-    const v4migrationData = await v4migrationAtom.get();
-    if (v4migrationData?.isProcessing) {
-      const v4migrationPassword =
-        await this.backgroundApi.serviceV4Migration.getMigrationPasswordV5();
-      if (v4migrationPassword) {
-        return {
-          password: v4migrationPassword,
-        };
+    return this.promptPasswordVerifyMutex.runExclusive(async () => {
+      // TODO mutex
+      const v4migrationData = await v4migrationAtom.get();
+      if (v4migrationData?.isProcessing) {
+        const v4migrationPassword =
+          await this.backgroundApi.serviceV4Migration.getMigrationPasswordV5();
+        if (v4migrationPassword) {
+          return {
+            password: v4migrationPassword,
+          };
+        }
       }
-    }
 
-    const { reason } = options || {};
-    // check ext ui open
-    if (
-      platformEnv.isExtension &&
-      this.backgroundApi.bridgeExtBg &&
-      !checkExtUIOpen(this.backgroundApi.bridgeExtBg)
-    ) {
-      throw new OneKeyErrors.OneKeyInternalError();
-    }
+      const { reason } = options || {};
+      // check ext ui open
+      if (
+        platformEnv.isExtension &&
+        this.backgroundApi.bridgeExtBg &&
+        !checkExtUIOpen(this.backgroundApi.bridgeExtBg)
+      ) {
+        throw new OneKeyErrors.OneKeyInternalError();
+      }
 
-    const needReenterPassword = await this.isAlwaysReenterPassword(reason);
-    if (!needReenterPassword) {
-      const cachedPassword = await this.getCachedPassword();
-      if (cachedPassword) {
-        ensureSensitiveTextEncoded(cachedPassword);
-        return Promise.resolve({
-          password: cachedPassword,
+      const needReenterPassword = await this.isAlwaysReenterPassword(reason);
+      if (!needReenterPassword) {
+        const cachedPassword = await this.getCachedPassword();
+        if (cachedPassword) {
+          ensureSensitiveTextEncoded(cachedPassword);
+          return Promise.resolve({
+            password: cachedPassword,
+          });
+        }
+      }
+
+      const isPasswordSet = await this.checkPasswordSet();
+      this.clearPasswordPromptTimeout();
+      const res = new Promise((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
         });
-      }
-    }
+        void this.showPasswordPromptDialog({
+          idNumber: promiseId,
+          type: isPasswordSet
+            ? EPasswordPromptType.PASSWORD_VERIFY
+            : EPasswordPromptType.PASSWORD_SETUP,
+          dialogProps: options?.dialogProps,
+        });
+      });
+      const result = await (res as Promise<IPasswordRes>);
+      ensureSensitiveTextEncoded(result.password);
 
-    const isPasswordSet = await this.checkPasswordSet();
-    this.clearPasswordPromptTimeout();
-    const res = new Promise((resolve, reject) => {
-      const promiseId = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      void this.showPasswordPromptDialog({
-        idNumber: promiseId,
-        type: isPasswordSet
-          ? EPasswordPromptType.PASSWORD_VERIFY
-          : EPasswordPromptType.PASSWORD_SETUP,
-        dialogProps: options?.dialogProps,
-      });
+      // wait PromptPasswordDialog close animation
+      await timerUtils.wait(600);
+      return result;
     });
-    const result = await (res as Promise<IPasswordRes>);
-    ensureSensitiveTextEncoded(result.password);
-
-    // wait PromptPasswordDialog close animation
-    await timerUtils.wait(600);
-    return result;
   }
 
   @backgroundMethod()

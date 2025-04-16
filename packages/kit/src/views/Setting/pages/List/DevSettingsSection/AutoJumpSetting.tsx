@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import {
+  ESwitchSize,
   Select,
   SizableText,
   Stack,
@@ -41,6 +42,7 @@ export const AutoJumpSetting = memo(() => {
           }}
         >
           <Switch
+            size={ESwitchSize.small}
             value={autoNavigation.enabled}
             onChange={(value: boolean) => {
               setDevSettings((prev) => ({
