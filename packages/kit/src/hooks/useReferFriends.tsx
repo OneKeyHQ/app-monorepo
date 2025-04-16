@@ -245,7 +245,7 @@ export const useReferFriends = () => {
                     $md={{
                       flex: 1,
                     }}
-                    size="medium"
+                    size={platformEnv.isNative ? 'large' : 'medium'}
                     onPress={() => copyText(sharedUrl)}
                   >
                     {intl.formatMessage({ id: ETranslations.global_copy })}
@@ -254,7 +254,7 @@ export const useReferFriends = () => {
                     <Button
                       variant="primary"
                       icon="ShareOutline"
-                      size="medium"
+                      size={platformEnv.isNative ? 'large' : 'medium'}
                       $md={{
                         flex: 1,
                       }}
@@ -308,11 +308,11 @@ export const useReferFriends = () => {
                     id: ETranslations.referral_intro_for_you,
                   })}
                 </SizableText>
-                <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
+                {/* <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.earn_referral_for_you_reward,
                   })}
-                </SizableText>
+                </SizableText> */}
               </YStack>
             </XStack>
             <XStack gap="$4">
