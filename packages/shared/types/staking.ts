@@ -293,15 +293,18 @@ export type IStakeProtocolListItem = {
 
 export type IRewardApys = {
   // Base rates
-  rate: string;
-  netApy: string;
+  rate?: string;
+  netApy?: string;
   performanceFee: string;
 
   // Time-based APYs
-  dailyApy: string;
-  dailyNetApy: string;
-  weeklyNetApy: string;
-  monthlyNetApy: string;
+  dailyApy?: string;
+  dailyNetApy?: string;
+  weeklyNetApy?: string;
+  monthlyNetApy?: string;
+
+  // falcon
+  airdrop?: string;
 
   // Token rewards
   rewards: Record<string, string>;

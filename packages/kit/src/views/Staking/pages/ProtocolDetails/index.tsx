@@ -35,6 +35,7 @@ import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSect
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
@@ -295,6 +296,69 @@ const ProtocolDetailsPage = () => {
     ],
   );
 
+  // TODO: 判断是否需要注册
+  const falconUSDfRegister = useFalconUSDfRegister();
+  const shouldRegisterBeforeStake = useMemo(() => {
+    // return provider.toLowerCase() === EEarnProviderEnum.Falcon.toLowerCase();
+    return false;
+  }, []);
+
+  const registerButtonProps = useMemo<ComponentProps<typeof Button>>(
+    () => ({
+      variant: 'primary',
+      loading: stakeLoading,
+      onPress: () => {
+        // TODO: add register logic
+        console.log('Register button pressed');
+        void falconUSDfRegister({
+          accountId: earnAccount?.accountId ?? '',
+          networkId: earnAccount?.networkId ?? '',
+        });
+      },
+    }),
+    [
+      stakeLoading,
+      earnAccount?.accountId,
+      earnAccount?.networkId,
+      falconUSDfRegister,
+    ],
+  );
+
+  const renderPageFooter = useCallback(() => {
+    if (media.gtMd) {
+      return null;
+    }
+    if (shouldRegisterBeforeStake) {
+      return (
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.earn_register,
+          })}
+          confirmButtonProps={registerButtonProps}
+        />
+      );
+    }
+    return (
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.earn_deposit,
+        })}
+        confirmButtonProps={stakeButtonProps}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.global_withdraw,
+        })}
+        cancelButtonProps={withdrawButtonProps}
+      />
+    );
+  }, [
+    media,
+    shouldRegisterBeforeStake,
+    intl,
+    registerButtonProps,
+    stakeButtonProps,
+    withdrawButtonProps,
+  ]);
+
   const { bindInviteCode } = useReferFriends();
   const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
     async () => {
@@ -370,8 +434,10 @@ const ProtocolDetailsPage = () => {
                 <>
                   <StakedValueSection
                     details={result}
+                    shouldRegisterBeforeStake={shouldRegisterBeforeStake}
                     stakeButtonProps={stakeButtonProps}
                     withdrawButtonProps={withdrawButtonProps}
+                    registerButtonProps={registerButtonProps}
                     alerts={result?.provider.alerts}
                   />
                   <PortfolioSection
@@ -401,18 +467,7 @@ const ProtocolDetailsPage = () => {
                 />
               )}
             </ProtocolDetails>
-            {!media.gtMd ? (
-              <Page.Footer
-                onConfirmText={intl.formatMessage({
-                  id: ETranslations.earn_deposit,
-                })}
-                confirmButtonProps={stakeButtonProps}
-                onCancelText={intl.formatMessage({
-                  id: ETranslations.global_withdraw,
-                })}
-                cancelButtonProps={withdrawButtonProps}
-              />
-            ) : null}
+            {renderPageFooter()}
             {result ? (
               <StakingTransactionIndicator
                 accountId={earnAccount?.accountId ?? ''}

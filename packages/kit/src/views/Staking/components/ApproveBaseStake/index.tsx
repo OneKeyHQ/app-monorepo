@@ -59,7 +59,7 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { MorphoApy } from '../ProtocolDetails/MorphoApy';
+import { ProtocolApyRewards } from '../ProtocolDetails/ProtocolApyRewards';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
@@ -363,7 +363,7 @@ export function ApproveBaseStake({
 
     if (details.provider.apys) {
       // handle base token reward
-      const baseRateBN = new BigNumber(details.provider.apys.rate);
+      const baseRateBN = new BigNumber(details.provider.apys?.rate ?? 0);
       if (baseRateBN.gt(0)) {
         const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
 
@@ -917,19 +917,7 @@ export function ApproveBaseStake({
                     variant="tertiary"
                   />
                 }
-                renderContent={
-                  <MorphoApy
-                    apys={details.provider.apys}
-                    rewardAssets={details.rewardAssets}
-                    poolFee={
-                      earnUtils.isMorphoProvider({
-                        providerName: providerName || '',
-                      })
-                        ? details.provider.poolFee
-                        : undefined
-                    }
-                  />
-                }
+                renderContent={<ProtocolApyRewards details={details} />}
                 placement="top"
               />
             ) : null}
