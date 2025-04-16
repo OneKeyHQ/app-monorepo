@@ -144,33 +144,27 @@ const useDesktopEvents = platformEnv.isDesktop
             const allModalRoutes = routeState.routes.filter(
               (_, index) => index !== 0,
             );
-            const hasModalRoutes = allModalRoutes.length > 0;
+            const hasMultipleModalRoutes = allModalRoutes.length > 0;
 
-            if (hasModalRoutes) {
-              Dialog.confirm({
-                title: intl.formatMessage({
-                  id: ETranslations.global_close,
-                }),
-                icon: 'ErrorOutline',
-                onConfirm: () => {
-                  let index = 1;
-                  allModalRoutes.forEach((route) => {
-                    const routeLength =
-                      route.state?.routes?.[0]?.state?.routes.length || 1;
-                    for (let i = 0; i < routeLength; i += 1)
-                      setTimeout(() => {
-                        rootNavigationRef.current?.goBack();
-                      }, index * 10);
-
-                    index += 1;
-                  });
-
-                  // Then navigate
+            if (hasMultipleModalRoutes) {
+              let index = 1;
+              // close all modal routes
+              allModalRoutes.forEach((route) => {
+                const routeLength =
+                  route.state?.routes?.[0]?.state?.routes.length || 1;
+                for (let i = 0; i < routeLength; i += 1)
                   setTimeout(() => {
-                    navigateAction();
-                  }, 100);
-                },
+                    rootNavigationRef.current?.goBack();
+                  }, index * 10);
+
+                index += 1;
               });
+              index += 1;
+
+              // Then navigate
+              setTimeout(() => {
+                navigateAction();
+              }, index * 10);
             } else {
               // If there are no deeper routes, close the modal directly
               rootNavigationRef.current?.goBack();
@@ -181,7 +175,7 @@ const useDesktopEvents = platformEnv.isDesktop
             }
           }
         },
-        [intl],
+        [],
       );
 
       useEffect(() => {
