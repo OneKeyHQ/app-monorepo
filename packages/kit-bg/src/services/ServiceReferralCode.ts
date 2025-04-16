@@ -34,12 +34,13 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async bindAddress(networkId: string, address: string) {
+  async bindAddress(params: {
+    networkId: string;
+    address: string;
+    emailOTP: string;
+  }) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
-    await client.post('/rebate/v1/address', {
-      address,
-      networkId,
-    });
+    return client.post('/rebate/v1/address', params);
   }
 
   @backgroundMethod()
