@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import { CommonActions, StackActions } from '@react-navigation/core';
 import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -147,10 +148,8 @@ const useDesktopEvents = platformEnv.isDesktop
             );
 
             if (modalRoute) {
-              // Check if the modal has deeper routes
-              const hasNestedRoutes =
-                modalRoute.state?.routes?.[0]?.state?.routes &&
-                modalRoute.state.routes[0].state.routes.length > 1;
+              const routes = modalRoute.state?.routes?.[0]?.state?.routes;
+              const hasNestedRoutes = routes && routes.length > 1;
 
               if (hasNestedRoutes) {
                 // If there are deeper routes, show confirmation dialog
@@ -158,17 +157,23 @@ const useDesktopEvents = platformEnv.isDesktop
                   title: intl.formatMessage({
                     id: ETranslations.global_close,
                   }),
-                  description: intl.formatMessage({
-                    id: ETranslations.global_confirm,
-                  }),
                   onConfirm: () => {
-                    // Close all modals in the stack
-                    const routeLength = routeState.routes.length;
-                    for (let i = 0; i < routeLength; i += 1) {
-                      if (routeState.routes[i].name === ERootRoutes.Modal) {
-                        rootNavigationRef.current?.goBack();
-                      }
-                    }
+                    const allModalRoutes = routeState.routes.filter(
+                      (route) => route.name === ERootRoutes.Modal,
+                    );
+
+                    let index = 1;
+                    allModalRoutes.forEach((route) => {
+                      const routeLength =
+                        route.state?.routes?.[0]?.state?.routes.length || 1;
+                      for (let i = 0; i < routeLength; i += 1)
+                        setTimeout(() => {
+                          rootNavigationRef.current?.goBack();
+                        }, index * 10);
+
+                      index += 1;
+                    });
+
                     // Then navigate
                     setTimeout(() => {
                       navigateAction();
