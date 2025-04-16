@@ -187,7 +187,7 @@ function ShareCode({
           </Stack>
         </YStack>
       </YStack>
-      <Divider bg="$borderSubdued" mx="$5" />
+      <Divider mx="$5" />
     </>
   );
 }
