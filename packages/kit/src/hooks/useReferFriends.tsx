@@ -245,7 +245,7 @@ export const useReferFriends = () => {
                     $md={{
                       flex: 1,
                     }}
-                    size="medium"
+                    size={platformEnv.isNative ? 'large' : 'medium'}
                     onPress={() => copyText(sharedUrl)}
                   >
                     {intl.formatMessage({ id: ETranslations.global_copy })}
@@ -254,7 +254,7 @@ export const useReferFriends = () => {
                     <Button
                       variant="primary"
                       icon="ShareOutline"
-                      size="medium"
+                      size={platformEnv.isNative ? 'large' : 'medium'}
                       $md={{
                         flex: 1,
                       }}
