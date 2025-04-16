@@ -144,7 +144,7 @@ const useDesktopEvents = platformEnv.isDesktop
       openSettingsRef.current = openSettings;
 
       const ensureModalClosedAndNavigate = useCallback(
-        (navigateAction: () => void) => {
+        (navigateAction?: () => void) => {
           const routeState = rootNavigationRef.current?.getRootState();
           if (routeState?.routes) {
             const allModalRoutes = routeState.routes.filter(
@@ -172,11 +172,11 @@ const useDesktopEvents = platformEnv.isDesktop
               index += 1;
 
               setTimeout(() => {
-                navigateAction();
+                navigateAction?.();
               }, index * 10);
             } else {
               setTimeout(() => {
-                navigateAction();
+                navigateAction?.();
               }, 100);
             }
           }
@@ -222,7 +222,7 @@ const useDesktopEvents = platformEnv.isDesktop
                 void toReferFriendsPage();
               });
             } else {
-              rootNavigationRef.current?.goBack();
+              ensureModalClosedAndNavigate();
             }
             break;
           case EShortcutEvents.TabMyOneKey:
@@ -231,7 +231,7 @@ const useDesktopEvents = platformEnv.isDesktop
                 void toMyOneKeyModal();
               });
             } else {
-              rootNavigationRef.current?.goBack();
+              ensureModalClosedAndNavigate();
             }
             break;
           case EShortcutEvents.TabBrowser:
