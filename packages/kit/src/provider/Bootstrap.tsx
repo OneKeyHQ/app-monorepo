@@ -35,7 +35,10 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useReferFriends } from '../hooks/useReferFriends';
-import { useToMyOneKeyModal } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
+import {
+  isOpenedMyOneKeyModal,
+  useToMyOneKeyModal,
+} from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
 
 import type { IntlShape } from 'react-intl';
@@ -161,14 +164,10 @@ const useDesktopEvents = platformEnv.isDesktop
               });
               index += 1;
 
-              // Then navigate
               setTimeout(() => {
                 navigateAction();
               }, index * 10);
             } else {
-              // If there are no deeper routes, close the modal directly
-              rootNavigationRef.current?.goBack();
-              // Then navigate
               setTimeout(() => {
                 navigateAction();
               }, 100);
@@ -216,9 +215,13 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabMyOneKey:
-            ensureModalClosedAndNavigate(() => {
-              void toMyOneKeyModal();
-            });
+            if (!isOpenedMyOneKeyModal()) {
+              ensureModalClosedAndNavigate(() => {
+                void toMyOneKeyModal();
+              });
+            } else {
+              rootNavigationRef.current?.goBack();
+            }
             break;
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);
