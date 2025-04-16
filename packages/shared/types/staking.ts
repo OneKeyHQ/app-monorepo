@@ -309,6 +309,7 @@ export type IRewardApys = {
   dailyNetApy?: string;
   weeklyNetApy?: string;
   monthlyNetApy?: string;
+  weeklyNetApyWithoutFee?: string;
 
   // falcon
   airdrop?: string;

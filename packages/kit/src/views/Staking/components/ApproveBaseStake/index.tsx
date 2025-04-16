@@ -98,6 +98,7 @@ type ITokenAnnualReward = {
   amount: string;
   fiatValue?: string;
   token: IToken;
+  suffix?: string;
 };
 
 export function ApproveBaseStake({
@@ -363,7 +364,13 @@ export function ApproveBaseStake({
 
     if (details.provider.apys) {
       // handle base token reward
-      const baseRateBN = new BigNumber(details.provider.apys?.rate ?? 0);
+      const baseRateBN = new BigNumber(
+        earnUtils.isFalconProvider({
+          providerName: details.provider.name,
+        })
+          ? details.provider.apys?.weeklyNetApyWithoutFee ?? 0
+          : details.provider.apys?.rate ?? 0,
+      );
       if (baseRateBN.gt(0)) {
         const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
 
@@ -373,6 +380,9 @@ export function ApproveBaseStake({
             ? baseAmount.multipliedBy(price).toFixed()
             : undefined,
           token: details.token.info,
+          suffix: `+ ${intl.formatMessage({
+            id: ETranslations.explore_badge_airdrop,
+          })}`,
         });
       }
 
@@ -416,7 +426,7 @@ export function ApproveBaseStake({
     }
 
     return rewards;
-  }, [amountValue, apr, price, details, token]);
+  }, [amountValue, apr, price, details, token, intl]);
 
   const totalAnnualRewardsFiatValue = useMemo(() => {
     if (!estimatedAnnualRewards.length) return undefined;
@@ -733,6 +743,58 @@ export function ApproveBaseStake({
     trackAllowance,
   ]);
 
+  // falcon join requirement
+  const currentTotalStakedBN = useMemo(() => {
+    const availableBalanceBN = new BigNumber(details.available ?? 0);
+    const amountValueBN = new BigNumber(amountValue);
+    return availableBalanceBN.plus(amountValueBN.isNaN() ? 0 : amountValueBN);
+  }, [details.available, amountValue]);
+
+  const displayJoinRequirementAlert = useMemo(() => {
+    if (
+      earnUtils.isFalconProvider({
+        providerName: details.provider.name,
+      })
+    ) {
+      const joinRequirementBN = new BigNumber(
+        details.provider.joinRequirement ?? 0,
+      );
+      if (
+        joinRequirementBN.isNaN() ||
+        joinRequirementBN.isLessThanOrEqualTo(0)
+      ) {
+        return false;
+      }
+      return currentTotalStakedBN.isLessThan(joinRequirementBN);
+    }
+    return false;
+  }, [
+    details.provider.name,
+    details.provider.joinRequirement,
+    currentTotalStakedBN,
+  ]);
+
+  const joinRequirementAlertText = useMemo(() => {
+    if (!displayJoinRequirementAlert) {
+      return '';
+    }
+    const joinRequirementBN = new BigNumber(
+      details.provider.joinRequirement ?? 0,
+    );
+    const remainingAmount = joinRequirementBN.minus(currentTotalStakedBN);
+    const remainingAmountStr = remainingAmount.toFixed(2);
+    return intl.formatMessage(
+      { id: ETranslations.earn_remaining_to_minimum },
+      { value: `${remainingAmountStr}`, symbol: token.symbol },
+    );
+  }, [
+    displayJoinRequirementAlert,
+    details.provider.joinRequirement,
+    currentTotalStakedBN,
+    intl,
+    token.symbol,
+  ]);
+
   const placeholderTokens = useMemo(
     () => (
       <>
@@ -890,6 +952,13 @@ export function ApproveBaseStake({
           })}
         />
       ) : null}
+      {displayJoinRequirementAlert ? (
+        <Alert
+          icon="ErrorOutline"
+          type="default"
+          title={joinRequirementAlertText}
+        />
+      ) : null}
       <YStack
         p="$3.5"
         pt="$5"
@@ -926,7 +995,11 @@ export function ApproveBaseStake({
         <YStack pt="$3.5" gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.earn_est_annual_rewards,
+              id: earnUtils.isFalconProvider({
+                providerName: details.provider.name,
+              })
+                ? ETranslations.earn_est_daily_rewards
+                : ETranslations.earn_est_annual_rewards,
             })}
           </SizableText>
           {estimatedAnnualRewards.length
@@ -951,6 +1024,11 @@ export function ApproveBaseStake({
                         {reward.fiatValue}
                       </NumberSizeableText>
                       <SizableText color="$textSubdued">)</SizableText>
+                    </SizableText>
+                  ) : null}
+                  {reward.suffix ? (
+                    <SizableText pl="$1" color="$textSubdued">
+                      {reward.suffix}
                     </SizableText>
                   ) : null}
                 </SizableText>
