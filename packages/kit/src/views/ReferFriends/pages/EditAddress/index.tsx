@@ -28,7 +28,9 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -61,6 +63,8 @@ function BasicEditAddress() {
   );
 
   const accountId = route.params?.accountId ?? '';
+
+  const { sendEmailOTP } = useLoginOneKeyId();
 
   const { result: networksResp } = usePromiseResult(
     async () => {
@@ -151,16 +155,27 @@ function BasicEditAddress() {
   onSubmitRef.current = useCallback(
     async (formContext: UseFormReturn<IFormValues>) => {
       const values = formContext.getValues();
+      const address = values.to.resolved ?? '';
+      const networkId = values.networkId ?? '';
+      await sendEmailOTP({
+        onConfirm: async (emailOTP) => {
+          return backgroundApiProxy.serviceReferralCode.bindAddress({
+            networkId,
+            address,
+            emailOTP,
+          });
+        },
+      });
 
       navigation.pop();
       setTimeout(() => {
         onAddressAdded?.({
-          address: values.to.resolved ?? '',
-          networkId: values.networkId ?? '',
+          address,
+          networkId,
         });
       });
     },
-    [navigation, onAddressAdded],
+    [navigation, onAddressAdded, sendEmailOTP],
   );
 
   const contextValue = useMemo(
@@ -178,6 +193,7 @@ function BasicEditAddress() {
         title={intl.formatMessage({
           id: ETranslations.address_book_edit_address_title,
         })}
+        headerRight={renderAddressSecurityHeaderRightButton}
       />
       <Page.Body px="$5">
         <AddressInputContext.Provider value={contextValue}>
@@ -211,7 +227,7 @@ function BasicEditAddress() {
                 enableAddressContract
                 enableAllowListValidation
                 accountSelector={addressInputAccountSelectorArgs}
-                accountId={accountId}
+                // accountId={accountId}
                 networkId={networkIdValue}
                 contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
                 enableNameResolve
