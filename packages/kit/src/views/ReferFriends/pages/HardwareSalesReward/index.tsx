@@ -146,7 +146,7 @@ export default function HardwareSalesReward() {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
     }) => {
-      const isPositiveAmount = item.side !== 'out';
+      const isPositiveAmount = Number(item.amount) >= 0;
       return (
         <YStack px="$5">
           <XStack jc="space-between" gap="$4">
@@ -178,7 +178,7 @@ export default function HardwareSalesReward() {
               size="$bodyLgMedium"
               pr="$0.5"
             >
-              {Number(item.amount) * (isPositiveAmount ? 1 : -1)}
+              {item.amount}
             </NumberSizeableText>
           </XStack>
         </YStack>
@@ -284,7 +284,7 @@ export default function HardwareSalesReward() {
                       </NumberSizeableText>
                       <SizableText size="$bodyMd" color="t$extSubdued">
                         {intl.formatMessage({
-                          id: ETranslations.global_pending,
+                          id: ETranslations.referral_reward_undistributed_pending,
                         })}
                       </SizableText>
                     </XStack>

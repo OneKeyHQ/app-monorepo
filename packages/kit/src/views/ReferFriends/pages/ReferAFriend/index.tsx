@@ -138,7 +138,7 @@ export default function ReferAFriend() {
                           },
                         )}
                       </SizableText>
-                      <SizableText
+                      {/* <SizableText
                         size="$bodyMd"
                         color="$textSubdued"
                         pt="$0.5"
@@ -146,7 +146,7 @@ export default function ReferAFriend() {
                         {intl.formatMessage({
                           id: ETranslations.earn_referral_for_you_reward,
                         })}
-                      </SizableText>
+                      </SizableText> */}
                     </YStack>
                   </XStack>
                   <XStack gap="$4">
