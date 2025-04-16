@@ -141,33 +141,48 @@ const useDesktopEvents = platformEnv.isDesktop
         (navigateAction: () => void) => {
           const routeState = rootNavigationRef.current?.getRootState();
           if (routeState?.routes) {
-            // Check if any route in the stack is a Modal
-            const isModalOpen = routeState.routes.some(
+            // Find the Modal route if it exists
+            const modalRoute = routeState.routes.find(
               (route) => route.name === ERootRoutes.Modal,
             );
-            if (isModalOpen) {
-              // Show dialog asking if user wants to close the modal
-              Dialog.confirm({
-                title: intl.formatMessage({
-                  id: ETranslations.global_close,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.global_confirm,
-                }),
-                onConfirm: () => {
-                  // Close all modals in the stack
-                  const routeLength = routeState.routes.length;
-                  for (let i = 0; i < routeLength; i += 1) {
-                    if (routeState.routes[i].name === ERootRoutes.Modal) {
-                      rootNavigationRef.current?.goBack();
+
+            if (modalRoute) {
+              // Check if the modal has deeper routes
+              const hasNestedRoutes =
+                modalRoute.state?.routes?.[0]?.state?.routes &&
+                modalRoute.state.routes[0].state.routes.length > 1;
+
+              if (hasNestedRoutes) {
+                // If there are deeper routes, show confirmation dialog
+                Dialog.confirm({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_close,
+                  }),
+                  description: intl.formatMessage({
+                    id: ETranslations.global_confirm,
+                  }),
+                  onConfirm: () => {
+                    // Close all modals in the stack
+                    const routeLength = routeState.routes.length;
+                    for (let i = 0; i < routeLength; i += 1) {
+                      if (routeState.routes[i].name === ERootRoutes.Modal) {
+                        rootNavigationRef.current?.goBack();
+                      }
                     }
-                  }
-                  // Then navigate
-                  setTimeout(() => {
-                    navigateAction();
-                  }, 100);
-                },
-              });
+                    // Then navigate
+                    setTimeout(() => {
+                      navigateAction();
+                    }, 100);
+                  },
+                });
+              } else {
+                // If there are no deeper routes, close the modal directly
+                rootNavigationRef.current?.goBack();
+                // Then navigate
+                setTimeout(() => {
+                  navigateAction();
+                }, 100);
+              }
               return true;
             }
           }
