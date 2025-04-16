@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { CommonActions, StackActions } from '@react-navigation/core';
 import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -142,60 +141,45 @@ const useDesktopEvents = platformEnv.isDesktop
         (navigateAction: () => void) => {
           const routeState = rootNavigationRef.current?.getRootState();
           if (routeState?.routes) {
-            // Find the Modal route if it exists
-            const modalRoute = routeState.routes.find(
-              (route) => route.name === ERootRoutes.Modal,
+            const allModalRoutes = routeState.routes.filter(
+              (_, index) => index !== 0,
             );
+            const hasModalRoutes = allModalRoutes.length > 0;
 
-            if (modalRoute) {
-              const routes = modalRoute.state?.routes?.[0]?.state?.routes;
-              const hasNestedRoutes = routes && routes.length > 1;
+            if (hasModalRoutes) {
+              Dialog.confirm({
+                title: intl.formatMessage({
+                  id: ETranslations.global_close,
+                }),
+                icon: 'ErrorOutline',
+                onConfirm: () => {
+                  let index = 1;
+                  allModalRoutes.forEach((route) => {
+                    const routeLength =
+                      route.state?.routes?.[0]?.state?.routes.length || 1;
+                    for (let i = 0; i < routeLength; i += 1)
+                      setTimeout(() => {
+                        rootNavigationRef.current?.goBack();
+                      }, index * 10);
 
-              if (hasNestedRoutes) {
-                // If there are deeper routes, show confirmation dialog
-                Dialog.confirm({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_close,
-                  }),
-                  onConfirm: () => {
-                    const allModalRoutes = routeState.routes.filter(
-                      (route) =>
-                        route.name === ERootRoutes.Modal ||
-                        route.name === EModalRoutes.SettingModal,
-                    );
+                    index += 1;
+                  });
 
-                    let index = 1;
-                    allModalRoutes.forEach((route) => {
-                      const routeLength =
-                        route.state?.routes?.[0]?.state?.routes.length || 1;
-                      for (let i = 0; i < routeLength; i += 1)
-                        setTimeout(() => {
-                          rootNavigationRef.current?.goBack();
-                        }, index * 10);
-
-                      index += 1;
-                    });
-
-                    // Then navigate
-                    setTimeout(() => {
-                      navigateAction();
-                    }, 100);
-                  },
-                });
-              } else {
-                // If there are no deeper routes, close the modal directly
-                rootNavigationRef.current?.goBack();
-                // Then navigate
-                setTimeout(() => {
-                  navigateAction();
-                }, 100);
-              }
-              return true;
+                  // Then navigate
+                  setTimeout(() => {
+                    navigateAction();
+                  }, 100);
+                },
+              });
+            } else {
+              // If there are no deeper routes, close the modal directly
+              rootNavigationRef.current?.goBack();
+              // Then navigate
+              setTimeout(() => {
+                navigateAction();
+              }, 100);
             }
           }
-          // If no modal is open, navigate.
-          navigateAction();
-          return true;
         },
         [intl],
       );

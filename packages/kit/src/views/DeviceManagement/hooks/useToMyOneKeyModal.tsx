@@ -58,6 +58,16 @@ export function useToMyOneKeyModal() {
   }, [navigation]);
 }
 
+export const isOpenedMyOneKeyModal = () => {
+  const routeState = rootNavigationRef.current?.getRootState();
+  if (routeState?.routes) {
+    return routeState.routes.find(
+      (route) => route.name === EModalRoutes.DeviceManagementModal,
+    );
+  }
+  return false;
+};
+
 // use rootNavigationRef to navigate
 export function useToMyOneKeyModalByRootNavigation() {
   return useCallback(async () => {
