@@ -1,8 +1,15 @@
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { ColorTokens, IIconProps } from '@onekeyhq/components';
-import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
+import type { IIconProps } from '@onekeyhq/components';
+import {
+  Icon,
+  Page,
+  SizableText,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -13,17 +20,17 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import type { RouteProp } from '@react-navigation/core';
+import { useCallback } from 'react';
 
 interface IWaningMessage {
   icon?: IIconProps['name'];
-  iconColor?: IIconProps['color'];
-  iconContainerColor?: ColorTokens;
   message?: string;
 }
 
 export function BeforeShowRecoveryPhrase() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const media = useMedia();
 
   const route =
     useRoute<
@@ -45,35 +52,29 @@ export function BeforeShowRecoveryPhrase() {
     });
   };
 
+  const handleSkipRecoveryPhrasePress = useCallback(() => {}, [navigation]);
+
   const messages: IWaningMessage[] = [
     {
       icon: 'LockOutline',
-      iconColor: '$iconInfo',
-      iconContainerColor: '$bgInfo',
       message: intl.formatMessage({
         id: ETranslations.onboarding_bullet_recovery_phrase_full_access,
       }),
     },
     {
       icon: 'InputOutline',
-      iconColor: '$iconSuccess',
-      iconContainerColor: '$bgSuccess',
       message: intl.formatMessage({
         id: ETranslations.onboarding_bullet_forgot_passcode_use_recovery,
       }),
     },
     {
       icon: 'EyeOffOutline',
-      iconColor: '$iconCritical',
-      iconContainerColor: '$bgCritical',
       message: intl.formatMessage({
         id: ETranslations.onboarding_bullet_never_share_recovery_phrase,
       }),
     },
     {
       icon: 'ShieldCheckDoneOutline',
-      iconColor: '$iconCaution',
-      iconContainerColor: '$bgCaution',
       message: intl.formatMessage({
         id: ETranslations.onboarding_bullet_onekey_support_no_recovery_phrase,
       }),
@@ -82,50 +83,81 @@ export function BeforeShowRecoveryPhrase() {
 
   return (
     <Page safeAreaEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.onboarding_before_reveal_message,
-        })}
-      />
+      <Page.Header />
       <Page.Body>
-        <SizableText
+        <YStack
+          gap="$3"
+          pb="$5"
           pt="$2"
-          pb="$4"
-          px="$6"
-          size="$bodyLg"
-          color="$textSubdued"
+          justifyContent="center"
+          alignItems="center"
+          mt="$16"
         >
-          {intl.formatMessage({
-            id: ETranslations.onboarding_save_phrase_securely_instruction,
-          })}
-        </SizableText>
-        {messages.map((item) => (
-          <ListItem gap="$5" key={item.message}>
-            <Stack
-              p="$2"
-              borderRadius="$3"
-              bg={item.iconContainerColor}
-              borderCurve="continuous"
-            >
-              <Icon name={item.icon} color={item.iconColor} />
-            </Stack>
-            <ListItem.Text
-              flex={1}
-              primary={item.message}
-              primaryTextProps={{
-                size: '$bodyLg',
-              }}
-            />
-          </ListItem>
-        ))}
+          <Icon name="SecretPhraseOutline" color="$iconSubdued" size="$12" />
+          <SizableText
+            size="$headingLg"
+            $gtMd={{ width: 288 }}
+            textAlign="center"
+          >
+            {intl.formatMessage({
+              id: ETranslations.onboarding_save_phrase_securely_instruction,
+            })}
+          </SizableText>
+        </YStack>
+        <Stack alignItems="center">
+          <Stack $gtMd={{ width: 400 }}>
+            {messages.map((item) => (
+              <ListItem gap="$3" key={item.message} alignItems="flex-start">
+                <Stack
+                  width="$5"
+                  height="$5"
+                  justifyContent="center"
+                  alignItems="center"
+                  mt="$1"
+                >
+                  <Icon size="$5" name={item.icon} color="$iconSubdued" />
+                </Stack>
+                <ListItem.Text
+                  flex={1}
+                  primary={item.message}
+                  primaryTextProps={{
+                    size: '$bodyLg',
+                  }}
+                />
+              </ListItem>
+            ))}
+          </Stack>
+        </Stack>
       </Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_show_recovery_phrase,
-        })}
-        onConfirm={handleShowRecoveryPhrasePress}
-        confirmButtonProps={{ testID: 'show-recovery-phrase' }}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_show_recovery_phrase,
+          })}
+          confirmButtonProps={{
+            onPress: handleShowRecoveryPhrasePress,
+            testID: 'show-recovery-phrase',
+            $md: {
+              flexGrow: 1,
+            },
+          }}
+          cancelButtonProps={{
+            onPress: handleSkipRecoveryPhrasePress,
+            testID: 'skip-recovery-phrase',
+            $md: {
+              flexGrow: 1,
+            },
+          }}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.global_skip_for_now,
+          })}
+          buttonContainerProps={{
+            w: media.gtMd ? '100%' : 'auto',
+            flexDirection: media.gtMd ? 'row' : 'column-reverse',
+            justifyContent: media.gtMd ? 'space-between' : undefined,
+          }}
+        />
+      </Page.Footer>
     </Page>
   );
 }
