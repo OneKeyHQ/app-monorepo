@@ -7,6 +7,7 @@ import { FaqSection } from './FaqSection';
 import { ProfitSection } from './ProfitSection';
 import { ProtectionSection } from './ProtectionSection';
 import { ProviderSection } from './ProviderSection';
+import { RiskSection } from './RiskSection';
 
 type IProtocolDetailsProps = {
   details?: IStakeProtocolDetails;
@@ -28,6 +29,7 @@ export function ProtocolDetails({
       <ProtectionSection details={details} />
       <ProviderSection details={details} />
       <Divider />
+      <RiskSection details={details} />
       <FaqSection details={details} />
     </>
   );

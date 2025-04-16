@@ -95,7 +95,7 @@ function ProfitInfo({
             </GridItem>
           ) : null}
           {(apys?.dailyNetApy && Number(apys.dailyNetApy) > 0) ||
-          (apys?.airdrop && Number(apys.airdrop) > 0) ? (
+          (apys?.weeklyNetApy && Number(apys.weeklyNetApy) > 0) ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_rewards_percentage,
@@ -103,7 +103,13 @@ function ProfitInfo({
             >
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${formatApy(apys?.dailyNetApy)}% ${rewardUnit}`}
+                  {`${formatApy(
+                    earnUtils.isFalconProvider({
+                      providerName: providerName || '',
+                    })
+                      ? apys?.weeklyNetApy
+                      : apys?.dailyNetApy,
+                  )}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
                   <Popover
