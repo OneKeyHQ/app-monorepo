@@ -159,7 +159,9 @@ const useDesktopEvents = platformEnv.isDesktop
                   }),
                   onConfirm: () => {
                     const allModalRoutes = routeState.routes.filter(
-                      (route) => route.name === ERootRoutes.Modal,
+                      (route) =>
+                        route.name === ERootRoutes.Modal ||
+                        route.name === EModalRoutes.SettingModal,
                     );
 
                     let index = 1;
