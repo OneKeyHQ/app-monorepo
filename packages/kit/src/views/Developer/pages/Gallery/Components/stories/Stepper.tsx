@@ -76,7 +76,7 @@ function CustomStepperItem({ title, description, ...props }: IStepItemProps) {
 
 function CustomStepper() {
   return (
-    <Stepper stepIndex={1} hasError={false}>
+    <Stepper stepIndex={1}>
       <CustomStepperItem
         title="Register and deposit your USDf:"
         description="Before 2025-04-28 00:00"
