@@ -29,7 +29,6 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
@@ -775,56 +774,6 @@ export function ApproveBaseStake({
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
-  const { bindOrChangeInviteCode } = useReferFriends();
-
-  const { result: inviteData, run: refetchInviteCode } = usePromiseResult(
-    async () => {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId: approveTarget.accountId,
-        networkId: approveTarget.networkId,
-      });
-      const response = await Promise.allSettled([
-        backgroundApiProxy.serviceReferralCode.getInviteCode(),
-        backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
-          networkId: approveTarget.networkId,
-          accountAddress: account?.address || '',
-        }),
-      ]);
-      if (response[1].status === 'fulfilled' && response[1].value) {
-        await backgroundApiProxy.serviceReferralCode.bindInviteCode(
-          response[1].value,
-        );
-        return {
-          code: response[1].value,
-          disabled: true,
-        };
-      }
-
-      if (response[0].status === 'fulfilled' && response[0].value) {
-        return {
-          code: response[0].value,
-          disabled: false,
-        };
-      }
-
-      return {
-        code: '',
-        disabled: false,
-      };
-    },
-    [approveTarget.accountId, approveTarget.networkId],
-    {
-      initResult: {
-        code: '',
-        disabled: false,
-      },
-    },
-  );
-
-  const handleBindOrChangeInviteCode = useCallback(() => {
-    void bindOrChangeInviteCode(refetchInviteCode);
-  }, [bindOrChangeInviteCode, refetchInviteCode]);
-
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {
@@ -877,32 +826,6 @@ export function ApproveBaseStake({
         />,
       );
     }
-    items.push(
-      <CalculationListItem
-        onPress={inviteData.disabled ? undefined : handleBindOrChangeInviteCode}
-      >
-        <CalculationListItem.Label size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.referral_your_code,
-          })}
-        </CalculationListItem.Label>
-        <XStack alignItems="center" cursor="pointer" mr={-6}>
-          <SizableText size="$bodyMdMedium">
-            {inviteData.code ||
-              intl.formatMessage({
-                id: ETranslations.earn_referral_unlinked,
-              })}
-          </SizableText>
-          {inviteData.disabled ? undefined : (
-            <Icon
-              name="ChevronRightSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
-          )}
-        </XStack>
-      </CalculationListItem>,
-    );
     return items;
   }, [
     amountValue,
@@ -915,8 +838,6 @@ export function ApproveBaseStake({
     totalAnnualRewardsFiatValue,
     showEstimateGasAlert,
     daysSpent,
-    handleBindOrChangeInviteCode,
-    inviteData,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (

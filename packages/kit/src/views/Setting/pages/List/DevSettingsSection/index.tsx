@@ -609,6 +609,16 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        title="Reset Cached Password"
+        subtitle="清除缓存密码"
+        onPress={async () => {
+          await backgroundApiProxy.servicePassword.clearCachedPassword();
+          Toast.success({
+            title: 'Clear Cached Password Success',
+          });
+        }}
+      />
+      <SectionPressItem
         title="Reset Spotlight"
         onPress={() => {
           void backgroundApiProxy.serviceSpotlight.reset();
@@ -676,13 +686,24 @@ export const DevSettingsSection = () => {
       <SectionPressItem
         title="WebEmbedDevConfig"
         onPress={() => {
-          const dialog = Dialog.cancel({
+          Dialog.cancel({
             title: 'WebEmbedDevConfig',
             renderContent: <WebEmbedDevConfig />,
           });
         }}
       />
       <AutoJumpSetting />
+      <SectionFieldItem
+        name="useTradingViewTestDomain"
+        title="Use TradingView Test"
+        subtitle={
+          devSettings.settings?.useTradingViewTestDomain
+            ? '新版 TradingView'
+            : '旧版 TradingView'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
     </Section>
   );
 };

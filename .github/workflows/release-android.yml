@@ -36,10 +36,10 @@ jobs:
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          registry-url: 'https://npm.pkg.github.com'
+          registry-url: 'https://registry.npmjs.org'
           always-auth: true
           scope: '@onekeyhq'
 
@@ -49,8 +49,8 @@ jobs:
           rm -rf apps/mobile/android/app/google-services.json
           echo ${{ secrets.GOOGLE_SERVICE_ANDROID }} | base64 -d > apps/mobile/android/app/google-services.json
 
-      - name: Setup Expo
-        uses: OneKeyHQ/actions/expo-server@main
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
