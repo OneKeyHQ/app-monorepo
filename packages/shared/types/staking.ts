@@ -87,6 +87,9 @@ export type IStakeProviderInfo = {
   liquidity?: string;
   vaultManager?: string;
   vaultManagerName?: string;
+
+  // falcon
+  joinRequirement?: string;
 };
 
 export type IStakeBaseParams = {

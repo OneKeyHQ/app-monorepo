@@ -39,6 +39,7 @@ type IProfitInfoProps = {
   nextLaunchLeft?: string;
   providerName?: string;
   token: IStakeProtocolDetails['token'];
+  joinRequirement?: string;
 };
 
 function ProfitInfo({
@@ -55,6 +56,7 @@ function ProfitInfo({
   earnPoints,
   rewardUnit,
   providerName,
+  joinRequirement,
   token,
 }: IProfitInfoProps) {
   const intl = useIntl();
@@ -219,6 +221,24 @@ function ProfitInfo({
               )}
             </GridItem>
           ) : null}
+          {joinRequirement ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_join_requirement,
+              })}
+            >
+              <NumberSizeableText
+                formatter="balance"
+                color="$text"
+                size="$bodyLgMedium"
+                formatterOptions={{
+                  tokenSymbol: rewardToken,
+                }}
+              >
+                {joinRequirement}
+              </NumberSizeableText>
+            </GridItem>
+          ) : null}
         </XStack>
       )}
     </YStack>
@@ -251,6 +271,7 @@ export const ProfitSection = ({
     rewardUnit: details.provider.rewardUnit,
     providerName: details.provider.name,
     token: details.token,
+    joinRequirement: details.provider.joinRequirement,
   };
   return <ProfitInfo {...props} />;
 };
