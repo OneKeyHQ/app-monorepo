@@ -48,8 +48,8 @@ jobs:
           echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
           echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
 
-      - name: Setup Expo
-        uses: OneKeyHQ/actions/expo-server@main
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}

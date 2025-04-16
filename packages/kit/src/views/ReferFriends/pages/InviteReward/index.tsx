@@ -23,15 +23,18 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function PopoverLine({ children }: PropsWithChildren) {
   return (
@@ -106,38 +109,59 @@ function ShareCode({
             onPress={handleCopy}
           />
         </XStack>
-        <XStack
+        <Stack
           mt="$2.5"
-          borderColor="rgba(0, 0, 0, 0.13)"
-          bg="$bgDisabled"
-          px="$3"
-          py="$1.5"
-          borderWidth={StyleSheet.hairlineWidth}
-          jc="space-between"
           ai="center"
-          borderRadius="$2.5"
+          gap="$2.5"
+          flexDirection="column"
+          $gtMd={{
+            flexDirection: 'row',
+            gap: '$6',
+          }}
         >
-          <SizableText size="$bodyLg" flexShrink={1}>
-            {inviteCodeUrl}
-          </SizableText>
-          <XStack ai="center" gap="$2.5">
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_copy })}
-              variant="tertiary"
+          <XStack
+            borderColor="rgba(0, 0, 0, 0.13)"
+            bg="$bgDisabled"
+            px="$3"
+            py="$1.5"
+            flex={1}
+            borderWidth={StyleSheet.hairlineWidth}
+            jc="space-between"
+            ai="center"
+            borderRadius="$2.5"
+          >
+            <SizableText size="$bodyLg" flexShrink={1}>
+              {inviteCodeUrl}
+            </SizableText>
+          </XStack>
+          <XStack
+            ai="center"
+            gap="$2.5"
+            $md={{
+              width: '100%',
+            }}
+          >
+            <Button
               icon="Copy3Outline"
-              size="large"
-              iconColor="$iconSubdued"
+              variant={platformEnv.isNative ? undefined : 'primary'}
+              $md={{
+                flex: 1,
+              }}
+              size="medium"
               onPress={() => {
                 copyText(sharedUrl);
               }}
-            />
+            >
+              {intl.formatMessage({ id: ETranslations.global_copy })}
+            </Button>
             {platformEnv.isNative ? (
-              <IconButton
-                title={intl.formatMessage({ id: ETranslations.global_copy })}
-                variant="tertiary"
+              <Button
+                variant="primary"
                 icon="ShareOutline"
-                size="large"
-                iconColor="$iconSubdued"
+                size="medium"
+                $md={{
+                  flex: 1,
+                }}
                 onPress={() => {
                   setTimeout(() => {
                     void Share.share(
@@ -151,10 +175,12 @@ function ShareCode({
                     );
                   }, 300);
                 }}
-              />
+              >
+                {intl.formatMessage({ id: ETranslations.explore_share })}
+              </Button>
             ) : null}
           </XStack>
-        </XStack>
+        </Stack>
       </YStack>
     </YStack>
   );
@@ -184,9 +210,12 @@ function Dashboard({
   const navigation = useAppNavigation();
   const intl = useIntl();
 
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
+      accountId: activeAccount.account?.id ?? '',
       onAddressAdded: async ({
         address,
         networkId,
@@ -203,7 +232,12 @@ function Dashboard({
         }, 50);
       },
     });
-  }, [enabledNetworks, fetchSummaryInfo, navigation]);
+  }, [
+    activeAccount.account?.id,
+    enabledNetworks,
+    fetchSummaryInfo,
+    navigation,
+  ]);
 
   const toEarnRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EarnReward);
@@ -310,51 +344,6 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        onPress={toEarnRewardPage}
-      >
-        <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-          </SizableText>
-          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
-        </XStack>
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
-        </SizableText>
-        {showEarnSalesAvailableFiat ? (
-          <YStack gap="$2" pt="$4">
-            {earn.available?.map(({ token, fiatValue }, index) => {
-              return (
-                <Fragment key={index}>
-                  <XStack gap="$2" py={5}>
-                    <Token size="xs" tokenImageUri={token.logoURI} />
-                    <NumberSizeableText
-                      formatter="balance"
-                      size="$bodyMd"
-                      formatterOptions={{
-                        tokenSymbol: token.symbol,
-                      }}
-                    >
-                      {fiatValue}
-                    </NumberSizeableText>
-                  </XStack>
-                  {index !== (earn.available?.length || 1) - 1 ? (
-                    <Divider bg="$borderSubdued" />
-                  ) : null}
-                </Fragment>
-              );
-            })}
-          </YStack>
-        ) : (
-          <NoRewardYet />
-        )}
-      </YStack>
-      <YStack
-        px="$5"
-        py="$4"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderRadius="$3"
         onPress={toHardwareSalesRewardPage}
       >
         <XStack ai="center" jc="space-between">
@@ -423,6 +412,59 @@ function Dashboard({
             <NoRewardYet />
           )}
         </YStack>
+      </YStack>
+      <YStack
+        px="$5"
+        py="$4"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+        // onPress={toEarnRewardPage}
+      >
+        <XStack ai="center" jc="space-between">
+          <SizableText size="$headingMd">
+            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
+          </SizableText>
+          {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
+        </XStack>
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
+        </SizableText>
+        <XStack pt="$4" gap="$2.5" ai="center">
+          <XStack>
+            <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.coming_soon })}
+          </SizableText>
+        </XStack>
+        {/* {showEarnSalesAvailableFiat ? (
+          <YStack gap="$2" pt="$4">
+            {earn.available?.map(({ token, fiatValue }, index) => {
+              return (
+                <Fragment key={index}>
+                  <XStack gap="$2" py={5}>
+                    <Token size="xs" tokenImageUri={token.logoURI} />
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: token.symbol,
+                      }}
+                    >
+                      {fiatValue}
+                    </NumberSizeableText>
+                  </XStack>
+                  {index !== (earn.available?.length || 1) - 1 ? (
+                    <Divider bg="$borderSubdued" />
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </YStack>
+        ) : (
+          <NoRewardYet />
+        )} */}
       </YStack>
     </YStack>
   );
@@ -538,17 +580,25 @@ function InviteRewardContent({
   return (
     <>
       <ShareCode inviteUrl={inviteUrl} inviteCode={inviteCode} />
-      <Dashboard
-        totalRewards={totalRewards}
-        enabledNetworks={enabledNetworks}
-        earn={Earn}
-        hardwareSales={HardwareSales}
-        levelPercent={Number(levelPercent)}
-        rebateLevel={rebateLevel}
-        nextRebateLevel={nextRebateLevel}
-        fetchSummaryInfo={fetchSummaryInfo}
-        withdrawAddresses={withdrawAddresses}
-      />
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+        }}
+        enabledNum={[0]}
+      >
+        <Dashboard
+          totalRewards={totalRewards}
+          enabledNetworks={enabledNetworks}
+          earn={Earn}
+          hardwareSales={HardwareSales}
+          levelPercent={Number(levelPercent)}
+          rebateLevel={rebateLevel}
+          nextRebateLevel={nextRebateLevel}
+          fetchSummaryInfo={fetchSummaryInfo}
+          withdrawAddresses={withdrawAddresses}
+        />
+      </AccountSelectorProviderMirror>
+
       <FAQ faqs={faqs} />
       <Link />
     </>

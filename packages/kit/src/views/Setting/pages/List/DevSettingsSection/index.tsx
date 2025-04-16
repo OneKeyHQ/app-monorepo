@@ -609,6 +609,16 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        title="Reset Cached Password"
+        subtitle="清除缓存密码"
+        onPress={async () => {
+          await backgroundApiProxy.servicePassword.clearCachedPassword();
+          Toast.success({
+            title: 'Clear Cached Password Success',
+          });
+        }}
+      />
+      <SectionPressItem
         title="Reset Spotlight"
         onPress={() => {
           void backgroundApiProxy.serviceSpotlight.reset();
