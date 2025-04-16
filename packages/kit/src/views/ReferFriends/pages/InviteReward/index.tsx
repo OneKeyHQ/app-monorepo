@@ -138,27 +138,27 @@ function ShareCode({
                 {inviteCodeUrl}
               </SizableText>
             </XStack>
-            <XStack
-              ai="center"
-              gap="$2.5"
-              $md={{
-                width: '100%',
-              }}
-            >
-              <Button
-                icon="Copy3Outline"
-                variant={platformEnv.isNative ? undefined : 'primary'}
+            {platformEnv.isNative ? (
+              <XStack
+                ai="center"
+                gap="$2.5"
                 $md={{
-                  flex: 1,
-                }}
-                size={gtMd ? 'medium' : 'large'}
-                onPress={() => {
-                  copyText(sharedUrl);
+                  width: '100%',
                 }}
               >
-                {intl.formatMessage({ id: ETranslations.global_copy })}
-              </Button>
-              {platformEnv.isNative ? (
+                <Button
+                  icon="Copy3Outline"
+                  variant={platformEnv.isNative ? undefined : 'primary'}
+                  $md={{
+                    flex: 1,
+                  }}
+                  size={gtMd ? 'medium' : 'large'}
+                  onPress={() => {
+                    copyText(sharedUrl);
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
                 <Button
                   variant="primary"
                   icon="ShareOutline"
@@ -182,8 +182,8 @@ function ShareCode({
                 >
                   {intl.formatMessage({ id: ETranslations.explore_share })}
                 </Button>
-              ) : null}
-            </XStack>
+              </XStack>
+            ) : null}
           </Stack>
         </YStack>
       </YStack>
