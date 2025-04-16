@@ -176,7 +176,7 @@ export const useLoginOneKeyId = () => {
       onConfirm: (code: string) => Promise<unknown>;
     }) => {
       const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
-      return new Promise((resolve) => {
+      return new Promise<void>((resolve) => {
         const dialog = Dialog.show({
           renderContent: (
             <EmailOTPDialog
@@ -192,8 +192,8 @@ export const useLoginOneKeyId = () => {
               onConfirm={async (code: string) => {
                 await timerUtils.wait(120);
                 await onConfirm(code);
-                resolve(code);
-                void dialog.close();
+                resolve();
+                await dialog.close();
               }}
               sendCode={async () => {
                 return backgroundApiProxy.servicePrime.sendEmailOTP(
