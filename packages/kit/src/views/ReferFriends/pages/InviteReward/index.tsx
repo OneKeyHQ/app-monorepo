@@ -86,7 +86,7 @@ function ShareCode({
   const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
   return (
     <>
-      <YStack px="$5" pt="$6" pb="$8">
+      <YStack px="$5" pt="$6" pb="$5" $platform-native={{ pb: '$8' }}>
         <YStack>
           <XStack jc="space-between">
             <SizableText size="$headingMd">
