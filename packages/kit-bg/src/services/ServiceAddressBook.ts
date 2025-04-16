@@ -109,6 +109,8 @@ class ServiceAddressBook extends ServiceBase {
     return false;
   }
 
+  verifyHashMutex = new Semaphore(1);
+
   // verify hash with cache
   public async verifyHash({
     returnValue,
@@ -117,32 +119,35 @@ class ServiceAddressBook extends ServiceBase {
     returnValue?: boolean; // return value if true, throw error if false
     password: string;
   }): Promise<boolean> {
-    const now = Date.now();
-    const timestamp = this.verifyHashTimestamp;
-    if (
-      timestamp &&
-      now - timestamp < timerUtils.getTimeDurationMs({ minute: 30 })
-    ) {
-      return true;
-    }
-    const { items } =
-      await this.backgroundApi.simpleDb.addressBook.getItemsAndHash();
-    if (!password) {
-      throw new Error('addressBook verifyHash ERROR: password is required');
-    }
+    return this.verifyHashMutex.runExclusive(async () => {
+      const now = Date.now();
+      const timestamp = this.verifyHashTimestamp;
+      if (
+        timestamp &&
+        now - timestamp < timerUtils.getTimeDurationMs({ minute: 30 })
+      ) {
+        return true;
+      }
+      if (!password) {
+        throw new Error('addressBook verifyHash ERROR: password is required');
+      }
 
-    const result = await this._verifyHash({
-      itemsToVerify: items,
-      password,
+      const { items } =
+        await this.backgroundApi.simpleDb.addressBook.getItemsAndHash();
+
+      const result = await this._verifyHash({
+        itemsToVerify: items,
+        password,
+      });
+      if (result) {
+        this.verifyHashTimestamp = now;
+        return true;
+      }
+      if (returnValue) {
+        return false;
+      }
+      throw new Error('address book failed to verify hash');
     });
-    if (result) {
-      this.verifyHashTimestamp = now;
-      return true;
-    }
-    if (returnValue) {
-      return false;
-    }
-    throw new Error('address book failed to verify hash');
   }
 
   @backgroundMethod()

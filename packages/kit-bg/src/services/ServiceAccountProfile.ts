@@ -299,7 +299,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     skipValidateAddress,
-  }: IQueryCheckAddressArgs) {
+  }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
     let address = rawAddress.trim();
