@@ -146,14 +146,36 @@ const useDesktopEvents = platformEnv.isDesktop
               (route) => route.name === ERootRoutes.Modal,
             );
             if (isModalOpen) {
-              // If a modal is open anywhere in the stack, do nothing.
-              return;
+              // Show dialog asking if user wants to close the modal
+              Dialog.confirm({
+                title: intl.formatMessage({
+                  id: ETranslations.global_close,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.global_confirm,
+                }),
+                onConfirm: () => {
+                  // Close all modals in the stack
+                  const routeLength = routeState.routes.length;
+                  for (let i = 0; i < routeLength; i += 1) {
+                    if (routeState.routes[i].name === ERootRoutes.Modal) {
+                      rootNavigationRef.current?.goBack();
+                    }
+                  }
+                  // Then navigate
+                  setTimeout(() => {
+                    navigateAction();
+                  }, 100);
+                },
+              });
+              return true;
             }
           }
           // If no modal is open, navigate.
           navigateAction();
+          return true;
         },
-        [],
+        [intl],
       );
 
       useEffect(() => {
