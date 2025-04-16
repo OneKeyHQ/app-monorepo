@@ -16,6 +16,7 @@ export { default as AiAvatar } from './AiAvatar';
 export { default as AiImages } from './AiImages';
 export { default as AiStar } from './AiStar';
 export { default as AiText } from './AiText';
+export { default as Airdrop } from './Airdrop';
 export { default as Airplay } from './Airplay';
 export { default as Airpods } from './Airpods';
 export { default as Albums } from './Albums';
