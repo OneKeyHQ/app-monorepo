@@ -23,7 +23,8 @@ export function WebView({
   onLoadEnd: () => void;
 }) {
   const [devSettings] = useDevSettingsPersistAtom();
-  const isTest = devSettings.settings?.useTradingViewTestDomain;
+  const isTest =
+    devSettings.enabled && devSettings.settings?.useTradingViewTestDomain;
   const handleLoadedEnd = useCallback(() => {
     setTimeout(() => {
       onLoadEnd();

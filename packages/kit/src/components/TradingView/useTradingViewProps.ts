@@ -97,7 +97,8 @@ export const useTradingViewProps = ({
 
     const hash = `#${JSON.stringify(params)}`;
     const query = `?t=${Date.now()}&locale=${locale}`;
-    const isTest = devSettings.settings?.useTradingViewTestDomain;
+    const isTest =
+      devSettings.enabled && devSettings.settings?.useTradingViewTestDomain;
     const uri = isTest
       ? 'https://tradingview.onekeytest.com/'
       : `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
@@ -169,6 +170,8 @@ export const useTradingViewProps = ({
     targetToken,
     theme,
     bgAppColor,
+    devSettings.enabled,
+    devSettings.settings?.useTradingViewTestDomain,
     textColor,
     textDisabled,
     iconColor,
@@ -176,6 +179,5 @@ export const useTradingViewProps = ({
     bgHoverColor,
     md,
     bgBackdropColor,
-    devSettings.settings?.useTradingViewTestDomain,
   ]);
 };
