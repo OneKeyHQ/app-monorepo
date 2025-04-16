@@ -921,13 +921,13 @@ function BasicEarnHome() {
     <Page fullPage>
       <TabPageHeader
         showHeaderRight
-        showCustomHeaderRight={
-          platformEnv.isNative ? renderCustomHeaderRight : undefined
-        }
+        // showCustomHeaderRight={
+        //   platformEnv.isNative ? renderCustomHeaderRight : undefined
+        // }
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
       >
-        {headerRight}
+        {/* {headerRight} */}
       </TabPageHeader>
       <Page.Body>
         <ScrollView

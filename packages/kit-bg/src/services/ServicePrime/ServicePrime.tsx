@@ -254,8 +254,15 @@ class ServicePrime extends ServiceBase {
     } else {
       primeSubscription = undefined;
     }
+
+    if (serverUserInfo?.inviteCode) {
+      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+        serverUserInfo.inviteCode,
+      );
+    }
     await primePersistAtom.set((v) => ({
       ...v,
+      displayEmail: serverUserInfo?.emails?.[0] || v.displayEmail,
       isLoggedIn: true,
       isLoggedInOnServer: true,
       primeSubscription,
