@@ -150,7 +150,11 @@ const useDesktopEvents = platformEnv.isDesktop
             const allModalRoutes = routeState.routes.filter(
               (_, index) => index !== 0,
             );
-            const hasMultipleModalRoutes = allModalRoutes.length > 0;
+            const hasMultipleModalRoutes = allModalRoutes.length === 1;
+
+            if (allModalRoutes.length > 1) {
+              return;
+            }
 
             if (hasMultipleModalRoutes) {
               let index = 1;
