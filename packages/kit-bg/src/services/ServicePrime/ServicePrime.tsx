@@ -685,7 +685,7 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async sendEmailOTP(scene: 'UpdateReabteWithdrawAddress') {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
-    return client.post('/prime/1v/general/emailOTP', {
+    return client.post('/prime/v1/general/emailOTP', {
       scene,
     });
   }

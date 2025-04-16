@@ -52,6 +52,10 @@ export function EmailOTPDialog(props: {
   });
   const intl = useIntl();
 
+  useMemo(() => {
+    void sendCode();
+  }, [sendCode]);
+
   const sendEmailVerificationCode = useCallback(async () => {
     if (isResending) {
       return;
@@ -181,7 +185,7 @@ export const useLoginOneKeyId = () => {
               })}
               description={intl.formatMessage(
                 {
-                  id: ETranslations.prime_enter_verification_code,
+                  id: ETranslations.referral_address_update_desc,
                 },
                 { mail: userInfo.displayEmail ?? '' },
               )}
