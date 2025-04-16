@@ -82,4 +82,5 @@ export enum EGalleryRoutes {
   LetterAvatarGallery = 'component-LetterAvatar',
   SignatureConfirmationGallery = 'component-SignatureConfirmation',
   ComponentStepper = 'component-Stepper',
+  CountDownCalendarAlert = 'component-CountDownCalendarAlert',
 }
