@@ -137,6 +137,18 @@ function ShareCode({
               <SizableText size="$bodyLg" flexShrink={1}>
                 {inviteCodeUrl}
               </SizableText>
+              {platformEnv.isNative ? null : (
+                <IconButton
+                  title={intl.formatMessage({ id: ETranslations.global_copy })}
+                  icon="Copy3Outline"
+                  variant="tertiary"
+                  size="medium"
+                  iconColor="$iconSubdued"
+                  onPress={() => {
+                    copyText(sharedUrl);
+                  }}
+                />
+              )}
             </XStack>
             {platformEnv.isNative ? (
               <XStack
