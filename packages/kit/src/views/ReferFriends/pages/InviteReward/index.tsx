@@ -6,6 +6,7 @@ import { Share, StyleSheet } from 'react-native';
 
 import {
   Accordion,
+  Badge,
   Button,
   Divider,
   Icon,
@@ -624,13 +625,26 @@ export default function InviteReward() {
       revalidateOnReconnect: true,
     },
   );
+
+  const renderHeader = useCallback(
+    () => (
+      <XStack gap="$2">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({
+            id: ETranslations.referral_title,
+          })}
+        </SizableText>
+        <Badge badgeType="info" badgeSize="sm">
+          <Badge.Text>Beta</Badge.Text>
+        </Badge>
+      </XStack>
+    ),
+    [intl],
+  );
+
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.referral_title,
-        })}
-      />
+      <Page.Header headerTitle={renderHeaderTitle} />
       <Page.Body>
         {!summaryInfo ? (
           <Stack
