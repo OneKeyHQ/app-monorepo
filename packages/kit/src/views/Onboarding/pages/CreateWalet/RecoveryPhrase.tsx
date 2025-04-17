@@ -132,7 +132,7 @@ export function RecoveryPhrase() {
   }, [phrases, route.params?.isBackup]);
 
   const handleConfirmPress = useCallback(async () => {
-    if (route.params?.isBackup) {
+    if (route.params?.isBackup && route.params?.isWalletBackedUp) {
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.backup_recovery_phrase_backed_up,
@@ -146,6 +146,7 @@ export function RecoveryPhrase() {
         text: mnemonic,
       }),
       isBackup: route.params?.isBackup,
+      isWalletBackedUp: route.params?.isWalletBackedUp,
       verifyRecoveryPhrases,
     });
   }, [
@@ -153,6 +154,7 @@ export function RecoveryPhrase() {
     mnemonic,
     navigation,
     route.params?.isBackup,
+    route.params?.isWalletBackedUp,
     servicePassword,
     verifyRecoveryPhrases,
   ]);

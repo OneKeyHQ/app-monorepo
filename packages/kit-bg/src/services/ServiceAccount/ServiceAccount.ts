@@ -2435,11 +2435,11 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({
     name,
     mnemonic,
-    isBackup,
+    isWalletBackedUp,
   }: {
     mnemonic: string;
     name?: string;
-    isBackup?: boolean;
+    isWalletBackedUp?: boolean;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -2478,7 +2478,7 @@ class ServiceAccount extends ServiceBase {
       name,
       walletHash: walletHashAndXfp.hash,
       walletXfp: walletHashAndXfp.xfp,
-      isBackup,
+      isWalletBackedUp,
     });
   }
 
@@ -2523,7 +2523,7 @@ class ServiceAccount extends ServiceBase {
     name,
     walletHash,
     walletXfp,
-    isBackup,
+    isWalletBackedUp,
   }: {
     rs: string;
     password: string;
@@ -2531,7 +2531,7 @@ class ServiceAccount extends ServiceBase {
     name?: string;
     walletHash: string;
     walletXfp: string;
-    isBackup?: boolean;
+    isWalletBackedUp?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -2578,7 +2578,7 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.createHDWallet({
       password,
       rs,
-      backuped: !!isBackup,
+      backuped: !!isWalletBackedUp,
       avatar: avatarInfo ?? randomAvatar(),
       name,
       walletHash,

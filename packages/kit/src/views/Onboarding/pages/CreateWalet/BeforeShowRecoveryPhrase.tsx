@@ -53,6 +53,7 @@ export function BeforeShowRecoveryPhrase() {
     navigation.push(EOnboardingPages.RecoveryPhrase, {
       mnemonic,
       isBackup: route.params?.isBackup,
+      isWalletBackedUp: route.params?.isWalletBackedUp,
     });
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'CreateWallet',
@@ -82,8 +83,10 @@ export function BeforeShowRecoveryPhrase() {
     });
 
     navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-      mnemonic,
-      isBackup: false,
+      mnemonic: await backgroundApiProxy.servicePassword.encodeSensitiveText({
+        text: mnemonic,
+      }),
+      isWalletBackedUp: false,
     });
   }, [
     route.params?.mnemonic,
@@ -186,9 +189,13 @@ export function BeforeShowRecoveryPhrase() {
               flexGrow: 1,
             },
           }}
-          onCancelText={intl.formatMessage({
-            id: ETranslations.global_skip_for_now,
-          })}
+          onCancelText={
+            route.params?.hideSkipBackup
+              ? undefined
+              : intl.formatMessage({
+                  id: ETranslations.global_skip_for_now,
+                })
+          }
           buttonContainerProps={{
             w: media.gtMd ? '100%' : 'auto',
             flexDirection: media.gtMd ? 'row' : 'column-reverse',

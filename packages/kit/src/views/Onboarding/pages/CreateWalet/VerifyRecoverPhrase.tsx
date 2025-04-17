@@ -114,7 +114,7 @@ export function VerifyRecoveryPhrase({
       if (isValid) {
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
-          isBackup: true,
+          isWalletBackedUp: true,
         });
         defaultLogger.account.wallet.walletAdded({
           status: 'success',

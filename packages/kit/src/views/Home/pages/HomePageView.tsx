@@ -33,6 +33,7 @@ import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+import { WalletBackupAlert } from '../../../components/WalletBackup';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
@@ -304,6 +305,7 @@ export function HomePageView({
           ) : null}
         </TabPageHeader>
         <Page.Body>
+          <WalletBackupAlert />
           <NetworkAlert />
           {
             // The upgrade reminder does not need to be displayed on the Url Account page

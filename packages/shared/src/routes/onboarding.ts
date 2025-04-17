@@ -72,15 +72,19 @@ export type IOnboardingParamList = {
   [EOnboardingPages.BeforeShowRecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
+    hideSkipBackup?: boolean;
+    isWalletBackedUp?: boolean;
   };
   [EOnboardingPages.RecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
   };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
     verifyRecoveryPhrases?: string[][][];
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
   };
 
   // import wallet
@@ -101,7 +105,7 @@ export type IOnboardingParamList = {
   [EOnboardingPages.FinalizeWalletSetup]: {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
-    isBackup?: boolean;
+    isWalletBackedUp?: boolean;
   };
 
   // device management guide page
