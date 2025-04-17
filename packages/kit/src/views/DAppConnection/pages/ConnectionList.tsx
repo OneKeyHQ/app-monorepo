@@ -90,7 +90,7 @@ function ConnectionList() {
           scrollEnabled
           data={data}
           ListEmptyComponent={ConnectionListEmpty}
-          keyExtractor={(item, index) => item.origin}
+          keyExtractor={(item) => item.origin}
           renderItem={({ item }) => (
             <ConnectionListItem
               item={item}
