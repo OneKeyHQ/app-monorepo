@@ -3,7 +3,6 @@ import logger from 'electron-log/main';
 import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';
 
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IDesktopSubModuleInitParams } from '@onekeyhq/shared/types/desktop';
 import type {
   INotificationPermissionDetail,
