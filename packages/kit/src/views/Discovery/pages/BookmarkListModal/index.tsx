@@ -38,12 +38,8 @@ import type { IBrowserBookmark } from '../../types';
 function BookmarkListModal() {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const {
-    buildBookmarkData,
-    sortBrowserBookmark,
-    removeBrowserBookmark,
-    modifyBrowserBookmark,
-  } = useBrowserBookmarkAction().current;
+  const { sortBrowserBookmark, removeBrowserBookmark, modifyBrowserBookmark } =
+    useBrowserBookmarkAction().current;
   const handleWebSite = useWebSiteHandler();
 
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);

@@ -42,13 +42,13 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
     };
   }
 
-  override async isSupportSync(target: ICloudSyncTargetLock): Promise<boolean> {
+  override async isSupportSync(
+    _target: ICloudSyncTargetLock,
+  ): Promise<boolean> {
     return true;
   }
 
-  override async buildSyncRawKey({
-    target,
-  }: {
+  override async buildSyncRawKey(_params: {
     target: ICloudSyncTargetLock;
   }): Promise<string> {
     return 'lock';
@@ -66,7 +66,7 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
     };
   }
 
-  override async syncToSceneEachItem(params: {
+  override async syncToSceneEachItem(_params: {
     target: ICloudSyncTargetLock;
     payload: ICloudSyncPayloadLock;
   }): Promise<boolean> {
@@ -74,13 +74,13 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
     return true;
   }
 
-  override async getDBRecordBySyncPayload(params: {
+  override async getDBRecordBySyncPayload(_params: {
     payload: ICloudSyncPayloadLock;
   }): Promise<any | undefined> {
     return undefined;
   }
 
-  override async buildSyncTargetByDBQuery(params: {
+  override async buildSyncTargetByDBQuery(_params: {
     dbRecord: any;
     allDevices?: IDBDevice[];
   }): Promise<ICloudSyncTargetLock> {

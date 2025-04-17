@@ -43,6 +43,7 @@ import type { IAddressItem } from '../type';
 type ICreateOrEditContentProps = {
   title?: string;
   item: IAddressItem;
+  isSubmitLoading?: boolean;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
   nameHistoryInfo?: {
@@ -76,6 +77,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   onSubmit,
   onRemove,
   nameHistoryInfo,
+  isSubmitLoading,
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -321,7 +323,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             })}
             confirmButtonProps={{
               variant: 'primary',
-              loading: form.formState.isSubmitting,
+              loading: isSubmitLoading || form.formState.isSubmitting,
               disabled: !form.formState.isValid || pending,
               onPress: form.submit,
               testID: 'address-form-save',

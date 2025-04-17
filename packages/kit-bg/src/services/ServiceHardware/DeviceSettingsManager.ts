@@ -5,13 +5,9 @@ import type { IHardwareHomeScreenName } from '@onekeyhq/kit/src/views/AccountMan
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import {
-  CoreSDKLoader,
-  generateConnectSrc,
-} from '@onekeyhq/shared/src/hardware/instance';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
 

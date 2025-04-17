@@ -24,7 +24,6 @@ import type {
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  EProtocolOfExchange,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,

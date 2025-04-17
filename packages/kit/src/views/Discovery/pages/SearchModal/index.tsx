@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
