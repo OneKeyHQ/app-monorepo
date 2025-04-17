@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -585,17 +586,22 @@ function Link() {
   const intl = useIntl();
 
   return (
-    <SizableText
-      color="$textInfo"
-      cursor="pointer"
-      size="$bodyMdMedium"
-      px="$5"
-      mb="$5"
-      textDecorationLine="underline"
-      onPress={() => openUrlExternal(referralLink)}
-    >
-      {intl.formatMessage({ id: ETranslations.referral_more_questions })}
-    </SizableText>
+    <XStack px="$5" mb="$5">
+      <HyperlinkText
+        cursor="pointer"
+        size="$bodyMdMedium"
+        textDecorationLine="underline"
+        textDecorationColor="$textInfo"
+        textDecorationStyle="dotted"
+        underlineTextProps={{
+          color: '$textInfo',
+        }}
+        style={{
+          textUnderlineOffset: 4,
+        }}
+        translationId={ETranslations.referral_more_questions}
+      />
+    </XStack>
   );
 }
 

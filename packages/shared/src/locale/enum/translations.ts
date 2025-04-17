@@ -1976,6 +1976,7 @@
   referral_sales_order_unknown = 'referral.sales_order_unknown',
   referral_sales_reward = 'referral.sales_reward',
   referral_sales_reward_desc = 'referral.sales_reward_desc',
+  referral_sales_reward_desc_limit = 'referral.sales_reward_desc_limit',
   referral_sales_reward_pending = 'referral.sales_reward_pending',
   referral_sales_reward_tips = 'referral.sales_reward_tips',
   referral_swap_reward = 'referral.swap_reward',
