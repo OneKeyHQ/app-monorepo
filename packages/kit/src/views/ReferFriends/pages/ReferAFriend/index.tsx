@@ -164,7 +164,7 @@ export default function ReferAFriend() {
                             id: ETranslations.referral_intro_for_you_1,
                           },
                           {
-                            RebateRate: (
+                            RebateAmount: (
                               <SizableText size="$bodyMd" color="$textSuccess">
                                 5-18%
                               </SizableText>

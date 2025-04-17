@@ -2705,6 +2705,7 @@
   v4_migration_update_in_progress_alert_title = 'v4_migration.update_in_progress_alert_title',
   v4_migration_welcome_message = 'v4_migration.welcome_message',
   v4_migration_welcome_message_desc = 'v4_migration.welcome_message_desc',
+  wallet_backup_prompt = 'wallet.backup_prompt',
   wallet_buy_crypto_instruction = 'wallet.buy_crypto_instruction',
   wallet_currently_supports_up_to_str_all_networks_accounts = 'wallet.currently_supports_up_to_str_all_networks_accounts',
   wallet_destination_tag = 'wallet.destination_tag',
