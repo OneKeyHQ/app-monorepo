@@ -4,6 +4,7 @@ import { Fragment, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { Share, StyleSheet } from 'react-native';
 
+import type { IStackStyle } from '@onekeyhq/components';
 import {
   Accordion,
   Badge,
@@ -208,6 +209,67 @@ function ShareCode({
   );
 }
 
+function RewardLevelMoney({
+  money,
+  left,
+  right,
+  isLeft,
+  isRight,
+}: { money: string; isLeft?: boolean; isRight?: boolean } & IStackStyle) {
+  const ai = useMemo(() => {
+    if (isRight) {
+      return 'flex-end';
+    }
+    if (!isLeft && !isRight) {
+      return 'center';
+    }
+  }, [isLeft, isRight]);
+  return (
+    <YStack position="absolute" gap={5} top={37} width="100%" ai={ai}>
+      <YStack
+        w={1}
+        h={10}
+        bg="$neutral7"
+        borderTopLeftRadius="$1"
+        borderTopRightRadius="$1"
+        borderBottomLeftRadius="$1"
+        borderBottomRightRadius="$1"
+      />
+      <SizableText
+        width={money.length * 8}
+        size="$bodySmMedium"
+        color="$textSubdued"
+      >
+        {money}
+      </SizableText>
+    </YStack>
+  );
+}
+
+function RewardLevelText({
+  level,
+  percent,
+  money,
+  isLeft,
+  isRight,
+}: {
+  level: string;
+  percent: string;
+  money: string;
+  isLeft?: boolean;
+  isRight?: boolean;
+}) {
+  return (
+    <YStack>
+      <SizableText size="$bodySm">{level}</SizableText>
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        {percent}
+      </SizableText>
+      <RewardLevelMoney money={money} isLeft={isLeft} isRight={isRight} />
+    </YStack>
+  );
+}
+
 function Dashboard({
   totalRewards,
   enabledNetworks,
@@ -385,7 +447,20 @@ function Dashboard({
                 {nextRebateLevel}
               </SizableText>
             </XStack>
-            <Progress value={levelPercent} width="100%" size="medium" />
+            <YStack h={84} borderRadius="$2" py="$2" bg="$bgSubdued" px="$4">
+              <XStack mb="$2" jc="space-between">
+                <RewardLevelText isLeft level="🥉" percent="5%" money="$100" />
+                <RewardLevelText level="🥈" percent="10%" money="$500" />
+                <RewardLevelText level="🥇" percent="15%" money="$1000" />
+                <RewardLevelText
+                  isRight
+                  level="🥇"
+                  percent="18%"
+                  money="$2000"
+                />
+              </XStack>
+              <Progress value={levelPercent} width="100%" size="medium" />
+            </YStack>
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
