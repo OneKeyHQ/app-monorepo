@@ -82,9 +82,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     setIsSubmittingVerificationCode(true);
 
-    Toast.success({
-      title: 'handleConfirm success',
-    });
+    // Toast.success({
+    //   title: 'handleConfirm success',
+    // });
 
     try {
       await loginWithCode({
@@ -93,7 +93,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       });
 
       Toast.success({
-        title: 'loginWithCode success',
+        title: intl.formatMessage({ id: ETranslations.id_login_success }),
       });
 
       setState({ status: 'done' });
@@ -107,9 +107,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   }, [
     onConfirm,
     isSubmittingVerificationCode,
-    loginWithCode,
     verificationCode,
+    loginWithCode,
     email,
+    intl,
     onLoginSuccess,
   ]);
 

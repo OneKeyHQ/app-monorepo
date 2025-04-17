@@ -21,6 +21,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -67,6 +68,7 @@ function ShareCode({
   inviteCode: string;
 }) {
   const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
   const { copyText } = useClipboard();
 
   const handleCopy = useCallback(() => {
@@ -147,7 +149,7 @@ function ShareCode({
               $md={{
                 flex: 1,
               }}
-              size="medium"
+              size={gtMd ? 'medium' : 'large'}
               onPress={() => {
                 copyText(sharedUrl);
               }}
@@ -158,7 +160,7 @@ function ShareCode({
               <Button
                 variant="primary"
                 icon="ShareOutline"
-                size="medium"
+                size={gtMd ? 'medium' : 'large'}
                 $md={{
                   flex: 1,
                 }}
@@ -216,17 +218,7 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
-      onAddressAdded: async ({
-        address,
-        networkId,
-      }: {
-        address: string;
-        networkId: string;
-      }) => {
-        await backgroundApiProxy.serviceReferralCode.bindAddress(
-          networkId,
-          address,
-        );
+      onAddressAdded: async () => {
         setTimeout(() => {
           fetchSummaryInfo();
         }, 50);

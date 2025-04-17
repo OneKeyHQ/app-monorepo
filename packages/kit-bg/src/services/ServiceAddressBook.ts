@@ -109,42 +109,45 @@ class ServiceAddressBook extends ServiceBase {
     return false;
   }
 
+  verifyHashMutex = new Semaphore(1);
+
   // verify hash with cache
   public async verifyHash({
     returnValue,
     password,
   }: {
-    returnValue?: boolean;
-    password?: string;
-  } = {}): Promise<boolean> {
-    const now = Date.now();
-    const timestamp = this.verifyHashTimestamp;
-    if (
-      timestamp &&
-      now - timestamp < timerUtils.getTimeDurationMs({ minute: 30 })
-    ) {
-      return true;
-    }
-    const { items } =
-      await this.backgroundApi.simpleDb.addressBook.getItemsAndHash();
-    if (!password) {
-      // eslint-disable-next-line no-param-reassign
-      ({ password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify());
-    }
+    returnValue?: boolean; // return value if true, throw error if false
+    password: string;
+  }): Promise<boolean> {
+    return this.verifyHashMutex.runExclusive(async () => {
+      const now = Date.now();
+      const timestamp = this.verifyHashTimestamp;
+      if (
+        timestamp &&
+        now - timestamp < timerUtils.getTimeDurationMs({ minute: 30 })
+      ) {
+        return true;
+      }
+      if (!password) {
+        throw new Error('addressBook verifyHash ERROR: password is required');
+      }
 
-    const result = await this._verifyHash({
-      itemsToVerify: items,
-      password,
+      const { items } =
+        await this.backgroundApi.simpleDb.addressBook.getItemsAndHash();
+
+      const result = await this._verifyHash({
+        itemsToVerify: items,
+        password,
+      });
+      if (result) {
+        this.verifyHashTimestamp = now;
+        return true;
+      }
+      if (returnValue) {
+        return false;
+      }
+      throw new Error('address book failed to verify hash');
     });
-    if (result) {
-      this.verifyHashTimestamp = now;
-      return true;
-    }
-    if (returnValue) {
-      return false;
-    }
-    throw new Error('address book failed to verify hash');
   }
 
   @backgroundMethod()
@@ -153,8 +156,8 @@ class ServiceAddressBook extends ServiceBase {
     password,
   }: {
     throwErrorIfNotSafe?: boolean;
-    password?: string;
-  } = {}): Promise<{ isSafe: boolean; items: IAddressItem[] }> {
+    password: string;
+  }): Promise<{ isSafe: boolean; items: IAddressItem[] }> {
     const isSafe = await this.verifyHash({ returnValue: true, password });
     if (throwErrorIfNotSafe && !isSafe) {
       throw new Error('address book failed to verify hash');
@@ -165,17 +168,21 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async getSafeItems(params?: {
+  async getSafeItems(params: {
     networkId?: string;
     exact?: boolean;
+    password: string;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
-    const { networkId, exact } = params ?? {};
+    const { networkId, exact, password } = params;
     // throw new Error('address book failed to verify hash');
-    const isSafe: boolean = await this.verifyHash({ returnValue: true });
+    const isSafe: boolean = await this.verifyHash({
+      returnValue: true,
+      password,
+    });
     if (!isSafe) {
       return { isSafe, items: [] };
     }
-    let { items: rawItems } = await this.getSafeRawItems();
+    let { items: rawItems } = await this.getSafeRawItems({ password });
     if (networkId) {
       if (exact) {
         rawItems = rawItems.filter((item) => item.networkId === networkId);
@@ -217,14 +224,17 @@ class ServiceAddressBook extends ServiceBase {
   @backgroundMethod()
   async resetItems() {
     await this.mutex.runExclusive(async () => {
-      const verifyResult = await this.verifyHash({ returnValue: true });
-      if (verifyResult) {
-        throw new Error('failed to reset items when verify result is ok');
-      }
       const { servicePassword } = this.backgroundApi;
       const { password } = await servicePassword.promptPasswordVerify({
         reason: EReasonForNeedPassword.Security,
       });
+      const verifyResult = await this.verifyHash({
+        returnValue: true,
+        password,
+      });
+      if (verifyResult) {
+        throw new Error('failed to reset items when verify result is ok');
+      }
       await this.setItems({
         items: [],
         password,
@@ -232,16 +242,19 @@ class ServiceAddressBook extends ServiceBase {
     });
   }
 
-  private async validateItem(item: IAddressItem) {
+  private async validateItem(
+    item: IAddressItem,
+    { password }: { password: string },
+  ) {
     const { serviceValidator } = this.backgroundApi;
     if (item.name.length > 24) {
       throw new Error('Name is too long');
     }
-    let result = await this.findItem({ address: item.address });
+    let result = await this.findItem({ address: item.address, password });
     if (result && (!item.id || result.id !== item.id)) {
       throw new Error('Address already exist');
     }
-    result = await this.findItem({ name: item.name });
+    result = await this.findItem({ name: item.name, password });
     if (result && (!item.id || result.id !== item.id)) {
       throw new Error('Name already exist');
     }
@@ -358,11 +371,12 @@ class ServiceAddressBook extends ServiceBase {
     } = {},
   ) {
     const { servicePassword } = this.backgroundApi;
-    await this.validateItem(newObj);
-    await this.verifyHash();
     const { password } = await servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,
     });
+
+    await this.validateItem(newObj, { password });
+    await this.verifyHash({ password });
 
     await this.addItemFn(newObj, {
       ...options,
@@ -437,12 +451,13 @@ class ServiceAddressBook extends ServiceBase {
     if (!obj.id) {
       throw new Error('Missing id');
     }
-    await this.validateItem(obj);
-    await this.verifyHash();
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,
     });
+
+    await this.validateItem(obj, { password });
+    await this.verifyHash({ password });
 
     await this.updateItemFn(obj, {
       ...options,
@@ -498,12 +513,14 @@ class ServiceAddressBook extends ServiceBase {
       skipEventEmit?: boolean;
     } = {},
   ) {
-    await this.verifyHash();
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,
     });
-    const { items } = await this.getSafeRawItems();
+
+    await this.verifyHash({ password });
+
+    const { items } = await this.getSafeRawItems({ password });
     const removedItem = items.find((i) => i.id === id);
     if (!removedItem) {
       throw new Error(`Failed to find item with id = ${id}`);
@@ -519,14 +536,15 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   public async findItem(params: {
+    password: string;
     networkImpl?: string;
     networkId?: string;
     address?: string;
     name?: string;
   }): Promise<IAddressItem | undefined> {
-    const { address, name, networkId, networkImpl } = params;
+    const { address, name, networkId, networkImpl, password } = params;
 
-    const { items } = await this.getSafeRawItems();
+    const { items } = await this.getSafeRawItems({ password });
 
     return items.find((item) => {
       // 创建条件检查函数数组
@@ -566,8 +584,14 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async findItemById(id: string): Promise<IAddressItem | undefined> {
-    const { items } = await this.getSafeRawItems();
+  public async findItemById({
+    id,
+    password,
+  }: {
+    id: string;
+    password: string;
+  }): Promise<IAddressItem | undefined> {
+    const { items } = await this.getSafeRawItems({ password });
     const item = items.find((i) => i.id === id);
     return item;
   }

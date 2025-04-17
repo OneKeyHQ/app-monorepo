@@ -681,6 +681,19 @@ class ServicePrime extends ServiceBase {
     const { isLoggedIn } = await primePersistAtom.get();
     return isLoggedIn;
   }
+
+  @backgroundMethod()
+  async sendEmailOTP(scene: 'UpdateReabteWithdrawAddress') {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    return client.post('/prime/v1/general/emailOTP', {
+      scene,
+    });
+  }
+
+  @backgroundMethod()
+  async getLocalUserInfo() {
+    return primePersistAtom.get();
+  }
 }
 
 export default ServicePrime;

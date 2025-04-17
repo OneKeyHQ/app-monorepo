@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, useClipboard } from '@onekeyhq/components';
+import { ActionList, Toast, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -57,8 +57,16 @@ export function BasicListItemIconButton({
           icon: 'PeopleOutline',
           onPress: async () => {
             if (id) {
+              const { password } =
+                await backgroundApiProxy.servicePassword.promptPasswordVerify();
+              if (!password) {
+                return;
+              }
               const addressBookItem =
-                await backgroundApiProxy.serviceAddressBook.findItemById(id);
+                await backgroundApiProxy.serviceAddressBook.findItemById({
+                  id,
+                  password,
+                });
               if (addressBookItem) {
                 // appNavigation.pushModal(EModalRoutes.MainModal, {
                 //   screen: ETabHomeRoutes.TabHomeUrlAccountPage,
