@@ -93,8 +93,13 @@ export function PeriodSection({
   const { isEventActive, effectiveTime } = useEarnEventActive(
     provider?.eventEndTime,
   );
+  const isPreStakedUser = details?.preStaked;
 
   if (!earnUtils.isFalconProvider({ providerName: provider?.name ?? '' })) {
+    return null;
+  }
+
+  if (!isEventActive && !isPreStakedUser) {
     return null;
   }
 
