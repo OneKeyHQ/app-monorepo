@@ -308,6 +308,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
+      case EAppUpdateStatus.done:
       case EAppUpdateStatus.notify:
         toUpdatePreviewPage(isFullModal);
         break;

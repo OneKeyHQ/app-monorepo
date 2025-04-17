@@ -42,7 +42,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <Stack px="$2" py="$2.5" gap="$1">
       <XStack alignItems="center" gap="$2">
         <SizableText flex={1} size="$headingSm">
-          {user?.displayEmail}
+          {user?.email}
         </SizableText>
         {/* {isPrime ? (
           <Badge bg="$brand3" badgeSize="sm">
