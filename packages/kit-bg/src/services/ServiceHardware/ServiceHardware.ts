@@ -177,8 +177,8 @@ class ServiceHardware extends ServiceBase {
       avatarInfo,
     }: IAppEventBusPayload[EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo]) => {
       const isHw =
-        accountUtils.isHwWallet({ walletId }) &&
-        !accountUtils.isQrWallet({ walletId });
+        accountUtils.isHwWallet({ walletId }) ||
+        accountUtils.isQrWallet({ walletId });
       if (!isHw) {
         return;
       }
