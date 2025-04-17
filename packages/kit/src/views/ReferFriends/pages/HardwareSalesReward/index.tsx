@@ -168,18 +168,21 @@ export default function HardwareSalesReward() {
                 })} ${item.title}`}
               </SizableText>
             </YStack>
-            <NumberSizeableText
-              formatter="balance"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-                showPlusMinusSigns: true,
-              }}
-              color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
-              size="$bodyLgMedium"
-              pr="$0.5"
-            >
-              {item.amount}
-            </NumberSizeableText>
+            <XStack>
+              <NumberSizeableText
+                numberOfLines={1}
+                formatter="balance"
+                formatterOptions={{
+                  currency: settings.currencyInfo.symbol,
+                  showPlusMinusSigns: true,
+                }}
+                color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
+                size="$bodyLgMedium"
+                pr="$0.5"
+              >
+                {item.amount}
+              </NumberSizeableText>
+            </XStack>
           </XStack>
         </YStack>
       );
