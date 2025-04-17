@@ -19,6 +19,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -238,6 +239,11 @@ function Dashboard({
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
       onAddressAdded: async () => {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.referral_address_updated,
+          }),
+        });
         setTimeout(() => {
           fetchSummaryInfo();
         }, 50);
@@ -247,6 +253,7 @@ function Dashboard({
     activeAccount.account?.id,
     enabledNetworks,
     fetchSummaryInfo,
+    intl,
     navigation,
   ]);
 
