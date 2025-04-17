@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { Currency, useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -261,6 +262,7 @@ function Dashboard({
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
+  const currency = useCurrency();
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -283,8 +285,9 @@ function Dashboard({
               id: ETranslations.referral_total_reward,
             })}
             renderTrigger={
-              <NumberSizeableText
+              <Currency
                 pb={1}
+                sourceCurrency="usd"
                 color="$textSuccess"
                 formatter="value"
                 size="$bodyLgMedium"
@@ -292,13 +295,13 @@ function Dashboard({
                 textDecorationLine="underline"
                 textDecorationColor="$textSuccess"
                 textDecorationStyle="dotted"
-                formatterOptions={{ tokenSymbol: 'USD' }}
+                formatterOptions={{ tokenSymbol: currency.id.toUpperCase() }}
                 style={{
                   textUnderlineOffset: 4,
                 }}
               >
                 {totalRewards}
-              </NumberSizeableText>
+              </Currency>
             }
             renderContent={
               <Stack gap="$2.5" p="$5">
