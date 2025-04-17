@@ -47,7 +47,7 @@ export function useFalconEventEndedDialog({
           title: intl.formatMessage(
             { id: ETranslations.earn_apy_change_title },
             {
-              value: details.provider.apys?.weeklyNetApyWithoutFee,
+              value: `${details.provider.apys?.weeklyNetApyWithoutFee ?? ''}%`,
             },
           ),
           description: intl.formatMessage({

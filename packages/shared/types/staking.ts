@@ -287,6 +287,8 @@ export type IStakeProtocolDetails = {
   // falcon
   preStaked?: boolean; // pre stake usdf user
   hasRegister?: boolean; // register falcon user
+  preStakeActive?: string; // pre stake portfolio, user staked usdf before event end time
+  formalActive?: string; // formal stake portfolio, user staked usdf after event end time
 };
 
 export type IStakeProtocolListItem = {
@@ -314,6 +316,7 @@ export type IRewardApys = {
 
   // falcon
   airdrop?: string;
+  fixed?: string;
 
   // Token rewards
   rewards: Record<string, string>;
