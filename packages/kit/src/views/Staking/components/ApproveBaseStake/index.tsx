@@ -53,6 +53,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { validateAmountInput } from '../../../Swap/utils/utils';
 import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
+import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
@@ -192,6 +193,10 @@ export function ApproveBaseStake({
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
   const isFocus = useIsFocused();
+
+  const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
+    details,
+  });
 
   const shouldApprove = useMemo(() => {
     if (!isFocus) {
@@ -512,6 +517,9 @@ export function ApproveBaseStake({
       }
     };
 
+    // Wait for the dialog confirmation if it's shown
+    await showFalconEventEndedDialog();
+
     if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
       await checkEstimateGasAlert(handleConfirm);
       return;
@@ -525,6 +533,7 @@ export function ApproveBaseStake({
     amountValue,
     checkEstimateGasAlert,
     details.provider.approveType,
+    showFalconEventEndedDialog,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});

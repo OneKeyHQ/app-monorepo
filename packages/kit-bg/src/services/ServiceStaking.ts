@@ -1331,6 +1331,20 @@ class ServiceStaking extends ServiceBase {
     });
     return response.data.code === 0;
   }
+
+  @backgroundMethod()
+  async setFalconDepositDonNotShowAgain() {
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      falconDepositDonNotShowAgain: true,
+    }));
+  }
+
+  @backgroundMethod()
+  async getFalconDepositDonNotShowAgain() {
+    const v = await simpleDb.appStatus.getRawData();
+    return v?.falconDepositDonNotShowAgain ?? false;
+  }
 }
 
 export default ServiceStaking;
