@@ -140,8 +140,6 @@ type IAddressInputProps = Omit<
   enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
-
-  hideNonBackedUpWallet?: boolean;
 };
 
 export type IAddressQueryResult = {
@@ -309,7 +307,6 @@ export function AddressInput(props: IAddressInputProps) {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     onInputTypeChange,
-    hideNonBackedUpWallet,
     ...rest
   } = props;
   const intl = useIntl();
@@ -528,7 +525,6 @@ export function AddressInput(props: IAddressInputProps) {
                 accountSelector?.onBeforeAccountSelectorOpen
               }
               testID={rest.testID ? `${rest.testID}-selector` : undefined}
-              hideNonBackedUpWallet={hideNonBackedUpWallet}
             />
           ) : null}
         </XStack>
@@ -549,7 +545,6 @@ export function AddressInput(props: IAddressInputProps) {
       accountSelector,
       accountId,
       inputText,
-      hideNonBackedUpWallet,
     ],
   );
 

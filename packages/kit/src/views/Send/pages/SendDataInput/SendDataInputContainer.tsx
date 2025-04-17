@@ -1395,7 +1395,6 @@ function SendDataInputContainer() {
               )}
               accountSelector={addressInputAccountSelectorArgs}
               onInputTypeChange={handleAddressInputChangeType}
-              hideNonBackedUpWallet
             />
             {renderDataInput()}
           </Form>

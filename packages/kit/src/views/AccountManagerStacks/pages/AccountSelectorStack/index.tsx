@@ -13,22 +13,13 @@ import {
   AccountSelectorWalletListSideBarPerfTest,
 } from './WalletList';
 
-export function AccountSelectorStack({
-  num,
-  hideNonBackedUpWallet,
-}: {
-  num: number;
-  hideNonBackedUpWallet?: boolean;
-}) {
+export function AccountSelectorStack({ num }: { num: number }) {
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body flexDirection="row">
         {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
-        <AccountSelectorWalletListSideBar
-          num={num}
-          hideNonBackedUpWallet={hideNonBackedUpWallet}
-        />
+        <AccountSelectorWalletListSideBar num={num} />
 
         {/* <WalletDetailsPerfTest num={num} /> */}
         <WalletDetails num={num} />
@@ -43,7 +34,7 @@ export default function AccountSelectorStackPage({
   IAccountManagerStacksParamList,
   EAccountManagerStacksRoutes.AccountSelectorStack
 >) {
-  const { num, sceneName, sceneUrl, hideNonBackedUpWallet } = route.params;
+  const { num, sceneName, sceneUrl } = route.params;
 
   defaultLogger.accountSelector.perf.renderAccountSelectorModal({
     num,
@@ -59,10 +50,7 @@ export default function AccountSelectorStackPage({
         sceneUrl,
       }}
     >
-      <AccountSelectorStack
-        num={num}
-        hideNonBackedUpWallet={hideNonBackedUpWallet}
-      />
+      <AccountSelectorStack num={num} />
     </AccountSelectorProviderMirror>
   );
 }

@@ -37,7 +37,6 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 interface IWalletListProps {
   num: number;
-  hideNonBackedUpWallet?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -75,10 +74,7 @@ export function AccountSelectorWalletListSideBarPerfTest({
   return null;
 }
 
-export function AccountSelectorWalletListSideBar({
-  num,
-  hideNonBackedUpWallet,
-}: IWalletListProps) {
+export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
   const { bottom } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
@@ -99,17 +95,9 @@ export function AccountSelectorWalletListSideBar({
         ignoreEmptySingletonWalletAccounts: true,
       });
 
-      if (hideNonBackedUpWallet) {
-        r.wallets = r.wallets.filter(
-          (wallet) =>
-            wallet.type !== WALLET_TYPE_HD ||
-            (wallet.type === WALLET_TYPE_HD && wallet.backuped),
-        );
-      }
-
       return r;
     },
-    [serviceAccount, hideNonBackedUpWallet],
+    [serviceAccount],
     {
       checkIsFocused: false,
     },
