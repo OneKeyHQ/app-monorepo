@@ -882,51 +882,61 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    // hw wallet use device label as name
-    if (
+    const shouldFixAvatar =
+      (accountUtils.isHwWallet({ walletId: wallet.id }) ||
+        accountUtils.isQrWallet({ walletId: wallet.id })) &&
+      !accountUtils.isHwHiddenWallet({ wallet });
+    const shouldFixName =
       accountUtils.isHwWallet({ walletId: wallet.id }) &&
-      !accountUtils.isHwHiddenWallet({ wallet }) &&
-      !accountUtils.isQrWallet({ walletId: wallet.id })
-    ) {
+      !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+      !accountUtils.isHwHiddenWallet({ wallet });
+    // hw wallet use device label as name
+    if (shouldFixName || shouldFixAvatar) {
       if (wallet.associatedDevice) {
         const device = await this.getWalletDeviceSafe({
           walletId: wallet.id,
           dbWallet: wallet,
           allDevices,
         });
-        const label = device?.featuresInfo?.label;
-        const deviceType = device?.deviceType;
-        const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
-          device?.featuresInfo,
-        );
-        if (device && deviceType === EDeviceType.Pro && serialNo) {
-          const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
-          if (imgFromSerialNo !== avatarInfo?.img) {
-            appEventBus.emit(
-              EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
-              {
-                walletId: wallet.id,
-                dbDeviceId: device.id,
-                avatarInfo: {
-                  ...avatarInfo,
-                  img: imgFromSerialNo,
+
+        if (shouldFixAvatar) {
+          const deviceType = device?.deviceType;
+          const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
+            device?.featuresInfo,
+          );
+          if (device && deviceType === EDeviceType.Pro && serialNo) {
+            const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
+            if (imgFromSerialNo !== avatarInfo?.img) {
+              appEventBus.emit(
+                EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+                {
+                  walletId: wallet.id,
+                  dbDeviceId: device.id,
+                  avatarInfo: {
+                    ...avatarInfo,
+                    img: imgFromSerialNo,
+                  },
                 },
-              },
-            );
-            wallet.avatarInfo = {
-              ...avatarInfo,
-              img: imgFromSerialNo,
-            };
+              );
+              wallet.avatarInfo = {
+                ...avatarInfo,
+                img: imgFromSerialNo,
+              };
+            }
           }
         }
-        if (device && label && label !== wallet.name) {
-          appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
-            walletId: wallet.id,
-            dbDeviceId: device.id,
-            label,
-            walletName: wallet.name,
-          });
-          wallet.name = label;
+
+        if (shouldFixName) {
+          const label = device?.featuresInfo?.label;
+          if (device && label && label !== wallet.name) {
+            appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+              walletId: wallet.id,
+              dbDeviceId: device.id,
+              label,
+              walletName: wallet.name,
+            });
+            wallet.name = label;
+          }
         }
       }
     }
@@ -2019,6 +2029,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         deviceName = nameArr.slice(0, nameArr.length - 1).join('');
       }
     }
+    const deviceNameArr = deviceName.split(':');
+    deviceName = deviceNameArr?.[0] || deviceName;
+    const serialNo: string | undefined = deviceNameArr?.[1] || undefined;
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       xfpHash = bufferUtils.bytesToHex(
@@ -2030,8 +2043,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const now = await this.timeNow();
 
+    const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
+    const avatarImg = imgFromSerialNo || deviceType;
     const avatar: IAvatarInfo = {
-      img: deviceType,
+      img: avatarImg,
     };
     const context = await this.getContext();
 
@@ -2062,6 +2077,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const firstAccountIndex = 0;
     let addedHdAccountIndex = -1;
 
+    let featuresInfo:
+      | {
+          onekey_serial_no?: string;
+          onekey_serial?: string;
+          serial_no?: string;
+        }
+      | undefined;
+    if (serialNo) {
+      featuresInfo = {
+        onekey_serial_no: serialNo || undefined,
+        onekey_serial: serialNo || undefined,
+        serial_no: serialNo || undefined,
+      };
+    }
+    const featuresStr = featuresInfo ? JSON.stringify(featuresInfo) : '';
+
     const deviceToAdd: IDBDevice = existingDevice || {
       id: dbDeviceId,
       name: deviceName,
@@ -2070,7 +2101,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       deviceId: rawDeviceId,
       deviceType,
       // TODO save qrDevice last version(not updated version)
-      features: '',
+      features: featuresStr,
       settingsRaw: '',
       createdAt: now,
       updatedAt: now,
@@ -2147,6 +2178,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               updater: async (item) => {
                 item.updatedAt = now;
                 // TODO update qrDevice last version(not updated version)
+
+                if (!item.features && featuresStr) {
+                  item.features = featuresStr;
+                }
                 return item;
               },
             });
