@@ -24,7 +24,6 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
-  useSwapApprovingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -46,6 +45,7 @@ export function useSwapQuote() {
   const intl = useIntl();
   const { quoteAction, cleanQuoteInterval, quoteEventHandler } =
     useSwapActions().current;
+  const [{ swapApprovingLoading }] = useInAppNotificationAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -65,7 +65,6 @@ export function useSwapQuote() {
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
-  const [swapApproving] = useSwapApprovingAtom();
 
   const swapTabSwitchTypeRef = useRef(swapTabSwitchType);
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
@@ -223,7 +222,7 @@ export function useSwapQuote() {
       swapApprovingTransaction.status ===
         ESwapApproveTransactionStatus.SUCCESS &&
       !swapApprovingTransaction.resetApproveValue &&
-      !swapApproving
+      !swapApprovingLoading
     ) {
       void quoteAction(
         swapSlippageRef.current,
@@ -241,7 +240,7 @@ export function useSwapQuote() {
     cleanQuoteInterval,
     quoteAction,
     swapApprovingTransaction,
-    swapApproving,
+    swapApprovingLoading,
   ]);
 
   useEffect(() => {

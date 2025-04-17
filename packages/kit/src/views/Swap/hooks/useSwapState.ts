@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
+  useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -33,7 +34,6 @@ import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
-  useSwapApprovingAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
@@ -177,7 +177,7 @@ export function useSwapActionState() {
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
-  const [approving] = useSwapApprovingAtom();
+  const [{ swapApprovingLoading }] = useInAppNotificationAtom();
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
@@ -247,8 +247,13 @@ export function useSwapActionState() {
       infoRes.disable = true;
     }
 
-    if (quoteLoading || quoteEventFetching || approving || buildTxFetching) {
-      if (approving) {
+    if (
+      quoteLoading ||
+      quoteEventFetching ||
+      swapApprovingLoading ||
+      buildTxFetching
+    ) {
+      if (swapApprovingLoading) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_btn_approving,
         });
@@ -369,7 +374,7 @@ export function useSwapActionState() {
     isRefreshQuote,
     quoteLoading,
     quoteEventFetching,
-    approving,
+    swapApprovingLoading,
     isCrossChain,
     fromToken,
     toToken,
@@ -381,10 +386,13 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    approving,
+    approving: swapApprovingLoading,
     noConnectWallet: actionInfo.noConnectWallet,
     disabled:
-      actionInfo.disable || quoteLoading || quoteEventFetching || approving,
+      actionInfo.disable ||
+      quoteLoading ||
+      quoteEventFetching ||
+      swapApprovingLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
