@@ -4,6 +4,7 @@ import { Divider, YStack } from '@onekeyhq/components';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { FaqSection } from './FaqSection';
+import { PeriodSection } from './PeriodSection';
 import { ProfitSection } from './ProfitSection';
 import { ProtectionSection } from './ProtectionSection';
 import { ProviderSection } from './ProviderSection';
@@ -29,6 +30,7 @@ export function ProtocolDetails({
       <ProtectionSection details={details} />
       <ProviderSection details={details} />
       <Divider />
+      <PeriodSection details={details} />
       <RiskSection details={details} />
       <FaqSection details={details} />
     </>

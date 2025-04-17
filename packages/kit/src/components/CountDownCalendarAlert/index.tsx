@@ -106,15 +106,15 @@ export function CountDownCalendarAlert({
         </SizableText>
         <XStack flex={1} ai="center" gap="$1.5">
           <TimeItem
-            translationId={ETranslations.earn_number_days}
+            translationId={ETranslations.earn_day_abbr}
             timeLeft={timeLeft.days}
           />
           <TimeItem
-            translationId={ETranslations.earn_number_hours}
+            translationId={ETranslations.earn_hour_abbr}
             timeLeft={timeLeft.hours}
           />
           <TimeItem
-            translationId={ETranslations.earn_number_minutes}
+            translationId={ETranslations.earn_minute_abbr}
             timeLeft={timeLeft.minutes}
           />
         </XStack>
