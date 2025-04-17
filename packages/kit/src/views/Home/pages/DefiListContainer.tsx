@@ -7,7 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { DefiListView } from '../components/DefiListView';
 
-function DefiListContainer(props: ITabPageProps) {
+function DefiListContainer(_props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
