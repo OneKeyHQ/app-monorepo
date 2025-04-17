@@ -162,7 +162,6 @@ export function Banner<T extends IBannerData>({
             {data.map((_, index) => (
               <Stack
                 shadowColor="$blackA1"
-                shadowOffset={{ width: 2, height: 2 }}
                 shadowOpacity={0.1}
                 shadowRadius={3}
                 key={index}
