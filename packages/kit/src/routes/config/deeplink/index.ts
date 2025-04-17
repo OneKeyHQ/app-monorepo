@@ -14,6 +14,10 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -65,6 +69,20 @@ async function processDeepLinkUrlAccount({
             if (navigation) {
               await marketNavigation.pushDetailPageFromDeeplink(navigation, {
                 coinGeckoId,
+              });
+            }
+          }
+          break;
+        case EOneKeyDeepLinkPath.invite_share:
+          {
+            const { utm_source: utmSource } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
+            if (navigation) {
+              navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+                screen: EModalReferFriendsRoutes.ReferAFriend,
+                params: {
+                  utmSource,
+                },
               });
             }
           }
