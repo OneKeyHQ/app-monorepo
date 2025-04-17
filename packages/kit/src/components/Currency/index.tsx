@@ -10,6 +10,11 @@ import {
 
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
+export const useCurrency = () => {
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  return currencyInfo;
+};
+
 export interface ICurrencyProps extends INumberSizeableTextProps {
   // btc / eth / usd / sats / hkd
   sourceCurrency: string;
