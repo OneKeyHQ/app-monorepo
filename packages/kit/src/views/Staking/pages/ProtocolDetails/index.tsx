@@ -4,14 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Button } from '@onekeyhq/components';
-import { Alert, Page, YStack, useMedia } from '@onekeyhq/components';
+import { Page, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useEarnEventActive } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnEventActive';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -93,6 +95,9 @@ const ProtocolDetailsPage = () => {
     void run();
   }, [refreshAccount, run]);
 
+  const { isEventActive, effectiveTime } = useEarnEventActive(
+    result?.provider.eventEndTime,
+  );
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
@@ -357,32 +362,6 @@ const ProtocolDetailsPage = () => {
     withdrawButtonProps,
   ]);
 
-  // const { bindInviteCode } = useReferFriends();
-  // const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
-  //   async () => {
-  //     const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
-  //     if (code) {
-  //       return false;
-  //     }
-  //     if (earnAccount?.accountAddress) {
-  //       const inviteCodeOnServer =
-  //         await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
-  //           networkId,
-  //           accountAddress: earnAccount?.accountAddress,
-  //         });
-  //       if (inviteCodeOnServer) {
-  //         return false;
-  //       }
-  //     }
-  //     return true;
-  //   },
-  //   [earnAccount?.accountAddress, networkId],
-  //   {
-  //     revalidateOnFocus: true,
-  //     initResult: false,
-  //   },
-  // );
-
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -420,6 +399,11 @@ const ProtocolDetailsPage = () => {
             fullBleed
           />
         ) : null} */}
+        {isEventActive ? (
+          <YStack pb="$1">
+            <CountDownCalendarAlert effectiveTimeAt={effectiveTime} />
+          </YStack>
+        ) : null}
         <YStack px="$5" gap="$8">
           <PageFrame
             LoadingSkeleton={OverviewSkeleton}

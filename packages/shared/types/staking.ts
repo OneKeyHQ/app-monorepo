@@ -90,6 +90,7 @@ export type IStakeProviderInfo = {
 
   // falcon
   joinRequirement?: string;
+  eventEndTime?: number;
 };
 
 export type IStakeBaseParams = {

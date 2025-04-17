@@ -93,7 +93,9 @@ export function CountDownCalendarAlert({
 
   useEffect(() => {
     setTimeLeft(calculateTimeLeft(effectiveTimeAt));
-    const timer = setInterval(calculateTimeLeft, 60_000); // Update every minute
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft(effectiveTimeAt));
+    }, 60_000); // Update every minute
     return () => clearInterval(timer);
   }, [effectiveTimeAt]);
   return (

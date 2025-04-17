@@ -17,6 +17,12 @@ const CountDownCalendarAlertGallery = () => (
         title: 'State',
         element: (
           <YStack gap="$4">
+            <CountDownCalendarAlert
+              effectiveTimeAt={Date.now() - 1000 * 60 * 60 * 24}
+            />
+            <CountDownCalendarAlert effectiveTimeAt={Date.now() - 1000 * 60} />
+            <CountDownCalendarAlert effectiveTimeAt={Date.now()} />
+            <CountDownCalendarAlert effectiveTimeAt={Date.now() + 2000 * 60} />
             <CountDownCalendarAlert effectiveTimeAt={2_060_353_610_000} />
           </YStack>
         ),
