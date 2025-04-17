@@ -19,6 +19,8 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
 >[] = [
   {
     name: EModalReferFriendsRoutes.ReferAFriend,
+    rewrite: '/invite',
+    exact: true,
     component: ReferFriends,
   },
   {
