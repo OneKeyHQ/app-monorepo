@@ -43,7 +43,7 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
           left={0}
           top={0}
           bottom={0}
-          width={isIPadPortrait ? 40 : 30}
+          width={isIPadPortrait ? 50 : 40}
           zIndex={1}
           pointerEvents="auto"
         />
