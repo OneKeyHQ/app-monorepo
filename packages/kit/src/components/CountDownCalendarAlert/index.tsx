@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,7 +25,6 @@ const calculateTimeLeft = (effectiveTimeAt: number) => {
   return { days, hours, minutes };
 };
 
-const TEMPLATE_PLACEHOLDER = '#00#';
 function TimeItem({
   translationId,
   timeLeft,
@@ -34,47 +33,29 @@ function TimeItem({
   timeLeft: number;
 }) {
   const intl = useIntl();
-  const templates = useMemo(() => {
-    intl
-      .formatMessage(
-        { id: translationId },
-        {
-          number: TEMPLATE_PLACEHOLDER,
-        },
-      )
-      .split(TEMPLATE_PLACEHOLDER);
-    return intl
-      .formatMessage(
-        { id: translationId },
-        {
-          number: TEMPLATE_PLACEHOLDER,
-        },
-      )
-      .split(TEMPLATE_PLACEHOLDER);
-  }, [intl, translationId]);
+  const unit = intl.formatMessage({ id: translationId });
 
-  return templates.map((item: string) => {
-    if (item === '') {
-      return (
-        <Badge badgeType="info" key={item}>
-          <Badge.Text size="$bodyMdMedium" color="$textInfo">
-            {timeLeft}
-          </Badge.Text>
-        </Badge>
-      );
-    }
-    return (
+  // Format timeLeft to always have two digits (e.g., 3 -> "03", 10 -> "10")
+  const formattedTimeLeft = String(timeLeft).padStart(2, '0');
+
+  return (
+    <>
+      <Badge badgeType="info">
+        <Badge.Text size="$bodyMdMedium" color="$textInfo">
+          {formattedTimeLeft}
+        </Badge.Text>
+      </Badge>
       <SizableText
-        key={item}
         size="$bodyMdMedium"
+        color="$text"
         display="flex"
         ai="center"
         position="relative"
       >
-        {item}
+        {unit}
       </SizableText>
-    );
-  });
+    </>
+  );
 }
 
 export function CountDownCalendarAlert({
@@ -98,6 +79,10 @@ export function CountDownCalendarAlert({
     }, 60_000); // Update every minute
     return () => clearInterval(timer);
   }, [effectiveTimeAt]);
+
+  const shouldShowDays = timeLeft.days > 0;
+  const shouldShowHours = timeLeft.days > 0 || timeLeft.hours > 0;
+
   return (
     <Alert fullBleed type="info" icon="Calendar3HistoryOutline">
       <XStack gap="$2" flex={1} ai="center">
@@ -105,14 +90,18 @@ export function CountDownCalendarAlert({
           {intl.formatMessage({ id: ETranslations.earn_event_ends_in })}
         </SizableText>
         <XStack flex={1} ai="center" gap="$1.5">
-          <TimeItem
-            translationId={ETranslations.earn_day_abbr}
-            timeLeft={timeLeft.days}
-          />
-          <TimeItem
-            translationId={ETranslations.earn_hour_abbr}
-            timeLeft={timeLeft.hours}
-          />
+          {shouldShowDays ? (
+            <TimeItem
+              translationId={ETranslations.earn_day_abbr}
+              timeLeft={timeLeft.days}
+            />
+          ) : null}
+          {shouldShowHours ? (
+            <TimeItem
+              translationId={ETranslations.earn_hour_abbr}
+              timeLeft={timeLeft.hours}
+            />
+          ) : null}
           <TimeItem
             translationId={ETranslations.earn_minute_abbr}
             timeLeft={timeLeft.minutes}

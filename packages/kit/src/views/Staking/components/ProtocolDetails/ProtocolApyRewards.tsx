@@ -22,6 +22,8 @@ import type {
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
+import { useEarnEventActive } from '../../hooks/useEarnEventActive';
+
 const isPositiveNumber = (value: string | number | undefined): boolean => {
   if (!value) return false;
   return new BigNumber(value).isGreaterThan(0);
@@ -183,9 +185,11 @@ function MorphoApyInternal({
 function FalconApyInternal({
   apys,
   poolFee,
+  isEventActive,
 }: {
   apys: IRewardApys;
   poolFee?: string;
+  isEventActive: boolean;
 }) {
   const intl = useIntl();
 
@@ -197,13 +201,15 @@ function FalconApyInternal({
           label={intl.formatMessage({ id: ETranslations.earn_base_apy })}
           value={apys?.weeklyNetApy}
         />
-        <ApyLineItem
-          iconName="AirdropOutline"
-          label={intl.formatMessage({
-            id: ETranslations.earn_falcon_token_airdrop,
-          })}
-          value={apys?.airdrop}
-        />
+        {isEventActive ? (
+          <ApyLineItem
+            iconName="AirdropOutline"
+            label={intl.formatMessage({
+              id: ETranslations.earn_falcon_token_airdrop,
+            })}
+            value={apys?.airdrop}
+          />
+        ) : null}
         <ApyLineItem
           iconName="HandCoinsOutline"
           label={`${intl.formatMessage({
@@ -213,21 +219,25 @@ function FalconApyInternal({
           valuePrefix="-"
         />
       </YStack>
-      <SizableText pt="$4" pb="$2" size="$bodySm" color="$textSubdued">
-        {intl.formatMessage({
-          id: ETranslations.earn_fixed_yield_info,
-        })}
-      </SizableText>
-      <Anchor
-        // TODO: replace url
-        href="https://google.com"
-        color="$textInfo"
-        size="$bodyMd"
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_learn_more,
-        })}
-      </Anchor>
+      {isEventActive ? (
+        <>
+          <SizableText pt="$4" pb="$2" size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.earn_fixed_yield_info,
+            })}
+          </SizableText>
+          <Anchor
+            // TODO: replace url
+            href="https://google.com"
+            color="$textInfo"
+            size="$bodyMd"
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_learn_more,
+            })}
+          </Anchor>
+        </>
+      ) : null}
     </YStack>
   );
 }
@@ -238,6 +248,7 @@ export function ProtocolApyRewards({
   details: IStakeProtocolDetails;
 }) {
   const { provider, rewardAssets } = details;
+  const { isEventActive } = useEarnEventActive(provider.eventEndTime);
 
   if (!provider.apys) {
     return null;
@@ -255,7 +266,11 @@ export function ProtocolApyRewards({
 
   if (earnUtils.isFalconProvider({ providerName: provider.name })) {
     return (
-      <FalconApyInternal apys={provider.apys} poolFee={provider.poolFee} />
+      <FalconApyInternal
+        apys={provider.apys}
+        poolFee={provider.poolFee}
+        isEventActive={isEventActive}
+      />
     );
   }
 

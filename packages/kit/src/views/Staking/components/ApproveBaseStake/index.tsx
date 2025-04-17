@@ -51,6 +51,7 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { validateAmountInput } from '../../../Swap/utils/utils';
+import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
@@ -133,6 +134,7 @@ export function ApproveBaseStake({
       }),
     [approveTarget.networkId],
   ).result;
+  const { isEventActive } = useEarnEventActive(details.provider.eventEndTime);
   const [approving, setApproving] = useState<boolean>(false);
   const {
     allowance,
@@ -374,15 +376,25 @@ export function ApproveBaseStake({
       if (baseRateBN.gt(0)) {
         const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
 
+        let suffix: string | undefined;
+        if (
+          earnUtils.isFalconProvider({
+            providerName: details.provider.name,
+          }) &&
+          isEventActive
+        ) {
+          suffix = `+ ${intl.formatMessage({
+            id: ETranslations.explore_badge_airdrop,
+          })}`;
+        }
+
         rewards.push({
           amount: baseAmount.toFixed(),
           fiatValue: new BigNumber(price).gt(0)
             ? baseAmount.multipliedBy(price).toFixed()
             : undefined,
           token: details.token.info,
-          suffix: `+ ${intl.formatMessage({
-            id: ETranslations.explore_badge_airdrop,
-          })}`,
+          suffix,
         });
       }
 
@@ -426,7 +438,7 @@ export function ApproveBaseStake({
     }
 
     return rewards;
-  }, [amountValue, apr, price, details, token, intl]);
+  }, [amountValue, apr, price, details, token, intl, isEventActive]);
 
   const totalAnnualRewardsFiatValue = useMemo(() => {
     if (!estimatedAnnualRewards.length) return undefined;

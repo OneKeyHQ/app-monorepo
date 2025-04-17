@@ -67,6 +67,7 @@ function ProfitInfo({
     },
   ] = useSettingsPersistAtom();
   const apys = details.provider.apys;
+  const aprWithoutFee = details.provider.aprWithoutFee;
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
@@ -107,7 +108,7 @@ function ProfitInfo({
                     earnUtils.isFalconProvider({
                       providerName: providerName || '',
                     })
-                      ? apr
+                      ? aprWithoutFee
                       : apys?.dailyNetApy,
                   )}% ${rewardUnit}`}
                 </SizableText>
