@@ -13,6 +13,7 @@ export const ClipboardPlugin: FC<IAddressPluginProps> = ({
   onChange,
   onInputTypeChange,
   testID,
+  disabled,
 }) => {
   const { getClipboard } = useClipboard();
   const intl = useIntl();
@@ -35,7 +36,8 @@ export const ClipboardPlugin: FC<IAddressPluginProps> = ({
       title={intl.formatMessage({ id: ETranslations.send_to_paste_tooltip })}
       variant="tertiary"
       icon="ClipboardOutline"
-      onPress={onPress}
+      disabled={disabled}
+      onPress={disabled ? undefined : onPress}
       testID={testID}
     />
   );
