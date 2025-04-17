@@ -6,6 +6,7 @@ import { Share, StyleSheet } from 'react-native';
 
 import {
   Accordion,
+  Badge,
   Button,
   Divider,
   Icon,
@@ -41,7 +42,7 @@ function PopoverLine({ children }: PropsWithChildren) {
   return (
     <XStack gap="$3" ai="center">
       <Stack w="$1.5" h="$1.5" bg="$textSubdued" borderRadius="$full" />
-      <SizableText size="$bodyLg">{children}</SizableText>
+      <SizableText size="$bodyMd">{children}</SizableText>
     </XStack>
   );
 }
@@ -85,106 +86,122 @@ function ShareCode({
   const intl = useIntl();
   const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
   return (
-    <YStack px="$5" pt="$6" pb="$8">
-      <YStack>
-        <XStack jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({ id: ETranslations.referral_your_code })}
-          </SizableText>
-          <Button
-            onPress={toYourReferredPage}
-            variant="tertiary"
-            iconAfter="ChevronRightOutline"
-            jc="center"
-          >
-            {intl.formatMessage({ id: ETranslations.referral_referred })}
-          </Button>
-        </XStack>
-        <XStack gap="$3" pt="$2" ai="center">
-          <SizableText size="$heading4xl">{inviteCode}</SizableText>
-          <IconButton
-            title={intl.formatMessage({ id: ETranslations.global_copy })}
-            variant="tertiary"
-            icon="Copy3Outline"
-            size="large"
-            iconColor="$iconSubdued"
-            onPress={handleCopy}
-          />
-        </XStack>
-        <Stack
-          mt="$2.5"
-          ai="center"
-          gap="$2.5"
-          flexDirection="column"
-          $gtMd={{
-            flexDirection: 'row',
-            gap: '$6',
-          }}
-        >
-          <XStack
-            borderColor="rgba(0, 0, 0, 0.13)"
-            bg="$bgDisabled"
-            px="$3"
-            py="$1.5"
-            flex={1}
-            borderWidth={StyleSheet.hairlineWidth}
-            jc="space-between"
-            ai="center"
-            borderRadius="$2.5"
-          >
-            <SizableText size="$bodyLg" flexShrink={1}>
-              {inviteCodeUrl}
+    <>
+      <YStack px="$5" pt="$6" pb="$5" $platform-native={{ pb: '$8' }}>
+        <YStack>
+          <XStack jc="space-between">
+            <SizableText size="$headingMd">
+              {intl.formatMessage({ id: ETranslations.referral_your_code })}
             </SizableText>
+            <Button
+              onPress={toYourReferredPage}
+              variant="tertiary"
+              iconAfter="ChevronRightOutline"
+              jc="center"
+            >
+              {intl.formatMessage({ id: ETranslations.referral_referred })}
+            </Button>
           </XStack>
-          <XStack
+          <XStack gap="$3" pt="$2" ai="center">
+            <SizableText size="$heading4xl">{inviteCode}</SizableText>
+            <IconButton
+              title={intl.formatMessage({ id: ETranslations.global_copy })}
+              variant="tertiary"
+              icon="Copy3Outline"
+              size="large"
+              iconColor="$iconSubdued"
+              onPress={handleCopy}
+            />
+          </XStack>
+          <Stack
+            mt="$2.5"
             ai="center"
             gap="$2.5"
-            $md={{
-              width: '100%',
+            flexDirection="row"
+            $platform-native={{
+              flexDirection: 'column',
+              gap: '$4',
             }}
           >
-            <Button
-              icon="Copy3Outline"
-              variant={platformEnv.isNative ? undefined : 'primary'}
-              $md={{
-                flex: 1,
-              }}
-              size={gtMd ? 'medium' : 'large'}
-              onPress={() => {
-                copyText(sharedUrl);
-              }}
+            <XStack
+              borderColor="rgba(0, 0, 0, 0.13)"
+              bg="$bgDisabled"
+              px="$3"
+              py="$1.5"
+              flex={1}
+              width="100%"
+              borderWidth={StyleSheet.hairlineWidth}
+              jc="space-between"
+              ai="center"
+              borderRadius="$2.5"
             >
-              {intl.formatMessage({ id: ETranslations.global_copy })}
-            </Button>
+              <SizableText size="$bodyLg" flexShrink={1}>
+                {inviteCodeUrl}
+              </SizableText>
+              {platformEnv.isNative ? null : (
+                <IconButton
+                  title={intl.formatMessage({ id: ETranslations.global_copy })}
+                  icon="Copy3Outline"
+                  variant="tertiary"
+                  size="medium"
+                  iconColor="$iconSubdued"
+                  onPress={() => {
+                    copyText(sharedUrl);
+                  }}
+                />
+              )}
+            </XStack>
             {platformEnv.isNative ? (
-              <Button
-                variant="primary"
-                icon="ShareOutline"
-                size={gtMd ? 'medium' : 'large'}
+              <XStack
+                ai="center"
+                gap="$2.5"
                 $md={{
-                  flex: 1,
-                }}
-                onPress={() => {
-                  setTimeout(() => {
-                    void Share.share(
-                      platformEnv.isNativeIOS
-                        ? {
-                            url: sharedUrl,
-                          }
-                        : {
-                            message: sharedUrl,
-                          },
-                    );
-                  }, 300);
+                  width: '100%',
                 }}
               >
-                {intl.formatMessage({ id: ETranslations.explore_share })}
-              </Button>
+                <Button
+                  icon="Copy3Outline"
+                  variant={platformEnv.isNative ? undefined : 'primary'}
+                  $md={{
+                    flex: 1,
+                  }}
+                  size={gtMd ? 'medium' : 'large'}
+                  onPress={() => {
+                    copyText(sharedUrl);
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
+                <Button
+                  variant="primary"
+                  icon="ShareOutline"
+                  size={gtMd ? 'medium' : 'large'}
+                  $md={{
+                    flex: 1,
+                  }}
+                  onPress={() => {
+                    setTimeout(() => {
+                      void Share.share(
+                        platformEnv.isNativeIOS
+                          ? {
+                              url: sharedUrl,
+                            }
+                          : {
+                              message: sharedUrl,
+                            },
+                      );
+                    }, 300);
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.explore_share })}
+                </Button>
+              </XStack>
             ) : null}
-          </XStack>
-        </Stack>
+          </Stack>
+        </YStack>
       </YStack>
-    </YStack>
+      <Divider mx="$5" />
+    </>
   );
 }
 
@@ -268,7 +285,7 @@ function Dashboard({
               <NumberSizeableText
                 pb={1}
                 color="$textSuccess"
-                formatter="balance"
+                formatter="value"
                 size="$bodyLgMedium"
                 cursor="pointer"
                 textDecorationLine="underline"
@@ -395,7 +412,7 @@ function Dashboard({
               {showHardwarePendingFiat ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
-                    id: ETranslations.global_pending,
+                    id: ETranslations.referral_sales_reward_pending,
                   })}
                 </SizableText>
               ) : null}
@@ -414,23 +431,27 @@ function Dashboard({
         // onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-          </SizableText>
+          <XStack ai="flex-end">
+            <SizableText size="$headingMd">
+              {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              position="relative"
+              top={-2}
+            >
+              {`  (${intl.formatMessage({
+                id: ETranslations.coming_soon,
+              })})`}
+            </SizableText>
+          </XStack>
           {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
         </XStack>
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        <XStack pt="$4" gap="$2.5" ai="center">
-          <XStack>
-            <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
-          </XStack>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.coming_soon })}
-          </SizableText>
-        </XStack>
-        {/* {showEarnSalesAvailableFiat ? (
+        {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
             {earn.available?.map(({ token, fiatValue }, index) => {
               return (
@@ -456,7 +477,36 @@ function Dashboard({
           </YStack>
         ) : (
           <NoRewardYet />
-        )} */}
+        )}
+      </YStack>
+      <YStack
+        px="$5"
+        py="$4"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+      >
+        <XStack ai="center" jc="space-between">
+          <XStack ai="flex-end">
+            <SizableText size="$headingMd">
+              {intl.formatMessage({ id: ETranslations.referral_swap_reward })}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              position="relative"
+              top={-2}
+            >
+              {`  (${intl.formatMessage({
+                id: ETranslations.coming_soon,
+              })})`}
+            </SizableText>
+          </XStack>
+        </XStack>
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.referral_swap_reward_desc })}
+        </SizableText>
+        <NoRewardYet />
       </YStack>
     </YStack>
   );
@@ -608,13 +658,26 @@ export default function InviteReward() {
       revalidateOnReconnect: true,
     },
   );
+
+  const renderHeaderTitle = useCallback(
+    () => (
+      <XStack gap="$2">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({
+            id: ETranslations.referral_title,
+          })}
+        </SizableText>
+        <Badge badgeType="info" badgeSize="sm">
+          <Badge.Text>Beta</Badge.Text>
+        </Badge>
+      </XStack>
+    ),
+    [intl],
+  );
+
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.referral_title,
-        })}
-      />
+      <Page.Header headerTitle={renderHeaderTitle} />
       <Page.Body>
         {!summaryInfo ? (
           <Stack

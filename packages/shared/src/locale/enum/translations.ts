@@ -1978,6 +1978,8 @@
   referral_sales_reward_desc = 'referral.sales_reward_desc',
   referral_sales_reward_pending = 'referral.sales_reward_pending',
   referral_sales_reward_tips = 'referral.sales_reward_tips',
+  referral_swap_reward = 'referral.swap_reward',
+  referral_swap_reward_desc = 'referral.swap_reward_desc',
   referral_title = 'referral.title',
   referral_total_reward = 'referral.total_reward',
   referral_total_reward_pop1 = 'referral.total_reward_pop1',
