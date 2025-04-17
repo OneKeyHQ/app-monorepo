@@ -18,6 +18,7 @@ export interface ICurrencyProps extends INumberSizeableTextProps {
 function BasicCurrency({
   sourceCurrency,
   targetCurrency,
+  formatterOptions,
   children,
   ...props
 }: ICurrencyProps) {
@@ -46,7 +47,10 @@ function BasicCurrency({
   return (
     <NumberSizeableTextWrapper
       formatter="price"
-      formatterOptions={{ currency: targetCurrencyInfo?.unit }}
+      formatterOptions={{
+        currency: targetCurrencyInfo?.unit,
+        ...formatterOptions,
+      }}
       {...props}
     >
       {value}
