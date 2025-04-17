@@ -161,7 +161,7 @@ const HistoryContent = ({
 
   return (
     <YStack flex={1}>
-      <XStack px="$5">
+      {/* <XStack px="$5">
         <Select
           value={filterType}
           renderTrigger={({ label }) => (
@@ -178,7 +178,7 @@ const HistoryContent = ({
           title="Demo Title"
           onOpenChange={console.log}
         />
-      </XStack>
+      </XStack> */}
       <SectionList
         estimatedItemSize="$14"
         sections={sections}
@@ -288,7 +288,7 @@ function HistoryList() {
         network: historyResp.network,
         sections,
         tokenMap,
-        filter: historyResp.filter,
+        filter: historyResp.filter || {},
       };
     },
     [
