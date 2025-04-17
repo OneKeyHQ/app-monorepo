@@ -112,6 +112,16 @@ export function VerifyRecoveryPhrase({
       });
 
       if (isValid) {
+        if (route.params?.isBackup) {
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.backup_recovery_phrase_backed_up,
+            }),
+          });
+          navigation.popStack();
+          return;
+        }
+
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
           isWalletBackedUp: true,
@@ -137,14 +147,15 @@ export function VerifyRecoveryPhrase({
       }
     }
   }, [
-    intl,
-    mnemonic,
-    navigation,
+    verifyRecoveryPhrases,
     phrases,
     selectedWords,
+    route.params?.isBackup,
+    navigation,
+    mnemonic,
     settings.isBiologyAuthSwitchOn,
-    verifyRecoveryPhrases,
     isSoftwareWalletOnlyUser,
+    intl,
   ]);
 
   return (

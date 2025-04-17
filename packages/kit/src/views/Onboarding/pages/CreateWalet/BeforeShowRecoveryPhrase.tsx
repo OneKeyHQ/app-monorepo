@@ -182,15 +182,19 @@ export function BeforeShowRecoveryPhrase() {
               flexGrow: 1,
             },
           }}
-          cancelButtonProps={{
-            onPress: handleSkipRecoveryPhrasePress,
-            testID: 'skip-recovery-phrase',
-            $md: {
-              flexGrow: 1,
-            },
-          }}
+          cancelButtonProps={
+            route.params?.isBackup
+              ? undefined
+              : {
+                  onPress: handleSkipRecoveryPhrasePress,
+                  testID: 'skip-recovery-phrase',
+                  $md: {
+                    flexGrow: 1,
+                  },
+                }
+          }
           onCancelText={
-            route.params?.hideSkipBackup
+            route.params?.isBackup
               ? undefined
               : intl.formatMessage({
                   id: ETranslations.global_skip_for_now,
@@ -199,7 +203,12 @@ export function BeforeShowRecoveryPhrase() {
           buttonContainerProps={{
             w: media.gtMd ? '100%' : 'auto',
             flexDirection: media.gtMd ? 'row' : 'column-reverse',
-            justifyContent: media.gtMd ? 'space-between' : undefined,
+            // eslint-disable-next-line no-nested-ternary
+            justifyContent: media.gtMd
+              ? route.params?.isBackup
+                ? 'flex-end'
+                : 'space-between'
+              : undefined,
           }}
         />
       </Page.Footer>

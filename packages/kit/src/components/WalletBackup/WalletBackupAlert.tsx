@@ -28,13 +28,30 @@ export function WalletBackupAlert() {
         borderColor="$borderSubdued"
         justifyContent="space-between"
         alignItems="center"
-        flexDirection="column"
-        $gtMd={{
-          flexDirection: 'row',
+        flexDirection="row"
+        $md={{
+          flexDirection: 'column',
+          gap: '$2',
+          alignItems: 'flex-start',
         }}
       >
-        <XStack gap="$2" alignItems="center">
-          <Icon size="$5" name="ShieldExclamationSolid" color="$iconCritical" />
+        <XStack
+          gap="$2"
+          alignItems="center"
+          $md={{
+            alignItems: 'flex-start',
+          }}
+        >
+          <Stack w="$5" h="$5">
+            <Icon
+              size="$5"
+              name="ShieldExclamationSolid"
+              color="$iconCritical"
+              $md={{
+                mt: '$2',
+              }}
+            />
+          </Stack>
           <SizableText>
             {
               // @ts-ignore
@@ -57,6 +74,9 @@ export function WalletBackupAlert() {
             variant="tertiary"
             iconAfter="ArrowRightOutline"
             onPress={() => {}}
+            $md={{
+              ml: '$5',
+            }}
           >
             {intl.formatMessage({ id: ETranslations.backup_backup_now })}
           </Button>

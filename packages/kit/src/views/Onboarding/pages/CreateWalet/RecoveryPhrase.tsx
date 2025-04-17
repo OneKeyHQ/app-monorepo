@@ -97,9 +97,6 @@ export function RecoveryPhrase() {
   );
 
   const verifyRecoveryPhrases = useMemo(() => {
-    if (route.params?.isBackup) {
-      return [];
-    }
     const shufflePhrasesIndex = shuffle(
       Array(phrases.length)
         .fill(0)
@@ -129,7 +126,7 @@ export function RecoveryPhrase() {
         ]),
       ])
       .sort((a, b) => (a[0] as number) - (b[0] as number));
-  }, [phrases, route.params?.isBackup]);
+  }, [phrases]);
 
   const handleConfirmPress = useCallback(async () => {
     if (route.params?.isBackup && route.params?.isWalletBackedUp) {

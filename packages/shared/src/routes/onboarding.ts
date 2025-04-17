@@ -72,7 +72,6 @@ export type IOnboardingParamList = {
   [EOnboardingPages.BeforeShowRecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
-    hideSkipBackup?: boolean;
     isWalletBackedUp?: boolean;
   };
   [EOnboardingPages.RecoveryPhrase]: {

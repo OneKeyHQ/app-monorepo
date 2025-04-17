@@ -46,7 +46,6 @@ export function WalletBackupActions({
       params: {
         mnemonic,
         isBackup: true,
-        hideSkipBackup: true,
         isWalletBackedUp: wallet.backuped,
       },
     });
