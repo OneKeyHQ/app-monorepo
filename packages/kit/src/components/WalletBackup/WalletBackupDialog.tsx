@@ -14,7 +14,7 @@ export const showWalletBackupDialog = ({
 }) => {
   const dialog = Dialog.show({
     title: appLocale.intl.formatMessage({
-      id: ETranslations.global_energy_bandwidth,
+      id: ETranslations.wallet_backup_prompt,
     }),
     description: appLocale.intl.formatMessage({
       id: ETranslations.wallet_backup_backup_reminder,
