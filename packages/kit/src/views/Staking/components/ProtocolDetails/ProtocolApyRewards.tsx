@@ -227,8 +227,7 @@ function FalconApyInternal({
             })}
           </SizableText>
           <Anchor
-            // TODO: replace url
-            href="https://google.com"
+            href="https://help.onekey.so/hc/articles/12463212976655"
             color="$textInfo"
             size="$bodyMd"
           >

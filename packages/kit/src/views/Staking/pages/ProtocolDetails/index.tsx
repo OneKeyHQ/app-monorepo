@@ -11,7 +11,6 @@ import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCa
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useEarnEventActive } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnEventActive';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -326,6 +325,31 @@ const ProtocolDetailsPage = () => {
       result,
     ],
   );
+  // const { bindInviteCode } = useReferFriends();
+  // const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
+  //   async () => {
+  //     const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
+  //     if (code) {
+  //       return false;
+  //     }
+  //     if (earnAccount?.accountAddress) {
+  //       const inviteCodeOnServer =
+  //         await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
+  //           networkId,
+  //           accountAddress: earnAccount?.accountAddress,
+  //         });
+  //       if (inviteCodeOnServer) {
+  //         return false;
+  //       }
+  //     }
+  //     return true;
+  //   },
+  //   [earnAccount?.accountAddress, networkId],
+  //   {
+  //     revalidateOnFocus: true,
+  //     initResult: false,
+  //   },
+  // );
 
   const renderPageFooter = useCallback(() => {
     if (media.gtMd) {

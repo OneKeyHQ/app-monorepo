@@ -1,7 +1,6 @@
 import Common, { Chain, Hardfork } from '@ethereumjs/common';
 import {
   FeeMarketEIP1559Transaction,
-  Transaction,
   TransactionFactory,
 } from '@ethereumjs/tx';
 import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
@@ -17,12 +16,9 @@ import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import { packUnsignedTxForSignEvm } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import {
   AirGapEthSignRequestEvm,
-  AirGapRegistryTypesEvm,
   EAirGapDataTypeEvm,
-  EAirGapURType,
   airGapUrUtils,
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
@@ -53,7 +49,7 @@ const txParams: FeeMarketEIP1559TxData = {
 };
 
 export function QRWalletGallerySignTx() {
-  const { start: startScan } = useScanQrCode();
+  // const { start: startScan } = useScanQrCode();
 
   return (
     <>
@@ -68,7 +64,7 @@ export function QRWalletGallerySignTx() {
             chain: Chain.Mainnet,
             hardfork: Hardfork.London,
           });
-          const legacyTx = Transaction.fromTxData(txParams, { common });
+          // const legacyTx = Transaction.fromTxData(txParams, { common });
           const eip1559Tx = FeeMarketEIP1559Transaction.fromTxData(txParams, {
             common,
           });
@@ -88,21 +84,22 @@ export function QRWalletGallerySignTx() {
             // dataType: KeystoneEthereumSDK.DataType.transaction, // legacy tx
             dataType: EAirGapDataTypeEvm.typedTransaction, // EIP-1559 tx
             path: "m/44'/60'/0'/0/0",
+            // eslint-disable-next-line spellcheck/spell-checker
             // xfp: 'caeff70f',
             xfp: 'aaaff70f', // master fingerprint, should save to wallet
             chainId: 1,
             origin: 'MetaMask',
           };
           const sdk = getAirGapSdk();
-          const ethSignRequestType = AirGapRegistryTypesEvm.ETH_SIGN_REQUEST;
-          const ethSignResponseType = EAirGapURType.EthSignature;
-          const ethSignResponseType2 = AirGapRegistryTypesEvm.ETH_SIGNATURE;
+          // const ethSignRequestType = AirGapRegistryTypesEvm.ETH_SIGN_REQUEST;
+          // const ethSignResponseType = EAirGapURType.EthSignature;
+          // const ethSignResponseType2 = AirGapRegistryTypesEvm.ETH_SIGNATURE;
           const urData = sdk.eth.generateSignRequest(ethSignRequest);
           const qrUri = UREncoder.encodeSinglePart(urData).toUpperCase();
 
           //
-          const animatedEncoder = new UREncoder(urData, 200, 0);
-          const part = animatedEncoder.nextPart(); // animatedQrPart
+          // const animatedEncoder = new UREncoder(urData, 200, 0);
+          // const part = animatedEncoder.nextPart(); // animatedQrPart
 
           console.log({
             ur: {
@@ -116,8 +113,8 @@ export function QRWalletGallerySignTx() {
             serializedTxWithout0x,
             digest,
           });
-          const qrUri2 = `UR:ETH-SIGN-REQUEST/OLADTPDAGDVSASKKYLZTPYFWWNRFCFDYLFLBCACYDRAOHDDTAOVDETDSLRPRTIHYAELRPRTIHYAELFGMAYMWAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDLALARTAXAAAACSETAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAEWKAOCYSGWSYLBSAMGHAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDOTCPLFMK`;
-          const qrUri3 = `UR:ETH-SIGN-REQUEST/ONADTPDAGDJSCLGYFYYLIMFDLEQDVLCAYKCAEHKPPSAOHDCTFEKSHSJNJOJZIHCXHNJOIHJPJKJLJTHSJZHEJKINIOJTHNCXJNIHJKJKHSIOIHAXAXAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAOWKAOCYSGWSYLBSAMGHGHUEDPFWTOECTKIMDEAHWMUYHPKKGRIDGAAHNYKGHFONOXBE`;
+          // const qrUri2 = `UR:ETH-SIGN-REQUEST/OLADTPDAGDVSASKKYLZTPYFWWNRFCFDYLFLBCACYDRAOHDDTAOVDETDSLRPRTIHYAELRPRTIHYAELFGMAYMWAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDLALARTAXAAAACSETAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAEWKAOCYSGWSYLBSAMGHAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDOTCPLFMK`;
+          // const qrUri3 = `UR:ETH-SIGN-REQUEST/ONADTPDAGDJSCLGYFYYLIMFDLEQDVLCAYKCAEHKPPSAOHDCTFEKSHSJNJOJZIHCXHNJOIHJPJKJLJTHSJZHEJKINIOJTHNCXJNIHJKJKHSIOIHAXAXAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAOWKAOCYSGWSYLBSAMGHGHUEDPFWTOECTKIMDEAHWMUYHPKKGRIDGAAHNYKGHFONOXBE`;
           const decodedUr = URDecoder.decode(qrUri);
           const decodedSignRequest = AirGapEthSignRequestEvm.fromCBOR(
             decodedUr.cbor,

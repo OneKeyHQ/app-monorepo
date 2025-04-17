@@ -6,6 +6,7 @@ export enum EGalleryRoutes {
   ComponentAddressInput = 'component-AddressInput',
   ComponentAlert = 'component-Alert',
   ComponentAmountInput = 'component-AmountInput',
+  ComponentAnchor = 'component-Anchor',
   ComponentBadge = 'component-Badge',
   ComponentBanner = 'component-Banner',
   ComponentBlurView = 'component-BlurView',
