@@ -2019,6 +2019,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         deviceName = nameArr.slice(0, nameArr.length - 1).join('');
       }
     }
+    const deviceNameArr = deviceName.split(':');
+    deviceName = deviceNameArr?.[0] || deviceName;
+    const serialNo = deviceNameArr?.[1];
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       xfpHash = bufferUtils.bytesToHex(
@@ -2062,6 +2065,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const firstAccountIndex = 0;
     let addedHdAccountIndex = -1;
 
+    let featuresInfo:
+      | {
+          onekey_serial_no?: string;
+          onekey_serial?: string;
+          serial_no?: string;
+        }
+      | undefined;
+    if (serialNo) {
+      featuresInfo = {
+        onekey_serial_no: serialNo || undefined,
+        onekey_serial: serialNo || undefined,
+        serial_no: serialNo || undefined,
+      };
+    }
+    const featuresStr = featuresInfo ? JSON.stringify(featuresInfo) : '';
+
     const deviceToAdd: IDBDevice = existingDevice || {
       id: dbDeviceId,
       name: deviceName,
@@ -2070,7 +2089,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       deviceId: rawDeviceId,
       deviceType,
       // TODO save qrDevice last version(not updated version)
-      features: '',
+      features: featuresStr,
       settingsRaw: '',
       createdAt: now,
       updatedAt: now,
@@ -2147,6 +2166,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               updater: async (item) => {
                 item.updatedAt = now;
                 // TODO update qrDevice last version(not updated version)
+
+                if (!item.features && featuresStr) {
+                  item.features = featuresStr;
+                }
                 return item;
               },
             });
