@@ -2153,18 +2153,25 @@ class ServiceAccount extends ServiceBase {
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const { accountId, indexedAccountId, name } = params;
 
+    let account: IDBAccount | undefined;
+    let indexedAccount: IDBIndexedAccount | undefined;
+
     // Get the old name before updating
     let oldName = '';
     if (name) {
       if (accountId) {
-        const account = await this.getDBAccountSafe({ accountId });
+        account = await this.getDBAccountSafe({ accountId });
         oldName = account?.name || '';
       } else if (indexedAccountId) {
-        const indexedAccount = await this.getIndexedAccountSafe({
+        indexedAccount = await this.getIndexedAccountSafe({
           id: indexedAccountId,
         });
         oldName = indexedAccount?.name || '';
       }
+    }
+
+    if (!account && !indexedAccount) {
+      return;
     }
 
     const r = await localDb.setAccountName(params);
