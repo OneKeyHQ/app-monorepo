@@ -27,6 +27,7 @@ import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -100,6 +101,7 @@ export function Container() {
           <AirGapQrcodeDialogContainer />
           <CreateAddressContainer />
           <PrevCheckBeforeSendingContainer />
+          <WalletBackupPreCheckContainer />
           <HardwareUiStateContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />

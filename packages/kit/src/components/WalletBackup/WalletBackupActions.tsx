@@ -22,9 +22,11 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 export function WalletBackupActions({
   wallet,
   children,
+  onSelected,
 }: {
   wallet: IDBWallet | undefined;
   children: React.ReactNode;
+  onSelected?: () => void;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -51,12 +53,14 @@ export function WalletBackupActions({
     });
 
     defaultLogger.account.wallet.backupWallet('manualBackup');
-  }, [navigation, wallet?.id, wallet?.backuped]);
+    onSelected?.();
+  }, [navigation, wallet?.id, wallet?.backuped, onSelected]);
 
   const handleBackupLiteCard = useCallback(() => {
     void liteCard.backupWallet(wallet?.id);
     defaultLogger.account.wallet.backupWallet('liteCard');
-  }, [liteCard, wallet?.id]);
+    onSelected?.();
+  }, [liteCard, wallet?.id, onSelected]);
 
   const handleBackupKeyTag = useCallback(async () => {
     if (wallet) {
@@ -74,8 +78,9 @@ export function WalletBackupActions({
         },
       });
       defaultLogger.account.wallet.backupWallet('keyTag');
+      onSelected?.();
     }
-  }, [navigation, wallet]);
+  }, [navigation, wallet, onSelected]);
 
   return (
     <ActionList

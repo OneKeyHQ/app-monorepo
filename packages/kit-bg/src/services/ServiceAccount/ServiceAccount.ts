@@ -218,6 +218,24 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkWalletBackupStatus({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+      const promiseId = this.backgroundApi.servicePromise.createCallback({
+        resolve,
+        reject,
+      });
+      appEventBus.emit(EAppEventBusNames.CheckWalletBackupStatus, {
+        promiseId,
+        walletId,
+      });
+    });
+  }
+
+  @backgroundMethod()
   async getWalletSafe({
     walletId,
     withoutRefill,

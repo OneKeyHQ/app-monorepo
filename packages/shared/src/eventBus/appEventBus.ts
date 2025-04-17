@@ -115,6 +115,7 @@ export enum EAppEventBusNames {
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
+  CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -333,6 +334,10 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;
+  [EAppEventBusNames.CheckWalletBackupStatus]: {
+    promiseId: number;
+    walletId: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
