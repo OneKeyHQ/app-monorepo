@@ -1,4 +1,4 @@
-import { Stack, usePropsAndStyle } from '@onekeyhq/components';
+import { Stack, useOrientation, usePropsAndStyle } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -27,6 +27,8 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
     identifier,
     baseToken,
   });
+  const isLandscape = useOrientation();
+  const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
 
   return (
     <Stack position="relative" style={style as ViewStyle}>
@@ -35,14 +37,13 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
         style={{ flex: 1 }}
         {...otherProps}
       />
-      {platformEnv.isNativeIOS ? (
+      {platformEnv.isNativeIOS || isIPadPortrait ? (
         <Stack
-          bg="$red3"
           position="absolute"
           left={0}
           top={0}
           bottom={0}
-          width={30}
+          width={isIPadPortrait ? 40 : 30}
           zIndex={1}
           pointerEvents="auto"
         />
