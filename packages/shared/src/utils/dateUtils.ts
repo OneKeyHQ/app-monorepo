@@ -200,7 +200,7 @@ export function formatRelativeDate(date: Date) {
     today: `${appLocale.intl.formatMessage({
       id: ETranslations.global_date_today,
     })}`,
-    other: 'LLL dd yyyy',
+    other: 'yyyy/LL/dd',
   };
 
   let formattedDate;
