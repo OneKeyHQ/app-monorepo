@@ -96,6 +96,9 @@ const InAppNotification = () => {
           title: intl.formatMessage({
             id: ETranslations.swap_page_toast_approve_successful,
           }),
+          message: intl.formatMessage({
+            id: ETranslations.swap_page_toast_approve_successful,
+          }),
           duration: 300_000,
           actions: approvingSuccessAction,
         });

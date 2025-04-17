@@ -1000,6 +1000,15 @@ export default class ServiceSwap extends ServiceBase {
     }));
   }
 
+  @backgroundMethod()
+  async closeApproving() {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapApprovingTransaction: undefined,
+      swapApprovingLoading: false,
+    }));
+  }
+
   // --- swap provider manager
   @backgroundMethod()
   async getSwapProviderManager() {
@@ -1032,6 +1041,14 @@ export default class ServiceSwap extends ServiceBase {
         swapProviderManager: data,
       }));
     }
+  }
+
+  @backgroundMethod()
+  async updateSwapApprovingLoading(loading: boolean) {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapApprovingLoading: loading,
+    }));
   }
 
   // --- swap history
