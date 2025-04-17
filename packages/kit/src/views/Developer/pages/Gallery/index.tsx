@@ -3,6 +3,12 @@ import type { ComponentType } from 'react';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
+const AnchorGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Anchor'
+    ),
+);
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
 );
@@ -772,4 +778,5 @@ export const galleryScreenList: {
     name: EGalleryRoutes.ComponentStepper,
     component: StepperGallery,
   },
+  { name: EGalleryRoutes.ComponentAnchor, component: AnchorGallery },
 ];
