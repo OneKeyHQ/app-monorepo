@@ -2031,7 +2031,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const deviceNameArr = deviceName.split(':');
     deviceName = deviceNameArr?.[0] || deviceName;
-    const serialNo = deviceNameArr?.[1];
+    const serialNo: string | undefined = deviceNameArr?.[1] || undefined;
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       xfpHash = bufferUtils.bytesToHex(
