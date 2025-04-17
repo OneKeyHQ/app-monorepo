@@ -1667,7 +1667,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           toFirmwareVersion?.join('.'),
           updateResult?.firmwareVersion,
         );
-        verifyVersion(toBleVersion?.join('.'), '3.9.0');
+        verifyVersion(toBleVersion?.join('.'), updateResult?.bleVersion);
         verifyVersion(
           toBootloaderVersion?.join('.'),
           updateResult?.bootloaderVersion,
