@@ -1,10 +1,6 @@
-import { useRef } from 'react';
-
-import { useNavigation } from '@react-navigation/native';
-import { PanResponder } from 'react-native';
-
 import { Stack, usePropsAndStyle } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useTradingViewProps } from './useTradingViewProps';
 import { WebView } from './WebView';
@@ -22,8 +18,6 @@ interface IBaseTradingViewProps {
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
-const EDGE_THRESHOLD = 50;
-
 export function TradingView(props: ITradingViewProps & WebViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { targetToken, identifier, baseToken, ...otherProps } =
@@ -34,43 +28,25 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
     baseToken,
   });
 
-  const navigation = useNavigation();
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.x0 < EDGE_THRESHOLD;
-      },
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        const { dx, dy, x0 } = gestureState;
-        return x0 < EDGE_THRESHOLD && Math.abs(dx) > Math.abs(dy) && dx > 0;
-      },
-      onPanResponderGrant: (_, gestureState) => {
-        const { x0 } = gestureState;
-        if (x0 < EDGE_THRESHOLD) {
-          navigation.setOptions({ gesturesEnabled: true });
-        }
-      },
-      onPanResponderMove: (_, gestureState) => {
-        const { dx, dy, x0 } = gestureState;
-        if (x0 < EDGE_THRESHOLD && Math.abs(dx) > Math.abs(dy) && dx > 0) {
-          navigation.setOptions({ gesturesEnabled: true });
-        } else {
-          navigation.setOptions({ gesturesEnabled: false });
-        }
-      },
-      onPanResponderRelease: () => {
-        navigation.setOptions({ gesturesEnabled: true });
-      },
-    }),
-  ).current;
-
   return (
-    <Stack {...panResponder.panHandlers} bg="$bgApp" style={style as ViewStyle}>
+    <Stack position="relative" style={style as ViewStyle}>
       <WebView
         tradingViewProps={tradingViewProps}
         style={{ flex: 1 }}
         {...otherProps}
       />
+      {platformEnv.isNativeIOS ? (
+        <Stack
+          bg="$red3"
+          position="absolute"
+          left={0}
+          top={0}
+          bottom={0}
+          width={30}
+          zIndex={1}
+          pointerEvents="auto"
+        />
+      ) : null}
     </Stack>
   );
 }
