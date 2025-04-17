@@ -3110,6 +3110,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     networkId: string;
     account: INetworkAccount; // TODO support accounts array
   }) {
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return;
+    }
+    if (accountUtils.isAllNetworkMockAccount({ accountId: account.id })) {
+      return;
+    }
+    if (accountUtils.isUrlAccountFn({ accountId: account.id })) {
+      return;
+    }
+
     const accountId = account.id;
     const { indexedAccountId, address, addressDetail, type } = account;
     let id = address ? `${networkId}--${address}` : '';
@@ -3141,21 +3151,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       const record = recordPair?.[0];
       if (record && recordPair) {
-        await this.txUpdateRecords({
-          tx,
-          name: ELocalDBStoreNames.Address,
-          recordPairs: [recordPair],
-          updater: (r) => {
-            // DO NOT use              r.wallets = r.wallets || {};
-            // it will reset nextIds to {}
-            if (!r.wallets) {
-              r.wallets = {};
-            }
+        const newAccountId = indexedAccountId ?? accountId;
+        const oldAccountId = record?.wallets?.[walletId];
+        if (newAccountId && oldAccountId !== newAccountId) {
+          await this.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Address,
+            recordPairs: [recordPair],
+            updater: (r) => {
+              // DO NOT use              r.wallets = r.wallets || {};
+              // it will reset nextIds to {}
+              if (!r.wallets) {
+                r.wallets = {};
+              }
 
-            r.wallets[walletId] = indexedAccountId ?? accountId;
-            return r;
-          },
-        });
+              r.wallets[walletId] = newAccountId;
+              return r;
+            },
+          });
+        }
       } else {
         await this.txAddRecords({
           tx,
