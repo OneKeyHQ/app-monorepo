@@ -75,12 +75,12 @@ export default function ReferAFriend() {
 
       if (
         platformEnv.isWeb &&
-        globalThis?.location.href.includes('utm_source=web_home')
+        globalThis?.location.href.includes('utm_source=web_share')
       ) {
         const url = uriUtils.buildDeepLinkUrl({
           path: EOneKeyDeepLinkPath.invite_share,
           query: {
-            utm_source: 'web_home',
+            utm_source: 'web_share',
           },
         });
         console.log('url--', url);
