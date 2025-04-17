@@ -371,15 +371,20 @@ export function ApproveBaseStake({
 
     if (details.provider.apys) {
       // handle base token reward
+      const isFalconProvider = earnUtils.isFalconProvider({
+        providerName: details.provider.name,
+      });
       const baseRateBN = new BigNumber(
-        earnUtils.isFalconProvider({
-          providerName: details.provider.name,
-        })
+        isFalconProvider
           ? details.provider.apys?.weeklyNetApyWithoutFee ?? 0
           : details.provider.apys?.rate ?? 0,
       );
       if (baseRateBN.gt(0)) {
-        const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+        let baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+
+        if (isFalconProvider && isEventActive) {
+          baseAmount = baseAmount.dividedBy(365);
+        }
 
         let suffix: string | undefined;
         if (
@@ -1016,11 +1021,12 @@ export function ApproveBaseStake({
         <YStack pt="$3.5" gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id: earnUtils.isFalconProvider({
-                providerName: details.provider.name,
-              })
-                ? ETranslations.earn_est_daily_rewards
-                : ETranslations.earn_est_annual_rewards,
+              id:
+                earnUtils.isFalconProvider({
+                  providerName: details.provider.name,
+                }) && isEventActive
+                  ? ETranslations.earn_est_daily_rewards
+                  : ETranslations.earn_est_annual_rewards,
             })}
           </SizableText>
           {estimatedAnnualRewards.length

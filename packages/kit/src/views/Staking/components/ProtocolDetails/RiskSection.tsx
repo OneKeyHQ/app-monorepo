@@ -30,7 +30,7 @@ export function RiskSection({ details }: { details?: IStakeProtocolDetails }) {
           {intl.formatMessage({ id: ETranslations.global_risk })}
         </SizableText>
         <XStack ai="center" gap="$3">
-          <YStack flexShrink={1} gap="$2">
+          <YStack flex={1} gap="$2">
             <XStack ai="center" gap="$2">
               <Image
                 source={require('@onekeyhq/kit/assets/staking/earn-risk.png')}

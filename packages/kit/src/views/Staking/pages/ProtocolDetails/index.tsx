@@ -302,8 +302,13 @@ const ProtocolDetailsPage = () => {
 
   const falconUSDfRegister = useFalconUSDfRegister();
   const shouldRegisterBeforeStake = useMemo(() => {
-    return !result?.hasRegister;
-  }, [result?.hasRegister]);
+    if (
+      earnUtils.isFalconProvider({ providerName: result?.provider.name ?? '' })
+    ) {
+      return !result?.hasRegister;
+    }
+    return false;
+  }, [result?.hasRegister, result?.provider.name]);
 
   const registerButtonProps = useMemo<ComponentProps<typeof Button>>(
     () => ({
