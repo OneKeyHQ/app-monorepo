@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Button, SizableText, Toast } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -42,6 +42,22 @@ const InAppNotification = () => {
     activeAccount,
   ]);
 
+  const approvingSuccessActionConfirm = useCallback(() => {
+    // todo   swap tab & not swap tab
+  }, []);
+
+  const approvingSuccessAction = useMemo(() => {
+    return (
+      <Button
+        variant="secondary"
+        size="small"
+        onPress={approvingSuccessActionConfirm}
+      >
+        <SizableText>Go to swap</SizableText>
+      </Button>
+    );
+  }, [approvingSuccessActionConfirm]);
+
   useEffect(() => {
     if (
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.FAILED
@@ -80,6 +96,8 @@ const InAppNotification = () => {
           title: intl.formatMessage({
             id: ETranslations.swap_page_toast_approve_successful,
           }),
+          duration: 300_000,
+          actions: approvingSuccessAction,
         });
       }
     }
@@ -100,6 +118,7 @@ const InAppNotification = () => {
     swapApprovingTransaction?.resetApproveValue,
     swapApprovingTransaction?.status,
     swapApprovingTransaction?.txId,
+    approvingSuccessAction,
   ]);
 
   return null;
