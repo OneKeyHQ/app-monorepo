@@ -4,16 +4,12 @@ import {
   ComputeBudgetProgram,
   PACKET_DATA_SIZE,
   PublicKey,
-  Transaction,
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import type {
-  IEncodedTxSol,
-  INativeTxSol,
-} from '@onekeyhq/core/src/chains/sol/types';
+import type { INativeTxSol } from '@onekeyhq/core/src/chains/sol/types';
 
 import { EParamsEncodings } from './sdkSol/ClientSol';
 

@@ -1,14 +1,8 @@
-import { sha512 } from '@noble/hashes/sha512';
-
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
-  ICloudSyncKeyInfoAccount,
   ICloudSyncPayloadAccount,
-  ICloudSyncPayloadWallet,
   ICloudSyncTargetAccount,
-  ICloudSyncTargetWallet,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
