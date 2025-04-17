@@ -20,6 +20,7 @@ type ISelectorPluginProps = IAddressPluginProps & {
   onBeforeAccountSelectorOpen?: () => void;
   currentAddress?: string;
   clearNotMatch?: boolean;
+  hideNonBackedUpWallet?: boolean;
 };
 
 const AddressBookPlugin: FC<ISelectorPluginProps> = ({
@@ -76,6 +77,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onBeforeAccountSelectorOpen,
   currentAddress,
   clearNotMatch,
+  hideNonBackedUpWallet,
 }) => {
   const intl = useIntl();
   const accountSelectorNum = num ?? 0;
@@ -85,7 +87,11 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   const {
     activeAccount: { account },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num: accountSelectorNum, linkNetwork: true });
+  } = useAccountSelectorTrigger({
+    num: accountSelectorNum,
+    linkNetwork: true,
+    hideNonBackedUpWallet,
+  });
 
   useEffect(() => {
     if (account?.address && accountSelectorOpen.current) {

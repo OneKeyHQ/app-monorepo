@@ -14,6 +14,7 @@ import { useSupportToken } from '../../../FiatCrypto/hooks';
 import type { IActionBaseProps } from './type';
 
 export const ActionBase = ({
+  walletId,
   networkId,
   tokenAddress,
   type,
@@ -47,6 +48,14 @@ export const ActionBase = ({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handlePress = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        walletId,
+      });
+    } catch (error) {
+      return;
+    }
+
     setLoading(true);
 
     if (type === 'buy') {
@@ -83,12 +92,13 @@ export const ActionBase = ({
     }
   }, [
     type,
+    walletId,
     walletType,
     networkId,
-    tokenAddress,
-    accountId,
     source,
     isSoftwareWalletOnlyUser,
+    tokenAddress,
+    accountId,
   ]);
   if (hiddenIfDisabled && isDisabled) {
     return null;

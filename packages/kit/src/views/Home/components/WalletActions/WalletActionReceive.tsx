@@ -12,6 +12,7 @@ import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { RawActions } from './RawActions';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 function WalletActionReceive() {
   const {
@@ -50,7 +51,14 @@ function WalletActionReceive() {
   });
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const handleReceiveOnPress = useCallback(() => {
+  const handleReceiveOnPress = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        walletId: wallet?.id ?? '',
+      });
+    } catch (error) {
+      return;
+    }
     defaultLogger.wallet.walletActions.actionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
@@ -58,7 +66,13 @@ function WalletActionReceive() {
       isSoftwareWalletOnlyUser,
     });
     handleOnReceive();
-  }, [wallet?.type, network?.id, handleOnReceive, isSoftwareWalletOnlyUser]);
+  }, [
+    wallet?.type,
+    wallet?.id,
+    network?.id,
+    isSoftwareWalletOnlyUser,
+    handleOnReceive,
+  ]);
 
   return (
     <RawActions.Receive
