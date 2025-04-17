@@ -28,6 +28,7 @@ export function ImportRecoveryPhrase() {
             navigation.push(EOnboardingPages.FinalizeWalletSetup, {
               mnemonic: params.mnemonic,
               mnemonicType: params.mnemonicType,
+              isBackup: true,
             });
           },
         });
@@ -45,6 +46,7 @@ export function ImportRecoveryPhrase() {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
         mnemonicType: params.mnemonicType,
+        isBackup: true,
       });
       defaultLogger.account.wallet.walletAdded({
         status: 'success',

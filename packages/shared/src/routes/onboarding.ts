@@ -101,6 +101,7 @@ export type IOnboardingParamList = {
   [EOnboardingPages.FinalizeWalletSetup]: {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
+    isBackup?: boolean;
   };
 
   // device management guide page

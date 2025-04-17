@@ -131,7 +131,7 @@ export default function useLiteCard() {
         );
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.FinalizeWalletSetup,
-          params: { mnemonic: mnemonicEncoded },
+          params: { mnemonic: mnemonicEncoded, isBackup: true },
         });
       });
       await createGetMnemonicConnection();

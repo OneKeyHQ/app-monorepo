@@ -114,12 +114,14 @@ export function VerifyRecoveryPhrase({
       if (isValid) {
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
+          isBackup: true,
         });
         defaultLogger.account.wallet.walletAdded({
           status: 'success',
           addMethod: 'CreateWallet',
           details: {
             isBiometricSet: settings.isBiologyAuthSwitchOn,
+            isBackupSkipped: false,
           },
           isSoftwareWalletOnlyUser,
         });

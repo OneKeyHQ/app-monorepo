@@ -49,6 +49,7 @@ function FinalizeWalletSetupPage({
   const navigation = useAppNavigation();
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
+  const isBackup = route?.params?.isBackup;
   const [onboardingError, setOnboardingError] = useState<
     IOneKeyError | undefined
   >(undefined);
@@ -93,6 +94,7 @@ function FinalizeWalletSetupPage({
 
               const createResult = await actions.current.createHDWallet({
                 mnemonic,
+                isBackup,
               });
               if (createResult.wallet && createResult.isOverrideWallet) {
                 Toast.success({
@@ -117,7 +119,7 @@ function FinalizeWalletSetupPage({
         throw error;
       }
     })();
-  }, [actions, intl, mnemonic, mnemonicType, navigation]);
+  }, [actions, intl, mnemonic, mnemonicType, navigation, isBackup]);
 
   useEffect(() => {
     const fn = (

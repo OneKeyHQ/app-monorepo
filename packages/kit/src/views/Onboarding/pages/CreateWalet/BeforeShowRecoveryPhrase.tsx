@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -10,17 +12,21 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import {
+  ensureSensitiveTextEncoded,
+  generateMnemonic,
+} from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import type { RouteProp } from '@react-navigation/core';
-import { useCallback } from 'react';
 
 interface IWaningMessage {
   icon?: IIconProps['name'];
@@ -38,6 +44,8 @@ export function BeforeShowRecoveryPhrase() {
     >();
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const [settings] = useSettingsPersistAtom();
+
   const handleShowRecoveryPhrasePress = async () => {
     const mnemonic = route.params?.mnemonic;
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
@@ -52,7 +60,37 @@ export function BeforeShowRecoveryPhrase() {
     });
   };
 
-  const handleSkipRecoveryPhrasePress = useCallback(() => {}, [navigation]);
+  const handleSkipRecoveryPhrasePress = useCallback(async () => {
+    let mnemonic = route.params?.mnemonic;
+    if (mnemonic) {
+      ensureSensitiveTextEncoded(mnemonic);
+      mnemonic = await backgroundApiProxy.servicePassword.decodeSensitiveText({
+        encodedText: mnemonic,
+      });
+    } else {
+      mnemonic = generateMnemonic();
+    }
+
+    defaultLogger.account.wallet.walletAdded({
+      status: 'success',
+      addMethod: 'CreateWallet',
+      details: {
+        isBiometricSet: settings.isBiologyAuthSwitchOn,
+        isBackupSkipped: true,
+      },
+      isSoftwareWalletOnlyUser,
+    });
+
+    navigation.push(EOnboardingPages.FinalizeWalletSetup, {
+      mnemonic,
+      isBackup: false,
+    });
+  }, [
+    route.params?.mnemonic,
+    settings.isBiologyAuthSwitchOn,
+    isSoftwareWalletOnlyUser,
+    navigation,
+  ]);
 
   const messages: IWaningMessage[] = [
     {
