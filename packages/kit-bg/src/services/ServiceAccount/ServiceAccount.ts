@@ -2215,25 +2215,28 @@ class ServiceAccount extends ServiceBase {
       );
     }
     const wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
-    let count = 0;
     for (const wallet of wallets) {
-      const indexedAccountId = accountUtils.buildIndexedAccountId({
-        walletId: wallet.id,
-        index,
-      });
-      await this.setAccountName({
-        name,
-        ...others,
-        indexedAccountId,
-        skipEventEmit: true,
-        skipSaveLocalSyncItem:
-          count === 0 ? params.skipSaveLocalSyncItem : true,
-        shouldCheckDuplicate:
-          indexedAccountId === params.indexedAccountId
+      try {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId: wallet.id,
+          index,
+        });
+        const isSelfAccount = indexedAccountId === params.indexedAccountId;
+        await this.setAccountName({
+          name,
+          ...others,
+          indexedAccountId,
+          skipEventEmit: true,
+          skipSaveLocalSyncItem: isSelfAccount
+            ? params.skipSaveLocalSyncItem
+            : true,
+          shouldCheckDuplicate: isSelfAccount
             ? params.shouldCheckDuplicate
             : false,
-      });
-      count += 1;
+        });
+      } catch (e) {
+        console.error('setUniversalIndexedAccountName ERROR', e);
+      }
     }
     if (wallets.length && !params.skipEventEmit) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
