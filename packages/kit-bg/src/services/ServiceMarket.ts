@@ -1,10 +1,9 @@
-import { cloneDeep, isNil } from 'lodash';
+import { isNil } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';

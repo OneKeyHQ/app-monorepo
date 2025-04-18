@@ -1,11 +1,8 @@
-import { sha512 } from '@noble/hashes/sha512';
 import { cloneDeep } from 'lodash';
 
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
-  ICloudSyncKeyInfoBrowserBookmark,
   ICloudSyncPayloadBrowserBookmark,
   ICloudSyncTargetBrowserBookmark,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
