@@ -432,14 +432,7 @@ function PortfolioInfo({
               id: ETranslations.earn_active,
             })}
             badgeType="success"
-            badgeText={intl.formatMessage(
-              {
-                id: ETranslations.earn_fixed_apy,
-              },
-              {
-                value: `${details?.provider?.apys?.fixed ?? ''}%`,
-              },
-            )}
+            badgeText={`${details?.provider?.apys?.fixed ?? ''}% Fixed APY`}
           />
         ) : null}
         {formalActive && Number(formalActive) ? (
