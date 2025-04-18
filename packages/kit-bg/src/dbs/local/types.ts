@@ -183,6 +183,7 @@ export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
 export type IDBCreateQRWalletParams = {
   qrDevice: IQrWalletDevice;
   airGapAccounts: IQrWalletAirGapAccount[];
+  fullXfp?: string;
 };
 export type IDBSetWalletNameAndAvatarParams = {
   walletId: IDBWalletId;

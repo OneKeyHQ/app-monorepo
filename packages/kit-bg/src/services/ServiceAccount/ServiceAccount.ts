@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -79,6 +80,7 @@ import type {
   IBatchCreateAccount,
   IHwQrWalletWithDevice,
   INetworkAccount,
+  IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
@@ -2347,8 +2349,12 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async createQrWallet(params: IDBCreateQRWalletParams) {
+    const fullXfp = this.buildQrWalletFullXfp({
+      shortXfp: params.qrDevice.xfp,
+      airGapAccounts: params.airGapAccounts,
+    });
     // const { name, deviceId, xfp, version } = qrDevice;
-    const result = await localDb.createQrWallet(params);
+    const result = await localDb.createQrWallet({ ...params, fullXfp });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
@@ -3472,17 +3478,22 @@ class ServiceAccount extends ServiceBase {
     } = {};
     for (const wallet of hdWallets) {
       try {
-        const credentialInfo = await localDb.getCredential(wallet.id);
-        if (!credentialInfo) {
-          // eslint-disable-next-line no-continue
-          continue;
+        const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
+        if (isHdWallet) {
+          const credentialInfo = await localDb.getCredential(wallet.id);
+          if (!credentialInfo) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+          const realMnemonic = await mnemonicFromEntropy(
+            credentialInfo.credential,
+            password,
+          );
+          const walletHashXfp = await this.walletHashXfpBuilder({
+            realMnemonic,
+          });
+          walletsHashXfpMap[wallet.id] = walletHashXfp;
         }
-        const realMnemonic = await mnemonicFromEntropy(
-          credentialInfo.credential,
-          password,
-        );
-        const walletHashXfp = await this.walletHashXfpBuilder({ realMnemonic });
-        walletsHashXfpMap[wallet.id] = walletHashXfp;
       } catch (error) {
         console.error(error);
       }
@@ -3504,11 +3515,11 @@ class ServiceAccount extends ServiceBase {
     if (!wallet?.id) {
       return;
     }
-    if (wallet && wallet?.xfp) {
-      console.log('wallet already has xfp', wallet.xfp);
+    if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
       return;
     }
-    if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
+    if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
+      console.log('wallet already has xfp', wallet.xfp);
       return;
     }
     if (!connectId) {
@@ -3547,6 +3558,62 @@ class ServiceAccount extends ServiceBase {
     },
   );
 
+  buildQrWalletFullXfp({
+    shortXfp,
+    airGapAccounts,
+  }: {
+    shortXfp: string;
+    airGapAccounts: IQrWalletAirGapAccount[];
+  }) {
+    if (!airGapAccounts?.length) {
+      return;
+    }
+    const firstTaprootAccount = airGapAccounts.find(
+      (item) => item.path === BTC_FIRST_TAPROOT_PATH,
+    );
+    if (!firstTaprootAccount) {
+      return;
+    }
+    const xpub = firstTaprootAccount.extendedPublicKey;
+    if (xpub && shortXfp) {
+      const fullXfp = accountUtils.buildFullXfp({
+        xfp: shortXfp,
+        firstTaprootXpub: xpub,
+      });
+      return fullXfp;
+    }
+  }
+
+  async generateQrWalletsMissingXfp({
+    wallet,
+  }: {
+    wallet: IDBWallet | undefined;
+  }) {
+    if (!wallet?.id) {
+      return;
+    }
+    if (!accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      return;
+    }
+    if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
+      console.log('wallet already has xfp', wallet.xfp);
+      return;
+    }
+    const shortXfp = wallet.xfp;
+    const airGapAccounts = wallet.airGapAccountsInfo?.accounts;
+    if (shortXfp && airGapAccounts?.length) {
+      const fullXfp = this.buildQrWalletFullXfp({
+        shortXfp,
+        airGapAccounts,
+      });
+      if (fullXfp) {
+        await localDb.updateWalletsHashAndXfp({
+          [wallet?.id]: { xfp: fullXfp },
+        });
+      }
+    }
+  }
+
   @backgroundMethod()
   async generateHwWalletsMissingXfp({
     wallet,
@@ -3581,7 +3648,11 @@ class ServiceAccount extends ServiceBase {
 
     const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
     if (isHdWallet) {
-      if (isHdWallet && wallet.hash && wallet.xfp) {
+      if (
+        isHdWallet &&
+        wallet.hash &&
+        accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+      ) {
         return;
       }
       const { password } =
@@ -3594,7 +3665,7 @@ class ServiceAccount extends ServiceBase {
 
     const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
     if (isHwWallet) {
-      if (isHwWallet && wallet.xfp) {
+      if (isHwWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
         return;
       }
       const device = await localDb.getWalletDeviceSafe({
@@ -3621,6 +3692,14 @@ class ServiceAccount extends ServiceBase {
           },
         },
       );
+    }
+
+    const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+    if (isQrWallet) {
+      if (isQrWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+        return;
+      }
+      await this.generateQrWalletsMissingXfp({ wallet });
     }
   }
 

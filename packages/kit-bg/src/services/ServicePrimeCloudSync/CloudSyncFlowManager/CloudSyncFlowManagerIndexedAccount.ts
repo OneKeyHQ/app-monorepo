@@ -38,7 +38,7 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
     target: ICloudSyncTargetIndexedAccount,
   ): Promise<boolean> {
     const { indexedAccount, wallet } = target;
-    if (wallet?.xfp) {
+    if (wallet?.xfp && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
       return true;
     }
     return false;
