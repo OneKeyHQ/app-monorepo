@@ -4,6 +4,7 @@ import {
   EthereumDAI,
   EthereumMatic,
   EthereumUSDC,
+  EthereumUSDF,
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
@@ -124,6 +125,7 @@ export function getImportFromToken({
           EthereumWETH.toLowerCase(),
           EthereumWBTC.toLowerCase(),
           EthereumCbBTC.toLowerCase(),
+          EthereumUSDF.toLowerCase(),
         ].includes(tokenAddress.toLowerCase())
       ) {
         importFromToken = earnTradeDefaultSetETH;

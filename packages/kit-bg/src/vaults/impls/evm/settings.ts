@@ -6,6 +6,7 @@ import {
   EthereumDAI,
   EthereumMatic,
   EthereumUSDC,
+  EthereumUSDF,
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
@@ -127,6 +128,18 @@ const stakingConfig: IStakingConfig = {
             tokenAddress: EthereumWBTC,
             displayProfit: true,
             stakingWithApprove: true,
+          },
+        },
+      },
+      [EEarnProviderEnum.Falcon]: {
+        supportedSymbols: ['USDf'],
+        configs: {
+          USDf: {
+            enabled: true,
+            tokenAddress: EthereumUSDF,
+            displayProfit: true,
+            stakingWithApprove: true,
+            withdrawWithTx: true,
           },
         },
       },

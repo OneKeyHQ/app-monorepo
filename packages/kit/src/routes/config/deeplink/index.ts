@@ -14,6 +14,11 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -36,14 +41,14 @@ async function processDeepLinkUrlAccount({
   parsedUrl,
 }: IProcessDeepLinkParams) {
   try {
-    const { hostname, queryParams, scheme } = parsedUrl;
+    const { hostname, queryParams, scheme, path } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
       console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
       const navigation = appGlobals.$rootAppNavigation;
-      switch (hostname) {
+      switch (platformEnv.isNative ? hostname : path?.slice(1)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -65,6 +70,20 @@ async function processDeepLinkUrlAccount({
             if (navigation) {
               await marketNavigation.pushDetailPageFromDeeplink(navigation, {
                 coinGeckoId,
+              });
+            }
+          }
+          break;
+        case EOneKeyDeepLinkPath.invite_share:
+          {
+            const { utm_source: utmSource } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
+            if (navigation) {
+              navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+                screen: EModalReferFriendsRoutes.ReferAFriend,
+                params: {
+                  utmSource,
+                },
               });
             }
           }
