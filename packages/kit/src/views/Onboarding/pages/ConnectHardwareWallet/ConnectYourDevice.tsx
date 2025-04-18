@@ -273,7 +273,11 @@ function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
       <HyperlinkText
         size="$bodyLg"
         mt="$1.5"
-        translationId={ETranslations.device_communication_failed}
+        translationId={
+          platformEnv.isSupportWebUSB
+            ? ETranslations.device_communication_failed
+            : ETranslations.device_communication_failed_with_no_web_usb_supported
+        }
       />
     </Stack>
   );

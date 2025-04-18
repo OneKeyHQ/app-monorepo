@@ -124,6 +124,7 @@ export type IPlatformEnv = {
   supportAutoUpdate?: boolean;
 
   isAppleStoreEnv?: boolean;
+  isSupportWebUSB?: boolean;
 };
 
 const {
@@ -376,6 +377,8 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
+const isSupportWebUSB =
+  (isWeb || isExtension) && (isRuntimeChrome || isRuntimeEdge);
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
@@ -508,6 +511,7 @@ const platformEnv: IPlatformEnv = {
 
   supportAutoUpdate,
   isAppleStoreEnv,
+  isSupportWebUSB,
 };
 
 if (isDev) {
