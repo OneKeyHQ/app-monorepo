@@ -133,7 +133,7 @@ function NetworkSelectorTriggerHomeCmp({
 
       return `${intl.formatMessage({
         id: ETranslations.global_all_networks,
-      })}(${intl.formatMessage(
+      })} (${intl.formatMessage(
         {
           id: ETranslations.network_enabled_count,
         },
