@@ -1171,7 +1171,7 @@ class ServiceHardware extends ServiceBase {
     if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
       return false;
     }
-    return platformEnv.isWeb || platformEnv.isExtension;
+    return platformEnv.isSupportWebUSB;
   }
 
   @backgroundMethod()
