@@ -9,6 +9,7 @@ export type IActionProps = PropsWithChildren<{
   networkId: string;
   tokenAddress: string;
   accountId: string;
+  walletId: string;
   walletType: string | undefined;
   source: 'homePage' | 'tokenDetails' | 'earn' | 'swap';
 }> &
@@ -18,6 +19,7 @@ export type IActionBaseProps = PropsWithChildren<{
   networkId: string;
   tokenAddress: string;
   accountId: string;
+  walletId: string;
   type: IFiatCryptoType;
   label: string | ReactNode;
   icon: IKeyOfIcons;

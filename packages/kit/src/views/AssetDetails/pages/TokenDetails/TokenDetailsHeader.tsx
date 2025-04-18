@@ -27,7 +27,10 @@ import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -101,9 +104,9 @@ function TokenDetailsHeader(props: IProps) {
           contractList: [tokenInfo.address],
         });
       updateTokenMetadata({
-        price: tokensDetails[0].price,
-        priceChange24h: tokensDetails[0].price24h,
-        coingeckoId: tokensDetails[0].info.coingeckoId,
+        price: tokensDetails[0]?.price ?? 0,
+        priceChange24h: tokensDetails[0]?.price24h ?? 0,
+        coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
       });
       updateTokenDetails({
         accountId,
@@ -254,6 +257,14 @@ function TokenDetailsHeader(props: IProps) {
     showLoadingState,
   ]);
 
+  const shouldShowAddressBlock = useMemo(() => {
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
+
+    if (wallet?.type === WALLET_TYPE_HD && !wallet?.backuped) return false;
+
+    return true;
+  }, [wallet?.type, networkId, wallet?.backuped]);
+
   return (
     <DebugRenderTracker timesBadgePosition="top-right">
       <>
@@ -297,6 +308,7 @@ function TokenDetailsHeader(props: IProps) {
           <RawActions gap="$8" flexWrap="wrap" flexDirection="row">
             <ReviewControl>
               <ActionBuy
+                walletId={wallet?.id ?? ''}
                 networkId={networkId}
                 accountId={accountId}
                 walletType={wallet?.type}
@@ -315,6 +327,7 @@ function TokenDetailsHeader(props: IProps) {
             />
             <ReviewControl>
               <ActionSell
+                walletId={wallet?.id ?? ''}
                 networkId={networkId}
                 accountId={accountId}
                 walletType={wallet?.type}
@@ -325,7 +338,16 @@ function TokenDetailsHeader(props: IProps) {
             <RawActions.Send onPress={handleSendPress} />
             <RawActions.Receive
               disabled={isReceiveDisabled}
-              onPress={() => {
+              onPress={async () => {
+                try {
+                  await backgroundApiProxy.serviceAccount.checkWalletBackupStatus(
+                    {
+                      walletId: wallet?.id ?? '',
+                    },
+                  );
+                } catch (error) {
+                  return;
+                }
                 defaultLogger.wallet.walletActions.actionReceive({
                   walletType: wallet?.type ?? '',
                   networkId: network?.id ?? '',
@@ -346,7 +368,7 @@ function TokenDetailsHeader(props: IProps) {
             <Stack w={50} />
           </RawActions>
         </Stack>
-        {!networkUtils.isLightningNetworkByNetworkId(networkId) ? (
+        {shouldShowAddressBlock ? (
           <>
             <Divider />
             <YStack

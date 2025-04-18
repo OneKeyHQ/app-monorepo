@@ -68,6 +68,7 @@ export function ImportKeyTag() {
     async (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
+        isWalletBackedUp: true,
       });
       defaultLogger.account.wallet.walletAdded({
         status: 'success',

@@ -97,9 +97,6 @@ export function RecoveryPhrase() {
   );
 
   const verifyRecoveryPhrases = useMemo(() => {
-    if (route.params?.isBackup) {
-      return [];
-    }
     const shufflePhrasesIndex = shuffle(
       Array(phrases.length)
         .fill(0)
@@ -129,10 +126,10 @@ export function RecoveryPhrase() {
         ]),
       ])
       .sort((a, b) => (a[0] as number) - (b[0] as number));
-  }, [phrases, route.params?.isBackup]);
+  }, [phrases]);
 
   const handleConfirmPress = useCallback(async () => {
-    if (route.params?.isBackup) {
+    if (route.params?.isBackup && route.params?.isWalletBackedUp) {
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.backup_recovery_phrase_backed_up,
@@ -146,13 +143,17 @@ export function RecoveryPhrase() {
         text: mnemonic,
       }),
       isBackup: route.params?.isBackup,
+      isWalletBackedUp: route.params?.isWalletBackedUp,
       verifyRecoveryPhrases,
+      walletId: route.params?.walletId,
     });
   }, [
     intl,
     mnemonic,
     navigation,
     route.params?.isBackup,
+    route.params?.isWalletBackedUp,
+    route.params?.walletId,
     servicePassword,
     verifyRecoveryPhrases,
   ]);
