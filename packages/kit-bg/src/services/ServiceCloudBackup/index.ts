@@ -619,7 +619,7 @@ class ServiceCloudBackup extends ServiceBase {
         );
 
         const walletHashAndXfp =
-          await this.backgroundApi.serviceAccount.walletHashXfpBuilder({
+          await this.backgroundApi.serviceAccount.hdWalletHashAndXfpBuilder({
             realMnemonic: mnemonicFromRs,
           });
 

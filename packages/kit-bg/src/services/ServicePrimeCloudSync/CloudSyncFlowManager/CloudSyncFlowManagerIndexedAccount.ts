@@ -86,8 +86,9 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
   }): Promise<ICloudSyncPayloadIndexedAccount> {
     const { wallet, indexedAccount } = target;
     const {
+      // because the name of indexedAccount needs to be shared between software and hardware wallets with the same mnemonic, so use xfp to identify
       xfp: walletXfp,
-      hash: walletHash,
+      // hash: hdWalletHash, // do NOT use hash
       type: walletType,
       passphraseState = '',
     } = wallet ?? {};

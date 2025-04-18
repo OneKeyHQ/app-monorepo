@@ -2431,7 +2431,7 @@ class ServiceAccount extends ServiceBase {
     return result;
   }
 
-  walletHashXfpBuilder = async (options: {
+  hdWalletHashAndXfpBuilder = async (options: {
     realMnemonic: string;
   }): Promise<{
     hash: string;
@@ -2471,7 +2471,7 @@ class ServiceAccount extends ServiceBase {
 
     await this.generateAllHDWalletMissingHashAndXfp({ password });
 
-    const walletHashAndXfp = await this.walletHashXfpBuilder({
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
       realMnemonic,
     });
 
@@ -3494,7 +3494,7 @@ class ServiceAccount extends ServiceBase {
             credentialInfo.credential,
             password,
           );
-          const walletHashXfp = await this.walletHashXfpBuilder({
+          const walletHashXfp = await this.hdWalletHashAndXfpBuilder({
             realMnemonic,
           });
           walletsHashXfpMap[wallet.id] = walletHashXfp;
