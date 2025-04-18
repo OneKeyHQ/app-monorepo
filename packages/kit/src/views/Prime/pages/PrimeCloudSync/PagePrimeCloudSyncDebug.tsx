@@ -485,7 +485,7 @@ function DebugPanel() {
       </Button>
       <Button
         onPress={async () => {
-          await backgroundApiProxy.serviceAccount.clearHDWalletHashAndXfp();
+          await backgroundApiProxy.serviceAccount.clearAllWalletHashAndXfp();
           Toast.success({
             title: 'success',
           });

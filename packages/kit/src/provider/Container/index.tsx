@@ -7,6 +7,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { Bootstrap } from '../Bootstrap';
@@ -100,6 +101,7 @@ export function Container() {
           <AirGapQrcodeDialogContainer />
           <CreateAddressContainer />
           <PrevCheckBeforeSendingContainer />
+          <WalletBackupPreCheckContainer />
           <HardwareUiStateContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />

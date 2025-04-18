@@ -170,9 +170,9 @@ function TokenDetailsView() {
       contractList: [tokenInfo.address],
     });
     updateTokenMetadata({
-      price: resp[0].price,
-      priceChange24h: resp[0].price24h,
-      coingeckoId: resp[0].info.coingeckoId,
+      price: resp[0]?.price ?? 0,
+      priceChange24h: resp[0]?.price24h ?? 0,
+      coingeckoId: resp[0]?.info?.coingeckoId ?? '',
     });
   }, [networkId, tokenInfo.address, updateTokenMetadata]);
 

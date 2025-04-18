@@ -715,8 +715,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       {
         mnemonic,
+        isWalletBackedUp,
       }: {
         mnemonic: string;
+        isWalletBackedUp?: boolean;
       },
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
@@ -724,6 +726,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const { wallet, indexedAccount, isOverrideWallet } =
             await serviceAccount.createHDWallet({
               mnemonic,
+              isWalletBackedUp,
             });
           await this.autoSelectToCreatedWallet.call(set, {
             wallet,

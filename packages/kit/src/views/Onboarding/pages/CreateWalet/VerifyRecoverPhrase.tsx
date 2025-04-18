@@ -112,14 +112,32 @@ export function VerifyRecoveryPhrase({
       });
 
       if (isValid) {
+        if (route.params?.isBackup) {
+          if (route.params?.walletId) {
+            await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
+              walletId: route.params?.walletId,
+              isBackedUp: true,
+            });
+          }
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.backup_recovery_phrase_backed_up,
+            }),
+          });
+          navigation.popStack();
+          return;
+        }
+
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
+          isWalletBackedUp: true,
         });
         defaultLogger.account.wallet.walletAdded({
           status: 'success',
           addMethod: 'CreateWallet',
           details: {
             isBiometricSet: settings.isBiologyAuthSwitchOn,
+            isBackupSkipped: false,
           },
           isSoftwareWalletOnlyUser,
         });
@@ -135,14 +153,16 @@ export function VerifyRecoveryPhrase({
       }
     }
   }, [
-    intl,
-    mnemonic,
-    navigation,
+    verifyRecoveryPhrases,
     phrases,
     selectedWords,
+    route.params?.isBackup,
+    route.params?.walletId,
+    navigation,
+    mnemonic,
     settings.isBiologyAuthSwitchOn,
-    verifyRecoveryPhrases,
     isSoftwareWalletOnlyUser,
+    intl,
   ]);
 
   return (

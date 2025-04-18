@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
+
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Badge, Button, SizableText, XStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerForDapp } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -11,6 +13,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -35,6 +38,8 @@ export function WalletDetailsHeader({
   onEditButtonPress,
   linkedNetworkId,
   num,
+  title,
+  titleProps,
   ...rest
 }: IWalletDetailsHeaderProps) {
   const [accountSelectorContextData] = useAccountSelectorContextDataAtom();
@@ -49,12 +54,40 @@ export function WalletDetailsHeader({
     : false;
   const { selectedAccount } = useSelectedAccount({ num: num ?? 0 });
 
+  const isBackupRequired = useMemo(
+    () => wallet?.type === WALLET_TYPE_HD && !wallet.backuped,
+    [wallet],
+  );
+
   return (
     <ListItem
       testID="account-selector-header"
       mt="$1.5"
       justifyContent="flex-end"
       {...rest}
+      renderItemText={(textProps) => (
+        <ListItem.Text
+          {...textProps}
+          userSelect="none"
+          flex={1}
+          primary={
+            <XStack alignItems="center" gap="$2" flex={1}>
+              <SizableText size="$bodyLgMedium" {...titleProps}>
+                {title}
+              </SizableText>
+              {isBackupRequired && !editMode ? (
+                <Badge badgeSize="sm" badgeType="critical">
+                  <Badge.Text>
+                    {intl.formatMessage({
+                      id: ETranslations.wallet_backup_status_not_backed_up,
+                    })}
+                  </Badge.Text>
+                </Badge>
+              ) : null}
+            </XStack>
+          }
+        />
+      )}
     >
       {editMode && editable ? (
         <XStack

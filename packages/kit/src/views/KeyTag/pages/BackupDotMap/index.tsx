@@ -1,9 +1,10 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { IconButton, Page, YStack } from '@onekeyhq/components';
+import { Checkbox, IconButton, Page, YStack } from '@onekeyhq/components';
+import { PageFooter } from '@onekeyhq/components/src/layouts/Page/PageFooter';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DotMap } from '@onekeyhq/kit/src/components/DotMap';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -26,7 +27,9 @@ const BackupDotMap = () => {
     defaultLogger.setting.page.keyTagBackup();
   }, []);
 
-  const { encodedText, title } = route.params;
+  const [continueOperate, setContinueOperate] = useState(false);
+
+  const { encodedText, title, onBackedUp } = route.params;
   const { result } = usePromiseResult(
     () =>
       backgroundApiProxy.servicePassword.decodeSensitiveText({ encodedText }),
@@ -45,6 +48,7 @@ const BackupDotMap = () => {
     ),
     [appNavigation],
   );
+
   return (
     <Page scrollEnabled>
       <Page.Header title={title} headerRight={headerRight} />
@@ -53,17 +57,31 @@ const BackupDotMap = () => {
           {result ? <DotMap mnemonic={result} /> : null}
         </YStack>
       </Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_i_got_it,
-        })}
-        confirmButtonProps={{
-          variant: 'primary',
-          onPress: () => {
-            appNavigation.popStack();
-          },
-        }}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_i_got_it,
+          })}
+          confirmButtonProps={{
+            disabled: !continueOperate,
+            variant: 'primary',
+            onPress: () => {
+              onBackedUp?.();
+              appNavigation.popStack();
+            },
+          }}
+        >
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.wallet_backup_backup_confirmation,
+            })}
+            value={continueOperate}
+            onChange={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+          />
+        </Page.FooterActions>
+      </Page.Footer>
     </Page>
   );
 };
