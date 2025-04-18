@@ -72,8 +72,8 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps): ReactNode => (
-      <XStack className="app-region-no-drag">
+    (props: HeaderBackButtonProps): ReactNode => {
+      const headerBackButton = (
         <HeaderBackButton
           canGoBack={!topStack}
           onPress={onBackCallback}
@@ -83,8 +83,16 @@ function HeaderView({
           renderLeft={headerLeft}
           {...props}
         />
-      </XStack>
-    ),
+      );
+
+      if (headerBackButton) {
+        return (
+          <XStack className="app-region-no-drag">{headerBackButton}</XStack>
+        );
+      }
+
+      return null;
+    },
     [
       topStack,
       onBackCallback,
@@ -112,6 +120,7 @@ function HeaderView({
   if (!headerShown) {
     return null;
   }
+
   return (
     <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
