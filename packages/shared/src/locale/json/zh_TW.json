@@ -393,6 +393,7 @@
   "description_403": "我們的服務在您的地區無法使用",
   "device.check_connection": "檢查您的設備是否已連接",
   "device.communication_failed": "設備通訊失敗。請嘗試在「設定」>「硬體通訊」中切換到 WebUSB 模式，或參考我們的 <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey Bridge 疑難排解指南</underline></url> 以解決連接問題。",
+  "device.communication_failed_with_no_web_usb_supported": "裝置通訊失敗。請參考我們的 <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey Bridge 故障排除指南</underline></url> 來解決連接問題。",
   "device.connect_via_usb": "透過 USB 連接設備",
   "device.grant_usb_access": "授予 USB 存取權限",
   "device.hardware_communication": "硬體通訊",

@@ -393,6 +393,7 @@
   "description_403": "Our services are not available in your region.",
   "device.check_connection": "Check if your device is connected",
   "device.communication_failed": "Device communication failed. Please try switching to WebUSB mode in \"Settings\" > \"Hardware Communication\" or refer to our <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey Bridge troubleshooting guide</underline></url> to resolve the connection issue.",
+  "device.communication_failed_with_no_web_usb_supported": "Device communication failed. Please refer to our <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey Bridge troubleshooting guide</underline></url> to resolve the connection issue.",
   "device.connect_via_usb": "Connect device via USB",
   "device.grant_usb_access": "Grant USB Access",
   "device.hardware_communication": "Hardware communication",

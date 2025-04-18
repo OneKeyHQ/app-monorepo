@@ -393,6 +393,7 @@
   "description_403": "Layanan kami tidak tersedia di wilayah Anda.",
   "device.check_connection": "Periksa apakah perangkat Anda terhubung",
   "device.communication_failed": "Komunikasi perangkat gagal. Silakan coba beralih ke mode WebUSB di \"Pengaturan\" > \"Komunikasi Perangkat Keras\" atau lihat <url>https://help.onekey.so/hc/articles/9740566472335<underline>panduan pemecahan masalah OneKey Bridge</underline></url> kami untuk menyelesaikan masalah koneksi.",
+  "device.communication_failed_with_no_web_usb_supported": "Komunikasi perangkat gagal. Silakan merujuk ke <url>https://help.onekey.so/hc/articles/9740566472335<underline>panduan pemecahan masalah OneKey Bridge</underline></url> kami untuk menyelesaikan masalah koneksi.",
   "device.connect_via_usb": "Hubungkan perangkat melalui USB",
   "device.grant_usb_access": "Beri Akses USB",
   "device.hardware_communication": "Komunikasi perangkat keras",
