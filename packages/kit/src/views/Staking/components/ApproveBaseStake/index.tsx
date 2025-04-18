@@ -374,34 +374,15 @@ export function ApproveBaseStake({
       const isFalconProvider = earnUtils.isFalconProvider({
         providerName: details.provider.name,
       });
-      const baseRateAPY = new BigNumber(
+      const baseRateBN = new BigNumber(
         isFalconProvider
           ? details.provider.apys?.weeklyNetApyWithoutFee ?? 0
           : details.provider.apys?.rate ?? 0,
       );
-      if (baseRateAPY.gt(0)) {
-        let estimatedYield: BigNumber;
-
-        // Calculate daily yield if it's Falcon provider during the event
-        if (isFalconProvider && isEventActive) {
-          // Convert APY to decimal
-          const apyDecimal = baseRateAPY.dividedBy(100);
-          // Calculate base for exponentiation: (1 + APY)
-          const base = apyDecimal.plus(1);
-          // Calculate exponent: 1/365
-          const exponent = new BigNumber(1).dividedBy(365);
-          // Calculate daily factor: (1 + APY)^(1/365)
-          // Use BigNumber's pow for fractional exponents
-          const dailyFactor = base.pow(exponent);
-          // Calculate daily rate: dailyFactor - 1
-          const dailyRate = dailyFactor.minus(1);
-          // Calculate daily yield: principal * dailyRate
-          estimatedYield = amountBN.multipliedBy(dailyRate);
-        } else {
-          // Calculate estimated annual yield directly from APY/rate
-          // This assumes details.provider.apys.rate is annual.
-          // If it represents something else (e.g., weekly), adjust accordingly.
-          estimatedYield = amountBN.multipliedBy(baseRateAPY).dividedBy(100);
+      if (baseRateBN.gt(0)) {
+        let baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+        if (isFalconProvider) {
+          baseAmount = baseAmount.dividedBy(365);
         }
 
         let suffix: string | undefined;
@@ -417,9 +398,9 @@ export function ApproveBaseStake({
         }
 
         rewards.push({
-          amount: estimatedYield.toFixed(),
+          amount: baseAmount.toFixed(),
           fiatValue: new BigNumber(price).gt(0)
-            ? estimatedYield.multipliedBy(price).toFixed()
+            ? baseAmount.multipliedBy(price).toFixed()
             : undefined,
           token: details.token.info,
           suffix,
@@ -789,12 +770,18 @@ export function ApproveBaseStake({
 
   // falcon join requirement
   const currentTotalStakedBN = useMemo(() => {
-    const availableBalanceBN = new BigNumber(details.available ?? 0);
+    const activeBalanceBN = new BigNumber(details.active ?? 0);
     const amountValueBN = new BigNumber(amountValue);
-    return availableBalanceBN.plus(amountValueBN.isNaN() ? 0 : amountValueBN);
-  }, [details.available, amountValue]);
+    return activeBalanceBN.plus(amountValueBN.isNaN() ? 0 : amountValueBN);
+  }, [details.active, amountValue]);
 
   const displayJoinRequirementAlert = useMemo(() => {
+    // Check if amountValue is greater than 0 first
+    const amountValueBN = new BigNumber(amountValue);
+    if (amountValueBN.isNaN() || amountValueBN.lte(0)) {
+      return false;
+    }
+
     if (
       earnUtils.isFalconProvider({
         providerName: details.provider.name,
@@ -809,6 +796,7 @@ export function ApproveBaseStake({
       ) {
         return false;
       }
+      // currentTotalStakedBN is already calculated as active balance + input amount
       return currentTotalStakedBN.isLessThan(joinRequirementBN);
     }
     return false;
@@ -816,6 +804,7 @@ export function ApproveBaseStake({
     details.provider.name,
     details.provider.joinRequirement,
     currentTotalStakedBN,
+    amountValue, // Add amountValue dependency
   ]);
 
   const joinRequirementAlertText = useMemo(() => {
@@ -826,7 +815,10 @@ export function ApproveBaseStake({
       details.provider.joinRequirement ?? 0,
     );
     const remainingAmount = joinRequirementBN.minus(currentTotalStakedBN);
-    const remainingAmountStr = remainingAmount.toFixed(2);
+    // Ensure remaining amount is positive before formatting
+    const remainingAmountStr = remainingAmount.gt(0)
+      ? remainingAmount.toFixed(2)
+      : '0';
     return intl.formatMessage(
       { id: ETranslations.earn_remaining_to_minimum },
       { value: `${remainingAmountStr}`, symbol: token.symbol },
