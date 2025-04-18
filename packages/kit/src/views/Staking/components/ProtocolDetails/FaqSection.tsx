@@ -8,6 +8,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
@@ -75,7 +76,17 @@ function FaqInfo({ solutions }: { solutions: ISolution[] }) {
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >
-                  <SizableText size="$bodyMd">{answer}</SizableText>
+                  <HyperlinkText
+                    size="$bodyMd"
+                    translationId={answer as ETranslations}
+                    defaultMessage={answer}
+                    onAction={(actionId) => {
+                      const id = actionId.trim();
+                      if (id === 'trade_usdf') {
+                        console.log('111');
+                      }
+                    }}
+                  />
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>
