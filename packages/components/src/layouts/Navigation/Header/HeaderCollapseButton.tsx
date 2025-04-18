@@ -15,6 +15,24 @@ import { useShortcuts } from '../../../hooks/useShortcuts';
 
 import HeaderIconButton from './HeaderIconButton';
 
+export const useHeaderCollapseButtonVisibility = ({
+  hideWhenOpen,
+  hideWhenCollapse,
+}: {
+  hideWhenOpen?: boolean;
+  hideWhenCollapse?: boolean;
+}) => {
+  const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
+
+  const shouldHide = hideWhenCollapse && isCollapse;
+  const shouldHideWhenOpen = hideWhenOpen && !isCollapse;
+
+  return {
+    shouldHide,
+    shouldHideWhenOpen,
+  };
+};
+
 function HeaderCollapseButton({
   isRootScreen = true,
   hideWhenOpen,
@@ -30,6 +48,11 @@ function HeaderCollapseButton({
     setLeftSidebarCollapsed: setIsCollapse,
   } = useProviderSideBarValue();
 
+  const { shouldHide, shouldHideWhenOpen } = useHeaderCollapseButtonVisibility({
+    hideWhenOpen,
+    hideWhenCollapse,
+  });
+
   const onPressCall = useCallback(() => {
     setIsCollapse?.(!isCollapse);
     defaultLogger.app.page.navigationToggle();
@@ -43,13 +66,13 @@ function HeaderCollapseButton({
     [hideWhenOpen, isRootScreen],
   );
 
-  if (hideWhenCollapse && isCollapse) {
+  if (shouldHide) {
     return null;
   }
 
   return (
     <AnimatePresence>
-      {hideWhenOpen && !isCollapse ? null : (
+      {shouldHideWhenOpen ? null : (
         <Stack
           pl={paddingLeft}
           testID="Desktop-AppSideBar-Button"

@@ -8,7 +8,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type IIconButtonProps } from '../../../actions';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
-import HeaderCollapseButton from './HeaderCollapseButton';
+import HeaderCollapseButton, {
+  useHeaderCollapseButtonVisibility,
+} from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
@@ -54,6 +56,10 @@ function HeaderBackButton({
   const showCollapseButton = isRootScreen && !isVerticalLayout;
   const showBackButton = canGoBack || showCloseButton;
 
+  const { shouldHide, shouldHideWhenOpen } = useHeaderCollapseButtonVisibility({
+    hideWhenOpen: true,
+  });
+
   const renderBackButton = () => {
     if (canGoBack) {
       return <NavBackButton onPress={props.onPress} />;
@@ -72,6 +78,12 @@ function HeaderBackButton({
   // If neither button should be shown, return null early.
   if (!showCollapseButton && !showBackButton && !renderLeft) {
     return null;
+  }
+
+  if (showCollapseButton && !showBackButton && !renderLeft) {
+    if (shouldHideWhenOpen || shouldHide) {
+      return null;
+    }
   }
 
   return (
