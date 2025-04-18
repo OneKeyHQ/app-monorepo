@@ -211,8 +211,6 @@ function ShareCode({
 
 function RewardLevelMoney({
   threshold,
-  left,
-  right,
   isLeft,
   isRight,
 }: { threshold: string; isLeft?: boolean; isRight?: boolean } & IStackStyle) {
@@ -235,13 +233,15 @@ function RewardLevelMoney({
         borderBottomLeftRadius="$1"
         borderBottomRightRadius="$1"
       />
-      <SizableText
-        width={threshold.length * 8}
+      <Currency
+        sourceCurrency="usd"
+        formatter="balance"
+        width={(threshold.length + Math.ceil(threshold.length / 3) + 1) * 8}
         size="$bodySmMedium"
         color="$textSubdued"
       >
         {threshold}
-      </SizableText>
+      </Currency>
     </YStack>
   );
 }
