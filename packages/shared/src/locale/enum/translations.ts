@@ -398,6 +398,7 @@
   description_403 = 'description_403',
   device_check_connection = 'device.check_connection',
   device_communication_failed = 'device.communication_failed',
+  device_communication_failed_with_no_web_usb_supported = 'device.communication_failed_with_no_web_usb_supported',
   device_connect_via_usb = 'device.connect_via_usb',
   device_grant_usb_access = 'device.grant_usb_access',
   device_hardware_communication = 'device.hardware_communication',

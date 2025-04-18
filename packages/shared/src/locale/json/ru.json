@@ -393,6 +393,7 @@
   "description_403": "Наши услуги недоступны в вашем регионе.",
   "device.check_connection": "Проверьте, подключено ли ваше устройство",
   "device.communication_failed": "Не удалось установить связь с устройством. Пожалуйста, попробуйте переключиться в режим web-usb в \"Настройки\" > \"Аппаратная связь\" или обратитесь к нашему <url>https://help.onekey.so/hc/articles/9740566472335<underline>руководству по устранению неполадок OneKey Bridge</underline></url> для решения проблемы с подключением.",
+  "device.communication_failed_with_no_web_usb_supported": "Не удалось установить связь с устройством. Пожалуйста, обратитесь к нашему <url>https://help.onekey.so/hc/articles/9740566472335<underline>руководству по устранению неполадок OneKey Bridge</underline></url>, чтобы решить проблему с подключением.",
   "device.connect_via_usb": "Подключите устройство через USB",
   "device.grant_usb_access": "Предоставить доступ к USB",
   "device.hardware_communication": "Аппаратная связь",
