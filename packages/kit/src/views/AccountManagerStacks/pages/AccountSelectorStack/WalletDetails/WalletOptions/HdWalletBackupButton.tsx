@@ -13,7 +13,15 @@ export function HdWalletBackupButton({
 }) {
   const intl = useIntl();
   return (
-    <WalletBackupActions wallet={wallet}>
+    <WalletBackupActions
+      wallet={wallet}
+      actionListProps={{
+        offset: {
+          mainAxis: 0,
+          crossAxis: 18,
+        },
+      }}
+    >
       <WalletOptionItem
         testID="AccountSelector-WalletOption-Backup"
         icon="Shield2CheckOutline"
