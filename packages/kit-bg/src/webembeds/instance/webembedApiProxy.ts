@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
@@ -15,7 +16,6 @@ import type WebEmbedApiChainKaspa from '../WebEmbedApiChainKaspa';
 import type WebEmbedApiImageUtils from '../WebEmbedApiImageUtils';
 import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type WebEmbedApiTest from '../WebEmbedApiTest';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   // backgroundApiProxy = appGlobals.$backgroundApiProxy;

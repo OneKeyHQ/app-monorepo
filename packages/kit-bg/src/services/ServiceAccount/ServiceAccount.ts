@@ -3425,6 +3425,8 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
+  // TODO mutex
+  // TODO QR wallet
   @backgroundMethod()
   async generateAllHDWalletMissingHashAndXfp({
     password,
