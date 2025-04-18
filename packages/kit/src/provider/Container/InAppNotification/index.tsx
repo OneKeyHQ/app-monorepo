@@ -2,14 +2,21 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Toast } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Toast,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 const InAppNotification = () => {
@@ -42,8 +49,12 @@ const InAppNotification = () => {
     activeAccount,
   ]);
 
-  const approvingSuccessActionConfirm = useCallback(() => {
-    // todo   swap tab & not swap tab
+  const approvingSuccessActionConfirm = useCallback(async () => {
+    // 1.swap tab no modal
+    // 2.swap tab have modal
+    // 3.no swap tab no swap modal
+    // 4.no swap tab have swap modal no other modal
+    // 5.no swap tab have swap modal have other modal
   }, []);
 
   const approvingSuccessAction = useMemo(() => {

@@ -5,17 +5,24 @@ import { isNil } from 'lodash';
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ISwapApproveTransaction,
   ISwapInitParams,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
+  ESwapQuoteKind,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -24,6 +31,7 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -36,7 +44,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
-  const { syncNetworksSort, needChangeToken } = useSwapActions().current;
+  const { syncNetworksSort, needChangeToken, quoteAction } =
+    useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
@@ -45,6 +54,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
@@ -61,6 +71,13 @@ export function useSwapInit(params?: ISwapInitParams) {
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
+  const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
+    fromTokenAmount,
+  );
+  if (fromTokenAmountRef.current?.value !== fromTokenAmount?.value) {
+    fromTokenAmountRef.current = fromTokenAmount;
+  }
+
   const fetchSwapNetworks = useCallback(async () => {
     if (swapNetworks.length) {
       setNetworkListFetching(false);
