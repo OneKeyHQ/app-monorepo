@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Checkbox, IconButton, Page, YStack } from '@onekeyhq/components';
+import { PageFooter } from '@onekeyhq/components/src/layouts/Page/PageFooter';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DotMap } from '@onekeyhq/kit/src/components/DotMap';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,7 +15,6 @@ import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { RouteProp } from '@react-navigation/core';
-import { PageFooter } from '@onekeyhq/components/src/layouts/Page/PageFooter';
 
 const BackupDotMap = () => {
   const intl = useIntl();

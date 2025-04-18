@@ -35,6 +35,7 @@ import { AccountSelectorProviderMirror } from '../../components/AccountSelector'
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -47,7 +48,6 @@ import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
 import { buildMarketFullUrl } from './marketUtils';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 function TokenDetailHeader({
   coinGeckoId,

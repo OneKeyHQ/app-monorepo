@@ -89,11 +89,13 @@ export function WalletBackupActions({
           encodedText,
           title: wallet.name,
           onBackedUp: async () => {
-            await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-              walletId: wallet.id,
-              isBackedUp: true,
-            });
-            appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+            if (!wallet.backuped) {
+              await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
+                walletId: wallet.id,
+                isBackedUp: true,
+              });
+              appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+            }
           },
         },
       });

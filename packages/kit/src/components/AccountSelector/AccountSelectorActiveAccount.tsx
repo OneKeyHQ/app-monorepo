@@ -32,6 +32,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
@@ -40,7 +41,6 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const { activeAccount } = useActiveAccount({ num });

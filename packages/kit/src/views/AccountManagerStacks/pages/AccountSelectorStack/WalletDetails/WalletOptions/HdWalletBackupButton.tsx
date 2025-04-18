@@ -1,7 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useIntl } from 'react-intl';
 
 import { WalletOptionItem } from './WalletOptionItem';
 

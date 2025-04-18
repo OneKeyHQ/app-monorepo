@@ -7,6 +7,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { Bootstrap } from '../Bootstrap';
@@ -27,7 +28,6 @@ import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
-import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
