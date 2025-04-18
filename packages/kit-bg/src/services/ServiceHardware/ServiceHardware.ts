@@ -1117,7 +1117,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHwWalletXfp({
+  async buildHwWalletXfp({
     connectId,
     deviceId,
     passphraseState,

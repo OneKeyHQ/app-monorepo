@@ -2403,7 +2403,7 @@ class ServiceAccount extends ServiceBase {
 
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk) {
-      xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
+      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
         connectId,
         deviceId,
         passphraseState,
@@ -2441,10 +2441,10 @@ class ServiceAccount extends ServiceBase {
     const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
     const hash = bufferUtils.bytesToHex(buff);
 
-    const xfp = await coreChainApi.btc.hd.generateXfpFromMnemonic({
+    const { fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
       mnemonic: options.realMnemonic,
     });
-    return { hash, xfp };
+    return { hash, xfp: fulXfp };
   };
 
   @backgroundMethod()
@@ -3444,7 +3444,10 @@ class ServiceAccount extends ServiceBase {
       hdWalletsToProcess = hdWallets;
     } else {
       hdWalletsToProcess = hdWallets.filter(
-        (wallet) => !wallet.hash || !wallet.xfp,
+        (wallet) =>
+          !wallet.hash ||
+          !wallet.xfp ||
+          !accountUtils.isValidWalletXfp({ xfp: wallet.xfp }),
       );
     }
     if (!hdWalletsToProcess?.length) {
@@ -3533,7 +3536,7 @@ class ServiceAccount extends ServiceBase {
       deviceId = device?.deviceId;
     }
 
-    const xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
+    const xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
       connectId,
       deviceId,
       passphraseState: wallet?.passphraseState,
