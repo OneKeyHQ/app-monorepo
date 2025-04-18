@@ -186,7 +186,7 @@ export default function ReferAFriend() {
                                   size="$bodyMd"
                                   color="$textSuccess"
                                 >
-                                  {`${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`}
+                                  {`${postConfig.commissionRate.unit}${postConfig.commissionRate.amount}`}
                                 </SizableText>
                               ),
                             },
@@ -235,7 +235,7 @@ export default function ReferAFriend() {
                             {
                               RebateAmount: (
                                 <SizableText size="$bodyMd" color="$textInfo">
-                                  {`${postConfig.commissionRate.unit}${postConfig.commissionRate.amount}`}
+                                  {`${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`}
                                 </SizableText>
                               ),
                             },
