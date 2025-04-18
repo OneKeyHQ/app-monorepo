@@ -708,14 +708,11 @@ function Link() {
       <HyperlinkText
         cursor="pointer"
         size="$bodyMdMedium"
-        textDecorationLine="underline"
-        textDecorationColor="$textInfo"
-        textDecorationStyle="dotted"
         underlineTextProps={{
           color: '$textInfo',
         }}
         style={{
-          textUnderlineOffset: 4,
+          textUnderlineOffset: 2,
         }}
         translationId={ETranslations.referral_more_questions}
       />
