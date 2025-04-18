@@ -1341,7 +1341,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getfalconDepositDoNotShowAgain() {
+  async getFalconDepositDoNotShowAgain() {
     const v = await simpleDb.appStatus.getRawData();
     return v?.falconDepositDoNotShowAgain ?? false;
   }

@@ -20,7 +20,7 @@ export function useFalconEventEndedDialog({
   const intl = useIntl();
   const { isEventActive } = useEarnEventActive(details?.provider.eventEndTime);
   const { result: falconDepositDoNotShowAgain, run } = usePromiseResult(
-    () => backgroundApiProxy.serviceStaking.getfalconDepositDoNotShowAgain(),
+    () => backgroundApiProxy.serviceStaking.getFalconDepositDoNotShowAgain(),
     [],
     {
       initResult: false,
