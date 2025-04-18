@@ -32,6 +32,8 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isFalconProvider = createProviderCheck(EEarnProviderEnum.Falcon);
+
 function getEarnProviderName({
   providerName,
 }: {
@@ -66,6 +68,7 @@ export default {
   isLidoProvider,
   isBabylonProvider,
   isEverstakeProvider,
+  isFalconProvider,
   getEarnProviderName,
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,

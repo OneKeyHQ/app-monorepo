@@ -15,21 +15,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnRewardUnit,
-  IEarnTokenItem,
-  IRewardApys,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
-import { MorphoApy } from './MorphoApy';
+import { ProtocolApyRewards } from './ProtocolApyRewards';
 
 type IProfitInfoProps = {
+  details: IStakeProtocolDetails;
   apr?: string;
-  apys?: IRewardApys;
   rewardUnit: IEarnRewardUnit;
-  rewardAssets?: Record<string, IEarnTokenItem>;
   totalRewardAmount?: string;
   earningsIn24h?: string;
   rewardToken?: string;
@@ -41,14 +38,13 @@ type IProfitInfoProps = {
   stakingTime?: number;
   nextLaunchLeft?: string;
   providerName?: string;
-  poolFee?: string;
   token: IStakeProtocolDetails['token'];
+  joinRequirement?: string;
 };
 
 function ProfitInfo({
+  details,
   apr,
-  apys,
-  rewardAssets,
   earningsIn24h,
   rewardToken,
   rewardTokens,
@@ -60,7 +56,7 @@ function ProfitInfo({
   earnPoints,
   rewardUnit,
   providerName,
-  poolFee,
+  joinRequirement,
   token,
 }: IProfitInfoProps) {
   const intl = useIntl();
@@ -70,6 +66,8 @@ function ProfitInfo({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+  const apys = details.provider.apys;
+  const aprWithoutFee = details.provider.aprWithoutFee;
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
@@ -97,7 +95,8 @@ function ProfitInfo({
               </XStack>
             </GridItem>
           ) : null}
-          {apys?.dailyNetApy && Number(apys.dailyNetApy) > 0 ? (
+          {(apys?.dailyNetApy && Number(apys.dailyNetApy) > 0) ||
+          (apys?.weeklyNetApy && Number(apys.weeklyNetApy) > 0) ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_rewards_percentage,
@@ -105,7 +104,13 @@ function ProfitInfo({
             >
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${formatApy(apys?.dailyNetApy)}% ${rewardUnit}`}
+                  {`${formatApy(
+                    earnUtils.isFalconProvider({
+                      providerName: providerName || '',
+                    })
+                      ? aprWithoutFee
+                      : apys?.dailyNetApy,
+                  )}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
                   <Popover
@@ -122,19 +127,7 @@ function ProfitInfo({
                         variant="tertiary"
                       />
                     }
-                    renderContent={
-                      <MorphoApy
-                        apys={apys}
-                        rewardAssets={rewardAssets}
-                        poolFee={
-                          earnUtils.isMorphoProvider({
-                            providerName: providerName || '',
-                          })
-                            ? poolFee
-                            : undefined
-                        }
-                      />
-                    }
+                    renderContent={<ProtocolApyRewards details={details} />}
                     placement="top"
                   />
                 ) : null}
@@ -235,6 +228,24 @@ function ProfitInfo({
               )}
             </GridItem>
           ) : null}
+          {joinRequirement ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_join_requirement,
+              })}
+            >
+              <NumberSizeableText
+                formatter="balance"
+                color="$text"
+                size="$bodyLgMedium"
+                formatterOptions={{
+                  tokenSymbol: rewardToken,
+                }}
+              >
+                {joinRequirement}
+              </NumberSizeableText>
+            </GridItem>
+          ) : null}
         </XStack>
       )}
     </YStack>
@@ -250,26 +261,24 @@ export const ProfitSection = ({
     return null;
   }
   const props: IProfitInfoProps = {
+    details,
     apr:
       Number(details.provider?.aprWithoutFee) > 0
         ? details.provider.aprWithoutFee
         : undefined,
-    apys: details.provider.apys,
-    rewardAssets: details.rewardAssets,
     earningsIn24h: details.earnings24h,
     totalRewardAmount: details.totalRewardAmount,
     rewardToken: details.rewardToken,
     rewardTokens: details.rewardToken,
     receiptToken: details.provider.receiptToken,
-    // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,
     unstakingPeriod: details.unstakingPeriod,
     stakingTime: details.provider.stakingTime,
     nextLaunchLeft: details.provider.nextLaunchLeft,
     rewardUnit: details.provider.rewardUnit,
     providerName: details.provider.name,
-    poolFee: details.provider.poolFee,
     token: details.token,
+    joinRequirement: details.provider.joinRequirement,
   };
   return <ProfitInfo {...props} />;
 };

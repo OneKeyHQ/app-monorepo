@@ -51,7 +51,9 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { validateAmountInput } from '../../../Swap/utils/utils';
+import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
+import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
@@ -59,7 +61,7 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { MorphoApy } from '../ProtocolDetails/MorphoApy';
+import { ProtocolApyRewards } from '../ProtocolDetails/ProtocolApyRewards';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
@@ -98,6 +100,7 @@ type ITokenAnnualReward = {
   amount: string;
   fiatValue?: string;
   token: IToken;
+  suffix?: string;
 };
 
 export function ApproveBaseStake({
@@ -132,6 +135,7 @@ export function ApproveBaseStake({
       }),
     [approveTarget.networkId],
   ).result;
+  const { isEventActive } = useEarnEventActive(details.provider.eventEndTime);
   const [approving, setApproving] = useState<boolean>(false);
   const {
     allowance,
@@ -189,6 +193,10 @@ export function ApproveBaseStake({
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
   const isFocus = useIsFocused();
+
+  const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
+    details,
+  });
 
   const shouldApprove = useMemo(() => {
     if (!isFocus) {
@@ -363,16 +371,58 @@ export function ApproveBaseStake({
 
     if (details.provider.apys) {
       // handle base token reward
-      const baseRateBN = new BigNumber(details.provider.apys.rate);
-      if (baseRateBN.gt(0)) {
-        const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+      const isFalconProvider = earnUtils.isFalconProvider({
+        providerName: details.provider.name,
+      });
+      const baseRateAPY = new BigNumber(
+        isFalconProvider
+          ? details.provider.apys?.weeklyNetApyWithoutFee ?? 0
+          : details.provider.apys?.rate ?? 0,
+      );
+      if (baseRateAPY.gt(0)) {
+        let estimatedYield: BigNumber;
+
+        // Calculate daily yield if it's Falcon provider during the event
+        if (isFalconProvider && isEventActive) {
+          // Convert APY to decimal
+          const apyDecimal = baseRateAPY.dividedBy(100);
+          // Calculate base for exponentiation: (1 + APY)
+          const base = apyDecimal.plus(1);
+          // Calculate exponent: 1/365
+          const exponent = new BigNumber(1).dividedBy(365);
+          // Calculate daily factor: (1 + APY)^(1/365)
+          // Use BigNumber's pow for fractional exponents
+          const dailyFactor = base.pow(exponent);
+          // Calculate daily rate: dailyFactor - 1
+          const dailyRate = dailyFactor.minus(1);
+          // Calculate daily yield: principal * dailyRate
+          estimatedYield = amountBN.multipliedBy(dailyRate);
+        } else {
+          // Calculate estimated annual yield directly from APY/rate
+          // This assumes details.provider.apys.rate is annual.
+          // If it represents something else (e.g., weekly), adjust accordingly.
+          estimatedYield = amountBN.multipliedBy(baseRateAPY).dividedBy(100);
+        }
+
+        let suffix: string | undefined;
+        if (
+          earnUtils.isFalconProvider({
+            providerName: details.provider.name,
+          }) &&
+          isEventActive
+        ) {
+          suffix = `+ ${intl.formatMessage({
+            id: ETranslations.explore_badge_airdrop,
+          })}`;
+        }
 
         rewards.push({
-          amount: baseAmount.toFixed(),
+          amount: estimatedYield.toFixed(),
           fiatValue: new BigNumber(price).gt(0)
-            ? baseAmount.multipliedBy(price).toFixed()
+            ? estimatedYield.multipliedBy(price).toFixed()
             : undefined,
           token: details.token.info,
+          suffix,
         });
       }
 
@@ -416,7 +466,7 @@ export function ApproveBaseStake({
     }
 
     return rewards;
-  }, [amountValue, apr, price, details, token]);
+  }, [amountValue, apr, price, details, token, intl, isEventActive]);
 
   const totalAnnualRewardsFiatValue = useMemo(() => {
     if (!estimatedAnnualRewards.length) return undefined;
@@ -490,6 +540,9 @@ export function ApproveBaseStake({
       }
     };
 
+    // Wait for the dialog confirmation if it's shown
+    await showFalconEventEndedDialog();
+
     if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
       await checkEstimateGasAlert(handleConfirm);
       return;
@@ -503,6 +556,7 @@ export function ApproveBaseStake({
     amountValue,
     checkEstimateGasAlert,
     details.provider.approveType,
+    showFalconEventEndedDialog,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -733,6 +787,58 @@ export function ApproveBaseStake({
     trackAllowance,
   ]);
 
+  // falcon join requirement
+  const currentTotalStakedBN = useMemo(() => {
+    const availableBalanceBN = new BigNumber(details.available ?? 0);
+    const amountValueBN = new BigNumber(amountValue);
+    return availableBalanceBN.plus(amountValueBN.isNaN() ? 0 : amountValueBN);
+  }, [details.available, amountValue]);
+
+  const displayJoinRequirementAlert = useMemo(() => {
+    if (
+      earnUtils.isFalconProvider({
+        providerName: details.provider.name,
+      })
+    ) {
+      const joinRequirementBN = new BigNumber(
+        details.provider.joinRequirement ?? 0,
+      );
+      if (
+        joinRequirementBN.isNaN() ||
+        joinRequirementBN.isLessThanOrEqualTo(0)
+      ) {
+        return false;
+      }
+      return currentTotalStakedBN.isLessThan(joinRequirementBN);
+    }
+    return false;
+  }, [
+    details.provider.name,
+    details.provider.joinRequirement,
+    currentTotalStakedBN,
+  ]);
+
+  const joinRequirementAlertText = useMemo(() => {
+    if (!displayJoinRequirementAlert) {
+      return '';
+    }
+    const joinRequirementBN = new BigNumber(
+      details.provider.joinRequirement ?? 0,
+    );
+    const remainingAmount = joinRequirementBN.minus(currentTotalStakedBN);
+    const remainingAmountStr = remainingAmount.toFixed(2);
+    return intl.formatMessage(
+      { id: ETranslations.earn_remaining_to_minimum },
+      { value: `${remainingAmountStr}`, symbol: token.symbol },
+    );
+  }, [
+    displayJoinRequirementAlert,
+    details.provider.joinRequirement,
+    currentTotalStakedBN,
+    intl,
+    token.symbol,
+  ]);
+
   const placeholderTokens = useMemo(
     () => (
       <>
@@ -890,6 +996,13 @@ export function ApproveBaseStake({
           })}
         />
       ) : null}
+      {displayJoinRequirementAlert ? (
+        <Alert
+          icon="ErrorOutline"
+          type="default"
+          title={joinRequirementAlertText}
+        />
+      ) : null}
       <YStack
         p="$3.5"
         pt="$5"
@@ -917,19 +1030,7 @@ export function ApproveBaseStake({
                     variant="tertiary"
                   />
                 }
-                renderContent={
-                  <MorphoApy
-                    apys={details.provider.apys}
-                    rewardAssets={details.rewardAssets}
-                    poolFee={
-                      earnUtils.isMorphoProvider({
-                        providerName: providerName || '',
-                      })
-                        ? details.provider.poolFee
-                        : undefined
-                    }
-                  />
-                }
+                renderContent={<ProtocolApyRewards details={details} />}
                 placement="top"
               />
             ) : null}
@@ -938,7 +1039,11 @@ export function ApproveBaseStake({
         <YStack pt="$3.5" gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.earn_est_annual_rewards,
+              id: earnUtils.isFalconProvider({
+                providerName: details.provider.name,
+              })
+                ? ETranslations.earn_est_daily_rewards
+                : ETranslations.earn_est_annual_rewards,
             })}
           </SizableText>
           {estimatedAnnualRewards.length
@@ -963,6 +1068,11 @@ export function ApproveBaseStake({
                         {reward.fiatValue}
                       </NumberSizeableText>
                       <SizableText color="$textSubdued">)</SizableText>
+                    </SizableText>
+                  ) : null}
+                  {reward.suffix ? (
+                    <SizableText pl="$1" color="$textSubdued">
+                      {reward.suffix}
                     </SizableText>
                   ) : null}
                 </SizableText>

@@ -30,6 +30,7 @@ import type {
   IAvailableAsset,
   IBabylonPortfolioItem,
   IBuildPermit2ApproveSignDataParams,
+  IBuildRegisterSignMessageParams,
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
@@ -41,6 +42,7 @@ import type {
   IEarnFAQList,
   IEarnInvestmentItem,
   IEarnPermit2ApproveSignData,
+  IEarnRegisterSignMessageResponse,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
@@ -53,6 +55,7 @@ import type {
   IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
+  IVerifyRegisterSignMessageParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
@@ -370,6 +373,36 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IEarnPermit2ApproveSignData;
     }>(`/earn/v1/permit-signature`, params);
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async buildRegisterSignMessageData(params: IBuildRegisterSignMessageParams) {
+    if (!params?.networkId) {
+      throw new Error('networkId is required');
+    }
+    if (!params?.provider) {
+      throw new Error('provider is required');
+    }
+    if (!params?.symbol) {
+      throw new Error('symbol is required');
+    }
+    if (!params?.accountAddress) {
+      throw new Error('accountAddress is required');
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{
+      data: IEarnRegisterSignMessageResponse;
+    }>(`/earn/v1/permit-signature`, params);
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async verifyRegisterSignMessage(params: IVerifyRegisterSignMessageParams) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{
+      data: IEarnRegisterSignMessageResponse;
+    }>(`/earn/v1/verify-sig`, params);
     return resp.data.data;
   }
 
@@ -1297,6 +1330,20 @@ class ServiceStaking extends ServiceBase {
       params: { inviteCode },
     });
     return response.data.code === 0;
+  }
+
+  @backgroundMethod()
+  async setFalconDepositDoNotShowAgain() {
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      falconDepositDoNotShowAgain: true,
+    }));
+  }
+
+  @backgroundMethod()
+  async getFalconDepositDoNotShowAgain() {
+    const v = await simpleDb.appStatus.getRawData();
+    return v?.falconDepositDoNotShowAgain ?? false;
   }
 }
 
