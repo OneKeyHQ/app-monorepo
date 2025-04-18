@@ -364,7 +364,10 @@ function Dashboard({
                 textDecorationLine="underline"
                 textDecorationColor="$textSuccess"
                 textDecorationStyle="dotted"
-                formatterOptions={{ tokenSymbol: currency.id.toUpperCase() }}
+                formatterOptions={{
+                  tokenSymbol: currency.id.toUpperCase(),
+                  currency: undefined,
+                }}
                 style={{
                   textUnderlineOffset: 4,
                 }}
