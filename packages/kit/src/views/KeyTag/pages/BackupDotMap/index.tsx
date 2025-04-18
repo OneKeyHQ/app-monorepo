@@ -14,6 +14,7 @@ import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { RouteProp } from '@react-navigation/core';
+import { PageFooter } from '@onekeyhq/components/src/layouts/Page/PageFooter';
 
 const BackupDotMap = () => {
   const intl = useIntl();
@@ -56,28 +57,30 @@ const BackupDotMap = () => {
           {result ? <DotMap mnemonic={result} /> : null}
         </YStack>
       </Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_i_got_it,
-        })}
-        confirmButtonProps={{
-          disabled: !continueOperate,
-          variant: 'primary',
-          onPress: () => {
-            onBackedUp?.();
-            appNavigation.popStack();
-          },
-        }}
-      >
-        <Checkbox
-          label={intl.formatMessage({
-            id: ETranslations.wallet_backup_backup_confirmation,
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_i_got_it,
           })}
-          value={continueOperate}
-          onChange={(checked) => {
-            setContinueOperate(!!checked);
+          confirmButtonProps={{
+            disabled: !continueOperate,
+            variant: 'primary',
+            onPress: () => {
+              onBackedUp?.();
+              appNavigation.popStack();
+            },
           }}
-        />
+        >
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.wallet_backup_backup_confirmation,
+            })}
+            value={continueOperate}
+            onChange={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+          />
+        </Page.FooterActions>
       </Page.Footer>
     </Page>
   );
