@@ -310,7 +310,8 @@ export function AddressInput(props: IAddressInputProps) {
     ...rest
   } = props;
   const intl = useIntl();
-  const disabled = disabledFromProps ?? !rest.editable;
+  const disabled =
+    disabledFromProps ?? (rest.editable !== undefined ? !rest.editable : false);
   const [inputText, setInputText] = useState<string>(value?.raw ?? '');
   const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
