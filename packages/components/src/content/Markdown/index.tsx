@@ -116,7 +116,7 @@ export function Markdown({ children }: { children: string }) {
           fontWeight: '600',
         } as ISizableTextProps,
         text: {
-          color: '$textSubdued',
+          color: '$text',
           size: gtMd ? '$bodyMd' : '$bodyLg',
         } as ISizableTextProps,
       } as MarkdownProps['style']),

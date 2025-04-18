@@ -18,6 +18,7 @@ import type {
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
+import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
@@ -68,6 +69,11 @@ function ProfitInfo({
   ] = useSettingsPersistAtom();
   const apys = details.provider.apys;
   const aprWithoutFee = details.provider.aprWithoutFee;
+  const isFalconProvider = earnUtils.isFalconProvider({
+    providerName: providerName || '',
+  });
+  const { isEventActive } = useEarnEventActive(details.provider.eventEndTime);
+
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
@@ -105,11 +111,7 @@ function ProfitInfo({
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
                   {`${formatApy(
-                    earnUtils.isFalconProvider({
-                      providerName: providerName || '',
-                    })
-                      ? aprWithoutFee
-                      : apys?.dailyNetApy,
+                    isFalconProvider ? apys?.weeklyNetApy : aprWithoutFee,
                   )}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
@@ -181,7 +183,34 @@ function ProfitInfo({
                 id: ETranslations.earn_reward_tokens,
               })}
             >
-              {receiptToken || rewardTokens}
+              <XStack gap="$1" alignItems="center">
+                {receiptToken || rewardTokens}
+                {isFalconProvider && isEventActive ? (
+                  <Popover
+                    placement="top"
+                    title={intl.formatMessage({
+                      id: ETranslations.earn_reward_tokens,
+                    })}
+                    renderTrigger={
+                      <IconButton
+                        iconColor="$iconSubdued"
+                        size="small"
+                        icon="InfoCircleOutline"
+                        variant="tertiary"
+                      />
+                    }
+                    renderContent={
+                      <XStack p="$5">
+                        <SizableText>
+                          {intl.formatMessage({
+                            id: ETranslations.earn_fixed_yield_info,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    }
+                  />
+                ) : null}
+              </XStack>
             </GridItem>
           ) : null}
           {updateFrequency ? (
