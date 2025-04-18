@@ -116,7 +116,6 @@ type IAddressInputProps = Omit<
   placeholder?: string;
   name?: string;
   autoError?: boolean;
-
   // plugins options for control button display
   clipboard?: boolean;
   scan?: { sceneName: EAccountSelectorSceneName };
@@ -307,9 +306,12 @@ export function AddressInput(props: IAddressInputProps) {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     onInputTypeChange,
+    disabled: disabledFromProps,
     ...rest
   } = props;
   const intl = useIntl();
+  const disabled =
+    disabledFromProps ?? (rest.editable !== undefined ? !rest.editable : false);
   const [inputText, setInputText] = useState<string>(value?.raw ?? '');
   const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
@@ -501,6 +503,7 @@ export function AddressInput(props: IAddressInputProps) {
             <ClipboardPlugin
               onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
+              disabled={disabled}
               testID={rest.testID ? `${rest.testID}-clip` : undefined}
             />
           ) : null}
@@ -509,11 +512,13 @@ export function AddressInput(props: IAddressInputProps) {
               onInputTypeChange={onInputTypeChange}
               sceneName={scan.sceneName}
               onChange={onChangeText}
+              disabled={disabled}
               testID={rest.testID ? `${rest.testID}-scan` : undefined}
             />
           ) : null}
           {contacts || accountSelector ? (
             <SelectorPlugin
+              disabled={disabled}
               onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
               networkId={networkId}
@@ -535,14 +540,15 @@ export function AddressInput(props: IAddressInputProps) {
       queryResult,
       setResolveAddress,
       onRefresh,
+      networkId,
       clipboard,
       onInputTypeChange,
       onChangeText,
+      disabled,
       rest.testID,
       scan,
       contacts,
       accountSelector,
-      networkId,
       accountId,
       inputText,
     ],

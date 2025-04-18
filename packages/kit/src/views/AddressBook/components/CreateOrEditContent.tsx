@@ -44,6 +44,7 @@ type ICreateOrEditContentProps = {
   title?: string;
   item: IAddressItem;
   isSubmitLoading?: boolean;
+  disabledAddressEdit?: boolean;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
   nameHistoryInfo?: {
@@ -71,14 +72,15 @@ function TimeRow({ title, time }: { title: string; time?: number }) {
   );
 }
 
-export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
+export function CreateOrEditContent({
   title,
   item,
   onSubmit,
   onRemove,
   nameHistoryInfo,
   isSubmitLoading,
-}) => {
+  disabledAddressEdit,
+}: ICreateOrEditContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -268,6 +270,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               placeholder={intl.formatMessage({
                 id: ETranslations.address_book_add_address_address,
               })}
+              editable={!disabledAddressEdit}
               autoError={false}
               testID="address-form-address"
               enableNameResolve
@@ -333,4 +336,4 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
       </Page.Footer>
     </Page>
   );
-};
+}

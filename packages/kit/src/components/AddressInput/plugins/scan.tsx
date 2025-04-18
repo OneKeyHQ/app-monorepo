@@ -15,6 +15,7 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
   onChange,
   onInputTypeChange,
   testID,
+  disabled,
 }) => {
   const { start } = useScanQrCode();
   const intl = useIntl();
@@ -31,8 +32,9 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
       variant="tertiary"
       icon="ScanSolid"
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       testID={testID}
+      disabled={disabled}
     />
   );
 };
@@ -45,6 +47,7 @@ export const ScanPlugin: FC<IScanPluginProps> = ({
   onChange,
   testID,
   sceneName,
+  disabled,
 }) => (
   <AccountSelectorProviderMirror
     config={{
@@ -52,6 +55,10 @@ export const ScanPlugin: FC<IScanPluginProps> = ({
     }}
     enabledNum={[0]}
   >
-    <ScanPluginContent onChange={onChange} testID={testID} />
+    <ScanPluginContent
+      onChange={onChange}
+      testID={testID}
+      disabled={disabled}
+    />
   </AccountSelectorProviderMirror>
 );

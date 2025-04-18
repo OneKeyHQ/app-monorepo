@@ -17,6 +17,7 @@ import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
+import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { ISizableTextProps } from '../../primitives';
 
@@ -34,6 +35,12 @@ export interface IToastBaseProps extends IToastProps {
   duration?: number;
   haptic?: 'success' | 'warning' | 'info' | 'error' | 'none';
   preset?: 'done' | 'error' | 'none' | 'custom';
+  /**
+   * Change the position of the toast.
+   * Only works on web platform.
+   * @platform web
+   */
+  position?: IToastMessageOptions['position'];
 }
 
 const iconMap = {
@@ -171,6 +178,7 @@ function toastMessage({
   haptic,
   preset = 'custom',
   actions,
+  position,
 }: IToastBaseProps) {
   if (platformEnv.isDev) {
     if (title?.length === 0) {
@@ -204,6 +212,7 @@ function toastMessage({
     duration,
     haptic,
     preset,
+    position,
   });
 }
 
