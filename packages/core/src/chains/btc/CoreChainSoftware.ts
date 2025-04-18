@@ -321,26 +321,26 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const taprootChild = root.derivePath(BTC_FIRST_TAPROOT_PATH);
     const firstTaprootXpub = taprootChild.neutered().toBase58();
 
-    const fulXfp = accountUtils.buildFullXfp({
+    const fullXfp = accountUtils.buildFullXfp({
       xfp: fingerprintHex,
       firstTaprootXpub,
     });
 
     console.log('generateXfpFromMnemonic', {
-      fulXfp,
+      fulXfp: fullXfp,
       firstTaprootXpub,
       fingerprintHex,
       fingerprintInt,
       fingerprintHexCheck,
     });
 
-    if (!fulXfp) {
+    if (!fullXfp) {
       throw new Error('fulXfp build failed');
     }
 
     return {
       // xfp: fingerprintHex,
-      fulXfp,
+      fullXfp,
       firstTaprootXpub,
     };
   }

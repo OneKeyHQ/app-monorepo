@@ -2442,7 +2442,7 @@ class ServiceAccount extends ServiceBase {
     const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
     const hash = bufferUtils.bytesToHex(buff);
 
-    const { fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
+    const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
       mnemonic: options.realMnemonic,
     });
     return { hash, xfp: fulXfp };
