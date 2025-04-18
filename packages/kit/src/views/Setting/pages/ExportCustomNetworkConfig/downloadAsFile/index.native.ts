@@ -1,5 +1,5 @@
-import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import RNShare from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IDownloadAsFileType } from './type';

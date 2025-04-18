@@ -1,4 +1,5 @@
-import { shareAsync, isAvailableAsync } from 'expo-sharing';
+import { isAvailableAsync, shareAsync } from 'expo-sharing';
+
 import type { SharingOptions } from 'expo-sharing';
 
 const mock = {
