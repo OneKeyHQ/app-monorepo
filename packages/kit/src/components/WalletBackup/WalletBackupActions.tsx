@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -27,10 +28,12 @@ export function WalletBackupActions({
   wallet,
   children,
   onSelected,
+  actionListProps,
 }: {
   wallet: IDBWallet | undefined;
   children: React.ReactNode;
   onSelected?: () => void;
+  actionListProps?: Partial<ComponentProps<typeof ActionList>>;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -106,7 +109,6 @@ export function WalletBackupActions({
 
   return (
     <ActionList
-      offset={{ mainAxis: 0, crossAxis: 18 }}
       placement="bottom-start"
       title={intl.formatMessage({ id: ETranslations.global_backup })}
       items={[
@@ -133,6 +135,7 @@ export function WalletBackupActions({
         },
       ].filter(Boolean)}
       renderTrigger={children}
+      {...actionListProps}
     />
   );
 }

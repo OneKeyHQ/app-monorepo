@@ -69,17 +69,17 @@ const openUrlOutsideNative = (url: string): void => {
 
 export const openUrlInApp = (url: string, title?: string) => {
   if (platformEnv.isNative) {
-    openUrlByWebview(url, title);
+    openUrlByWebview(url.trim(), title);
   } else {
-    openUrlOutsideNative(url);
+    openUrlOutsideNative(url.trim());
   }
 };
 
 export const openUrlExternal = (url: string) => {
   if (platformEnv.isNative) {
-    void linkingOpenURL(url);
+    void linkingOpenURL(url.trim());
   } else {
-    openUrlOutsideNative(url);
+    openUrlOutsideNative(url.trim());
   }
 };
 
