@@ -154,6 +154,7 @@ function BasicTokenDetailTabs({
 
   return (
     <Tab
+      bg="$green6"
       ref={tabRef}
       refreshControl={
         <RefreshControl refreshing={!!isRefreshing} onRefresh={onRefresh} />
