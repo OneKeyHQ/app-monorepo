@@ -3724,6 +3724,26 @@ class ServiceAccount extends ServiceBase {
     }
     // await timerUtils.wait(3000);
   }
+
+  @backgroundMethod()
+  @toastIfError()
+  async updateWalletBackupStatus({
+    walletId,
+    isBackedUp,
+  }: {
+    walletId: string;
+    isBackedUp: boolean;
+  }): Promise<void> {
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet) {
+      throw new Error('updateWalletBackupStatus ERROR: wallet not found');
+    }
+    await localDb.updateWalletBackupStatus({
+      walletId,
+      isBackedUp,
+    });
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+  }
 }
 
 export default ServiceAccount;

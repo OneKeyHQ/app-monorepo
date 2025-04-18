@@ -54,6 +54,7 @@ export function BeforeShowRecoveryPhrase() {
       mnemonic,
       isBackup: route.params?.isBackup,
       isWalletBackedUp: route.params?.isWalletBackedUp,
+      walletId: route.params?.walletId,
     });
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'CreateWallet',

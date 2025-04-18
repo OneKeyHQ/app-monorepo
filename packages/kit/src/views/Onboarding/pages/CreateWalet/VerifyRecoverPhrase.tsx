@@ -113,6 +113,12 @@ export function VerifyRecoveryPhrase({
 
       if (isValid) {
         if (route.params?.isBackup) {
+          if (route.params?.walletId) {
+            await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
+              walletId: route.params?.walletId,
+              isBackedUp: true,
+            });
+          }
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.backup_recovery_phrase_backed_up,
@@ -151,6 +157,7 @@ export function VerifyRecoveryPhrase({
     phrases,
     selectedWords,
     route.params?.isBackup,
+    route.params?.walletId,
     navigation,
     mnemonic,
     settings.isBiologyAuthSwitchOn,

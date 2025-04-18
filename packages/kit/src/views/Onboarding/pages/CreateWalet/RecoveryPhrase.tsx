@@ -145,6 +145,7 @@ export function RecoveryPhrase() {
       isBackup: route.params?.isBackup,
       isWalletBackedUp: route.params?.isWalletBackedUp,
       verifyRecoveryPhrases,
+      walletId: route.params?.walletId,
     });
   }, [
     intl,
@@ -152,6 +153,7 @@ export function RecoveryPhrase() {
     navigation,
     route.params?.isBackup,
     route.params?.isWalletBackedUp,
+    route.params?.walletId,
     servicePassword,
     verifyRecoveryPhrases,
   ]);

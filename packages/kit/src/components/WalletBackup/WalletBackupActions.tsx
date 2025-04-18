@@ -18,6 +18,10 @@ import {
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import {
+  appEventBus,
+  EAppEventBusNames,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 export function WalletBackupActions({
   wallet,
@@ -49,6 +53,7 @@ export function WalletBackupActions({
         mnemonic,
         isBackup: true,
         isWalletBackedUp: wallet.backuped,
+        walletId: wallet.id,
       },
     });
 
@@ -56,11 +61,19 @@ export function WalletBackupActions({
     onSelected?.();
   }, [navigation, wallet?.id, wallet?.backuped, onSelected]);
 
-  const handleBackupLiteCard = useCallback(() => {
-    void liteCard.backupWallet(wallet?.id);
-    defaultLogger.account.wallet.backupWallet('liteCard');
+  const handleBackupLiteCard = useCallback(async () => {
     onSelected?.();
-  }, [liteCard, wallet?.id, onSelected]);
+    const backedUp = await liteCard.backupWallet(wallet?.id);
+
+    if (wallet?.id && !wallet.backuped && backedUp) {
+      await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
+        walletId: wallet.id,
+        isBackedUp: true,
+      });
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      defaultLogger.account.wallet.backupWallet('liteCard');
+    }
+  }, [onSelected, liteCard, wallet?.id, wallet?.backuped]);
 
   const handleBackupKeyTag = useCallback(async () => {
     if (wallet) {
@@ -75,6 +88,13 @@ export function WalletBackupActions({
         params: {
           encodedText,
           title: wallet.name,
+          onBackedUp: async () => {
+            await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
+              walletId: wallet.id,
+              isBackedUp: true,
+            });
+            appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+          },
         },
       });
       defaultLogger.account.wallet.backupWallet('keyTag');

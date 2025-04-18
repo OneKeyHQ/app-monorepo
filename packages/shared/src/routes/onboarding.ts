@@ -73,17 +73,20 @@ export type IOnboardingParamList = {
     mnemonic?: string;
     isBackup?: boolean;
     isWalletBackedUp?: boolean;
+    walletId?: string;
   };
   [EOnboardingPages.RecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
     isWalletBackedUp?: boolean;
+    walletId?: string;
   };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
     verifyRecoveryPhrases?: string[][][];
     isBackup?: boolean;
     isWalletBackedUp?: boolean;
+    walletId?: string;
   };
 
   // import wallet

@@ -4563,4 +4563,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // const ctx = await localDb.getContext();
     return ctx;
   }
+
+  async updateWalletBackupStatus({
+    walletId,
+    isBackedUp,
+  }: {
+    walletId: string;
+    isBackedUp: boolean;
+  }): Promise<void> {
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater: (record) => {
+          record.backuped = isBackedUp;
+          return record;
+        },
+      });
+    });
+  }
 }
