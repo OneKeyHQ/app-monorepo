@@ -87,6 +87,10 @@ export type IStakeProviderInfo = {
   liquidity?: string;
   vaultManager?: string;
   vaultManagerName?: string;
+
+  // falcon
+  joinRequirement?: string;
+  eventEndTime?: number;
 };
 
 export type IStakeBaseParams = {
@@ -279,6 +283,12 @@ export type IStakeProtocolDetails = {
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
   waitingRebateRewardAmount: string;
+
+  // falcon
+  preStaked?: boolean; // pre stake usdf user
+  hasRegister?: boolean; // register falcon user
+  preStakeActive?: string; // pre stake portfolio, user staked usdf before event end time
+  formalActive?: string; // formal stake portfolio, user staked usdf after event end time
 };
 
 export type IStakeProtocolListItem = {
@@ -293,15 +303,20 @@ export type IStakeProtocolListItem = {
 
 export type IRewardApys = {
   // Base rates
-  rate: string;
-  netApy: string;
+  rate?: string;
+  netApy?: string;
   performanceFee: string;
 
   // Time-based APYs
-  dailyApy: string;
-  dailyNetApy: string;
-  weeklyNetApy: string;
-  monthlyNetApy: string;
+  dailyApy?: string;
+  dailyNetApy?: string;
+  weeklyNetApy?: string;
+  monthlyNetApy?: string;
+  weeklyNetApyWithoutFee?: string;
+
+  // falcon
+  airdrop?: string;
+  fixed?: string;
 
   // Token rewards
   rewards: Record<string, string>;
@@ -518,6 +533,24 @@ export interface IEarnPermit2ApproveSignData {
       type: string;
     }[];
   };
+}
+
+export interface IBuildRegisterSignMessageParams {
+  networkId: string;
+  provider: string;
+  symbol: string;
+  accountAddress: string;
+}
+
+export interface IEarnRegisterSignMessageResponse {
+  expiredAt: string;
+  message: string;
+}
+
+export interface IVerifyRegisterSignMessageParams
+  extends IBuildRegisterSignMessageParams {
+  signature: string;
+  expiredAt: string;
 }
 
 export type IApproveConfirmFnParams = {

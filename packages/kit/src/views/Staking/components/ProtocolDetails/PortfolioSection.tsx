@@ -4,9 +4,10 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IPopoverProps } from '@onekeyhq/components';
+import type { IBadgeType, IPopoverProps } from '@onekeyhq/components';
 import {
   Alert,
+  Badge,
   Button,
   Divider,
   Icon,
@@ -21,6 +22,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnRewardNum,
@@ -45,6 +47,8 @@ type IPortfolioItemProps = {
   renderTooltipContent?: IPopoverProps['renderContent'];
   disabled?: boolean;
   useLoading?: boolean;
+  badgeType?: IBadgeType;
+  badgeText?: string;
 };
 
 function PortfolioItem({
@@ -58,6 +62,8 @@ function PortfolioItem({
   renderTooltipContent,
   disabled,
   useLoading,
+  badgeType,
+  badgeText,
 }: IPortfolioItemProps) {
   const [loading, setLoading] = useState(false);
   const handlePress = useCallback(async () => {
@@ -109,6 +115,11 @@ function PortfolioItem({
             }
           />
         ) : null}
+        {badgeText ? (
+          <Badge badgeType={badgeType}>
+            <Badge.Text>{badgeText}</Badge.Text>
+          </Badge>
+        ) : null}
       </XStack>
       {buttonText && onPress ? (
         <Button
@@ -125,12 +136,62 @@ function PortfolioItem({
   );
 }
 
+function TotalEarnedItem({
+  tokenSymbol,
+  totalEarned,
+  price,
+}: {
+  tokenSymbol: string;
+  totalEarned: string;
+  price: string | undefined;
+}) {
+  const intl = useIntl();
+  const tokenFiatValue = useMemo(() => {
+    const priceBN = new BigNumber(price || 0);
+    const totalEarnedBN = new BigNumber(totalEarned);
+    if (priceBN.isNaN() || totalEarnedBN.isNaN()) {
+      return '0';
+    }
+    return priceBN.multipliedBy(totalEarnedBN).toFixed();
+  }, [price, totalEarned]);
+  return (
+    <YStack>
+      <XStack>
+        <Icon name="ChartColumnarOutline" color="$iconSubdued" size="$6" />
+        <YStack pl="$2" pr="$1.5">
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol }}
+          >
+            {totalEarned}
+          </NumberSizeableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="balance"
+            formatterOptions={{ currency: '$' }}
+          >
+            {tokenFiatValue}
+          </NumberSizeableText>
+        </YStack>
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.earn_referral_total_earned,
+          })}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+
 interface IUnbondingDelegationListItem {
   amount: string;
   timestampLeft: number | string;
 }
 
 type IPortfolioInfoProps = {
+  details?: IStakeProtocolDetails;
   token: IToken;
   active?: string;
   pendingInactive?: string;
@@ -141,6 +202,10 @@ type IPortfolioInfoProps = {
   rewards?: string;
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
+
+  // falcon
+  preStakeActive?: string;
+  formalActive?: string;
 
   tooltipForClaimable?: string;
   labelForClaimable?: string;
@@ -274,6 +339,7 @@ function RewardAmountPopoverContent({
 }
 
 function PortfolioInfo({
+  details,
   token,
   active,
   pendingInactive,
@@ -284,6 +350,9 @@ function PortfolioInfo({
   rewardNum,
   rewardAssets,
   updateFrequency,
+
+  preStakeActive,
+  formalActive,
 
   tooltipForClaimable,
   labelForClaimable,
@@ -319,9 +388,15 @@ function PortfolioInfo({
       );
 
     return (
-      [pendingInactive, claimable, pendingActive, babylonOverflow, active].some(
-        isPositive,
-      ) || hasMultipleRewards
+      [
+        pendingInactive,
+        claimable,
+        pendingActive,
+        babylonOverflow,
+        active,
+        preStakeActive,
+        formalActive,
+      ].some(isPositive) || hasMultipleRewards
     );
   }, [
     pendingInactive,
@@ -330,11 +405,76 @@ function PortfolioInfo({
     babylonOverflow,
     active,
     rewardNum,
+    preStakeActive,
+    formalActive,
   ]);
 
   const isLessThanMinClaimable = Boolean(
     minClaimableNum && rewards && Number(rewards) < Number(minClaimableNum),
   );
+
+  const isFalconProvider = earnUtils.isFalconProvider({
+    providerName: details?.provider.name ?? '',
+  });
+  const renderFalconPortfolio = useCallback(() => {
+    if (!isFalconProvider) {
+      return null;
+    }
+
+    return (
+      <>
+        {preStakeActive && Number(preStakeActive) ? (
+          <PortfolioItem
+            tokenImageUri={token.logoURI}
+            tokenSymbol={token.symbol}
+            amount={preStakeActive}
+            statusText={intl.formatMessage({
+              id: ETranslations.earn_active,
+            })}
+            badgeType="success"
+            badgeText={intl.formatMessage(
+              {
+                id: ETranslations.earn_fixed_apy,
+              },
+              {
+                value: `${details?.provider?.apys?.fixed ?? ''}%`,
+              },
+            )}
+          />
+        ) : null}
+        {formalActive && Number(formalActive) ? (
+          <PortfolioItem
+            tokenImageUri={token.logoURI}
+            tokenSymbol={token.symbol}
+            amount={formalActive}
+            statusText={intl.formatMessage({
+              id: ETranslations.earn_active,
+            })}
+            badgeType="default"
+            badgeText={`${
+              details?.provider?.apys?.weeklyNetApyWithoutFee ?? ''
+            }% APY`}
+          />
+        ) : null}
+        {totalRewardAmount > 0 ? (
+          <TotalEarnedItem
+            tokenSymbol={token.symbol}
+            totalEarned={new BigNumber(totalRewardAmount).toFixed()}
+            price={details?.token.price}
+          />
+        ) : null}
+      </>
+    );
+  }, [
+    intl,
+    preStakeActive,
+    formalActive,
+    token.logoURI,
+    token.symbol,
+    details,
+    isFalconProvider,
+    totalRewardAmount,
+  ]);
 
   if (!showPortfolio) {
     return null;
@@ -369,7 +509,7 @@ function PortfolioInfo({
               })}
             />
           ) : null}
-          {active && Number(active) ? (
+          {active && Number(active) && !isFalconProvider ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
@@ -379,6 +519,7 @@ function PortfolioInfo({
               })}
             />
           ) : null}
+          {renderFalconPortfolio()}
           {unbondingDelegationList?.length && pendingInactive ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
@@ -659,6 +800,8 @@ export const PortfolioSection = ({
     updateFrequency: details.updateFrequency,
     waitingRebateRewardAmount: Number(details.waitingRebateRewardAmount),
     totalRewardAmount: Number(details.totalRewardAmount),
+    preStakeActive: details.preStakeActive,
+    formalActive: details.formalActive,
   };
 
   let unbondingDelegationListResult: IUnbondingDelegationListItem[] = [];
@@ -691,6 +834,7 @@ export const PortfolioSection = ({
   return (
     <PortfolioInfo
       {...portfolio}
+      details={details}
       unbondingDelegationList={unbondingDelegationListResult}
       onClaim={onClaim}
       onPortfolioDetails={onPortfolioDetails}
