@@ -19,8 +19,8 @@ export function useFalconEventEndedDialog({
 }): { showFalconEventEndedDialog: () => Promise<void> } {
   const intl = useIntl();
   const { isEventActive } = useEarnEventActive(details?.provider.eventEndTime);
-  const { result: falconDepositDonNotShowAgain, run } = usePromiseResult(
-    () => backgroundApiProxy.serviceStaking.getFalconDepositDonNotShowAgain(),
+  const { result: falconDepositDoNotShowAgain, run } = usePromiseResult(
+    () => backgroundApiProxy.serviceStaking.getfalconDepositDoNotShowAgain(),
     [],
     {
       initResult: false,
@@ -33,11 +33,7 @@ export function useFalconEventEndedDialog({
           providerName: details.provider.name,
         });
 
-        if (
-          !isFalconProvider ||
-          isEventActive ||
-          falconDepositDonNotShowAgain
-        ) {
+        if (!isFalconProvider || isEventActive || falconDepositDoNotShowAgain) {
           resolve();
           return;
         }
@@ -80,7 +76,7 @@ export function useFalconEventEndedDialog({
           onConfirm: async (dialogInstance) => {
             const { showAgain } = dialogInstance.getForm()?.getValues() ?? {};
             if (showAgain) {
-              await backgroundApiProxy.serviceStaking.setFalconDepositDonNotShowAgain();
+              await backgroundApiProxy.serviceStaking.setfalconDepositDoNotShowAgain();
               setTimeout(() => {
                 void run();
               });
@@ -93,7 +89,7 @@ export function useFalconEventEndedDialog({
     [
       details.provider.apys?.weeklyNetApyWithoutFee,
       details.provider.name,
-      falconDepositDonNotShowAgain,
+      falconDepositDoNotShowAgain,
       isEventActive,
       run,
       intl,
