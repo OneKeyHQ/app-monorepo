@@ -4,6 +4,7 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 // Specific parameter details for each add method
 interface ICreateWalletPayload {
   isBiometricSet: boolean;
+  isBackupSkipped?: boolean;
 }
 
 interface IImportWalletPayload {

@@ -3,10 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ReviewControl } from '../../../components/ReviewControl';
 
 import { useLazyMarketTradeActions } from './tradeHook';
@@ -15,10 +17,12 @@ export function MarketListTradeButton({
   coinGeckoId,
   symbol,
   isSupportBuy,
+  wallet,
 }: {
   coinGeckoId: string;
   symbol: string;
   isSupportBuy: boolean;
+  wallet: IDBWallet | undefined;
 }) {
   const intl = useIntl();
   const actions = useLazyMarketTradeActions(coinGeckoId);
@@ -32,14 +36,21 @@ export function MarketListTradeButton({
     void actions.onSwapLazyModal();
   }, [actions, coinGeckoId]);
 
-  const onBuy = useCallback(() => {
+  const onBuy = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        walletId: wallet?.id ?? '',
+      });
+    } catch (error) {
+      return;
+    }
     defaultLogger.market.token.marketTokenAction({
       tokenName: coinGeckoId,
       action: 'buy',
       from: 'listPage',
     });
     actions.onBuy();
-  }, [actions, coinGeckoId]);
+  }, [actions, coinGeckoId, wallet?.id]);
 
   const onStaking = useCallback(() => {
     defaultLogger.market.token.marketTokenAction({

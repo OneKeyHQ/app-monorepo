@@ -10,6 +10,7 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
@@ -27,9 +28,11 @@ import {
 export function MarketTradeButton({
   coinGeckoId,
   token,
+  wallet,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
+  wallet: IDBWallet | undefined;
 }) {
   const intl = useIntl();
 
@@ -47,7 +50,16 @@ export function MarketTradeButton({
           {
             icon: 'MinusLargeSolid',
             label: intl.formatMessage({ id: ETranslations.global_sell }),
-            onPress: () => {
+            onPress: async () => {
+              try {
+                await backgroundApiProxy.serviceAccount.checkWalletBackupStatus(
+                  {
+                    walletId: wallet?.id ?? '',
+                  },
+                );
+              } catch (error) {
+                return;
+              }
               defaultLogger.market.token.marketTokenAction({
                 tokenName: coinGeckoId,
                 action: 'sell',
@@ -59,7 +71,7 @@ export function MarketTradeButton({
         ] as IActionListItemProps[],
       },
     ],
-    [coinGeckoId, intl, onSell],
+    [coinGeckoId, intl, onSell, wallet?.id],
   );
 
   const { result: show, isLoading } = usePromiseResult(
@@ -116,14 +128,21 @@ export function MarketTradeButton({
     void onStaking();
   }, [coinGeckoId, onStaking]);
 
-  const handleBuy = useCallback(() => {
+  const handleBuy = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        walletId: wallet?.id ?? '',
+      });
+    } catch (error) {
+      return;
+    }
     defaultLogger.market.token.marketTokenAction({
       tokenName: coinGeckoId,
       action: 'buy',
       from: 'detailsPage',
     });
     onBuy();
-  }, [coinGeckoId, onBuy]);
+  }, [coinGeckoId, onBuy, wallet?.id]);
 
   return (
     <XStack $gtMd={{ mt: '$6' }} ai="center" gap="$4">
