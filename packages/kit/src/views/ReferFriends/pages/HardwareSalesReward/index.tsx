@@ -7,7 +7,6 @@ import {
   Divider,
   Empty,
   IconButton,
-  NumberSizeableText,
   Page,
   RefreshControl,
   SectionList,
@@ -18,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -146,56 +146,48 @@ export default function HardwareSalesReward() {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
     }) => {
-      const isPositiveAmount = ['PENDING', 'AVAILABLE'].includes(item.status);
+      const isPositiveAmount = Number(item.amount) >= 0;
       return (
         <YStack px="$5">
-          <XStack jc="space-between">
-            <XStack>
-              <SizableText size="$bodyLgMedium">
-                {intl.formatMessage({
-                  id: ETranslations.referral_sales_order_regular,
-                })}
+          <XStack jc="space-between" gap="$4">
+            <YStack flexShrink={1}>
+              <XStack flexShrink={1}>
+                <SizableText size="$bodyLgMedium" flexShrink={1}>
+                  {item.heading || '-'}
+                </SizableText>
+              </XStack>
+              <SizableText
+                color="$textSubdued"
+                size="$bodyMd"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {`${formatTime(new Date(item.createdAt), {
+                  hideSeconds: true,
+                  hideMilliseconds: true,
+                })} ${item.title}`}
               </SizableText>
-              {item.status === 'PENDING' ? (
-                <>
-                  <SizableText size="$bodyLgMedium">{` - `}</SizableText>
-                  <SizableText size="$bodyLgMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.global_pending,
-                    })}
-                  </SizableText>
-                </>
-              ) : null}
+            </YStack>
+            <XStack>
+              <Currency
+                sourceCurrency="usd"
+                numberOfLines={1}
+                formatter="balance"
+                formatterOptions={{
+                  showPlusMinusSigns: true,
+                }}
+                color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
+                size="$bodyLgMedium"
+                pr="$0.5"
+              >
+                {item.amount}
+              </Currency>
             </XStack>
-
-            <NumberSizeableText
-              formatter="balance"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-                showPlusMinusSigns: true,
-              }}
-              color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
-              size="$bodyLgMedium"
-              pr="$0.5"
-            >
-              {Number(item.amount) * (isPositiveAmount ? 1 : -1)}
-            </NumberSizeableText>
           </XStack>
-          <SizableText
-            color="$textSubdued"
-            size="$bodyMd"
-            numberOfLines={1}
-            flexShrink={1}
-          >
-            {`${formatTime(new Date(item.createdAt), {
-              hideSeconds: true,
-              hideMilliseconds: true,
-            })} ${item.title}`}
-          </SizableText>
         </YStack>
       );
     },
-    [intl, settings.currencyInfo.symbol],
+    [],
   );
   return (
     <Page>
@@ -256,16 +248,14 @@ export default function HardwareSalesReward() {
                   </SizableText>
                   <XStack gap="$2" ai="center">
                     {Number(amount.available) > 0 ? (
-                      <NumberSizeableText
+                      <Currency
+                        sourceCurrency="usd"
                         formatter="value"
-                        formatterOptions={{
-                          currency: settings.currencyInfo.symbol,
-                        }}
                         size="$heading5xl"
                         pr="$0.5"
                       >
                         {amount.available}
-                      </NumberSizeableText>
+                      </Currency>
                     ) : (
                       <SizableText size="$heading5xl">0</SizableText>
                     )}
@@ -283,7 +273,8 @@ export default function HardwareSalesReward() {
 
                   {Number(amount.pending) > 0 ? (
                     <XStack gap="$1">
-                      <NumberSizeableText
+                      <Currency
+                        sourceCurrency="usd"
                         formatter="value"
                         formatterOptions={{
                           currency: settings.currencyInfo.symbol,
@@ -292,10 +283,10 @@ export default function HardwareSalesReward() {
                         size="$bodyMdMedium"
                       >
                         {amount.pending}
-                      </NumberSizeableText>
+                      </Currency>
                       <SizableText size="$bodyMd" color="t$extSubdued">
                         {intl.formatMessage({
-                          id: ETranslations.global_pending,
+                          id: ETranslations.referral_reward_undistributed_pending,
                         })}
                       </SizableText>
                     </XStack>

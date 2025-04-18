@@ -6,6 +6,7 @@ export enum EGalleryRoutes {
   ComponentAddressInput = 'component-AddressInput',
   ComponentAlert = 'component-Alert',
   ComponentAmountInput = 'component-AmountInput',
+  ComponentAnchor = 'component-Anchor',
   ComponentBadge = 'component-Badge',
   ComponentBanner = 'component-Banner',
   ComponentBlurView = 'component-BlurView',
@@ -82,4 +83,5 @@ export enum EGalleryRoutes {
   LetterAvatarGallery = 'component-LetterAvatar',
   SignatureConfirmationGallery = 'component-SignatureConfirmation',
   ComponentStepper = 'component-Stepper',
+  CountDownCalendarAlert = 'component-CountDownCalendarAlert',
 }

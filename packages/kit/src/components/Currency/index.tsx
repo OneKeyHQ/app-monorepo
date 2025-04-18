@@ -10,6 +10,11 @@ import {
 
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
+export const useCurrency = () => {
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  return currencyInfo;
+};
+
 export interface ICurrencyProps extends INumberSizeableTextProps {
   // btc / eth / usd / sats / hkd
   sourceCurrency: string;
@@ -18,6 +23,7 @@ export interface ICurrencyProps extends INumberSizeableTextProps {
 function BasicCurrency({
   sourceCurrency,
   targetCurrency,
+  formatterOptions,
   children,
   ...props
 }: ICurrencyProps) {
@@ -46,7 +52,10 @@ function BasicCurrency({
   return (
     <NumberSizeableTextWrapper
       formatter="price"
-      formatterOptions={{ currency: targetCurrencyInfo?.unit }}
+      formatterOptions={{
+        currency: targetCurrencyInfo?.unit,
+        ...formatterOptions,
+      }}
       {...props}
     >
       {value}

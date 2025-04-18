@@ -27,6 +27,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
   onInputTypeChange,
   networkId,
   testID,
+  disabled,
 }) => {
   const pick = useAddressBookPick();
   const onPickContacts = useCallback(() => {
@@ -42,6 +43,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
 
   return (
     <ActionList
+      disabled={disabled}
       title={intl.formatMessage({
         id: ETranslations.address_book_select_title,
       })}
@@ -54,6 +56,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
       ]}
       renderTrigger={
         <IconButton
+          disabled={disabled}
           title={intl.formatMessage({
             id: ETranslations.send_to_contacts_tooltip,
           })}
@@ -76,6 +79,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onBeforeAccountSelectorOpen,
   currentAddress,
   clearNotMatch,
+  disabled,
 }) => {
   const intl = useIntl();
   const accountSelectorNum = num ?? 0;
@@ -163,6 +167,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 
   return (
     <ActionList
+      disabled={disabled}
       title={intl.formatMessage({
         id: ETranslations.send_to_contacts_selecor_account_title,
       })}
@@ -187,6 +192,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
           title={intl.formatMessage({
             id: ETranslations.send_to_contacts_tooltip,
           })}
+          disabled={disabled}
           variant="tertiary"
           icon="PeopleCircleOutline"
           testID={testID}
@@ -206,6 +212,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   onBeforeAccountSelectorOpen,
   currentAddress,
   clearNotMatch,
+  disabled,
 }) => {
   if (num !== undefined) {
     return (
@@ -219,6 +226,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         currentAddress={currentAddress}
         clearNotMatch={clearNotMatch}
         onInputTypeChange={onInputTypeChange}
+        disabled={disabled}
       />
     );
   }
@@ -228,6 +236,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
       onChange={onChange}
       networkId={networkId}
       testID={testID}
+      disabled={disabled}
     />
   );
 };

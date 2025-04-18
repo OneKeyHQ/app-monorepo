@@ -1,6 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EGalleryRoutes,
+  EModalReferFriendsRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
@@ -169,7 +170,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showUrl: true,
     //   showParams: true,
     // },
-
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.ReferFriendsModal}${EModalReferFriendsRoutes.ReferAFriend}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
       {
         showUrl: true,

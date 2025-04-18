@@ -34,8 +34,14 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
-import { useReferFriends } from '../hooks/useReferFriends';
-import { useToMyOneKeyModal } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
+import {
+  isOpenedReferFriendsPage,
+  useReferFriends,
+} from '../hooks/useReferFriends';
+import {
+  isOpenedMyOneKeyModal,
+  useToMyOneKeyModal,
+} from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
 
 import type { IntlShape } from 'react-intl';
@@ -138,20 +144,42 @@ const useDesktopEvents = platformEnv.isDesktop
       openSettingsRef.current = openSettings;
 
       const ensureModalClosedAndNavigate = useCallback(
-        (navigateAction: () => void) => {
+        (navigateAction?: () => void) => {
           const routeState = rootNavigationRef.current?.getRootState();
           if (routeState?.routes) {
-            // Check if any route in the stack is a Modal
-            const isModalOpen = routeState.routes.some(
-              (route) => route.name === ERootRoutes.Modal,
+            const allModalRoutes = routeState.routes.filter(
+              (_, index) => index !== 0,
             );
-            if (isModalOpen) {
-              // If a modal is open anywhere in the stack, do nothing.
+            const hasMultipleModalRoutes = allModalRoutes.length === 1;
+
+            if (allModalRoutes.length > 1) {
               return;
             }
+
+            if (hasMultipleModalRoutes) {
+              let index = 1;
+              // close all modal routes
+              allModalRoutes.forEach((route) => {
+                const routeLength =
+                  route.state?.routes?.[0]?.state?.routes.length || 1;
+                for (let i = 0; i < routeLength; i += 1)
+                  setTimeout(() => {
+                    rootNavigationRef.current?.goBack();
+                  }, index * 10);
+
+                index += 1;
+              });
+              index += 1;
+
+              setTimeout(() => {
+                navigateAction?.();
+              }, index * 10);
+            } else {
+              setTimeout(() => {
+                navigateAction?.();
+              }, 100);
+            }
           }
-          // If no modal is open, navigate.
-          navigateAction();
         },
         [],
       );
@@ -189,14 +217,22 @@ const useDesktopEvents = platformEnv.isDesktop
             navigation.switchTab(ETabRoutes.Market);
             break;
           case EShortcutEvents.TabReferAFriend:
-            ensureModalClosedAndNavigate(() => {
-              void toReferFriendsPage();
-            });
+            if (!isOpenedReferFriendsPage()) {
+              ensureModalClosedAndNavigate(() => {
+                void toReferFriendsPage();
+              });
+            } else {
+              ensureModalClosedAndNavigate();
+            }
             break;
           case EShortcutEvents.TabMyOneKey:
-            ensureModalClosedAndNavigate(() => {
-              void toMyOneKeyModal();
-            });
+            if (!isOpenedMyOneKeyModal()) {
+              ensureModalClosedAndNavigate(() => {
+                void toMyOneKeyModal();
+              });
+            } else {
+              ensureModalClosedAndNavigate();
+            }
             break;
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);

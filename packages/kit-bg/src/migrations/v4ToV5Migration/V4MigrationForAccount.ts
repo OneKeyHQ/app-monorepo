@@ -12,7 +12,6 @@ import {
   encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
-  sha256,
 } from '@onekeyhq/core/src/secret';
 import {
   ECoreApiExportedSecretKeyType,

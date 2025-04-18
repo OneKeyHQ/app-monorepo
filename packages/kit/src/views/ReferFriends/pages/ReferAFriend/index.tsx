@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,10 +16,19 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import openUrlUtils, {
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 enum EPhaseState {
   next = 'next',
@@ -54,6 +63,31 @@ export default function ReferAFriend() {
   const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
   const themeName = useThemeVariant();
+  useEffect(() => {
+    void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
+      if (isLogin) {
+        navigation.pop();
+        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+          screen: EModalReferFriendsRoutes.InviteReward,
+        });
+        return;
+      }
+
+      if (
+        platformEnv.isWeb &&
+        globalThis?.location.href.includes('utm_source=web_share')
+      ) {
+        const url = uriUtils.buildDeepLinkUrl({
+          path: EOneKeyDeepLinkPath.invite_share,
+          query: {
+            utm_source: 'web_share',
+          },
+        });
+        console.log('url--', url);
+        void openUrlUtils.linkingCanOpenURL(url);
+      }
+    });
+  }, [navigation]);
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -130,7 +164,7 @@ export default function ReferAFriend() {
                             id: ETranslations.referral_intro_for_you_1,
                           },
                           {
-                            RebateRate: (
+                            RebateAmount: (
                               <SizableText size="$bodyMd" color="$textSuccess">
                                 5-18%
                               </SizableText>
@@ -138,7 +172,7 @@ export default function ReferAFriend() {
                           },
                         )}
                       </SizableText>
-                      <SizableText
+                      {/* <SizableText
                         size="$bodyMd"
                         color="$textSubdued"
                         pt="$0.5"
@@ -146,7 +180,7 @@ export default function ReferAFriend() {
                         {intl.formatMessage({
                           id: ETranslations.earn_referral_for_you_reward,
                         })}
-                      </SizableText>
+                      </SizableText> */}
                     </YStack>
                   </XStack>
                   <XStack gap="$4">
@@ -176,15 +210,6 @@ export default function ReferAFriend() {
                             ),
                           },
                         )}
-                      </SizableText>
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        pt="$0.5"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.referral_intro_for_your_friend_2,
-                        })}
                       </SizableText>
                       <SizableText
                         size="$bodyMd"

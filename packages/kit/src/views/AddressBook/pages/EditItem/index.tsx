@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -32,6 +32,7 @@ const defaultValues: IAddressItem = {
 
 function EditItemPage() {
   const intl = useIntl();
+  const [isSubmitLoading, setIsSubmitLoading] = useState(false);
   const navigation = useAppNavigation();
   const { params: addressBookParams } =
     useRoute<
@@ -47,9 +48,13 @@ function EditItemPage() {
     async (item: IAddressItem) => {
       const { serviceAddressBook } = backgroundApiProxy;
       try {
+        setIsSubmitLoading(true);
         if (item.id) {
+          item.updatedAt = Date.now();
           await serviceAddressBook.updateItem(item);
         } else {
+          item.createdAt = Date.now();
+          item.updatedAt = Date.now();
           await serviceAddressBook.addItem(item);
         }
         Toast.success({
@@ -60,6 +65,8 @@ function EditItemPage() {
         navigation.pop();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
+      } finally {
+        setIsSubmitLoading(false);
       }
     },
     [intl, navigation],
@@ -109,10 +116,16 @@ function EditItemPage() {
       if (isCreateMode) {
         return { ...defaultValues, ...addressBookParams };
       }
+      const { password } =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      if (!password) {
+        throw new Error('No password');
+      }
       const addressBookItem =
-        await backgroundApiProxy.serviceAddressBook.findItemById(
-          addressBookParams.id,
-        );
+        await backgroundApiProxy.serviceAddressBook.findItemById({
+          id: addressBookParams.id,
+          password,
+        });
       return {
         ...addressBookItem,
         ...addressBookParams,
@@ -132,11 +145,13 @@ function EditItemPage() {
   // isLoading is undefined initially, so we need to explicitly check if it's false
   return isLoading === false ? (
     <CreateOrEditContent
+      isSubmitLoading={isSubmitLoading}
       title={intl.formatMessage({
         id: isCreateMode
           ? ETranslations.address_book_add_address_title
           : ETranslations.address_book_edit_address_title,
       })}
+      disabledAddressEdit={!isCreateMode}
       item={item}
       onSubmit={onSubmit}
       onRemove={isCreateMode ? undefined : onRemove}

@@ -43,6 +43,8 @@ import type { IAddressItem } from '../type';
 type ICreateOrEditContentProps = {
   title?: string;
   item: IAddressItem;
+  isSubmitLoading?: boolean;
+  disabledAddressEdit?: boolean;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
   nameHistoryInfo?: {
@@ -70,13 +72,15 @@ function TimeRow({ title, time }: { title: string; time?: number }) {
   );
 }
 
-export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
+export function CreateOrEditContent({
   title,
   item,
   onSubmit,
   onRemove,
   nameHistoryInfo,
-}) => {
+  isSubmitLoading,
+  disabledAddressEdit,
+}: ICreateOrEditContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -189,9 +193,12 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                     id: ETranslations.address_book_add_address_name_empty_error,
                   });
                 }
+                const { password } =
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify();
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
                     name: text,
+                    password,
                   });
                 if (!searched || item.id === searched.id) {
                   return undefined;
@@ -241,9 +248,12 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                     })
                   );
                 }
+                const { password } =
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify();
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
                     address: output.resolved,
+                    password,
                   });
                 if (!searched || item.id === searched.id) {
                   return undefined;
@@ -260,6 +270,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               placeholder={intl.formatMessage({
                 id: ETranslations.address_book_add_address_address,
               })}
+              editable={!disabledAddressEdit}
               autoError={false}
               testID="address-form-address"
               enableNameResolve
@@ -315,7 +326,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             })}
             confirmButtonProps={{
               variant: 'primary',
-              loading: form.formState.isSubmitting,
+              loading: isSubmitLoading || form.formState.isSubmitting,
               disabled: !form.formState.isValid || pending,
               onPress: form.submit,
               testID: 'address-form-save',
@@ -325,4 +336,4 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
       </Page.Footer>
     </Page>
   );
-};
+}

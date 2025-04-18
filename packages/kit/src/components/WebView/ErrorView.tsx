@@ -30,7 +30,7 @@ const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
   }, [errorCode]);
 
   return (
-    <Stack flex={1} alignItems="center" justifyContent="center">
+    <Stack bg="$bgApp" flex={1} alignItems="center" justifyContent="center">
       <Empty
         icon="CloudOffOutline"
         title={intl.formatMessage({ id: messages.title })}

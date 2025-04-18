@@ -167,6 +167,7 @@ const NativeWebView = forwardRef(
 
     const renderWebView = (
       <WebView
+        cacheEnabled={false}
         style={styles.container}
         originWhitelist={['*']}
         allowsBackForwardNavigationGestures

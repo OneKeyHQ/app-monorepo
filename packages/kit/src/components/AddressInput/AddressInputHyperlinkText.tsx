@@ -70,6 +70,7 @@ export function AddressInputHyperlinkText({
       key={error?.message}
       testID={testID ? `${testID}-message` : undefined}
       translationId={error?.message as ETranslations}
+      defaultMessage={error?.message as ETranslations}
       autoHandleResult={false}
       onAction={onAction}
     />

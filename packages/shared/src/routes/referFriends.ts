@@ -9,13 +9,16 @@ export enum EModalReferFriendsRoutes {
 }
 
 export type IModalReferFriendsParamList = {
-  [EModalReferFriendsRoutes.ReferAFriend]: undefined;
+  [EModalReferFriendsRoutes.ReferAFriend]: {
+    utmSource?: string;
+  };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
   [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;
   [EModalReferFriendsRoutes.OneKeyId]: undefined;
   [EModalReferFriendsRoutes.InviteReward]: undefined;
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
+    accountId: string;
     onAddressAdded: ({
       address,
       networkId,

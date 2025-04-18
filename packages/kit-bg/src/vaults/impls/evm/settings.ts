@@ -1,12 +1,12 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
-  BaseUSDC,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
   EthereumMatic,
   EthereumUSDC,
+  EthereumUSDF,
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
@@ -128,6 +128,18 @@ const stakingConfig: IStakingConfig = {
             tokenAddress: EthereumWBTC,
             displayProfit: true,
             stakingWithApprove: true,
+          },
+        },
+      },
+      [EEarnProviderEnum.Falcon]: {
+        supportedSymbols: ['USDf'],
+        configs: {
+          USDf: {
+            enabled: true,
+            tokenAddress: EthereumUSDF,
+            displayProfit: true,
+            stakingWithApprove: true,
+            withdrawWithTx: true,
           },
         },
       },

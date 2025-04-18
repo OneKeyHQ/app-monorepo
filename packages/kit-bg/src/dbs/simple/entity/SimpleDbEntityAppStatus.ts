@@ -5,7 +5,8 @@ export interface ISimpleDBAppStatus {
   hdWalletXfpGenerated?: boolean;
   launchTimes?: number;
   launchTimesLastReset?: number;
-  hdWalletBackupMigrated?: boolean;
+  hdWalletsBackupMigrated?: boolean;
+  falconDepositDoNotShowAgain?: boolean;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {

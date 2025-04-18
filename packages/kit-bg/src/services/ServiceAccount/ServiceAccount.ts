@@ -3754,7 +3754,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async migrateHdWalletsBackedUpStatus() {
     const appStatus = await simpleDb.appStatus.getRawData();
-    if (appStatus?.hdWalletBackupMigrated) {
+    if (appStatus?.hdWalletsBackupMigrated) {
       console.log('migrateHdWalletsBackedUpStatus: already migrated');
       return;
     }
@@ -3775,7 +3775,7 @@ class ServiceAccount extends ServiceBase {
 
     await simpleDb.appStatus.setRawData((v) => ({
       ...v,
-      hdWalletBackupMigrated: true,
+      hdWalletsBackupMigrated: true,
     }));
   }
 }

@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Freeze } from 'react-freeze';
+import { BackHandler } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import {
@@ -38,8 +39,10 @@ import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation
 import {
   useActiveTabId,
   useDisplayHomePageFlag,
+  useWebTabDataById,
   useWebTabs,
 } from '../../hooks/useWebTabs';
+import { webviewRefs } from '../../utils/explorerUtils';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar } from '../../utils/tabBarUtils';
 import { BrowserTitle } from '../components/BrowserTitle';
@@ -49,13 +52,15 @@ import DashboardContent from '../Dashboard/DashboardContent';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+import type { WebView } from 'react-native-webview';
+
 const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
 
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
-  // const { tab } = useWebTabDataById(activeTabId ?? '');
+  const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { handleScroll, toolbarRef, toolbarAnimatedStyle } =
@@ -159,6 +164,38 @@ function MobileBrowser() {
       }
     });
   }, [takeScreenshot, setCurrentWebTab, navigation]);
+
+  useEffect(() => {
+    // Only add back handler on Android
+    if (!platformEnv.isNativeAndroid) return;
+
+    const onBackPress = () => {
+      if (!displayHomePage && activeTabData?.canGoBack && activeTabId) {
+        const webviewRef = webviewRefs[activeTabId];
+        if (webviewRef?.innerRef) {
+          try {
+            (webviewRef.innerRef as WebView)?.goBack();
+          } catch (error) {
+            console.error('Error while navigating back:', error);
+          }
+        }
+      } else {
+        void handleGoBackHome();
+      }
+
+      // Prevent default behavior
+      return true;
+    };
+
+    BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () =>
+      BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+  }, [
+    activeTabId,
+    activeTabData?.canGoBack,
+    displayHomePage,
+    handleGoBackHome,
+  ]);
 
   return (
     <Page fullPage>

@@ -254,8 +254,15 @@ class ServicePrime extends ServiceBase {
     } else {
       primeSubscription = undefined;
     }
+
+    if (serverUserInfo?.inviteCode) {
+      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+        serverUserInfo.inviteCode,
+      );
+    }
     await primePersistAtom.set((v) => ({
       ...v,
+      displayEmail: serverUserInfo?.emails?.[0] || v.displayEmail,
       isLoggedIn: true,
       isLoggedInOnServer: true,
       primeSubscription,
@@ -673,6 +680,19 @@ class ServicePrime extends ServiceBase {
   async isLoggedIn() {
     const { isLoggedIn } = await primePersistAtom.get();
     return isLoggedIn;
+  }
+
+  @backgroundMethod()
+  async sendEmailOTP(scene: 'UpdateReabteWithdrawAddress') {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    return client.post('/prime/v1/general/emailOTP', {
+      scene,
+    });
+  }
+
+  @backgroundMethod()
+  async getLocalUserInfo() {
+    return primePersistAtom.get();
   }
 }
 
