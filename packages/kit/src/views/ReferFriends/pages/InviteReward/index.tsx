@@ -447,8 +447,8 @@ function Dashboard({
             </XStack>
             <YStack h={84} borderRadius="$2" py="$2" bg="$bgSubdued" px="$4">
               <XStack mb="$2" jc="space-between">
-                <RewardLevelText isLeft level="🥉" percent="5%" money="$100" />
-                <RewardLevelText level="🥈" percent="10%" money="$500" />
+                <RewardLevelText isLeft level="🥉" percent="5%" money="0" />
+                <RewardLevelText level="🥈" percent="10%" money="$300" />
                 <RewardLevelText level="🥇" percent="15%" money="$1000" />
                 <RewardLevelText
                   isRight

@@ -610,7 +610,7 @@ function PortfolioInfo({
               disabled={isLessThanMinClaimable}
             />
           ) : null}
-          {waitingRebateRewardAmount > 0 ? (
+          {/* {waitingRebateRewardAmount > 0 ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
@@ -627,7 +627,7 @@ function PortfolioInfo({
                 />
               }
             />
-          ) : null}
+          ) : null} */}
           {/* {rewardNum && Object.keys(rewardNum).length > 0
             ? Object.entries(rewardNum).map(([rewardTokenAddress, amount]) => {
                 const rewardToken = rewardAssets?.[rewardTokenAddress];
