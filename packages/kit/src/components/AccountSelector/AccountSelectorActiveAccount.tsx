@@ -32,6 +32,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
@@ -95,7 +96,16 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         top: 8,
       }}
       userSelect="none"
-      onPress={() => handleAllNetworkCopyAddress(true)}
+      onPress={async () => {
+        try {
+          await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+            walletId: activeAccount?.wallet?.id ?? '',
+          });
+        } catch (error) {
+          return;
+        }
+        await handleAllNetworkCopyAddress(true);
+      }}
     >
       <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
       {enabledNetworksWithoutAccount.length > 0 ? (
@@ -184,10 +194,19 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     console.log(activeAccount?.wallet?.avatar);
   }, [activeAccount, selectedAccount]);
 
-  const handleAddressOnPress = useCallback(() => {
+  const handleAddressOnPress = useCallback(async () => {
     if (!account?.address || !network || !deriveInfo || !wallet) {
       return;
     }
+
+    try {
+      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        walletId: wallet.id,
+      });
+    } catch (error) {
+      return;
+    }
+
     if (
       wallet?.id &&
       (accountUtils.isHwWallet({
@@ -219,10 +238,19 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     wallet,
   ]);
 
-  const handleMultiDeriveAddressOnPress = useCallback(() => {
+  const handleMultiDeriveAddressOnPress = useCallback(async () => {
     if (!network || !activeAccount.indexedAccount) {
       return;
     }
+
+    try {
+      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        walletId: wallet?.id ?? '',
+      });
+    } catch (error) {
+      return;
+    }
+
     navigation.pushModal(EModalRoutes.WalletAddress, {
       screen: EModalWalletAddressRoutes.DeriveTypesAddress,
       params: {
@@ -231,7 +259,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         actionType: EDeriveAddressActionType.Copy,
       },
     });
-  }, [activeAccount.indexedAccount, navigation, network]);
+  }, [activeAccount.indexedAccount, navigation, network, wallet?.id]);
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,

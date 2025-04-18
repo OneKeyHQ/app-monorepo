@@ -560,6 +560,19 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
     }
+    return this._syncToSceneWithLocalSyncItems({
+      items,
+      syncCredential,
+    });
+  }
+
+  async _syncToSceneWithLocalSyncItems({
+    items,
+    syncCredential,
+  }: {
+    items: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+  }) {
     const walletItems: IDBCloudSyncItem[] = [];
     const accountItems: IDBCloudSyncItem[] = [];
     const indexedAccountItems: IDBCloudSyncItem[] = [];
@@ -1192,6 +1205,25 @@ class ServicePrimeCloudSync extends ServiceBase {
         error: new OneKeyErrorPrimeMasterPasswordInvalid(),
       });
     }
+  }
+
+  async initLocalSyncItemsDBForLegacyIndexedAccount() {
+    const { indexedAccounts: allIndexedAccounts } =
+      await this.backgroundApi.serviceAccount.getAllIndexedAccounts({});
+    const syncItemsForIndexedAccounts: IDBCloudSyncItem[] =
+      await this.syncManagers.indexedAccount._buildInitSyncDBItems({
+        dbRecords: allIndexedAccounts,
+        syncCredential: undefined,
+        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
+        initDataTime: undefined,
+      });
+    await localDb.withTransaction(async (tx) => {
+      await localDb.txAddAndUpdateSyncItems({
+        tx,
+        items: syncItemsForIndexedAccounts,
+        skipUploadToServer: true, // startSyncFlow() will handle uploading to server
+      });
+    });
   }
 
   @backgroundMethod()

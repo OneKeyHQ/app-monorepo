@@ -72,7 +72,7 @@ const HardwareTransportTypeListItem = () => {
         },
       ];
     }
-    if (platformEnv.isWeb || platformEnv.isExtension) {
+    if (platformEnv.isSupportWebUSB) {
       return [
         {
           label: 'WebUSB',
@@ -224,9 +224,7 @@ export const AdvancedSection = () => {
         drillIn
       />
       {/* <SpendDustUTXOItem />  Hide the spendDustUTXO function; it's not ready yet. */}
-      {platformEnv.isExtension || platformEnv.isWeb ? (
-        <HardwareTransportTypeListItem />
-      ) : null}
+      {platformEnv.isSupportWebUSB ? <HardwareTransportTypeListItem /> : null}
       {platformEnv.isExtension || platformEnv.isWeb ? (
         <HardwareBridgeListItems />
       ) : null}

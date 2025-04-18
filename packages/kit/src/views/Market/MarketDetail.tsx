@@ -35,6 +35,7 @@ import { AccountSelectorProviderMirror } from '../../components/AccountSelector'
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -58,6 +59,12 @@ function TokenDetailHeader({
   const { gtMd: gtMdMedia } = useMedia();
 
   const pageType = usePageType();
+
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({
+    num: 0,
+  });
 
   const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
 
@@ -111,7 +118,11 @@ function TokenDetailHeader({
           {performance.priceChangePercentage24h}
         </PriceChangePercentage>
       </YStack>
-      <MarketTradeButton coinGeckoId={coinGeckoId} token={token} />
+      <MarketTradeButton
+        coinGeckoId={coinGeckoId}
+        token={token}
+        wallet={wallet}
+      />
       {gtMd ? <MarketDetailOverview token={token} /> : null}
     </YStack>
   );

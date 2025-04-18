@@ -10,6 +10,10 @@ export type IModalKeyTagParamList = {
   [EModalKeyTagRoutes.UserOptions]: undefined;
   [EModalKeyTagRoutes.BackupRecoveryPhrase]: undefined;
   [EModalKeyTagRoutes.BackupWallet]: undefined;
-  [EModalKeyTagRoutes.BackupDotMap]: { encodedText: string; title: string };
+  [EModalKeyTagRoutes.BackupDotMap]: {
+    encodedText: string;
+    title: string;
+    onBackedUp?: () => void;
+  };
   [EModalKeyTagRoutes.BackupDocs]: undefined;
 };

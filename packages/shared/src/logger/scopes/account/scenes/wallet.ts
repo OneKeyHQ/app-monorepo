@@ -68,6 +68,7 @@ export class WalletScene extends BaseScene {
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             isBiometricSet: params.details.isBiometricSet,
+            isBackupSkipped: params.details.isBackupSkipped,
           },
         };
 

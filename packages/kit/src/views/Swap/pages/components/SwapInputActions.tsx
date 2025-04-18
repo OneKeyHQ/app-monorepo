@@ -69,6 +69,7 @@ const SwapInputActions = ({
               }
               networkId={fromToken?.networkId ?? ''}
               accountId={accountInfo?.account?.id ?? ''}
+              walletId={accountInfo?.wallet?.id ?? ''}
               walletType={accountInfo?.wallet?.type ?? ''}
               tokenAddress={fromToken?.contractAddress ?? ''}
               source="swap"

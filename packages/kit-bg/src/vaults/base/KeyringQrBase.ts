@@ -90,7 +90,8 @@ export abstract class KeyringQrBase extends KeyringBase {
       wallet,
       index: checkIsDefined(account.pathIndex),
     });
-    const xfp = airGapAccount?.xfp || wallet.xfp;
+    let xfp = airGapAccount?.xfp || wallet.xfp;
+    xfp = accountUtils.getShortXfp({ xfp: xfp || '' });
     if (!xfp) {
       throw new Error('xfp not found');
     }

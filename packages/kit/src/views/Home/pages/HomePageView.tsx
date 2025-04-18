@@ -21,6 +21,7 @@ import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { UpdateReminder } from '../../../components/UpdateReminder';
+import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
@@ -304,6 +305,7 @@ export function HomePageView({
           ) : null}
         </TabPageHeader>
         <Page.Body>
+          <WalletBackupAlert />
           <NetworkAlert />
           {
             // The upgrade reminder does not need to be displayed on the Url Account page

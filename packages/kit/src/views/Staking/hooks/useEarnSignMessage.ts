@@ -32,6 +32,9 @@ export function useFalconUSDfRegister() {
           accountAddress: account.address,
         });
 
+      const msg = `0x${Buffer.from(unsignedMessage.message, 'utf8').toString(
+        'hex',
+      )}`;
       const signHash =
         (await backgroundApiProxy.serviceDApp.openSignMessageModal({
           accountId,
@@ -39,8 +42,8 @@ export function useFalconUSDfRegister() {
           request: { origin: 'https://app.falcon.finance/', scope: 'ethereum' },
           unsignedMessage: {
             type: EMessageTypesEth.PERSONAL_SIGN,
-            message: unsignedMessage.message,
-            payload: [unsignedMessage.message, account.address],
+            message: msg,
+            payload: [msg, account.address],
           },
           walletInternalSign: true,
         })) as string;

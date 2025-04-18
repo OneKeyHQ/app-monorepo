@@ -12,12 +12,14 @@ import bs58check from 'bs58check';
 import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AddressNotSupportSignMethodError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
@@ -293,7 +295,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   }
 
   // root fingerprint
-  async generateXfpFromMnemonic({ mnemonic }: { mnemonic: string }) {
+  async buildXfpFromMnemonic({ mnemonic }: { mnemonic: string }) {
     const seed = await mnemonicToSeedAsync({ mnemonic });
     const bip32 = getBitcoinBip32();
     const root = bip32.fromSeed(seed, getBtcForkNetwork('btc'));
@@ -316,12 +318,31 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const fingerprintInt = numberUtils.hexToDecimal(fingerprintHex);
     const fingerprintHexCheck = numberUtils.numberToHex(fingerprintInt);
 
+    const taprootChild = root.derivePath(BTC_FIRST_TAPROOT_PATH);
+    const firstTaprootXpub = taprootChild.neutered().toBase58();
+
+    const fullXfp = accountUtils.buildFullXfp({
+      xfp: fingerprintHex,
+      firstTaprootXpub,
+    });
+
     console.log('generateXfpFromMnemonic', {
+      fulXfp: fullXfp,
+      firstTaprootXpub,
       fingerprintHex,
       fingerprintInt,
       fingerprintHexCheck,
     });
-    return fingerprintHex;
+
+    if (!fullXfp) {
+      throw new Error('fulXfp build failed');
+    }
+
+    return {
+      // xfp: fingerprintHex,
+      fullXfp,
+      firstTaprootXpub,
+    };
   }
 
   // TODO memo and move to utils (file with getBtcForkNetwork)

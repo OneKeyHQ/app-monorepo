@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -50,7 +51,14 @@ function WalletActionReceive() {
   });
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const handleReceiveOnPress = useCallback(() => {
+  const handleReceiveOnPress = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        walletId: wallet?.id ?? '',
+      });
+    } catch (error) {
+      return;
+    }
     defaultLogger.wallet.walletActions.actionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
@@ -58,7 +66,13 @@ function WalletActionReceive() {
       isSoftwareWalletOnlyUser,
     });
     handleOnReceive();
-  }, [wallet?.type, network?.id, handleOnReceive, isSoftwareWalletOnlyUser]);
+  }, [
+    wallet?.type,
+    wallet?.id,
+    network?.id,
+    isSoftwareWalletOnlyUser,
+    handleOnReceive,
+  ]);
 
   return (
     <RawActions.Receive
