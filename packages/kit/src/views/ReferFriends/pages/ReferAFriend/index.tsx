@@ -76,29 +76,29 @@ export default function ReferAFriend() {
           .fetchPostConfig()
           .then(setPostConfig);
       });
-    // void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
-    //   if (isLogin) {
-    //     navigation.pop();
-    //     navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-    //       screen: EModalReferFriendsRoutes.InviteReward,
-    //     });
-    //     return;
-    //   }
+    void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
+      if (isLogin) {
+        navigation.pop();
+        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+          screen: EModalReferFriendsRoutes.InviteReward,
+        });
+        return;
+      }
 
-    //   if (
-    //     platformEnv.isWeb &&
-    //     globalThis?.location.href.includes('utm_source=web_share')
-    //   ) {
-    //     const url = uriUtils.buildDeepLinkUrl({
-    //       path: EOneKeyDeepLinkPath.invite_share,
-    //       query: {
-    //         utm_source: 'web_share',
-    //       },
-    //     });
-    //     console.log('url--', url);
-    //     void openUrlUtils.linkingCanOpenURL(url);
-    //   }
-    // });
+      if (
+        platformEnv.isWeb &&
+        globalThis?.location.href.includes('utm_source=web_share')
+      ) {
+        const url = uriUtils.buildDeepLinkUrl({
+          path: EOneKeyDeepLinkPath.invite_share,
+          query: {
+            utm_source: 'web_share',
+          },
+        });
+        console.log('url--', url);
+        void openUrlUtils.linkingCanOpenURL(url);
+      }
+    });
   }, [navigation]);
   return (
     <Page scrollEnabled>
