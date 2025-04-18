@@ -393,6 +393,7 @@
   "description_403": "귀하의 지역에서는 당사 서비스를 이용할 수 없습니다.",
   "device.check_connection": "기기가 연결되어 있는지 확인하세요",
   "device.communication_failed": "장치 통신에 실패했습니다. \"설정\" > \"하드웨어 통신\"에서 웹-USB 모드로 전환하거나 연결 문제를 해결하기 위해 <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey Bridge 문제 해결 가이드</underline></url>를 참조하십시오.",
+  "device.communication_failed_with_no_web_usb_supported": "장치 통신에 실패했습니다. 연결 문제를 해결하려면 <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey Bridge 문제 해결 가이드</underline></url>를 참조하십시오.",
   "device.connect_via_usb": "USB를 통해 장치를 연결하세요",
   "device.grant_usb_access": "USB 접근 권한 부여",
   "device.hardware_communication": "하드웨어 통신",

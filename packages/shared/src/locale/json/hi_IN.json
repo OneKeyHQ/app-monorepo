@@ -393,6 +393,7 @@
   "description_403": "हमारी सेवाएं आपके क्षेत्र में उपलब्ध नहीं हैं।",
   "device.check_connection": "जांचें कि आपका डिवाइस कनेक्टेड है",
   "device.communication_failed": "डिवाइस संचार विफल हो गया। कृपया \"सेटिंग्स\" > \"हार्डवेयर संचार\" में वेब-यूएसबी मोड में स्विच करने का प्रयास करें या कनेक्शन समस्या को हल करने के लिए हमारे <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey ब्रिज समस्या निवारण गाइड</underline></url> का संदर्भ लें।",
+  "device.communication_failed_with_no_web_usb_supported": "डिवाइस संचार विफल हुआ। कनेक्शन समस्या को हल करने के लिए कृपया हमारे <url>https://help.onekey.so/hc/articles/9740566472335<underline>OneKey Bridge समस्या निवारण गाइड</underline></url> का संदर्भ लें।",
   "device.connect_via_usb": "डिवाइस को USB के माध्यम से कनेक्ट करें",
   "device.grant_usb_access": "USB एक्सेस प्रदान करें",
   "device.hardware_communication": "हार्डवेयर संचार",
