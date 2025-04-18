@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
-import { XStack } from '@onekeyhq/components';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useMedia } from 'tamagui';
 
@@ -56,9 +56,16 @@ function HeaderBackButton({
   const showCollapseButton = isRootScreen && !isVerticalLayout;
   const showBackButton = canGoBack || showCloseButton;
 
-  const { shouldHide, shouldHideWhenOpen } = useHeaderCollapseButtonVisibility({
-    hideWhenOpen: true,
-  });
+  const headerCollapseButtonProps = useMemo(
+    () => ({
+      hideWhenOpen: true,
+    }),
+    [],
+  );
+
+  const { shouldHide, shouldHideWhenOpen } = useHeaderCollapseButtonVisibility(
+    headerCollapseButtonProps,
+  );
 
   const renderBackButton = () => {
     if (canGoBack) {
@@ -70,10 +77,16 @@ function HeaderBackButton({
     return null;
   };
 
-  const renderCollapseButton = () =>
-    showCollapseButton ? (
-      <HeaderCollapseButton hideWhenOpen isRootScreen={isRootScreen} />
-    ) : null;
+  const renderCollapseButton = useCallback(
+    () =>
+      showCollapseButton ? (
+        <HeaderCollapseButton
+          {...headerCollapseButtonProps}
+          isRootScreen={isRootScreen}
+        />
+      ) : null,
+    [showCollapseButton, headerCollapseButtonProps, isRootScreen],
+  );
 
   // If neither button should be shown, return null early.
   if (!showCollapseButton && !showBackButton && !renderLeft) {
