@@ -4564,18 +4564,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return ctx;
   }
 
-  async updateWalletBackupStatus({
-    walletId,
-    isBackedUp,
-  }: {
-    walletId: string;
-    isBackedUp: boolean;
+  async updateWalletBackupStatus(walletsBackedUpStatusMap: {
+    [walletId: string]: {
+      isBackedUp?: boolean;
+    };
   }): Promise<void> {
     await this.withTransaction(async (tx) => {
-      await this.txUpdateWallet({
+      await this.txUpdateRecords({
         tx,
-        walletId,
+        name: ELocalDBStoreNames.Wallet,
+        ids: Object.keys(walletsBackedUpStatusMap),
         updater: (record) => {
+          const isBackedUp = walletsBackedUpStatusMap[record.id]?.isBackedUp;
+          if (isBackedUp === undefined) {
+            return record;
+          }
           record.backuped = isBackedUp;
           return record;
         },

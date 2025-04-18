@@ -31,6 +31,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -3734,15 +3735,48 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     isBackedUp: boolean;
   }): Promise<void> {
+    if (!walletId) {
+      return;
+    }
+
     const wallet = await this.getWalletSafe({ walletId });
     if (!wallet) {
       throw new Error('updateWalletBackupStatus ERROR: wallet not found');
     }
     await localDb.updateWalletBackupStatus({
-      walletId,
-      isBackedUp,
+      [walletId]: {
+        isBackedUp,
+      },
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+  }
+
+  @backgroundMethod()
+  async migrateHdWalletsBackedUpStatus() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.hdWalletBackupMigrated) {
+      console.log('migrateHdWalletsBackedUpStatus: already migrated');
+      return;
+    }
+    const { wallets } = await localDb.getWallets();
+    const walletsBackedUpStatusMap: {
+      [walletId: string]: {
+        isBackedUp: boolean;
+      };
+    } = {};
+    for (const wallet of wallets) {
+      if (wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+        walletsBackedUpStatusMap[wallet.id] = {
+          isBackedUp: true,
+        };
+      }
+    }
+    await localDb.updateWalletBackupStatus(walletsBackedUpStatusMap);
+
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      hdWalletBackupMigrated: true,
+    }));
   }
 }
 
