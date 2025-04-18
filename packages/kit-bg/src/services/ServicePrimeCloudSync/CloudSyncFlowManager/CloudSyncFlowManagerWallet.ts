@@ -1,7 +1,6 @@
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
-  ICloudSyncKeyInfoWallet,
   ICloudSyncPayloadWallet,
   ICloudSyncTargetWallet,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
