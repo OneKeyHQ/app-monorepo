@@ -84,8 +84,10 @@ export default function useLiteCard() {
         });
         await createLiteInfoConnection();
         defaultLogger.setting.page.oneKeyLiteBackupResult({ isSuccess: true });
+        return true;
       } catch {
         defaultLogger.setting.page.oneKeyLiteBackupResult({ isSuccess: false });
+        return false;
       }
     },
     [
@@ -131,7 +133,7 @@ export default function useLiteCard() {
         );
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.FinalizeWalletSetup,
-          params: { mnemonic: mnemonicEncoded },
+          params: { mnemonic: mnemonicEncoded, isWalletBackedUp: true },
         });
       });
       await createGetMnemonicConnection();

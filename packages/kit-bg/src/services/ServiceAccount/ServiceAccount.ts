@@ -32,6 +32,7 @@ import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/ad
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -218,6 +219,24 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getWallet({ walletId }: { walletId: string }): Promise<IDBWallet> {
     return localDb.getWallet({ walletId });
+  }
+
+  @backgroundMethod()
+  async checkWalletBackupStatus({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+      const promiseId = this.backgroundApi.servicePromise.createCallback({
+        resolve,
+        reject,
+      });
+      appEventBus.emit(EAppEventBusNames.CheckWalletBackupStatus, {
+        promiseId,
+        walletId,
+      });
+    });
   }
 
   @backgroundMethod()
@@ -2452,9 +2471,11 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({
     name,
     mnemonic,
+    isWalletBackedUp,
   }: {
     mnemonic: string;
     name?: string;
+    isWalletBackedUp?: boolean;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -2493,6 +2514,7 @@ class ServiceAccount extends ServiceBase {
       name,
       walletHash: walletHashAndXfp.hash,
       walletXfp: walletHashAndXfp.xfp,
+      isWalletBackedUp,
     });
   }
 
@@ -2537,6 +2559,7 @@ class ServiceAccount extends ServiceBase {
     name,
     walletHash,
     walletXfp,
+    isWalletBackedUp,
   }: {
     rs: string;
     password: string;
@@ -2544,6 +2567,7 @@ class ServiceAccount extends ServiceBase {
     name?: string;
     walletHash: string;
     walletXfp: string;
+    isWalletBackedUp?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -2590,7 +2614,7 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.createHDWallet({
       password,
       rs,
-      backuped: false,
+      backuped: !!isWalletBackedUp,
       avatar: avatarInfo ?? randomAvatar(),
       name,
       walletHash,
@@ -3831,6 +3855,59 @@ class ServiceAccount extends ServiceBase {
       await this.removeWallet({ walletId });
     }
     // await timerUtils.wait(3000);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async updateWalletBackupStatus({
+    walletId,
+    isBackedUp,
+  }: {
+    walletId: string;
+    isBackedUp: boolean;
+  }): Promise<void> {
+    if (!walletId) {
+      return;
+    }
+
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet) {
+      throw new Error('updateWalletBackupStatus ERROR: wallet not found');
+    }
+    await localDb.updateWalletsBackupStatus({
+      [walletId]: {
+        isBackedUp,
+      },
+    });
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+  }
+
+  @backgroundMethod()
+  async migrateHdWalletsBackedUpStatus() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.hdWalletsBackupMigrated) {
+      console.log('migrateHdWalletsBackedUpStatus: already migrated');
+      return;
+    }
+    const { wallets } = await localDb.getWallets();
+    const walletsBackedUpStatusMap: {
+      [walletId: string]: {
+        isBackedUp: boolean;
+      };
+    } = {};
+    for (const wallet of wallets) {
+      if (wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+        walletsBackedUpStatusMap[wallet.id] = {
+          isBackedUp: true,
+        };
+      }
+    }
+    await localDb.updateWalletsBackupStatus(walletsBackedUpStatusMap);
+
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      hdWalletsBackupMigrated: true,
+    }));
   }
 }
 

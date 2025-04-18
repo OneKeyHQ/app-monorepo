@@ -31,6 +31,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -53,6 +54,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePrevious } from '../../../hooks/usePrevious';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 import { MarketListTradeButton } from './MarketListTradeButton';
 import { MarketMore } from './MarketMore';
@@ -151,6 +153,7 @@ function MarketMdColumn({
   mdColumnKeys,
   showMoreAction,
   onLongPressRefs,
+  wallet,
   tabIndex,
   isWatchList,
 }: {
@@ -161,6 +164,7 @@ function MarketMdColumn({
   onLongPressRefs: MutableRefObject<Record<string, () => void>>;
   showMoreAction: boolean;
   tabIndex?: number;
+  wallet: IDBWallet | undefined;
 }) {
   const actions = useWatchListAction();
   const isShowActionSheet = useRef(false);
@@ -256,7 +260,16 @@ function MarketMdColumn({
             showBuyOrSellButton && {
               icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
-              onPress: () => {
+              onPress: async () => {
+                try {
+                  await backgroundApiProxy.serviceAccount.checkWalletBackupStatus(
+                    {
+                      walletId: wallet?.id ?? '',
+                    },
+                  );
+                } catch (error) {
+                  return;
+                }
                 defaultLogger.market.token.marketTokenAction({
                   tokenName: coingeckoId,
                   action: 'buy',
@@ -289,6 +302,7 @@ function MarketMdColumn({
     showBuyOrSellButton,
     showMoreAction,
     tradeActions,
+    wallet?.id,
   ]);
 
   useEffect(() => {
@@ -400,6 +414,12 @@ function BasicMarketHomeList({
   const navigation = useAppNavigation();
   const watchListAction = useWatchListAction();
 
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({
+    num: 0,
+  });
+
   const updateAtRef = useRef(0);
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
@@ -504,9 +524,10 @@ function BasicMarketHomeList({
         currency={currency}
         mdColumnKeys={mdColumnKeys}
         showMoreAction={showMoreAction}
+        wallet={wallet}
       />
     ),
-    [currency, draggable, mdColumnKeys, showMoreAction, tabIndex],
+    [currency, draggable, mdColumnKeys, showMoreAction, tabIndex, wallet],
   );
 
   const renderSelectTrigger = useCallback(
@@ -725,6 +746,7 @@ function BasicMarketHomeList({
               renderSkeleton: () => <Skeleton w="100%" h="$3" />,
               render: (_, record: IMarketToken) => (
                 <MarketListTradeButton
+                  wallet={wallet}
                   isSupportBuy={record.isSupportBuy}
                   coinGeckoId={record.coingeckoId}
                   symbol={record.symbol}
@@ -951,6 +973,7 @@ function BasicMarketHomeList({
       renderMdItem,
       showMoreAction,
       tabIndex,
+      wallet,
     ],
   );
 

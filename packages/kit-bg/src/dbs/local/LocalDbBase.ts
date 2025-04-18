@@ -4620,4 +4620,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // const ctx = await localDb.getContext();
     return ctx;
   }
+
+  async updateWalletsBackupStatus(walletsBackedUpStatusMap: {
+    [walletId: string]: {
+      isBackedUp?: boolean;
+    };
+  }): Promise<void> {
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: Object.keys(walletsBackedUpStatusMap),
+        updater: (record) => {
+          const isBackedUp = walletsBackedUpStatusMap[record.id]?.isBackedUp;
+          if (isBackedUp === undefined) {
+            return record;
+          }
+          record.backuped = isBackedUp;
+          return record;
+        },
+      });
+    });
+  }
 }

@@ -103,6 +103,7 @@ function BasicTradeOrBuy({
           networkId={networkId}
           accountId={accountId}
           walletType={wallet?.type}
+          walletId={wallet?.id ?? ''}
           tokenAddress={token.address}
           source="earn"
         />
