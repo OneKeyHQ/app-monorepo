@@ -435,20 +435,18 @@ function Dashboard({
         borderColor="$borderSubdued"
         borderRadius="$3"
       >
-        <XStack
-          ai="center"
-          jc="space-between"
-          onPress={toHardwareSalesRewardPage}
-        >
-          <SizableText size="$headingMd">
-            {hardwareSales.title ||
-              intl.formatMessage({ id: ETranslations.referral_sales_reward })}
+        <YStack onPress={toHardwareSalesRewardPage}>
+          <XStack ai="center" jc="space-between">
+            <SizableText size="$headingMd">
+              {hardwareSales.title ||
+                intl.formatMessage({ id: ETranslations.referral_sales_reward })}
+            </SizableText>
+            <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
+          </XStack>
+          <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+            {hardwareSales.description || ' '}
           </SizableText>
-          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
-        </XStack>
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {hardwareSales.description || ' '}
-        </SizableText>
+        </YStack>
         <YStack pt="$4">
           <YStack gap="$2">
             <XStack>
