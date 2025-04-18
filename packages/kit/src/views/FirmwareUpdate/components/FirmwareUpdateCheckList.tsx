@@ -88,7 +88,7 @@ export function FirmwareUpdateCheckList({
 
   return (
     <Stack>
-      <Stack gap="$3" mr="$3">
+      <Stack>
         {checkValueList.map((checkValue) => (
           <Checkbox
             key={checkValue.label}
