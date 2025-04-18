@@ -63,9 +63,10 @@ function HeaderBackButton({
     [],
   );
 
-  const { shouldHide, shouldHideWhenOpen } = useHeaderCollapseButtonVisibility(
-    headerCollapseButtonProps,
-  );
+  const {
+    shouldHide: shouldHideCollapseButton,
+    shouldHideWhenOpen: shouldHideCollapseButtonWhenOpen,
+  } = useHeaderCollapseButtonVisibility(headerCollapseButtonProps);
 
   const renderBackButton = () => {
     if (canGoBack) {
@@ -94,7 +95,7 @@ function HeaderBackButton({
   }
 
   if (showCollapseButton && !showBackButton && !renderLeft) {
-    if (shouldHideWhenOpen || shouldHide) {
+    if (shouldHideCollapseButtonWhenOpen || shouldHideCollapseButton) {
       return null;
     }
   }
