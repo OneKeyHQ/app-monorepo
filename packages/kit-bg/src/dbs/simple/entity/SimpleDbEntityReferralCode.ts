@@ -1,8 +1,11 @@
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
+
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IReferralCodeData {
   myReferralCode: string;
   inviteCode: string;
+  postConfig?: IInvitePostConfig;
 }
 
 export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCodeData> {
@@ -20,6 +23,21 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     );
   }
 
+  updatePostConfig(params: IInvitePostConfig) {
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          postConfig: params,
+        } as IReferralCodeData),
+    );
+  }
+
+  async getPostConfig(): Promise<IInvitePostConfig | undefined> {
+    const rawData = await this.getRawData();
+    return rawData?.postConfig;
+  }
+
   async getMyReferralCode(): Promise<string> {
     const rawData = await this.getRawData();
     return rawData?.myReferralCode ?? '';
@@ -34,6 +52,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     return this.setRawData({
       myReferralCode: '',
       inviteCode: '',
+      postConfig: undefined,
     });
   }
 }

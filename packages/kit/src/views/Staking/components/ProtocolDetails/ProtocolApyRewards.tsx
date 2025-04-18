@@ -116,13 +116,13 @@ function MorphoApyInternal({
             />
           );
         })}
-        <ApyLineItem
+        {/* <ApyLineItem
           iconName="GiftOutline"
           label={intl.formatMessage({
             id: ETranslations.earn_referral_referral_reward,
           })}
           value={apys?.rebateReward}
-        />
+        /> */}
         <ApyLineItem
           iconName="HandCoinsOutline"
           label={`${intl.formatMessage({
