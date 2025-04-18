@@ -104,9 +104,9 @@ function TokenDetailsHeader(props: IProps) {
           contractList: [tokenInfo.address],
         });
       updateTokenMetadata({
-        price: tokensDetails[0].price,
-        priceChange24h: tokensDetails[0].price24h,
-        coingeckoId: tokensDetails[0].info.coingeckoId,
+        price: tokensDetails[0]?.price ?? 0,
+        priceChange24h: tokensDetails[0]?.price24h ?? 0,
+        coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
       });
       updateTokenDetails({
         accountId,

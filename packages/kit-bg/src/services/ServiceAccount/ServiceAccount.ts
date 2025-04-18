@@ -3743,7 +3743,7 @@ class ServiceAccount extends ServiceBase {
     if (!wallet) {
       throw new Error('updateWalletBackupStatus ERROR: wallet not found');
     }
-    await localDb.updateWalletBackupStatus({
+    await localDb.updateWalletsBackupStatus({
       [walletId]: {
         isBackedUp,
       },
@@ -3771,7 +3771,7 @@ class ServiceAccount extends ServiceBase {
         };
       }
     }
-    await localDb.updateWalletBackupStatus(walletsBackedUpStatusMap);
+    await localDb.updateWalletsBackupStatus(walletsBackedUpStatusMap);
 
     await simpleDb.appStatus.setRawData((v) => ({
       ...v,

@@ -4613,7 +4613,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return ctx;
   }
 
-  async updateWalletBackupStatus(walletsBackedUpStatusMap: {
+  async updateWalletsBackupStatus(walletsBackedUpStatusMap: {
     [walletId: string]: {
       isBackedUp?: boolean;
     };
