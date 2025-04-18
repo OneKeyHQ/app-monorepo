@@ -85,13 +85,9 @@ function HeaderView({
         />
       );
 
-      if (headerBackButton) {
-        return (
-          <XStack className="app-region-no-drag">{headerBackButton}</XStack>
-        );
-      }
-
-      return null;
+      return headerBackButton ? (
+        <XStack className="app-region-no-drag">{headerBackButton}</XStack>
+      ) : null;
     },
     [
       topStack,
