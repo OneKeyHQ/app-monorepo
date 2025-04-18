@@ -6,6 +6,7 @@ export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
 export enum EOneKeyDeepLinkPath {
   url_account = 'url_account',
   market_detail = 'market_detail',
+  invite_share = 'invite_share',
 }
 export type IEOneKeyDeepLinkParams = {
   [EOneKeyDeepLinkPath.url_account]: {
@@ -14,6 +15,9 @@ export type IEOneKeyDeepLinkParams = {
   };
   [EOneKeyDeepLinkPath.market_detail]: {
     coinGeckoId: string;
+  };
+  [EOneKeyDeepLinkPath.invite_share]: {
+    utm_source: string;
   };
 };
 

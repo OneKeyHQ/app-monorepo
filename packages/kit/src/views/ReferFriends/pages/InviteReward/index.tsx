@@ -4,6 +4,7 @@ import { Fragment, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { Share, StyleSheet } from 'react-native';
 
+import type { IStackStyle } from '@onekeyhq/components';
 import {
   Accordion,
   Badge,
@@ -19,6 +20,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -26,6 +28,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { Currency, useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -205,6 +209,67 @@ function ShareCode({
   );
 }
 
+function RewardLevelMoney({
+  money,
+  left,
+  right,
+  isLeft,
+  isRight,
+}: { money: string; isLeft?: boolean; isRight?: boolean } & IStackStyle) {
+  const ai = useMemo(() => {
+    if (isRight) {
+      return 'flex-end';
+    }
+    if (!isLeft && !isRight) {
+      return 'center';
+    }
+  }, [isLeft, isRight]);
+  return (
+    <YStack position="absolute" gap={5} top={37} width="100%" ai={ai}>
+      <YStack
+        w={1}
+        h={10}
+        bg="$neutral7"
+        borderTopLeftRadius="$1"
+        borderTopRightRadius="$1"
+        borderBottomLeftRadius="$1"
+        borderBottomRightRadius="$1"
+      />
+      <SizableText
+        width={money.length * 8}
+        size="$bodySmMedium"
+        color="$textSubdued"
+      >
+        {money}
+      </SizableText>
+    </YStack>
+  );
+}
+
+function RewardLevelText({
+  level,
+  percent,
+  money,
+  isLeft,
+  isRight,
+}: {
+  level: string;
+  percent: string;
+  money: string;
+  isLeft?: boolean;
+  isRight?: boolean;
+}) {
+  return (
+    <YStack>
+      <SizableText size="$bodySm">{level}</SizableText>
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        {percent}
+      </SizableText>
+      <RewardLevelMoney money={money} isLeft={isLeft} isRight={isRight} />
+    </YStack>
+  );
+}
+
 function Dashboard({
   totalRewards,
   enabledNetworks,
@@ -236,6 +301,11 @@ function Dashboard({
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
       onAddressAdded: async () => {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.referral_address_updated,
+          }),
+        });
         setTimeout(() => {
           fetchSummaryInfo();
         }, 50);
@@ -245,6 +315,7 @@ function Dashboard({
     activeAccount.account?.id,
     enabledNetworks,
     fetchSummaryInfo,
+    intl,
     navigation,
   ]);
 
@@ -260,6 +331,7 @@ function Dashboard({
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
+  const currency = useCurrency();
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -282,8 +354,9 @@ function Dashboard({
               id: ETranslations.referral_total_reward,
             })}
             renderTrigger={
-              <NumberSizeableText
+              <Currency
                 pb={1}
+                sourceCurrency="usd"
                 color="$textSuccess"
                 formatter="value"
                 size="$bodyLgMedium"
@@ -291,13 +364,13 @@ function Dashboard({
                 textDecorationLine="underline"
                 textDecorationColor="$textSuccess"
                 textDecorationStyle="dotted"
-                formatterOptions={{ tokenSymbol: 'USD' }}
+                formatterOptions={{ tokenSymbol: currency.id.toUpperCase() }}
                 style={{
                   textUnderlineOffset: 4,
                 }}
               >
                 {totalRewards}
-              </NumberSizeableText>
+              </Currency>
             }
             renderContent={
               <Stack gap="$2.5" p="$5">
@@ -374,7 +447,20 @@ function Dashboard({
                 {nextRebateLevel}
               </SizableText>
             </XStack>
-            <Progress value={levelPercent} width="100%" size="medium" />
+            <YStack h={84} borderRadius="$2" py="$2" bg="$bgSubdued" px="$4">
+              <XStack mb="$2" jc="space-between">
+                <RewardLevelText isLeft level="🥉" percent="5%" money="$100" />
+                <RewardLevelText level="🥈" percent="10%" money="$500" />
+                <RewardLevelText level="🥇" percent="15%" money="$1000" />
+                <RewardLevelText
+                  isRight
+                  level="🥇"
+                  percent="18%"
+                  money="$2000"
+                />
+              </XStack>
+              <Progress value={levelPercent} width="100%" size="medium" />
+            </YStack>
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
@@ -585,17 +671,22 @@ function Link() {
   const intl = useIntl();
 
   return (
-    <SizableText
-      color="$textInfo"
-      cursor="pointer"
-      size="$bodyMdMedium"
-      px="$5"
-      mb="$5"
-      textDecorationLine="underline"
-      onPress={() => openUrlExternal(referralLink)}
-    >
-      {intl.formatMessage({ id: ETranslations.referral_more_questions })}
-    </SizableText>
+    <XStack px="$5" mb="$5">
+      <HyperlinkText
+        cursor="pointer"
+        size="$bodyMdMedium"
+        textDecorationLine="underline"
+        textDecorationColor="$textInfo"
+        textDecorationStyle="dotted"
+        underlineTextProps={{
+          color: '$textInfo',
+        }}
+        style={{
+          textUnderlineOffset: 4,
+        }}
+        translationId={ETranslations.referral_more_questions}
+      />
+    </XStack>
   );
 }
 

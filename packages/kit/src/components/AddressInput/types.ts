@@ -4,4 +4,5 @@ export type IAddressPluginProps = {
   onChange?: (text: string) => void;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   testID?: string;
+  disabled?: boolean;
 };
