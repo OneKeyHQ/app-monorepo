@@ -1931,6 +1931,8 @@
   "referral.how_2": "Laden Sie Ihren Freund mit Ihrem Empfehlungscode ein",
   "referral.how_3": "Sie kaufen eine Hardware-Wallet mit Ihrem Code",
   "referral.how_4": "Ihr erhaltet Belohnung",
+  "referral.hw_level_title": "Stufe",
+  "referral.hw_sales_title": "Monatlicher Umsatz",
   "referral.intro_for_you": "Für Sie",
   "referral.intro_for_you_1": "Erhalten Sie bis zu {RebateRate} Verkaufsprovision für Hardware-Wallets",
   "referral.intro_for_you_2": "Entsperren Sie unbegrenzte Belohnungen aus dem 10%igen Gebührenanteil Ihrer Freunde",
