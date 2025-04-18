@@ -5,6 +5,7 @@ export interface ISimpleDBAppStatus {
   hdWalletXfpGenerated?: boolean;
   launchTimes?: number;
   launchTimesLastReset?: number;
+  hdWalletsBackupMigrated?: boolean;
   falconDepositDoNotShowAgain?: boolean;
 }
 

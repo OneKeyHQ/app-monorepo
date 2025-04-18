@@ -89,7 +89,10 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   const {
     activeAccount: { account },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num: accountSelectorNum, linkNetwork: true });
+  } = useAccountSelectorTrigger({
+    num: accountSelectorNum,
+    linkNetwork: true,
+  });
 
   useEffect(() => {
     if (account?.address && accountSelectorOpen.current) {

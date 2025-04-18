@@ -16,6 +16,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -54,7 +55,12 @@ export function useCreateQrWallet() {
         airGapAccounts,
         airGapMultiAccounts,
       );
-      if (byWallet?.xfp && qrDevice?.xfp !== byWallet?.xfp) {
+      if (
+        qrDevice?.xfp &&
+        byWallet?.xfp &&
+        accountUtils.getShortXfp({ xfp: qrDevice?.xfp }) !==
+          accountUtils.getShortXfp({ xfp: byWallet?.xfp })
+      ) {
         throw new OneKeyErrorAirGapWalletMismatch();
       }
       if (isOnboarding) {

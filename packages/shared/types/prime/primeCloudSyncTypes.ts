@@ -251,7 +251,7 @@ export type ICloudSyncPayloadWallet = {
   name: string;
   avatar: IAvatarInfo | undefined;
   //
-  walletHash: string | undefined;
+  walletHash: string | undefined; // hd wallet only ( hashed mnemonic )
   hwDeviceId: string | undefined;
   passphraseState: string | undefined;
   walletType: IDBWalletType | undefined;

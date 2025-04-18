@@ -1,3 +1,5 @@
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 import { AirGapUR } from './AirGapUR';
 
 import type { IAirGapUrJson } from './AirGapUR';
@@ -12,7 +14,11 @@ export type IOneKeyRequestDeviceQRData = {
 };
 export class OneKeyRequestDeviceQR {
   constructor(props: IOneKeyRequestDeviceQRData) {
-    this.data = props;
+    const xfp = accountUtils.getShortXfp({ xfp: props.xfp });
+    this.data = {
+      ...props,
+      xfp,
+    };
   }
 
   data: IOneKeyRequestDeviceQRData;

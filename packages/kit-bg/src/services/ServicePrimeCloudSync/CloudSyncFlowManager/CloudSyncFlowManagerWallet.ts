@@ -56,14 +56,20 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     target: ICloudSyncTargetWallet;
   }): Promise<ICloudSyncPayloadWallet> {
     const { wallet, dbDevice } = target;
-    const { hash: walletHash, type: walletType, passphraseState = '' } = wallet;
+    const {
+      // use hd exclusive hash, not shared xfp, avoid software and hardware wallets' avatar and name shared
+      hash: hdWalletHash,
+      // xfp: walletXfp, // do NOT use xfp
+      type: walletType,
+      passphraseState = '',
+    } = wallet;
 
     return {
       name: wallet.name,
       avatar: wallet.avatarInfo,
       //
       walletType,
-      walletHash,
+      walletHash: hdWalletHash,
       hwDeviceId: dbDevice?.deviceId,
       passphraseState,
     };

@@ -19,6 +19,7 @@ export enum EAccountManagerStacksRoutes {
 export type IAccountSelectorRouteParamsExtraConfig = {
   linkNetwork?: boolean;
   editable?: boolean;
+  hideNonBackedUpWallet?: boolean;
 };
 
 export type IExportAccountSecretKeysRouteParams = {
