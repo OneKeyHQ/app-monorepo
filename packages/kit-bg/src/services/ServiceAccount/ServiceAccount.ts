@@ -66,6 +66,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -3400,7 +3401,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearHDWalletHashAndXfp() {
+  async clearAllWalletHashAndXfp() {
     await localDb.withTransaction(async (tx) => {
       const { recordPairs } = await localDb.txGetAllRecords({
         tx,
@@ -3417,7 +3418,11 @@ class ServiceAccount extends ServiceBase {
             accountUtils.isQrWallet({ walletId: record.id })
           ) {
             record.hash = undefined;
-            record.xfp = undefined;
+            if (accountUtils.isQrWallet({ walletId: record.id })) {
+              record.xfp = accountUtils.getShortXfp({ xfp: record.xfp || '' });
+            } else {
+              record.xfp = undefined;
+            }
           }
           return record;
         },
@@ -3589,34 +3594,42 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
-  async generateQrWalletsMissingXfp({
-    wallet,
-  }: {
-    wallet: IDBWallet | undefined;
-  }) {
-    if (!wallet?.id) {
+  async generateAllQrWalletsMissingXfp() {
+    const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
+    const qrWallets = wallets.filter((wallet) =>
+      accountUtils.isQrWallet({ walletId: wallet.id }),
+    );
+    if (!qrWallets?.length) {
       return;
     }
-    if (!accountUtils.isQrWallet({ walletId: wallet?.id })) {
-      return;
-    }
-    if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
-      console.log('wallet already has xfp', wallet.xfp);
-      return;
-    }
-    const shortXfp = wallet.xfp;
-    const airGapAccounts = wallet.airGapAccountsInfo?.accounts;
-    if (shortXfp && airGapAccounts?.length) {
-      const fullXfp = this.buildQrWalletFullXfp({
-        shortXfp,
-        airGapAccounts,
-      });
-      if (fullXfp) {
-        await localDb.updateWalletsHashAndXfp({
-          [wallet?.id]: { xfp: fullXfp },
-        });
-      }
-    }
+    await Promise.all(
+      qrWallets.map(async (wallet) => {
+        if (!wallet?.id) {
+          return;
+        }
+        if (!accountUtils.isQrWallet({ walletId: wallet?.id })) {
+          return;
+        }
+        if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
+          console.log('wallet already has xfp', wallet.xfp);
+          return;
+        }
+        const shortXfp = wallet.xfp;
+        const airGapAccounts = wallet.airGapAccountsInfo?.accounts;
+        if (shortXfp && airGapAccounts?.length) {
+          // TODO airGapAccounts missing firstTaprootAccount, show QR code to add if current wallet is self
+          const fullXfp = this.buildQrWalletFullXfp({
+            shortXfp,
+            airGapAccounts,
+          });
+          if (fullXfp) {
+            await localDb.updateWalletsHashAndXfp({
+              [wallet?.id]: { xfp: fullXfp },
+            });
+          }
+        }
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -3643,68 +3656,92 @@ class ServiceAccount extends ServiceBase {
   }: {
     walletId: string;
   }) {
-    if (!walletId) {
-      throw new Error('walletId is required');
-    }
-    const wallet = await localDb.getWalletSafe({ walletId });
-    if (!wallet) {
-      throw new Error('wallet not found');
-    }
+    try {
+      if (!walletId) {
+        throw new Error('walletId is required');
+      }
+      const wallet = await localDb.getWalletSafe({ walletId });
+      if (!wallet) {
+        throw new Error('wallet not found');
+      }
 
-    const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
-    if (isHdWallet) {
-      if (
-        isHdWallet &&
-        wallet.hash &&
-        accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
-      ) {
-        return;
-      }
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({});
-      if (!password) {
-        return;
-      }
-      await this.generateAllHDWalletMissingHashAndXfp({ password });
-    }
+      let walletUpdated = false;
 
-    const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-    if (isHwWallet) {
-      if (isHwWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
-        return;
+      const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
+      if (isHdWallet) {
+        if (
+          isHdWallet &&
+          wallet.hash &&
+          accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+        ) {
+          return;
+        }
+        const { password } =
+          await this.backgroundApi.servicePassword.promptPasswordVerify({});
+        if (!password) {
+          return;
+        }
+        await this.generateAllHDWalletMissingHashAndXfp({ password });
+        walletUpdated = true;
       }
-      const device = await localDb.getWalletDeviceSafe({
-        dbWallet: wallet,
-        walletId: wallet?.id,
-      });
-      if (!device) {
-        throw new Error('wallet associated device not found');
-      }
-      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
-          await timerUtils.wait(1000);
-          await this.generateHwWalletsMissingXfpFn({
-            wallet,
-            connectId: device?.connectId || '',
-            deviceId: device?.deviceId || '',
-            throwError: true,
-          });
-          await timerUtils.wait(1000);
-        },
-        {
-          deviceParams: {
-            dbDevice: device,
+
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      if (isHwWallet) {
+        if (isHwWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+          return;
+        }
+        const device = await localDb.getWalletDeviceSafe({
+          dbWallet: wallet,
+          walletId: wallet?.id,
+        });
+        if (!device) {
+          throw new Error('wallet associated device not found');
+        }
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          async () => {
+            await timerUtils.wait(1000);
+            await this.generateHwWalletsMissingXfpFn({
+              wallet,
+              connectId: device?.connectId || '',
+              deviceId: device?.deviceId || '',
+              throwError: true,
+            });
+            await timerUtils.wait(1000);
+            walletUpdated = true;
           },
-        },
-      );
-    }
-
-    const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
-    if (isQrWallet) {
-      if (isQrWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
-        return;
+          {
+            deviceParams: {
+              dbDevice: device,
+            },
+          },
+        );
       }
-      await this.generateQrWalletsMissingXfp({ wallet });
+
+      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+      if (isQrWallet) {
+        if (isQrWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+          return;
+        }
+        await this.generateAllQrWalletsMissingXfp();
+        walletUpdated = true;
+      }
+
+      if (walletUpdated) {
+        const { servicePrimeCloudSync } = this.backgroundApi;
+        await servicePrimeCloudSync.initLocalSyncItemsDBForLegacyIndexedAccount();
+
+        // TODO syncToSceneWithLocalSyncItems
+        // let { items } = await servicePrimeCloudSync.getAllLocalSyncItems();
+        // items = items.filter((item) =>
+        //   cloudSyncUtils.canSyncWithoutServer(item.dataType),
+        // );
+        // await servicePrimeCloudSync._syncToSceneWithLocalSyncItems({
+        //   items,
+        //   syncCredential: undefined,
+        // });
+      }
+    } catch (error) {
+      console.error(error);
     }
   }
 

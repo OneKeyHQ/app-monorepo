@@ -609,7 +609,18 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
-        title="Reset Cached Password"
+        title="Clear HD Wallet Hash and XFP"
+        subtitle="清除所有钱包 hash 和 xfp"
+        onPress={async () => {
+          await backgroundApiProxy.serviceAccount.clearAllWalletHashAndXfp();
+          Toast.success({
+            title: 'success',
+          });
+        }}
+      />
+
+      <SectionPressItem
+        title="Clear Cached Password"
         subtitle="清除缓存密码"
         onPress={async () => {
           await backgroundApiProxy.servicePassword.clearCachedPassword();

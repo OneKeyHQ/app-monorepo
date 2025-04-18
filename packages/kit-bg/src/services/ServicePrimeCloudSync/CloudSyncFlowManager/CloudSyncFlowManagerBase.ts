@@ -25,6 +25,7 @@ import type {
   IDBDevice,
   ILocalDBTransaction,
 } from '../../../dbs/local/types';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
@@ -283,8 +284,9 @@ export abstract class CloudSyncFlowManagerBase<
 
     const syncCredential = await this.getSyncCredential();
 
-    const canSyncWithoutServer =
-      this.dataType === EPrimeCloudSyncDataType.IndexedAccount;
+    const canSyncWithoutServer = cloudSyncUtils.canSyncWithoutServer(
+      this.dataType,
+    );
 
     for (const target of targets) {
       let existingSyncItem: IDBCloudSyncItem | undefined;
@@ -482,6 +484,25 @@ export abstract class CloudSyncFlowManagerBase<
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
   }) {
+    return this._buildInitSyncDBItems({
+      dbRecords,
+      allDevices,
+      initDataTime,
+      syncCredential,
+    });
+  }
+
+  async _buildInitSyncDBItems({
+    dbRecords,
+    allDevices,
+    initDataTime,
+    syncCredential,
+  }: {
+    dbRecords: ICloudSyncDBRecords;
+    allDevices?: IDBDevice[];
+    initDataTime: number | undefined;
+    syncCredential: ICloudSyncCredential | undefined;
+  }) {
     return (
       await Promise.all(
         dbRecords.map(async (record) => {
@@ -501,6 +522,7 @@ export abstract class CloudSyncFlowManagerBase<
             });
           if (
             existingSyncItem &&
+            syncCredential &&
             syncCredential.masterPasswordUUID &&
             existingSyncItem.pwdHash === syncCredential.masterPasswordUUID
           ) {
