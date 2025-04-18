@@ -15,16 +15,7 @@ alwaysApply: true
 - Always use translation keys instead of hardcoding text strings
 - Follow the established pattern for translation keys: `namespace__action_or_description`
 
-## Adding New Languages
-- New language support should be added to the localeJsonMap and appropriate configs
-- Follow the existing patterns for language detection and fallbacks
-
 ## Default Locale Handling
 - The system uses automatic locale detection with fallbacks
 - Default locale fallback chain is implemented in `getDefaultLocale.ts`
 - Respect platform-specific locale handling (web, native, desktop, extension)
-
-## Testing Translations
-- Test UI with different languages, especially languages with longer text
-- Be mindful of text expansion/contraction in different languages
-- Use appropriate components that handle dynamic text lengths
