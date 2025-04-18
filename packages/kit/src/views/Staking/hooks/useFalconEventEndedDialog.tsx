@@ -76,7 +76,7 @@ export function useFalconEventEndedDialog({
           onConfirm: async (dialogInstance) => {
             const { showAgain } = dialogInstance.getForm()?.getValues() ?? {};
             if (showAgain) {
-              await backgroundApiProxy.serviceStaking.setfalconDepositDoNotShowAgain();
+              await backgroundApiProxy.serviceStaking.setFalconDepositDoNotShowAgain();
               setTimeout(() => {
                 void run();
               });
