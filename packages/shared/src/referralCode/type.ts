@@ -1,4 +1,7 @@
 interface IReward {
+  title: string;
+  description: string;
+  monthlySales: string;
   available?: {
     token: {
       networkId: string;
@@ -37,14 +40,26 @@ export interface IInviteSummary {
   enabledNetworks: string[];
   totalRewards: string;
   levelPercent: string;
-  rebateLevel: string;
   nextRebateLevel: string;
+  Earn: IReward;
   rebateConfig: {
+    level: number;
     rebate: number;
     discount: number;
     threshold: number;
+    emoji: string;
+    labelKey: string;
+    label: string;
   };
-  Earn: IReward;
+  rebateLevels: {
+    level: number;
+    rebate: number;
+    discount: number;
+    threshold: number;
+    emoji: string;
+    labelKey: string;
+    label: string;
+  }[];
   HardwareSales: IReward;
   banners: any[];
 }
@@ -105,4 +120,19 @@ export interface IHardwareSalesRecord {
 export interface IInviteHistory {
   total: number;
   items: IHardwareSalesRecordItem[];
+}
+
+export interface IInvitePostConfig {
+  referralReward: {
+    amount: number;
+    unit: string;
+  };
+  commissionRate: {
+    amount: number;
+    unit: string;
+  };
+  friendDiscount: {
+    amount: number;
+    unit: string;
+  };
 }

@@ -25,6 +25,7 @@ function BasicCurrency({
   targetCurrency,
   formatterOptions,
   children,
+  formatter = 'price',
   ...props
 }: ICurrencyProps) {
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -51,7 +52,7 @@ function BasicCurrency({
 
   return (
     <NumberSizeableTextWrapper
-      formatter="price"
+      formatter={formatter}
       formatterOptions={{
         currency: targetCurrencyInfo?.unit,
         ...formatterOptions,
