@@ -233,15 +233,17 @@ function RewardLevelMoney({
         borderBottomLeftRadius="$1"
         borderBottomRightRadius="$1"
       />
-      <Currency
-        sourceCurrency="usd"
-        formatter="balance"
-        width={(threshold.length + Math.ceil(threshold.length / 3) + 1) * 8}
-        size="$bodySmMedium"
-        color="$textSubdued"
-      >
-        {threshold}
-      </Currency>
+      {threshold ? (
+        <Currency
+          sourceCurrency="usd"
+          formatter="balance"
+          width={(threshold.length + Math.ceil(threshold.length / 3) + 1) * 8}
+          size="$bodySmMedium"
+          color="$textSubdued"
+        >
+          {threshold}
+        </Currency>
+      ) : null}
     </YStack>
   );
 }
@@ -485,7 +487,11 @@ function Dashboard({
                   );
                 })}
               </XStack>
-              <Progress value={levelPercent} width="100%" size="medium" />
+              <Progress
+                value={levelPercent ? Number(levelPercent) * 100 : 0}
+                width="100%"
+                size="medium"
+              />
             </YStack>
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
