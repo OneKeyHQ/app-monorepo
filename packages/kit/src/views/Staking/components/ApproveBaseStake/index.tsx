@@ -374,16 +374,34 @@ export function ApproveBaseStake({
       const isFalconProvider = earnUtils.isFalconProvider({
         providerName: details.provider.name,
       });
-      const baseRateBN = new BigNumber(
+      const baseRateAPY = new BigNumber(
         isFalconProvider
           ? details.provider.apys?.weeklyNetApyWithoutFee ?? 0
           : details.provider.apys?.rate ?? 0,
       );
-      if (baseRateBN.gt(0)) {
-        let baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+      if (baseRateAPY.gt(0)) {
+        let estimatedYield: BigNumber;
 
+        // Calculate daily yield if it's Falcon provider during the event
         if (isFalconProvider && isEventActive) {
-          baseAmount = baseAmount.dividedBy(365);
+          // Convert APY to decimal
+          const apyDecimal = baseRateAPY.dividedBy(100);
+          // Calculate base for exponentiation: (1 + APY)
+          const base = apyDecimal.plus(1);
+          // Calculate exponent: 1/365
+          const exponent = new BigNumber(1).dividedBy(365);
+          // Calculate daily factor: (1 + APY)^(1/365)
+          // Use BigNumber's pow for fractional exponents
+          const dailyFactor = base.pow(exponent);
+          // Calculate daily rate: dailyFactor - 1
+          const dailyRate = dailyFactor.minus(1);
+          // Calculate daily yield: principal * dailyRate
+          estimatedYield = amountBN.multipliedBy(dailyRate);
+        } else {
+          // Calculate estimated annual yield directly from APY/rate
+          // This assumes details.provider.apys.rate is annual.
+          // If it represents something else (e.g., weekly), adjust accordingly.
+          estimatedYield = amountBN.multipliedBy(baseRateAPY).dividedBy(100);
         }
 
         let suffix: string | undefined;
@@ -399,9 +417,9 @@ export function ApproveBaseStake({
         }
 
         rewards.push({
-          amount: baseAmount.toFixed(),
+          amount: estimatedYield.toFixed(),
           fiatValue: new BigNumber(price).gt(0)
-            ? baseAmount.multipliedBy(price).toFixed()
+            ? estimatedYield.multipliedBy(price).toFixed()
             : undefined,
           token: details.token.info,
           suffix,
@@ -1021,12 +1039,11 @@ export function ApproveBaseStake({
         <YStack pt="$3.5" gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id:
-                earnUtils.isFalconProvider({
-                  providerName: details.provider.name,
-                }) && isEventActive
-                  ? ETranslations.earn_est_daily_rewards
-                  : ETranslations.earn_est_annual_rewards,
+              id: earnUtils.isFalconProvider({
+                providerName: details.provider.name,
+              })
+                ? ETranslations.earn_est_daily_rewards
+                : ETranslations.earn_est_annual_rewards,
             })}
           </SizableText>
           {estimatedAnnualRewards.length
