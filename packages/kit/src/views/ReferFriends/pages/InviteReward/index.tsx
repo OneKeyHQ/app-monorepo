@@ -28,7 +28,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { Currency, useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -331,7 +331,6 @@ function Dashboard({
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
-  const currency = useCurrency();
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -364,10 +363,6 @@ function Dashboard({
                 textDecorationLine="underline"
                 textDecorationColor="$textSuccess"
                 textDecorationStyle="dotted"
-                formatterOptions={{
-                  tokenSymbol: currency.id.toUpperCase(),
-                  currency: undefined,
-                }}
                 style={{
                   textUnderlineOffset: 4,
                 }}
