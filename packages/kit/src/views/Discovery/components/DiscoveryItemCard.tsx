@@ -40,7 +40,7 @@ export function DiscoveryItemCard({
         <Skeleton width="$14" height="$14" borderRadius="$4" />
         <Skeleton
           width="$18"
-          $md={{
+          $gtMd={{
             width: '$20',
           }}
           height="$4"
