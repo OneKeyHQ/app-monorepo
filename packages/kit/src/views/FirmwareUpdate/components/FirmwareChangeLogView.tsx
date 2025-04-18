@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Accordion,
@@ -30,7 +31,6 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
-import { StyleSheet } from 'react-native';
 
 function ChangeLogMarkdown({
   changelog,
@@ -145,12 +145,10 @@ export function FirmwareChangeLogContentView({
 }) {
   const intl = useIntl();
   const defaultExpandedSections = useMemo(() => {
-    const sections: string[] = [];
-    if (result?.updateInfos?.firmware?.hasUpgrade) sections.push('firmware');
-    if (result?.updateInfos?.bootloader?.hasUpgrade)
-      sections.push('bootloader');
-    if (result?.updateInfos?.ble?.hasUpgrade) sections.push('ble');
-    return sections;
+    if (result?.updateInfos?.firmware?.hasUpgrade) return 'firmware';
+    if (result?.updateInfos?.bootloader?.hasUpgrade) return 'bootloader';
+    if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
+    return undefined;
   }, [result?.updateInfos]);
 
   return (
@@ -159,15 +157,7 @@ export function FirmwareChangeLogContentView({
         overflow="hidden"
         width="100%"
         type="single"
-        defaultValue={
-          result?.updateInfos?.firmware?.hasUpgrade
-            ? 'firmware'
-            : result?.updateInfos?.bootloader?.hasUpgrade
-            ? 'bootloader'
-            : result?.updateInfos?.ble?.hasUpgrade
-            ? 'ble'
-            : undefined
-        }
+        defaultValue={defaultExpandedSections}
       >
         {result?.updateInfos?.firmware?.hasUpgrade ? (
           <ChangeLogSection
