@@ -136,7 +136,7 @@ function PortfolioItem({
   );
 }
 
-function TotalEarnedItem({
+export function TotalEarnedItem({
   tokenSymbol,
   totalEarned,
   price,
@@ -449,13 +449,13 @@ function PortfolioInfo({
             }% APY`}
           />
         ) : null}
-        {totalRewardAmount > 0 ? (
+        {/* {totalRewardAmount > 0 ? (
           <TotalEarnedItem
             tokenSymbol={token.symbol}
             totalEarned={new BigNumber(totalRewardAmount).toFixed()}
             price={details?.token.price}
           />
-        ) : null}
+        ) : null} */}
       </>
     );
   }, [
@@ -466,7 +466,6 @@ function PortfolioInfo({
     token.symbol,
     details,
     isFalconProvider,
-    totalRewardAmount,
   ]);
 
   if (!showPortfolio) {

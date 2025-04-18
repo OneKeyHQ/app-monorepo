@@ -111,7 +111,7 @@ function ProfitInfo({
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
                   {`${formatApy(
-                    isFalconProvider ? apys?.weeklyNetApy : aprWithoutFee,
+                    isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
                   )}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
