@@ -52,7 +52,7 @@ export function WalletBackupAlert() {
               }}
             />
           </Stack>
-          <SizableText>
+          <SizableText size="$bodyMd">
             {
               // @ts-ignore
               intl.formatMessage(
@@ -68,7 +68,14 @@ export function WalletBackupAlert() {
             }
           </SizableText>
         </XStack>
-        <WalletBackupActions wallet={wallet}>
+        <WalletBackupActions
+          wallet={wallet}
+          actionListProps={{
+            offset: {
+              crossAxis: -10,
+            },
+          }}
+        >
           <Button
             size="small"
             variant="tertiary"
