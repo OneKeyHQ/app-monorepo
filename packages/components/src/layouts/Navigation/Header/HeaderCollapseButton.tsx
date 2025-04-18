@@ -24,11 +24,12 @@ export const useHeaderCollapseButtonVisibility = ({
 }) => {
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
 
-  const shouldHide = hideWhenCollapse && isCollapse;
+  const shouldHideWhenCollapse = hideWhenCollapse && isCollapse;
   const shouldHideWhenOpen = hideWhenOpen && !isCollapse;
 
   return {
-    shouldHide,
+    shouldHide: shouldHideWhenCollapse || shouldHideWhenOpen,
+    shouldHideWhenCollapse,
     shouldHideWhenOpen,
   };
 };
@@ -48,7 +49,7 @@ function HeaderCollapseButton({
     setLeftSidebarCollapsed: setIsCollapse,
   } = useProviderSideBarValue();
 
-  const { shouldHide, shouldHideWhenOpen } = useHeaderCollapseButtonVisibility({
+  const { shouldHide } = useHeaderCollapseButtonVisibility({
     hideWhenOpen,
     hideWhenCollapse,
   });
@@ -66,13 +67,9 @@ function HeaderCollapseButton({
     [hideWhenOpen, isRootScreen],
   );
 
-  if (shouldHide) {
-    return null;
-  }
-
   return (
     <AnimatePresence>
-      {shouldHideWhenOpen ? null : (
+      {shouldHide ? null : (
         <Stack
           pl={paddingLeft}
           testID="Desktop-AppSideBar-Button"
