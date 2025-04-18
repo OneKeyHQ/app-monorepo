@@ -51,12 +51,11 @@ function RawCheckbox({
   }, [isUncontrolled, onChange, usedValue]);
   return (
     <XStack
-      // alignItems="center"
       py="$2"
       opacity={checkboxProps.disabled ? 0.5 : 1}
       userSelect="none"
       onPress={onPress}
-      ai="center"
+      ai="flex-start"
       {...containerProps}
     >
       <YStack
