@@ -434,9 +434,12 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        onPress={toHardwareSalesRewardPage}
       >
-        <XStack ai="center" jc="space-between">
+        <XStack
+          ai="center"
+          jc="space-between"
+          onPress={toHardwareSalesRewardPage}
+        >
           <SizableText size="$headingMd">
             {hardwareSales.title ||
               intl.formatMessage({ id: ETranslations.referral_sales_reward })}
