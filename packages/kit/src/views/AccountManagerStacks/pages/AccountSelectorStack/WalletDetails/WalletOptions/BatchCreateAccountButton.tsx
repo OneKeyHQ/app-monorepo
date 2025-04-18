@@ -30,6 +30,11 @@ function BatchCreateAccountButtonView({
       icon="Back10Outline"
       label={intl.formatMessage({ id: ETranslations.global_bulk_add_accounts })}
       onPress={async () => {
+        await backgroundApiProxy.serviceAccount.generateWalletsMissingMetaWithUserInteraction(
+          {
+            walletId: wallet?.id || '',
+          },
+        );
         await backgroundApiProxy.serviceBatchCreateAccount.prepareBatchCreate();
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {
           screen: EAccountManagerStacksRoutes.BatchCreateAccountPreview,

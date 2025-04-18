@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -1116,7 +1117,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHwWalletXfp({
+  async buildHwWalletXfp({
     connectId,
     deviceId,
     passphraseState,
@@ -1135,17 +1136,21 @@ class ServiceHardware extends ServiceBase {
       await timerUtils.wait(600);
       const result = await convertDeviceResponse(() => {
         return hardwareSDK.btcGetPublicKey(connectId, deviceId || '', {
-          path: `m/0'`,
+          path: BTC_FIRST_TAPROOT_PATH,
           showOnOneKey: false,
           useEmptyPassphrase: passphraseState ? undefined : true,
           passphraseState: passphraseState || undefined,
         });
       });
-      if (result.root_fingerprint) {
+      if (result.root_fingerprint && result.xpub) {
         const xfp = numberUtils
           .numberToHex(result.root_fingerprint, { prefix0x: false })
           .toLowerCase();
-        return xfp;
+        const fullXfp = accountUtils.buildFullXfp({
+          xfp,
+          firstTaprootXpub: result.xpub,
+        });
+        return fullXfp;
       }
     } catch (error) {
       if (throwError) {

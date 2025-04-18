@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
@@ -55,6 +56,8 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       method,
       params,
     };
+
+    // await timerUtils.wait(5*1000);
 
     return checkIsDefined(
       appGlobals?.$backgroundApiProxy,
