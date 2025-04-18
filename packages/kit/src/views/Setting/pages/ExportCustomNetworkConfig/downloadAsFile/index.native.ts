@@ -1,5 +1,5 @@
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
-import RNShare from '@onekeyhq/shared/src/modules3rdParty/react-native-share';
+import RNShare from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IDownloadAsFileType } from './type';
@@ -22,10 +22,10 @@ export const downloadAsFile: IDownloadAsFileType = async ({
   const RNShareFilePath = platformEnv.isNativeAndroid
     ? `file://${filepath}`
     : filepath;
-  RNShare.open({
-    url: RNShareFilePath,
-    title: 'Custom Network Configs',
-    filename,
+  RNShare.shareAsync(RNShareFilePath, {
+    dialogTitle: 'Custom Network Configs',
+    mimeType: 'text/plain',
+    UTI: 'public.plain-text',
   }).catch(() => {
     /** ignore */
   });
