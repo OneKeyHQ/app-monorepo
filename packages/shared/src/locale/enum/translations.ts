@@ -1936,6 +1936,8 @@
   referral_how_2 = 'referral.how_2',
   referral_how_3 = 'referral.how_3',
   referral_how_4 = 'referral.how_4',
+  referral_hw_level_title = 'referral.hw_level_title',
+  referral_hw_sales_title = 'referral.hw_sales_title',
   referral_intro_for_you = 'referral.intro_for_you',
   referral_intro_for_you_1 = 'referral.intro_for_you_1',
   referral_intro_for_you_2 = 'referral.intro_for_you_2',
