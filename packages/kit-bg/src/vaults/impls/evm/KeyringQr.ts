@@ -176,10 +176,7 @@ export class KeyringQr extends KeyringQrBase {
             xfp,
           }) => {
             let signData = hexUtils.stripHexPrefix(msg.message);
-            if (
-              dataType === EAirGapDataTypeEvm.typedData ||
-              dataType === EAirGapDataTypeEvm.personalMessage
-            ) {
+            if (dataType === EAirGapDataTypeEvm.typedData) {
               signData = hexUtils.stripHexPrefix(
                 bufferUtils.textToHex(msg.message, 'utf-8'),
               );
