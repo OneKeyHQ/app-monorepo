@@ -135,6 +135,10 @@ const font = createFont({
 
 // https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
 const animations = createAnimations({
+  '0ms': {
+    type: 'timing',
+    duration: 0,
+  },
   '50ms': {
     type: 'timing',
     duration: 50,
