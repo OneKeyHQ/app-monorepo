@@ -3908,6 +3908,10 @@ class ServiceAccount extends ServiceBase {
       ...v,
       hdWalletsBackupMigrated: true,
     }));
+
+    if (Object.keys(walletsBackedUpStatusMap).length > 0) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 }
 
