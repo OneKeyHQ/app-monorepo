@@ -652,6 +652,8 @@ function buildQrWalletId({
   xfpHash: string;
 }) {
   let dbWalletId = `qr-${dbDeviceId}`;
+
+  // hidden wallet pass xfpHash
   if (xfpHash) {
     dbWalletId = `qr-${dbDeviceId}-${xfpHash}`;
   }
@@ -771,6 +773,27 @@ function isAllNetworkMockAddress({ address }: { address?: string }) {
   return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
 }
 
+function isValidWalletXfp({ xfp }: { xfp: string | undefined }) {
+  return xfp && xfp.length > 8 && xfp.includes('--');
+}
+
+function buildFullXfp({
+  xfp,
+  firstTaprootXpub,
+}: {
+  xfp: string;
+  firstTaprootXpub: string;
+}) {
+  if (!xfp || !firstTaprootXpub) {
+    return undefined;
+  }
+  return `${xfp.toLowerCase()}--${firstTaprootXpub}`;
+}
+
+function getShortXfp({ xfp }: { xfp: string }) {
+  return xfp.split('--')[0];
+}
+
 export default {
   URL_ACCOUNT_ID,
   buildAccountValueKey,
@@ -832,4 +855,7 @@ export default {
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
   buildCustomEvmNetworkId,
+  isValidWalletXfp,
+  buildFullXfp,
+  getShortXfp,
 };

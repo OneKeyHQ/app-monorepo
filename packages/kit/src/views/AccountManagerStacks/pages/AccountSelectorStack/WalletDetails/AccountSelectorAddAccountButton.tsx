@@ -112,6 +112,9 @@ export function AccountSelectorAddAccountButton({
 
       try {
         const focusedWallet = focusedWalletInfo?.wallet;
+        await serviceAccount.generateWalletsMissingMetaWithUserInteraction({
+          walletId: section.walletId,
+        });
         const c = await serviceAccount.addHDNextIndexedAccount({
           walletId: section.walletId,
         });

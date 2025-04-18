@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -66,6 +67,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -80,6 +82,7 @@ import type {
   IBatchCreateAccount,
   IHwQrWalletWithDevice,
   INetworkAccount,
+  IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
@@ -2172,18 +2175,25 @@ class ServiceAccount extends ServiceBase {
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const { accountId, indexedAccountId, name } = params;
 
+    let account: IDBAccount | undefined;
+    let indexedAccount: IDBIndexedAccount | undefined;
+
     // Get the old name before updating
     let oldName = '';
     if (name) {
       if (accountId) {
-        const account = await this.getDBAccountSafe({ accountId });
+        account = await this.getDBAccountSafe({ accountId });
         oldName = account?.name || '';
       } else if (indexedAccountId) {
-        const indexedAccount = await this.getIndexedAccountSafe({
+        indexedAccount = await this.getIndexedAccountSafe({
           id: indexedAccountId,
         });
         oldName = indexedAccount?.name || '';
       }
+    }
+
+    if (!account && !indexedAccount) {
+      return;
     }
 
     const r = await localDb.setAccountName(params);
@@ -2227,25 +2237,28 @@ class ServiceAccount extends ServiceBase {
       );
     }
     const wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
-    let count = 0;
     for (const wallet of wallets) {
-      const indexedAccountId = accountUtils.buildIndexedAccountId({
-        walletId: wallet.id,
-        index,
-      });
-      await this.setAccountName({
-        name,
-        ...others,
-        indexedAccountId,
-        skipEventEmit: true,
-        skipSaveLocalSyncItem:
-          count === 0 ? params.skipSaveLocalSyncItem : true,
-        shouldCheckDuplicate:
-          indexedAccountId === params.indexedAccountId
+      try {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId: wallet.id,
+          index,
+        });
+        const isSelfAccount = indexedAccountId === params.indexedAccountId;
+        await this.setAccountName({
+          name,
+          ...others,
+          indexedAccountId,
+          skipEventEmit: true,
+          skipSaveLocalSyncItem: isSelfAccount
+            ? params.skipSaveLocalSyncItem
+            : true,
+          shouldCheckDuplicate: isSelfAccount
             ? params.shouldCheckDuplicate
             : false,
-      });
-      count += 1;
+        });
+      } catch (e) {
+        console.error('setUniversalIndexedAccountName ERROR', e);
+      }
     }
     if (wallets.length && !params.skipEventEmit) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
@@ -2356,8 +2369,12 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async createQrWallet(params: IDBCreateQRWalletParams) {
+    const fullXfp = this.buildQrWalletFullXfp({
+      shortXfp: params.qrDevice.xfp,
+      airGapAccounts: params.airGapAccounts,
+    });
     // const { name, deviceId, xfp, version } = qrDevice;
-    const result = await localDb.createQrWallet(params);
+    const result = await localDb.createQrWallet({ ...params, fullXfp });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
@@ -2406,7 +2423,7 @@ class ServiceAccount extends ServiceBase {
 
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk) {
-      xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
+      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
         connectId,
         deviceId,
         passphraseState,
@@ -2434,7 +2451,7 @@ class ServiceAccount extends ServiceBase {
     return result;
   }
 
-  walletHashXfpBuilder = async (options: {
+  hdWalletHashAndXfpBuilder = async (options: {
     realMnemonic: string;
   }): Promise<{
     hash: string;
@@ -2444,10 +2461,10 @@ class ServiceAccount extends ServiceBase {
     const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
     const hash = bufferUtils.bytesToHex(buff);
 
-    const xfp = await coreChainApi.btc.hd.generateXfpFromMnemonic({
+    const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
       mnemonic: options.realMnemonic,
     });
-    return { hash, xfp };
+    return { hash, xfp: fulXfp };
   };
 
   @backgroundMethod()
@@ -2476,7 +2493,7 @@ class ServiceAccount extends ServiceBase {
 
     await this.generateAllHDWalletMissingHashAndXfp({ password });
 
-    const walletHashAndXfp = await this.walletHashXfpBuilder({
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
       realMnemonic,
     });
 
@@ -3408,7 +3425,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearHDWalletHashAndXfp() {
+  async clearAllWalletHashAndXfp() {
     await localDb.withTransaction(async (tx) => {
       const { recordPairs } = await localDb.txGetAllRecords({
         tx,
@@ -3425,7 +3442,11 @@ class ServiceAccount extends ServiceBase {
             accountUtils.isQrWallet({ walletId: record.id })
           ) {
             record.hash = undefined;
-            record.xfp = undefined;
+            if (accountUtils.isQrWallet({ walletId: record.id })) {
+              record.xfp = accountUtils.getShortXfp({ xfp: record.xfp || '' });
+            } else {
+              record.xfp = undefined;
+            }
           }
           return record;
         },
@@ -3433,6 +3454,8 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
+  // TODO mutex
+  // TODO QR wallet
   @backgroundMethod()
   async generateAllHDWalletMissingHashAndXfp({
     password,
@@ -3452,7 +3475,10 @@ class ServiceAccount extends ServiceBase {
       hdWalletsToProcess = hdWallets;
     } else {
       hdWalletsToProcess = hdWallets.filter(
-        (wallet) => !wallet.hash || !wallet.xfp,
+        (wallet) =>
+          !wallet.hash ||
+          !wallet.xfp ||
+          !accountUtils.isValidWalletXfp({ xfp: wallet.xfp }),
       );
     }
     if (!hdWalletsToProcess?.length) {
@@ -3486,17 +3512,22 @@ class ServiceAccount extends ServiceBase {
     } = {};
     for (const wallet of hdWallets) {
       try {
-        const credentialInfo = await localDb.getCredential(wallet.id);
-        if (!credentialInfo) {
-          // eslint-disable-next-line no-continue
-          continue;
+        const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
+        if (isHdWallet) {
+          const credentialInfo = await localDb.getCredential(wallet.id);
+          if (!credentialInfo) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+          const realMnemonic = await mnemonicFromEntropy(
+            credentialInfo.credential,
+            password,
+          );
+          const walletHashXfp = await this.hdWalletHashAndXfpBuilder({
+            realMnemonic,
+          });
+          walletsHashXfpMap[wallet.id] = walletHashXfp;
         }
-        const realMnemonic = await mnemonicFromEntropy(
-          credentialInfo.credential,
-          password,
-        );
-        const walletHashXfp = await this.walletHashXfpBuilder({ realMnemonic });
-        walletsHashXfpMap[wallet.id] = walletHashXfp;
       } catch (error) {
         console.error(error);
       }
@@ -3518,11 +3549,11 @@ class ServiceAccount extends ServiceBase {
     if (!wallet?.id) {
       return;
     }
-    if (wallet && wallet?.xfp) {
-      console.log('wallet already has xfp', wallet.xfp);
+    if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
       return;
     }
-    if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
+    if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
+      console.log('wallet already has xfp', wallet.xfp);
       return;
     }
     if (!connectId) {
@@ -3536,7 +3567,7 @@ class ServiceAccount extends ServiceBase {
       deviceId = device?.deviceId;
     }
 
-    const xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
+    const xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
       connectId,
       deviceId,
       passphraseState: wallet?.passphraseState,
@@ -3560,6 +3591,70 @@ class ServiceAccount extends ServiceBase {
       trailing: true,
     },
   );
+
+  buildQrWalletFullXfp({
+    shortXfp,
+    airGapAccounts,
+  }: {
+    shortXfp: string;
+    airGapAccounts: IQrWalletAirGapAccount[];
+  }) {
+    if (!airGapAccounts?.length) {
+      return;
+    }
+    const firstTaprootAccount = airGapAccounts.find(
+      (item) => item.path === BTC_FIRST_TAPROOT_PATH,
+    );
+    if (!firstTaprootAccount) {
+      return;
+    }
+    const xpub = firstTaprootAccount.extendedPublicKey;
+    if (xpub && shortXfp) {
+      const fullXfp = accountUtils.buildFullXfp({
+        xfp: shortXfp,
+        firstTaprootXpub: xpub,
+      });
+      return fullXfp;
+    }
+  }
+
+  async generateAllQrWalletsMissingXfp() {
+    const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
+    const qrWallets = wallets.filter((wallet) =>
+      accountUtils.isQrWallet({ walletId: wallet.id }),
+    );
+    if (!qrWallets?.length) {
+      return;
+    }
+    await Promise.all(
+      qrWallets.map(async (wallet) => {
+        if (!wallet?.id) {
+          return;
+        }
+        if (!accountUtils.isQrWallet({ walletId: wallet?.id })) {
+          return;
+        }
+        if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
+          console.log('wallet already has xfp', wallet.xfp);
+          return;
+        }
+        const shortXfp = wallet.xfp;
+        const airGapAccounts = wallet.airGapAccountsInfo?.accounts;
+        if (shortXfp && airGapAccounts?.length) {
+          // TODO airGapAccounts missing firstTaprootAccount, show QR code to add if current wallet is self
+          const fullXfp = this.buildQrWalletFullXfp({
+            shortXfp,
+            airGapAccounts,
+          });
+          if (fullXfp) {
+            await localDb.updateWalletsHashAndXfp({
+              [wallet?.id]: { xfp: fullXfp },
+            });
+          }
+        }
+      }),
+    );
+  }
 
   @backgroundMethod()
   async generateHwWalletsMissingXfp({
@@ -3585,56 +3680,92 @@ class ServiceAccount extends ServiceBase {
   }: {
     walletId: string;
   }) {
-    if (!walletId) {
-      throw new Error('walletId is required');
-    }
-    const wallet = await localDb.getWalletSafe({ walletId });
-    if (!wallet) {
-      throw new Error('wallet not found');
-    }
+    try {
+      if (!walletId) {
+        throw new Error('walletId is required');
+      }
+      const wallet = await localDb.getWalletSafe({ walletId });
+      if (!wallet) {
+        throw new Error('wallet not found');
+      }
 
-    const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
-    if (isHdWallet) {
-      if (isHdWallet && wallet.hash && wallet.xfp) {
-        return;
-      }
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({});
-      if (!password) {
-        return;
-      }
-      await this.generateAllHDWalletMissingHashAndXfp({ password });
-    }
+      let walletUpdated = false;
 
-    const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-    if (isHwWallet) {
-      if (isHwWallet && wallet.xfp) {
-        return;
+      const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
+      if (isHdWallet) {
+        if (
+          isHdWallet &&
+          wallet.hash &&
+          accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+        ) {
+          return;
+        }
+        const { password } =
+          await this.backgroundApi.servicePassword.promptPasswordVerify({});
+        if (!password) {
+          return;
+        }
+        await this.generateAllHDWalletMissingHashAndXfp({ password });
+        walletUpdated = true;
       }
-      const device = await localDb.getWalletDeviceSafe({
-        dbWallet: wallet,
-        walletId: wallet?.id,
-      });
-      if (!device) {
-        throw new Error('wallet associated device not found');
-      }
-      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
-          await timerUtils.wait(1000);
-          await this.generateHwWalletsMissingXfpFn({
-            wallet,
-            connectId: device?.connectId || '',
-            deviceId: device?.deviceId || '',
-            throwError: true,
-          });
-          await timerUtils.wait(1000);
-        },
-        {
-          deviceParams: {
-            dbDevice: device,
+
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      if (isHwWallet) {
+        if (isHwWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+          return;
+        }
+        const device = await localDb.getWalletDeviceSafe({
+          dbWallet: wallet,
+          walletId: wallet?.id,
+        });
+        if (!device) {
+          throw new Error('wallet associated device not found');
+        }
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          async () => {
+            await timerUtils.wait(1000);
+            await this.generateHwWalletsMissingXfpFn({
+              wallet,
+              connectId: device?.connectId || '',
+              deviceId: device?.deviceId || '',
+              throwError: true,
+            });
+            await timerUtils.wait(1000);
+            walletUpdated = true;
           },
-        },
-      );
+          {
+            deviceParams: {
+              dbDevice: device,
+            },
+          },
+        );
+      }
+
+      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+      if (isQrWallet) {
+        if (isQrWallet && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+          return;
+        }
+        await this.generateAllQrWalletsMissingXfp();
+        walletUpdated = true;
+      }
+
+      if (walletUpdated) {
+        const { servicePrimeCloudSync } = this.backgroundApi;
+        await servicePrimeCloudSync.initLocalSyncItemsDBForLegacyIndexedAccount();
+
+        // TODO syncToSceneWithLocalSyncItems
+        // let { items } = await servicePrimeCloudSync.getAllLocalSyncItems();
+        // items = items.filter((item) =>
+        //   cloudSyncUtils.canSyncWithoutServer(item.dataType),
+        // );
+        // await servicePrimeCloudSync._syncToSceneWithLocalSyncItems({
+        //   items,
+        //   syncCredential: undefined,
+        // });
+      }
+    } catch (error) {
+      console.error(error);
     }
   }
 

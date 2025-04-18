@@ -2006,12 +2006,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
-  async createQrWallet({ qrDevice, airGapAccounts }: IDBCreateQRWalletParams) {
-    const { deviceId: rawDeviceId, xfp } = qrDevice;
+  async createQrWallet({
+    qrDevice,
+    airGapAccounts,
+    fullXfp,
+  }: IDBCreateQRWalletParams) {
+    const { deviceId: rawDeviceId } = qrDevice;
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
+
+    if (!fullXfp) {
+      throw new Error('fullXfp is required');
+    }
 
     let passphraseState = '';
     let xfpHash = '';
@@ -2035,7 +2043,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       xfpHash = bufferUtils.bytesToHex(
-        sha256(bufferUtils.toBuffer(xfp, 'utf8')),
+        sha256(bufferUtils.toBuffer(fullXfp, 'utf8')),
       );
     }
     let walletName = deviceName;
@@ -2121,7 +2129,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       },
       accounts: [],
       walletNo: context.nextWalletNo,
-      xfp,
+      xfp: fullXfp,
 
       deprecated: false,
     };
@@ -2216,7 +2224,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             walletId: dbWalletId,
             updater: (item) => {
               item.isTemp = false;
-              item.xfp = xfp;
+              item.xfp = fullXfp;
 
               let currentAirGapAccountsInfo:
                 | IQrWalletAirGapAccountsInfo
