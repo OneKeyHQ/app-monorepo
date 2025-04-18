@@ -60,6 +60,7 @@ export const isSupportStaking = (symbol: string) =>
     'WETH',
     'CBBTC',
     'WBTC',
+    'USDF',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds = [
@@ -88,6 +89,7 @@ export function normalizeToEarnSymbol(
     'weth': 'WETH',
     'cbbtc': 'cbBTC',
     'wbtc': 'WBTC',
+    'usdf': 'USDf',
   };
 
   return symbolMap[symbol.toLowerCase()];

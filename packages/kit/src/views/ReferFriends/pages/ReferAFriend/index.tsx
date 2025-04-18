@@ -186,7 +186,7 @@ export default function ReferAFriend() {
                                   size="$bodyMd"
                                   color="$textSuccess"
                                 >
-                                  {`${postConfig.commissionRate.unit}${postConfig.commissionRate.amount}`}
+                                  {`${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`}
                                 </SizableText>
                               ),
                             },
