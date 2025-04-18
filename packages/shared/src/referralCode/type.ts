@@ -121,3 +121,18 @@ export interface IInviteHistory {
   total: number;
   items: IHardwareSalesRecordItem[];
 }
+
+export interface IInvitePostConfig {
+  referralReward: {
+    amount: number;
+    unit: string;
+  };
+  commissionRate: {
+    amount: number;
+    unit: string;
+  };
+  friendDiscount: {
+    amount: number;
+    unit: string;
+  };
+}
