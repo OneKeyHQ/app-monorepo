@@ -1755,6 +1755,34 @@ const sei: IServerNetwork = {
   'backendIndex': false,
 };
 
+const unichain: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '130',
+  'id': 'evm--130',
+  'name': 'Unichain',
+  'symbol': 'ETH',
+  'code': 'unichain',
+  'shortcode': 'unichain',
+  'shortname': 'unichain',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/logo/unichain.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2737,6 +2765,7 @@ export const presetNetworksMap = {
   sonic,
   hsk,
   rsk,
+  unichain,
 
   // cosmos
   celestia,
@@ -2925,6 +2954,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     rsk,
     berachain,
     sei,
+    unichain,
 
     // cosmos
     celestia,
