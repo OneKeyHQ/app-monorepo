@@ -35,6 +35,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
@@ -78,6 +79,7 @@ function ShareCode({
 
   const handleCopy = useCallback(() => {
     copyText(inviteCode);
+    defaultLogger.referral.page.copyReferralCode();
   }, [copyText, inviteCode]);
 
   const inviteCodeUrl = useMemo(() => {
@@ -151,6 +153,7 @@ function ShareCode({
                   iconColor="$iconSubdued"
                   onPress={() => {
                     copyText(sharedUrl);
+                    defaultLogger.referral.page.shareReferralLink('copy');
                   }}
                 />
               )}
@@ -172,6 +175,7 @@ function ShareCode({
                   size={gtMd ? 'medium' : 'large'}
                   onPress={() => {
                     copyText(sharedUrl);
+                    defaultLogger.referral.page.shareReferralLink('copy');
                   }}
                 >
                   {intl.formatMessage({ id: ETranslations.global_copy })}
@@ -195,6 +199,7 @@ function ShareCode({
                             },
                       );
                     }, 300);
+                    defaultLogger.referral.page.shareReferralLink('share');
                   }}
                 >
                   {intl.formatMessage({ id: ETranslations.explore_share })}

@@ -18,6 +18,7 @@ import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import {
@@ -96,6 +97,9 @@ export default function ReferAFriend() {
           },
         });
         void openUrlUtils.linkingCanOpenURL(url);
+        const parsedURL = new URL(globalThis?.location.href);
+        const code = parsedURL.searchParams.get('code');
+        defaultLogger.referral.page.enterReferralGuide(code);
       }
     });
   }, [navigation]);
