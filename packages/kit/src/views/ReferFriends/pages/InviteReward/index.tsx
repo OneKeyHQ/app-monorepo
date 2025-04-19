@@ -314,11 +314,13 @@ function Dashboard({
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
+  const isNewEditWithdrawAddress = withdrawAddresses.length === 0;
+
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
-      onAddressAdded: async () => {
+      onAddressAdded: async ({ networkId }: { networkId: string }) => {
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.referral_address_updated,
@@ -327,6 +329,10 @@ function Dashboard({
         setTimeout(() => {
           fetchSummaryInfo();
         }, 50);
+        defaultLogger.referral.page.editReceivingAddress({
+          networkId,
+          editMethod: isNewEditWithdrawAddress ? 'new' : 'edit',
+        });
       },
     });
   }, [
@@ -334,6 +340,7 @@ function Dashboard({
     enabledNetworks,
     fetchSummaryInfo,
     intl,
+    isNewEditWithdrawAddress,
     navigation,
   ]);
 
