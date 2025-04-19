@@ -204,6 +204,7 @@ function FalconApyInternal({
         {isEventActive ? (
           <ApyLineItem
             iconName="AirdropOutline"
+            iconColor="$iconSubdued"
             label={intl.formatMessage({
               id: ETranslations.earn_falcon_token_airdrop,
             })}
