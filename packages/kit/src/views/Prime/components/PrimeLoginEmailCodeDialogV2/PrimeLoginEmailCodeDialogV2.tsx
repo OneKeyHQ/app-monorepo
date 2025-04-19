@@ -100,11 +100,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
       setState({ status: 'done' });
       await onLoginSuccess?.();
-      defaultLogger.referral.page.signupOneKeyID(true);
+      defaultLogger.referral.page.signupOneKeyIDResult(true);
     } catch (error) {
       console.error('prime login error', error);
       setState({ status: 'error' });
-      defaultLogger.referral.page.signupOneKeyID(false);
+      defaultLogger.referral.page.signupOneKeyIDResult(false);
     } finally {
       setIsSubmittingVerificationCode(false);
     }
