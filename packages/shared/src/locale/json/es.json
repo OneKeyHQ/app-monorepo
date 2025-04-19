@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "Desvinculado",
   "earn.referral_view_rewards": "Ver recompensas",
   "earn.referral_your_referral_link": "Tu enlace de referencia",
-  "earn.register": "Registro",
+  "earn.register": "Suscribirse",
   "earn.remaining_to_minimum": "Todavía {value} {symbol} para alcanzar el requisito mínimo de unión",
   "earn.request_withdrawal": "Solicitar retiro",
   "earn.request_withdrawal_steth_desc": "Bloquee su stETH/wstETH emitiendo una solicitud de retiro. Después de 1-4 días, el stETH bloqueado será destruido y su ETH estará disponible para retiro.",

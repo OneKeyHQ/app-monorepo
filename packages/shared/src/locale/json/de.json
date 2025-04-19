@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "Nicht verlinkt",
   "earn.referral_view_rewards": "Belohnungen anzeigen",
   "earn.referral_your_referral_link": "Ihr Empfehlungslink",
-  "earn.register": "Registrieren",
+  "earn.register": "Opt in",
   "earn.remaining_to_minimum": "Noch {value} {symbol}, um die Mindestanforderung für den Beitritt zu erreichen",
   "earn.request_withdrawal": "Auszahlung beantragen",
   "earn.request_withdrawal_steth_desc": "Schließen Sie Ihre stETH/wstETH durch eine Auszahlungsanforderung ab. Nach 1-4 Tagen wird das gesperrte stETH zerstört und Ihr ETH steht zur Auszahlung bereit.",

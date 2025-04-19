@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "未綁定",
   "earn.referral_view_rewards": "查看獎勵",
   "earn.referral_your_referral_link": "您的推薦連結",
-  "earn.register": "報名",
+  "earn.register": "選擇加入",
   "earn.remaining_to_minimum": "仍需 {value} {symbol} 才能達到最低加入要求",
   "earn.request_withdrawal": "請求贖回",
   "earn.request_withdrawal_steth_desc": "發出提款請求來鎖定您的 stETH/wstETH。在 1-4 天後，鎖定的 stETH 將被銷毀，您的 ETH 將可供提款。",

@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "Unlinked",
   "earn.referral_view_rewards": "View rewards",
   "earn.referral_your_referral_link": "Your referral link",
-  "earn.register": "Register",
+  "earn.register": "Opt in",
   "earn.remaining_to_minimum": "Still {value} {symbol} to reach the minimum join requirement",
   "earn.request_withdrawal": "Request withdrawal",
   "earn.request_withdrawal_steth_desc": "Lock your stETH/wstETH by issuing a withdrawal request. After 1-4 days, the locked stETH will be destroyed and your ETH will become available for withdrawal.",

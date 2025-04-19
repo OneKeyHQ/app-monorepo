@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "Non collegato",
   "earn.referral_view_rewards": "Visualizza premi",
   "earn.referral_your_referral_link": "Il tuo link di riferimento",
-  "earn.register": "Registro",
+  "earn.register": "Accetta",
   "earn.remaining_to_minimum": "Ancora {value} {symbol} per raggiungere il requisito minimo di adesione",
   "earn.request_withdrawal": "Richiedi prelievo",
   "earn.request_withdrawal_steth_desc": "Blocca il tuo stETH/wstETH emettendo una richiesta di prelievo. Dopo 1-4 giorni, lo stETH bloccato verrà distrutto e il tuo ETH diventerà disponibile per il prelievo.",
