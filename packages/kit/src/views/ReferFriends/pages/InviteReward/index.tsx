@@ -717,8 +717,6 @@ function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
 }
 
 function Link() {
-  const intl = useIntl();
-
   return (
     <XStack px="$5" mb="$5">
       <HyperlinkText
