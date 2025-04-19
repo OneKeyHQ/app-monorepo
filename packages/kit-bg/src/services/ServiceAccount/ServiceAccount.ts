@@ -2231,12 +2231,20 @@ class ServiceAccount extends ServiceBase {
     params: IDBSetUniversalIndexedAccountNameParams,
   ) {
     const { index, walletXfp, name, ...others } = params;
-    if (!walletXfp) {
-      throw new Error(
-        'setUniversalIndexedAccountName ERROR: walletXfp is required',
-      );
+    let wallets: IDBWallet[] = [];
+    if (walletXfp) {
+      wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
+    } else if (params.indexedAccountId) {
+      const { walletId } = accountUtils.parseIndexedAccountId({
+        indexedAccountId: params.indexedAccountId,
+      });
+      const wallet = await this.getWalletSafe({
+        walletId,
+      });
+      if (wallet) {
+        wallets.push(wallet);
+      }
     }
-    const wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
     for (const wallet of wallets) {
       try {
         const indexedAccountId = accountUtils.buildIndexedAccountId({
