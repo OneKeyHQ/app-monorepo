@@ -46,6 +46,7 @@ import { SignatureConfirmProviderMirror } from '../../components/SignatureConfir
 import SwapInfo from '../../components/SwapInfo';
 
 import type { RouteProp } from '@react-navigation/core';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
@@ -315,6 +316,17 @@ function MessageConfirm() {
       undefined,
     );
   }, []);
+
+  useEffect(() => {
+    if (sourceInfo) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId,
+      });
+    }
+  }, [sourceInfo, accountId]);
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>

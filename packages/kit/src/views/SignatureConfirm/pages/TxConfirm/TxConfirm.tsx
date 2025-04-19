@@ -43,6 +43,7 @@ import SwapInfo from '../../components/SwapInfo';
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
 
 import type { RouteProp } from '@react-navigation/core';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function TxConfirm() {
   const route =
@@ -233,6 +234,17 @@ function TxConfirm() {
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
     };
   }, [unsignedTxs, updateSendFeeStatus, updateUnsignedTxs]);
+
+  useEffect(() => {
+    if (sourceInfo) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId,
+      });
+    }
+  }, [sourceInfo, accountId]);
 
   const renderTxConfirmContent = useCallback(() => {
     if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit.current) {

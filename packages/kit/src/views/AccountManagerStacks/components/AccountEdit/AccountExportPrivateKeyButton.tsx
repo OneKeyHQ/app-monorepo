@@ -45,11 +45,11 @@ export function AccountExportPrivateKeyButton({
       label={label}
       onClose={onClose}
       onPress={async () => {
-        try {
-          await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
             walletId: wallet?.id ?? '',
-          });
-        } catch (e) {
+          })
+        ) {
           onClose?.();
           return;
         }

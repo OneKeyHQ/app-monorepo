@@ -97,11 +97,11 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       }}
       userSelect="none"
       onPress={async () => {
-        try {
-          await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
             walletId: activeAccount?.wallet?.id ?? '',
-          });
-        } catch (error) {
+          })
+        ) {
           return;
         }
         await handleAllNetworkCopyAddress(true);
@@ -199,11 +199,11 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
       return;
     }
 
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet.id,
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 
@@ -243,11 +243,11 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
       return;
     }
 
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 

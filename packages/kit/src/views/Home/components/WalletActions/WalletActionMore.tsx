@@ -99,11 +99,11 @@ export function WalletActionMore() {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleCopyAddress = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 
@@ -150,11 +150,11 @@ export function WalletActionMore() {
   ]);
 
   const handleSellToken = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 
