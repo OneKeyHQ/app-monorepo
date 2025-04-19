@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAccountManagerStacksRoutes,

@@ -8,6 +8,7 @@ import {
   EApproveType,
   type IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
@@ -79,6 +80,18 @@ export const useHandleStake = () => {
       onSuccess?: () => void;
     }) => {
       if (!details || !accountId) return;
+
+      try {
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId,
+        });
+        await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+          walletId,
+        });
+      } catch (e) {
+        return;
+      }
+
       if (details.approveTarget) {
         setStakeLoading?.(true);
         try {
