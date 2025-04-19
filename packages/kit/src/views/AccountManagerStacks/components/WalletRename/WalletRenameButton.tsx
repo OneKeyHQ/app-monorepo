@@ -1,10 +1,12 @@
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -88,6 +90,15 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
         {wallet?.name}
       </SizableText>
       <Icon flexShrink={0} name="PencilSolid" size="$4" color="$iconSubdued" />
+      {wallet.type === WALLET_TYPE_HD && !wallet.backuped ? (
+        <Badge badgeSize="sm" badgeType="critical" ml="$1">
+          <Badge.Text>
+            {intl.formatMessage({
+              id: ETranslations.wallet_backup_status_not_backed_up,
+            })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
     </XStack>
   );
 }

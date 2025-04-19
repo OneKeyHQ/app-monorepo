@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAccountManagerStacksRoutes,
@@ -23,6 +24,7 @@ export function AccountExportPrivateKeyButton({
   icon,
   label,
   exportType,
+  wallet,
 }: {
   testID?: string;
   accountName?: string;
@@ -32,6 +34,7 @@ export function AccountExportPrivateKeyButton({
   icon: IKeyOfIcons;
   label: string;
   exportType: IExportKeyType;
+  wallet?: IDBWallet;
 }) {
   const navigation = useAppNavigation();
 
@@ -42,6 +45,15 @@ export function AccountExportPrivateKeyButton({
       label={label}
       onClose={onClose}
       onPress={async () => {
+        try {
+          await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+            walletId: wallet?.id ?? '',
+          });
+        } catch (e) {
+          onClose?.();
+          return;
+        }
+
         if (exportType === 'mnemonic') {
           onClose?.();
           const { mnemonic } =
