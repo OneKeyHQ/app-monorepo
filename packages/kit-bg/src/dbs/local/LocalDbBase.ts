@@ -592,6 +592,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (this.isTempWalletRemoved({ wallet })) {
         return false;
       }
+
+      if (
+        option?.ignoreNonBackedUpWallets &&
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !wallet.backuped
+      ) {
+        return false;
+      }
+
       if (
         ignoreEmptySingletonWalletAccounts &&
         accountUtils.isOthersWallet({ walletId: wallet.id })

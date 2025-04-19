@@ -139,6 +139,8 @@ type IAddressInputProps = Omit<
   enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
+
+  hideNonBackedUpWallet?: boolean;
 };
 
 export type IAddressQueryResult = {
@@ -582,14 +584,21 @@ export function AddressInputField(
   props: IAddressInputProps & { name: string },
 ) {
   const intl = useIntl();
-  const { enableAllowListValidation, networkId, accountId, name } = props;
+  const {
+    enableAllowListValidation,
+    networkId,
+    accountId,
+    name,
+    hideNonBackedUpWallet,
+  } = props;
   const contextValue = useMemo(
     () => ({
       name,
       networkId,
       accountId,
+      hideNonBackedUpWallet,
     }),
-    [accountId, name, networkId],
+    [accountId, hideNonBackedUpWallet, name, networkId],
   );
 
   return (

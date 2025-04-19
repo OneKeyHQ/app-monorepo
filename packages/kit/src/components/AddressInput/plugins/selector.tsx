@@ -1,4 +1,4 @@
-import { type FC, useCallback, useEffect, useRef } from 'react';
+import { type FC, useCallback, useContext, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import type { IAddressPluginProps } from '../types';
+import { AddressInputContext } from '../AddressInputContext';
 
 type ISelectorPluginProps = IAddressPluginProps & {
   networkId?: string;
@@ -86,12 +87,14 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   const accountSelectorOpen = useRef<boolean>(false);
   const showAddressBook = useAddressBookPick();
   const actions = useAccountSelectorActions();
+  const { hideNonBackedUpWallet } = useContext(AddressInputContext);
   const {
     activeAccount: { account },
     showAccountSelector,
   } = useAccountSelectorTrigger({
     num: accountSelectorNum,
     linkNetwork: true,
+    hideNonBackedUpWallet,
   });
 
   useEffect(() => {
