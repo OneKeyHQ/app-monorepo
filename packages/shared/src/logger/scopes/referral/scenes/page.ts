@@ -10,34 +10,50 @@ export class PageScene extends BaseScene {
     };
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public signupOneKeyID() {
     return {};
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public signupOneKeyIDResult(isSuccess: boolean) {
     return { isSuccess };
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public logoutOneKeyIDResult() {
     return {};
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public createReferralCode() {
     return {};
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public copyReferralCode() {
     return {};
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public enterReferralDashboard(referralCode: string | undefined | null) {
     return { referralCode };
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public shareReferralLink(shareMethod: 'copy' | 'share') {
     return { shareMethod };
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public editReceivingAddress(params: {
     networkId: string;
     editMethod: 'new' | 'edit';
