@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Checkbox, Dialog } from '@onekeyhq/components';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
@@ -43,7 +44,9 @@ export function useFalconEventEndedDialog({
           title: intl.formatMessage(
             { id: ETranslations.earn_apy_change_title },
             {
-              value: `${details.provider.apys?.weeklyNetApyWithoutFee ?? ''}%`,
+              value: `${formatApy(
+                details.provider.apys?.weeklyNetApyWithoutFee ?? 0,
+              )}%`,
             },
           ),
           description: intl.formatMessage({
