@@ -22,7 +22,7 @@ export const showWalletBackupDialog = ({
     icon: 'ErrorOutline',
     tone: 'destructive',
     renderContent: (
-      <Stack gap="$2.5" $gtMd={{ flexDirection: 'row' }}>
+      <Stack gap="$2.5" flexDirection="row">
         <Button
           size="medium"
           variant="secondary"
