@@ -96,7 +96,7 @@ export default function ReferAFriend() {
           path: EOneKeyDeepLinkPath.invite_share,
           query: {
             utm_source: 'web_share',
-            code,
+            code: code || '',
           },
         });
         void openUrlUtils.linkingCanOpenURL(url);
