@@ -30,7 +30,7 @@ export class PageScene extends BaseScene {
     return {};
   }
 
-  public enterRefarralDashboard(referralCode: string | undefined | null) {
+  public enterReferralDashboard(referralCode: string | undefined | null) {
     return { referralCode };
   }
 
