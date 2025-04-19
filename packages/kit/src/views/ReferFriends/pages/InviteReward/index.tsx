@@ -486,7 +486,7 @@ function Dashboard({
                         rebateLevel.level === rebateConfig.level + 1
                           ? String(rebateLevel.threshold)
                           : ''
-                      }F
+                      }
                     />
                   );
                 })}
