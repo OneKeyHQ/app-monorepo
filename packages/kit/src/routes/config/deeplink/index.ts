@@ -14,6 +14,7 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
@@ -76,7 +77,7 @@ async function processDeepLinkUrlAccount({
           break;
         case EOneKeyDeepLinkPath.invite_share:
           {
-            const { utm_source: utmSource } =
+            const { utm_source: utmSource, code } =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
             if (navigation) {
               navigation.pushModal(EModalRoutes.ReferFriendsModal, {
@@ -86,6 +87,7 @@ async function processDeepLinkUrlAccount({
                 },
               });
             }
+            defaultLogger.referral.page.enterReferralGuide(code);
           }
           break;
         default:

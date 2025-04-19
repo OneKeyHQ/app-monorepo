@@ -4,11 +4,14 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Checkbox, IconButton, Page, YStack } from '@onekeyhq/components';
-import { PageFooter } from '@onekeyhq/components/src/layouts/Page/PageFooter';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DotMap } from '@onekeyhq/kit/src/components/DotMap';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
@@ -29,7 +32,7 @@ const BackupDotMap = () => {
 
   const [continueOperate, setContinueOperate] = useState(false);
 
-  const { encodedText, title, onBackedUp } = route.params;
+  const { encodedText, title, wallet } = route.params;
   const { result } = usePromiseResult(
     () =>
       backgroundApiProxy.servicePassword.decodeSensitiveText({ encodedText }),
@@ -65,8 +68,16 @@ const BackupDotMap = () => {
           confirmButtonProps={{
             disabled: !continueOperate,
             variant: 'primary',
-            onPress: () => {
-              onBackedUp?.();
+            onPress: async () => {
+              if (wallet?.id && !wallet.backuped) {
+                await backgroundApiProxy.serviceAccount.updateWalletBackupStatus(
+                  {
+                    walletId: wallet.id,
+                    isBackedUp: true,
+                  },
+                );
+                appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+              }
               appNavigation.popStack();
             },
           }}

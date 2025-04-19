@@ -261,13 +261,13 @@ function MarketMdColumn({
               icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
               onPress: async () => {
-                try {
-                  await backgroundApiProxy.serviceAccount.checkWalletBackupStatus(
+                if (
+                  await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
                     {
                       walletId: wallet?.id ?? '',
                     },
-                  );
-                } catch (error) {
+                  )
+                ) {
                   return;
                 }
                 defaultLogger.market.token.marketTokenAction({

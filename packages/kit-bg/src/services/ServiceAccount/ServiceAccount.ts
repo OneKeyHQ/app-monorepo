@@ -222,21 +222,26 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkWalletBackupStatus({
+  async checkIsWalletNotBackedUp({
     walletId,
   }: {
     walletId: string;
   }): Promise<boolean> {
-    return new Promise<boolean>((resolve, reject) => {
-      const promiseId = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
+    try {
+      const resp = await new Promise<boolean>((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        appEventBus.emit(EAppEventBusNames.CheckWalletBackupStatus, {
+          promiseId,
+          walletId,
+        });
       });
-      appEventBus.emit(EAppEventBusNames.CheckWalletBackupStatus, {
-        promiseId,
-        walletId,
-      });
-    });
+      return !resp;
+    } catch (e) {
+      return true;
+    }
   }
 
   @backgroundMethod()
@@ -2231,12 +2236,20 @@ class ServiceAccount extends ServiceBase {
     params: IDBSetUniversalIndexedAccountNameParams,
   ) {
     const { index, walletXfp, name, ...others } = params;
-    if (!walletXfp) {
-      throw new Error(
-        'setUniversalIndexedAccountName ERROR: walletXfp is required',
-      );
+    let wallets: IDBWallet[] = [];
+    if (walletXfp) {
+      wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
+    } else if (params.indexedAccountId) {
+      const { walletId } = accountUtils.parseIndexedAccountId({
+        indexedAccountId: params.indexedAccountId,
+      });
+      const wallet = await this.getWalletSafe({
+        walletId,
+      });
+      if (wallet) {
+        wallets.push(wallet);
+      }
     }
-    const wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
     for (const wallet of wallets) {
       try {
         const indexedAccountId = accountUtils.buildIndexedAccountId({

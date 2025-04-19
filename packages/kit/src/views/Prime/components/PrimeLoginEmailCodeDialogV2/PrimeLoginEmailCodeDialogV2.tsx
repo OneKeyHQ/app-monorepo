@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const COUNTDOWN_TIME = 60;
 
@@ -47,6 +48,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     } finally {
       setIsResending(false);
     }
+    defaultLogger.referral.page.signupOneKeyID();
   }, [email, isResending, sendCode]);
 
   useEffect(() => {
@@ -98,9 +100,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
       setState({ status: 'done' });
       await onLoginSuccess?.();
+      defaultLogger.referral.page.signupOneKeyIDResult(true);
     } catch (error) {
       console.error('prime login error', error);
       setState({ status: 'error' });
+      defaultLogger.referral.page.signupOneKeyIDResult(false);
     } finally {
       setIsSubmittingVerificationCode(false);
     }

@@ -9,6 +9,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
   validateTypedSignMessageDataV1,
@@ -74,6 +75,19 @@ function MessageConfirmActions(props: IProps) {
 
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
+      if (sourceInfo) {
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId,
+        });
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+            walletId,
+          })
+        ) {
+          return;
+        }
+      }
+
       setIsLoading(true);
       try {
         if (

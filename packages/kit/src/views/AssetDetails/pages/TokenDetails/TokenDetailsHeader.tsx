@@ -339,13 +339,13 @@ function TokenDetailsHeader(props: IProps) {
             <RawActions.Receive
               disabled={isReceiveDisabled}
               onPress={async () => {
-                try {
-                  await backgroundApiProxy.serviceAccount.checkWalletBackupStatus(
+                if (
+                  await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
                     {
                       walletId: wallet?.id ?? '',
                     },
-                  );
-                } catch (error) {
+                  )
+                ) {
                   return;
                 }
                 defaultLogger.wallet.walletActions.actionReceive({

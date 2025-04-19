@@ -35,6 +35,7 @@ import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -119,7 +120,20 @@ function TxConfirmActions(props: IProps) {
     });
 
   const handleOnConfirm = useCallback(async () => {
-    const { serviceSend } = backgroundApiProxy;
+    const { serviceSend, serviceAccount } = backgroundApiProxy;
+
+    if (sourceInfo) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      if (
+        await serviceAccount.checkIsWalletNotBackedUp({
+          walletId,
+        })
+      ) {
+        return;
+      }
+    }
 
     updateSendTxStatus({ isSubmitting: true });
     // Pre-check before submit

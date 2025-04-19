@@ -71,7 +71,7 @@ export function WalletDetailsHeader({
           userSelect="none"
           flex={1}
           primary={
-            <XStack alignItems="center" gap="$2" flex={1}>
+            <XStack alignItems="center" gap="$2" flex={1} flexWrap="wrap">
               <SizableText size="$bodyLgMedium" {...titleProps}>
                 {title}
               </SizableText>
