@@ -38,7 +38,6 @@ export default function useLiteCard() {
   const navigation = useAppNavigation();
   const backupWallet = useCallback(
     async (walletId?: string) => {
-      console.log('backupWallet', walletId);
       defaultLogger.setting.page.oneKeyLiteBackup();
       try {
         await nfc.checkNFCEnabledPermission();
