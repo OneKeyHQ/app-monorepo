@@ -95,7 +95,6 @@ export default function ReferAFriend() {
             utm_source: 'web_share',
           },
         });
-        console.log('url--', url);
         void openUrlUtils.linkingCanOpenURL(url);
       }
     });
