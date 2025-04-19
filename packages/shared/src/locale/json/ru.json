@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "Несвязанный",
   "earn.referral_view_rewards": "Просмотреть награды",
   "earn.referral_your_referral_link": "Ваша реферальная ссылка",
-  "earn.register": "Зарегистрироваться",
+  "earn.register": "Подписаться",
   "earn.remaining_to_minimum": "Все еще {value} {symbol} до достижения минимального требования для присоединения",
   "earn.request_withdrawal": "Запрос на вывод средств",
   "earn.request_withdrawal_steth_desc": "Заблокируйте свои stETH/wstETH, отправив запрос на вывод. Через 1-4 дней заблокированные stETH будут уничтожены, и ваши ETH станут доступны для вывода.",

@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "Non lié",
   "earn.referral_view_rewards": "Voir les récompenses",
   "earn.referral_your_referral_link": "Votre lien de parrainage",
-  "earn.register": "Registre",
+  "earn.register": "S'inscrire",
   "earn.remaining_to_minimum": "Encore {value} {symbol} pour atteindre le minimum requis pour rejoindre",
   "earn.request_withdrawal": "Demande de retrait",
   "earn.request_withdrawal_steth_desc": "Verrouillez votre stETH/wstETH en émettant une demande de retrait. Après 1 à 4 jours, le stETH verrouillé sera détruit et votre ETH deviendra disponible pour le retrait.",

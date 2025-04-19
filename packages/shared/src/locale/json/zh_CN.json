@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "未绑定",
   "earn.referral_view_rewards": "查看奖励",
   "earn.referral_your_referral_link": "您的推荐链接",
-  "earn.register": "报名",
+  "earn.register": "选择加入",
   "earn.remaining_to_minimum": "还需 {value} {symbol} 才能达到最低加入要求",
   "earn.request_withdrawal": "请求赎回",
   "earn.request_withdrawal_steth_desc": "发出提款请求来锁定您的 stETH/wstETH。在 1-4 天后，锁定的 stETH 将被销毁，您的 ETH 将可供提款。",

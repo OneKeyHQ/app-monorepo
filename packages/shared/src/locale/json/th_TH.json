@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "ไม่ได้เชื่อมโยง",
   "earn.referral_view_rewards": "ดูรางวัล",
   "earn.referral_your_referral_link": "ลิงก์แนะนำของคุณ",
-  "earn.register": "ลงทะเบียน",
+  "earn.register": "เลือกเข้าร่วม",
   "earn.remaining_to_minimum": "ยังคง {value} {symbol} เพื่อให้ถึงข้อกำหนดขั้นต่ำในการเข้าร่วม",
   "earn.request_withdrawal": "ขอถอนเงิน",
   "earn.request_withdrawal_steth_desc": "ล็อค stETH/wstETH ของคุณโดยการส่งคำขอถอน. หลังจาก 1-4 วัน, stETH ที่ถูกล็อคจะถูกทำลายและ ETH ของคุณจะสามารถถอนได้.",
