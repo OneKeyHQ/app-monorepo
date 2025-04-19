@@ -19,6 +19,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
@@ -257,7 +258,10 @@ export const useReferFriends = () => {
                       flex: 1,
                     }}
                     size={platformEnv.isNative ? 'large' : 'medium'}
-                    onPress={() => copyText(sharedUrl)}
+                    onPress={() => {
+                      copyText(sharedUrl);
+                      defaultLogger.referral.page.shareReferralLink('copy');
+                    }}
                   >
                     {intl.formatMessage({ id: ETranslations.global_copy })}
                   </Button>
@@ -282,6 +286,7 @@ export const useReferFriends = () => {
                                 },
                           );
                         }, 250);
+                        defaultLogger.referral.page.shareReferralLink('share');
                       }}
                     >
                       {intl.formatMessage({ id: ETranslations.explore_share })}
@@ -302,7 +307,10 @@ export const useReferFriends = () => {
                   icon="Copy3Outline"
                   size="small"
                   iconColor="$iconSubdued"
-                  onPress={() => copyText(myReferralCode)}
+                  onPress={() => {
+                    copyText(myReferralCode);
+                    defaultLogger.referral.page.copyReferralCode();
+                  }}
                 />
               </XStack>
             </YStack>

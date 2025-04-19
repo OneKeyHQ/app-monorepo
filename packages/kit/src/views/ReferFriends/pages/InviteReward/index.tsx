@@ -35,6 +35,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
@@ -78,6 +79,7 @@ function ShareCode({
 
   const handleCopy = useCallback(() => {
     copyText(inviteCode);
+    defaultLogger.referral.page.copyReferralCode();
   }, [copyText, inviteCode]);
 
   const inviteCodeUrl = useMemo(() => {
@@ -151,6 +153,7 @@ function ShareCode({
                   iconColor="$iconSubdued"
                   onPress={() => {
                     copyText(sharedUrl);
+                    defaultLogger.referral.page.shareReferralLink('copy');
                   }}
                 />
               )}
@@ -172,6 +175,7 @@ function ShareCode({
                   size={gtMd ? 'medium' : 'large'}
                   onPress={() => {
                     copyText(sharedUrl);
+                    defaultLogger.referral.page.shareReferralLink('copy');
                   }}
                 >
                   {intl.formatMessage({ id: ETranslations.global_copy })}
@@ -195,6 +199,7 @@ function ShareCode({
                             },
                       );
                     }, 300);
+                    defaultLogger.referral.page.shareReferralLink('share');
                   }}
                 >
                   {intl.formatMessage({ id: ETranslations.explore_share })}
@@ -237,7 +242,10 @@ function RewardLevelMoney({
         <Currency
           sourceCurrency="usd"
           formatter="balance"
-          width={(threshold.length + Math.ceil(threshold.length / 3) + 1) * 8}
+          textAlign={isRight ? 'right' : undefined}
+          width={
+            (threshold.length + 1) * 8 + Math.ceil(threshold.length / 3) * 4
+          }
           size="$bodySmMedium"
           color="$textSubdued"
         >
@@ -306,11 +314,13 @@ function Dashboard({
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
+  const isNewEditWithdrawAddress = withdrawAddresses.length === 0;
+
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
-      onAddressAdded: async () => {
+      onAddressAdded: async ({ networkId }: { networkId: string }) => {
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.referral_address_updated,
@@ -319,6 +329,10 @@ function Dashboard({
         setTimeout(() => {
           fetchSummaryInfo();
         }, 50);
+        defaultLogger.referral.page.editReceivingAddress({
+          networkId,
+          editMethod: isNewEditWithdrawAddress ? 'new' : 'edit',
+        });
       },
     });
   }, [
@@ -326,6 +340,7 @@ function Dashboard({
     enabledNetworks,
     fetchSummaryInfo,
     intl,
+    isNewEditWithdrawAddress,
     navigation,
   ]);
 
@@ -489,6 +504,7 @@ function Dashboard({
                 })}
               </XStack>
               <Progress
+                indicatorColor="$bgSuccessStrong"
                 value={levelPercent ? Number(levelPercent) * 100 : 0}
                 width="100%"
                 size="medium"
@@ -505,7 +521,7 @@ function Dashboard({
               ) : null}
               <SizableText size="$bodyMd">
                 <NumberSizeableText
-                  formatter="balance"
+                  formatter="value"
                   size="$bodyMd"
                   formatterOptions={{
                     tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
@@ -517,7 +533,7 @@ function Dashboard({
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
                     <NumberSizeableText
-                      formatter="balance"
+                      formatter="value"
                       size="$bodyMd"
                       formatterOptions={{
                         tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
@@ -701,8 +717,6 @@ function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
 }
 
 function Link() {
-  const intl = useIntl();
-
   return (
     <XStack px="$5" mb="$5">
       <HyperlinkText

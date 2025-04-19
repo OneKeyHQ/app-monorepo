@@ -18,6 +18,7 @@ export type IEOneKeyDeepLinkParams = {
   };
   [EOneKeyDeepLinkPath.invite_share]: {
     utm_source: string;
+    code: string;
   };
 };
 

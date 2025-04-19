@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "연결되지 않음",
   "earn.referral_view_rewards": "보상 보기",
   "earn.referral_your_referral_link": "귀하의 추천 링크",
-  "earn.register": "등록하다",
+  "earn.register": "가입",
   "earn.remaining_to_minimum": "여전히 {value} {symbol} 최소 가입 요건에 도달하지 못했습니다",
   "earn.request_withdrawal": "출금 요청",
   "earn.request_withdrawal_steth_desc": "출금 요청을 통해 stETH/wstETH를 잠그세요. 1-4일 후, 잠긴 stETH는 파괴되고 귀하의 ETH는 출금 가능 상태가 됩니다.",

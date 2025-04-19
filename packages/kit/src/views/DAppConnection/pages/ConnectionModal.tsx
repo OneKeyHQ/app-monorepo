@@ -96,14 +96,6 @@ function ConnectionModal() {
 
   const onApproval = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
-      try {
-        await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
-          walletId: selectedAccount?.wallet?.id ?? '',
-        });
-      } catch (error) {
-        return;
-      }
-
       if (!$sourceInfo?.scope) {
         Toast.error({ title: 'no injected scope' });
         if ($sourceInfo) {

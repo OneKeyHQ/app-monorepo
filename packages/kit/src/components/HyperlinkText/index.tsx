@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import useParseQRCode from '../../views/ScanQrCode/hooks/useParseQRCode';
@@ -96,7 +96,7 @@ export function HyperlinkText({
                           ],
                           qrWalletScene: false,
                           autoHandleResult,
-                          defaultHandler: openUrlInApp,
+                          defaultHandler: openUrlExternal,
                         });
                       }
                     }}

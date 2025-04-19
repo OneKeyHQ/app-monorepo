@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "リンクされていない",
   "earn.referral_view_rewards": "報酬を表示",
   "earn.referral_your_referral_link": "あなたの紹介リンク",
-  "earn.register": "登録する",
+  "earn.register": "オプトイン",
   "earn.remaining_to_minimum": "まだ {value} {symbol} で最低参加要件に達していません",
   "earn.request_withdrawal": "引き出しをリクエストする",
   "earn.request_withdrawal_steth_desc": "引き出しリクエストを発行して、stETH/wstETHをロックします。1〜4日後、ロックされたstETHは破壊され、ETHが引き出し可能になります。",

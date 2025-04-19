@@ -39,7 +39,10 @@ export default function useReadMnemonic() {
           password,
           credentialId: walletId,
         });
-      return mnemonic;
+      return {
+        mnemonic,
+        walletId,
+      };
     },
     [readWalletIdFromSelectWallet],
   );

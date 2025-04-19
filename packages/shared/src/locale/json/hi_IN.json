@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "असंबद्ध",
   "earn.referral_view_rewards": "पुरस्कार देखें",
   "earn.referral_your_referral_link": "आपका रेफरल लिंक",
-  "earn.register": "पंजीकरण करवाना",
+  "earn.register": "ऑप्ट इन",
   "earn.remaining_to_minimum": "अभी भी {value} {symbol} न्यूनतम शामिल होने की आवश्यकता तक पहुँचने के लिए",
   "earn.request_withdrawal": "विनियोग का अनुरोध करें",
   "earn.request_withdrawal_steth_desc": "एक विनियोग अनुरोध जारी करके अपने stETH/wstETH को लॉक करें। 1-4 दिनों के बाद, लॉक किए गए stETH को नष्ट कर दिया जाएगा और आपके ETH को वापसी के लिए उपलब्ध कराया जाएगा।",

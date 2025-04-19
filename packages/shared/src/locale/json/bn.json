@@ -588,7 +588,7 @@
   "earn.referral_unlinked": "অসংযুক্ত",
   "earn.referral_view_rewards": "পুরস্কার দেখুন",
   "earn.referral_your_referral_link": "আপনার রেফারেল লিঙ্ক",
-  "earn.register": "নিবন্ধন",
+  "earn.register": "অপ্ট ইন",
   "earn.remaining_to_minimum": "এখনও {value} {symbol} ন্যূনতম যোগদানের প্রয়োজনীয়তা পূরণ করতে।",
   "earn.request_withdrawal": "উত্তোলন অনুরোধ করুন",
   "earn.request_withdrawal_steth_desc": "একটি উত্তোলন অনুরোধ প্রেরণ করে আপনার stETH/wstETH লক করুন। 1-4 দিনের মধ্যে, লককৃত stETH ধ্বংস হবে এবং আপনার ETH উত্তোলনের জন্য উপলব্ধ হবে।",
