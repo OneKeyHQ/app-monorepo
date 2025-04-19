@@ -243,7 +243,7 @@ function AddCustomTokenModal() {
 
         const tokenInfo: IAccountToken = {
           ...searchedTokenRef.current,
-          address: contractAddress,
+          address: searchedTokenRef.current?.address,
           symbol,
           decimals: decimalsBN.toNumber(),
           accountId: accountIdForNetwork,
