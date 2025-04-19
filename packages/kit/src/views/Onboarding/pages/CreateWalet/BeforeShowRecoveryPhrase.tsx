@@ -140,6 +140,8 @@ export function BeforeShowRecoveryPhrase() {
             size="$headingLg"
             $gtMd={{ width: 288 }}
             textAlign="center"
+            flexWrap="wrap"
+            px="$4"
           >
             {intl.formatMessage({
               id: ETranslations.onboarding_save_phrase_securely_instruction,
@@ -147,7 +149,7 @@ export function BeforeShowRecoveryPhrase() {
           </SizableText>
         </YStack>
         <Stack alignItems="center">
-          <Stack $gtMd={{ width: 400 }}>
+          <Stack width={media.gtMd ? 400 : '100%'}>
             {messages.map((item) => (
               <ListItem gap="$3" key={item.message} alignItems="flex-start">
                 <Stack
@@ -155,7 +157,7 @@ export function BeforeShowRecoveryPhrase() {
                   height="$5"
                   justifyContent="center"
                   alignItems="center"
-                  mt="$1"
+                  mt="$0.5"
                 >
                   <Icon size="$5" name={item.icon} color="$iconSubdued" />
                 </Stack>

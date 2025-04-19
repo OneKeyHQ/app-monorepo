@@ -42,17 +42,26 @@ export function WalletBackupAlert() {
             alignItems: 'flex-start',
           }}
         >
-          <Stack w="$5" h="$5">
+          <Stack
+            w="$5"
+            h="$5"
+            $md={{
+              mt: '$1',
+            }}
+          >
             <Icon
               size="$5"
               name="ShieldExclamationSolid"
               color="$iconCritical"
-              $md={{
-                mt: '$2',
-              }}
             />
           </Stack>
-          <SizableText size="$bodyMd">
+          <SizableText
+            size="$bodyMd"
+            style={{
+              wordBreak: 'break-all',
+            }}
+            flex={1}
+          >
             {
               // @ts-ignore
               intl.formatMessage(

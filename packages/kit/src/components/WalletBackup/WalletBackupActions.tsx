@@ -66,17 +66,10 @@ export function WalletBackupActions({
 
   const handleBackupLiteCard = useCallback(async () => {
     onSelected?.();
-    const backedUp = await liteCard.backupWallet(wallet?.id);
+    await liteCard.backupWallet(wallet?.id);
 
-    if (wallet?.id && !wallet.backuped && backedUp) {
-      await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-        walletId: wallet.id,
-        isBackedUp: true,
-      });
-      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-      defaultLogger.account.wallet.backupWallet('liteCard');
-    }
-  }, [onSelected, liteCard, wallet?.id, wallet?.backuped]);
+    defaultLogger.account.wallet.backupWallet('liteCard');
+  }, [onSelected, liteCard, wallet?.id]);
 
   const handleBackupKeyTag = useCallback(async () => {
     if (wallet) {
@@ -89,17 +82,9 @@ export function WalletBackupActions({
       navigation.pushModal(EModalRoutes.KeyTagModal, {
         screen: EModalKeyTagRoutes.BackupDotMap,
         params: {
+          wallet,
           encodedText,
           title: wallet.name,
-          onBackedUp: async () => {
-            if (!wallet.backuped) {
-              await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-                walletId: wallet.id,
-                isBackedUp: true,
-              });
-              appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-            }
-          },
         },
       });
       defaultLogger.account.wallet.backupWallet('keyTag');
