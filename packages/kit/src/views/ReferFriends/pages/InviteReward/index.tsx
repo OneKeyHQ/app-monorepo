@@ -486,12 +486,13 @@ function Dashboard({
                         rebateLevel.level === rebateConfig.level + 1
                           ? String(rebateLevel.threshold)
                           : ''
-                      }
+                      }F
                     />
                   );
                 })}
               </XStack>
               <Progress
+                indicatorColor="$bgSuccessStrong"
                 value={levelPercent ? Number(levelPercent) * 100 : 0}
                 width="100%"
                 size="medium"
