@@ -21,6 +21,7 @@ import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 type IProps = {
   accountId: string;
@@ -74,6 +75,20 @@ function MessageConfirmActions(props: IProps) {
 
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
+      if (sourceInfo) {
+        try {
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId,
+          });
+
+          await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+            walletId,
+          });
+        } catch (e) {
+          return;
+        }
+      }
+
       setIsLoading(true);
       try {
         if (

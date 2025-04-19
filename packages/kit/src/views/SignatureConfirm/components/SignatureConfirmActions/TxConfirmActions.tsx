@@ -47,6 +47,7 @@ import {
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import TxFeeInfo from '../TxFee';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 type IProps = {
   accountId: string;
@@ -119,7 +120,21 @@ function TxConfirmActions(props: IProps) {
     });
 
   const handleOnConfirm = useCallback(async () => {
-    const { serviceSend } = backgroundApiProxy;
+    const { serviceSend, serviceAccount } = backgroundApiProxy;
+
+    if (sourceInfo) {
+      try {
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId,
+        });
+
+        await serviceAccount.checkWalletBackupStatus({
+          walletId,
+        });
+      } catch (e) {
+        return;
+      }
+    }
 
     updateSendTxStatus({ isSubmitting: true });
     // Pre-check before submit
