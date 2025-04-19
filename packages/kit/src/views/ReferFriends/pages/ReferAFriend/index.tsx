@@ -90,15 +90,16 @@ export default function ReferAFriend() {
         platformEnv.isWeb &&
         globalThis?.location.href.includes('utm_source=web_share')
       ) {
+        const parsedURL = new URL(globalThis?.location.href);
+        const code = parsedURL.searchParams.get('code');
         const url = uriUtils.buildDeepLinkUrl({
           path: EOneKeyDeepLinkPath.invite_share,
           query: {
             utm_source: 'web_share',
+            code,
           },
         });
         void openUrlUtils.linkingCanOpenURL(url);
-        const parsedURL = new URL(globalThis?.location.href);
-        const code = parsedURL.searchParams.get('code');
         defaultLogger.referral.page.enterReferralGuide(code);
       }
     });
