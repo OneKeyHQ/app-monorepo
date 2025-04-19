@@ -1,8 +1,7 @@
 import { sha512Sync } from '@onekeyhq/core/src/secret/hash';
-import {
-  EPrimeCloudSyncDataType,
-  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
-} from '@onekeyhq/shared/src/consts/primeConsts';
+import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import type {
   ICloudSyncCredential,
   ICloudSyncDBRecord,
@@ -25,7 +24,6 @@ import type {
   IDBDevice,
   ILocalDBTransaction,
 } from '../../../dbs/local/types';
-import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,

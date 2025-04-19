@@ -234,6 +234,7 @@ function AccountEditButtonView({
               accountName={name}
               indexedAccount={indexedAccount}
               account={account}
+              wallet={wallet}
               onClose={handleActionListClose}
               label={intl.formatMessage({
                 id: ETranslations.global_export_private_key,
@@ -248,6 +249,7 @@ function AccountEditButtonView({
               accountName={name}
               indexedAccount={indexedAccount}
               account={account}
+              wallet={wallet}
               onClose={handleActionListClose}
               label={intl.formatMessage({
                 id: ETranslations.global_public_key_export,
@@ -262,6 +264,7 @@ function AccountEditButtonView({
               accountName={name}
               indexedAccount={indexedAccount}
               account={account}
+              wallet={wallet}
               onClose={handleActionListClose}
               label={intl.formatMessage({
                 id: ETranslations.global_backup_recovery_phrase,

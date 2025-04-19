@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EApproveType,
   type IStakeProtocolDetails,
@@ -79,6 +80,19 @@ export const useHandleStake = () => {
       onSuccess?: () => void;
     }) => {
       if (!details || !accountId) return;
+
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+
+      if (
+        await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId,
+        })
+      ) {
+        return;
+      }
+
       if (details.approveTarget) {
         setStakeLoading?.(true);
         try {

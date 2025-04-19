@@ -51,6 +51,7 @@ export type IAllNetworkAccountsParams = {
   networksEnabledOnly?: boolean;
   excludeTestNetwork?: boolean;
   indexedAccountId?: string;
+  excludeIncompatibleWithWalletAccounts?: boolean;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -416,13 +417,36 @@ class ServiceAllNetwork extends ServiceBase {
           includingNonExistingAccount: true,
         },
       );
+
+    const allNetworkAccounts = accountsInfo.map((acc) => ({
+      accountId: params.withoutAccountId ? undefined : acc.accountId,
+      networkId: acc.networkId,
+      accountAddress: acc.apiAddress,
+      accountXpub: acc.accountXpub,
+    }));
+
+    if (params.excludeIncompatibleWithWalletAccounts) {
+      const compatibleResp =
+        await this.backgroundApi.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+          {
+            networkIds: allNetworkAccounts.map((acc) => acc.networkId),
+            walletId: accountUtils.getWalletIdFromAccountId({
+              accountId: params.accountId,
+            }),
+          },
+        );
+      const incompatibleNetworksSet = new Set(
+        compatibleResp.networkIdsIncompatible,
+      );
+      return {
+        allNetworkAccounts: allNetworkAccounts.filter(
+          (acc) => !incompatibleNetworksSet.has(acc.networkId),
+        ),
+      };
+    }
+
     return {
-      allNetworkAccounts: accountsInfo.map((acc) => ({
-        accountId: params.withoutAccountId ? undefined : acc.accountId,
-        networkId: acc.networkId,
-        accountAddress: acc.apiAddress,
-        accountXpub: acc.accountXpub,
-      })),
+      allNetworkAccounts,
     };
   }
 }

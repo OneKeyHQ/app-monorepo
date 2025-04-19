@@ -465,7 +465,7 @@ export interface IEarnFAQListItem {
 }
 export type IEarnFAQList = IEarnFAQListItem[];
 
-export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim';
+export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim' | 'approve';
 
 export type IEarnUnbondingDelegationListItem = {
   amount: string;

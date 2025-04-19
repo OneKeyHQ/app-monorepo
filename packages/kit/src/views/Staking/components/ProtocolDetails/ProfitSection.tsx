@@ -111,7 +111,7 @@ function ProfitInfo({
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
                   {`${formatApy(
-                    isFalconProvider ? apys?.weeklyNetApy : aprWithoutFee,
+                    isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
                   )}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
@@ -184,7 +184,9 @@ function ProfitInfo({
               })}
             >
               <XStack gap="$1" alignItems="center">
-                {receiptToken || rewardTokens}
+                <SizableText size="$bodyLgMedium">
+                  {receiptToken || rewardTokens}
+                </SizableText>
                 {isFalconProvider && isEventActive ? (
                   <Popover
                     placement="top"
@@ -257,7 +259,7 @@ function ProfitInfo({
               )}
             </GridItem>
           ) : null}
-          {joinRequirement ? (
+          {joinRequirement && Number(joinRequirement) > 0 ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_join_requirement,

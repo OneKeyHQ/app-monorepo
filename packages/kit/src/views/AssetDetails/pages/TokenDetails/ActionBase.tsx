@@ -48,11 +48,11 @@ export const ActionBase = ({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handlePress = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId,
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 

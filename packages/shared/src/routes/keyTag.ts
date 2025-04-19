@@ -1,3 +1,5 @@
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 export enum EModalKeyTagRoutes {
   UserOptions = 'Options',
   BackupWallet = 'BackupWallet',
@@ -11,9 +13,9 @@ export type IModalKeyTagParamList = {
   [EModalKeyTagRoutes.BackupRecoveryPhrase]: undefined;
   [EModalKeyTagRoutes.BackupWallet]: undefined;
   [EModalKeyTagRoutes.BackupDotMap]: {
+    wallet?: IDBWallet;
     encodedText: string;
     title: string;
-    onBackedUp?: () => void;
   };
   [EModalKeyTagRoutes.BackupDocs]: undefined;
 };

@@ -48,9 +48,11 @@ function AllNetworksManager() {
     disabledNetworks: {},
   });
   const [networks, setNetworks] = useState<{
+    allNetworks: IServerNetworkMatch[];
     mainNetworks: IServerNetworkMatch[];
     frequentlyUsedNetworks: IServerNetworkMatch[];
   }>({
+    allNetworks: [],
     mainNetworks: [],
     frequentlyUsedNetworks: [],
   });
@@ -97,11 +99,11 @@ function AllNetworksManager() {
       }),
     );
     setEnabledNetworks(result);
-    if (!enabledNetworksInit.current && result.length > 0) {
+    if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
       setOriginalEnabledNetworks(result);
       enabledNetworksInit.current = true;
     }
-  }, [networksState, networks.mainNetworks]);
+  }, [networksState, networks.mainNetworks, networks.allNetworks]);
 
   usePromiseResult(async () => {
     const [allNetworksState, { networks: allNetworks }] = await Promise.all([
@@ -123,6 +125,7 @@ function AllNetworksManager() {
         },
       );
     setNetworks({
+      allNetworks,
       mainNetworks: compatibleNetworks.mainnetItems,
       frequentlyUsedNetworks: compatibleNetworks.frequentlyUsedItems,
     });

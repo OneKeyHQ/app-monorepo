@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -270,7 +270,7 @@ export function ApproveBaseStake({
         networkId: approveTarget.networkId,
         provider: details.provider.name,
         symbol: details.token.info.symbol,
-        action: 'stake',
+        action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
         morphoVault: details.provider.vault,
         accountAddress: account?.address,
@@ -297,6 +297,21 @@ export function ApproveBaseStake({
     },
     350,
   );
+
+  const prevShouldApproveRef = useRef<boolean | undefined>();
+  useEffect(() => {
+    const amountValueBN = new BigNumber(amountValue);
+    // Check if shouldApprove transitioned from true to false and amount is valid
+    if (
+      prevShouldApproveRef.current === true &&
+      !shouldApprove &&
+      !amountValueBN.isNaN() &&
+      amountValueBN.gt(0)
+    ) {
+      void debouncedFetchEstimateFeeResp(amountValue);
+    }
+    prevShouldApproveRef.current = shouldApprove;
+  }, [shouldApprove, amountValue, debouncedFetchEstimateFeeResp]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {

@@ -199,7 +199,7 @@ function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
   const intl = useIntl();
   return (
     <XStack gap="$4" justifyContent="space-between" alignItems="center">
-      <Button size="small" variant="primary" onPress={onUpdateAction}>
+      <Button size="small" variant="secondary" onPress={onUpdateAction}>
         {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>
