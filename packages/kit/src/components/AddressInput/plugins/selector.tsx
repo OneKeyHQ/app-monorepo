@@ -11,8 +11,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
-import type { IAddressPluginProps } from '../types';
 import { AddressInputContext } from '../AddressInputContext';
+
+import type { IAddressPluginProps } from '../types';
 
 type ISelectorPluginProps = IAddressPluginProps & {
   networkId?: string;

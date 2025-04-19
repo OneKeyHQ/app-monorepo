@@ -35,6 +35,7 @@ import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -47,7 +48,6 @@ import {
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import TxFeeInfo from '../TxFee';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 type IProps = {
   accountId: string;
