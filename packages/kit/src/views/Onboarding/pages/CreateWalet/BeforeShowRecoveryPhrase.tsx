@@ -126,51 +126,50 @@ export function BeforeShowRecoveryPhrase() {
   return (
     <Page safeAreaEnabled>
       <Page.Header />
-      <Page.Body>
-        <YStack
-          gap="$3"
-          pb="$5"
-          pt="$2"
-          justifyContent="center"
-          alignItems="center"
-          mt="$16"
-        >
+      <Page.Body alignItems="center" justifyContent="center">
+        <YStack gap="$3" pb="$5" pt="$2" alignItems="center">
           <Icon name="SecretPhraseOutline" color="$iconSubdued" size="$12" />
-          <SizableText
-            size="$headingLg"
-            $gtMd={{ width: 288 }}
-            textAlign="center"
-            flexWrap="wrap"
-            px="$4"
-          >
+          <SizableText size="$headingLg" maxWidth="$72" textAlign="center">
             {intl.formatMessage({
               id: ETranslations.onboarding_save_phrase_securely_instruction,
             })}
           </SizableText>
         </YStack>
-        <Stack alignItems="center">
-          <Stack width={media.gtMd ? 400 : '100%'}>
-            {messages.map((item) => (
-              <ListItem gap="$3" key={item.message} alignItems="flex-start">
-                <Stack
-                  width="$5"
-                  height="$5"
-                  justifyContent="center"
-                  alignItems="center"
-                  mt="$0.5"
-                >
-                  <Icon size="$5" name={item.icon} color="$iconSubdued" />
-                </Stack>
-                <ListItem.Text
-                  flex={1}
-                  primary={item.message}
-                  primaryTextProps={{
-                    size: '$bodyLg',
-                  }}
-                />
-              </ListItem>
-            ))}
-          </Stack>
+        <Stack
+          w="100%"
+          $gtMd={{
+            maxWidth: '$80',
+          }}
+        >
+          {messages.map((item) => (
+            <ListItem
+              gap="$3"
+              py="$3"
+              key={item.message}
+              alignItems="flex-start"
+            >
+              <Stack
+                justifyContent="center"
+                alignItems="center"
+                py={3}
+                $gtMd={{
+                  py: '$px',
+                }}
+              >
+                <Icon size="$5" name={item.icon} color="$iconSubdued" />
+              </Stack>
+              <SizableText
+                flex={1}
+                lineHeight={26}
+                $gtMd={{
+                  size: '$bodyMd',
+                  lineHeight: 22,
+                }}
+              >
+                {item.message}
+              </SizableText>
+            </ListItem>
+          ))}
         </Stack>
       </Page.Body>
       <Page.Footer>
@@ -181,6 +180,7 @@ export function BeforeShowRecoveryPhrase() {
           confirmButtonProps={{
             onPress: handleShowRecoveryPhrasePress,
             testID: 'show-recovery-phrase',
+            size: media.gtMd ? 'medium' : 'large',
             $md: {
               flexGrow: 1,
             },
@@ -191,6 +191,7 @@ export function BeforeShowRecoveryPhrase() {
               : {
                   onPress: handleSkipRecoveryPhrasePress,
                   testID: 'skip-recovery-phrase',
+                  size: media.gtMd ? 'medium' : 'large',
                   $md: {
                     flexGrow: 1,
                   },
