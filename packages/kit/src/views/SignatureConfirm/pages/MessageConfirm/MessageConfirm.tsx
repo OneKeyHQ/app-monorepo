@@ -16,6 +16,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -46,7 +47,6 @@ import { SignatureConfirmProviderMirror } from '../../components/SignatureConfir
 import SwapInfo from '../../components/SwapInfo';
 
 import type { RouteProp } from '@react-navigation/core';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
