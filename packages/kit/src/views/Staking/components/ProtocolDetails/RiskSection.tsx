@@ -2,8 +2,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  Icon,
   IconButton,
-  Image,
   SizableText,
   XStack,
   YStack,
@@ -32,11 +32,16 @@ export function RiskSection({ details }: { details?: IStakeProtocolDetails }) {
         <XStack ai="center" gap="$3">
           <YStack flex={1} gap="$2">
             <XStack ai="center" gap="$2">
-              <Image
-                source={require('@onekeyhq/kit/assets/staking/earn-risk.png')}
+              <XStack
+                ai="center"
+                jc="center"
                 w="$6"
                 h="$6"
-              />
+                bg="$bgCaution"
+                borderRadius="$1"
+              >
+                <Icon name="PeopleShadowSolid" size="$4" color="$iconCaution" />
+              </XStack>
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.earn_usdf_risk_title })}
               </SizableText>
