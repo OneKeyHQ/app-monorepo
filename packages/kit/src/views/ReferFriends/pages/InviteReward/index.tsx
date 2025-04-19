@@ -237,7 +237,10 @@ function RewardLevelMoney({
         <Currency
           sourceCurrency="usd"
           formatter="balance"
-          width={(threshold.length + Math.ceil(threshold.length / 3) + 1) * 8}
+          textAlign={isRight ? 'right' : undefined}
+          width={
+            (threshold.length + 1) * 8 + Math.ceil(threshold.length / 3) * 4
+          }
           size="$bodySmMedium"
           color="$textSubdued"
         >
