@@ -56,11 +56,11 @@ export function WalletActionBuy() {
   const handleBuyToken = useCallback(async () => {
     if (isBuyDisabled) return;
 
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 

@@ -630,6 +630,7 @@ class ServiceCloudBackup extends ServiceBase {
             avatarInfo: avatar,
             walletHash: walletHashAndXfp.hash,
             walletXfp: walletHashAndXfp.xfp,
+            isWalletBackedUp: true,
           });
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,

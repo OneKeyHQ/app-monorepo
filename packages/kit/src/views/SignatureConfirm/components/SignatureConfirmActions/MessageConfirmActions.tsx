@@ -76,15 +76,14 @@ function MessageConfirmActions(props: IProps) {
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       if (sourceInfo) {
-        try {
-          const walletId = accountUtils.getWalletIdFromAccountId({
-            accountId,
-          });
-
-          await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId,
+        });
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
             walletId,
-          });
-        } catch (e) {
+          })
+        ) {
           return;
         }
       }

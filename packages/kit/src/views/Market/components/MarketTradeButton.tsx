@@ -51,13 +51,13 @@ export function MarketTradeButton({
             icon: 'MinusLargeSolid',
             label: intl.formatMessage({ id: ETranslations.global_sell }),
             onPress: async () => {
-              try {
-                await backgroundApiProxy.serviceAccount.checkWalletBackupStatus(
+              if (
+                await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
                   {
                     walletId: wallet?.id ?? '',
                   },
-                );
-              } catch (error) {
+                )
+              ) {
                 return;
               }
               defaultLogger.market.token.marketTokenAction({
@@ -129,11 +129,11 @@ export function MarketTradeButton({
   }, [coinGeckoId, onStaking]);
 
   const handleBuy = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
     defaultLogger.market.token.marketTokenAction({

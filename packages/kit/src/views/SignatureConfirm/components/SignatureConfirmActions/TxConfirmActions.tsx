@@ -123,15 +123,14 @@ function TxConfirmActions(props: IProps) {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
 
     if (sourceInfo) {
-      try {
-        const walletId = accountUtils.getWalletIdFromAccountId({
-          accountId,
-        });
-
-        await serviceAccount.checkWalletBackupStatus({
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      if (
+        await serviceAccount.checkIsWalletNotBackedUp({
           walletId,
-        });
-      } catch (e) {
+        })
+      ) {
         return;
       }
     }
