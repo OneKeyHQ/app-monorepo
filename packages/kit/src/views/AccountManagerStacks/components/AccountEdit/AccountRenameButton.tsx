@@ -15,6 +15,7 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function AccountRenameButton({
   name,
@@ -74,9 +75,19 @@ export function AccountRenameButton({
       onPress={() => {
         if (indexedAccount?.id) {
           void (async () => {
-            await serviceAccount.generateWalletsMissingMetaWithUserInteraction({
-              walletId: wallet?.id || '',
+            const isHwWallet = accountUtils.isHwWallet({
+              walletId: wallet?.id,
             });
+            const isQrWallet = accountUtils.isQrWallet({
+              walletId: wallet?.id,
+            });
+            if (!isHwWallet || isQrWallet) {
+              await serviceAccount.generateWalletsMissingMetaWithUserInteraction(
+                {
+                  walletId: wallet?.id || '',
+                },
+              );
+            }
             callShowRenameDialog();
           })();
         } else {
