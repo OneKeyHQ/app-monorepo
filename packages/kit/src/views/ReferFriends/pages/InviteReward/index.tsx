@@ -509,7 +509,7 @@ function Dashboard({
               ) : null}
               <SizableText size="$bodyMd">
                 <NumberSizeableText
-                  formatter="balance"
+                  formatter="value"
                   size="$bodyMd"
                   formatterOptions={{
                     tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
@@ -521,7 +521,7 @@ function Dashboard({
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
                     <NumberSizeableText
-                      formatter="balance"
+                      formatter="value"
                       size="$bodyMd"
                       formatterOptions={{
                         tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
