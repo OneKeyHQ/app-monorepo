@@ -57,10 +57,16 @@ export class AptosClient {
         typeof message === 'string' &&
         message.includes('account_not_found')
       ) {
-        const { message: errorMessage } = JSON.parse(message);
-        throw new InvalidAccount({
-          message: errorMessage,
-        });
+        try {
+          const { message: errorMessage } = JSON.parse(message);
+          throw new InvalidAccount({
+            message: errorMessage,
+          });
+        } catch (_) {
+          throw new InvalidAccount({
+            message,
+          });
+        }
       }
       throw error;
     }
