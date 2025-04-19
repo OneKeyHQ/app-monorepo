@@ -2,13 +2,21 @@
 
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 import { WalletBackupActions } from './WalletBackupActions';
+import { StyleSheet } from 'react-native';
 
 export function WalletBackupAlert() {
   const intl = useIntl();
@@ -20,47 +28,27 @@ export function WalletBackupAlert() {
 
   if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
     return (
-      <Stack
+      <XStack
         px="$5"
         py="$3.5"
-        borderTopWidth={1}
-        borderBottomWidth={1}
+        gap="$2"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderBottomWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
-        justifyContent="space-between"
-        alignItems="center"
-        flexDirection="row"
-        $md={{
-          flexDirection: 'column',
-          gap: '$2',
-          alignItems: 'flex-start',
-        }}
       >
-        <XStack
+        <Icon size="$5" name="ShieldExclamationSolid" color="$iconCritical" />
+        <YStack
+          flex={1}
           gap="$2"
-          alignItems="center"
-          $md={{
-            alignItems: 'flex-start',
+          $gtMd={{
+            flexDirection: 'row',
           }}
         >
-          <Stack
-            w="$5"
-            h="$5"
-            $md={{
-              mt: '$1',
-            }}
-          >
-            <Icon
-              size="$5"
-              name="ShieldExclamationSolid"
-              color="$iconCritical"
-            />
-          </Stack>
           <SizableText
             size="$bodyMd"
-            style={{
-              wordBreak: 'break-all',
+            $gtMd={{
+              flex: 1,
             }}
-            flex={1}
           >
             {
               // @ts-ignore
@@ -76,28 +64,26 @@ export function WalletBackupAlert() {
               )
             }
           </SizableText>
-        </XStack>
-        <WalletBackupActions
-          wallet={wallet}
-          actionListProps={{
-            offset: {
-              crossAxis: -10,
-            },
-          }}
-        >
-          <Button
-            size="small"
-            variant="tertiary"
-            iconAfter="ArrowRightOutline"
-            onPress={() => {}}
-            $md={{
-              ml: '$5',
+          <WalletBackupActions
+            wallet={wallet}
+            actionListProps={{
+              offset: {
+                crossAxis: -10,
+              },
             }}
           >
-            {intl.formatMessage({ id: ETranslations.backup_backup_now })}
-          </Button>
-        </WalletBackupActions>
-      </Stack>
+            <Button
+              size="small"
+              variant="tertiary"
+              iconAfter="ArrowRightOutline"
+              onPress={() => {}}
+              alignSelf="flex-start"
+            >
+              {intl.formatMessage({ id: ETranslations.backup_backup_now })}
+            </Button>
+          </WalletBackupActions>
+        </YStack>
+      </XStack>
     );
   }
 
