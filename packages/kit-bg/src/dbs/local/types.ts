@@ -221,6 +221,7 @@ export type IDBEnsureAccountNameNotDuplicateParams = {
 export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;
   ignoreEmptySingletonWalletAccounts?: boolean | undefined;
+  ignoreNonBackedUpWallets?: boolean | undefined;
   includingAccounts?: boolean | undefined;
 
   allIndexedAccounts?: IDBIndexedAccount[] | undefined;
