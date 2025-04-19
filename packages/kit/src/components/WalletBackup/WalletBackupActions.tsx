@@ -101,7 +101,7 @@ export function WalletBackupActions({
           label: intl.formatMessage({
             id: ETranslations.manual_backup,
           }),
-          icon: 'PenOutline' as IKeyOfIcons,
+          icon: 'SignatureOutline' as IKeyOfIcons,
           onPress: () => void handleBackupPhrase(),
         },
         platformEnv.isNative && {
