@@ -16,6 +16,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
@@ -54,6 +55,7 @@ export default function OneKeyId() {
           <Stack p="$5">
             <PrimeUserInfo
               onLogoutSuccess={async () => {
+                defaultLogger.referral.page.logoutOneKeyIDResult();
                 navigation.popStack();
               }}
             />

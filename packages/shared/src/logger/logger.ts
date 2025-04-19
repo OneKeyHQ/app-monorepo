@@ -11,6 +11,7 @@ import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
 import { MarketScope } from './scopes/market';
 import { NotificationScope } from './scopes/notification/notification';
+import { ReferralScope } from './scopes/referral';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -64,6 +65,8 @@ export class DefaultLogger {
   wallet = new WalletScope();
 
   ui = new UIScope();
+
+  referral = new ReferralScope();
 }
 
 const defaultLogger = new DefaultLogger();

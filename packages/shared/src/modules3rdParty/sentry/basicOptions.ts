@@ -56,6 +56,7 @@ const FILTERED_ERROR_TYPES = new Set([
   'HTTPClientError',
   EOneKeyErrorClassNames.OneKeyHardwareError,
   EOneKeyErrorClassNames.OneKeyAppError,
+  EOneKeyErrorClassNames.OneKeyServerApiError,
   EOneKeyErrorClassNames.OneKeyErrorNotImplemented,
   EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
