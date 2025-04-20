@@ -1937,7 +1937,7 @@
   "referral.intro_for_you_1": "获得高达 {RebateRate} 的硬件钱包销售佣金",
   "referral.intro_for_you_2": "解锁获得永久的 10% 业绩费返佣",
   "referral.intro_for_your_friend": "对你的朋友",
-  "referral.intro_for_your_friend_1": "{RebateAmount} 使用你的代码在结账时享受硬件钱包折扣",
+  "referral.intro_for_your_friend_1": "使用邀请码购买硬件钱包时享受 {RebateAmount}  折扣",
   "referral.intro_for_your_friend_2": "DeFi 新人奖金",
   "referral.intro_learn_more": "了解更多",
   "referral.intro_title": "邀请好友并赚取 {RewardAmount} ！",
