@@ -1,6 +1,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Button,
@@ -16,7 +17,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 import { WalletBackupActions } from './WalletBackupActions';
-import { StyleSheet } from 'react-native';
 
 export function WalletBackupAlert() {
   const intl = useIntl();
