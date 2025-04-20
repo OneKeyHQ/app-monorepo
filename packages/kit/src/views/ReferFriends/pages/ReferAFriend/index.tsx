@@ -68,7 +68,6 @@ function ReferAFriendPage({ postConfig }: { postConfig: IInvitePostConfig }) {
 
   return (
     <>
-      {' '}
       <YStack>
         <Video
           height={224}
