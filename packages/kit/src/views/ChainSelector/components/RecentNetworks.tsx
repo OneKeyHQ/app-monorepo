@@ -37,7 +37,12 @@ function RecentNetworkItem({
     }
   }, [onPressItem, network]);
   return (
-    <Button onPress={handlePress} size="small" variant="secondary">
+    <Button
+      onPress={handlePress}
+      size="small"
+      variant="secondary"
+      childrenAsText={false}
+    >
       <XStack alignItems="center" gap="$2">
         <NetworkAvatar networkId={network.id} size={18} />
         <SizableText textBreakStrategy="simple" size="$bodyMdMedium">
