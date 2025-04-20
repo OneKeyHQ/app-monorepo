@@ -40,6 +40,8 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
           clearTimeout(timerId);
           resolve();
         });
+
+        // use event emit to trigger the webview to render
         appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
       });
     }
