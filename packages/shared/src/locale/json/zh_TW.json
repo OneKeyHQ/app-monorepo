@@ -1937,7 +1937,7 @@
   "referral.intro_for_you_1": "獲得高達 {RebateRate} 硬體錢包銷售佣金",
   "referral.intro_for_you_2": "解鎖獲得永久的 10% 業績費返傭",
   "referral.intro_for_your_friend": "對你的朋友",
-  "referral.intro_for_your_friend_1": "{RebateAmount} 結帳時使用你的代碼可獲得硬體錢包折扣",
+  "referral.intro_for_your_friend_1": "使用邀請碼購買硬體錢包時，可享 {RebateAmount} 折扣",
   "referral.intro_for_your_friend_2": "DeFi 歡迎獎金",
   "referral.intro_learn_more": "瞭解更多",
   "referral.intro_title": "邀請好友並賺取 {RewardAmount} ！",
