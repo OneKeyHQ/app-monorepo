@@ -117,7 +117,7 @@ export function PeriodSection({
               })}
               description={intl.formatMessage(
                 {
-                  id: ETranslations.earn_period_before_date,
+                  id: ETranslations.earn_period_ends_on_date,
                 },
                 {
                   date: formatDate(new Date(effectiveTime)),

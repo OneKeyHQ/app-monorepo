@@ -32,7 +32,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { formatStakingDistanceToNowStrict } from '../utils';
+import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
 
 import { ProtocolRewards } from './ProtocolRewards';
 
@@ -432,7 +432,9 @@ function PortfolioInfo({
               id: ETranslations.earn_active,
             })}
             badgeType="success"
-            badgeText={`${details?.provider?.apys?.fixed ?? ''}% Fixed APY`}
+            badgeText={`${formatApy(
+              details?.provider?.apys?.fixed ?? 0,
+            )}% Fixed APY`}
           />
         ) : null}
         {formalActive && Number(formalActive) ? (
@@ -444,9 +446,9 @@ function PortfolioInfo({
               id: ETranslations.earn_active,
             })}
             badgeType="default"
-            badgeText={`${
-              details?.provider?.apys?.weeklyNetApyWithoutFee ?? ''
-            }% APY`}
+            badgeText={`${formatApy(
+              details?.provider?.apys?.weeklyNetApyWithoutFee ?? 0,
+            )}% APY`}
           />
         ) : null}
         {/* {totalRewardAmount > 0 ? (
