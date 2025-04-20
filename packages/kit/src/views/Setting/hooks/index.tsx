@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
@@ -43,6 +44,7 @@ export const inAppStateLockStyle: {
 export function useResetApp(params?: { inAppStateLock: boolean }) {
   const { inAppStateLock = false } = params || {};
   const intl = useIntl();
+  const { logout } = usePrimeAuthV2();
   return useCallback(async () => {
     await timerUtils.wait(50);
     if (inAppStateLock) {
@@ -93,6 +95,11 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
           if (platformEnv.isExtensionUiPopup) {
             resetUtils.startResetting();
           }
+          try {
+            await logout();
+          } catch (error) {
+            console.error('failed to logout', error);
+          }
           await backgroundApiProxy.serviceApp.resetApp();
         } catch (e) {
           console.error('failed to reset app with error', e);
@@ -104,5 +111,5 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
         }
       },
     });
-  }, [inAppStateLock, intl]);
+  }, [inAppStateLock, intl, logout]);
 }
