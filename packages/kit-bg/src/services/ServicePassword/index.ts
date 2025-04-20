@@ -19,6 +19,7 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
@@ -653,6 +654,7 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async waitPasswordEncryptorReady() {
     if (platformEnv.isNative) {
       await webembedApiProxy.waitRemoteApiReady();
