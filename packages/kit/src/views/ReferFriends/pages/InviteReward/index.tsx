@@ -243,11 +243,11 @@ function RewardLevelMoney({
           sourceCurrency="usd"
           formatter="balance"
           textAlign={isRight ? 'right' : undefined}
-          width={
-            (threshold.length + 1) * 8 + Math.ceil(threshold.length / 3) * 4
-          }
           size="$bodySmMedium"
           color="$textSubdued"
+          dynamicWidth={(v, c) =>
+            (v.length + c.length) * 8 + Math.ceil(v.length / 3) * 4
+          }
         >
           {threshold}
         </Currency>
