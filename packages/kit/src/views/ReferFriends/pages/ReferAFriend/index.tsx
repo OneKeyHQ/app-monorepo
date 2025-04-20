@@ -61,7 +61,9 @@ function Line({ no, description }: { no: number; description: string }) {
 
 function ReferAFriendPage({ postConfig }: { postConfig: IInvitePostConfig }) {
   const intl = useIntl();
-  const [phaseState, setPhaseState] = useState(EPhaseState.next);
+  const [phaseState, setPhaseState] = useState<EPhaseState | undefined>(
+    EPhaseState.next,
+  );
   const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
   const themeName = useThemeVariant();
@@ -252,7 +254,10 @@ function ReferAFriendPage({ postConfig }: { postConfig: IInvitePostConfig }) {
         })}
         onConfirm={async () => {
           if (phaseState === EPhaseState.next) {
-            setPhaseState(EPhaseState.join);
+            setPhaseState(undefined);
+            setTimeout(() => {
+              setPhaseState(EPhaseState.join);
+            }, 50);
             return;
           }
           await backgroundApiProxy.serviceSpotlight.firstVisitTour(
