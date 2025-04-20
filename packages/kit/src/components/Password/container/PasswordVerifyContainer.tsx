@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Spinner, Stack, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   biologyAuthNativeError,
@@ -60,6 +61,7 @@ const PasswordVerifyContainer = ({
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(true);
   const [passwordMode] = usePasswordModeAtom();
+  const { logout } = usePrimeAuthV2();
   const { title } = useBiometricAuthInfo();
   const biologyAuthAttempts = useMemo(
     () =>
@@ -340,6 +342,11 @@ const PasswordVerifyContainer = ({
               // disable setInterval on ext popup
               if (platformEnv.isExtensionUiPopup) {
                 resetUtils.startResetting();
+              }
+              try {
+                await logout();
+              } catch (error) {
+                console.error('failed to logout', error);
               }
               await backgroundApiProxy.serviceApp.resetApp();
             } catch (error) {
