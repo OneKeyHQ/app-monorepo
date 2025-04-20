@@ -142,7 +142,7 @@ function ShareCode({
             >
               <SizableText
                 size="$bodyLg"
-                flexShrink={1}
+                flexShrink={platformEnv.isNative ? undefined : 1}
                 textBreakStrategy={
                   platformEnv.isNativeAndroid ? 'simple' : undefined
                 }
