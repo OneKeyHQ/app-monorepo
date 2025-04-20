@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { Stack } from '@onekeyhq/components';
+import { SizableText, Spinner, Stack, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
@@ -399,24 +399,70 @@ const PasswordVerifyContainer = ({
       unlockPeriodPasswordArray,
     ],
   );
+
+  const [isPasswordEncryptorReady, setIsPasswordEncryptorReady] =
+    useState(false);
+  const [passwordEncryptorInitError, setPasswordEncryptorInitError] =
+    useState('');
+  useEffect(() => {
+    void (async () => {
+      try {
+        setPasswordEncryptorInitError('');
+        await timerUtils.wait(600);
+        const isReady =
+          await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
+        if (isReady) {
+          setIsPasswordEncryptorReady(isReady);
+        }
+      } catch (e) {
+        console.error('failed to waitPasswordEncryptorReady with error', e);
+        const errorMessage = (e as Error)?.message || '';
+        if (errorMessage) {
+          setPasswordEncryptorInitError(errorMessage);
+          Toast.error({
+            title: errorMessage,
+            message: 'Please restart the app and try again later',
+          });
+        }
+        throw e;
+      }
+    })();
+  }, []);
+
+  const loadingView = useMemo(() => {
+    return passwordEncryptorInitError ? (
+      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+        {passwordEncryptorInitError}
+      </SizableText>
+    ) : (
+      <Spinner />
+    );
+  }, [passwordEncryptorInitError]);
+
   return (
     <Stack onLayout={onLayout}>
-      <PasswordVerify
-        passwordMode={passwordMode}
-        alertText={alertText}
-        disableInput={isProtectionTime}
-        onPasswordChange={() => {
-          setPasswordAtom((v) => ({
-            ...v,
-            passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
-          }));
-        }}
-        status={passwordVerifyStatus}
-        onBiologyAuth={() => onBiologyAuthenticate(isExtLockAndNoCachePassword)}
-        onInputPasswordAuth={onInputPasswordAuthenticate}
-        isEnable={isBiologyAuthEnable}
-        authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
-      />
+      {isPasswordEncryptorReady ? (
+        <PasswordVerify
+          passwordMode={passwordMode}
+          alertText={alertText}
+          disableInput={isProtectionTime}
+          onPasswordChange={() => {
+            setPasswordAtom((v) => ({
+              ...v,
+              passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+            }));
+          }}
+          status={passwordVerifyStatus}
+          onBiologyAuth={() =>
+            onBiologyAuthenticate(isExtLockAndNoCachePassword)
+          }
+          onInputPasswordAuth={onInputPasswordAuthenticate}
+          isEnable={isBiologyAuthEnable}
+          authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
+        />
+      ) : (
+        loadingView
+      )}
     </Stack>
   );
 };
