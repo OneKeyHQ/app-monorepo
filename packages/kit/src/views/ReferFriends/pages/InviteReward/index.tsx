@@ -74,7 +74,6 @@ function ShareCode({
   inviteCode: string;
 }) {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
   const { copyText } = useClipboard();
 
   const handleCopy = useCallback(() => {
@@ -141,7 +140,13 @@ function ShareCode({
               ai="center"
               borderRadius="$2.5"
             >
-              <SizableText size="$bodyLg" flexShrink={1}>
+              <SizableText
+                size="$bodyLg"
+                flexShrink={platformEnv.isNative ? undefined : 1}
+                textBreakStrategy={
+                  platformEnv.isNativeAndroid ? 'simple' : undefined
+                }
+              >
                 {inviteCodeUrl}
               </SizableText>
               {platformEnv.isNative ? null : (
@@ -172,7 +177,7 @@ function ShareCode({
                   $md={{
                     flex: 1,
                   }}
-                  size={gtMd ? 'medium' : 'large'}
+                  size="medium"
                   onPress={() => {
                     copyText(sharedUrl);
                     defaultLogger.referral.page.shareReferralLink('copy');
@@ -183,7 +188,7 @@ function ShareCode({
                 <Button
                   variant="primary"
                   icon="ShareOutline"
-                  size={gtMd ? 'medium' : 'large'}
+                  size="medium"
                   $md={{
                     flex: 1,
                   }}
