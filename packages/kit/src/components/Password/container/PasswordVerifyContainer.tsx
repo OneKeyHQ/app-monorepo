@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { Stack } from '@onekeyhq/components';
+import { Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
@@ -399,24 +400,38 @@ const PasswordVerifyContainer = ({
       unlockPeriodPasswordArray,
     ],
   );
+
+  const { result: isPasswordEncryptorReady } = usePromiseResult(async () => {
+    // return backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
+    return false;
+  }, []);
+
   return (
     <Stack onLayout={onLayout}>
-      <PasswordVerify
-        passwordMode={passwordMode}
-        alertText={alertText}
-        disableInput={isProtectionTime}
-        onPasswordChange={() => {
-          setPasswordAtom((v) => ({
-            ...v,
-            passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
-          }));
-        }}
-        status={passwordVerifyStatus}
-        onBiologyAuth={() => onBiologyAuthenticate(isExtLockAndNoCachePassword)}
-        onInputPasswordAuth={onInputPasswordAuthenticate}
-        isEnable={isBiologyAuthEnable}
-        authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
-      />
+      {isPasswordEncryptorReady ? (
+        <PasswordVerify
+          passwordMode={passwordMode}
+          alertText={alertText}
+          disableInput={isProtectionTime}
+          onPasswordChange={() => {
+            setPasswordAtom((v) => ({
+              ...v,
+              passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+            }));
+          }}
+          status={passwordVerifyStatus}
+          onBiologyAuth={() =>
+            onBiologyAuthenticate(isExtLockAndNoCachePassword)
+          }
+          onInputPasswordAuth={onInputPasswordAuthenticate}
+          isEnable={isBiologyAuthEnable}
+          authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
+        />
+      ) : (
+        <Stack flex={1} justifyContent="center" alignItems="center">
+          <Spinner />
+        </Stack>
+      )}
     </Stack>
   );
 };

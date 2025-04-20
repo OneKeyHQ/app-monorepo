@@ -56,6 +56,7 @@ import {
   passwordPersistAtom,
   passwordPromptPromiseTriggerAtom,
 } from '../../states/jotai/atoms/password';
+import webembedApiProxy from '../../webembeds/instance/webembedApiProxy';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
@@ -651,11 +652,20 @@ export default class ServicePassword extends ServiceBase {
     return this.promptPasswordVerifyByWallet({ walletId, reason });
   }
 
+  @backgroundMethod()
+  async waitPasswordEncryptorReady() {
+    if (platformEnv.isNative) {
+      await webembedApiProxy.waitRemoteApiReady();
+    }
+    return true;
+  }
+
   async showPasswordPromptDialog(params: {
     idNumber: number;
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
   }) {
+    await this.waitPasswordEncryptorReady();
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: params,
