@@ -173,7 +173,13 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   @providerApiMethod()
   public async babylonConnectWallet(request: IJsBridgeMessagePayload) {
-    const chainId = 'bbn-test-5';
+    let chainId;
+
+    if (request.origin?.indexOf('btcstaking.testnet.babylonlabs.io') !== -1) {
+      chainId = 'bbn-test-5';
+    } else {
+      chainId = 'bbn-1';
+    }
     const result = await this.enable(request, [chainId]);
     if (!result) {
       throw new Error('Failed to connect Babylon wallet');
