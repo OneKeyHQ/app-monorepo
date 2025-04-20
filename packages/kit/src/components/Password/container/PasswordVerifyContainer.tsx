@@ -394,6 +394,7 @@ const PasswordVerifyContainer = ({
       enablePasswordErrorProtection,
       intl,
       isLock,
+      logout,
       onVerifyRes,
       passwordErrorAttempts,
       passwordMode,
