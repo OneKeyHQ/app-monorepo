@@ -11,7 +11,7 @@ import {
   EPrimeCloudSyncDataType,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyErrorPrimeMasterPasswordInvalid } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyErrorPrimeMasterPasswordInvalid } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -945,24 +945,24 @@ class ServicePrimeCloudSync extends ServiceBase {
   } = {}) {
     const devSettings = await devSettingsPersistAtom.get();
     if (!devSettings.settings?.showPrimeTest) {
-      throw new Error(`Prime DevSettings is not enabled: ${callerName}`);
+      throw new OneKeyError(`Prime DevSettings is not enabled: ${callerName}`);
     }
 
     const primeCloudSyncConfig = await primeCloudSyncPersistAtom.get();
     if (!primeCloudSyncConfig.isCloudSyncEnabled) {
-      throw new Error(`Cloud sync is not enabled: ${callerName}`);
+      throw new OneKeyError(`Cloud sync is not enabled: ${callerName}`);
     }
 
     const isPrimeLoggedIn =
       await this.backgroundApi.servicePrime.isPrimeLoggedIn();
     if (!isPrimeLoggedIn) {
-      throw new Error(`Prime is not logged in: ${callerName}`);
+      throw new OneKeyError(`Prime is not logged in: ${callerName}`);
     }
 
     const isPrimeSubscriptionActive =
       await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
     if (!isPrimeSubscriptionActive) {
-      throw new Error(`Prime subscription is not active: ${callerName}`);
+      throw new OneKeyError(`Prime subscription is not active: ${callerName}`);
     }
   }
 
