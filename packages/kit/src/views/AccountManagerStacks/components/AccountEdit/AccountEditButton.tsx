@@ -46,11 +46,14 @@ function AccountEditButtonView({
   // }
 
   const showRemoveButton = useMemo(() => {
+    if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      return false;
+    }
     if (indexedAccount && accountsCount <= 1) {
       return false;
     }
     return true;
-  }, [accountsCount, indexedAccount]);
+  }, [accountsCount, indexedAccount, wallet?.id]);
 
   const isImportedAccount = useMemo(
     () =>
