@@ -34,7 +34,6 @@ import {
 } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
@@ -408,21 +407,23 @@ const PasswordVerifyContainer = ({
   useEffect(() => {
     void (async () => {
       try {
+        setPasswordEncryptorInitError('');
         await timerUtils.wait(600);
         const isReady =
           await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
         if (isReady) {
           setIsPasswordEncryptorReady(isReady);
         }
-        setPasswordEncryptorInitError('');
       } catch (e) {
         console.error('failed to waitPasswordEncryptorReady with error', e);
         const errorMessage = (e as Error)?.message || '';
-        setPasswordEncryptorInitError(errorMessage);
-        Toast.error({
-          title: errorMessage,
-          message: 'Please restart the app and try again later',
-        });
+        if (errorMessage) {
+          setPasswordEncryptorInitError(errorMessage);
+          Toast.error({
+            title: errorMessage,
+            message: 'Please restart the app and try again later',
+          });
+        }
         throw e;
       }
     })();
