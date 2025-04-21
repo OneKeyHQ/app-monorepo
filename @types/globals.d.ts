@@ -27,6 +27,7 @@ type IOneKeyPerfTrace = {
 
 declare global {
   var $$appGlobals: IAppGlobals;
+  var $onekeySystemDiskIsFull: boolean | undefined;
 
   // eslint-disable-next-line
   // var onekey: WindowOneKey;

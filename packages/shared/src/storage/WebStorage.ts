@@ -2,6 +2,7 @@
 import localforage from 'localforage';
 
 import appGlobals from '../appGlobals';
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 import type {
@@ -23,6 +24,14 @@ class WebStorage implements AsyncStorageStatic {
   isMigrated = false;
 
   localforage = localforage;
+
+  checkDiskFull() {
+    if (globalThis.$onekeySystemDiskIsFull) {
+      appEventBus.emit(EAppEventBusNames.ShowSystemDiskFullWarning, undefined);
+      // TODO use custom Error
+      throw new Error('System Disk is full');
+    }
+  }
 
   isIndexedDB() {
     return localforage.driver() === localforage.INDEXEDDB;
@@ -52,6 +61,8 @@ class WebStorage implements AsyncStorageStatic {
     value: string,
     callback: Callback | undefined,
   ): Promise<void> {
+    this.checkDiskFull();
+
     await localforage.setItem(key, value, callback);
     return Promise.resolve(undefined);
   }
@@ -72,6 +83,8 @@ class WebStorage implements AsyncStorageStatic {
     value: string,
     callback: Callback | undefined,
   ): Promise<void> {
+    this.checkDiskFull();
+
     // localforage.merge
 
     return this.setItem(key, value, callback);
@@ -95,6 +108,8 @@ class WebStorage implements AsyncStorageStatic {
     keyValuePairs: [string, string][],
     callback: MultiCallback | undefined,
   ): Promise<void> {
+    this.checkDiskFull();
+
     const list = keyValuePairs.map((pair) =>
       this.mergeItem(pair[0], pair[1], undefined),
     );
@@ -115,6 +130,8 @@ class WebStorage implements AsyncStorageStatic {
     keyValuePairs: [string, string][],
     callback: MultiCallback | undefined,
   ): Promise<void> {
+    this.checkDiskFull();
+
     const list = keyValuePairs.map((pair) =>
       this.setItem(pair[0], pair[1], undefined),
     );

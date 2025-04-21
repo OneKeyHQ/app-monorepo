@@ -1,6 +1,10 @@
 import { isNil, isNumber } from 'lodash';
 
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -70,24 +74,48 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   _getObjectStore<T extends ELocalDBStoreNames>(
     tx: IDBPTransaction<IIndexedDBSchemaMap, T[], 'readwrite'>,
     storeName: T,
+    mode: IDBTransactionMode,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
-    const store = tx.objectStore(storeName);
-    return store;
+    const isWriteMode = mode !== 'readonly';
+    const diskFullErrorMessage = `Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing.`;
+    try {
+      if (isWriteMode && globalThis.$onekeySystemDiskIsFull) {
+        appEventBus.emit(
+          EAppEventBusNames.ShowSystemDiskFullWarning,
+          undefined,
+        );
+        // TODO use custom Error
+        throw new Error(diskFullErrorMessage);
+      }
+      const store = tx.objectStore(storeName);
+      return store;
+    } catch (error) {
+      const err = error as Error | undefined;
+      if (isWriteMode && err?.message === diskFullErrorMessage) {
+        globalThis.$onekeySystemDiskIsFull = true;
+        appEventBus.emit(
+          EAppEventBusNames.ShowSystemDiskFullWarning,
+          undefined,
+        );
+      }
+      throw error;
+    }
   }
 
   _getOrCreateObjectStore<T extends ELocalDBStoreNames>(
     tx: IDBPTransaction<IIndexedDBSchemaMap, T[], 'readwrite'>,
     storeName: T,
+    mode: IDBTransactionMode,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
     try {
-      const store = this._getObjectStore(tx, storeName);
+      const store = this._getObjectStore(tx, storeName, mode);
       // const dd = await store.get('');
       return store;
     } catch {
       this.indexed.createObjectStore(storeName, {
         keyPath: 'id',
       });
-      const store = this._getObjectStore(tx, storeName);
+      const store = this._getObjectStore(tx, storeName, mode);
       return store;
     }
   }
@@ -114,61 +142,73 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const contextStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.Context,
+        mode,
       );
 
       const walletStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.Wallet,
+        mode,
       );
 
       const accountStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.Account,
+        mode,
       );
 
       const accountDerivationStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.AccountDerivation,
+        mode,
       );
 
       const indexedAccountStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.IndexedAccount,
+        mode,
       );
 
       const credentialStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.Credential,
+        mode,
       );
 
       const deviceStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.Device,
+        mode,
       );
 
       const addressStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.Address,
+        mode,
       );
 
       const signMessageStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.SignedMessage,
+        mode,
       );
 
       const signedTransactionStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.SignedTransaction,
+        mode,
       );
 
       const connectedSiteStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.ConnectedSite,
+        mode,
       );
 
       const cloudSyncItemStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.CloudSyncItem,
+        mode,
       );
 
       const tx: ILocalDBTransaction = {
