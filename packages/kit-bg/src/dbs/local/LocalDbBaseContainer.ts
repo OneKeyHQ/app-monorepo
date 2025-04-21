@@ -1,4 +1,4 @@
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isString } from 'lodash';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -48,6 +48,9 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     // throw new Error(
     //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     // );
+    if (!isString(bucketName)) {
+      debugger;
+    }
     const db = await this.readyDb;
     return db.withTransaction(bucketName, task);
   }

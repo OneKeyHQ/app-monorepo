@@ -12,6 +12,7 @@ import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
+  ENABLE_INDEXEDDB_BUCKET,
   INDEXED_DB_NAME,
   INDEXED_DB_VERSION,
   storeNameSupportCreatedAt,
@@ -138,22 +139,28 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     const bucketNames = Object.values(EIndexedDBBucketNames);
 
     for (const bucketName of bucketNames) {
-      const bucketOptions: IStorageBucketOptions = {
-        durability: 'strict', // Or `'relaxed'`.
-        persisted: true, // Or `false`.
-      };
-      const bucket = await (
-        globalThis.navigator as INavigator
-      ).storageBuckets?.open(bucketName, bucketOptions);
-      if (!bucket?.indexedDB) {
-        throw new Error(`Failed to open bucket indexedDB: ${bucketName}`);
+      let idb = globalThis.indexedDB;
+
+      if (ENABLE_INDEXEDDB_BUCKET) {
+        const bucketOptions: IStorageBucketOptions = {
+          durability: 'strict', // Or `'relaxed'`.
+          persisted: true, // Or `false`.
+        };
+        const bucket = await (
+          globalThis.navigator as INavigator
+        ).storageBuckets?.open(bucketName, bucketOptions);
+        if (!bucket?.indexedDB) {
+          throw new Error(`Failed to open bucket indexedDB: ${bucketName}`);
+        }
+        idb = bucket.indexedDB;
       }
       const indexed = await openDB<IIndexedDBSchemaMap>(
         `${INDEXED_DB_NAME}--${bucketName}`,
         INDEXED_DB_VERSION,
         {
+          // TODO patch idb
           // @ts-expect-error
-          indexedDBInstance: bucket.indexedDB,
+          indexedDBInstance: idb,
           upgrade(db0, oldVersion, newVersion, transaction) {
             // add object stores here
             return self._handleDbUpgrade({
