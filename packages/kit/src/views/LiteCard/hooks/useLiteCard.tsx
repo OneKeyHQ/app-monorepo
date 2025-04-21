@@ -114,9 +114,9 @@ export default function useLiteCard() {
   );
   const importWallet = useCallback(async () => {
     defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'liteCard',
+        importType: 'lite',
       },
       isSoftwareWalletOnlyUser,
     });
@@ -154,9 +154,9 @@ export default function useLiteCard() {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: true });
       defaultLogger.account.wallet.walletAdded({
         status: 'success',
-        addMethod: 'Import',
+        addMethod: 'ImportWallet',
         details: {
-          importSource: 'liteCard',
+          importType: 'lite',
         },
         isSoftwareWalletOnlyUser,
       });
@@ -164,9 +164,9 @@ export default function useLiteCard() {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: false });
       defaultLogger.account.wallet.walletAdded({
         status: 'failure',
-        addMethod: 'Import',
+        addMethod: 'ImportWallet',
         details: {
-          importSource: 'liteCard',
+          importType: 'lite',
         },
         isSoftwareWalletOnlyUser,
       });

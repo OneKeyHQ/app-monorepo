@@ -4,31 +4,32 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 // Specific parameter details for each add method
 interface ICreateWalletPayload {
   isBiometricSet: boolean;
-  isBackupSkipped?: boolean;
+  unbackedUp?: boolean;
 }
 
 interface IImportWalletPayload {
-  importSource:
-    | 'mnemonic'
+  importType:
+    | 'recoveryPhrase'
     | 'privateKey'
-    | 'watchOnly'
+    | 'address'
     | 'keyTag'
     | 'cloud'
-    | 'liteCard';
+    | 'lite';
 }
 
+type IHardwareTransportType = 'USB' | 'Bluetooth' | 'WebUSB' | 'QRCode';
 interface IConnectHardwareWalletPayload {
-  connectionType?: 'USB' | 'Bluetooth' | 'WebUSB' | 'QRCode';
+  communication?: IHardwareTransportType;
   deviceType: IDeviceType | undefined;
   firmwareVersions?: {
     bleVersion?: string;
     firmwareVersion?: string;
     bootloaderVersion?: string;
   };
-  hardwareWalletType: 'Hidden' | 'Standard' | 'QRCode';
+  hardwareWalletType: 'Hidden' | 'Standard';
 }
 
-interface IConnectExternalWalletPayload {
+export interface IConnectExternalWalletPayload {
   protocol: 'WalletConnect' | 'EIP6963' | 'EVMInjected' | 'unknown';
   network: string;
   walletName?: string;
@@ -37,30 +38,32 @@ interface IConnectExternalWalletPayload {
 // Discriminated union type for the wallet events
 export type IWalletAddMethod =
   | 'CreateWallet'
-  | 'Import'
-  | 'ConnectHardware'
-  | 'Connect3rdParty';
+  | 'ImportWallet'
+  | 'ConnectHWWallet'
+  | 'Connect3rdPartyWallet';
 
 export type IWalletStartedParams =
   | {
       addMethod: Extract<IWalletAddMethod, 'CreateWallet'>;
       isSoftwareWalletOnlyUser: boolean;
+      details: ICreateWalletPayload;
     }
   | {
-      addMethod: Extract<IWalletAddMethod, 'Import'>;
+      addMethod: Extract<IWalletAddMethod, 'ImportWallet'>;
       details: IImportWalletPayload;
       isSoftwareWalletOnlyUser: boolean;
     }
   | {
-      addMethod: Extract<IWalletAddMethod, 'ConnectHardware'>;
+      addMethod: Extract<IWalletAddMethod, 'ConnectHWWallet'>;
       details: {
-        hardwareWalletType: 'Hidden' | 'Standard' | 'QRCode';
+        communication?: IHardwareTransportType;
+        hardwareWalletType: 'Hidden' | 'Standard';
       };
       isSoftwareWalletOnlyUser: boolean;
     }
   | {
-      addMethod: Extract<IWalletAddMethod, 'Connect3rdParty'>;
-      details: undefined;
+      addMethod: Extract<IWalletAddMethod, 'Connect3rdPartyWallet'>;
+      details: IConnectExternalWalletPayload;
       isSoftwareWalletOnlyUser: boolean;
     };
 
@@ -72,17 +75,17 @@ export type IWalletAddedEventParams = IBaseEventPayload &
         isSoftwareWalletOnlyUser: boolean;
       }
     | {
-        addMethod: Extract<IWalletAddMethod, 'Import'>;
+        addMethod: Extract<IWalletAddMethod, 'ImportWallet'>;
         details: IImportWalletPayload;
         isSoftwareWalletOnlyUser: boolean;
       }
     | {
-        addMethod: Extract<IWalletAddMethod, 'ConnectHardware'>;
+        addMethod: Extract<IWalletAddMethod, 'ConnectHWWallet'>;
         details: IConnectHardwareWalletPayload;
         isSoftwareWalletOnlyUser: boolean;
       }
     | {
-        addMethod: Extract<IWalletAddMethod, 'Connect3rdParty'>;
+        addMethod: Extract<IWalletAddMethod, 'Connect3rdPartyWallet'>;
         details: IConnectExternalWalletPayload;
         isSoftwareWalletOnlyUser: boolean;
       }

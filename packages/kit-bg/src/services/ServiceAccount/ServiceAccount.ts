@@ -2353,7 +2353,7 @@ class ServiceAccount extends ServiceBase {
 
         defaultLogger.account.wallet.walletAdded({
           status: 'success',
-          addMethod: 'ConnectHardware',
+          addMethod: 'ConnectHWWallet',
           details: {
             deviceType: dbDevice.featuresInfo
               ? await deviceUtils.getDeviceTypeFromFeatures({

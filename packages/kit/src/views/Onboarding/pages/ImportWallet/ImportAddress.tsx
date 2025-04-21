@@ -343,9 +343,9 @@ function ImportAddress() {
 
       defaultLogger.account.wallet.walletAdded({
         status: 'success',
-        addMethod: 'Import',
+        addMethod: 'ImportWallet',
         details: {
-          importSource: 'watchOnly',
+          importType: 'address',
         },
         isSoftwareWalletOnlyUser,
       });
