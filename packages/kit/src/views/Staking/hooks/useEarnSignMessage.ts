@@ -1,9 +1,27 @@
 import { useCallback } from 'react';
 
+import * as ethUtils from 'ethereumjs-util';
+
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
+function autoFixPersonalSignMessage({ message }: { message: string }) {
+  let messageFixed = message;
+  try {
+    ethUtils.toBuffer(message);
+  } catch (error) {
+    const tmpMsg = `0x${message}`;
+    try {
+      ethUtils.toBuffer(tmpMsg);
+      messageFixed = tmpMsg;
+    } catch (err) {
+      // message not including valid hex character
+    }
+  }
+  return messageFixed;
+}
 
 export function useFalconUSDfRegister() {
   return useCallback(
@@ -32,9 +50,14 @@ export function useFalconUSDfRegister() {
           accountAddress: account.address,
         });
 
-      const msg = `0x${Buffer.from(unsignedMessage.message, 'utf8').toString(
-        'hex',
-      )}`;
+      // Ensure newline characters are escaped for signing,
+      // but avoid extra quotes from JSON.stringify.
+      const escapedMessage = unsignedMessage.message.replace(/\n/g, '\\n');
+      let message = autoFixPersonalSignMessage({
+        message: escapedMessage,
+      });
+      message = `0x${Buffer.from(message, 'utf8').toString('hex')}`;
+
       const signHash =
         (await backgroundApiProxy.serviceDApp.openSignMessageModal({
           accountId,
@@ -42,8 +65,8 @@ export function useFalconUSDfRegister() {
           request: { origin: 'https://app.falcon.finance/', scope: 'ethereum' },
           unsignedMessage: {
             type: EMessageTypesEth.PERSONAL_SIGN,
-            message: msg,
-            payload: [msg, account.address],
+            message,
+            payload: [message, account.address],
           },
           walletInternalSign: true,
         })) as string;
@@ -55,7 +78,7 @@ export function useFalconUSDfRegister() {
           symbol: details.token.info.symbol,
           accountAddress: account.address,
           signature: signHash,
-          expiredAt: unsignedMessage.expiredAt,
+          message: unsignedMessage.message,
         });
 
       return verifyResult;
