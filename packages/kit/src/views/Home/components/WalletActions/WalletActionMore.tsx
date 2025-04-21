@@ -343,6 +343,7 @@ export function WalletActionMore() {
           icon: 'MinusLargeOutline',
           disabled: Boolean(isSellDisabled || !account?.id || !network?.id),
           onPress: handleSellToken,
+          trackID: 'wallet-sell',
         },
       ],
     });

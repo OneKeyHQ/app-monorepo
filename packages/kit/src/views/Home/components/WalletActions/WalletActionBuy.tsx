@@ -130,5 +130,11 @@ export function WalletActionBuy() {
     isSoftwareWalletOnlyUser,
   ]);
 
-  return <RawActions.Buy onPress={handleBuyToken} disabled={isBuyDisabled} />;
+  return (
+    <RawActions.Buy
+      onPress={handleBuyToken}
+      disabled={isBuyDisabled}
+      trackID="wallet-buy"
+    />
+  );
 }

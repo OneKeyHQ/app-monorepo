@@ -210,6 +210,7 @@ function WalletActionSend() {
       onPress={handleOnSend}
       disabled={vaultSettings?.disabledSendAction}
       // label={`${account?.id || ''}`}
+      trackID="wallet-send"
     />
   );
 }
@@ -252,6 +253,7 @@ function WalletActionSwap() {
         vaultSettings?.disabledSwapAction ||
         accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' })
       }
+      trackID="wallet-trade"
     />
   );
 }

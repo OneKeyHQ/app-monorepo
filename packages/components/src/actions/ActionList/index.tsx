@@ -30,6 +30,7 @@ import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
+import { useSharedPress } from '../../primitives/Button/useEvent';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -40,26 +41,31 @@ export interface IActionListItemProps {
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   disabled?: boolean;
   testID?: string;
+  trackID?: string;
   shortcutKeys?: string[] | EShortcutEvents;
 }
 
 // Duration to prevent rapid re-triggering of the action list
 const PROCESSING_RESET_DELAY = 350;
 
-export function ActionListItem({
-  icon,
-  iconProps,
-  label,
-  description,
-  onPress,
-  destructive,
-  disabled,
-  onClose,
-  testID,
-  shortcutKeys,
-}: IActionListItemProps & {
-  onClose: () => void;
-}) {
+export function ActionListItem(
+  props: IActionListItemProps & {
+    onClose: () => void;
+  },
+) {
+  const {
+    icon,
+    iconProps,
+    label,
+    description,
+    onPress,
+    destructive,
+    disabled,
+    onClose,
+    testID,
+    shortcutKeys,
+  } = props;
+
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
       event.stopPropagation();
@@ -80,6 +86,12 @@ export function ActionListItem({
     }
     return undefined;
   }, [shortcutKeys]);
+
+  const { onPress: sharedOnPress } = useSharedPress({
+    ...props,
+    onPress: handlePress,
+  });
+
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -106,7 +118,7 @@ export function ActionListItem({
         //   outlineWidth: 2,
         // },
       })}
-      onPress={handlePress}
+      onPress={sharedOnPress}
       testID={testID}
     >
       <XStack jc="space-between" flex={1}>

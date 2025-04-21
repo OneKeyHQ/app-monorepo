@@ -110,6 +110,7 @@ function MoreActionButtonCmp() {
                 await extUtils.openSidePanel(routeInfo);
                 window.close();
               },
+              trackID: 'wallet-side-panel-mode',
             }
           : {
               label: intl.formatMessage({
@@ -133,6 +134,7 @@ function MoreActionButtonCmp() {
               routeInfo,
             );
           },
+          trackID: 'wallet-expand-view',
         },
       ];
     }
@@ -159,6 +161,7 @@ function MoreActionButtonCmp() {
               icon: 'LockOutline' as const,
               onPress: onLock,
               testID: 'lock-now',
+              trackID: 'wallet-lock-now',
             },
             {
               label: intl.formatMessage({
@@ -167,6 +170,7 @@ function MoreActionButtonCmp() {
               icon: 'ScanOutline' as const,
               onPress: handleScan,
               testID: 'scan-qr-code',
+              trackID: 'wallet-scan',
             },
             ...popupMenu,
           ].filter(Boolean),
@@ -215,6 +219,7 @@ function MoreActionButtonCmp() {
                   icon: 'ContactsOutline',
                   onPress: handleAddressBook,
                   testID: 'address-book',
+                  trackID: 'wallet-address-book',
                 },
               ]
             : [
@@ -225,6 +230,7 @@ function MoreActionButtonCmp() {
                   icon: 'ContactsOutline',
                   onPress: handleAddressBook,
                   testID: 'address-book',
+                  trackID: 'wallet-address-book',
                 },
               ],
         },
@@ -237,6 +243,7 @@ function MoreActionButtonCmp() {
                   }),
                   icon: 'SettingsOutline',
                   onPress: handleSettings,
+                  trackID: 'wallet-settings',
                 },
               ],
             }
