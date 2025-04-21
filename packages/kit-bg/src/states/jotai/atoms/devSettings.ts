@@ -81,6 +81,7 @@ export type IFirmwareUpdateDevSettings = {
   forceUpdateBootloader: boolean;
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
+  useV2Flow: boolean;
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -102,6 +103,7 @@ export const {
     forceUpdateBootloader: false,
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
+    useV2Flow: false,
   },
 });
 

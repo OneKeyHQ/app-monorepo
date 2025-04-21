@@ -109,10 +109,14 @@ export function FirmwareUpdateCheckList({
         onConfirm={
           result
             ? async (dialog) => {
+                // const useV2FirmwareUpdateFlow =
+                //   await deviceUtils.shouldUseV2FirmwareUpdateFlow({
+                //     features: result?.features,
+                //   });
                 const useV2FirmwareUpdateFlow =
-                  await deviceUtils.shouldUseV2FirmwareUpdateFlow({
-                    features: result?.features,
-                  });
+                  await backgroundApiProxy.serviceDevSetting.getFirmwareUpdateDevSettings(
+                    'useV2Flow',
+                  );
                 try {
                   await dialog.close();
                   setStepInfo({

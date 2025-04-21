@@ -127,6 +127,9 @@ export function FirmwareUpdateDevSettings() {
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem name="useV2Flow" title="Use V2 Flow">
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
       <SizableText>{JSON.stringify(devSetting, null, 2)}</SizableText>
       <FirmwareUpdateGalleryDemo />
     </YStack>
