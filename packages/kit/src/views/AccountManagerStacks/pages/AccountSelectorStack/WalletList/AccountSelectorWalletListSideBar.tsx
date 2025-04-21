@@ -104,7 +104,13 @@ export function AccountSelectorWalletListSideBar({
       if (hideNonBackedUpWallet && !focusWalletChanged.current) {
         const backedUpWallets = r.wallets;
 
-        if (!backedUpWallets.find((w) => w.id === selectedAccount.walletId)) {
+        if (
+          !backedUpWallets.find(
+            (w) =>
+              w.id === selectedAccount.walletId ||
+              w.id === selectedAccount.focusedWallet,
+          )
+        ) {
           void actions.current.updateSelectedAccountFocusedWallet({
             num,
             focusedWallet: backedUpWallets[0]?.id,

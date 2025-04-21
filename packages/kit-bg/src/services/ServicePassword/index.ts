@@ -19,6 +19,7 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
@@ -56,6 +57,7 @@ import {
   passwordPersistAtom,
   passwordPromptPromiseTriggerAtom,
 } from '../../states/jotai/atoms/password';
+import webembedApiProxy from '../../webembeds/instance/webembedApiProxy';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
@@ -651,11 +653,21 @@ export default class ServicePassword extends ServiceBase {
     return this.promptPasswordVerifyByWallet({ walletId, reason });
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async waitPasswordEncryptorReady() {
+    if (platformEnv.isNative) {
+      await webembedApiProxy.waitRemoteApiReady();
+    }
+    return true;
+  }
+
   async showPasswordPromptDialog(params: {
     idNumber: number;
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
   }) {
+    await this.waitPasswordEncryptorReady();
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: params,

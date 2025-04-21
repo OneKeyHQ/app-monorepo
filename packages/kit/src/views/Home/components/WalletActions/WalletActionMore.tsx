@@ -232,6 +232,14 @@ export function WalletActionMore() {
   }, [network?.isCustomNetwork, network?.explorerURL]).result;
 
   const handleViewInExplorer = useCallback(async () => {
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+
     defaultLogger.wallet.walletActions.actionViewInExplorer({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
