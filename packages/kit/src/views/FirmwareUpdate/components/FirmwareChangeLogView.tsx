@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
   Accordion,
   Icon,
-  IStackProps,
   Markdown,
   SizableText,
   Stack,

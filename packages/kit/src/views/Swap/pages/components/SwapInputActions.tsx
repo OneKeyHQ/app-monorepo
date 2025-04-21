@@ -72,6 +72,7 @@ const SwapInputActions = ({
               walletId={accountInfo?.wallet?.id ?? ''}
               walletType={accountInfo?.wallet?.type ?? ''}
               tokenAddress={fromToken?.contractAddress ?? ''}
+              tokenSymbol={fromToken?.symbol ?? ''}
               source="swap"
             />
           </XStack>

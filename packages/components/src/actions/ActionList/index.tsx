@@ -24,13 +24,13 @@ import {
   XStack,
   YStack,
 } from '../../primitives';
+import { useSharedPress } from '../../primitives/Button/useEvent';
 import { Popover } from '../Popover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
-import { useSharedPress } from '../../primitives/Button/useEvent';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
