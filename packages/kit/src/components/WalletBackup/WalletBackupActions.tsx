@@ -109,7 +109,7 @@ export function WalletBackupActions({
             id: ETranslations.global_onekey_lite,
           }),
           icon: 'OnekeyLiteOutline' as IKeyOfIcons,
-          onPress: handleBackupLiteCard,
+          onPress: () => void handleBackupLiteCard(),
         },
         {
           label: intl.formatMessage({
