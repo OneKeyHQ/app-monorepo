@@ -27,7 +27,7 @@ const loadIcon = (name: IKeyOfIcons) =>
   new Promise<typeof Svg>((resolve) => {
     void ICON_CONFIG[name]?.().then((module: any) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (module && module.default) {
+      if (module?.default) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         ComponentMaps[name] = module.default as typeof Svg;
         resolve(ComponentMaps[name]);
