@@ -24,6 +24,8 @@ export function DiskFullWarningDialogContainer() {
         dialogRef.current = Dialog.show({
           title: 'System Disk Full',
           description: 'The system disk is full. Please clean up some space.',
+          dismissOnOverlayPress: false,
+          disableDrag: true,
         });
       },
       1000,

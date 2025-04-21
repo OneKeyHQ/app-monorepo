@@ -74,32 +74,10 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   _getObjectStore<T extends ELocalDBStoreNames>(
     tx: IDBPTransaction<IIndexedDBSchemaMap, T[], 'readwrite'>,
     storeName: T,
-    mode: IDBTransactionMode,
+    _: IDBTransactionMode,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
-    const isWriteMode = mode !== 'readonly';
-    const diskFullErrorMessage = `Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing.`;
-    try {
-      if (isWriteMode && globalThis.$onekeySystemDiskIsFull) {
-        appEventBus.emit(
-          EAppEventBusNames.ShowSystemDiskFullWarning,
-          undefined,
-        );
-        // TODO use custom Error
-        throw new Error(diskFullErrorMessage);
-      }
-      const store = tx.objectStore(storeName);
-      return store;
-    } catch (error) {
-      const err = error as Error | undefined;
-      if (isWriteMode && err?.message === diskFullErrorMessage) {
-        globalThis.$onekeySystemDiskIsFull = true;
-        appEventBus.emit(
-          EAppEventBusNames.ShowSystemDiskFullWarning,
-          undefined,
-        );
-      }
-      throw error;
-    }
+    const store = tx.objectStore(storeName);
+    return store;
   }
 
   _getOrCreateObjectStore<T extends ELocalDBStoreNames>(
@@ -129,10 +107,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     alwaysCreate: boolean;
     readOnly?: boolean;
   }) {
+    // eslint-disable-next-line spellcheck/spell-checker
+    // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
+    const mode: 'readwrite' = readOnly ? ('readonly' as any) : 'readwrite';
+
     if (!this.txPair || alwaysCreate) {
-      // eslint-disable-next-line spellcheck/spell-checker
-      // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
-      const mode: 'readwrite' = readOnly ? ('readonly' as any) : 'readwrite';
       const dbTx = db.transaction(
         ALL_LOCAL_DB_STORE_NAMES,
         // 'readwrite',

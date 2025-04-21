@@ -52,8 +52,16 @@ class WebStorage implements AsyncStorageStatic {
     key: string,
     callback: CallbackWithResult<string> | undefined,
   ): Promise<string | null> {
-    const result = (await localforage.getItem(key, callback)) ?? null;
-    return result;
+    try {
+      const result = (await localforage.getItem(key, callback)) ?? null;
+      return result;
+    } catch (error) {
+      console.error(
+        'WebStorageError getItem: ',
+        (error as Error | undefined)?.message,
+      );
+      throw error;
+    }
   }
 
   async setItem(
@@ -63,8 +71,21 @@ class WebStorage implements AsyncStorageStatic {
   ): Promise<void> {
     this.checkDiskFull();
 
-    await localforage.setItem(key, value, callback);
-    return Promise.resolve(undefined);
+    // TODO try catch
+    try {
+      await localforage.setItem(key, value, callback);
+      return await Promise.resolve(undefined);
+    } catch (error) {
+      // The transaction was aborted, so the request cannot be fulfilled.
+      // Internal error opening backing store for indexedDB.open.
+      // Encountered disk full while committing transaction.
+      // QuotaExceededError: Encountered full disk while opening backing store for indexedDB.open.
+      console.error(
+        'WebStorageError setItem: ',
+        (error as Error | undefined)?.message,
+      );
+      throw error;
+    }
   }
 
   async removeItem(key: string, callback: Callback | undefined): Promise<void> {

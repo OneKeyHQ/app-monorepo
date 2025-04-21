@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-global-this */
 import { getApplicationModule } from '@walletconnect/react-native-compat/module';
 
 // global.Application used by @walletconnect/core
