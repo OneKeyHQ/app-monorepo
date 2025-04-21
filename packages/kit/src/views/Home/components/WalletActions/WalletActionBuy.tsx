@@ -99,6 +99,11 @@ export function WalletActionBuy() {
             }: {
               account: INetworkAccount;
             }) => {
+              defaultLogger.wallet.walletActions.buyStarted({
+                tokenAddress: nativeToken.address,
+                tokenSymbol: nativeToken.symbol,
+                networkID: network?.id ?? '',
+              });
               const { url } =
                 await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
                   networkId: network?.id ?? '',

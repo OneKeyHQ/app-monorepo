@@ -313,6 +313,7 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
                 source="tokenDetails"
                 trackID="wallet-token-details-buy"
               />
@@ -335,6 +336,7 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
                 source="tokenDetails"
                 trackID="wallet-token-details-sell"
               />
