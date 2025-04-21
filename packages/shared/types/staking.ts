@@ -550,7 +550,7 @@ export interface IEarnRegisterSignMessageResponse {
 export interface IVerifyRegisterSignMessageParams
   extends IBuildRegisterSignMessageParams {
   signature: string;
-  expiredAt: string;
+  message: string;
 }
 
 export type IApproveConfirmFnParams = {

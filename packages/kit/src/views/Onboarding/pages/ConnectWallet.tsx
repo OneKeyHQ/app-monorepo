@@ -33,6 +33,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IConnectExternalWalletPayload } from '@onekeyhq/shared/types/analytics/onboarding';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -283,12 +284,51 @@ function WalletItem({
     };
   }, [hideLoading, loading]);
 
+  const getExternalWalletConnectionDetails = (params: {
+    externalConnectionInfo: IExternalConnectionInfo;
+  }): Pick<
+    IConnectExternalWalletPayload,
+    'protocol' | 'walletName' | 'network'
+  > => {
+    const { externalConnectionInfo } = params;
+    const protocol: IConnectExternalWalletPayload['protocol'] = (() => {
+      if (externalConnectionInfo?.walletConnect) return 'WalletConnect';
+      if (externalConnectionInfo?.evmEIP6963) return 'EIP6963';
+      if (externalConnectionInfo?.evmInjected) return 'EVMInjected';
+      return 'unknown';
+    })();
+
+    const walletName = (() => {
+      if (externalConnectionInfo?.walletConnect?.peerMeta?.name) {
+        return externalConnectionInfo.walletConnect.peerMeta.name;
+      }
+      if (externalConnectionInfo?.evmEIP6963?.info?.name) {
+        return externalConnectionInfo.evmEIP6963.info.name;
+      }
+      if (externalConnectionInfo?.evmInjected) {
+        return 'Injected';
+      }
+      return 'unknown';
+    })();
+
+    const network = 'evm';
+
+    return { protocol, walletName: walletName || 'unknown', network };
+  };
+
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const connectToWallet = useCallback(async () => {
     try {
+      const beforeConnectInfo = getExternalWalletConnectionDetails({
+        externalConnectionInfo: connectionInfo,
+      });
       defaultLogger.account.wallet.addWalletStarted({
-        addMethod: 'Connect3rdParty',
-        details: undefined,
+        addMethod: 'Connect3rdPartyWallet',
+        details: {
+          protocol: beforeConnectInfo.protocol,
+          network: beforeConnectInfo.network,
+          walletName: beforeConnectInfo.walletName,
+        },
         isSoftwareWalletOnlyUser,
       });
       showLoading();
@@ -321,35 +361,26 @@ function WalletItem({
       navigation.popStack();
       await dialogRef.current?.close();
 
-      // Currently, there are only walletconnect and evm.
-      const protocol: 'WalletConnect' | 'EIP6963' | 'EVMInjected' | 'unknown' =
-        (() => {
-          if (connectionInfo.walletConnect) return 'WalletConnect';
-          if (connectionInfo.evmEIP6963) return 'EIP6963';
-          if (connectionInfo.evmInjected) return 'EVMInjected';
-          return 'unknown';
-        })();
-
-      const walletName = (() => {
-        if (connectionInfo.walletConnect?.peerMeta?.name) {
-          return connectionInfo.walletConnect.peerMeta.name;
+      let finalConnectionInfo: IExternalConnectionInfo;
+      try {
+        if (r.accounts?.[0]?.connectionInfoRaw) {
+          finalConnectionInfo = JSON.parse(r.accounts?.[0]?.connectionInfoRaw);
+        } else {
+          finalConnectionInfo = connectionInfo;
         }
-        if (connectionInfo.evmEIP6963?.info?.name) {
-          return connectionInfo.evmEIP6963.info.name;
-        }
-        if (connectionInfo.evmInjected) {
-          return 'Injected';
-        }
-        return 'unknown';
-      })();
-
+      } catch {
+        finalConnectionInfo = connectionInfo;
+      }
+      const afterConnectInfo = getExternalWalletConnectionDetails({
+        externalConnectionInfo: finalConnectionInfo,
+      });
       defaultLogger.account.wallet.walletAdded({
-        addMethod: 'Connect3rdParty',
+        addMethod: 'Connect3rdPartyWallet',
         status: 'success',
         details: {
-          protocol,
-          network: 'evm',
-          walletName,
+          protocol: afterConnectInfo.protocol,
+          network: afterConnectInfo.network,
+          walletName: afterConnectInfo.walletName,
         },
         isSoftwareWalletOnlyUser,
       });

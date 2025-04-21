@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import natsort from 'natsort';
@@ -98,6 +98,23 @@ import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 
+// Helper function to convert transport type enum to analytics string
+type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
+function getHardwareCommunicationTypeString(
+  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode',
+): IHardwareCommunicationType {
+  if (hardwareTransportType === EHardwareTransportType.BLE) {
+    return 'Bluetooth';
+  }
+  if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+    return 'WebUSB';
+  }
+  if (hardwareTransportType === 'QRCode') {
+    return 'QRCode';
+  }
+  return platformEnv.isNative ? 'Bluetooth' : 'USB';
+}
+
 const trackHardwareWalletConnection = async ({
   status,
   deviceType,
@@ -109,16 +126,10 @@ const trackHardwareWalletConnection = async ({
   deviceType: IDeviceType;
   isSoftwareWalletOnlyUser: boolean;
   features?: Features;
-  hardwareTransportType: EHardwareTransportType | undefined;
+  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode';
 }) => {
-  let connectionType: 'Bluetooth' | 'WebUSB' | 'USB';
-  if (hardwareTransportType === EHardwareTransportType.BLE) {
-    connectionType = 'Bluetooth';
-  } else if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
-    connectionType = 'WebUSB';
-  } else {
-    connectionType = 'USB';
-  }
+  const connectionType: IHardwareCommunicationType =
+    getHardwareCommunicationTypeString(hardwareTransportType);
 
   const firmwareVersions = features
     ? await deviceUtils.getDeviceVersion({
@@ -129,10 +140,10 @@ const trackHardwareWalletConnection = async ({
 
   defaultLogger.account.wallet.walletAdded({
     status,
-    addMethod: 'ConnectHardware',
+    addMethod: 'ConnectHWWallet',
     details: {
       hardwareWalletType: 'Standard',
-      connectionType,
+      communication: connectionType,
       deviceType,
       ...(firmwareVersions && { firmwareVersions }),
     },
@@ -180,6 +191,7 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
 
 function ConnectByQrCode() {
   const { createQrWallet } = useCreateQrWallet();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const tutorials: ITutorialsListItem[] = [
@@ -219,6 +231,14 @@ function ConnectByQrCode() {
           try {
             // qrHiddenCreateGuideDialog.showDialog();
             // return;
+            defaultLogger.account.wallet.addWalletStarted({
+              addMethod: 'ConnectHWWallet',
+              details: {
+                hardwareWalletType: 'Standard',
+                communication: 'QRCode',
+              },
+              isSoftwareWalletOnlyUser,
+            });
             await createQrWallet({
               isOnboarding: true,
               onFinalizeWalletSetupError: () => {
@@ -226,8 +246,20 @@ function ConnectByQrCode() {
                 navigation.pop();
               },
             });
+            void trackHardwareWalletConnection({
+              status: 'success',
+              deviceType: EDeviceType.Pro,
+              isSoftwareWalletOnlyUser,
+              hardwareTransportType: 'QRCode',
+            });
           } catch (error) {
             errorToastUtils.toastIfError(error);
+            void trackHardwareWalletConnection({
+              status: 'failure',
+              deviceType: EDeviceType.Pro,
+              isSoftwareWalletOnlyUser,
+              hardwareTransportType: 'QRCode',
+            });
             throw error;
           }
         }}
@@ -659,9 +691,12 @@ function ConnectByUSBOrBLE() {
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
       defaultLogger.account.wallet.addWalletStarted({
-        addMethod: 'ConnectHardware',
+        addMethod: 'ConnectHWWallet',
         details: {
           hardwareWalletType: 'Standard',
+          communication: getHardwareCommunicationTypeString(
+            hardwareTransportType,
+          ),
         },
         isSoftwareWalletOnlyUser,
       });
