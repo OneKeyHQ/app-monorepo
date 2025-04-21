@@ -55,7 +55,7 @@ export function useFalconUSDfRegister() {
           symbol: details.token.info.symbol,
           accountAddress: account.address,
           signature: signHash,
-          expiredAt: unsignedMessage.expiredAt,
+          message: unsignedMessage.message,
         });
 
       return verifyResult;
