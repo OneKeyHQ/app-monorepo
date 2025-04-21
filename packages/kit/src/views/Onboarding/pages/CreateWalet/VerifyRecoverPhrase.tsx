@@ -137,7 +137,7 @@ export function VerifyRecoveryPhrase({
           addMethod: 'CreateWallet',
           details: {
             isBiometricSet: settings.isBiologyAuthSwitchOn,
-            isBackupSkipped: false,
+            unbackedUp: false,
           },
           isSoftwareWalletOnlyUser,
         });

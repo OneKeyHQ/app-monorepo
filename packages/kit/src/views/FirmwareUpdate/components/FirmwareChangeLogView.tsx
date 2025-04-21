@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 import {
   Accordion,
   Icon,
+  IStackProps,
   Markdown,
   SizableText,
   Stack,
@@ -140,9 +141,10 @@ function ChangeLogSection({
 
 export function FirmwareChangeLogContentView({
   result,
+  ...rest
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
-}) {
+} & IStackProps) {
   const intl = useIntl();
   const defaultExpandedSections = useMemo(() => {
     if (result?.updateInfos?.firmware?.hasUpgrade) return 'firmware';
@@ -152,12 +154,13 @@ export function FirmwareChangeLogContentView({
   }, [result?.updateInfos]);
 
   return (
-    <Stack>
+    <Stack {...rest}>
       <Accordion
         overflow="hidden"
         width="100%"
         type="single"
         defaultValue={defaultExpandedSections}
+        collapsible
       >
         {result?.updateInfos?.firmware?.hasUpgrade ? (
           <ChangeLogSection

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
@@ -9,8 +10,8 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { WalletOptionItem } from '../../pages/AccountSelectorStack/WalletDetails/WalletOptions/WalletOptionItem';
 
@@ -54,6 +55,15 @@ export function HiddenWalletAddButton({ wallet }: { wallet?: IDBWallet }) {
 
   const createQrHiddenWallet = useCallback(async () => {
     try {
+      defaultLogger.account.wallet.addWalletStarted({
+        addMethod: 'ConnectHWWallet',
+        details: {
+          hardwareWalletType: 'Hidden',
+          communication: 'QRCode',
+        },
+        isSoftwareWalletOnlyUser: false,
+      });
+
       await createQrWallet({
         isOnboarding: true,
         onFinalizeWalletSetupError: () => {
@@ -61,8 +71,29 @@ export function HiddenWalletAddButton({ wallet }: { wallet?: IDBWallet }) {
           // navigation.pop();
         },
       });
+
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'ConnectHWWallet',
+        details: {
+          hardwareWalletType: 'Hidden',
+          communication: 'QRCode',
+          deviceType: EDeviceType.Pro,
+        },
+        isSoftwareWalletOnlyUser: false,
+      });
     } catch (error) {
       errorToastUtils.toastIfError(error);
+      defaultLogger.account.wallet.walletAdded({
+        status: 'failure',
+        addMethod: 'ConnectHWWallet',
+        details: {
+          hardwareWalletType: 'Hidden',
+          communication: 'QRCode',
+          deviceType: EDeviceType.Pro,
+        },
+        isSoftwareWalletOnlyUser: false,
+      });
       throw error;
     }
   }, [createQrWallet]);

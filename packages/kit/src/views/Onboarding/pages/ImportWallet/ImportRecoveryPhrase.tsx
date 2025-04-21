@@ -34,9 +34,9 @@ export function ImportRecoveryPhrase() {
         });
         defaultLogger.account.wallet.walletAdded({
           status: 'success',
-          addMethod: 'Import',
+          addMethod: 'ImportWallet',
           details: {
-            importSource: 'mnemonic',
+            importType: 'recoveryPhrase',
           },
           isSoftwareWalletOnlyUser,
         });
@@ -50,9 +50,9 @@ export function ImportRecoveryPhrase() {
       });
       defaultLogger.account.wallet.walletAdded({
         status: 'success',
-        addMethod: 'Import',
+        addMethod: 'ImportWallet',
         details: {
-          importSource: 'mnemonic',
+          importType: 'recoveryPhrase',
         },
         isSoftwareWalletOnlyUser,
       });
