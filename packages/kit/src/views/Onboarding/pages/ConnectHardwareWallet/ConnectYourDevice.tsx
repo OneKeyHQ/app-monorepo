@@ -308,7 +308,7 @@ function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
         translationId={
           platformEnv.isSupportWebUSB
             ? ETranslations.device_communication_failed
-            : ETranslations.device_communication_failed_with_no_web_usb_supported
+            : ETranslations.onboarding_install_onekey_bridge_help_text
         }
       />
     </Stack>
