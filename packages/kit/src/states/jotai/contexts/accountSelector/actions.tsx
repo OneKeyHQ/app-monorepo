@@ -784,7 +784,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       try {
         defaultLogger.account.wallet.addWalletStarted({
-          addMethod: 'ConnectHardware',
+          addMethod: 'ConnectHWWallet',
           details: {
             hardwareWalletType: 'Hidden',
           },

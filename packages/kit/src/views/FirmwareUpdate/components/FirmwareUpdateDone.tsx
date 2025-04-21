@@ -26,7 +26,7 @@ export function FirmwareUpdateDone({
           id: ETranslations.update_all_updates_complete,
         })}
       />
-      <FirmwareChangeLogContentView result={result} />
+      <FirmwareChangeLogContentView mx="$-5" result={result} />
       <FirmwareUpdatePageFooter
         onConfirmText={intl.formatMessage({ id: ETranslations.global_got_it })}
         onConfirm={() => {
