@@ -157,7 +157,9 @@ function MoreActionButtonCmp() {
                 id: ETranslations.settings_lock_now,
               }),
               icon: 'LockOutline' as const,
-              onPress: onLock,
+              onPress: () => {
+                void onLock();
+              },
               testID: 'lock-now',
             },
             {

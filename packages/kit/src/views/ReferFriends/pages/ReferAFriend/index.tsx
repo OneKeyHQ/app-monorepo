@@ -310,8 +310,8 @@ export default function ReferAFriend() {
             code: code || '',
           },
         });
-        void openUrlUtils.linkingCanOpenURL(url);
         defaultLogger.referral.page.enterReferralGuide(code);
+        globalThis.location.href = url;
       }
     });
   }, [navigation]);
