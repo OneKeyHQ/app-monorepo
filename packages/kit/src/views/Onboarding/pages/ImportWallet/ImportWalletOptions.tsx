@@ -92,9 +92,9 @@ export function ImportWalletOptions() {
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
     defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'mnemonic',
+        importType: 'recoveryPhrase',
       },
       isSoftwareWalletOnlyUser,
     });
@@ -104,9 +104,9 @@ export function ImportWalletOptions() {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.ImportKeyTag);
     defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'keyTag',
+        importType: 'keyTag',
       },
       isSoftwareWalletOnlyUser,
     });
@@ -117,9 +117,9 @@ export function ImportWalletOptions() {
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportPrivateKey);
     defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'privateKey',
+        importType: 'privateKey',
       },
       isSoftwareWalletOnlyUser,
     });
@@ -128,9 +128,9 @@ export function ImportWalletOptions() {
   const handleImportAddressPress = async () => {
     navigation.push(EOnboardingPages.ImportAddress);
     defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'watchOnly',
+        importType: 'address',
       },
       isSoftwareWalletOnlyUser,
     });
@@ -140,9 +140,9 @@ export function ImportWalletOptions() {
     await backupEntryStatus.check();
     navigation.push(EOnboardingPages.ImportCloudBackup);
     defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'cloud',
+        importType: 'cloud',
       },
       isSoftwareWalletOnlyUser,
     });
