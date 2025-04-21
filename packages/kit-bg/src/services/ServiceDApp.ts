@@ -18,7 +18,7 @@ import {
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -132,10 +132,10 @@ class ServiceDApp extends ServiceBase {
       try {
         return await new Promise((resolve, reject) => {
           if (!request.origin) {
-            throw new OneKeyError('origin is required');
+            throw new OneKeyPlainTextError('origin is required');
           }
           if (!request.scope) {
-            throw new OneKeyError('scope is required');
+            throw new OneKeyPlainTextError('scope is required');
           }
           const id = this.backgroundApi.servicePromise.createCallback({
             resolve,
