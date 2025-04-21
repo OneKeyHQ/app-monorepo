@@ -1,10 +1,6 @@
 import { isNil, isNumber } from 'lodash';
 
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -12,8 +8,12 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
+import { EIndexedDBBucketNames } from '../types';
+
+import indexedUtils from './indexedUtils';
 
 import type {
+  IIndexedBucketsMap,
   IIndexedDBSchemaMap,
   ILocalDBAgent,
   ILocalDBGetAllRecordsParams,
@@ -46,19 +46,33 @@ import type {
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
-  constructor(indexed: IDBPDatabase<IIndexedDBSchemaMap>) {
+  constructor(buckets: IIndexedBucketsMap) {
     super();
-    this.indexed = indexed;
+    this.buckets = buckets;
   }
 
   clearRecords({ name }: { name: ELocalDBStoreNames }): Promise<void> {
-    return this.withTransaction(async (tx) => {
+    const bucketName = indexedUtils.getBucketNameByStoreName(name);
+    return this.withTransaction(bucketName, async (tx) => {
       const store = this._getObjectStoreFromTx(tx, name);
       await store.clear();
     });
   }
 
-  indexed: IDBPDatabase<IIndexedDBSchemaMap>;
+  getIndexedByBucketName(
+    bucketName: EIndexedDBBucketNames,
+  ): IDBPDatabase<IIndexedDBSchemaMap> {
+    if (!this.buckets) {
+      throw new Error('buckets not initialized');
+    }
+    const indexed = this.buckets[bucketName];
+    if (!indexed) {
+      throw new Error(`indexedDB bucket not found: ${bucketName}`);
+    }
+    return indexed;
+  }
+
+  buckets: IIndexedBucketsMap | undefined;
 
   txPair:
     | {
@@ -84,13 +98,14 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     tx: IDBPTransaction<IIndexedDBSchemaMap, T[], 'readwrite'>,
     storeName: T,
     mode: IDBTransactionMode,
+    indexed: IDBPDatabase<IIndexedDBSchemaMap>,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
     try {
       const store = this._getObjectStore(tx, storeName, mode);
       // const dd = await store.get('');
       return store;
     } catch {
-      this.indexed.createObjectStore(storeName, {
+      indexed.createObjectStore(storeName, {
         keyPath: 'id',
       });
       const store = this._getObjectStore(tx, storeName, mode);
@@ -99,11 +114,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   }
 
   _buildTransactionAndStores({
-    db,
+    bucketName,
     alwaysCreate = true,
     readOnly = false,
   }: {
-    db: IDBPDatabase<IIndexedDBSchemaMap>;
+    bucketName: EIndexedDBBucketNames;
     alwaysCreate: boolean;
     readOnly?: boolean;
   }) {
@@ -112,98 +127,144 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     const mode: 'readwrite' = readOnly ? ('readonly' as any) : 'readwrite';
 
     if (!this.txPair || alwaysCreate) {
-      const dbTx = db.transaction(
-        ALL_LOCAL_DB_STORE_NAMES,
+      const indexed = this.getIndexedByBucketName(bucketName);
+
+      const dbTx = indexed.transaction(
+        indexedUtils.getStoreNamesByBucketName(bucketName), // ALL_LOCAL_DB_STORE_NAMES
         // 'readwrite',
         mode,
       );
+      let contextStore: any;
+      let walletStore: any;
+      let accountStore: any;
+      let accountDerivationStore: any;
+      let indexedAccountStore: any;
+      let credentialStore: any;
+      let deviceStore: any;
+      let addressStore: any;
+      let cloudSyncItemStore: any;
+      let signMessageStore: any;
+      let signedTransactionStore: any;
+      let connectedSiteStore: any;
 
-      const contextStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.Context,
-        mode,
-      );
+      switch (bucketName) {
+        case EIndexedDBBucketNames.account: {
+          cloudSyncItemStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.CloudSyncItem,
+            mode,
+            indexed,
+          );
 
-      const walletStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.Wallet,
-        mode,
-      );
+          contextStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.Context,
+            mode,
+            indexed,
+          );
 
-      const accountStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.Account,
-        mode,
-      );
+          walletStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.Wallet,
+            mode,
+            indexed,
+          );
 
-      const accountDerivationStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.AccountDerivation,
-        mode,
-      );
+          accountStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.Account,
+            mode,
+            indexed,
+          );
 
-      const indexedAccountStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.IndexedAccount,
-        mode,
-      );
+          accountDerivationStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.AccountDerivation,
+            mode,
+            indexed,
+          );
 
-      const credentialStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.Credential,
-        mode,
-      );
+          indexedAccountStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.IndexedAccount,
+            mode,
+            indexed,
+          );
 
-      const deviceStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.Device,
-        mode,
-      );
+          credentialStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.Credential,
+            mode,
+            indexed,
+          );
 
-      const addressStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.Address,
-        mode,
-      );
+          deviceStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.Device,
+            mode,
+            indexed,
+          );
 
-      const signMessageStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.SignedMessage,
-        mode,
-      );
+          break;
+        }
 
-      const signedTransactionStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.SignedTransaction,
-        mode,
-      );
+        case EIndexedDBBucketNames.address: {
+          addressStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.Address,
+            mode,
+            indexed,
+          );
+          break;
+        }
 
-      const connectedSiteStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.ConnectedSite,
-        mode,
-      );
+        case EIndexedDBBucketNames.archive: {
+          signMessageStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.SignedMessage,
+            mode,
+            indexed,
+          );
 
-      const cloudSyncItemStore = this._getOrCreateObjectStore(
-        dbTx,
-        ELocalDBStoreNames.CloudSyncItem,
-        mode,
-      );
+          signedTransactionStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.SignedTransaction,
+            mode,
+            indexed,
+          );
+
+          connectedSiteStore = this._getOrCreateObjectStore(
+            dbTx,
+            ELocalDBStoreNames.ConnectedSite,
+            mode,
+            indexed,
+          );
+          break;
+        }
+
+        default: {
+          const exhaustiveCheck: never = bucketName;
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          throw new Error(
+            `Unsupported indexedDB bucket name: ${exhaustiveCheck as string}`,
+          );
+        }
+      }
 
       const tx: ILocalDBTransaction = {
         stores: {
-          [ELocalDBStoreNames.Context]: contextStore as any,
-          [ELocalDBStoreNames.Wallet]: walletStore as any,
-          [ELocalDBStoreNames.IndexedAccount]: indexedAccountStore as any,
-          [ELocalDBStoreNames.Account]: accountStore as any,
-          [ELocalDBStoreNames.AccountDerivation]: accountDerivationStore as any,
-          [ELocalDBStoreNames.Credential]: credentialStore as any,
-          [ELocalDBStoreNames.Device]: deviceStore as any,
-          [ELocalDBStoreNames.Address]: addressStore as any,
-          [ELocalDBStoreNames.SignedMessage]: signMessageStore as any,
-          [ELocalDBStoreNames.SignedTransaction]: signedTransactionStore as any,
-          [ELocalDBStoreNames.ConnectedSite]: connectedSiteStore as any,
-          [ELocalDBStoreNames.CloudSyncItem]: cloudSyncItemStore as any,
+          [ELocalDBStoreNames.Context]: contextStore,
+          [ELocalDBStoreNames.Wallet]: walletStore,
+          [ELocalDBStoreNames.IndexedAccount]: indexedAccountStore,
+          [ELocalDBStoreNames.Account]: accountStore,
+          [ELocalDBStoreNames.AccountDerivation]: accountDerivationStore,
+          [ELocalDBStoreNames.Credential]: credentialStore,
+          [ELocalDBStoreNames.Device]: deviceStore,
+          [ELocalDBStoreNames.Address]: addressStore,
+          [ELocalDBStoreNames.SignedMessage]: signMessageStore,
+          [ELocalDBStoreNames.SignedTransaction]: signedTransactionStore,
+          [ELocalDBStoreNames.ConnectedSite]: connectedSiteStore,
+          [ELocalDBStoreNames.CloudSyncItem]: cloudSyncItemStore,
         },
       };
 
@@ -247,12 +308,13 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   // ----------------------------------------------
 
   async withTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T> {
     noopObject(options);
     const { tx, dbTx } = this._buildTransactionAndStores({
-      db: this.indexed,
+      bucketName,
       alwaysCreate: true,
       readOnly: options?.readOnly,
     });
@@ -273,7 +335,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   override async getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) =>
         this.txGetRecordsCount({
           ...params,
@@ -288,7 +352,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getRecordsByIds<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsByIdsParams<T>,
   ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) => {
         const { records } = await this.txGetRecordsByIds({
           ...params,
@@ -305,7 +371,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) => {
         const { records } = await this.txGetAllRecords({
           ...params,
@@ -323,7 +391,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
     // logLocalDbCall(`getRecordById`, params.name, [params.id]);
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) => {
         const [record] = await this.txGetRecordById({
           ...params,

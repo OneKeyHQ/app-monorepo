@@ -43,7 +43,7 @@ import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { DBSchema, IDBPObjectStore } from 'idb';
+import type { DBSchema, IDBPDatabase, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {
@@ -418,6 +418,21 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.CloudSyncItem]: RealmSchemaCloudSyncItem;
 }
 
+export type IIndexedBucketsMap = Record<
+  EIndexedDBBucketNames,
+  IDBPDatabase<IIndexedDBSchemaMap>
+>;
+export enum EIndexedDBBucketNames {
+  // default = 'default',
+  // credential = 'credential', // credential, context
+  // wallet = 'wallet', // wallet, device
+  // sync = 'sync', // cloud sync
+  account = 'account', // account
+  address = 'address', // address to account map
+  archive = 'archive', // connected site, signed message, signed transaction
+  // misc = 'misc', // misc
+}
+
 export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
@@ -678,6 +693,7 @@ export type ILocalDBWithTransactionOptions = {
 
 export interface ILocalDBAgent {
   withTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T>;

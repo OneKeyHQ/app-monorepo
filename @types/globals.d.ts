@@ -91,3 +91,29 @@ declare global {
     }
   }
 }
+
+declare global {
+  interface IStorageBucketOptions {
+    durability?: 'strict' | 'relaxed';
+    persisted?: boolean;
+  }
+
+  interface IStorageBucket {
+    indexedDB: IDBFactory;
+  }
+
+  interface IStorageBucketManager {
+    open(
+      name: string,
+      options?: IStorageBucketOptions,
+    ): Promise<IStorageBucket>;
+    keys(): Promise<string[]>;
+    delete(name: string): Promise<void>;
+  }
+
+  interface INavigator extends Navigator {
+    storageBuckets?: IStorageBucketManager;
+  }
+
+  var navigator: INavigator!;
+}

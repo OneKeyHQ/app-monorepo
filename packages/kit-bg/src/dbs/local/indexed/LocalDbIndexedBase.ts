@@ -18,10 +18,15 @@ import {
 } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
+import {
+  EIndexedDBBucketNames,
+  type IDBWalletIdSingleton,
+  type IIndexedDBSchemaMap,
+} from '../types';
 
 import { IndexedDBAgent } from './IndexedDBAgent';
+import indexedUtils from './indexedUtils';
 
-import type { IDBWalletIdSingleton, IIndexedDBSchemaMap } from '../types';
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export abstract class LocalDbIndexedBase extends LocalDbBase {
@@ -36,6 +41,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async _handleDbUpgrade(options: {
+    bucketName: EIndexedDBBucketNames;
     db: IDBPDatabase<IIndexedDBSchemaMap>;
     oldVersion: number;
     newVersion: number | null;
@@ -45,13 +51,18 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       'versionchange'
     >;
   }) {
-    const { db, transaction, newVersion } = options;
+    const { db, transaction, newVersion, bucketName } = options;
     const currentStoreNames = db.objectStoreNames;
 
     // create new stores
     const storeNamesToAdd = Object.values(ELocalDBStoreNames);
-    for (const v of storeNamesToAdd) {
-      this._getOrCreateObjectStoreAtVersionChange(db, transaction, v);
+    for (const storeName of storeNamesToAdd) {
+      this._getOrCreateObjectStoreAtVersionChange(
+        db,
+        transaction,
+        storeName,
+        bucketName,
+      );
     }
 
     // TODO  migrate old data to new stores
@@ -114,25 +125,53 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   private async _openDb() {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
-    const indexed = await openDB<IIndexedDBSchemaMap>(
-      INDEXED_DB_NAME,
-      INDEXED_DB_VERSION,
-      {
-        upgrade(db0, oldVersion, newVersion, transaction) {
-          // add object stores here
-          return self._handleDbUpgrade({
-            db: db0,
-            oldVersion,
-            newVersion,
-            transaction,
-          });
+
+    const buckets: Record<
+      EIndexedDBBucketNames,
+      IDBPDatabase<IIndexedDBSchemaMap>
+    > = {
+      [EIndexedDBBucketNames.account]: undefined as any,
+      [EIndexedDBBucketNames.address]: undefined as any,
+      [EIndexedDBBucketNames.archive]: undefined as any,
+    };
+
+    const bucketNames = Object.values(EIndexedDBBucketNames);
+
+    for (const bucketName of bucketNames) {
+      const bucketOptions: IStorageBucketOptions = {
+        durability: 'strict', // Or `'relaxed'`.
+        persisted: true, // Or `false`.
+      };
+      const bucket = await (
+        globalThis.navigator as INavigator
+      ).storageBuckets?.open(bucketName, bucketOptions);
+      if (!bucket?.indexedDB) {
+        throw new Error(`Failed to open bucket indexedDB: ${bucketName}`);
+      }
+      const indexed = await openDB<IIndexedDBSchemaMap>(
+        `${INDEXED_DB_NAME}--${bucketName}`,
+        INDEXED_DB_VERSION,
+        {
+          // @ts-expect-error
+          indexedDBInstance: bucket.indexedDB,
+          upgrade(db0, oldVersion, newVersion, transaction) {
+            // add object stores here
+            return self._handleDbUpgrade({
+              bucketName,
+              db: db0,
+              oldVersion,
+              newVersion,
+              transaction,
+            });
+          },
         },
-      },
-    );
+      );
+      buckets[bucketName] = indexed;
+    }
 
     // add initial records to store
 
-    const db = new IndexedDBAgent(indexed);
+    const db = new IndexedDBAgent(buckets);
     await this._initDBRecords(db);
     return db;
   }
@@ -159,7 +198,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
   private async _initDBRecords(db: IndexedDBAgent) {
     const { tx } = db._buildTransactionAndStores({
-      db: db.indexed,
+      bucketName: EIndexedDBBucketNames.account,
       alwaysCreate: true,
     });
     if (!tx.stores) {
@@ -213,24 +252,28 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       'versionchange'
     >,
     storeName: T,
-  ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'versionchange'> {
+    bucketName: EIndexedDBBucketNames,
+  ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'versionchange'> | undefined {
     try {
       const store = this._getObjectStoreAtVersionChange(tx, storeName);
       // const dd = await store.get('');
       return store;
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
-      db.createObjectStore(storeName, {
-        keyPath: 'id',
-      });
-      const store = this._getObjectStoreAtVersionChange(tx, storeName);
-      if (storeNameSupportCreatedAt.includes(storeName)) {
-        // @ts-ignore
-        store.createIndex('createdAt', 'createdAt', {
-          unique: true,
+      if (indexedUtils.getBucketNameByStoreName(storeName) === bucketName) {
+        db.createObjectStore(storeName, {
+          keyPath: 'id',
         });
+        const store = this._getObjectStoreAtVersionChange(tx, storeName);
+        if (storeNameSupportCreatedAt.includes(storeName)) {
+          // @ts-ignore
+          store.createIndex('createdAt', 'createdAt', {
+            unique: true,
+          });
+        }
+        return store;
       }
-      return store;
+      return undefined;
     }
   }
 
@@ -260,7 +303,14 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
   async deleteIndexedDb() {
     const db = await this.readyDb;
-    db.indexed.close();
-    return deleteDB(INDEXED_DB_NAME);
+    const names = Object.values(EIndexedDBBucketNames);
+    await Promise.all(
+      names.map(async (name) => {
+        const indexedDb = db.getIndexedByBucketName(name);
+        indexedDb.close();
+        // TODO delete bucket indexedDB
+        await deleteDB(INDEXED_DB_NAME);
+      }),
+    );
   }
 }
