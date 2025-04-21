@@ -58,11 +58,24 @@ export function BeforeShowRecoveryPhrase() {
     });
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'CreateWallet',
+      details: {
+        isBiometricSet: settings.isBiologyAuthSwitchOn,
+        unbackedUp: false,
+      },
       isSoftwareWalletOnlyUser,
     });
   };
 
   const handleSkipRecoveryPhrasePress = useCallback(async () => {
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'CreateWallet',
+      details: {
+        isBiometricSet: settings.isBiologyAuthSwitchOn,
+        unbackedUp: true,
+      },
+      isSoftwareWalletOnlyUser,
+    });
+
     let mnemonic = route.params?.mnemonic;
     if (mnemonic) {
       ensureSensitiveTextEncoded(mnemonic);
@@ -78,7 +91,7 @@ export function BeforeShowRecoveryPhrase() {
       addMethod: 'CreateWallet',
       details: {
         isBiometricSet: settings.isBiologyAuthSwitchOn,
-        isBackupSkipped: true,
+        unbackedUp: true,
       },
       isSoftwareWalletOnlyUser,
     });

@@ -72,9 +72,9 @@ export function ImportKeyTag() {
       });
       defaultLogger.account.wallet.walletAdded({
         status: 'success',
-        addMethod: 'Import',
+        addMethod: 'ImportWallet',
         details: {
-          importSource: 'keyTag',
+          importType: 'keyTag',
         },
         isSoftwareWalletOnlyUser,
       });
