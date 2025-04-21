@@ -68,6 +68,12 @@ class ServiceApp extends ServiceBase {
       console.error('appStorage.clear() error');
     }
 
+    try {
+      appStorage.syncStorage.clearAll();
+    } catch {
+      console.error('syncStorage.clear() error');
+    }
+
     await timerUtils.wait(100);
 
     try {
@@ -146,6 +152,7 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async resetApp() {
     await this.backgroundApi.servicePrime.apiLogout();
+
     resetUtils.startResetting();
     try {
       await this.resetData();

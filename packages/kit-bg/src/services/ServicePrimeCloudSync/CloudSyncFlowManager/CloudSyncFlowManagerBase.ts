@@ -1,8 +1,7 @@
 import { sha512Sync } from '@onekeyhq/core/src/secret/hash';
-import {
-  EPrimeCloudSyncDataType,
-  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
-} from '@onekeyhq/shared/src/consts/primeConsts';
+import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import type {
   ICloudSyncCredential,
   ICloudSyncDBRecord,
@@ -283,8 +282,9 @@ export abstract class CloudSyncFlowManagerBase<
 
     const syncCredential = await this.getSyncCredential();
 
-    const canSyncWithoutServer =
-      this.dataType === EPrimeCloudSyncDataType.IndexedAccount;
+    const canSyncWithoutServer = cloudSyncUtils.canSyncWithoutServer(
+      this.dataType,
+    );
 
     for (const target of targets) {
       let existingSyncItem: IDBCloudSyncItem | undefined;
@@ -482,6 +482,25 @@ export abstract class CloudSyncFlowManagerBase<
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
   }) {
+    return this._buildInitSyncDBItems({
+      dbRecords,
+      allDevices,
+      initDataTime,
+      syncCredential,
+    });
+  }
+
+  async _buildInitSyncDBItems({
+    dbRecords,
+    allDevices,
+    initDataTime,
+    syncCredential,
+  }: {
+    dbRecords: ICloudSyncDBRecords;
+    allDevices?: IDBDevice[];
+    initDataTime: number | undefined;
+    syncCredential: ICloudSyncCredential | undefined;
+  }) {
     return (
       await Promise.all(
         dbRecords.map(async (record) => {
@@ -501,6 +520,7 @@ export abstract class CloudSyncFlowManagerBase<
             });
           if (
             existingSyncItem &&
+            syncCredential &&
             syncCredential.masterPasswordUUID &&
             existingSyncItem.pwdHash === syncCredential.masterPasswordUUID
           ) {

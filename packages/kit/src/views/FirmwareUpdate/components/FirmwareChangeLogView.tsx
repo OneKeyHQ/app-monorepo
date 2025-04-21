@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Accordion,
-  Divider,
   Icon,
+  IStackProps,
   Markdown,
   SizableText,
   Stack,
@@ -73,17 +74,17 @@ function ChangeLogSection({
     <Accordion.Item value={accordionValue}>
       <Accordion.Trigger
         unstyled
-        alignItems="center"
-        alignSelf="stretch"
-        flexDirection="row"
-        justifyContent="space-between"
-        px="$5"
-        py="$0"
-        borderRadius="$1"
         borderWidth={0}
+        flexDirection="row"
+        alignItems="center"
+        px="$0"
+        py="$3"
+        mx="$5"
         bg="$transparent"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
         hoverStyle={{
-          bg: '$bgSubdued',
+          bg: '$bgHover',
         }}
         pressStyle={{
           bg: '$bgActive',
@@ -92,36 +93,33 @@ function ChangeLogSection({
           outlineColor: '$focusRing',
           outlineWidth: 2,
           outlineStyle: 'solid',
-          outlineOffset: 0,
+          outlineOffset: -2,
         }}
       >
         {({ open }: { open: boolean }) => (
-          <Stack w="100%">
-            <Divider />
-            <XStack py="$3" ai="center" jc="space-between" w="100%">
-              <XStack ai="center" gap="$1.5">
-                <SizableText
-                  size="$bodyLgMedium"
-                  color={open ? '$text' : '$textSubdued'}
-                >
-                  {title}
-                </SizableText>
-                <FirmwareVersionProgressText
-                  fromVersion={updateInfo?.fromVersion}
-                  toVersion={updateInfo?.toVersion}
-                  githubReleaseUrl={updateInfo?.githubReleaseUrl}
-                  active={open}
-                />
-              </XStack>
+          <>
+            <XStack ai="center" gap="$1.5" flex={1}>
+              <SizableText
+                size="$bodyLgMedium"
+                color={open ? '$text' : '$textSubdued'}
+              >
+                {title}
+              </SizableText>
+              <FirmwareVersionProgressText
+                fromVersion={updateInfo?.fromVersion}
+                toVersion={updateInfo?.toVersion}
+                githubReleaseUrl={updateInfo?.githubReleaseUrl}
+                active={open}
+              />
+            </XStack>
+            <Stack animation="quick" rotate={open ? '-180deg' : '0deg'}>
               <Icon
-                name={
-                  open ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'
-                }
+                name="ChevronDownSmallOutline"
                 size="$6"
                 color={open ? '$icon' : '$iconSubdued'}
               />
-            </XStack>
-          </Stack>
+            </Stack>
+          </>
         )}
       </Accordion.Trigger>
       <Accordion.HeightAnimator animation="quick">
@@ -132,7 +130,9 @@ function ChangeLogSection({
           pb="$5"
           pt="$0"
         >
-          <ChangeLogMarkdown changelog={updateInfo?.changelog} />
+          <Stack mt="$-2.5">
+            <ChangeLogMarkdown changelog={updateInfo?.changelog} />
+          </Stack>
         </Accordion.Content>
       </Accordion.HeightAnimator>
     </Accordion.Item>
@@ -141,26 +141,26 @@ function ChangeLogSection({
 
 export function FirmwareChangeLogContentView({
   result,
+  ...rest
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
-}) {
+} & IStackProps) {
   const intl = useIntl();
   const defaultExpandedSections = useMemo(() => {
-    const sections: string[] = [];
-    if (result?.updateInfos?.firmware?.hasUpgrade) sections.push('firmware');
-    if (result?.updateInfos?.bootloader?.hasUpgrade)
-      sections.push('bootloader');
-    if (result?.updateInfos?.ble?.hasUpgrade) sections.push('ble');
-    return sections;
+    if (result?.updateInfos?.firmware?.hasUpgrade) return 'firmware';
+    if (result?.updateInfos?.bootloader?.hasUpgrade) return 'bootloader';
+    if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
+    return undefined;
   }, [result?.updateInfos]);
 
   return (
-    <Stack>
+    <Stack {...rest}>
       <Accordion
         overflow="hidden"
         width="100%"
-        type="multiple"
+        type="single"
         defaultValue={defaultExpandedSections}
+        collapsible
       >
         {result?.updateInfos?.firmware?.hasUpgrade ? (
           <ChangeLogSection

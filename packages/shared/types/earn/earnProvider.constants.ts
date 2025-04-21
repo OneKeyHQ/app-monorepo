@@ -4,6 +4,7 @@ import {
   EthereumDAI,
   EthereumMatic,
   EthereumUSDC,
+  EthereumUSDF,
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
@@ -59,6 +60,7 @@ export const isSupportStaking = (symbol: string) =>
     'WETH',
     'CBBTC',
     'WBTC',
+    'USDF',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds = [
@@ -87,6 +89,7 @@ export function normalizeToEarnSymbol(
     'weth': 'WETH',
     'cbbtc': 'cbBTC',
     'wbtc': 'WBTC',
+    'usdf': 'USDf',
   };
 
   return symbolMap[symbol.toLowerCase()];
@@ -124,6 +127,7 @@ export function getImportFromToken({
           EthereumWETH.toLowerCase(),
           EthereumWBTC.toLowerCase(),
           EthereumCbBTC.toLowerCase(),
+          EthereumUSDF.toLowerCase(),
         ].includes(tokenAddress.toLowerCase())
       ) {
         importFromToken = earnTradeDefaultSetETH;

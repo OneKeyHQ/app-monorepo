@@ -592,6 +592,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (this.isTempWalletRemoved({ wallet })) {
         return false;
       }
+
+      if (
+        option?.ignoreNonBackedUpWallets &&
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !wallet.backuped
+      ) {
+        return false;
+      }
+
       if (
         ignoreEmptySingletonWalletAccounts &&
         accountUtils.isOthersWallet({ walletId: wallet.id })
@@ -2006,15 +2015,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
-  async createQrWallet({ qrDevice, airGapAccounts }: IDBCreateQRWalletParams) {
-    const { deviceId: rawDeviceId, xfp } = qrDevice;
+  async createQrWallet({
+    qrDevice,
+    airGapAccounts,
+    fullXfp,
+  }: IDBCreateQRWalletParams) {
+    const { deviceId: rawDeviceId } = qrDevice;
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
 
+    if (!fullXfp) {
+      throw new Error('fullXfp is required');
+    }
+
     let passphraseState = '';
     let xfpHash = '';
+    let xfpHashLegacy = '';
 
     // TODO support OneKey Pro device only
     const deviceType: IDeviceType = EDeviceType.Pro;
@@ -2035,8 +2053,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       xfpHash = bufferUtils.bytesToHex(
-        sha256(bufferUtils.toBuffer(xfp, 'utf8')),
+        sha256(bufferUtils.toBuffer(fullXfp, 'utf8')),
       );
+      if (qrDevice.xfp) {
+        xfpHashLegacy = bufferUtils.bytesToHex(
+          sha256(bufferUtils.toBuffer(qrDevice.xfp, 'utf8')),
+        );
+      }
     }
     let walletName = deviceName;
     let hiddenDefaultWalletName: string | undefined;
@@ -2050,10 +2073,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     const context = await this.getContext();
 
-    const dbWalletId = accountUtils.buildQrWalletId({
+    let dbWalletId = accountUtils.buildQrWalletId({
       dbDeviceId,
       xfpHash,
     });
+    if (xfpHashLegacy) {
+      const dbWalletIdLegacy = accountUtils.buildQrWalletId({
+        dbDeviceId,
+        xfpHash: xfpHashLegacy,
+      });
+      if (dbWalletIdLegacy) {
+        const walletLegacy = await this.getWalletSafe({
+          walletId: dbWalletIdLegacy,
+        });
+        if (walletLegacy) {
+          dbWalletId = walletLegacy.id;
+        }
+      }
+    }
 
     let parentWalletId: string | undefined;
     if (passphraseState) {
@@ -2121,7 +2158,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       },
       accounts: [],
       walletNo: context.nextWalletNo,
-      xfp,
+      xfp: fullXfp,
 
       deprecated: false,
     };
@@ -2216,7 +2253,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             walletId: dbWalletId,
             updater: (item) => {
               item.isTemp = false;
-              item.xfp = xfp;
+              item.xfp = fullXfp;
 
               let currentAirGapAccountsInfo:
                 | IQrWalletAirGapAccountsInfo
@@ -4611,5 +4648,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // const ctx = await localDb.getContext();
     return ctx;
+  }
+
+  async updateWalletsBackupStatus(walletsBackedUpStatusMap: {
+    [walletId: string]: {
+      isBackedUp?: boolean;
+    };
+  }): Promise<void> {
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: Object.keys(walletsBackedUpStatusMap),
+        updater: (record) => {
+          const isBackedUp = walletsBackedUpStatusMap[record.id]?.isBackedUp;
+          if (isBackedUp === undefined) {
+            return record;
+          }
+          record.backuped = isBackedUp;
+          return record;
+        },
+      });
+    });
   }
 }

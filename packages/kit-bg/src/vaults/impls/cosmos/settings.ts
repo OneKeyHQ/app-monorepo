@@ -115,6 +115,11 @@ const settings: IVaultSettings = {
       curve: 'secp256k1',
       nativeTokenAddress: 'utia',
     },
+    'cosmos--bbn-1': {
+      addressPrefix: 'bbn',
+      curve: 'secp256k1',
+      nativeTokenAddress: 'ubbn',
+    },
     'cosmos--bbn-test-5': {
       addressPrefix: 'bbn',
       curve: 'secp256k1',

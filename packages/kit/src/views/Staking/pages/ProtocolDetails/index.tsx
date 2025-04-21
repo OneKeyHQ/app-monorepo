@@ -4,14 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Button } from '@onekeyhq/components';
-import { Alert, Page, YStack, useMedia } from '@onekeyhq/components';
+import { Page, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useEarnEventActive } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnEventActive';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -35,6 +36,7 @@ import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSect
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
@@ -92,6 +94,9 @@ const ProtocolDetailsPage = () => {
     void run();
   }, [refreshAccount, run]);
 
+  const { isEventActive, effectiveTime } = useEarnEventActive(
+    result?.provider.eventEndTime,
+  );
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
@@ -295,6 +300,36 @@ const ProtocolDetailsPage = () => {
     ],
   );
 
+  const falconUSDfRegister = useFalconUSDfRegister();
+  const shouldRegisterBeforeStake = useMemo(() => {
+    if (
+      earnUtils.isFalconProvider({ providerName: result?.provider.name ?? '' })
+    ) {
+      return !result?.hasRegister;
+    }
+    return false;
+  }, [result?.hasRegister, result?.provider.name]);
+
+  const registerButtonProps = useMemo<ComponentProps<typeof Button>>(
+    () => ({
+      variant: 'primary',
+      loading: stakeLoading,
+      onPress: () => {
+        void falconUSDfRegister({
+          accountId: earnAccount?.accountId ?? '',
+          networkId: earnAccount?.networkId ?? '',
+          details: result,
+        });
+      },
+    }),
+    [
+      stakeLoading,
+      earnAccount?.accountId,
+      earnAccount?.networkId,
+      falconUSDfRegister,
+      result,
+    ],
+  );
   // const { bindInviteCode } = useReferFriends();
   // const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
   //   async () => {
@@ -320,6 +355,41 @@ const ProtocolDetailsPage = () => {
   //     initResult: false,
   //   },
   // );
+
+  const renderPageFooter = useCallback(() => {
+    if (media.gtMd) {
+      return null;
+    }
+    if (shouldRegisterBeforeStake) {
+      return (
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.earn_register,
+          })}
+          confirmButtonProps={registerButtonProps}
+        />
+      );
+    }
+    return (
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.earn_deposit,
+        })}
+        confirmButtonProps={stakeButtonProps}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.global_withdraw,
+        })}
+        cancelButtonProps={withdrawButtonProps}
+      />
+    );
+  }, [
+    media,
+    shouldRegisterBeforeStake,
+    intl,
+    registerButtonProps,
+    stakeButtonProps,
+    withdrawButtonProps,
+  ]);
 
   return (
     <Page scrollEnabled>
@@ -358,6 +428,11 @@ const ProtocolDetailsPage = () => {
             fullBleed
           />
         ) : null} */}
+        {isEventActive ? (
+          <YStack pb="$1">
+            <CountDownCalendarAlert effectiveTimeAt={effectiveTime} />
+          </YStack>
+        ) : null}
         <YStack px="$5" gap="$8">
           <PageFrame
             LoadingSkeleton={OverviewSkeleton}
@@ -370,8 +445,10 @@ const ProtocolDetailsPage = () => {
                 <>
                   <StakedValueSection
                     details={result}
+                    shouldRegisterBeforeStake={shouldRegisterBeforeStake}
                     stakeButtonProps={stakeButtonProps}
                     withdrawButtonProps={withdrawButtonProps}
+                    registerButtonProps={registerButtonProps}
                     alerts={result?.provider.alerts}
                   />
                   <PortfolioSection
@@ -401,18 +478,7 @@ const ProtocolDetailsPage = () => {
                 />
               )}
             </ProtocolDetails>
-            {!media.gtMd ? (
-              <Page.Footer
-                onConfirmText={intl.formatMessage({
-                  id: ETranslations.earn_deposit,
-                })}
-                confirmButtonProps={stakeButtonProps}
-                onCancelText={intl.formatMessage({
-                  id: ETranslations.global_withdraw,
-                })}
-                cancelButtonProps={withdrawButtonProps}
-              />
-            ) : null}
+            {renderPageFooter()}
             {result ? (
               <StakingTransactionIndicator
                 accountId={earnAccount?.accountId ?? ''}

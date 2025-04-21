@@ -5,6 +5,7 @@ import {
 import type {
   IHardwareSalesRecord,
   IInviteHistory,
+  IInvitePostConfig,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -154,6 +155,24 @@ class ServiceReferralCode extends ServiceBase {
   @backgroundMethod()
   async reset() {
     await this.backgroundApi.simpleDb.referralCode.reset();
+  }
+
+  @backgroundMethod()
+  async fetchPostConfig() {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInvitePostConfig;
+    }>('/rebate/v1/invite/post-config');
+    const postConfig = response.data.data;
+    await this.backgroundApi.simpleDb.referralCode.updatePostConfig(postConfig);
+    return postConfig;
+  }
+
+  @backgroundMethod()
+  async getPostConfig() {
+    const postConfig =
+      await this.backgroundApi.simpleDb.referralCode.getPostConfig();
+    return postConfig;
   }
 }
 

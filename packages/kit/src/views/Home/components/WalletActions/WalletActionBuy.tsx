@@ -56,6 +56,14 @@ export function WalletActionBuy() {
   const handleBuyToken = useCallback(async () => {
     if (isBuyDisabled) return;
 
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+
     defaultLogger.wallet.walletActions.actionBuy({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',

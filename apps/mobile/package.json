@@ -121,7 +121,6 @@
     "react-native-restart": "0.0.27",
     "react-native-safe-area-context": "4.7.2",
     "react-native-screens": "3.28.0",
-    "react-native-share": "^10.2.1",
     "react-native-svg": "^13.9.0",
     "react-native-tcp-socket": "^6.0.6",
     "react-native-video": "6.2.0",

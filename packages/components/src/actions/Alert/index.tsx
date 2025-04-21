@@ -132,6 +132,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
     fullBleed,
     action,
     onClose: onCloseProp,
+    children,
     ...rest
   } = props;
 
@@ -176,6 +177,8 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
           </SizableText>
         ) : null}
         {descriptionComponent || null}
+
+        {children || null}
       </YStack>
       {action ? (
         <XStack gap="$4" alignItems="center">

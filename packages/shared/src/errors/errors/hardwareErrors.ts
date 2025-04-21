@@ -4,6 +4,7 @@ import { get, uniq } from 'lodash';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
+import platformEnv from '../../platformEnv';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
@@ -153,7 +154,9 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedOneKeyBridge',
-        defaultKey: ETranslations.device_communication_failed,
+        defaultKey: platformEnv.isSupportWebUSB
+          ? ETranslations.device_communication_failed
+          : ETranslations.device_communication_failed_with_no_web_usb_supported,
       }),
     );
   }

@@ -10,6 +10,11 @@ import {
 
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
+export const useCurrency = () => {
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  return currencyInfo;
+};
+
 export interface ICurrencyProps extends INumberSizeableTextProps {
   // btc / eth / usd / sats / hkd
   sourceCurrency: string;
@@ -18,9 +23,14 @@ export interface ICurrencyProps extends INumberSizeableTextProps {
 function BasicCurrency({
   sourceCurrency,
   targetCurrency,
+  formatterOptions,
   children,
+  dynamicWidth,
+  formatter = 'price',
   ...props
-}: ICurrencyProps) {
+}: ICurrencyProps & {
+  dynamicWidth?: (value: string, currency: string) => number;
+}) {
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const sourceCurrencyInfo = useMemo(
@@ -45,9 +55,17 @@ function BasicCurrency({
 
   return (
     <NumberSizeableTextWrapper
-      formatter="price"
-      formatterOptions={{ currency: targetCurrencyInfo?.unit }}
+      formatter={formatter}
+      formatterOptions={{
+        currency: targetCurrencyInfo?.unit,
+        ...formatterOptions,
+      }}
       {...props}
+      width={
+        props.w ||
+        props.width ||
+        dynamicWidth?.(String(value || 0), targetCurrencyInfo?.unit || '')
+      }
     >
       {value}
     </NumberSizeableTextWrapper>

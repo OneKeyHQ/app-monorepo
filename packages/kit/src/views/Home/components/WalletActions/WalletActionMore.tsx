@@ -98,7 +98,15 @@ export function WalletActionMore() {
   }, [network?.id]).result;
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const handleCopyAddress = useCallback(() => {
+  const handleCopyAddress = useCallback(async () => {
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+
     defaultLogger.wallet.walletActions.actionCopyAddress({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
@@ -142,6 +150,14 @@ export function WalletActionMore() {
   ]);
 
   const handleSellToken = useCallback(async () => {
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+
     defaultLogger.wallet.walletActions.actionSell({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
@@ -216,6 +232,14 @@ export function WalletActionMore() {
   }, [network?.isCustomNetwork, network?.explorerURL]).result;
 
   const handleViewInExplorer = useCallback(async () => {
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+
     defaultLogger.wallet.walletActions.actionViewInExplorer({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useMedia } from 'tamagui';
 
@@ -8,7 +8,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type IIconButtonProps } from '../../../actions';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
-import HeaderCollapseButton from './HeaderCollapseButton';
+import HeaderCollapseButton, {
+  useHeaderCollapseButtonVisibility,
+} from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
@@ -54,6 +56,16 @@ function HeaderBackButton({
   const showCollapseButton = isRootScreen && !isVerticalLayout;
   const showBackButton = canGoBack || showCloseButton;
 
+  const headerCollapseButtonProps = useMemo(
+    () => ({
+      hideWhenOpen: true,
+    }),
+    [],
+  );
+
+  const { shouldHide: shouldHideCollapseButton } =
+    useHeaderCollapseButtonVisibility(headerCollapseButtonProps);
+
   const renderBackButton = () => {
     if (canGoBack) {
       return <NavBackButton onPress={props.onPress} />;
@@ -64,14 +76,26 @@ function HeaderBackButton({
     return null;
   };
 
-  const renderCollapseButton = () =>
-    showCollapseButton ? (
-      <HeaderCollapseButton hideWhenOpen isRootScreen={isRootScreen} />
-    ) : null;
+  const renderCollapseButton = useCallback(
+    () =>
+      showCollapseButton ? (
+        <HeaderCollapseButton
+          {...headerCollapseButtonProps}
+          isRootScreen={isRootScreen}
+        />
+      ) : null,
+    [showCollapseButton, headerCollapseButtonProps, isRootScreen],
+  );
 
   // If neither button should be shown, return null early.
   if (!showCollapseButton && !showBackButton && !renderLeft) {
     return null;
+  }
+
+  if (showCollapseButton && !showBackButton && !renderLeft) {
+    if (shouldHideCollapseButton) {
+      return null;
+    }
   }
 
   return (

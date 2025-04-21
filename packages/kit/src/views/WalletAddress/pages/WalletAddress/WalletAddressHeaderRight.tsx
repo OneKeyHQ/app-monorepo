@@ -86,10 +86,7 @@ const Content = ({
           });
         }}
       >
-        <ListItem.IconButton
-          icon="ChevronRightSmallOutline"
-          iconColor="$iconSubdued"
-        />
+        <ListItem.DrillIn color="$iconSubdued" />
       </ListItem>
     </YStack>
   );

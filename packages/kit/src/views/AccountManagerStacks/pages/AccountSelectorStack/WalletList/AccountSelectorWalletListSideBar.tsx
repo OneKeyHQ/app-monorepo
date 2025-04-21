@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -21,6 +21,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -36,6 +37,7 @@ import { WalletListItem } from './WalletListItem';
 
 interface IWalletListProps {
   num: number;
+  hideNonBackedUpWallet?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -73,7 +75,10 @@ export function AccountSelectorWalletListSideBarPerfTest({
   return null;
 }
 
-export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
+export function AccountSelectorWalletListSideBar({
+  num,
+  hideNonBackedUpWallet,
+}: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
   const { bottom } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
@@ -81,6 +86,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   // const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
+  const focusWalletChanged = useRef<boolean>(false);
 
   const {
     result: walletsResult,
@@ -92,10 +98,31 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       const r = await serviceAccount.getWallets({
         nestedHiddenWallets: true,
         ignoreEmptySingletonWalletAccounts: true,
+        ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
+
+      if (hideNonBackedUpWallet && !focusWalletChanged.current) {
+        const backedUpWallets = r.wallets;
+
+        if (
+          !backedUpWallets.find(
+            (w) =>
+              w.id === selectedAccount.walletId ||
+              w.id === selectedAccount.focusedWallet,
+          )
+        ) {
+          void actions.current.updateSelectedAccountFocusedWallet({
+            num,
+            focusedWallet: backedUpWallets[0]?.id,
+          });
+        }
+
+        focusWalletChanged.current = true;
+      }
+
       return r;
     },
-    [serviceAccount],
+    [serviceAccount, hideNonBackedUpWallet, actions, num, selectedAccount],
     {
       checkIsFocused: false,
     },

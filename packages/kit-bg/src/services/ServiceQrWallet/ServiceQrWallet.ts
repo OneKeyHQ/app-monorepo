@@ -16,6 +16,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
 import {
@@ -134,6 +135,7 @@ class ServiceQrWallet extends ServiceBase {
     indexedAccountId: string;
   }) {
     const { serviceAccount } = this.backgroundApi;
+    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
 
     const items =
       await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
@@ -145,7 +147,7 @@ class ServiceQrWallet extends ServiceBase {
     });
     const index = indexedAccount.index;
 
-    const paths: string[] = [];
+    let paths: string[] = [];
     for (const deriveInfo of items) {
       const fullPath = accountUtils.buildPathFromTemplate({
         template: deriveInfo.item.template,
@@ -159,7 +161,12 @@ class ServiceQrWallet extends ServiceBase {
       paths.push(normalizedPath);
     }
 
-    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
+    if (chain === 'BTC') {
+      // for fullXfp build
+      paths.push(BTC_FIRST_TAPROOT_PATH);
+    }
+
+    paths = uniq([...paths]);
 
     return {
       chain,
@@ -221,16 +228,20 @@ class ServiceQrWallet extends ServiceBase {
         backgroundApi: this.backgroundApi,
         includingNetworkWithGlobalDeriveType: true,
       });
-    const allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
+    let allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
       (item) => item.networkId,
     );
+    allDefaultAddAccountNetworksIds = uniq([
+      ...allDefaultAddAccountNetworksIds,
+    ]);
     if (networkUtils.isAllNetwork({ networkId })) {
-      networkIds = allDefaultAddAccountNetworksIds;
+      networkIds = uniq([...allDefaultAddAccountNetworksIds]);
     } else {
       // networkIds = [networkId];
       // TODO always create all default networks?
       networkIds = uniq([...allDefaultAddAccountNetworksIds, networkId]);
     }
+    networkIds = uniq([...networkIds]);
 
     const params: {
       chain: string;

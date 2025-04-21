@@ -172,7 +172,7 @@ const useHeight = () => {
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
     if (platformEnv.isNativeIOS) {
-      return 268;
+      return 268 + (pageType === EPageType.modal ? 68 : 0);
     }
 
     if (platformEnv.isNativeAndroid) {
@@ -180,7 +180,7 @@ const useHeight = () => {
     }
 
     return 300;
-  }, []);
+  }, [pageType]);
   return useMemo(
     () => (gtMd ? 450 : height - top - tabHeight - fixedHeight),
     [fixedHeight, gtMd, height, tabHeight, top],

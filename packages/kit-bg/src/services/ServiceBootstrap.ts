@@ -23,6 +23,7 @@ class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.serviceSetting.fetchReviewControl(),
       this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
       this.backgroundApi.serviceNotification.init(),
+      this.backgroundApi.serviceReferralCode.fetchPostConfig(),
     ]);
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
@@ -32,6 +33,7 @@ class ServiceBootstrap extends ServiceBase {
     void this.saveDevModeToSyncStorage();
     void this.backgroundApi.serviceHardware.init();
     void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
+    void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
   }
 
   async saveDevModeToSyncStorage() {

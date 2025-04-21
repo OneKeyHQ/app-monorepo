@@ -67,8 +67,14 @@ class CloudSyncItemBuilder {
     if (!wallet) {
       throw new Error('buildWalletSyncKey ERROR: wallet is required');
     }
-    const { hash: walletHash, type: walletType, passphraseState = '' } = wallet;
-    let keyHash = walletHash;
+    const {
+      // use hd exclusive hash, not shared xfp, avoid software and hardware wallets' avatar and name shared
+      hash: hdWalletHash,
+      // xfp: walletXfp, // do NOT use xfp
+      type: walletType,
+      passphraseState = '',
+    } = wallet;
+    let keyHash = hdWalletHash;
     let deviceType = '';
     if (walletType === WALLET_TYPE_HW) {
       keyHash = dbDevice?.deviceId;
@@ -101,7 +107,7 @@ class CloudSyncItemBuilder {
       key,
       dataType,
       walletType,
-      walletHash,
+      walletHash: hdWalletHash,
       passphraseState,
     };
   }

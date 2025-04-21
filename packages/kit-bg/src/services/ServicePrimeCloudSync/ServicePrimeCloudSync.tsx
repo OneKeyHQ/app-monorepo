@@ -11,7 +11,10 @@ import {
   EPrimeCloudSyncDataType,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyErrorPrimeMasterPasswordInvalid } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyError,
+  OneKeyErrorPrimeMasterPasswordInvalid,
+} from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -257,10 +260,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer: string | undefined;
   }): Promise<IDBCloudSyncItem | undefined> {
     if (!syncCredential) {
-      throw new Error('syncCredential is required for build flush lock');
+      throw new OneKeyError('syncCredential is required for build flush lock');
     }
     if (!encryptedSecurityPasswordR1ForServer) {
-      throw new Error(
+      throw new OneKeyError(
         'encryptedSecurityPasswordR1ForServer is required for build flush lock',
       );
     }
@@ -276,7 +279,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       dataTime: await this.timeNow(),
     });
     if (!lockItem?.data) {
-      throw new Error('lockItem.data is not found');
+      throw new OneKeyError('lockItem.data is not found');
     }
     return lockItem;
   }
@@ -560,6 +563,19 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
     }
+    return this._syncToSceneWithLocalSyncItems({
+      items,
+      syncCredential,
+    });
+  }
+
+  async _syncToSceneWithLocalSyncItems({
+    items,
+    syncCredential,
+  }: {
+    items: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+  }) {
     const walletItems: IDBCloudSyncItem[] = [];
     const accountItems: IDBCloudSyncItem[] = [];
     const indexedAccountItems: IDBCloudSyncItem[] = [];
@@ -932,24 +948,24 @@ class ServicePrimeCloudSync extends ServiceBase {
   } = {}) {
     const devSettings = await devSettingsPersistAtom.get();
     if (!devSettings.settings?.showPrimeTest) {
-      throw new Error(`Prime DevSettings is not enabled: ${callerName}`);
+      throw new OneKeyError(`Prime DevSettings is not enabled: ${callerName}`);
     }
 
     const primeCloudSyncConfig = await primeCloudSyncPersistAtom.get();
     if (!primeCloudSyncConfig.isCloudSyncEnabled) {
-      throw new Error(`Cloud sync is not enabled: ${callerName}`);
+      throw new OneKeyError(`Cloud sync is not enabled: ${callerName}`);
     }
 
     const isPrimeLoggedIn =
       await this.backgroundApi.servicePrime.isPrimeLoggedIn();
     if (!isPrimeLoggedIn) {
-      throw new Error(`Prime is not logged in: ${callerName}`);
+      throw new OneKeyError(`Prime is not logged in: ${callerName}`);
     }
 
     const isPrimeSubscriptionActive =
       await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
     if (!isPrimeSubscriptionActive) {
-      throw new Error(`Prime subscription is not active: ${callerName}`);
+      throw new OneKeyError(`Prime subscription is not active: ${callerName}`);
     }
   }
 
@@ -1040,14 +1056,14 @@ class ServicePrimeCloudSync extends ServiceBase {
       const password =
         await this.backgroundApi.servicePassword.getCachedPassword();
       if (!password) {
-        throw new Error('No password in memory');
+        throw new OneKeyError('No password in memory');
       }
 
       const { masterPasswordUUID, encryptedSecurityPasswordR1 } =
         await primeMasterPasswordPersistAtom.get();
       if (!masterPasswordUUID || !encryptedSecurityPasswordR1) {
         void this.showAlertDialogIfLocalPasswordNotSet();
-        throw new Error(
+        throw new OneKeyError(
           'No masterPasswordUUID or encryptedSecurityPasswordR1 in atom',
         );
       }
@@ -1063,10 +1079,10 @@ class ServicePrimeCloudSync extends ServiceBase {
       const primeUserId = securityPasswordR1Info?.primeUserId;
 
       if (!securityPasswordR1) {
-        throw new Error('Failed to decrypt securityPasswordR1');
+        throw new OneKeyError('Failed to decrypt securityPasswordR1');
       }
       if (!accountSalt) {
-        throw new Error('Failed to get accountSalt');
+        throw new OneKeyError('Failed to get accountSalt');
       }
 
       return {
@@ -1192,6 +1208,25 @@ class ServicePrimeCloudSync extends ServiceBase {
         error: new OneKeyErrorPrimeMasterPasswordInvalid(),
       });
     }
+  }
+
+  async initLocalSyncItemsDBForLegacyIndexedAccount() {
+    const { indexedAccounts: allIndexedAccounts } =
+      await this.backgroundApi.serviceAccount.getAllIndexedAccounts({});
+    const syncItemsForIndexedAccounts: IDBCloudSyncItem[] =
+      await this.syncManagers.indexedAccount._buildInitSyncDBItems({
+        dbRecords: allIndexedAccounts,
+        syncCredential: undefined,
+        // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
+        initDataTime: undefined,
+      });
+    await localDb.withTransaction(async (tx) => {
+      await localDb.txAddAndUpdateSyncItems({
+        tx,
+        items: syncItemsForIndexedAccounts,
+        skipUploadToServer: true, // startSyncFlow() will handle uploading to server
+      });
+    });
   }
 
   @backgroundMethod()
@@ -1454,12 +1489,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     const isPrimeLoggedIn =
       await this.backgroundApi.servicePrime.isPrimeLoggedIn();
     if (!isPrimeLoggedIn) {
-      throw new Error('Prime is not logged in');
+      throw new OneKeyError('Prime is not logged in');
     }
     const isPrimeSubscriptionActive =
       await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
     if (!isPrimeSubscriptionActive) {
-      throw new Error('Prime subscription is not active');
+      throw new OneKeyError('Prime subscription is not active');
     }
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify({
@@ -1509,7 +1544,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           // verify local password match with server master password
           if (isServerMasterPasswordSet) {
             if (!credential) {
-              throw new Error('Master password set failed');
+              throw new OneKeyError('Master password set failed');
             }
           }
           return credential;
@@ -1517,7 +1552,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       );
 
     if (!syncCredential) {
-      throw new Error('Master password set failed');
+      throw new OneKeyError('Master password set failed');
     }
 
     const shouldManualResolveDiffItems = false;

@@ -141,6 +141,7 @@ const icons = {
   AiImagesOutline: () => import("./react/outline/AiImages"),
   AiStarOutline: () => import("./react/outline/AiStar"),
   AiTextOutline: () => import("./react/outline/AiText"),
+  AirdropOutline: () => import("./react/outline/Airdrop"),
   AirplayOutline: () => import("./react/outline/Airplay"),
   AirpodsOutline: () => import("./react/outline/Airpods"),
   AlbumsOutline: () => import("./react/outline/Albums"),

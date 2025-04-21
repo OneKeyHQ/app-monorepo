@@ -12,7 +12,6 @@ import {
   encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
-  sha256,
 } from '@onekeyhq/core/src/secret';
 import {
   ECoreApiExportedSecretKeyType,
@@ -1636,6 +1635,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 mnemonic: await servicePassword.encodeSensitiveText({
                   text: mnemonic,
                 }),
+                isWalletBackedUp: true,
               });
             v5dbWallet = v5walletSaved;
           }

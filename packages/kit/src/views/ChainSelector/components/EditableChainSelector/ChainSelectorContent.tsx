@@ -309,20 +309,20 @@ export const EditableChainSelectorContent = ({
     networkFuseSearch,
   ]);
 
-  const dragItemOverflowHitSlop = useMemo(() => {
-    const dragCount = tempFrequentlyUsedItems.length;
-    if (dragCount <= 0) {
-      return undefined;
-    }
-    return { bottom: (dragCount + 1) * CELL_HEIGHT + 8 };
-  }, [tempFrequentlyUsedItems]);
-
   const listHeaderHeight = useMemo(() => {
     return (
       recentNetworksHeight +
       (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0)
     );
   }, [showAllNetworkHeader, recentNetworksHeight]);
+
+  const dragItemOverflowHitSlop = useMemo(() => {
+    const dragCount = tempFrequentlyUsedItems.length;
+    if (dragCount <= 0) {
+      return undefined;
+    }
+    return { bottom: (dragCount + 1) * listHeaderHeight + 16 };
+  }, [tempFrequentlyUsedItems, listHeaderHeight]);
 
   const layoutList = useMemo(() => {
     let offset = 16 + listHeaderHeight;
