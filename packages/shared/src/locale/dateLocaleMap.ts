@@ -9,7 +9,6 @@ import {
   it,
   ja,
   ko,
-  mn,
   pt,
   ptBR,
   ru,
