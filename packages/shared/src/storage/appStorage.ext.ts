@@ -1,6 +1,3 @@
-import appGlobals from '../appGlobals';
-
-import { createPrintMethod } from './createPrintMethod';
 import mockStorageInstance from './instance/mockStorageInstance';
 import webStorageInstance from './instance/webStorageInstance';
 import { buildAppStorageFactory } from './syncStorage';
