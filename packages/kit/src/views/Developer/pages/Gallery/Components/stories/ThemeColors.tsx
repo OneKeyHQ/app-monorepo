@@ -110,6 +110,7 @@ const ThemeColorsGallery = () => {
     Info: createColorSwatches('info'),
     Color: createColorSwatches('color'),
     Background: createColorSwatches('bg'),
+    Text: createColorSwatches('text'),
   };
 
   return (
