@@ -9,7 +9,7 @@ export const INDEXED_DB_NAME = LOCAL_DB_NAME;
 export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
 export const REALM_DB_NAME = LOCAL_DB_NAME;
 export const REALM_DB_VERSION = LOCAL_DB_VERSION;
-export const ENABLE_INDEXEDDB_BUCKET = false;
+export const ENABLE_INDEXEDDB_BUCKET = true;
 
 // ---------------------------------------------- const
 

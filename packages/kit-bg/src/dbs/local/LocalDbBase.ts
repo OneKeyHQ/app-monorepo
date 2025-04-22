@@ -4661,7 +4661,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       isBackedUp?: boolean;
     };
   }): Promise<void> {
-    await this.withTransaction(ELocalDBStoreNames.Wallet, async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,

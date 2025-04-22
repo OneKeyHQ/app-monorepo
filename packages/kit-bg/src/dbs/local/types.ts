@@ -44,6 +44,7 @@ import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndex
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { DBSchema, IDBPDatabase, IDBPObjectStore } from 'idb';
+import { IndexedDBPromised } from './indexed/IndexedDBPromised2';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {
@@ -420,7 +421,7 @@ export interface IRealmDBSchemaMap {
 
 export type IIndexedBucketsMap = Record<
   EIndexedDBBucketNames,
-  IDBPDatabase<IIndexedDBSchemaMap>
+  IndexedDBPromised<IIndexedDBSchemaMap>
 >;
 export enum EIndexedDBBucketNames {
   // default = 'default',

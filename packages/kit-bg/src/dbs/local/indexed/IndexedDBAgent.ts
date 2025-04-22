@@ -12,6 +12,7 @@ import { EIndexedDBBucketNames } from '../types';
 
 import indexedUtils from './indexedUtils';
 
+import type { IndexedDBPromised } from './IndexedDBPromised2';
 import type {
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
@@ -61,7 +62,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
   getIndexedByBucketName(
     bucketName: EIndexedDBBucketNames,
-  ): IDBPDatabase<IIndexedDBSchemaMap> {
+  ): IndexedDBPromised<IIndexedDBSchemaMap> {
     if (!this.buckets) {
       throw new Error('buckets not initialized');
     }
@@ -113,7 +114,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     }
   }
 
-  _buildTransactionAndStores({
+  async _buildTransactionAndStores({
     bucketName,
     alwaysCreate = true,
     readOnly = false,
@@ -128,8 +129,12 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
     if (!this.txPair || alwaysCreate) {
       const indexed = this.getIndexedByBucketName(bucketName);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const allStoreNames = ALL_LOCAL_DB_STORE_NAMES;
 
-      const dbTx = indexed.transaction(
+      // const dbTx = indexed.transaction( // not working
+      const dbTx = await indexed.getTransactionAsync(
+        // allStoreNames,
         indexedUtils.getStoreNamesByBucketName(bucketName), // ALL_LOCAL_DB_STORE_NAMES
         // 'readwrite',
         mode,
@@ -313,7 +318,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T> {
     noopObject(options);
-    const { tx, dbTx } = this._buildTransactionAndStores({
+    const { tx, dbTx } = await this._buildTransactionAndStores({
       bucketName,
       alwaysCreate: true,
       readOnly: options?.readOnly,
