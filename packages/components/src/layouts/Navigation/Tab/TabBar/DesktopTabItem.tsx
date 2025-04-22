@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
@@ -40,6 +41,7 @@ export interface IDesktopTabItemProps {
   actionList?: IActionListSection[];
   shortcutKey?: EShortcutEvents | string[];
   onClose?: () => void;
+  trackId?: string;
 }
 
 function BasicDesktopTabItemImage({
@@ -84,6 +86,7 @@ export function DesktopTabItem(
     onPress,
     onClose,
     shortcutKey,
+    trackId,
     size = 'medium',
     ...rest
   } = props;
@@ -97,6 +100,7 @@ export function DesktopTabItem(
     e.preventDefault();
     openActionList?.current?.();
   }, []);
+
   useEffect(() => {
     if (!platformEnv.isNative) {
       const stackValue = stackRef?.current as HTMLElement;
@@ -119,8 +123,11 @@ export function DesktopTabItem(
       } else {
         onPress?.(e);
       }
+      if (trackId) {
+        defaultLogger.app.page.tabBarClick(trackId);
+      }
     },
-    [onPress, selected],
+    [onPress, selected, trackId],
   );
   const trigger = useMemo(
     () => (
