@@ -40,11 +40,13 @@ import {
 } from '@onekeyhq/shared/types/discovery';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import {
+  EIndexedDBBucketNames,
+  type IDBCloudSyncItem,
+} from '../dbs/local/types';
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
-
-import type { IDBCloudSyncItem } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
@@ -412,26 +414,29 @@ class ServiceDiscovery extends ServiceBase {
     }
 
     let savedSuccess = false;
-    await this.backgroundApi.localDb.withTransaction(async (tx) => {
-      if (syncItems?.length) {
-        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
-          tx,
-          items: syncItems,
-        });
-      }
-      if (isRemove) {
-        await this.backgroundApi.simpleDb.browserBookmarks.removeBookmarks({
-          urls: bookmarks.map((i) => i.url),
-        });
-      } else {
-        // Save the updated bookmarks
-        await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
-          bookmarks,
-        });
-      }
+    await this.backgroundApi.localDb.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        if (syncItems?.length) {
+          await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+            tx,
+            items: syncItems,
+          });
+        }
+        if (isRemove) {
+          await this.backgroundApi.simpleDb.browserBookmarks.removeBookmarks({
+            urls: bookmarks.map((i) => i.url),
+          });
+        } else {
+          // Save the updated bookmarks
+          await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
+            bookmarks,
+          });
+        }
 
-      savedSuccess = true;
-    });
+        savedSuccess = true;
+      },
+    );
 
     if (!skipEventEmit) {
       setTimeout(() => {

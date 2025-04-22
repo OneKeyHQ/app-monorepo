@@ -27,7 +27,7 @@ import {
 } from '../types';
 
 import { IndexedDBAgent } from './IndexedDBAgent';
-import { IndexedDBPromised } from './IndexedDBPromised2';
+import { IndexedDBPromised } from './IndexedDBPromised';
 import indexedUtils from './indexedUtils';
 
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
@@ -137,7 +137,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
     const buckets: Record<
       EIndexedDBBucketNames,
-      IDBPDatabase<IIndexedDBSchemaMap>
+      IndexedDBPromised<IIndexedDBSchemaMap>
     > = {
       [EIndexedDBBucketNames.account]: undefined as any,
       [EIndexedDBBucketNames.address]: undefined as any,

@@ -33,39 +33,36 @@ function getBucketNameByStoreName(
   }
 }
 
+let bucketNameToStoreNamesMap:
+  | Record<EIndexedDBBucketNames, ELocalDBStoreNames[]>
+  | undefined;
+
 function getStoreNamesByBucketName(
   bucketName: EIndexedDBBucketNames,
 ): ELocalDBStoreNames[] {
-  switch (bucketName) {
-    case EIndexedDBBucketNames.account:
-      return [
-        ELocalDBStoreNames.CloudSyncItem,
-        ELocalDBStoreNames.Account,
-        ELocalDBStoreNames.AccountDerivation,
-        ELocalDBStoreNames.IndexedAccount,
-        ELocalDBStoreNames.Credential,
-        ELocalDBStoreNames.Device,
-        ELocalDBStoreNames.Context,
-        ELocalDBStoreNames.Wallet,
-      ];
+  if (!bucketNameToStoreNamesMap) {
+    bucketNameToStoreNamesMap = {
+      [EIndexedDBBucketNames.account]: [],
+      [EIndexedDBBucketNames.address]: [],
+      [EIndexedDBBucketNames.archive]: [],
+    };
 
-    case EIndexedDBBucketNames.address:
-      return [ELocalDBStoreNames.Address];
-
-    case EIndexedDBBucketNames.archive:
-      return [
-        ELocalDBStoreNames.SignedMessage,
-        ELocalDBStoreNames.SignedTransaction,
-        ELocalDBStoreNames.ConnectedSite,
-      ];
-    default: {
-      const exhaustiveCheck: never = bucketName;
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(
-        `Unsupported indexedDB store name: ${exhaustiveCheck as string}`,
-      );
-    }
+    Object.values(ELocalDBStoreNames).forEach((storeName) => {
+      if (typeof storeName === 'string') {
+        try {
+          const _bucketName = getBucketNameByStoreName(
+            storeName as ELocalDBStoreNames,
+          );
+          bucketNameToStoreNamesMap?.[_bucketName].push(
+            storeName as ELocalDBStoreNames,
+          );
+        } catch (error) {
+          // ignore
+        }
+      }
+    });
   }
+  return bucketNameToStoreNamesMap[bucketName];
 }
 export default {
   getBucketNameByStoreName,

@@ -17,6 +17,7 @@ module.exports = [
   'ack',
   'ada',
   'addr',
+  'endregion',
   'Addr',
   'addr1',
   'Ae2',

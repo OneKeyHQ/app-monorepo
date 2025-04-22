@@ -1,3 +1,3 @@
-export * from './IndexedDBPromised2';
+export * from './IndexedDBPromised';
 export * from './IndexedDBObjectStorePromised';
 export * from './IndexedDBTransactionPromised';

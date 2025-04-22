@@ -21,7 +21,7 @@ describe('LocalDbIndexed tests', () => {
     const context = await db.getContext();
     expect(context.id).toEqual(DB_MAIN_CONTEXT_ID);
     expect(context.backupUUID).toEqual('fake-uuid');
-    expect(db0.indexed.version).toEqual(consts.INDEXED_DB_VERSION);
+    expect(db0.buckets?.account.version).toEqual(consts.INDEXED_DB_VERSION);
   });
   it('getBackupUUID', async () => {
     const db = new LocalDbIndexed();
@@ -38,8 +38,8 @@ describe('LocalDbIndexed tests', () => {
     const db = new LocalDbIndexed();
     // @ts-ignore
     const db0 = await db.readyDb;
-    expect(db0.indexed.objectStoreNames).not.toContain('hello');
-    expect(db0.indexed.version).toBe(1);
+    expect(db0.buckets?.account.objectStoreNames).not.toContain('hello');
+    expect(db0.buckets?.account.version).toBe(1);
 
     // @ts-ignore
     // ELocalDBStoreNames.hello = 'hello';

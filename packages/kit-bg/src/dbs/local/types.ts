@@ -32,6 +32,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import type { EDBAccountType, EDBCredentialType } from './consts';
+import type { IndexedDBPromised } from './indexed/IndexedDBPromised';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
 import type { RealmSchemaAccountDerivation } from './realm/schemas/RealmSchemaAccountDerivation';
@@ -44,7 +45,6 @@ import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndex
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { DBSchema, IDBPDatabase, IDBPObjectStore } from 'idb';
-import { IndexedDBPromised } from './indexed/IndexedDBPromised2';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {

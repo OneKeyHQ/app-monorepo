@@ -12,7 +12,7 @@ import { EIndexedDBBucketNames } from '../types';
 
 import indexedUtils from './indexedUtils';
 
-import type { IndexedDBPromised } from './IndexedDBPromised2';
+import type { IndexedDBPromised } from './IndexedDBPromised';
 import type {
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
