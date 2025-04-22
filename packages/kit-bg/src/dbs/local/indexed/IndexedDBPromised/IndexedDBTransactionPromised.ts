@@ -19,27 +19,25 @@ export class IndexedDBTransactionPromised<
 {
   constructor({
     db,
-    storeNames,
     mode,
     tx,
   }: {
     db: IDBPDatabase<DBTypes>;
-    storeNames: ArrayLike<StoreNames<DBTypes>>;
     mode: Mode;
     tx: IDBTransaction;
   }) {
     this.db = db;
     this.tx = tx;
     this.mode = mode;
-    // @ts-ignore
-    this.objectStoreNames = Array.from(storeNames);
   }
 
   readonly tx: IDBTransaction;
 
   readonly mode: Mode;
 
-  readonly objectStoreNames: TypedDOMStringList<TxStores[number]>;
+  get objectStoreNames(): TypedDOMStringList<TxStores[number]> {
+    return this.tx.objectStoreNames as TypedDOMStringList<TxStores[number]>;
+  }
 
   readonly db: IDBPDatabase<DBTypes>;
 
@@ -51,7 +49,11 @@ export class IndexedDBTransactionPromised<
     });
   }
 
-  readonly store = undefined as any;
+  get store(): TxStores[1] extends undefined
+    ? IDBPObjectStore<DBTypes, TxStores, TxStores[0], Mode>
+    : undefined {
+    throw new Error('use objectStore() to get a store');
+  }
 
   objectStore<StoreName extends TxStores[number]>(
     name: StoreName,

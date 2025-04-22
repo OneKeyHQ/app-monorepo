@@ -1,11 +1,14 @@
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { EIndexedDBBucketNames } from './types';
+
 const LOCAL_DB_NAME = 'OneKeyV5';
 const LOCAL_DB_VERSION = 9;
 
 // ----------------------------------------------
 
-export const INDEXED_DB_NAME = LOCAL_DB_NAME;
+export const INDEXED_DB_NAME = (bucketName: EIndexedDBBucketNames) =>
+  `${LOCAL_DB_NAME}-${bucketName.split('--')[0]}`;
 export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
 export const REALM_DB_NAME = LOCAL_DB_NAME;
 export const REALM_DB_VERSION = LOCAL_DB_VERSION;

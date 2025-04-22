@@ -113,7 +113,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         this.realm.beginTransaction();
       }
       try {
-        const tx = {};
+        const tx = {
+          bucketName,
+        };
         const result = await task(tx);
         // await timerUtils.wait(2000);
         if (!options?.readOnly) {

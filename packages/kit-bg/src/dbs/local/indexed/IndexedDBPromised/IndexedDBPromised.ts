@@ -32,7 +32,7 @@ export interface IDBInitOptions<DBTypes extends DBSchema | unknown = unknown> {
   };
   upgrade?: (params: {
     nativeDB: IDBDatabase;
-    database: IDBPDatabase<DBTypes>;
+    database: IndexedDBPromised<DBTypes>;
     oldVersion: number;
     newVersion: number | null;
     transaction: IDBPTransaction<
@@ -53,9 +53,19 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
 
   version: number;
 
+  private upgrade?: IDBInitOptions<DBTypes>['upgrade'];
+
   nativeDB: IDBDatabase | null = null;
 
-  private upgrade?: IDBInitOptions<DBTypes>['upgrade'];
+  onabort: ((this: IDBDatabase, ev: Event) => any) | null = null;
+
+  onclose: ((this: IDBDatabase, ev: Event) => any) | null = null;
+
+  onerror: ((this: IDBDatabase, ev: Event) => any) | null = null;
+
+  onversionchange:
+    | ((this: IDBDatabase, ev: IDBVersionChangeEvent) => any)
+    | null = null;
 
   constructor(options: IDBInitOptions<DBTypes>) {
     this.bucket = options.bucket;
@@ -64,8 +74,14 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     this.upgrade = options.upgrade;
   }
 
-  // @ts-ignore
-  objectStoreNames: TypedDOMStringList<StoreNames<DBTypes>>;
+  get objectStoreNames(): TypedDOMStringList<StoreNames<DBTypes>> {
+    if (!this.nativeDB) {
+      throw new Error('db not open yet');
+    }
+    return this.nativeDB?.objectStoreNames as TypedDOMStringList<
+      StoreNames<DBTypes>
+    >;
+  }
 
   createObjectStore<Name extends StoreNames<DBTypes>>(
     name: Name,
@@ -76,15 +92,15 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     Name,
     'versionchange'
   > {
-    const tx = this.transaction(
-      Array.from([name]) as ArrayLike<StoreNames<DBTypes>>,
-      'versionchange',
-    );
     const store = this.nativeDB?.createObjectStore(name, optionalParameters);
     if (!store) {
       throw new Error('Failed to create object store');
     }
 
+    const tx = this.transaction(
+      Array.from([name]) as ArrayLike<StoreNames<DBTypes>>,
+      'versionchange',
+    );
     return new IndexedDBObjectStorePromised({
       tx,
       store,
@@ -96,6 +112,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
+  // use getTransactionAsync() if get bucket db transaction
   transaction<
     Names extends ArrayLike<StoreNames<DBTypes>>,
     Mode extends IDBTransactionMode = 'readonly',
@@ -115,7 +132,6 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     );
     return new IndexedDBTransactionPromised({
       db: this,
-      storeNames,
       mode,
       tx,
     });
@@ -128,8 +144,8 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     storeNames: Names,
     mode: Mode,
     options?: IDBTransactionOptions,
-  ): Promise<IDBPTransaction<DBTypes, Names, Mode>> {
-    const nativeDB = await this.open({ alwaysOpenNew: true });
+  ): Promise<IndexedDBTransactionPromised<DBTypes, Names, Mode>> {
+    const nativeDB = await this._openDB({ alwaysOpenNew: true });
     const tx = nativeDB.transaction(
       storeNames as unknown as string[],
       mode,
@@ -137,13 +153,12 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     );
     return new IndexedDBTransactionPromised({
       db: this,
-      storeNames,
       mode,
       tx,
     });
   }
 
-  add<Name extends StoreNames<DBTypes>>(
+  async add<Name extends StoreNames<DBTypes>>(
     storeName: Name,
     value: StoreValue<DBTypes, Name>,
     key?: IDBKeyRange | StoreKey<DBTypes, Name> | undefined,
@@ -151,14 +166,18 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
-  count<Name extends StoreNames<DBTypes>>(
+  async clear(name: StoreNames<DBTypes>): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+
+  async count<Name extends StoreNames<DBTypes>>(
     storeName: Name,
     key?: IDBKeyRange | StoreKey<DBTypes, Name> | null | undefined,
   ): Promise<number> {
     throw new Error('Method not implemented.');
   }
 
-  countFromIndex<
+  async countFromIndex<
     Name extends StoreNames<DBTypes>,
     IndexName extends IndexNames<DBTypes, Name>,
   >(
@@ -169,14 +188,21 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
-  get<Name extends StoreNames<DBTypes>>(
+  async delete<Name extends StoreNames<DBTypes>>(
     storeName: Name,
-    query: IDBKeyRange | StoreKey<DBTypes, Name>,
+    key: StoreKey<DBTypes, Name> | IDBKeyRange,
+  ): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+
+  async get<Name extends StoreNames<DBTypes>>(
+    storeName: Name,
+    query: StoreKey<DBTypes, Name> | IDBKeyRange,
   ): Promise<StoreValue<DBTypes, Name> | undefined> {
     throw new Error('Method not implemented.');
   }
 
-  getFromIndex<
+  async getFromIndex<
     Name extends StoreNames<DBTypes>,
     IndexName extends IndexNames<DBTypes, Name>,
   >(
@@ -187,7 +213,15 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
-  getAllFromIndex<
+  async getAll<Name extends StoreNames<DBTypes>>(
+    storeName: Name,
+    query?: StoreKey<DBTypes, Name> | IDBKeyRange | null,
+    count?: number,
+  ): Promise<StoreValue<DBTypes, Name>[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getAllFromIndex<
     Name extends StoreNames<DBTypes>,
     IndexName extends IndexNames<DBTypes, Name>,
   >(
@@ -199,7 +233,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
-  getAllKeys<Name extends StoreNames<DBTypes>>(
+  async getAllKeys<Name extends StoreNames<DBTypes>>(
     storeName: Name,
     query?: IDBKeyRange | StoreKey<DBTypes, Name> | null | undefined,
     count?: number,
@@ -207,7 +241,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
-  getAllKeysFromIndex<
+  async getAllKeysFromIndex<
     Name extends StoreNames<DBTypes>,
     IndexName extends IndexNames<DBTypes, Name>,
   >(
@@ -219,14 +253,14 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
-  getKey<Name extends StoreNames<DBTypes>>(
+  async getKey<Name extends StoreNames<DBTypes>>(
     storeName: Name,
     query: IDBKeyRange | StoreKey<DBTypes, Name>,
   ): Promise<StoreKey<DBTypes, Name> | undefined> {
     throw new Error('Method not implemented.');
   }
 
-  getKeyFromIndex<
+  async getKeyFromIndex<
     Name extends StoreNames<DBTypes>,
     IndexName extends IndexNames<DBTypes, Name>,
   >(
@@ -237,62 +271,35 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     throw new Error('Method not implemented.');
   }
 
-  put<Name extends StoreNames<DBTypes>>(
+  async put<Name extends StoreNames<DBTypes>>(
     storeName: Name,
     value: StoreValue<DBTypes, Name>,
-    key?: IDBKeyRange | StoreKey<DBTypes, Name> | undefined,
+    key?: StoreKey<DBTypes, Name> | IDBKeyRange,
   ): Promise<StoreKey<DBTypes, Name>> {
     throw new Error('Method not implemented.');
   }
 
-  onabort: ((this: IDBDatabase, ev: Event) => any) | null = null;
-
-  onclose: ((this: IDBDatabase, ev: Event) => any) | null = null;
-
-  onerror: ((this: IDBDatabase, ev: Event) => any) | null = null;
-
-  onversionchange:
-    | ((this: IDBDatabase, ev: IDBVersionChangeEvent) => any)
-    | null = null;
-
-  addEventListener(type: unknown, listener: unknown, options?: unknown): void {
-    throw new Error('Method not implemented.');
-  }
-
-  removeEventListener(
-    type: unknown,
-    listener: unknown,
-    options?: unknown,
+  addEventListener<K extends keyof IDBDatabaseEventMap>(
+    type: K,
+    listener: (this: IDBDatabase, ev: IDBDatabaseEventMap[K]) => any,
+    options?: boolean | AddEventListenerOptions,
   ): void {
     throw new Error('Method not implemented.');
   }
 
-  dispatchEvent(event: unknown): boolean {
+  removeEventListener<K extends keyof IDBDatabaseEventMap>(
+    type: K,
+    listener: (this: IDBDatabase, ev: IDBDatabaseEventMap[K]) => any,
+    options?: boolean | EventListenerOptions,
+  ): void {
     throw new Error('Method not implemented.');
   }
 
-  static async getIndexedDbInstance(bucketName: string) {
-    const bucketOptions: IStorageBucketOptions = {
-      durability: 'strict', // Or `'relaxed'`.
-      persisted: true, // Or `false`.
-    };
-    const storageBuckets = (globalThis?.navigator as INavigator | undefined)
-      ?.storageBuckets;
-    // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
-    if (!storageBuckets) {
-      throw new Error('storageBuckets is not supported');
-    }
-    const bucket = await storageBuckets?.open(bucketName, bucketOptions);
-    if (!bucket?.indexedDB) {
-      throw new Error(`Failed to open bucket indexedDB: ${bucketName}`);
-    }
-    return bucket.indexedDB;
+  dispatchEvent(event: Event): boolean {
+    throw new Error('Method not implemented.');
   }
 
-  /**
-   * 打开数据库连接
-   */
-  async open({
+  async _openDB({
     alwaysOpenNew = false,
   }: {
     alwaysOpenNew?: boolean;
@@ -314,7 +321,6 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
 
       request.onsuccess = (event) => {
         const nativeDB = (event.target as IDBRequest).result;
-        // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         nativeDB.$$nonce = Date.now();
 
@@ -330,12 +336,11 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
         const newVersion = event.newVersion;
 
         // 如果提供了升级回调，则使用自定义升级逻辑
-        if (this.upgrade) {
+        if (this.upgrade && transaction) {
           const tx = new IndexedDBTransactionPromised({
             db: this,
-            storeNames: [],
             mode: 'versionchange',
-            tx: transaction!,
+            tx: transaction,
           });
           this.upgrade({
             nativeDB,
@@ -350,9 +355,6 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     });
   }
 
-  /**
-   * 关闭数据库连接
-   */
   close(): void {
     if (this.nativeDB) {
       this.nativeDB.close();
@@ -360,9 +362,24 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     }
   }
 
-  /**
-   * 删除数据库
-   */
+  static async getIndexedDbInstance(bucketName: string) {
+    const bucketOptions: IStorageBucketOptions = {
+      durability: 'strict', // Or `'relaxed'`.
+      persisted: true, // Or `false`.
+    };
+    const storageBuckets = (globalThis?.navigator as INavigator | undefined)
+      ?.storageBuckets;
+    // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
+    if (!storageBuckets) {
+      throw new Error('storageBuckets is not supported');
+    }
+    const bucket = await storageBuckets?.open(bucketName, bucketOptions);
+    if (!bucket?.indexedDB) {
+      throw new Error(`Failed to open bucket indexedDB: ${bucketName}`);
+    }
+    return bucket.indexedDB;
+  }
+
   static async deleteDatabase({
     bucketName,
     name,
@@ -380,296 +397,6 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
 
       request.onsuccess = () => {
         resolve();
-      };
-    });
-  }
-
-  /**
-   * 获取事务
-   */
-  private async getTransaction(
-    storeNames: string | string[],
-    mode: IDBTransactionMode = 'readonly',
-  ): Promise<IDBTransaction> {
-    const db = await this.open({ alwaysOpenNew: true });
-    return db.transaction(storeNames, mode);
-  }
-
-  /**
-   * 获取对象存储
-   */
-  private async getObjectStore(
-    storeName: string,
-    mode: IDBTransactionMode = 'readonly',
-  ): Promise<IDBObjectStore> {
-    const transaction = await this.getTransaction(storeName, mode);
-    return transaction.objectStore(storeName);
-  }
-
-  /**
-   * 添加数据
-   */
-  async add0<T>(storeName: string, item: T): Promise<IDBValidKey> {
-    const store = await this.getObjectStore(storeName, 'readwrite');
-    return new Promise((resolve, reject) => {
-      const request = store.add(item as any);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result);
-      };
-    });
-  }
-
-  /**
-   * 添加多条数据
-   */
-  async addMany<T>(storeName: string, items: T[]): Promise<IDBValidKey[]> {
-    const store = await this.getObjectStore(storeName, 'readwrite');
-    const promises: Promise<IDBValidKey>[] = [];
-
-    return new Promise((resolve, reject) => {
-      items.forEach((item) => {
-        const request = store.add(item as any);
-        const promise = new Promise<IDBValidKey>((resolveItem, rejectItem) => {
-          request.onsuccess = (event) => {
-            resolveItem((event.target as IDBRequest).result);
-          };
-
-          request.onerror = (event) => {
-            rejectItem((event.target as IDBRequest).error);
-          };
-        });
-
-        promises.push(promise);
-      });
-
-      Promise.all(promises).then(resolve).catch(reject);
-    });
-  }
-
-  /**
-   * 获取数据
-   */
-  async get0<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
-    const store = await this.getObjectStore(storeName);
-    return new Promise((resolve, reject) => {
-      const request = store.get(key);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result as T | undefined);
-      };
-    });
-  }
-
-  /**
-   * 获取所有数据
-   */
-  async getAll<T>(
-    storeName: string,
-    query?: IDBValidKey | IDBKeyRange | null,
-    count?: number,
-  ): Promise<T[]> {
-    const store = await this.getObjectStore(storeName);
-    return new Promise((resolve, reject) => {
-      const request = store.getAll(query, count);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result as T[]);
-      };
-    });
-  }
-
-  /**
-   * 获取所有键
-   */
-  async getAllKeys0(
-    storeName: string,
-    query?: IDBValidKey | IDBKeyRange | null,
-    count?: number,
-  ): Promise<IDBValidKey[]> {
-    const store = await this.getObjectStore(storeName);
-    return new Promise((resolve, reject) => {
-      const request = store.getAllKeys(query, count);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result);
-      };
-    });
-  }
-
-  /**
-   * 更新数据
-   */
-  async put0<T>(storeName: string, item: T): Promise<IDBValidKey> {
-    const store = await this.getObjectStore(storeName, 'readwrite');
-    return new Promise((resolve, reject) => {
-      const request = store.put(item as any);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result);
-      };
-    });
-  }
-
-  /**
-   * 删除数据
-   */
-  async delete(
-    storeName: string,
-    key: IDBValidKey | IDBKeyRange,
-  ): Promise<void> {
-    const store = await this.getObjectStore(storeName, 'readwrite');
-    return new Promise((resolve, reject) => {
-      const request = store.delete(key);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = () => {
-        resolve();
-      };
-    });
-  }
-
-  /**
-   * 清空存储
-   */
-  async clear(storeName: string): Promise<void> {
-    const store = await this.getObjectStore(storeName, 'readwrite');
-    return new Promise((resolve, reject) => {
-      const request = store.clear();
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = () => {
-        resolve();
-      };
-    });
-  }
-
-  /**
-   * 计数
-   */
-  async count0(
-    storeName: string,
-    query?: IDBValidKey | IDBKeyRange,
-  ): Promise<number> {
-    const store = await this.getObjectStore(storeName);
-    return new Promise((resolve, reject) => {
-      const request = store.count(query);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result);
-      };
-    });
-  }
-
-  /**
-   * 使用游标遍历数据
-   */
-  async iterate<T>(
-    storeName: string,
-    callback: (cursor: IDBCursorWithValue) => void | boolean,
-    query?: IDBValidKey | IDBKeyRange | null,
-    direction?: IDBCursorDirection,
-  ): Promise<void> {
-    const store = await this.getObjectStore(storeName);
-    return new Promise((resolve, reject) => {
-      const request = store.openCursor(query, direction);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest)
-          .result as IDBCursorWithValue;
-        if (cursor) {
-          const result = callback(cursor);
-          if (result !== false) {
-            cursor.continue();
-          } else {
-            resolve();
-          }
-        } else {
-          resolve();
-        }
-      };
-    });
-  }
-
-  /**
-   * 使用索引查询
-   */
-  async getByIndex<T>(
-    storeName: string,
-    indexName: string,
-    key: IDBValidKey | IDBKeyRange,
-  ): Promise<T | undefined> {
-    const store = await this.getObjectStore(storeName);
-    const index = store.index(indexName);
-
-    return new Promise((resolve, reject) => {
-      const request = index.get(key);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result as T | undefined);
-      };
-    });
-  }
-
-  /**
-   * 使用索引获取所有数据
-   */
-  async getAllByIndex<T>(
-    storeName: string,
-    indexName: string,
-    query?: IDBValidKey | IDBKeyRange | null,
-    count?: number,
-  ): Promise<T[]> {
-    const store = await this.getObjectStore(storeName);
-    const index = store.index(indexName);
-
-    return new Promise((resolve, reject) => {
-      const request = index.getAll(query, count);
-
-      request.onerror = (event) => {
-        reject((event.target as IDBRequest).error);
-      };
-
-      request.onsuccess = (event) => {
-        resolve((event.target as IDBRequest).result as T[]);
       };
     });
   }

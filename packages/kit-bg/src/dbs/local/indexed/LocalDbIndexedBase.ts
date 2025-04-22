@@ -1,4 +1,3 @@
-import { deleteDB, openDB } from 'idb';
 import { isNil } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -30,6 +29,7 @@ import { IndexedDBAgent } from './IndexedDBAgent';
 import { IndexedDBPromised } from './IndexedDBPromised';
 import indexedUtils from './indexedUtils';
 
+import type { IndexedDBObjectStorePromised } from './IndexedDBPromised';
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export abstract class LocalDbIndexedBase extends LocalDbBase {
@@ -45,7 +45,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private _handleDbUpgrade(options: {
     bucketName: EIndexedDBBucketNames;
-    db: IDBPDatabase<IIndexedDBSchemaMap>;
+    db: IndexedDBPromised<IIndexedDBSchemaMap>;
     nativeDB: IDBDatabase;
     oldVersion: number;
     newVersion: number | null;
@@ -85,7 +85,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
     // update network rpc
     if (oldVersion < 5) {
-      // const transaction = versionChangedEvent.target // @ts-expect-error
+      // const transaction = versionChangedEvent.target
       //   .transaction as IDBTransaction;
       // const openCursorRequest = transaction
       //   .objectStore(NETWORK_STORE_NAME)
@@ -128,7 +128,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   }
 
   buildDbName(bucketName: EIndexedDBBucketNames) {
-    return `${INDEXED_DB_NAME}--${bucketName}`;
+    return INDEXED_DB_NAME(bucketName);
   }
 
   private async _openDb() {
@@ -162,12 +162,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       //   }
       //   idb = bucket.indexedDB;
       // }
+      // // import { deleteDB, openDB } from 'idb';
       // const indexed = await openDB<IIndexedDBSchemaMap>(
       //   self.buildDbName(bucketName),
       //   INDEXED_DB_VERSION,
       //   {
       //     // TODO patch idb
-      //     // @ts-expect-error
       //     indexedDBInstance: idb,
       //     upgrade(db0, oldVersion, newVersion, transaction) {
       //       // add object stores here
@@ -197,10 +197,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
           });
         },
       });
-      await indexed.open();
+      await indexed._openDB();
 
       buckets[bucketName] = indexed;
-      appGlobals.$$indexedDBBuckets = buckets;
+      if (process.env.NODE_ENV !== 'production') {
+        appGlobals.$$indexedDBBuckets = buckets;
+      }
     }
 
     // add initial records to store
@@ -220,7 +222,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     walletStore,
     walletId,
   }: {
-    walletStore: IDBPObjectStore<
+    walletStore: IndexedDBObjectStorePromised<
       IIndexedDBSchemaMap,
       ELocalDBStoreNames.Wallet[],
       ELocalDBStoreNames.Wallet,
@@ -343,7 +345,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   }
 
   private async _getOrAddRecord<T extends ELocalDBStoreNames>(
-    store: IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'>,
+    store: IndexedDBObjectStorePromised<
+      IIndexedDBSchemaMap,
+      T[],
+      T,
+      'readwrite'
+    >,
     record: IIndexedDBSchemaMap[T]['value'],
   ): Promise<IIndexedDBSchemaMap[T]['value'] | undefined> {
     /* get store like this
@@ -352,7 +359,6 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       ELocalDBStoreNames.context,
     );
     */
-    // @ts-ignore
     const recordId = record.id;
     let existsRecord = await store.get(recordId);
     if (isNil(existsRecord)) {
@@ -372,9 +378,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     await Promise.all(
       names.map(async (name) => {
         const indexedDb = db.getIndexedByBucketName(name);
+        // TODO close async and try catch
         indexedDb.close();
 
         // TODO delete bucket indexedDB
+        // // import { deleteDB, openDB } from 'idb';
+        //
         // await deleteDB(INDEXED_DB_NAME);
 
         await IndexedDBPromised.deleteDatabase({

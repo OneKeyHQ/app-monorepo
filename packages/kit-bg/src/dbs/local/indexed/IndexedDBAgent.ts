@@ -12,7 +12,10 @@ import { EIndexedDBBucketNames } from '../types';
 
 import indexedUtils from './indexedUtils';
 
-import type { IndexedDBPromised } from './IndexedDBPromised';
+import type {
+  IndexedDBPromised,
+  IndexedDBTransactionPromised,
+} from './IndexedDBPromised';
 import type {
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
@@ -77,7 +80,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
   txPair:
     | {
-        dbTx: IDBPTransaction<
+        dbTx: IndexedDBTransactionPromised<
           IIndexedDBSchemaMap,
           ELocalDBStoreNames[],
           'readwrite'
@@ -87,7 +90,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     | undefined;
 
   _getObjectStore<T extends ELocalDBStoreNames>(
-    tx: IDBPTransaction<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
     storeName: T,
     _: IDBTransactionMode,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
@@ -96,10 +99,10 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   }
 
   _getOrCreateObjectStore<T extends ELocalDBStoreNames>(
-    tx: IDBPTransaction<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
     storeName: T,
     mode: IDBTransactionMode,
-    indexed: IDBPDatabase<IIndexedDBSchemaMap>,
+    indexed: IndexedDBPromised<IIndexedDBSchemaMap>,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
     try {
       const store = this._getObjectStore(tx, storeName, mode);
@@ -257,6 +260,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       }
 
       const tx: ILocalDBTransaction = {
+        bucketName,
         stores: {
           [ELocalDBStoreNames.Context]: contextStore,
           [ELocalDBStoreNames.Wallet]: walletStore,
@@ -288,7 +292,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     const store = tx.stores?.[storeName];
     if (!store) {
       throw new Error(
-        `indexedDB store not found: ${storeName}, check IndexedDBAgent code`,
+        `indexedDB store not found: ${storeName}, check IndexedDBAgent code. bucketName=${tx.bucketName}`,
       );
     }
     return store;

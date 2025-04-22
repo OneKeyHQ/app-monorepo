@@ -3,6 +3,7 @@ import type { IToast } from '@onekeyhq/components';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type BackgroundApi from '@onekeyhq/kit-bg/src/apis/BackgroundApi';
 import type BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';
+import type { IndexedDBPromised } from '@onekeyhq/kit-bg/src/dbs/local/indexed/IndexedDBPromised';
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
 import type {
   EIndexedDBBucketNames,
@@ -18,7 +19,6 @@ import type { AppEventBusClass } from './eventBus/appEventBus';
 import type { IAppStorage } from './storage/syncStorage';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { NavigationContainerRef } from '@react-navigation/native';
-import type { IDBPDatabase } from 'idb';
 import type Realm from 'realm';
 
 export type IAppGlobals = {
@@ -52,7 +52,7 @@ export type IAppGlobals = {
   $$platformEnv?: any;
   $$indexedDBBuckets?: Record<
     EIndexedDBBucketNames,
-    IDBPDatabase<IIndexedDBSchemaMap>
+    IndexedDBPromised<IIndexedDBSchemaMap>
   >;
 };
 
