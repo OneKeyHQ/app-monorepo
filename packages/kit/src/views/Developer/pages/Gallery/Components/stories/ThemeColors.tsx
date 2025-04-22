@@ -17,7 +17,14 @@ type IColorSwatch = {
 
 function ColorBlock({ name }: IColorSwatch) {
   return (
-    <YStack mb="$4" alignItems="center" justifyContent="center">
+    <YStack
+      mb="$4"
+      alignItems="center"
+      justifyContent="center"
+      width="$10"
+      ml="$2"
+      gap="$1"
+    >
       <Stack
         width="$12"
         height="$12"
@@ -43,7 +50,7 @@ function ThemeColorCategory({
       <SizableText size="$headingMd" mb="$1">
         {title}
       </SizableText>
-      <XStack mb="$1" flex={1} justifyContent="space-between">
+      <XStack mb="$1" flexWrap="wrap" gap="$2">
         {colors.map((color) => (
           <ColorBlock
             key={color.name}
