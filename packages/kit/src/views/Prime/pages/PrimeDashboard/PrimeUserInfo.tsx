@@ -1,10 +1,8 @@
 import type { ComponentProps } from 'react';
 
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
@@ -18,9 +16,7 @@ export function PrimeUserInfo({
   doPurchase?: () => Promise<void>;
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
-  const intl = useIntl();
   const { user } = usePrimeAuthV2();
-  const isPrime = user?.primeSubscription?.isActive;
 
   return (
     <XStack
