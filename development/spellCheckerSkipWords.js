@@ -912,4 +912,5 @@ module.exports = [
   "xmr'",
   "xrp'",
   'usdf',
+  'unbacked',
 ];

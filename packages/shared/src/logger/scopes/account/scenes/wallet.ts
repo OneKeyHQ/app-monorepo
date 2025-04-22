@@ -22,30 +22,39 @@ export class WalletScene extends BaseScene {
         return {
           addMethod: 'CreateWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
-        };
-
-      case 'Import':
-        return {
-          addMethod: 'Import',
-          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
-            importSource: params.details.importSource,
+            unbackedUp: params.details.unbackedUp,
           },
         };
 
-      case 'ConnectHardware':
+      case 'ImportWallet':
         return {
-          addMethod: 'ConnectHardware',
+          addMethod: 'ImportWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
+            importType: params.details.importType,
+          },
+        };
+
+      case 'ConnectHWWallet':
+        return {
+          addMethod: 'ConnectHWWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            communication: params.details.communication,
             hardwareWalletType: params.details.hardwareWalletType,
           },
         };
 
-      case 'Connect3rdParty':
+      case 'Connect3rdPartyWallet':
         return {
-          addMethod: 'Connect3rdParty',
+          addMethod: 'Connect3rdPartyWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            protocol: params.details.protocol,
+            network: params.details.network,
+            walletName: params.details.walletName,
+          },
         };
 
       default: {
@@ -68,27 +77,27 @@ export class WalletScene extends BaseScene {
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             isBiometricSet: params.details.isBiometricSet,
-            isBackupSkipped: params.details.isBackupSkipped,
+            unbackedUp: params.details.unbackedUp,
           },
         };
 
-      case 'Import':
+      case 'ImportWallet':
         return {
           status: params.status,
-          addMethod: 'Import',
+          addMethod: 'ImportWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
-            importSource: params.details.importSource,
+            importType: params.details.importType,
           },
         };
 
-      case 'ConnectHardware':
+      case 'ConnectHWWallet':
         return {
           status: params.status,
           addMethod: 'ConnectHardware',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
-            connectionType: params.details.connectionType,
+            communication: params.details.communication,
             deviceType: params.details.deviceType,
             hardwareWalletType: params.details.hardwareWalletType,
             ...(params.details.firmwareVersions && {
@@ -97,10 +106,10 @@ export class WalletScene extends BaseScene {
           },
         };
 
-      case 'Connect3rdParty':
+      case 'Connect3rdPartyWallet':
         return {
           status: params.status,
-          addMethod: 'Connect3rdParty',
+          addMethod: 'Connect3rdPartyWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             protocol: params.details.protocol,

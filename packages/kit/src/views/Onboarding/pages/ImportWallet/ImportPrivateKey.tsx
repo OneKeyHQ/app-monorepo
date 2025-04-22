@@ -99,9 +99,9 @@ function ImportPrivateKey() {
         navigation.popStack();
         defaultLogger.account.wallet.walletAdded({
           status: 'success',
-          addMethod: 'Import',
+          addMethod: 'ImportWallet',
           details: {
-            importSource: 'privateKey',
+            importType: 'privateKey',
           },
           isSoftwareWalletOnlyUser,
         });
