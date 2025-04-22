@@ -809,10 +809,8 @@ export default class VaultAptos extends VaultBase {
         });
       } catch (error) {
         if (error instanceof InvalidAccount) {
-          throw new NetworkFeeInsufficient({
-            info: {
-              symbol: network.symbol,
-            },
+          throw new InvalidAccount({
+            message: error.message,
           });
         }
 
