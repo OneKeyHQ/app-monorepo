@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
