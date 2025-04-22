@@ -1,5 +1,5 @@
 import type { ForwardedRef } from 'react';
-import { forwardRef, useCallback, useImperativeHandle } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 
 import { YStack } from 'tamagui';
 
@@ -96,6 +96,10 @@ function BaseSwiperFlatList<T>(
     },
   }));
 
+  const extraData = useMemo(() => {
+    return [renderItem, data];
+  }, [data, renderItem]);
+
   return (
     <YStack
       position="relative"
@@ -116,7 +120,7 @@ function BaseSwiperFlatList<T>(
             scrollEnabled={scrollEnabled}
             renderItem={handleRenderItem}
             data={data}
-            extraData={data}
+            extraData={extraData}
             initialNumToRender={1}
             initialScrollIndex={index}
             estimatedItemSize={sharedStyle.height as number}
