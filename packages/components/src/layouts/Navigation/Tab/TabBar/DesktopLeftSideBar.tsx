@@ -43,6 +43,7 @@ function TabItemView({
     actionList?: IActionListSection[];
     shortcutKey?: EShortcutEvents;
     tabbarOnPress?: () => void;
+    trackId?: string;
   };
   isCollapse?: boolean;
 }) {
@@ -59,6 +60,7 @@ function TabItemView({
     () => (
       <DesktopTabItem
         onPress={options.tabbarOnPress ?? onPress}
+        trackId={options.trackId}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         shortcutKey={options.shortcutKey}

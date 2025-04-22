@@ -16,6 +16,7 @@ export function MobileTabItem(
   props: IMobileTabItemProps & GetProps<typeof YStack>,
 ) {
   const { icon, label, selected, ...rest } = props;
+
   return (
     <YStack alignItems="center" py="$1.5" userSelect="none" {...rest}>
       {icon ? (

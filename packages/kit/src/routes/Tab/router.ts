@@ -50,6 +50,7 @@ const getDiscoverRouterConfig = (
     freezeOnBlur: Boolean(params?.freezeOnBlur),
     children: discoveryRouters,
     tabBarStyle,
+    trackId: 'global-browser',
   };
   return discoverRouterConfig;
 };
@@ -83,6 +84,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/',
           exact: true,
           children: homeRouters,
+          trackId: 'global-wallet',
         },
         {
           name: ETabRoutes.Market,
@@ -93,6 +95,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/market',
           exact: true,
           children: marketRouters,
+          trackId: 'global-market',
         },
         {
           name: ETabRoutes.Swap,
@@ -103,6 +106,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/swap',
           exact: true,
           children: swapRouters,
+          trackId: 'global-trade',
         },
         {
           name: ETabRoutes.Earn,
@@ -113,6 +117,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/earn',
           exact: true,
           children: earnRouters,
+          trackId: 'global-earn',
         },
         isShowMyOneKeyOnTabbar
           ? {
@@ -121,6 +126,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               translationId: ETranslations.id_refer_a_friend,
               tabbarOnPress: toReferFriendsPage,
               children: null,
+              trackId: 'global-referral',
             }
           : undefined,
         isShowMyOneKeyOnTabbar
@@ -130,6 +136,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               translationId: ETranslations.global_my_onekey,
               tabbarOnPress: toMyOneKeyModal,
               children: null,
+              trackId: 'global-my-onekey',
             }
           : undefined,
         isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
@@ -143,6 +150,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               translationId: ETranslations.global_more,
               freezeOnBlur: Boolean(params?.freezeOnBlur),
               children: meRouters,
+              trackId: 'global-me',
             }
           : undefined,
         platformEnv.isDev
@@ -155,6 +163,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               rewrite: '/dev',
               exact: true,
               children: developerRouters,
+              trackId: 'global-dev',
             }
           : undefined,
         isShowDesktopDiscover
