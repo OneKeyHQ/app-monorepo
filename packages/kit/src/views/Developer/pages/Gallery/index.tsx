@@ -534,6 +534,13 @@ const StepperGallery = LazyLoadPage(
     ),
 );
 
+const ThemeColorsGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ThemeColors'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -777,6 +784,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentStepper,
     component: StepperGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentThemeColors,
+    component: ThemeColorsGallery,
   },
   { name: EGalleryRoutes.ComponentAnchor, component: AnchorGallery },
 ];
