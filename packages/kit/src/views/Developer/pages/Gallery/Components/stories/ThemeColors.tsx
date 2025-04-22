@@ -68,7 +68,7 @@ const ThemeColorsGallery = () => {
   const theme = useTheme();
   const themeVariant = useThemeVariant();
 
-  console.log(theme);
+  console.log('theme', Object.entries(theme));
 
   // Helper function to process color values
   const createColorSwatches = (prefix: string): IColorSwatch[] => {
@@ -102,10 +102,14 @@ const ThemeColorsGallery = () => {
   const themeColors: Record<string, IColorSwatch[]> = {
     Brand: createColorSwatches('brand'),
     Neutral: createColorSwatches('neutral'),
+    Gray: createColorSwatches('gray'),
+    Primary: createColorSwatches('primary'),
     Success: createColorSwatches('success'),
     Critical: createColorSwatches('critical'),
     Caution: createColorSwatches('caution'),
     Info: createColorSwatches('info'),
+    Color: createColorSwatches('color'),
+    Background: createColorSwatches('bg'),
   };
 
   return (
