@@ -15,6 +15,11 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { useIsMounted } from './useIsMounted';
 import { usePrevious } from './usePrevious';
 
+export enum ECacheControl {
+  NoCache = 'no-Cache',
+  Cache = 'stale-while-revalidate',
+}
+
 type IRunnerConfig = {
   triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
   pollingNonce?: number;
@@ -40,6 +45,7 @@ export type IPromiseResultOptions<T> = {
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
   testID?: string;
+  cacheControl?: ECacheControl;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -122,6 +128,7 @@ export function usePromiseResult<T>(
     checkIsMounted: true,
     checkIsFocused: true,
     alwaysSetState: false,
+    cacheControl: ECacheControl.NoCache,
     ...options,
   };
   const isDepsChangedOnBlur = useRef(false);
