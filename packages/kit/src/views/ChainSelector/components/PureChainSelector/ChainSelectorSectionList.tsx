@@ -16,7 +16,10 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { ISectionListProps } from '@onekeyhq/components';
+import type {
+  ISectionListProps,
+  ISortableSectionListRef,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
@@ -50,6 +53,7 @@ type IChainSelectorSectionListContentProps = {
   onPressItem?: (network: IServerNetworkMatch) => void;
   recentNetworksEnabled?: boolean;
   networks: IServerNetworkMatch[];
+  listRef: React.RefObject<ISortableSectionListRef<any>>;
 };
 
 const ChainSelectorSectionListContent = ({
@@ -59,6 +63,7 @@ const ChainSelectorSectionListContent = ({
   initialScrollIndex,
   recentNetworksEnabled,
   networks,
+  listRef,
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
 }) => {
@@ -77,6 +82,7 @@ const ChainSelectorSectionListContent = ({
 
   return (
     <SectionList
+      ref={listRef}
       contentContainerStyle={
         platformEnv.isNative
           ? undefined
@@ -181,14 +187,25 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   const [text, setText] = useState('');
   const intl = useIntl();
   const [isPending, setIsPending] = usePending();
+  const listRef = useRef<ISortableSectionListRef<any> | null>(null);
 
-  const onChangeText = useCallback(
-    (value: string) => {
-      setText(value.trim());
-      setIsPending(true);
-    },
-    [setIsPending],
-  );
+  const onChangeText = useCallback((value: string) => {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    listRef?.current?._listRef?._scrollRef?.scrollTo?.({
+      y: 0,
+      animated: false,
+    });
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      listRef.current._listRef._hasDoneInitialScroll = false;
+    }
+
+    setText(value.trim());
+  }, []);
 
   const { result: frequentlyUsedNetworks } = usePromiseResult(
     async () => {
@@ -215,7 +232,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   });
 
   const initialScrollIndex = useMemo(() => {
-    if (!networkId || !text.trim()) {
+    if (!networkId || text.trim()) {
       return undefined;
     }
     let _initialScrollIndex:
@@ -276,6 +293,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onPressItem={onPressItem}
           initialScrollIndex={initialScrollIndex}
           recentNetworksEnabled={recentNetworksEnabled}
+          listRef={listRef}
         />
       ) : (
         <ListEmptyComponent />
