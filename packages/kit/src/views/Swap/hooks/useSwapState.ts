@@ -146,12 +146,16 @@ export function useSwapBatchTransfer(
   const isExternalAccount = accountUtils.isExternalAccount({
     accountId: accountId ?? '',
   });
+  const isHDAccount = accountUtils.isHwOrQrAccount({
+    accountId: accountId ?? '',
+  });
   const isUnSupportBatchTransferNet =
     SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
   return (
     settingsPersistAtom.swapBatchApproveAndSwap &&
     !isUnSupportBatchTransferNet &&
     !isExternalAccount &&
+    !isHDAccount &&
     !providerDisableBatchTransfer
   );
 }
