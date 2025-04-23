@@ -138,9 +138,7 @@ export function WebViewWebEmbed({
     });
     const trackEventUrl = buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Utility,
-      env: devSettingsPersistAtom.settings?.enableTestEndpoint
-        ? 'test'
-        : 'prod',
+      env: webEmbedAppSettings.enableTestEndpoint ? 'test' : 'prod',
     });
     console.log('WebViewWebEmbed fullHash', hashRoutePath, fullHash);
     console.log('WebViewWebEmbed trackEventUrl', trackEventUrl);
@@ -173,7 +171,6 @@ export function WebViewWebEmbed({
     );
   }, [
     customReceiveHandler,
-    devSettingsPersistAtom.settings?.enableTestEndpoint,
     hashRoutePath,
     hashRouteQueryParams,
     nativeWebviewSource,
