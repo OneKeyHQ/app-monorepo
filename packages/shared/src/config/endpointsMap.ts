@@ -91,7 +91,7 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
 
 export const getEndpointsMapByDevSettings = (devSettings: {
   enabled: boolean;
-  settings: {
+  settings?: {
     enableTestEndpoint: boolean;
   };
 }) => {
