@@ -56,4 +56,5 @@ export const initAnalytics = () => {
 
 export const init = () => {
   initRequestHelper();
+  initAnalytics();
 };
