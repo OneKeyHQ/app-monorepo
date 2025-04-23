@@ -16,6 +16,7 @@ export function WalletActionEarn(props: {
   indexedAccountId: string | undefined;
   walletType: string | undefined;
   source: 'homePage' | 'tokenDetails';
+  trackID?: string;
 }) {
   const {
     accountId,
@@ -24,6 +25,7 @@ export function WalletActionEarn(props: {
     indexedAccountId,
     walletType,
     source,
+    trackID,
   } = props;
 
   const navigation = useAppNavigation();
@@ -81,6 +83,10 @@ export function WalletActionEarn(props: {
   ]);
 
   return (
-    <RawActions.Earn onPress={handleEarnTokenOnPress} disabled={!result} />
+    <RawActions.Earn
+      onPress={handleEarnTokenOnPress}
+      disabled={!result}
+      trackID={trackID}
+    />
   );
 }
