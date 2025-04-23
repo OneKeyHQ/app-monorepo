@@ -84,4 +84,37 @@ export class WalletActionsScene extends BaseScene {
   ) {
     return params;
   }
+
+  @LogToServer()
+  public buyStarted({
+    tokenAddress,
+    tokenSymbol,
+    networkID,
+  }: {
+    tokenAddress: string;
+    tokenSymbol: string;
+    networkID: string;
+  }) {
+    return {
+      tokenAddress,
+      tokenSymbol,
+      networkID,
+    };
+  }
+
+  @LogToServer()
+  public switchNetwork({
+    networkName,
+    details,
+  }: {
+    networkName: string;
+    details: {
+      isCustomNetwork: boolean;
+    };
+  }) {
+    return {
+      networkName,
+      details,
+    };
+  }
 }

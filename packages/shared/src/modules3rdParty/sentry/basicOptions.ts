@@ -54,6 +54,8 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
+  EOneKeyErrorClassNames.OneKeyError,
+  EOneKeyErrorClassNames.OneKeyPlainTextError,
   EOneKeyErrorClassNames.OneKeyHardwareError,
   EOneKeyErrorClassNames.OneKeyAppError,
   EOneKeyErrorClassNames.OneKeyServerApiError,
