@@ -13,11 +13,13 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EChainSelectorPages,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EditableChainSelector } from '../components/EditableChainSelector';
 import { PureChainSelector } from '../components/PureChainSelector';
@@ -36,6 +38,7 @@ const defaultChainSelectorNetworks: {
 };
 
 type IChainSelectorBaseProps = {
+  sceneName: EAccountSelectorSceneName;
   num: number;
   networkIds?: string[];
   editable?: boolean;
@@ -61,6 +64,7 @@ const EditableAccountChainSelector = ({
   onPressItem,
   onAddCustomNetwork,
   onEditCustomNetwork,
+  sceneName,
 }: IAccountChainSelectorProps) => {
   const {
     activeAccount: { network, account, wallet, indexedAccount },
@@ -233,6 +237,7 @@ const NotEditableAccountChainSelector = ({
 };
 
 function AccountChainSelector({
+  sceneName,
   num,
   networkIds,
   editable,
@@ -245,6 +250,18 @@ function AccountChainSelector({
   } = useActiveAccount({ num });
   const handleListItemPress = useCallback(
     (item: IServerNetwork) => {
+      if (
+        sceneName === EAccountSelectorSceneName.home ||
+        sceneName === EAccountSelectorSceneName.homeUrlAccount
+      ) {
+        defaultLogger.wallet.walletActions.switchNetwork({
+          networkName: item.name,
+          details: {
+            isCustomNetwork: !!item.isCustomNetwork,
+          },
+        });
+      }
+
       if (recordNetworkHistoryEnabled && activeNetwork) {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: activeNetwork.id,
@@ -258,7 +275,14 @@ function AccountChainSelector({
 
       navigation.popStack();
     },
-    [actions, num, navigation, recordNetworkHistoryEnabled, activeNetwork],
+    [
+      actions,
+      num,
+      navigation,
+      recordNetworkHistoryEnabled,
+      activeNetwork,
+      sceneName,
+    ],
   );
   const onAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPages.AddCustomNetwork, {
@@ -303,12 +327,14 @@ function AccountChainSelector({
       onEditCustomNetwork={onEditCustomNetwork}
       num={num}
       networkIds={networkIds}
+      sceneName={sceneName}
     />
   ) : (
     <NotEditableAccountChainSelector
       onPressItem={handleListItemPress}
       num={num}
       networkIds={networkIds}
+      sceneName={sceneName}
     />
   );
 }
@@ -343,6 +369,7 @@ export default function ChainSelectorPage({
         editable={editable}
         recordNetworkHistoryEnabled={recordNetworkHistoryEnabled}
         recentNetworksEnabled={recentNetworksEnabled}
+        sceneName={sceneName}
       />
     </AccountSelectorProviderMirror>
   );

@@ -743,7 +743,9 @@ function ConnectByUSBOrBLE() {
             features,
             hardwareTransportType,
           });
-          throw new Error('connect device failed, no features returned');
+          throw new OneKeyHardwareError(
+            'connect device failed, no features returned',
+          );
         }
 
         if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
