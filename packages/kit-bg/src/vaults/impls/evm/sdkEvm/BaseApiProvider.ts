@@ -92,10 +92,10 @@ class BaseApiProvider {
       contractList: [this.nativeTokenAddress],
     });
     if (!token) {
-      throw new Error('getNativeToken failed');
+      throw new OneKeyPlatformError('getNativeToken failed');
     }
     if (!token?.info?.decimals) {
-      throw new Error('getNativeToken decimals failed');
+      throw new OneKeyPlatformError('getNativeToken decimals failed');
     }
     return {
       info: {
