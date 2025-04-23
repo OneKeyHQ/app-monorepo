@@ -68,6 +68,22 @@ function CreateInvoice() {
     return amountValue;
   }, [lnUnit, amountValue]);
 
+  const linkedInvoiceConfig = useMemo(() => {
+    return {
+      ...invoiceConfig,
+      maxSendAmount:
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(invoiceConfig?.maxSendAmount ?? 0)
+          : invoiceConfig?.maxSendAmount ?? 0,
+      maxReceiveAmount:
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(
+              invoiceConfig?.maxReceiveAmount ?? 0,
+            )
+          : invoiceConfig?.maxReceiveAmount ?? 0,
+    };
+  }, [invoiceConfig, lnUnit]);
+
   const { result } = usePromiseResult(async () => {
     const accountAddress =
       await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
@@ -150,42 +166,39 @@ function CreateInvoice() {
                   id: ETranslations.form_lighting_invoice_error_positive_integer_only,
                 }),
               },
-              pattern: {
-                value: /^[0-9]*$/,
-                message: intl.formatMessage({
-                  id: ETranslations.form_lighting_invoice_error_positive_integer_only,
-                }),
-              },
+              pattern:
+                lnUnit === ELightningUnit.BTC
+                  ? {
+                      value: /^\d*\.?\d*$/,
+                      message: '',
+                    }
+                  : {
+                      value: /^[0-9]*$/,
+                      message: intl.formatMessage({
+                        id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                      }),
+                    },
               validate: (value) => {
                 // allow unspecified amount
                 if (!value) return;
 
-                const linkedValue =
-                  lnUnit === ELightningUnit.BTC
-                    ? chainValueUtils.convertBtcToSats(value)
-                    : value;
-
-                const valueBN = new BigNumber(linkedValue);
-                if (!valueBN.isInteger()) {
+                const valueBN = new BigNumber(value);
+                if (lnUnit === ELightningUnit.SATS && !valueBN.isInteger()) {
                   return intl.formatMessage({
                     id: ETranslations.form_lighting_invoice_error_positive_integer_only,
                   });
                 }
                 if (
-                  invoiceConfig?.maxReceiveAmount &&
-                  valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
+                  linkedInvoiceConfig?.maxReceiveAmount &&
+                  valueBN.isGreaterThan(linkedInvoiceConfig?.maxReceiveAmount)
                 ) {
                   return intl.formatMessage(
                     {
                       id: ETranslations.form_lighting_invoice_amount_error_max,
                     },
                     {
-                      amount:
-                        lnUnit === ELightningUnit.BTC
-                          ? chainValueUtils.convertSatsToBtc(
-                              invoiceConfig.maxReceiveAmount,
-                            )
-                          : invoiceConfig.maxReceiveAmount,
+                      amount: linkedInvoiceConfig.maxReceiveAmount,
+                      unit: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
                     },
                   );
                 }
@@ -194,7 +207,22 @@ function CreateInvoice() {
             labelAddon={
               <LightningUnitSwitch
                 value={lnUnit}
-                onChange={(v) => setLnUnit(v as ELightningUnit)}
+                onChange={(v) => {
+                  setLnUnit(v as ELightningUnit);
+                  form.setValue(
+                    'amount',
+                    v === ELightningUnit.BTC
+                      ? chainValueUtils.convertSatsToBtc(
+                          form.getValues('amount'),
+                        )
+                      : chainValueUtils.convertBtcToSats(
+                          form.getValues('amount'),
+                        ),
+                  );
+                  setTimeout(() => {
+                    void form.trigger('amount');
+                  }, 100);
+                }}
               />
             }
           >

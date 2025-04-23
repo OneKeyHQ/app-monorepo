@@ -30,6 +30,8 @@ import LNMakeInvoiceForm from '../../components/LNMakeInvoiceForm';
 
 import type { IMakeInvoiceFormValues } from '../../components/LNMakeInvoiceForm';
 import type { RouteProp } from '@react-navigation/core';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 function LnurlWithdrawModal() {
   const intl = useIntl();
@@ -87,6 +89,8 @@ function LnurlWithdrawModal() {
     },
   });
 
+  const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
+
   const onConfirm = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       if (!lnurlDetails) return;
@@ -100,7 +104,12 @@ function LnurlWithdrawModal() {
       const { serviceLightning } = backgroundApiProxy;
       const formValue = useFormReturn.getValues();
 
-      const amount = new BigNumber(formValue.amount).toNumber();
+      const amountSats =
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
+          : formValue.amount ?? 0;
+
+      const amount = new BigNumber(amountSats).toNumber();
       try {
         const invoice = await serviceLightning.createInvoice({
           networkId,
@@ -146,13 +155,14 @@ function LnurlWithdrawModal() {
       }
     },
     [
-      useFormReturn,
-      isLoading,
       lnurlDetails,
+      isLoading,
+      useFormReturn,
+      lnUnit,
       networkId,
       accountId,
-      dappApprove,
       isSendFlow,
+      dappApprove,
     ],
   );
 
@@ -183,6 +193,8 @@ function LnurlWithdrawModal() {
               minimumAmount={amountMin}
               maximumAmount={amountMax}
               memo={lnurlDetails.defaultDescription}
+              lnUnit={lnUnit}
+              setLnUnit={setLnUnit}
             />
           </DAppRequestLayout>
         </Page.Body>
