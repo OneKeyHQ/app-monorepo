@@ -14,6 +14,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 function usePreCheckNativeBalance({
   networkId,
@@ -99,7 +100,12 @@ function usePreCheckNativeBalance({
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
-            amountToUpdate: amountToUpdate.toFixed(),
+            amountToUpdate: vaultSettings?.shouldFixMaxSendAmount
+              ? chainValueUtils.fixNativeTokenMaxSendAmount({
+                  amount: amountToUpdate,
+                  network,
+                })
+              : amountToUpdate.toFixed(),
           });
         } else {
           updateNativeTokenTransferAmountToUpdate({
