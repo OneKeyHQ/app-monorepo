@@ -4,9 +4,10 @@ import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import { XStack } from '@onekeyhq/components';
-import { NetworksFilterItem } from '@onekeyhq/kit/src/components/NetworksFilterItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
+
+import { NetworksFilterItem } from './NetworksFilterItem';
 
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
