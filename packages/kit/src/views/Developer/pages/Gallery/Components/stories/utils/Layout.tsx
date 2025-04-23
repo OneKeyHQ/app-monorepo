@@ -1,4 +1,5 @@
 import type { ComponentType, ReactElement } from 'react';
+import { useState } from 'react';
 
 import { StackActions } from '@react-navigation/native';
 
@@ -56,6 +57,7 @@ export function Layout({
   scrollEnabled = true,
   contentInsetAdjustmentBehavior = 'never',
   skipLoading = false,
+  wideScreen: initialWideScreen = false,
   children,
 }: React.PropsWithChildren<{
   componentName?: string;
@@ -70,6 +72,7 @@ export function Layout({
     | 'scrollableAxes'
     | undefined;
   skipLoading?: boolean;
+  wideScreen?: boolean;
   elements?: {
     title: string;
     description?: string;
@@ -78,6 +81,9 @@ export function Layout({
 }>) {
   const keyboardHeight = useKeyboardHeight();
   const navigation = useAppNavigation();
+  const [wideScreen, setWideScreen] = useState(initialWideScreen);
+  const contentWidth = wideScreen ? 960 : 576;
+
   return (
     <Page skipLoading={skipLoading}>
       <ScrollView
@@ -93,41 +99,54 @@ export function Layout({
         keyboardDismissMode="on-drag"
         contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
       >
-        <Stack marginHorizontal="auto" maxWidth="100%" width={576} gap="$6">
-          <XStack>
-            <IconButton
-              icon="HomeLineOutline"
-              onPress={() => {
-                // refresh page lost navigation back button, so add it here
-                navigation.dispatch(
-                  StackActions.replace(ERootRoutes.Main, {
-                    screen: ETabRoutes.Developer,
-                    params: {
-                      screen: ETabDeveloperRoutes.TabDeveloper,
-                    },
-                  }),
-                );
-                // navigation.navigate();
-                // navigation.navigate('Home');
-                // urlAccountNavigation.replaceHomePage(navigation);
-              }}
-            />
+        <Stack
+          marginHorizontal="auto"
+          maxWidth="100%"
+          width={contentWidth}
+          gap="$6"
+        >
+          <XStack justifyContent="space-between">
+            <XStack>
+              <IconButton
+                icon="HomeLineOutline"
+                onPress={() => {
+                  // refresh page lost navigation back button, so add it here
+                  navigation.dispatch(
+                    StackActions.replace(ERootRoutes.Main, {
+                      screen: ETabRoutes.Developer,
+                      params: {
+                        screen: ETabDeveloperRoutes.TabDeveloper,
+                      },
+                    }),
+                  );
+                  // navigation.navigate();
+                  // navigation.navigate('Home');
+                  // urlAccountNavigation.replaceHomePage(navigation);
+                }}
+              />
+              <Button
+                ml="$4"
+                onPress={async () => {
+                  await backgroundApiProxy.serviceSetting.setTheme('light');
+                }}
+              >
+                Light Theme
+              </Button>
+              <Button
+                ml="$4"
+                variant="primary"
+                onPress={async () => {
+                  await backgroundApiProxy.serviceSetting.setTheme('dark');
+                }}
+              >
+                Dark Theme
+              </Button>
+            </XStack>
             <Button
-              ml="$4"
-              onPress={async () => {
-                await backgroundApiProxy.serviceSetting.setTheme('light');
-              }}
+              variant={wideScreen ? 'primary' : 'secondary'}
+              onPress={() => setWideScreen(!wideScreen)}
             >
-              Light Theme
-            </Button>
-            <Button
-              ml="$4"
-              variant="primary"
-              onPress={async () => {
-                await backgroundApiProxy.serviceSetting.setTheme('dark');
-              }}
-            >
-              Dark Theme
+              {wideScreen ? 'Normal Mode' : 'Wide Mode'}
             </Button>
           </XStack>
           {componentName ? (

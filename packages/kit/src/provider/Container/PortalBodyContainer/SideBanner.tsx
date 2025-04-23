@@ -140,6 +140,7 @@ function BottomMenu() {
         })}
         shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
         testID="setting"
+        trackId="global-settings"
       />
       <DownloadButton />
       <BasicSidebarBanner />

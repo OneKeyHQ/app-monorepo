@@ -22,6 +22,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
   style?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  trackId?: string;
 };
 
 export default function MobileBottomTabBar({
@@ -81,6 +82,10 @@ export default function MobileBottomTabBar({
               ...CommonActions.navigate({ name: route.name, merge: true }),
               target: state.key,
             });
+          }
+          const trackId = (options as { trackId?: string })?.trackId;
+          if (trackId) {
+            defaultLogger.app.page.tabBarClick(trackId);
           }
         };
 
