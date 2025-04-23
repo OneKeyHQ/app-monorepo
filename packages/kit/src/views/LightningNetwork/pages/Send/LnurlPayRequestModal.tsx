@@ -20,6 +20,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import {
   ELightningUnit,
@@ -39,7 +40,6 @@ import LNSendPaymentForm from '../../components/LNSendPaymentForm';
 
 import type { ISendPaymentFormValues } from '../../components/LNSendPaymentForm';
 import type { RouteProp } from '@react-navigation/core';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 function LnurlPayRequestModal() {
   const intl = useIntl();

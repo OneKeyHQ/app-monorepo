@@ -10,7 +10,9 @@ import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IRequestInvoiceArgs } from '@onekeyhq/shared/types/lightning/webln';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
@@ -22,8 +24,6 @@ import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection
 import LNMakeInvoiceForm from '../../components/LNMakeInvoiceForm';
 
 import type { IMakeInvoiceFormValues } from '../../components/LNMakeInvoiceForm';
-import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 type ISourceParams = IRequestInvoiceArgs & {
   accountId: string;

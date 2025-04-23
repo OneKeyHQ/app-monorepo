@@ -15,7 +15,9 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
 import {
   DAppAccountListStandAloneItem,
@@ -30,8 +32,6 @@ import LNMakeInvoiceForm from '../../components/LNMakeInvoiceForm';
 
 import type { IMakeInvoiceFormValues } from '../../components/LNMakeInvoiceForm';
 import type { RouteProp } from '@react-navigation/core';
-import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 function LnurlWithdrawModal() {
   const intl = useIntl();

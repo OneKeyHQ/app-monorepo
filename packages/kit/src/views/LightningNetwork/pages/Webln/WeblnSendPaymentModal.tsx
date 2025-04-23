@@ -13,6 +13,7 @@ import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/Dapp
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
@@ -25,7 +26,6 @@ import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection
 import LNSendPaymentForm from '../../components/LNSendPaymentForm';
 
 import type { ISendPaymentFormValues } from '../../components/LNSendPaymentForm';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 function WeblnSendPaymentModal() {
   const intl = useIntl();
