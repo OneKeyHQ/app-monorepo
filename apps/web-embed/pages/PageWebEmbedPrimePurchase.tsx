@@ -123,7 +123,6 @@ export default function PageWebEmbedPrimePurchase() {
 
   useEffect(() => {
     void run();
-    analytics.trackEvent('WebEmbedPrimePurchasePage');
   }, [run]);
 
   return (
