@@ -12,7 +12,6 @@ import type { DefaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IAppStorage } from './storage/syncStorage';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type Realm from 'realm';
 

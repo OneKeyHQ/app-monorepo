@@ -13,7 +13,9 @@ import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/Dapp
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
 import {
@@ -37,6 +39,8 @@ function WeblnSendPaymentModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
   const [isLoading, setIsLoading] = useState(false);
   const signatureConfirm = useSignatureConfirm({ accountId, networkId });
@@ -111,7 +115,10 @@ function WeblnSendPaymentModal() {
           networkId,
           from: '',
           to: paymentRequest,
-          amount: formValue.amount,
+          amount:
+            lnUnit === ELightningUnit.BTC
+              ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
+              : formValue.amount ?? 0,
         };
         const transfersInfo: ITransferInfo[] = [
           {
@@ -149,13 +156,14 @@ function WeblnSendPaymentModal() {
       }
     },
     [
+      isLoading,
+      useFormReturn,
       accountId,
       networkId,
-      isLoading,
-      dappApprove,
-      useFormReturn,
-      signatureConfirm,
       paymentRequest,
+      lnUnit,
+      signatureConfirm,
+      dappApprove,
       paymentHash,
     ],
   );
@@ -183,6 +191,8 @@ function WeblnSendPaymentModal() {
               amountReadOnly={amount.toNumber() !== 0}
               commentAllowedLength={Number.MAX_SAFE_INTEGER}
               commentReadOnly
+              lnUnit={lnUnit}
+              setLnUnit={setLnUnit}
             />
           </DAppRequestLayout>
         </Page.Body>
