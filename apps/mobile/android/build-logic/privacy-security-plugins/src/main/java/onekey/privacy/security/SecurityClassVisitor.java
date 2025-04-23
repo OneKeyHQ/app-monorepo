@@ -1,8 +1,11 @@
-package onekey.privacy.jpush;
+package onekey.privacy.security;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+
+import onekey.privacy.jpush.JPushMethodVisitor;
+import onekey.privacy.phoenix.PhoenixMethodVisitor;
 
 public class SecurityClassVisitor extends ClassVisitor {
     private String className;
@@ -23,8 +26,12 @@ public class SecurityClassVisitor extends ClassVisitor {
                                      String signature, String[] exceptions) {
         MethodVisitor methodVisitor = super.visitMethod(access, name, descriptor, signature, exceptions);
 
-        if (methodVisitor != null && "cn/jiguang/internal/JCoreInternalHelper".equals(className) && "directHandle".equals(name)) {
-            return new SecurityMethodVisitor(methodVisitor, name, descriptor);
+        if (methodVisitor != null) {
+            if ("cn/jiguang/internal/JCoreInternalHelper".equals(className) && "directHandle".equals(name)) {
+                return new JPushMethodVisitor(methodVisitor, name, descriptor);
+            } else if ("com/jakewharton/processphoenix/ProcessPhoenix".equals(className) && "onCreate".equals(name)) {
+                return new PhoenixMethodVisitor(methodVisitor);
+            }
         }
 
         return methodVisitor;
