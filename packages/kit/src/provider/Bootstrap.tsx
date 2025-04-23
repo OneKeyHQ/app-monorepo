@@ -43,7 +43,6 @@ import {
   useToMyOneKeyModal,
 } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
-import { useSwapNavigation } from '../views/Swap/hooks/useSwapNavigation';
 
 import type { IntlShape } from 'react-intl';
 
