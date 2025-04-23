@@ -14,7 +14,7 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 export async function getEndpoints() {
   const enableTestEndpoint =
-    globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? true;
+    globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false;
   const settings = platformEnv.isWebEmbed
     ? {
         enabled: enableTestEndpoint,
