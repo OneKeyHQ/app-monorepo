@@ -42,14 +42,20 @@ import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 export function useSwapQuote() {
-  const { quoteAction, cleanQuoteInterval, quoteEventHandler } =
-    useSwapActions().current;
+  const {
+    quoteAction,
+    cleanQuoteInterval,
+    quoteEventHandler,
+    syncNetworksSort,
+    closeQuoteEvent,
+    swapTypeSwitchAction,
+  } = useSwapActions().current;
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [toToken] = useSwapSelectToTokenAtom();
+  const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
 
   const [swapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [swapApproveAllowanceSelectOpen] =
@@ -60,8 +66,6 @@ export function useSwapQuote() {
   const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
     useSwapQuoteEventTotalCountAtom();
   const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
-  const { closeQuoteEvent, selectFromToken, selectToToken } =
-    useSwapActions().current;
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
@@ -226,35 +230,6 @@ export function useSwapQuote() {
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
   ]);
-
-  // useEffect(() => {
-  //   if (!isFocusRef.current) return;
-  //   if (
-  //     swapApprovingTransaction &&
-  //     swapApprovingTransaction.txId &&
-  //     swapApprovingTransaction.status ===
-  //       ESwapApproveTransactionStatus.SUCCESS &&
-  //     !swapApprovingTransaction.resetApproveValue &&
-  //     !swapApprovingLoading
-  //   ) {
-  //     void quoteAction(
-  //       swapSlippageRef.current,
-  //       activeAccountRef.current?.address,
-  //       activeAccountRef.current?.accountInfo?.account?.id,
-  //       swapApprovingTransaction.blockNumber,
-  //       undefined,
-  //       swapApprovingTransaction.kind ?? ESwapQuoteKind.SELL,
-  //       undefined,
-  //       swapToAddressInfoRef.current.address,
-  //     );
-  //   }
-  // }, [
-  //   intl,
-  //   cleanQuoteInterval,
-  //   quoteAction,
-  //   swapApprovingTransaction,
-  //   swapApprovingLoading,
-  // ]);
 
   useEffect(() => {
     if (
@@ -479,13 +454,18 @@ export function useSwapQuote() {
   }, [swapAddressInfo.accountInfo?.deriveType]);
 
   const swapApprovingSuccessAction = useCallback(
-    async (data: { approvedSwapInfo: ISwapApproveTransaction }) => {
-      const { approvedSwapInfo } = data;
+    async (data: {
+      approvedSwapInfo: ISwapApproveTransaction;
+      enableFilled?: boolean;
+    }) => {
+      const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
         toToken: toTokenInfo,
         amount,
         kind,
+        toAmount,
+        swapType,
         blockNumber,
       } = approvedSwapInfo;
       if (
@@ -509,13 +489,26 @@ export function useSwapQuote() {
           undefined,
           swapToAddressInfoRef.current.address,
         );
-      } else {
-        await selectFromToken(fromTokenInfo, true, true);
-        await selectToToken(toTokenInfo, true);
-        setFromTokenAmount({ value: amount, isInput: true });
+      } else if (enableFilled) {
+        if (swapTabSwitchTypeRef.current !== swapType) {
+          await swapTypeSwitchAction(swapType);
+        }
+        setSwapSelectFromToken(fromTokenInfo);
+        setSwapSelectToToken(toTokenInfo);
+        await syncNetworksSort(fromTokenInfo.networkId);
+        if (kind === ESwapQuoteKind.BUY && toAmount) {
+          setToTokenAmount({ value: toAmount, isInput: true });
+        } else {
+          setFromTokenAmount({ value: amount, isInput: true });
+        }
       }
     },
-    [quoteAction, selectFromToken, selectToToken, setFromTokenAmount],
+    [
+      quoteAction,
+      setSwapSelectFromToken,
+      setSwapSelectToToken,
+      setFromTokenAmount,
+    ],
   );
 
   const pageType = usePageType();

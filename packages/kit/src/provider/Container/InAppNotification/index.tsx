@@ -10,14 +10,22 @@ import {
 } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapApproveTransactionStatus,
+  ESwapSource,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
+import {
+  appEventBus,
+  EAppEventBusNames,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 const InAppNotification = () => {
   const [
@@ -25,12 +33,12 @@ const InAppNotification = () => {
     setInAppNotificationAtom,
   ] = useInAppNotificationAtom();
   const intl = useIntl();
+  const navigation = useAppNavigation();
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.swapHistoryStatusFetchLoop();
   }, [swapHistoryPendingList]);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-
   useEffect(() => {
     if (!activeAccount?.ready) {
       return;
@@ -50,12 +58,64 @@ const InAppNotification = () => {
   ]);
 
   const approvingSuccessActionConfirm = useCallback(async () => {
-    // 1.swap tab no modal
-    // 2.swap tab have modal
-    // 3.no swap tab no swap modal
-    // 4.no swap tab have swap modal no other modal
-    // 5.no swap tab have swap modal have other modal
-  }, []);
+    handleSwapNavigation(
+      ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
+        if (isInSwapTab) {
+          if (hasModal) {
+            // 2.swap tab have modal   关闭当前的所有 modal  通知 swap 进行询价
+            rootNavigationRef.current?.goBack();
+            setTimeout(() => {
+              approvingSuccessActionConfirm();
+            }, 50);
+          } else {
+            // 1.swap tab no modal
+            // 不用做任何动作，直接给 swap 发 event 进行询价
+            if (swapApprovingTransaction) {
+              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+                approvedSwapInfo: swapApprovingTransaction,
+                enableFilled: true,
+              });
+            }
+          }
+        } else if (isHasSwapModal) {
+          if (isSwapModalOnTheTop) {
+            // 4.no swap tab have swap modal no other modal    最外层是 swap modal 不需要做任何动作通知 swap modal 进行询价
+            if (swapApprovingTransaction) {
+              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+                approvedSwapInfo: swapApprovingTransaction,
+                enableFilled: true,
+              });
+            }
+          } else {
+            // 5.no swap tab have swap modal have other modal   退回到 swap modal  再通知 swap modal 进行询价
+            rootNavigationRef.current?.goBack();
+            setTimeout(() => {
+              approvingSuccessActionConfirm();
+            }, 50);
+          }
+        } else {
+          // 3.no swap tab no swap modal 打开 swap modal 通知 swap 进行询价
+          if (swapApprovingTransaction) {
+            navigation.pushModal(EModalRoutes.SwapModal, {
+              screen: EModalSwapRoutes.SwapMainLand,
+              params: {
+                swapTabSwitchType: swapApprovingTransaction.swapType,
+                swapSource: ESwapSource.APPROVING_SUCCESS,
+                importFromToken: swapApprovingTransaction.fromToken,
+                importToToken: swapApprovingTransaction.toToken,
+              },
+            });
+            setTimeout(() => {
+              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+                approvedSwapInfo: swapApprovingTransaction,
+                enableFilled: true,
+              });
+            }, 300);
+          }
+        }
+      },
+    );
+  }, [swapApprovingTransaction]);
 
   const approvingSuccessAction = useMemo(() => {
     return (
@@ -103,16 +163,38 @@ const InAppNotification = () => {
           Number(swapApprovingTransaction?.resetApproveValue) > 0
         )
       ) {
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.swap_page_toast_approve_successful,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.swap_page_toast_approve_successful,
-          }),
-          duration: 300_000,
-          actions: approvingSuccessAction,
-        });
+        handleSwapNavigation(
+          ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
+            if (
+              (isInSwapTab && !hasModal) ||
+              (!isInSwapTab && isSwapModalOnTheTop && isHasSwapModal)
+            ) {
+              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+                approvedSwapInfo: swapApprovingTransaction,
+                enableFilled: false,
+              });
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.swap_page_toast_approve_successful,
+                }),
+                message: intl.formatMessage({
+                  id: ETranslations.swap_page_toast_approve_successful,
+                }),
+              });
+            } else {
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.swap_page_toast_approve_successful,
+                }),
+                message: intl.formatMessage({
+                  id: ETranslations.swap_page_toast_approve_successful,
+                }),
+                duration: 10_000,
+                actions: approvingSuccessAction,
+              });
+            }
+          },
+        );
       }
     }
     if (

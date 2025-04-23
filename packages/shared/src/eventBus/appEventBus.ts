@@ -145,6 +145,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.SwapApprovingSuccess]: {
     approvedSwapInfo: ISwapApproveTransaction;
+    enableFilled?: boolean;
   };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;

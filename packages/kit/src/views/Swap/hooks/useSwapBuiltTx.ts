@@ -1040,12 +1040,15 @@ export function useSwapBuildTx() {
             setInAppNotificationAtom((pre) => ({
               ...pre,
               swapApprovingTransaction: {
+                swapType: swapTypeSwitch,
+                protocol: selectQuote?.protocol ?? EProtocolOfExchange.SWAP,
                 provider: selectQuote?.info.provider,
                 providerName: selectQuote?.info.providerName,
                 fromToken,
                 toToken,
                 quoteId: selectQuote?.quoteId ?? '',
                 amount,
+                toAmount: toTokenAmount.value,
                 useAddress: swapFromAddressInfo.address ?? '',
                 spenderAddress: allowanceInfo.allowanceTarget,
                 status: ESwapApproveTransactionStatus.PENDING,
@@ -1071,6 +1074,7 @@ export function useSwapBuildTx() {
       swapFromAddressInfo?.accountInfo?.account?.id,
       swapFromAddressInfo.address,
       isBatchTransfer,
+      swapTypeSwitch,
       setSwapBuildTxFetching,
       createBuildTx,
       navigationToTxConfirm,

@@ -62,6 +62,7 @@ export enum ESwapSource {
   EARN = 'earn',
   MARKET = 'market',
   TAB = 'tab',
+  APPROVING_SUCCESS = 'approving_success',
 }
 
 export enum ESwapSelectTokenSource {
@@ -239,12 +240,15 @@ export interface ISwapOrderHash {
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  protocol: EProtocolOfExchange;
+  swapType: ESwapTabSwitchType;
   provider: string;
   providerName: string;
   quoteId: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
+  toAmount?: string;
   status: ESwapApproveTransactionStatus;
   resetApproveValue?: string;
   resetApproveIsMax?: boolean;
