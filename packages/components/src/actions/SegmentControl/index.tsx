@@ -17,6 +17,7 @@ export interface ISegmentControlProps extends IXStackProps {
     testID?: string;
   }[];
   onChange: (value: string | number) => void;
+  segmentControlItemStyleProps?: GetProps<typeof YStack>;
 }
 
 function SegmentControlItem({
@@ -91,6 +92,7 @@ function SegmentControlFrame({
   options,
   onChange,
   fullWidth,
+  segmentControlItemStyleProps,
   ...rest
 }: ISegmentControlProps) {
   const handleChange = useCallback(
@@ -124,6 +126,7 @@ function SegmentControlFrame({
             flexGrow: 1,
             flexBasis: 0,
           })}
+          {...segmentControlItemStyleProps}
         />
       ))}
     </XStack>

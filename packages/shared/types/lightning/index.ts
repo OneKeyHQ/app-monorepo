@@ -14,6 +14,11 @@ export type * from './accounts';
 export type * from './invoice';
 export type * from './lnurl';
 
+export enum ELightningUnit {
+  BTC = 'btc',
+  SATS = 'sats',
+}
+
 export type ISignApiMessageParams = {
   msgPayload: IUnionMsgType;
   address: string;
