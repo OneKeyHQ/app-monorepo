@@ -84,9 +84,9 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    // if (platformEnv.isDev || platformEnv.isE2E) {
-    //   return;
-    // }
+    if (platformEnv.isDev || platformEnv.isE2E) {
+      return;
+    }
     const event = {
       ...eventProps,
       distinct_id: this.instanceId,

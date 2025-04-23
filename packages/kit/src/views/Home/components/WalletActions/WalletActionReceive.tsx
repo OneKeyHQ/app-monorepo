@@ -78,6 +78,7 @@ function WalletActionReceive() {
     <RawActions.Receive
       disabled={isReceiveDisabled}
       onPress={handleReceiveOnPress}
+      trackID="wallet-receive"
     />
   );
 }

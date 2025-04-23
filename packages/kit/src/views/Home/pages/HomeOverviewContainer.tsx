@@ -213,6 +213,7 @@ function HomeOverviewContainer() {
         variant="tertiary"
         loading={isLoading}
         onPress={handleRefreshWorth}
+        trackID="wallet-refresh-manually"
       />
     );
   }, [handleRefreshWorth, isLoading]);
