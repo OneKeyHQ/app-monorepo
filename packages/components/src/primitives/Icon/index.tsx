@@ -25,10 +25,13 @@ const DEFAULT_SIZE = 24;
 
 const loadIcon = (name: IKeyOfIcons) =>
   new Promise<typeof Svg>((resolve) => {
-    void ICON_CONFIG[name]().then((module: any) => {
+    void ICON_CONFIG[name]?.().then((module: any) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      ComponentMaps[name] = module.default as typeof Svg;
-      resolve(ComponentMaps[name]);
+      if (module?.default) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        ComponentMaps[name] = module.default as typeof Svg;
+        resolve(ComponentMaps[name]);
+      }
     });
   });
 
