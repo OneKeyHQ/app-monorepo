@@ -457,35 +457,6 @@ export function Bootstrap() {
     return undefined;
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
 
-  useSwapNavigation(
-    ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
-      console.log(
-        'swap__params',
-        isInSwapTab,
-        isHasSwapModal,
-        isSwapModalOnTheTop,
-        hasModal,
-      );
-      if (isInSwapTab) {
-        if (hasModal) {
-          // 2.swap tab have modal   关闭当前的所有 modal  通知 swap 进行询价
-          rootNavigationRef.current?.goBack();
-        } else {
-          // 1.swap tab no modal
-          // 不用做任何动作，直接给 swap 发 event 进行询价
-        }
-      } else if (isHasSwapModal) {
-        if (isSwapModalOnTheTop) {
-          // 4.no swap tab have swap modal no other modal    最外层是 swap modal 不需要做任何动作通知 swap modal 进行询价
-        } else {
-          // 5.no swap tab have swap modal have other modal   退回到 swap modal  再通知 swap modal 进行询价
-        }
-      } else {
-        // 3.no swap tab no swap modal 打开 swap modal 通知 swap 进行询价
-      }
-    },
-  );
-
   useFetchCurrencyList();
   useAboutVersion();
   useDesktopEvents();
