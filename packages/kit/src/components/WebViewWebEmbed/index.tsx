@@ -110,7 +110,7 @@ export function WebViewWebEmbed({
     // iOS
     if (platformEnv.isNativeIOS) {
       return {
-        uri: 'http://localhost:3008',
+        uri: 'web-embed/index.html',
       };
     }
     return undefined;
