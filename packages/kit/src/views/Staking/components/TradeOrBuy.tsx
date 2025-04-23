@@ -105,6 +105,7 @@ function BasicTradeOrBuy({
           walletType={wallet?.type}
           walletId={wallet?.id ?? ''}
           tokenAddress={token.address}
+          tokenSymbol={token.symbol}
           source="earn"
         />
       </XStack>

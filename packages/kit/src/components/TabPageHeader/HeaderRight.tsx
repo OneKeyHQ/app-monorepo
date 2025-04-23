@@ -68,6 +68,7 @@ export function HeaderRight({
           })}
           icon="BellOutline"
           onPress={openNotificationsModal}
+          trackID="wallet-notification"
           // TODO onLongPress also trigger onPress
           // onLongPress={showNotificationPermissionsDialog}
         />
