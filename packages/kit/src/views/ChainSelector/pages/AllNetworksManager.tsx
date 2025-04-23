@@ -148,6 +148,10 @@ function AllNetworksManager() {
           {...(platformEnv.isNativeIOS && {
             textAlign: 'center',
           })}
+          numberOfLines={1}
+          $md={{
+            maxWidth: 280,
+          }}
         >
           {intl.formatMessage({
             id: ETranslations.network_selection_prompt,
