@@ -201,7 +201,7 @@ function toastMessage({
 
     toastIdMap.set(toastId, [Date.now(), duration + 500]);
   }
-  showMessage({
+  return showMessage({
     renderContent: (props) => (
       <ToastContent
         title={title}
@@ -226,16 +226,16 @@ export type IToastShowResult = {
 };
 export const Toast = {
   success: (props: IToastProps) => {
-    toastMessage({ haptic: 'success', ...props });
+    return toastMessage({ haptic: 'success', ...props });
   },
   error: (props: IToastProps) => {
-    toastMessage({ haptic: 'error', ...props });
+    return toastMessage({ haptic: 'error', ...props });
   },
   warning: (props: IToastProps) => {
-    toastMessage({ haptic: 'warning', ...props });
+    return toastMessage({ haptic: 'warning', ...props });
   },
   message: (props: IToastProps) => {
-    toastMessage({ haptic: 'info', preset: 'none', ...props });
+    return toastMessage({ haptic: 'info', preset: 'none', ...props });
   },
   /* show custom view on Toast */
   show: ({
