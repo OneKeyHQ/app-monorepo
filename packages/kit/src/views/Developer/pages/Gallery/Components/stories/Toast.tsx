@@ -427,7 +427,7 @@ const ToastGallery = () => (
                       variant="primary"
                       size="small"
                       onPress={() => {
-                        toast.close();
+                        toast?.close();
                       }}
                     >
                       close it
