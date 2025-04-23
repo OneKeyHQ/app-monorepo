@@ -7,6 +7,7 @@ import {
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import {
   calculateNativeAmountInActions,
   isSendNativeTokenAction,
@@ -14,7 +15,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 function usePreCheckNativeBalance({
   networkId,
