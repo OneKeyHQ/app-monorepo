@@ -81,9 +81,9 @@ export function WebViewWebEmbed({
           devSettingsPersistAtom.settings?.enableTestEndpoint) ??
         false,
       instanceId,
-      platform: platformEnv.symbol,
-      appBuildNumber: platformEnv.buildNumber,
-      appVersion: platformEnv.version,
+      platform: platformEnv.symbol ?? '',
+      appBuildNumber: platformEnv.buildNumber ?? '',
+      appVersion: platformEnv.version ?? '',
       themeVariant,
       localeVariant,
       revenuecatApiKey,
