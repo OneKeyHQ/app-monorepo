@@ -36,6 +36,7 @@ import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeList } from './components/MarketHomeList';
+import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
 import { MarketWatchList } from './components/MarketWatchList';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
@@ -180,7 +181,10 @@ function MarketHome() {
       ) : (
         <MDMarketHomeHeader />
       )}
-      <Page.Body>{renderTabContainer()}</Page.Body>
+      <Page.Body>
+        <MarketTokenListNetworkSelector />
+        {renderTabContainer()}
+      </Page.Body>
     </Page>
   );
 }
