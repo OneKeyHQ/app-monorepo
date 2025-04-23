@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   ActionList,
-  Badge,
   Dialog,
   Divider,
   IconButton,
