@@ -16,6 +16,7 @@ export enum ECustomOneKeyHardwareError {
 export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyAppError = 'OneKeyAppError',
+  OneKeyPlainTextError = 'OneKeyPlainTextError',
   OneKeyHardwareError = 'OneKeyHardwareError',
   UnknownHardwareError = 'UnknownHardwareError',
   OneKeyServerApiError = 'OneKeyServerApiError',
