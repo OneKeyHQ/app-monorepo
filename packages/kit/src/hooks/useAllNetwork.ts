@@ -22,6 +22,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
 import { usePromiseResult } from './usePromiseResult';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
@@ -147,6 +148,7 @@ function useAllNetworkRequests<T>(params: {
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
+  const [isLocked] = useAppIsLockedAtom();
 
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
@@ -430,7 +432,7 @@ function useAllNetworkRequests<T>(params: {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       // debounced: 0,
       overrideIsFocused: (isPageFocused) =>
-        isPageFocused || !!shouldAlwaysFetch,
+        (isPageFocused || !!shouldAlwaysFetch) && !isLocked,
     },
   );
 
