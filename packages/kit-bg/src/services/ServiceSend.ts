@@ -14,7 +14,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
-import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
+import { PendingQueueTooLong, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -175,10 +175,10 @@ class ServiceSend extends ServiceBase {
           signedTx: result,
         });
         if (!verified) {
-          throw new Error('Invalid txid');
+          throw new OneKeyPlainTextError('Invalid txid');
         }
       } catch (error) {
-        throw new Error('Invalid txid');
+        throw new OneKeyPlainTextError('Invalid txid');
       }
 
       txid = result.txid;
@@ -334,7 +334,7 @@ class ServiceSend extends ServiceBase {
         if (vaultSettings.withoutBroadcastTxId) {
           return signedTx;
         }
-        throw new Error('Broadcast transaction failed.');
+        throw new OneKeyPlainTextError('Broadcast transaction failed.');
       }
       return { ...signedTx, txid };
     }
@@ -489,7 +489,7 @@ class ServiceSend extends ServiceBase {
         withNonce: true,
       });
     if (isNil(onChainNextNonce)) {
-      throw new Error('Get on-chain nonce failed.');
+      throw new OneKeyPlainTextError('Get on-chain nonce failed.');
     }
 
     const maxPendingNonce =
@@ -643,7 +643,7 @@ class ServiceSend extends ServiceBase {
     }
 
     if (!validUnsignedMessage) {
-      throw new Error('Invalid unsigned message');
+      throw new OneKeyPlainTextError('Invalid unsigned message');
     }
 
     const { password, deviceParams } =

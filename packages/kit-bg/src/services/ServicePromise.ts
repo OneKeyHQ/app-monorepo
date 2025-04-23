@@ -1,4 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import {
   backgroundClass,
@@ -57,13 +58,13 @@ class ServicePromise extends ServiceBase {
   }: IPromiseContainerCallbackCreate): number {
     latestId += 1;
     if (latestId <= 0) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `PromiseContainer ERROR: callback id can NOT negative, id=${latestId}`,
       );
     }
     if (this.callbacks[latestId]) {
       // TODO custom error
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `PromiseContainer ERROR: callback exists, id=${latestId}`,
       );
     }

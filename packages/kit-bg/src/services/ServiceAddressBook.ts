@@ -26,6 +26,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
@@ -129,7 +130,7 @@ class ServiceAddressBook extends ServiceBase {
         return true;
       }
       if (!password) {
-        throw new Error('addressBook verifyHash ERROR: password is required');
+        throw new OneKeyPlainTextError('addressBook verifyHash ERROR: password is required');
       }
 
       const { items } =
@@ -146,7 +147,7 @@ class ServiceAddressBook extends ServiceBase {
       if (returnValue) {
         return false;
       }
-      throw new Error('address book failed to verify hash');
+      throw new OneKeyPlainTextError('address book failed to verify hash');
     });
   }
 
@@ -160,7 +161,7 @@ class ServiceAddressBook extends ServiceBase {
   }): Promise<{ isSafe: boolean; items: IAddressItem[] }> {
     const isSafe = await this.verifyHash({ returnValue: true, password });
     if (throwErrorIfNotSafe && !isSafe) {
-      throw new Error('address book failed to verify hash');
+      throw new OneKeyPlainTextError('address book failed to verify hash');
     }
     const items = await this.getItems();
     return { isSafe, items: isSafe ? items : [] };
@@ -233,7 +234,7 @@ class ServiceAddressBook extends ServiceBase {
         password,
       });
       if (verifyResult) {
-        throw new Error('failed to reset items when verify result is ok');
+        throw new OneKeyPlainTextError('failed to reset items when verify result is ok');
       }
       await this.setItems({
         items: [],
@@ -248,22 +249,22 @@ class ServiceAddressBook extends ServiceBase {
   ) {
     const { serviceValidator } = this.backgroundApi;
     if (item.name.length > 24) {
-      throw new Error('Name is too long');
+      throw new OneKeyPlainTextError('Name is too long');
     }
     let result = await this.findItem({ address: item.address, password });
     if (result && (!item.id || result.id !== item.id)) {
-      throw new Error('Address already exist');
+      throw new OneKeyPlainTextError('Address already exist');
     }
     result = await this.findItem({ name: item.name, password });
     if (result && (!item.id || result.id !== item.id)) {
-      throw new Error('Name already exist');
+      throw new OneKeyPlainTextError('Name already exist');
     }
     const validStatus = await serviceValidator.validateAddress({
       networkId: item.networkId,
       address: item.address,
     });
     if (validStatus !== 'valid') {
-      throw new Error('Invalid address');
+      throw new OneKeyPlainTextError('Invalid address');
     }
   }
 
@@ -435,7 +436,7 @@ class ServiceAddressBook extends ServiceBase {
           skipEventEmit: options.skipEventEmit,
         });
       } else {
-        throw new Error(`Failed to find item with id = ${obj.id || ''}`);
+        throw new OneKeyPlainTextError(`Failed to find item with id = ${obj.id || ''}`);
       }
     });
   }
@@ -449,7 +450,7 @@ class ServiceAddressBook extends ServiceBase {
     } = {},
   ) {
     if (!obj.id) {
-      throw new Error('Missing id');
+      throw new OneKeyPlainTextError('Missing id');
     }
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -523,7 +524,7 @@ class ServiceAddressBook extends ServiceBase {
     const { items } = await this.getSafeRawItems({ password });
     const removedItem = items.find((i) => i.id === id);
     if (!removedItem) {
-      throw new Error(`Failed to find item with id = ${id}`);
+      throw new OneKeyPlainTextError(`Failed to find item with id = ${id}`);
     }
 
     return this.removeItemFn(removedItem, {

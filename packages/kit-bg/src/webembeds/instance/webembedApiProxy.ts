@@ -6,6 +6,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
@@ -23,7 +24,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   override checkEnvAvailable(): void {
     if (!platformEnv.isNative) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'WebembedApiProxy should only be used in iOS/Android Native env.',
       );
     }
@@ -34,7 +35,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     if (!ready) {
       return new Promise((resolve, reject) => {
         const timerId = setTimeout(() => {
-          reject(new Error('WebEmbedApi not ready after 5s.'));
+          reject(new OneKeyPlainTextError('WebEmbedApi not ready after 5s.'));
         }, 5000);
         appEventBus.once(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
           clearTimeout(timerId);

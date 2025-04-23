@@ -43,6 +43,7 @@ import {
   PASSWORD_MIN_LENGTH,
 } from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -91,7 +92,7 @@ export default class ServicePassword extends ServiceBase {
   }) {
     if (!authRes.success) {
       if (authRes.warning || authRes.error === BIOLOGY_AUTH_CANCEL_ERROR) {
-        const nativeError = new Error(
+        const nativeError = new OneKeyPlainTextError(
           authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ? '' : authRes.warning,
         );
         nativeError.name = authRes.error;
@@ -292,7 +293,7 @@ export default class ServicePassword extends ServiceBase {
     const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
       await this.setBiologyAuthEnable(false);
-      throw new Error('biologyAuth not support');
+      throw new OneKeyPlainTextError('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
@@ -322,7 +323,7 @@ export default class ServicePassword extends ServiceBase {
       if (catchPassword) {
         await this.saveBiologyAuthPassword(catchPassword);
       } else {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'no catch password please unlock the application again or modify the password.',
         );
       }
@@ -455,11 +456,11 @@ export default class ServicePassword extends ServiceBase {
     ensureSensitiveTextEncoded(newPassword);
 
     if (!oldPassword) {
-      throw new Error('oldPassword is required');
+      throw new OneKeyPlainTextError('oldPassword is required');
     }
 
     if (!newPassword) {
-      throw new Error('newPassword is required');
+      throw new OneKeyPlainTextError('newPassword is required');
     }
 
     await this.validatePassword({

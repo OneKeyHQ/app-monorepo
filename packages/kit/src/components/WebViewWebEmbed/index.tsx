@@ -12,6 +12,20 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { SizableText, Stack, View, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  REVENUECAT_API_KEY_WEB,
+  REVENUECAT_API_KEY_WEB_SANDBOX,
+} from '@onekeyhq/shared/src/consts/primeConsts';
+import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
 
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../hooks/useThemeVariant';

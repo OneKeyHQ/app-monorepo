@@ -60,6 +60,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
@@ -226,7 +227,7 @@ class ServiceStaking extends ServiceBase {
       provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyPlainTextError('Staking config not found');
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
@@ -262,7 +263,7 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyPlainTextError('Staking config not found');
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
@@ -329,7 +330,7 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyPlainTextError('Staking config not found');
     }
 
     const resp = await client.post<{
@@ -352,7 +353,7 @@ class ServiceStaking extends ServiceBase {
     params: IBuildPermit2ApproveSignDataParams,
   ) {
     if (!params?.networkId) {
-      throw new Error('networkId is required');
+      throw new OneKeyPlainTextError('networkId is required');
     }
     if (!params?.provider) {
       throw new Error('provider is required');

@@ -29,6 +29,7 @@ import { HardwareProcessingManager } from './HardwareProcessingManager';
 
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export type IWithHardwareProcessingControlParams = {
   hideCheckingDeviceLoading?: boolean;
@@ -367,7 +368,7 @@ class ServiceHardwareUI extends ServiceBase {
           this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
         if (isMutexLocked) {
           isBusy = true;
-          throw new Error(
+          throw new OneKeyPlainTextError(
             appLocale.intl.formatMessage({
               id: ETranslations.feedback_hardware_is_busy,
             }),

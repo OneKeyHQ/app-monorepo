@@ -10,6 +10,7 @@ import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import App from '../App';
 
@@ -19,7 +20,7 @@ const WithSentryHOC = withSentryHOC(App, SentryErrorBoundaryFallback);
 
 function renderApp() {
   const root = globalThis.document.querySelector('#root');
-  if (!root) throw new Error('No root element found!');
+  if (!root) throw new OneKeyPlainTextError('No root element found!');
   createRoot(root).render(<WithSentryHOC />);
 }
 

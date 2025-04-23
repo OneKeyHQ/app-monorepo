@@ -16,6 +16,7 @@ import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import ServiceBase from '../ServiceBase';
 
@@ -96,7 +97,7 @@ class ServiceAllNetwork extends ServiceBase {
 
     if (isOthersWallet) {
       if (!othersWalletAccountId) {
-        throw new Error('getAllNetworkDbAccounts ERROR: accountId is required');
+        throw new OneKeyPlainTextError('getAllNetworkDbAccounts ERROR: accountId is required');
       }
       const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId: othersWalletAccountId,
@@ -104,7 +105,7 @@ class ServiceAllNetwork extends ServiceBase {
       dbAccounts = [dbAccount].filter(Boolean);
     } else {
       if (!indexedAccountId) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'getAllNetworkDbAccounts ERROR: indexedAccountId is required',
         );
       }
@@ -117,7 +118,7 @@ class ServiceAllNetwork extends ServiceBase {
           ));
       } else {
         if (!singleNetworkDeriveType) {
-          throw new Error(
+          throw new OneKeyPlainTextError(
             'getAllNetworkDbAccounts ERROR: deriveType is required',
           );
         }

@@ -37,6 +37,7 @@ import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnec
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { type IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { currencyPersistAtom } from '../states/jotai/atoms';
 import {
@@ -295,7 +296,7 @@ class ServiceSetting extends ServiceBase {
     );
 
     if (networksVaultSettings.length !== networks.length) {
-      throw new Error('failed to get account derivation config');
+      throw new OneKeyPlainTextError('failed to get account derivation config');
     }
 
     networks = networks.filter((o, i) => {

@@ -86,6 +86,7 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -299,7 +300,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const originalConnectId = connectId;
 
     if (platformEnv.isNative && !originalConnectId) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'checkAllFirmwareRelease ERROR: native ble-sdk connectId is required',
       );
     }
@@ -720,7 +721,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<IFirmwareUpdateInfo> {
     serviceHardwareUtils.hardwareLog('_checkFirmwareUpdate', payload);
     if (!payload?.features) {
-      throw new Error('setFirmwareUpdateInfo ERROR: features is required');
+      throw new OneKeyPlainTextError('setFirmwareUpdateInfo ERROR: features is required');
     }
     const connectId = await this.getConnectIdFromReleaseInfo(payload);
 
@@ -766,7 +767,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async setBleFirmwareUpdateInfo(payload: IBleFirmwareReleasePayload) {
     serviceHardwareUtils.hardwareLog('showBleFirmwareReleaseInfo', payload);
     if (!payload.features) {
-      throw new Error('setBleFirmwareUpdateInfo ERROR: features is required');
+      throw new OneKeyPlainTextError('setBleFirmwareUpdateInfo ERROR: features is required');
     }
     const connectId = await this.getConnectIdFromReleaseInfo(payload);
     const { bleVersion } = await deviceUtils.getDeviceVersion({
@@ -1350,7 +1351,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
         const deviceType = params?.releaseResult?.deviceType;
         if (deviceType !== EDeviceType.Pro) {
-          throw new Error('Do not support update firmware for this device');
+          throw new OneKeyPlainTextError('Do not support update firmware for this device');
         }
 
         const updateResult =
@@ -1539,7 +1540,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           // user may retry just when device reboot, getFeatures() will pending forever, so we need timeout reject, then user can see retry button
           seconds: 30,
         }),
-        timeoutRejectError: new Error('Retry Timeout'),
+        timeoutRejectError: new OneKeyPlainTextError('Retry Timeout'),
       }),
     });
   }
@@ -1775,14 +1776,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async validateMnemonicBackuped(params: IUpdateFirmwareWorkflowParams) {
     if (!params.backuped) {
-      throw new Error('mnemonic not backuped');
+      throw new OneKeyPlainTextError('mnemonic not backuped');
     }
   }
 
   async validateUSBConnection(params: IUpdateFirmwareWorkflowParams) {
     // TODO device is connected by USB
     if (!params.usbConnected) {
-      throw new Error('USB not connected');
+      throw new OneKeyPlainTextError('USB not connected');
     }
   }
 

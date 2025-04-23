@@ -11,6 +11,7 @@ import type {
   IExternalConnector,
   IExternalWalletInfo,
 } from '@onekeyhq/shared/types/externalWallet.types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import externalWalletFactory from '../../connectors/externalWalletFactory';
 import ServiceBase from '../ServiceBase';
@@ -290,7 +291,7 @@ class ServiceDappSide extends ServiceBase {
   }) {
     const connectionInfo = account.connectionInfo;
     if (!connectionInfo) {
-      throw new Error('sendTransaction ERROR: connectionInfo not found');
+      throw new OneKeyPlainTextError('sendTransaction ERROR: connectionInfo not found');
     }
     const ctrl = await externalWalletFactory.getController({
       connectionInfo,

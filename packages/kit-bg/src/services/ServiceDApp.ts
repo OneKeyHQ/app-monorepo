@@ -88,7 +88,7 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   }
 
   if (!networkImpls) {
-    throw new Error('networkImpl not found');
+    throw new OneKeyPlainTextError('networkImpl not found');
   }
   return {
     storageType,
@@ -272,7 +272,7 @@ class ServiceDApp extends ServiceBase {
     walletInternalSign?: boolean;
   }) {
     if (!accountId || !networkId) {
-      throw new Error('accountId and networkId required');
+      throw new OneKeyPlainTextError('accountId and networkId required');
     }
     return this.openModal({
       request,
@@ -424,7 +424,7 @@ class ServiceDApp extends ServiceBase {
     walletConnectTopic?: string;
   }) {
     if (storageType === 'walletConnect' && !walletConnectTopic) {
-      throw new Error('walletConnectTopic is required');
+      throw new OneKeyPlainTextError('walletConnectTopic is required');
     }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
@@ -828,7 +828,7 @@ class ServiceDApp extends ServiceBase {
         networkId: newNetworkId,
       });
     if (!containsNetwork) {
-      throw new Error('Network not found');
+      throw new OneKeyPlainTextError('Network not found');
     }
     const { shouldSwitchNetwork, isDifferentNetworkImpl } =
       await this.getSwitchNetworkInfo(params);
@@ -867,7 +867,7 @@ class ServiceDApp extends ServiceBase {
         );
 
       if (!activeAccount.account) {
-        throw new Error('Switch network failed, account not found');
+        throw new OneKeyPlainTextError('Switch network failed, account not found');
       }
 
       updatedAccountInfo = {

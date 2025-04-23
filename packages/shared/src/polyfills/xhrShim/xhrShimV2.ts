@@ -2,6 +2,7 @@
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 type IXMLHttpRequestResponseType =
   | ''
@@ -13,7 +14,7 @@ type IXMLHttpRequestResponseType =
 
 function assert(cond: unknown, msg = 'assertion failed'): asserts cond {
   if (!cond) {
-    const err = new Error(msg);
+    const err = new OneKeyPlainTextError(msg);
     err.name = 'AssertionError';
     throw err;
   }
@@ -27,7 +28,7 @@ function extractLength(response: Response) {
     if (candidateValue == null) {
       candidateValue = value;
     } else if (value !== candidateValue) {
-      throw new Error('invalid content-length');
+      throw new OneKeyPlainTextError('invalid content-length');
     }
   }
   if (candidateValue === '' || candidateValue == null) {
@@ -45,7 +46,7 @@ function extractMIMEType(headers: Headers) {
   let mimeType: string | null = null;
   const values = headers.get('content-type')?.split(/\s*,\s*/);
   if (!values) {
-    throw new Error('missing content type');
+    throw new OneKeyPlainTextError('missing content type');
   }
   for (const value of values) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
@@ -57,7 +58,7 @@ function extractMIMEType(headers: Headers) {
     mimeType = temporaryMimeType;
   }
   if (mimeType == null) {
-    throw new Error('missing content type');
+    throw new OneKeyPlainTextError('missing content type');
   }
   return mimeType;
 }

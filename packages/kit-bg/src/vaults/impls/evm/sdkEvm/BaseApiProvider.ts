@@ -5,7 +5,7 @@ import { md5 } from 'js-md5';
 import { forEach, isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { NotImplemented, OneKeyError } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyError, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
   IFetchAccountDetailsResp,

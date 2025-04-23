@@ -41,6 +41,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -546,7 +547,7 @@ class ServiceAccountProfile extends ServiceBase {
         // @ts-expect-error
         return data;
       }
-      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
+      throw new OneKeyPlainTextError(failedRequest.error ?? 'Failed to send proxy request');
     }
     return data.map((item) => item.data);
   }
@@ -587,7 +588,7 @@ class ServiceAccountProfile extends ServiceBase {
       const currencyInfo = currencyMap[currency];
 
       if (!currencyInfo) {
-        throw new Error('Currency not found');
+        throw new OneKeyPlainTextError('Currency not found');
       }
       usdValue = Object.entries(value).reduce((acc, [n, v]) => {
         acc[n] = new BigNumber(v)

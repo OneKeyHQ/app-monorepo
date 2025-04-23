@@ -88,6 +88,7 @@ import type {
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
@@ -566,7 +567,7 @@ class ServiceHardware extends ServiceBase {
   }): Promise<Features | undefined> {
     const { connectId } = device;
     if (!connectId) {
-      throw new Error('hardware connect ERROR: connectId is undefined');
+      throw new OneKeyPlainTextError('hardware connect ERROR: connectId is undefined');
     }
 
     if (platformEnv.isNative) {
@@ -744,7 +745,7 @@ class ServiceHardware extends ServiceBase {
     const { connectId, params } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
-      throw new Error('hardware getFeatures ERROR: connectId is undefined');
+      throw new OneKeyPlainTextError('hardware getFeatures ERROR: connectId is undefined');
     }
     const hardwareSDK = await this.getSDKInstance();
     const features = await convertDeviceResponse(() =>
@@ -814,7 +815,7 @@ class ServiceHardware extends ServiceBase {
       connectId: params.connectId,
     });
     if (!dbDevice) {
-      throw new Error('device not found');
+      throw new OneKeyPlainTextError('device not found');
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>

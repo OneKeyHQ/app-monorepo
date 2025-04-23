@@ -86,6 +86,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
@@ -291,7 +292,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('swap fetch token cancel', {
+        throw new OneKeyPlainTextError('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
       } else {
@@ -552,7 +553,7 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('swap fetch quote cancel', {
+        throw new OneKeyPlainTextError('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
       }
