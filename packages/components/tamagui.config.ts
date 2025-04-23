@@ -135,6 +135,10 @@ const font = createFont({
 
 // https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
 const animations = createAnimations({
+  '0ms': {
+    type: 'timing',
+    duration: 0,
+  },
   '50ms': {
     type: 'timing',
     duration: 50,
@@ -208,8 +212,8 @@ const lightColors = {
   bgInverseActive: whiteA.whiteA5,
   bgInverseHover: whiteA.whiteA4,
   bgPrimary: primary.primary12,
-  bgPrimaryActive: primary.primary10,
-  bgPrimaryHover: primary.primary11,
+  bgPrimaryActive: primary.primary11,
+  bgPrimaryHover: blackA.blackA10,
   bgReverse: '#1b1b1b',
   bgSidebar: gray.gray2,
   bgStrong: neutral.neutral3,

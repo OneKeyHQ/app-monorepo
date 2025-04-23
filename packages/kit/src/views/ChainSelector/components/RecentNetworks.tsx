@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
+  Image,
   SectionList,
+  SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -17,6 +19,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -33,8 +37,18 @@ function RecentNetworkItem({
     }
   }, [onPressItem, network]);
   return (
-    <Button onPress={handlePress} size="small" variant="secondary">
-      {network.name}
+    <Button
+      onPress={handlePress}
+      size="small"
+      variant="secondary"
+      childrenAsText={false}
+    >
+      <XStack alignItems="center" gap="$2">
+        <NetworkAvatar networkId={network.id} size={18} />
+        <SizableText textBreakStrategy="simple" size="$bodyMdMedium">
+          {network.name}
+        </SizableText>
+      </XStack>
     </Button>
   );
 }

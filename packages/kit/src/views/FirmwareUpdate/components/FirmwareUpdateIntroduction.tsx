@@ -7,7 +7,12 @@ export function FirmwareUpdateIntroduction() {
   const intl = useIntl();
   return (
     <Stack pt={10} px="$5" pb="$5">
-      <SizableText size="$bodyLg">
+      <SizableText
+        size="$bodyLg"
+        $gtMd={{
+          size: '$bodyMd',
+        }}
+      >
         {intl.formatMessage({
           id: ETranslations.firmware_update_changelog_introduction,
         })}

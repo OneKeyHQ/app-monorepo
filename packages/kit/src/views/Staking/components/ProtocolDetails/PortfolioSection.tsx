@@ -32,7 +32,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { formatStakingDistanceToNowStrict } from '../utils';
+import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
 
 import { ProtocolRewards } from './ProtocolRewards';
 
@@ -136,7 +136,7 @@ function PortfolioItem({
   );
 }
 
-function TotalEarnedItem({
+export function TotalEarnedItem({
   tokenSymbol,
   totalEarned,
   price,
@@ -432,14 +432,9 @@ function PortfolioInfo({
               id: ETranslations.earn_active,
             })}
             badgeType="success"
-            badgeText={intl.formatMessage(
-              {
-                id: ETranslations.earn_fixed_apy,
-              },
-              {
-                value: `${details?.provider?.apys?.fixed ?? ''}%`,
-              },
-            )}
+            badgeText={`${formatApy(
+              details?.provider?.apys?.fixed ?? 0,
+            )}% Fixed APY`}
           />
         ) : null}
         {formalActive && Number(formalActive) ? (
@@ -451,18 +446,18 @@ function PortfolioInfo({
               id: ETranslations.earn_active,
             })}
             badgeType="default"
-            badgeText={`${
-              details?.provider?.apys?.weeklyNetApyWithoutFee ?? ''
-            }% APY`}
+            badgeText={`${formatApy(
+              details?.provider?.apys?.weeklyNetApyWithoutFee ?? 0,
+            )}% APY`}
           />
         ) : null}
-        {totalRewardAmount > 0 ? (
+        {/* {totalRewardAmount > 0 ? (
           <TotalEarnedItem
             tokenSymbol={token.symbol}
             totalEarned={new BigNumber(totalRewardAmount).toFixed()}
             price={details?.token.price}
           />
-        ) : null}
+        ) : null} */}
       </>
     );
   }, [
@@ -473,7 +468,6 @@ function PortfolioInfo({
     token.symbol,
     details,
     isFalconProvider,
-    totalRewardAmount,
   ]);
 
   if (!showPortfolio) {
@@ -610,7 +604,7 @@ function PortfolioInfo({
               disabled={isLessThanMinClaimable}
             />
           ) : null}
-          {waitingRebateRewardAmount > 0 ? (
+          {/* {waitingRebateRewardAmount > 0 ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
@@ -627,7 +621,7 @@ function PortfolioInfo({
                 />
               }
             />
-          ) : null}
+          ) : null} */}
           {/* {rewardNum && Object.keys(rewardNum).length > 0
             ? Object.entries(rewardNum).map(([rewardTokenAddress, amount]) => {
                 const rewardToken = rewardAssets?.[rewardTokenAddress];

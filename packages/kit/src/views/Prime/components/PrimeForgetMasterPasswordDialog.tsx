@@ -1,14 +1,11 @@
 import { useCallback, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import {
   Checkbox,
   Dialog,
   SizableText,
   Stack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -18,8 +15,6 @@ export function PrimeForgetMasterPasswordDialog({
 }: {
   promiseId: number;
 }) {
-  const intl = useIntl();
-
   const [isChecked, setIsChecked] = useState(false);
 
   const submit = useCallback(

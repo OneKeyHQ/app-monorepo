@@ -25,8 +25,12 @@ function BasicCurrency({
   targetCurrency,
   formatterOptions,
   children,
+  dynamicWidth,
+  formatter = 'price',
   ...props
-}: ICurrencyProps) {
+}: ICurrencyProps & {
+  dynamicWidth?: (value: string, currency: string) => number;
+}) {
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const sourceCurrencyInfo = useMemo(
@@ -51,12 +55,17 @@ function BasicCurrency({
 
   return (
     <NumberSizeableTextWrapper
-      formatter="price"
+      formatter={formatter}
       formatterOptions={{
         currency: targetCurrencyInfo?.unit,
         ...formatterOptions,
       }}
       {...props}
+      width={
+        props.w ||
+        props.width ||
+        dynamicWidth?.(String(value || 0), targetCurrencyInfo?.unit || '')
+      }
     >
       {value}
     </NumberSizeableTextWrapper>

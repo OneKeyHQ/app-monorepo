@@ -49,6 +49,10 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 
+function normalizeAddress(address: string) {
+  return address.toLowerCase();
+}
+
 function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
   return (
@@ -226,18 +230,20 @@ function AddCustomTokenModal() {
         if (searchedTokenRef.current?.networkId !== selectedNetworkIdValue) {
           throw new Error('Token networkId not matched');
         }
-        if (searchedTokenRef.current?.address !== contractAddress) {
+        if (
+          normalizeAddress(searchedTokenRef.current?.address) !==
+          normalizeAddress(contractAddress)
+        ) {
           throw new Error('Token address not matched');
         }
         const decimalsBN = new BigNumber(searchedTokenRef.current?.decimals);
-        const decimalsBN2 = new BigNumber(undefined as any);
         if (decimalsBN.isNaN()) {
           throw new Error('Token decimal is invalid');
         }
 
         const tokenInfo: IAccountToken = {
           ...searchedTokenRef.current,
-          address: contractAddress,
+          address: searchedTokenRef.current?.address,
           symbol,
           decimals: decimalsBN.toNumber(),
           accountId: accountIdForNetwork,

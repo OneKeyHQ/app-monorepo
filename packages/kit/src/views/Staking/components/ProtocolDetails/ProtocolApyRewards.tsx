@@ -116,13 +116,13 @@ function MorphoApyInternal({
             />
           );
         })}
-        <ApyLineItem
+        {/* <ApyLineItem
           iconName="GiftOutline"
           label={intl.formatMessage({
             id: ETranslations.earn_referral_referral_reward,
           })}
           value={apys?.rebateReward}
-        />
+        /> */}
         <ApyLineItem
           iconName="HandCoinsOutline"
           label={`${intl.formatMessage({
@@ -204,6 +204,7 @@ function FalconApyInternal({
         {isEventActive ? (
           <ApyLineItem
             iconName="AirdropOutline"
+            iconColor="$iconSubdued"
             label={intl.formatMessage({
               id: ETranslations.earn_falcon_token_airdrop,
             })}
@@ -230,6 +231,7 @@ function FalconApyInternal({
             href="https://help.onekey.so/hc/articles/12463212976655"
             color="$textInfo"
             size="$bodyMd"
+            textDecorationLine="underline"
           >
             {intl.formatMessage({
               id: ETranslations.global_learn_more,

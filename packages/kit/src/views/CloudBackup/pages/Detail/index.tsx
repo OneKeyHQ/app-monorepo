@@ -314,9 +314,9 @@ export default function Detail() {
     }
     defaultLogger.account.wallet.walletAdded({
       status: 'success',
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'cloud',
+        importType: 'cloud',
       },
       isSoftwareWalletOnlyUser,
     });

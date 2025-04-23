@@ -734,13 +734,13 @@ class ServiceStaking extends ServiceBase {
       overviewData.reduce(
         (prev, item) => {
           prev.totalFiatValue = prev.totalFiatValue.plus(
-            BigNumber(item.data.data.totalFiatValue || 0),
+            BigNumber(item?.data?.data?.totalFiatValue || 0),
           );
           prev.earnings24h = prev.earnings24h.plus(
-            BigNumber(item.data.data.earnings24h || 0),
+            BigNumber(item?.data?.data?.earnings24h || 0),
           );
           prev.hasClaimableAssets =
-            prev.hasClaimableAssets || !!item.data.data.canClaim;
+            prev.hasClaimableAssets || !!item?.data?.data?.canClaim;
           return prev;
         },
         {

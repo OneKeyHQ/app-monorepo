@@ -313,17 +313,21 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
                 source="tokenDetails"
+                trackID="wallet-token-details-buy"
               />
             </ReviewControl>
 
             <RawActions.Swap
               onPress={handleOnSwap}
               disabled={disableSwapAction}
+              trackID="wallet-token-details-swap"
             />
             <RawActions.Bridge
               onPress={handleOnBridge}
               disabled={disableSwapAction}
+              trackID="wallet-token-details-bridge"
             />
             <ReviewControl>
               <ActionSell
@@ -332,20 +336,25 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
                 source="tokenDetails"
+                trackID="wallet-token-details-sell"
               />
             </ReviewControl>
-            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Send
+              onPress={handleSendPress}
+              trackID="wallet-token-details-send"
+            />
             <RawActions.Receive
               disabled={isReceiveDisabled}
               onPress={async () => {
-                try {
-                  await backgroundApiProxy.serviceAccount.checkWalletBackupStatus(
+                if (
+                  await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
                     {
                       walletId: wallet?.id ?? '',
                     },
-                  );
-                } catch (error) {
+                  )
+                ) {
                   return;
                 }
                 defaultLogger.wallet.walletActions.actionReceive({
@@ -356,6 +365,7 @@ function TokenDetailsHeader(props: IProps) {
                 });
                 handleOnReceive(tokenInfo);
               }}
+              trackID="wallet-token-details-receive"
             />
             <WalletActionEarn
               accountId={accountId}
@@ -364,6 +374,7 @@ function TokenDetailsHeader(props: IProps) {
               indexedAccountId={indexedAccountId}
               walletType={wallet?.type}
               source="tokenDetails"
+              trackID="wallet-token-details-stake"
             />
             <Stack w={50} />
           </RawActions>

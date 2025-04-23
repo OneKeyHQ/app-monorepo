@@ -592,6 +592,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (this.isTempWalletRemoved({ wallet })) {
         return false;
       }
+
+      if (
+        option?.ignoreNonBackedUpWallets &&
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !wallet.backuped
+      ) {
+        return false;
+      }
+
       if (
         ignoreEmptySingletonWalletAccounts &&
         accountUtils.isOthersWallet({ walletId: wallet.id })
@@ -2023,6 +2032,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     let passphraseState = '';
     let xfpHash = '';
+    let xfpHashLegacy = '';
 
     // TODO support OneKey Pro device only
     const deviceType: IDeviceType = EDeviceType.Pro;
@@ -2045,6 +2055,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       xfpHash = bufferUtils.bytesToHex(
         sha256(bufferUtils.toBuffer(fullXfp, 'utf8')),
       );
+      if (qrDevice.xfp) {
+        xfpHashLegacy = bufferUtils.bytesToHex(
+          sha256(bufferUtils.toBuffer(qrDevice.xfp, 'utf8')),
+        );
+      }
     }
     let walletName = deviceName;
     let hiddenDefaultWalletName: string | undefined;
@@ -2058,10 +2073,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     const context = await this.getContext();
 
-    const dbWalletId = accountUtils.buildQrWalletId({
+    let dbWalletId = accountUtils.buildQrWalletId({
       dbDeviceId,
       xfpHash,
     });
+    if (xfpHashLegacy) {
+      const dbWalletIdLegacy = accountUtils.buildQrWalletId({
+        dbDeviceId,
+        xfpHash: xfpHashLegacy,
+      });
+      if (dbWalletIdLegacy) {
+        const walletLegacy = await this.getWalletSafe({
+          walletId: dbWalletIdLegacy,
+        });
+        if (walletLegacy) {
+          dbWalletId = walletLegacy.id;
+        }
+      }
+    }
 
     let parentWalletId: string | undefined;
     if (passphraseState) {

@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -27,10 +28,12 @@ export function WalletBackupActions({
   wallet,
   children,
   onSelected,
+  actionListProps,
 }: {
   wallet: IDBWallet | undefined;
   children: React.ReactNode;
   onSelected?: () => void;
+  actionListProps?: Partial<ComponentProps<typeof ActionList>>;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -63,17 +66,10 @@ export function WalletBackupActions({
 
   const handleBackupLiteCard = useCallback(async () => {
     onSelected?.();
-    const backedUp = await liteCard.backupWallet(wallet?.id);
+    await liteCard.backupWallet(wallet?.id);
 
-    if (wallet?.id && !wallet.backuped && backedUp) {
-      await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-        walletId: wallet.id,
-        isBackedUp: true,
-      });
-      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-      defaultLogger.account.wallet.backupWallet('liteCard');
-    }
-  }, [onSelected, liteCard, wallet?.id, wallet?.backuped]);
+    defaultLogger.account.wallet.backupWallet('liteCard');
+  }, [onSelected, liteCard, wallet?.id]);
 
   const handleBackupKeyTag = useCallback(async () => {
     if (wallet) {
@@ -86,17 +82,9 @@ export function WalletBackupActions({
       navigation.pushModal(EModalRoutes.KeyTagModal, {
         screen: EModalKeyTagRoutes.BackupDotMap,
         params: {
+          wallet,
           encodedText,
           title: wallet.name,
-          onBackedUp: async () => {
-            if (!wallet.backuped) {
-              await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-                walletId: wallet.id,
-                isBackedUp: true,
-              });
-              appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-            }
-          },
         },
       });
       defaultLogger.account.wallet.backupWallet('keyTag');
@@ -106,7 +94,6 @@ export function WalletBackupActions({
 
   return (
     <ActionList
-      offset={{ mainAxis: 0, crossAxis: 18 }}
       placement="bottom-start"
       title={intl.formatMessage({ id: ETranslations.global_backup })}
       items={[
@@ -114,7 +101,7 @@ export function WalletBackupActions({
           label: intl.formatMessage({
             id: ETranslations.manual_backup,
           }),
-          icon: 'PenOutline' as IKeyOfIcons,
+          icon: 'SignatureOutline' as IKeyOfIcons,
           onPress: () => void handleBackupPhrase(),
         },
         platformEnv.isNative && {
@@ -122,7 +109,7 @@ export function WalletBackupActions({
             id: ETranslations.global_onekey_lite,
           }),
           icon: 'OnekeyLiteOutline' as IKeyOfIcons,
-          onPress: handleBackupLiteCard,
+          onPress: () => void handleBackupLiteCard(),
         },
         {
           label: intl.formatMessage({
@@ -133,6 +120,7 @@ export function WalletBackupActions({
         },
       ].filter(Boolean)}
       renderTrigger={children}
+      {...actionListProps}
     />
   );
 }

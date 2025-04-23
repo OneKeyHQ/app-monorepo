@@ -28,9 +28,9 @@ export function ProtocolDetails({
       <ProfitSection details={details} />
       <Divider />
       <ProtectionSection details={details} />
+      <PeriodSection details={details} />
       <ProviderSection details={details} />
       <Divider />
-      <PeriodSection details={details} />
       <RiskSection details={details} />
       <FaqSection details={details} />
     </>

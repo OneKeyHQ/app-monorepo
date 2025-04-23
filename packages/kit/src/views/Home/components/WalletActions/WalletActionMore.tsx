@@ -99,11 +99,11 @@ export function WalletActionMore() {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleCopyAddress = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 
@@ -150,11 +150,11 @@ export function WalletActionMore() {
   ]);
 
   const handleSellToken = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceAccount.checkWalletBackupStatus({
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
-      });
-    } catch (error) {
+      })
+    ) {
       return;
     }
 
@@ -232,6 +232,14 @@ export function WalletActionMore() {
   }, [network?.isCustomNetwork, network?.explorerURL]).result;
 
   const handleViewInExplorer = useCallback(async () => {
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+
     defaultLogger.wallet.walletActions.actionViewInExplorer({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
@@ -335,6 +343,7 @@ export function WalletActionMore() {
           icon: 'MinusLargeOutline',
           disabled: Boolean(isSellDisabled || !account?.id || !network?.id),
           onPress: handleSellToken,
+          trackID: 'wallet-sell',
         },
       ],
     });

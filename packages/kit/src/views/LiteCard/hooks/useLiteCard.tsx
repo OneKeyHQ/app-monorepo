@@ -6,6 +6,10 @@ import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -37,7 +41,8 @@ export default function useLiteCard() {
       defaultLogger.setting.page.oneKeyLiteBackup();
       try {
         await nfc.checkNFCEnabledPermission();
-        const mnemonic = await readMnemonicWithWalletId(walletId);
+        const { mnemonic, walletId: selectedWalletId } =
+          await readMnemonicWithWalletId(walletId);
         const createLiteInfoConnection = nfc.createNFCConnection(async () => {
           const { error: oldError, cardInfo: oldCard } =
             await LiteCard.getLiteInfo();
@@ -78,6 +83,15 @@ export default function useLiteCard() {
                 retryPINAction: createPINConnection,
               });
               showBackupSuccessDialog();
+              if (selectedWalletId) {
+                await backgroundApiProxy.serviceAccount.updateWalletBackupStatus(
+                  {
+                    walletId: selectedWalletId,
+                    isBackedUp: true,
+                  },
+                );
+                appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+              }
             },
           );
           await createSetMnemonicConnection();
@@ -100,9 +114,9 @@ export default function useLiteCard() {
   );
   const importWallet = useCallback(async () => {
     defaultLogger.account.wallet.addWalletStarted({
-      addMethod: 'Import',
+      addMethod: 'ImportWallet',
       details: {
-        importSource: 'liteCard',
+        importType: 'lite',
       },
       isSoftwareWalletOnlyUser,
     });
@@ -140,9 +154,9 @@ export default function useLiteCard() {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: true });
       defaultLogger.account.wallet.walletAdded({
         status: 'success',
-        addMethod: 'Import',
+        addMethod: 'ImportWallet',
         details: {
-          importSource: 'liteCard',
+          importType: 'lite',
         },
         isSoftwareWalletOnlyUser,
       });
@@ -150,9 +164,9 @@ export default function useLiteCard() {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: false });
       defaultLogger.account.wallet.walletAdded({
         status: 'failure',
-        addMethod: 'Import',
+        addMethod: 'ImportWallet',
         details: {
-          importSource: 'liteCard',
+          importType: 'lite',
         },
         isSoftwareWalletOnlyUser,
       });

@@ -16,6 +16,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -315,6 +316,17 @@ function MessageConfirm() {
       undefined,
     );
   }, []);
+
+  useEffect(() => {
+    if (sourceInfo) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId,
+      });
+    }
+  }, [sourceInfo, accountId]);
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>

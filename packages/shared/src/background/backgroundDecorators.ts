@@ -1,8 +1,6 @@
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import errorToastUtils from '../errors/utils/errorToastUtils';
-import errorUtils from '../errors/utils/errorUtils';
 import { formatDateFns } from '../utils/dateUtils';
 
 import {

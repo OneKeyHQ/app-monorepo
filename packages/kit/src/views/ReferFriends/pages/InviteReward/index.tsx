@@ -28,13 +28,14 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { Currency, useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
@@ -73,11 +74,11 @@ function ShareCode({
   inviteCode: string;
 }) {
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
   const { copyText } = useClipboard();
 
   const handleCopy = useCallback(() => {
     copyText(inviteCode);
+    defaultLogger.referral.page.copyReferralCode();
   }, [copyText, inviteCode]);
 
   const inviteCodeUrl = useMemo(() => {
@@ -139,7 +140,13 @@ function ShareCode({
               ai="center"
               borderRadius="$2.5"
             >
-              <SizableText size="$bodyLg" flexShrink={1}>
+              <SizableText
+                size="$bodyLg"
+                flexShrink={platformEnv.isNative ? undefined : 1}
+                textBreakStrategy={
+                  platformEnv.isNativeAndroid ? 'simple' : undefined
+                }
+              >
                 {inviteCodeUrl}
               </SizableText>
               {platformEnv.isNative ? null : (
@@ -151,6 +158,7 @@ function ShareCode({
                   iconColor="$iconSubdued"
                   onPress={() => {
                     copyText(sharedUrl);
+                    defaultLogger.referral.page.shareReferralLink('copy');
                   }}
                 />
               )}
@@ -169,9 +177,10 @@ function ShareCode({
                   $md={{
                     flex: 1,
                   }}
-                  size={gtMd ? 'medium' : 'large'}
+                  size="medium"
                   onPress={() => {
                     copyText(sharedUrl);
+                    defaultLogger.referral.page.shareReferralLink('copy');
                   }}
                 >
                   {intl.formatMessage({ id: ETranslations.global_copy })}
@@ -179,7 +188,7 @@ function ShareCode({
                 <Button
                   variant="primary"
                   icon="ShareOutline"
-                  size={gtMd ? 'medium' : 'large'}
+                  size="medium"
                   $md={{
                     flex: 1,
                   }}
@@ -195,6 +204,7 @@ function ShareCode({
                             },
                       );
                     }, 300);
+                    defaultLogger.referral.page.shareReferralLink('share');
                   }}
                 >
                   {intl.formatMessage({ id: ETranslations.explore_share })}
@@ -210,12 +220,10 @@ function ShareCode({
 }
 
 function RewardLevelMoney({
-  money,
-  left,
-  right,
+  threshold,
   isLeft,
   isRight,
-}: { money: string; isLeft?: boolean; isRight?: boolean } & IStackStyle) {
+}: { threshold: string; isLeft?: boolean; isRight?: boolean } & IStackStyle) {
   const ai = useMemo(() => {
     if (isRight) {
       return 'flex-end';
@@ -235,13 +243,20 @@ function RewardLevelMoney({
         borderBottomLeftRadius="$1"
         borderBottomRightRadius="$1"
       />
-      <SizableText
-        width={money.length * 8}
-        size="$bodySmMedium"
-        color="$textSubdued"
-      >
-        {money}
-      </SizableText>
+      {threshold ? (
+        <Currency
+          sourceCurrency="usd"
+          formatter="balance"
+          textAlign={isRight ? 'right' : undefined}
+          size="$bodySmMedium"
+          color="$textSubdued"
+          dynamicWidth={(v, c) =>
+            (v.length + c.length) * 8 + Math.ceil(v.length / 3) * 4
+          }
+        >
+          {threshold}
+        </Currency>
+      ) : null}
     </YStack>
   );
 }
@@ -249,23 +264,29 @@ function RewardLevelMoney({
 function RewardLevelText({
   level,
   percent,
-  money,
+  threshold,
   isLeft,
   isRight,
 }: {
   level: string;
   percent: string;
-  money: string;
+  threshold: string;
   isLeft?: boolean;
   isRight?: boolean;
 }) {
   return (
     <YStack>
-      <SizableText size="$bodySm">{level}</SizableText>
+      <SizableText size="$bodySm" textAlign={isRight ? 'right' : 'center'}>
+        {level}
+      </SizableText>
       <SizableText size="$bodySmMedium" color="$textSubdued">
         {percent}
       </SizableText>
-      <RewardLevelMoney money={money} isLeft={isLeft} isRight={isRight} />
+      <RewardLevelMoney
+        threshold={threshold}
+        isLeft={isLeft}
+        isRight={isRight}
+      />
     </YStack>
   );
 }
@@ -276,7 +297,8 @@ function Dashboard({
   hardwareSales,
   earn,
   levelPercent,
-  rebateLevel,
+  rebateLevels,
+  rebateConfig,
   nextRebateLevel,
   fetchSummaryInfo,
   withdrawAddresses,
@@ -287,7 +309,8 @@ function Dashboard({
   hardwareSales: IInviteSummary['HardwareSales'];
   withdrawAddresses: IInviteSummary['withdrawAddresses'];
   levelPercent: number;
-  rebateLevel: string;
+  rebateLevels: IInviteSummary['rebateLevels'];
+  rebateConfig: IInviteSummary['rebateConfig'];
   nextRebateLevel: string;
   fetchSummaryInfo: () => void;
 }) {
@@ -296,11 +319,13 @@ function Dashboard({
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
+  const isNewEditWithdrawAddress = withdrawAddresses.length === 0;
+
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
-      onAddressAdded: async () => {
+      onAddressAdded: async ({ networkId }: { networkId: string }) => {
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.referral_address_updated,
@@ -309,6 +334,10 @@ function Dashboard({
         setTimeout(() => {
           fetchSummaryInfo();
         }, 50);
+        defaultLogger.referral.page.editReceivingAddress({
+          networkId,
+          editMethod: isNewEditWithdrawAddress ? 'new' : 'edit',
+        });
       },
     });
   }, [
@@ -316,6 +345,7 @@ function Dashboard({
     enabledNetworks,
     fetchSummaryInfo,
     intl,
+    isNewEditWithdrawAddress,
     navigation,
   ]);
 
@@ -331,7 +361,6 @@ function Dashboard({
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
-  const currency = useCurrency();
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -364,7 +393,6 @@ function Dashboard({
                 textDecorationLine="underline"
                 textDecorationColor="$textSuccess"
                 textDecorationStyle="dotted"
-                formatterOptions={{ tokenSymbol: currency.id.toUpperCase() }}
                 style={{
                   textUnderlineOffset: 4,
                 }}
@@ -426,40 +454,66 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        onPress={toHardwareSalesRewardPage}
       >
-        <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({ id: ETranslations.referral_sales_reward })}
+        <YStack onPress={toHardwareSalesRewardPage}>
+          <XStack ai="center" jc="space-between">
+            <SizableText size="$headingMd">
+              {hardwareSales.title ||
+                intl.formatMessage({ id: ETranslations.referral_sales_reward })}
+            </SizableText>
+            <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
+          </XStack>
+          <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+            {hardwareSales.description || ' '}
           </SizableText>
-          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
-        </XStack>
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_sales_reward_desc })}
-        </SizableText>
+        </YStack>
         <YStack pt="$4">
           <YStack gap="$2">
-            <XStack jc="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {rebateLevel}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {nextRebateLevel}
-              </SizableText>
+            <XStack>
+              <XStack>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {`${intl.formatMessage({
+                    id: ETranslations.referral_hw_level_title,
+                  })}: `}
+                </SizableText>
+                <SizableText size="$bodyMd">{`${rebateConfig.emoji} ${rebateConfig.label}`}</SizableText>
+              </XStack>
+              <XStack>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {` / ${intl.formatMessage({
+                    id: ETranslations.referral_hw_sales_title,
+                  })}: `}
+                </SizableText>
+                <Currency size="$bodyMd" sourceCurrency="usd">
+                  {hardwareSales?.monthlySales || 0}
+                </Currency>
+              </XStack>
             </XStack>
             <YStack h={84} borderRadius="$2" py="$2" bg="$bgSubdued" px="$4">
               <XStack mb="$2" jc="space-between">
-                <RewardLevelText isLeft level="🥉" percent="5%" money="$100" />
-                <RewardLevelText level="🥈" percent="10%" money="$500" />
-                <RewardLevelText level="🥇" percent="15%" money="$1000" />
-                <RewardLevelText
-                  isRight
-                  level="🥇"
-                  percent="18%"
-                  money="$2000"
-                />
+                {rebateLevels.map((rebateLevel, index) => {
+                  return (
+                    <RewardLevelText
+                      key={index}
+                      level={rebateLevel.emoji}
+                      percent={`${rebateLevel.rebate}%`}
+                      isLeft={index === 0}
+                      isRight={index === rebateLevels.length - 1}
+                      threshold={
+                        rebateLevel.level === rebateConfig.level + 1
+                          ? String(rebateLevel.threshold)
+                          : ''
+                      }
+                    />
+                  );
+                })}
               </XStack>
-              <Progress value={levelPercent} width="100%" size="medium" />
+              <Progress
+                indicatorColor="$bgSuccessStrong"
+                value={levelPercent ? Number(levelPercent) * 100 : 0}
+                width="100%"
+                size="medium"
+              />
             </YStack>
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
@@ -472,7 +526,7 @@ function Dashboard({
               ) : null}
               <SizableText size="$bodyMd">
                 <NumberSizeableText
-                  formatter="balance"
+                  formatter="value"
                   size="$bodyMd"
                   formatterOptions={{
                     tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
@@ -484,7 +538,7 @@ function Dashboard({
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
                     <NumberSizeableText
-                      formatter="balance"
+                      formatter="value"
                       size="$bodyMd"
                       formatterOptions={{
                         tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
@@ -668,21 +722,16 @@ function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
 }
 
 function Link() {
-  const intl = useIntl();
-
   return (
     <XStack px="$5" mb="$5">
       <HyperlinkText
         cursor="pointer"
         size="$bodyMdMedium"
-        textDecorationLine="underline"
-        textDecorationColor="$textInfo"
-        textDecorationStyle="dotted"
         underlineTextProps={{
           color: '$textInfo',
         }}
         style={{
-          textUnderlineOffset: 4,
+          textUnderlineOffset: 2,
         }}
         translationId={ETranslations.referral_more_questions}
       />
@@ -706,7 +755,8 @@ function InviteRewardContent({
     Earn,
     HardwareSales,
     levelPercent,
-    rebateLevel,
+    rebateLevels,
+    rebateConfig,
     nextRebateLevel,
     withdrawAddresses,
   } = summaryInfo;
@@ -725,7 +775,8 @@ function InviteRewardContent({
           earn={Earn}
           hardwareSales={HardwareSales}
           levelPercent={Number(levelPercent)}
-          rebateLevel={rebateLevel}
+          rebateLevels={rebateLevels}
+          rebateConfig={rebateConfig}
           nextRebateLevel={nextRebateLevel}
           fetchSummaryInfo={fetchSummaryInfo}
           withdrawAddresses={withdrawAddresses}

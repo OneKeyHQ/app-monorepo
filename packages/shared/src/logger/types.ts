@@ -30,6 +30,7 @@ export enum EScopeName {
   scanQrCode = 'scanQrCode',
   wallet = 'wallet',
   ui = 'ui',
+  referral = 'referral',
 }
 export interface IScope {
   getName: () => EScopeName;

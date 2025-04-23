@@ -250,6 +250,7 @@ class ServiceCustomToken extends ServiceBase {
           {
             accountId,
             networkId,
+            excludeIncompatibleWithWalletAccounts: true,
           },
         );
       allNetworkAccounts = allNetworkAccountsWithAccountId.map((i) => ({

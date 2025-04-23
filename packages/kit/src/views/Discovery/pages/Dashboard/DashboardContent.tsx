@@ -134,7 +134,7 @@ function DashboardContent({
                 </Stack>
               ) : null}
 
-              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$4">
                 <TrendingSection
                   data={homePageData?.trending || []}
                   isLoading={!!isLoading}
