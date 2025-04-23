@@ -10,15 +10,11 @@ import {
 } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ECacheControl } from '@onekeyhq/shared/src/utils/cacheControl';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useIsMounted } from './useIsMounted';
 import { usePrevious } from './usePrevious';
-
-export enum ECacheControl {
-  NoCache = 'no-Cache',
-  Cache = 'stale-while-revalidate',
-}
 
 type IRunnerConfig = {
   triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
