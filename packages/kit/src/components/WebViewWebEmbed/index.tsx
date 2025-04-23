@@ -75,6 +75,11 @@ export function WebViewWebEmbed({
       return undefined;
     }
     return {
+      isDev: platformEnv.isDev ?? false,
+      enableTestEndpoint:
+        (devSettingsPersistAtom.enabled &&
+          devSettingsPersistAtom.settings?.enableTestEndpoint) ??
+        false,
       instanceId,
       platform: platformEnv.symbol,
       appBuildNumber: platformEnv.buildNumber,
@@ -83,7 +88,14 @@ export function WebViewWebEmbed({
       localeVariant,
       revenuecatApiKey,
     };
-  }, [themeVariant, localeVariant, revenuecatApiKey, instanceId]);
+  }, [
+    themeVariant,
+    localeVariant,
+    revenuecatApiKey,
+    devSettingsPersistAtom.enabled,
+    devSettingsPersistAtom.settings?.enableTestEndpoint,
+    instanceId,
+  ]);
 
   const remoteUrl = useMemo(() => {
     if (
@@ -144,10 +156,9 @@ export function WebViewWebEmbed({
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
             window.WEB_EMBED_ONEKEY_APP_SETTINGS = {
-              isDev: "${String(platformEnv.isDev)}",
+              isDev: "${String(webEmbedAppSettings.isDev)}",
               enableTestEndpoint: "${String(
-                devSettingsPersistAtom.enabled &&
-                  devSettingsPersistAtom.settings?.enableTestEndpoint,
+                webEmbedAppSettings.enableTestEndpoint,
               )}",
               themeVariant: "${webEmbedAppSettings?.themeVariant}",
               localeVariant: "${webEmbedAppSettings?.localeVariant}",
@@ -162,7 +173,6 @@ export function WebViewWebEmbed({
     );
   }, [
     customReceiveHandler,
-    devSettingsPersistAtom.enabled,
     devSettingsPersistAtom.settings?.enableTestEndpoint,
     hashRoutePath,
     hashRouteQueryParams,
