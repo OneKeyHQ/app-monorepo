@@ -204,6 +204,8 @@ function useAllNetworkRequests<T>(params: {
       });
       perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
 
+      setIsEmptyAccount(false);
+
       allNetworkAccountsData?.({
         accounts: accountsInfo,
         allAccounts: allAccountsInfo,
@@ -221,8 +223,6 @@ function useAllNetworkRequests<T>(params: {
         setIsEmptyAccount(true);
         isFetching.current = false;
       }
-
-      setIsEmptyAccount(false);
 
       onStarted?.({
         accountId: currentAccountId,
