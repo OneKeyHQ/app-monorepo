@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type PurchaseParams, Purchases } from '@revenuecat/purchases-js';
 import { useSearchParams } from 'react-router-dom';
 
+import { analytics } from '@onekeyhq/shared/src/analytics';
+
 async function closeNativeWebViewModal() {
   await globalThis.$onekey.$private.request({
     method: 'wallet_closeWebViewModal',
@@ -121,6 +123,7 @@ export default function PageWebEmbedPrimePurchase() {
 
   useEffect(() => {
     void run();
+    analytics.trackEvent('WebEmbedPrimePurchasePage');
   }, [run]);
 
   return (
