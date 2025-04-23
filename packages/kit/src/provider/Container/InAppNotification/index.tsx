@@ -124,7 +124,9 @@ const InAppNotification = () => {
         size="small"
         onPress={approvingSuccessActionConfirm}
       >
-        <SizableText>Go to swap</SizableText>
+        <SizableText>
+          {intl.formatMessage({ id: ETranslations.swap_toast_go_to_swap })}
+        </SizableText>
       </Button>
     );
   }, [approvingSuccessActionConfirm]);
@@ -163,6 +165,16 @@ const InAppNotification = () => {
           Number(swapApprovingTransaction?.resetApproveValue) > 0
         )
       ) {
+        const message = intl.formatMessage(
+          {
+            id: ETranslations.swap_toast_go_to_swap_desc,
+          },
+          {
+            num: swapApprovingTransaction.amount,
+            token: swapApprovingTransaction.fromToken.symbol,
+            provider: swapApprovingTransaction.providerName,
+          },
+        );
         handleSwapNavigation(
           ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
             if (
@@ -177,20 +189,17 @@ const InAppNotification = () => {
                 title: intl.formatMessage({
                   id: ETranslations.swap_page_toast_approve_successful,
                 }),
-                message: intl.formatMessage({
-                  id: ETranslations.swap_page_toast_approve_successful,
-                }),
+                message,
               });
             } else {
               Toast.success({
                 title: intl.formatMessage({
                   id: ETranslations.swap_page_toast_approve_successful,
                 }),
-                message: intl.formatMessage({
-                  id: ETranslations.swap_page_toast_approve_successful,
-                }),
+                message,
                 duration: 10_000,
                 actions: approvingSuccessAction,
+                actionsAlign: 'left',
               });
             }
           },

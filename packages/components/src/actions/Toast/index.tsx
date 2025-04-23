@@ -26,6 +26,7 @@ export interface IToastProps {
   title: string;
   message?: string;
   duration?: number;
+  actionsAlign?: 'left' | 'right';
   actions?: JSX.Element | JSX.Element[];
 }
 
@@ -178,6 +179,7 @@ function toastMessage({
   haptic,
   preset = 'custom',
   actions,
+  actionsAlign = 'right',
   position,
 }: IToastBaseProps) {
   if (platformEnv.isDev) {
@@ -207,6 +209,7 @@ function toastMessage({
         message={message}
         icon={iconMap[haptic as keyof typeof iconMap]}
         actions={actions}
+        actionsAlign={actionsAlign}
       />
     ),
     duration,
