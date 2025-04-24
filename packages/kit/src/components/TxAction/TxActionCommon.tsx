@@ -30,7 +30,7 @@ import type {
   ITxActionCommonDetailViewProps,
   ITxActionCommonListViewProps,
 } from './types';
-import { useAddressMapAtom } from '../../states/jotai/contexts/historyList';
+import { useAddressesInfoAtom } from '../../states/jotai/contexts/historyList';
 import TxHistoryAddressInfo from '../TxHistoryListView/TxHistoryAddressInfo';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 
@@ -159,18 +159,18 @@ function TxActionCommonDescription({
 }: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'> & {
   networkId: string;
 }) {
-  const [addressMap] = useAddressMapAtom();
+  const [addressesInfo] = useAddressesInfoAtom();
 
   if (description?.originalAddress) {
     const addressInfoKey = buildAddressMapInfoKey({
       networkId,
       address: description?.originalAddress,
     });
-    if (addressMap[addressInfoKey]) {
+    if (addressesInfo[addressInfoKey]) {
       return (
         <TxHistoryAddressInfo
           address={description.originalAddress}
-          badge={addressMap[addressInfoKey]}
+          badge={addressesInfo[addressInfoKey]}
         />
       );
     }

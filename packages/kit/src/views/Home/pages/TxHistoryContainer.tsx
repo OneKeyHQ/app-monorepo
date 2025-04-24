@@ -40,7 +40,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
-  const { updateSearchKey, updateAddressMap } = useHistoryListActions().current;
+  const {
+    updateSearchKey,
+    updateAddressesInfo,
+    initAddressesInfoDataFromStorage,
+  } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
@@ -176,7 +180,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
           )
           .slice(0, HISTORY_PAGE_SIZE);
-        updateAddressMap(r.addressMap);
+        updateAddressesInfo({
+          data: r.addressMap,
+        });
       } else {
         r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -185,7 +191,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
           filterScam: settings.isFilterScamHistoryEnabled,
           excludeTestNetwork: true,
         });
-        updateAddressMap(r.addressMap);
+        updateAddressesInfo({
+          data: r.addressMap,
+        });
       }
 
       updateAllNetworksState({
@@ -219,7 +227,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       network,
       setIsHeaderRefreshing,
       settings.isFilterScamHistoryEnabled,
-      updateAddressMap,
+      updateAddressesInfo,
       updateAllNetworksState,
     ],
     {
@@ -359,6 +367,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
     };
   }, [isFocused, run]);
+
+  useEffect(() => {
+    void initAddressesInfoDataFromStorage();
+  }, [initAddressesInfoDataFromStorage]);
 
   return (
     <TxHistoryListView

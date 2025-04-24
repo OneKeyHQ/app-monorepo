@@ -14,9 +14,13 @@ export {
   withHistoryListProvider,
 };
 
+export const {
+  atom: addressesInfoDataReadyAtom,
+  use: useAddressesInfoDataReadyAtom,
+} = contextAtom<boolean>(false);
+
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
 
-export const { atom: addressMapAtom, use: useAddressMapAtom } = contextAtom<
-  Record<string, IAddressBadge> // Record<networkId_address, badge>
->({});
+export const { atom: addressesInfoAtom, use: useAddressesInfoAtom } =
+  contextAtom<Record<string, IAddressBadge>>({});

@@ -1,5 +1,6 @@
 import { isNil, unionBy } from 'lodash';
 
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
@@ -1340,6 +1341,30 @@ class ServiceHistory extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  @backgroundMethod()
+  public async updateLocalAddressesInfo({
+    data,
+    merge = true,
+  }: {
+    data: Record<string, IAddressInfo>;
+    merge?: boolean;
+  }) {
+    return this.backgroundApi.simpleDb.addressInfo.updateAddressesInfo({
+      data,
+      merge,
+    });
+  }
+
+  @backgroundMethod()
+  public async clearLocalAddressesInfo() {
+    return this.backgroundApi.simpleDb.addressInfo.clearAddressesInfo();
+  }
+
+  @backgroundMethod()
+  public async getLocalAddressesInfo() {
+    return this.backgroundApi.simpleDb.addressInfo.getAddressesInfo();
+  }
 }
 
 export default ServiceHistory;

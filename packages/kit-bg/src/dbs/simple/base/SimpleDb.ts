@@ -39,6 +39,7 @@ import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();
@@ -122,4 +123,6 @@ export class SimpleDb {
   changeHistory = new SimpleDbEntityChangeHistory();
 
   recentNetworks = new SimpleDbEntityRecentNetworks();
+
+  addressInfo = new SimpleDbEntityAddressInfo();
 }

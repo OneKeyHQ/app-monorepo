@@ -178,3 +178,5 @@ export type IAddressBadge = {
   tip?: string;
   icon?: IKeyOfIcons;
 };
+
+export type IAddressInfo = IAddressBadge;
