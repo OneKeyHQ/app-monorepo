@@ -12,7 +12,7 @@ function AdaTxFlow({
   addressMap,
 }: {
   decodedTx: IDecodedTx;
-  addressMap: Record<string, IAddressInfo>;
+  addressMap?: Record<string, IAddressInfo>;
 }) {
   const intl = useIntl();
   const { networkId, accountId } = decodedTx;

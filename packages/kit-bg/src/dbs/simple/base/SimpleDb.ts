@@ -1,6 +1,7 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
 import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
@@ -39,7 +40,6 @@ import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
-import { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();

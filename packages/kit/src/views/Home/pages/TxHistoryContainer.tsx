@@ -135,7 +135,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           accountId: string;
           networkId: string;
         }[];
-        addressMap: Record<string, IAddressBadge>;
+        addressMap?: Record<string, IAddressBadge>;
       } = {
         allAccounts: [],
         txs: [],
@@ -181,7 +181,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           )
           .slice(0, HISTORY_PAGE_SIZE);
         updateAddressesInfo({
-          data: r.addressMap,
+          data: r.addressMap ?? {},
         });
       } else {
         r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
@@ -192,7 +192,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           excludeTestNetwork: true,
         });
         updateAddressesInfo({
-          data: r.addressMap,
+          data: r.addressMap ?? {},
         });
       }
 
