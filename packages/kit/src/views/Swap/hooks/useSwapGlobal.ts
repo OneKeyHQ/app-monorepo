@@ -5,24 +5,17 @@ import { isNil } from 'lodash';
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ISwapApproveTransaction,
   ISwapInitParams,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
-  ESwapQuoteKind,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 

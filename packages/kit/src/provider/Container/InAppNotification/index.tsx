@@ -9,6 +9,10 @@ import {
   rootNavigationRef,
 } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -19,13 +23,9 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
-import {
-  appEventBus,
-  EAppEventBusNames,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 
 const InAppNotification = () => {
   const [
