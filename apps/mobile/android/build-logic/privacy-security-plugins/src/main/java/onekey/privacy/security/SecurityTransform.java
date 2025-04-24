@@ -1,4 +1,4 @@
-package onekey.privacy.jpush;
+package onekey.privacy.security;
 
 import com.android.build.api.instrumentation.*;
 import org.objectweb.asm.ClassVisitor;
@@ -12,6 +12,7 @@ public abstract class SecurityTransform implements AsmClassVisitorFactory<Instru
     @Override
     public boolean isInstrumentable(ClassData classData) {
         String className = classData.getClassName();
-        return className.equals("cn.jiguang.internal.JCoreInternalHelper");
+        return className.equals("cn.jiguang.internal.JCoreInternalHelper") ||
+               className.equals("com.jakewharton.processphoenix.ProcessPhoenix");
     }
 }

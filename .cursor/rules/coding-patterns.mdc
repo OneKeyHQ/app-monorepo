@@ -5,6 +5,9 @@ alwaysApply: true
 ---
 # OneKey Coding Patterns
 
+## Rules
+- Develop functions with a test-driven development mindset, ensuring each low-level function or method intended for reuse performs a single, atomic task, but avoid adding unnecessary abstration layers.
+
 ## Promise Handling
 - Always await Promises; use `void` prefix if intentionally not awaiting
 - Avoid floating promises to prevent unhandled rejections
@@ -28,5 +31,4 @@ alwaysApply: true
 
 ## Linting and Code Quality
 - ESLint warnings should be fixed before PRs
-- Zero ESLint problems are required in production builds
 - Run `yarn run lint` to check for and fix ESLint issues
