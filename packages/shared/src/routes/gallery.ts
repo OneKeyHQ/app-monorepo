@@ -57,6 +57,7 @@ export enum EGalleryRoutes {
   ComponentSecureQRToast = 'component-SecureQrToast',
   ComponentSegmentControl = 'component-SegmentControl',
   ComponentSelect = 'component-Select',
+  ComponentPagination = 'component-pagination',
   ComponentSend = 'component-Send',
   ComponentShortcut = 'component-Shortcut',
   ComponentSkeleton = 'component-Skeleton',
