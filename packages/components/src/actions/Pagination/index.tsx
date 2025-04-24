@@ -120,7 +120,10 @@ function PaginationFrame({
         if (page === DOTS) {
           return (
             // eslint-disable-next-line react/no-array-index-key
-            <SizableText key={`dots-${idx}`} color="$textSubdued">
+            <SizableText
+              key={idx === 1 ? 'dots-left' : 'dots-right'}
+              color="$textSubdued"
+            >
               ...
             </SizableText>
           );
@@ -139,6 +142,9 @@ function PaginationFrame({
             hoverStyle={{ bg: active ? '$bgStrong' : '$bgHover' }}
             bg={active ? '$bgStrong' : '$transparent'}
             onPress={() => onPageChange(page)}
+            role="button"
+            aria-label={`Page ${page}${active ? ', current page' : ''}`}
+            aria-current={active ? 'page' : undefined}
           >
             <SizableText
               size="$bodyMdMedium"
