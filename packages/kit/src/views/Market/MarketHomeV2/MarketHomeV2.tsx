@@ -39,6 +39,7 @@ import { MarketWatchList } from '../components/MarketWatchList';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
+import { RiskIndicatorCardDemo } from './components/RiskIndicatorCard/RiskIndicatorCardDemo';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
 function BasicAnimatedIcon(
@@ -183,6 +184,7 @@ function MarketHome() {
       )}
       <Page.Body>
         <MarketTokenListNetworkSelector />
+        <RiskIndicatorCardDemo />
         {renderTabContainer()}
       </Page.Body>
     </Page>

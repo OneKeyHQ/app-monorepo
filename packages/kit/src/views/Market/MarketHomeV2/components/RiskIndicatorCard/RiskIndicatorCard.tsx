@@ -16,11 +16,11 @@ const typeConfig: Record<
   { iconName: IIconProps['name']; iconColor: IColorTokens }
 > = {
   unknown: {
-    iconName: 'QuestionmarkOutline',
+    iconName: 'ShieldQuestionSolid',
     iconColor: '$iconSubdued',
   },
   safe: {
-    iconName: 'CheckRadioSolid',
+    iconName: 'ShieldCheckDoneSolid',
     iconColor: '$iconSuccess',
   },
   danger: {
@@ -28,7 +28,7 @@ const typeConfig: Record<
     iconColor: '$iconCritical',
   },
   info: {
-    iconName: 'Document1Outline',
+    iconName: 'BookOutline',
     iconColor: '$icon',
   },
 };
@@ -47,6 +47,7 @@ export const RiskIndicatorCard: FC<IRiskIndicatorCardProps> = ({
       backgroundColor="$surface-default"
       borderWidth={1}
       borderColor="$border-subdued"
+      maxWidth={320}
     >
       <Stack flexDirection="row" alignItems="center" space="$3">
         <Stack padding="$1">
