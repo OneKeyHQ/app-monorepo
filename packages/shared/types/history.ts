@@ -1,5 +1,6 @@
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { IAddressBadge } from './address';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
@@ -187,6 +188,7 @@ export type IFetchAccountHistoryResp = {
   data: IOnChainHistoryTx[];
   tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
   nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
+  addressMap: Record<string, IAddressBadge>; // <networkId_address, {label, tip, type}>
 };
 
 export type IFetchHistoryTxDetailsParams = {
