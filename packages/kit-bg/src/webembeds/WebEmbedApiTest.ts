@@ -1,4 +1,5 @@
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 class WebEmbedApiTest {
   test1(...params: string[]) {
@@ -8,9 +9,7 @@ class WebEmbedApiTest {
   }
 
   trackEvent() {
-    analytics.trackEvent('test_web_embed_event', {
-      test: 'test',
-    });
+    defaultLogger.app.page.testWebEmbed();
   }
 }
 

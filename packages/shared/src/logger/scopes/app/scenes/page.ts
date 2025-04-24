@@ -30,4 +30,10 @@ export class PageScene extends BaseScene {
   public tabBarClick(tabName: string) {
     return { tabName };
   }
+
+  @LogToServer()
+  @LogToLocal()
+  public testWebEmbed() {
+    return { test: 'test' };
+  }
 }
