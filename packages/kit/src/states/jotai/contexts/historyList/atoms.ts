@@ -1,3 +1,5 @@
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 const {
@@ -14,3 +16,7 @@ export {
 
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
+
+export const { atom: addressMapAtom, use: useAddressMapAtom } = contextAtom<
+  Record<string, IAddressBadge> // Record<networkId_address, badge>
+>({});

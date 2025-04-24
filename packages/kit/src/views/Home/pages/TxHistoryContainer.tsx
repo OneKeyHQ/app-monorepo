@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -39,7 +40,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
-  const { updateSearchKey } = useHistoryListActions().current;
+  const { updateSearchKey, updateAddressMap } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
@@ -130,10 +131,12 @@ function TxHistoryListContainer(props: ITabPageProps) {
           accountId: string;
           networkId: string;
         }[];
+        addressMap: Record<string, IAddressBadge>;
       } = {
         allAccounts: [],
         txs: [],
         accountsWithChangedPendingTxs: [],
+        addressMap: {},
       };
 
       if (mergeDeriveAddressData) {
@@ -145,7 +148,6 @@ function TxHistoryListContainer(props: ITabPageProps) {
               excludeEmptyAccount: true,
             },
           );
-
         const resp = await Promise.all(
           networkAccounts.map((networkAccount) =>
             backgroundApiProxy.serviceHistory.fetchAccountHistory({
@@ -164,6 +166,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
             ...r.accountsWithChangedPendingTxs,
             ...item.accountsWithChangedPendingTxs,
           ];
+          r.addressMap = { ...r.addressMap, ...item.addressMap };
         });
 
         r.txs = r.txs
@@ -173,6 +176,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
           )
           .slice(0, HISTORY_PAGE_SIZE);
+        updateAddressMap(r.addressMap);
       } else {
         r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -181,6 +185,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           filterScam: settings.isFilterScamHistoryEnabled,
           excludeTestNetwork: true,
         });
+        updateAddressMap(r.addressMap);
       }
 
       updateAllNetworksState({
@@ -193,6 +198,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       });
       setIsHeaderRefreshing(false);
       setHistoryData(r.txs);
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.HISTORY,
@@ -213,6 +219,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       network,
       setIsHeaderRefreshing,
       settings.isFilterScamHistoryEnabled,
+      updateAddressMap,
       updateAllNetworksState,
     ],
     {

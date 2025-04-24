@@ -215,6 +215,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
               title={badge.label}
               badgeType={badge.type}
               content={badge.tip}
+              icon={badge.icon}
             />
           ))}
         </XStack>
