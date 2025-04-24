@@ -38,6 +38,7 @@ import { MarketHomeList } from '../components/MarketHomeList';
 import { MarketWatchList } from '../components/MarketWatchList';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
+import { MarketFilterBar } from './components/MarketFilterBar';
 import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
 import { RiskIndicatorCardDemo } from './components/RiskIndicatorCard/RiskIndicatorCardDemo';
 
@@ -185,6 +186,7 @@ function MarketHome() {
       <Page.Body>
         <MarketTokenListNetworkSelector />
         <RiskIndicatorCardDemo />
+        <MarketFilterBar />
         {renderTabContainer()}
       </Page.Body>
     </Page>
