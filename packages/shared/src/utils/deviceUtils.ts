@@ -12,7 +12,6 @@ import {
   EFirmwareVerifyType,
   EOneKeyDeviceMode,
 } from '../../types/device';
-import bleManagerInstance from '../hardware/bleManager';
 import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
@@ -208,10 +207,6 @@ function getUpdatingConnectId({
   connectId: string | undefined;
 }) {
   return platformEnv.isNative ? connectId : undefined;
-}
-
-async function checkDeviceBonded(connectId: string) {
-  return bleManagerInstance.checkDeviceBonded(connectId);
 }
 
 async function buildDeviceLabel({
@@ -463,7 +458,6 @@ export default {
   getDeviceScanner,
   getUpdatingConnectId,
   isConfirmOnDeviceAction,
-  checkDeviceBonded,
   buildDeviceLabel,
   buildDeviceName,
   buildDeviceBleName,

@@ -1,4 +1,8 @@
 PODS:
+  - BleUtils (0.1.4):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
   - boost (1.83.0)
   - Burnt (0.12.2):
     - ExpoModulesCore
@@ -127,7 +131,7 @@ PODS:
   - MMKV (1.3.1):
     - MMKVCore (~> 1.3.1)
   - MMKVCore (1.3.1)
-  - MultiplatformBleAdapter (0.1.9)
+  - MultiplatformBleAdapter (0.2.0)
   - PurchasesHybridCommon (13.14.0):
     - RevenueCat (= 5.14.0)
   - RCT-Folly (2022.05.16.00):
@@ -1001,10 +1005,10 @@ PODS:
   - React-Mapbuffer (0.73.7):
     - glog
     - React-debug
-  - react-native-ble-manager (10.1.5):
-    - React-Core
-  - react-native-ble-plx (3.0.0):
-    - MultiplatformBleAdapter (= 0.1.9)
+  - react-native-ble-plx (3.5.0):
+    - glog
+    - MultiplatformBleAdapter (= 0.2.0)
+    - RCT-Folly (= 2022.05.16.00)
     - React-Core
   - react-native-cloud-fs (2.6.3):
     - React
@@ -1324,6 +1328,7 @@ PODS:
     - ZXingObjC/Core
 
 DEPENDENCIES:
+  - BleUtils (from `../../../node_modules/react-native-ble-utils`)
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - Burnt (from `../../../node_modules/burnt/ios`)
   - CheckBiometricAuthChanged (from `../../../node_modules/react-native-check-biometric-auth-changed`)
@@ -1388,8 +1393,7 @@ DEPENDENCIES:
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector-modern`)
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
-  - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
-  - "react-native-ble-plx (from `../../../node_modules/@onekeyfe/react-native-ble-plx`)"
+  - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
@@ -1478,6 +1482,8 @@ SPEC REPOS:
     - ZXingObjC
 
 EXTERNAL SOURCES:
+  BleUtils:
+    :path: "../../../node_modules/react-native-ble-utils"
   boost:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/boost.podspec"
   Burnt:
@@ -1601,10 +1607,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/logger"
   React-Mapbuffer:
     :path: "../../../node_modules/react-native/ReactCommon"
-  react-native-ble-manager:
-    :path: "../../../node_modules/react-native-ble-manager"
   react-native-ble-plx:
-    :path: "../../../node_modules/@onekeyfe/react-native-ble-plx"
+    :path: "../../../node_modules/react-native-ble-plx"
   react-native-cloud-fs:
     :path: "../../../node_modules/react-native-cloud-fs"
   react-native-compat:
@@ -1723,6 +1727,7 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  BleUtils: 06add4249b37bf9ef520ade8de0b6cf3fc8d9259
   boost: d3f49c53809116a5d38da093a8aa78bf551aed09
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
   CheckBiometricAuthChanged: 3a1cda0319a8b4825aeacbdc1fc195c9acee307f
@@ -1774,9 +1779,9 @@ SPEC CHECKSUMS:
   lottie-react-native: 925b18f0275e811a98264da10cc2762d65980f1b
   MMKV: 5a07930c70c70b86cd87761a42c8f3836fb681d7
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
-  MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
+  MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
   PurchasesHybridCommon: ea662e5a551e6fc79c1eb17feb0478c01c59f3e6
-  RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
+  RCT-Folly: cd21f1661364f975ae76b3308167ad66b09f53f5
   RCTRequired: 77f73950d15b8c1a2b48ba5b79020c3003d1c9b5
   RCTTypeSafety: ede1e2576424d89471ef553b2aed09fbbcc038e3
   React: 2ddb437e599df2f1bffa9b248de2de4cfa0227f0
@@ -1797,8 +1802,7 @@ SPEC CHECKSUMS:
   React-jsinspector: f356e49aa086380d3a4892708ca173ad31ac69c1
   React-logger: 3017d7c365f7df9a4575f13e98c1ef1d96b85ba5
   React-Mapbuffer: 385706f2ccd18b1096e12434bab765d7cc6ce7ef
-  react-native-ble-manager: b7ce735a9a79123a5e5af567b164d9918cf688e2
-  react-native-ble-plx: 25cf530d23fa20ca50e47a3e24e4e5fbfeb670e6
+  react-native-ble-plx: d2a4639679e8c1c2bcd539c3cf36b5460c834cc4
   react-native-cloud-fs: c86a54591a932e41d94b0965f16d0713150b1fd0
   react-native-compat: 6e7fd7799e8b4b0744b3e8c35e4d4e8d09af0335
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
