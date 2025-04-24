@@ -72,6 +72,13 @@ export function WebEmbedDevConfig() {
       >
         Test RPC
       </Button>
+      <Button
+        onPress={() => {
+          void webembedApiProxy.test.trackEvent();
+        }}
+      >
+        Test Tracking Event
+      </Button>
     </YStack>
   );
 }
