@@ -89,9 +89,12 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   },
 };
 
-export const getEndpointsMapByDevSettings = (
-  devSettings: IDevSettingsPersistAtom,
-) => {
+export const getEndpointsMapByDevSettings = (devSettings: {
+  enabled: boolean;
+  settings?: {
+    enableTestEndpoint?: boolean;
+  };
+}) => {
   if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
     return endpointsMap.test;
   }
