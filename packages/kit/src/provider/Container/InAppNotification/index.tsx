@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -56,6 +56,8 @@ const InAppNotification = () => {
     activeAccount?.ready,
     activeAccount,
   ]);
+
+  const toastRef = useRef<{ close: () => void } | undefined>();
 
   const approvingSuccessActionConfirm = useCallback(async () => {
     handleSwapNavigation(
@@ -115,6 +117,7 @@ const InAppNotification = () => {
         }
       },
     );
+    toastRef.current?.close();
   }, [swapApprovingTransaction]);
 
   const approvingSuccessAction = useMemo(() => {
@@ -192,7 +195,7 @@ const InAppNotification = () => {
                 message,
               });
             } else {
-              Toast.success({
+              toastRef.current = Toast.success({
                 title: intl.formatMessage({
                   id: ETranslations.swap_page_toast_approve_successful,
                 }),
