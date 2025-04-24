@@ -69,15 +69,13 @@ const InAppNotification = () => {
             setTimeout(async () => {
               await approvingSuccessActionConfirm();
             }, 50);
-          } else {
+          } else if (swapApprovingTransaction) {
             // 1.swap tab no modal
             // 不用做任何动作，直接给 swap 发 event 进行询价
-            if (swapApprovingTransaction) {
-              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-                approvedSwapInfo: swapApprovingTransaction,
-                enableFilled: true,
-              });
-            }
+            appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+              approvedSwapInfo: swapApprovingTransaction,
+              enableFilled: true,
+            });
           }
         } else if (isHasSwapModal) {
           if (isSwapModalOnTheTop) {
@@ -95,25 +93,24 @@ const InAppNotification = () => {
               await approvingSuccessActionConfirm();
             }, 50);
           }
-        } else {
+        } else if (swapApprovingTransaction) {
           // 3.no swap tab no swap modal 打开 swap modal 通知 swap 进行询价
-          if (swapApprovingTransaction) {
-            navigation.pushModal(EModalRoutes.SwapModal, {
-              screen: EModalSwapRoutes.SwapMainLand,
-              params: {
-                swapTabSwitchType: swapApprovingTransaction.swapType,
-                swapSource: ESwapSource.APPROVING_SUCCESS,
-                importFromToken: swapApprovingTransaction.fromToken,
-                importToToken: swapApprovingTransaction.toToken,
-              },
+
+          navigation.pushModal(EModalRoutes.SwapModal, {
+            screen: EModalSwapRoutes.SwapMainLand,
+            params: {
+              swapTabSwitchType: swapApprovingTransaction.swapType,
+              swapSource: ESwapSource.APPROVING_SUCCESS,
+              importFromToken: swapApprovingTransaction.fromToken,
+              importToToken: swapApprovingTransaction.toToken,
+            },
+          });
+          setTimeout(() => {
+            appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+              approvedSwapInfo: swapApprovingTransaction,
+              enableFilled: true,
             });
-            setTimeout(() => {
-              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-                approvedSwapInfo: swapApprovingTransaction,
-                enableFilled: true,
-              });
-            }, 300);
-          }
+          }, 300);
         }
       },
     );
