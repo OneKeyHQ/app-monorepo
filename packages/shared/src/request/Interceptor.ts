@@ -10,7 +10,6 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { defaultColorScheme } from '../config/appConfig';
 
-import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
 import { headerPlatform } from './InterceptorConsts';
 import requestHelper from './requestHelper';
 
