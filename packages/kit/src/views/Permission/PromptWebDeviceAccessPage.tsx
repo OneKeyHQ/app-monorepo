@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   Icon,
-  Image,
   SizableText,
   Stack,
   XStack,

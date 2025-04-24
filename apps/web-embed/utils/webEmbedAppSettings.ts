@@ -1,7 +1,13 @@
 export type IWebEmbedOnekeyAppSettings = {
+  isDev: boolean;
+  enableTestEndpoint: boolean;
   themeVariant: string;
   localeVariant: string;
   revenuecatApiKey: string;
+  instanceId: string;
+  platform: string;
+  appBuildNumber: string;
+  appVersion: string;
 };
 
 function getSettings(): IWebEmbedOnekeyAppSettings | undefined {

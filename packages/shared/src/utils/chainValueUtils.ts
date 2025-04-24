@@ -142,6 +142,16 @@ function fixNativeTokenMaxSendAmount({
   return toBigIntHex(fixedAmountBN);
 }
 
+const SATS_PER_BTC = 100_000_000; // 1 BTC = 100,000,000 sats
+
+function convertBtcToSats(btc: string | number): string {
+  return new BigNumber(btc).times(SATS_PER_BTC).toFixed();
+}
+
+function convertSatsToBtc(sats: string | number): string {
+  return new BigNumber(sats).dividedBy(SATS_PER_BTC).toFixed();
+}
+
 export default {
   convertAmountToChainValue,
   convertChainValueToAmount,
@@ -152,4 +162,6 @@ export default {
   convertTokenChainValueToAmount,
   convertTokenAmountToChainValue,
   fixNativeTokenMaxSendAmount,
+  convertBtcToSats,
+  convertSatsToBtc,
 };

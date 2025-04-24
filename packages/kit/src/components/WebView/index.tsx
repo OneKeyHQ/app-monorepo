@@ -48,6 +48,12 @@ interface IWebViewProps extends IElectronWebViewEvents {
    * @description Open website in desktop mode or mobile mode
    */
   siteMode?: ESiteMode;
+  /** @platform native
+   * @description List of origin strings to allow being navigated to.
+   * The strings allow wildcards and follow the same rules as the navigator.
+   * For example, ['https://*.onekey.so', 'https://*.onekey.com'] will allow any URL from these domains.
+   */
+  originWhitelist?: string[];
 }
 
 const WebView: FC<IWebViewProps> = ({

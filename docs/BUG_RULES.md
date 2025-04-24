@@ -83,6 +83,7 @@ When reporting vulnerabilities, please consider (1) attack scenario / exploitabi
 * Vulnerabilities only affecting users of outdated or unpatched browsers [Less than 2 stable versions behind the latest released stable version]
 * Software version disclosure / Banner identification issues / Descriptive error messages or headers (e.g. stack traces, application or server errors).
 * Public Zero-day vulnerabilities that have had an official patch for less than 1 month will be awarded on a case by case basis.
+* Vulnerability reports where the exploit chain fundamentally relies on leveraging an external 0-day, 1-day, or n-day vulnerability (i.e., vulnerabilities in systems or components not developed or controlled by OneKey, including but not limited to operating systems, development frameworks, dependency libraries, hardware chips, etc.). In such cases, OneKey reserves the right to reduce the bug bounty reward or invalidate the report.
 * Tabnabbing
 * Open redirect - unless an additional security impact can be demonstrated
 * Issues that require unlikely user interaction
