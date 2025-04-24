@@ -36,8 +36,8 @@ import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeList } from './components/MarketHomeList';
+import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
 import { MarketWatchList } from './components/MarketWatchList';
-import { MarketHomeV2 } from './MarketHomeV2';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
@@ -181,18 +181,15 @@ function MarketHome() {
       ) : (
         <MDMarketHomeHeader />
       )}
-      <Page.Body>{renderTabContainer()}</Page.Body>
+      <Page.Body>
+        <MarketTokenListNetworkSelector />
+        {renderTabContainer()}
+      </Page.Body>
     </Page>
   );
 }
 
-const enableMarketHomeV2 = true;
-
-export default function MarketHomeWithProvider() {
-  if (enableMarketHomeV2) {
-    return <MarketHomeV2 />;
-  }
-
+export function MarketHomeV2() {
   return (
     <AccountSelectorProviderMirror
       config={{
