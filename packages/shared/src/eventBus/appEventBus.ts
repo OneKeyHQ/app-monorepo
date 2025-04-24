@@ -24,6 +24,7 @@ import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
   IFetchQuotesParams,
+  ISwapApproveTransaction,
   ISwapQuoteEvent,
   ISwapToken,
 } from '../../types/swap/types';
@@ -100,6 +101,7 @@ export enum EAppEventBusNames {
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
   SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
+  SwapApprovingSuccess = 'SwapApprovingSuccess',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
@@ -141,6 +143,10 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
+  [EAppEventBusNames.SwapApprovingSuccess]: {
+    approvedSwapInfo: ISwapApproveTransaction;
+    enableFilled?: boolean;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };

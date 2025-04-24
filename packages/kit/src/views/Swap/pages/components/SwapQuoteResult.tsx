@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
-  useSwapApprovingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
@@ -79,8 +78,11 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
-  const [approving, setSwapApprovingAtom] = useSwapApprovingAtom();
-  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+
+  const [
+    { swapApprovingTransaction, swapApprovingLoading },
+    setInAppNotificationAtom,
+  ] = useInAppNotificationAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapProviderSupportReceiveAddress] =
@@ -331,12 +333,15 @@ const SwapQuoteResult = ({
   ) {
     return null;
   }
-  if (swapApprovingTransaction && approving) {
+  if (swapApprovingTransaction && swapApprovingLoading) {
     return (
       <SwapApprovingItem
         approvingTransaction={swapApprovingTransaction}
         onComplete={() => {
-          setSwapApprovingAtom(false);
+          setInAppNotificationAtom((pre) => ({
+            ...pre,
+            swapApprovingLoading: false,
+          }));
         }}
       />
     );

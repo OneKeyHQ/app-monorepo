@@ -24,6 +24,7 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -36,7 +37,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
-  const { syncNetworksSort, needChangeToken } = useSwapActions().current;
+  const { syncNetworksSort, needChangeToken, quoteAction } =
+    useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
@@ -45,6 +47,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
@@ -61,6 +64,13 @@ export function useSwapInit(params?: ISwapInitParams) {
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
+  const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
+    fromTokenAmount,
+  );
+  if (fromTokenAmountRef.current?.value !== fromTokenAmount?.value) {
+    fromTokenAmountRef.current = fromTokenAmount;
+  }
+
   const fetchSwapNetworks = useCallback(async () => {
     if (swapNetworks.length) {
       setNetworkListFetching(false);
