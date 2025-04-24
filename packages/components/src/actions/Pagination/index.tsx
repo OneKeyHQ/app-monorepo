@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { SizableText, XStack, YStack } from '../../primitives';
+import { ButtonFrame, SizableText, XStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { IXStackProps } from '../../primitives';
@@ -127,7 +127,8 @@ function PaginationFrame({
         }
         const active = page === current;
         return (
-          <YStack
+          <ButtonFrame
+            borderWidth={0}
             key={page}
             py="$1"
             px="$2.5"
@@ -136,11 +137,7 @@ function PaginationFrame({
             userSelect="none"
             pressStyle={{ bg: '$bgActive' }}
             hoverStyle={{ bg: active ? '$bgStrong' : '$bgHover' }}
-            {...(active
-              ? {
-                  bg: '$bgStrong',
-                }
-              : {})}
+            bg={active ? '$bgStrong' : '$transparent'}
             onPress={() => onPageChange(page)}
           >
             <SizableText
@@ -150,7 +147,7 @@ function PaginationFrame({
             >
               {page}
             </SizableText>
-          </YStack>
+          </ButtonFrame>
         );
       })}
       {showControls ? (
