@@ -1,6 +1,6 @@
 import { SegmentControl } from '@onekeyhq/components';
 
-type ITimeRangeSelectorValue = '5m' | '1h' | '4h' | '24h';
+export type ITimeRangeSelectorValue = '5m' | '1h' | '4h' | '24h';
 
 interface ITimeRangeSelectorProps {
   value: ITimeRangeSelectorValue;

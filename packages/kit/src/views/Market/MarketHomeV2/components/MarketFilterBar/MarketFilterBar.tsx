@@ -10,7 +10,7 @@ import {
 } from '../DiscoveryFilterControl';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
-type ITimeRangeSelectorValue = '5m' | '1h' | '4h' | '24h';
+import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 export function MarketFilterBar() {
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('24h');
