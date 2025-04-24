@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -186,10 +187,12 @@ function MarketHome() {
   );
 }
 
-const enableMarketHomeV2 = true;
-
 export default function MarketHomeWithProvider() {
-  if (enableMarketHomeV2) {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const enableMarketV2 =
+    devSettings.enabled && devSettings.settings?.enableMarketV2;
+
+  if (enableMarketV2) {
     return <MarketHomeV2 />;
   }
 
