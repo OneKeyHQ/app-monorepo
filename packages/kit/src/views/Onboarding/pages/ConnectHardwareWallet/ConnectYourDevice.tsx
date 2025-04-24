@@ -161,6 +161,17 @@ type IConnectYourDeviceItem = {
 
 function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
   const [isLoading, setIsLoading] = useState(false);
+
+  const onPress = useCallback(async () => {
+    if (isLoading) return;
+    try {
+      setIsLoading(true);
+      await item.onPress();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [item, isLoading]);
+
   return (
     <ListItem
       opacity={item.opacity ?? 0.5}
@@ -176,15 +187,7 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
       title={item.title}
       drillIn
       isLoading={isLoading}
-      // TODO add loading for onPress
-      onPress={async () => {
-        try {
-          setIsLoading(true);
-          await item.onPress();
-        } finally {
-          setIsLoading(false);
-        }
-      }}
+      onPress={onPress}
     />
   );
 }
@@ -849,11 +852,7 @@ function ConnectByUSBOrBLE() {
   );
 
   const checkBLEState = useCallback(async () => {
-    // hack missing getBleManager.
-    await bleManagerInstance.getBleManager();
-    await timerUtils.wait(100);
-    const bleManager = await bleManagerInstance.getBleManager();
-    const checkState = await bleManager?.checkState();
+    const checkState = await bleManagerInstance.checkState();
     return checkState === 'on';
   }, []);
 
