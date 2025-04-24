@@ -1,5 +1,9 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { ButtonFrame, SizableText, XStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 
@@ -78,6 +82,7 @@ function PaginationFrame({
   pageButtonSize = 'small',
   ...rest
 }: IPaginationProps) {
+  const intl = useIntl();
   const paginationRange = usePagination({
     current,
     total,
@@ -113,7 +118,7 @@ function PaginationFrame({
           icon="ChevronLeftOutline"
           disabled={disableControls || isFirstPage}
           onPress={onPrev}
-          title="Previous Page"
+          title={intl.formatMessage({ id: ETranslations.shortcut_go_back })}
         />
       ) : null}
       {paginationRange.map((page, idx) => {
@@ -163,7 +168,7 @@ function PaginationFrame({
           icon="ChevronRightOutline"
           disabled={disableControls || isLastPage}
           onPress={onNext}
-          title="Next Page"
+          title={intl.formatMessage({ id: ETranslations.global_next })}
         />
       ) : null}
     </XStack>
