@@ -18,6 +18,7 @@ export type IInAppNotificationAtom = {
   swapPercentageInputStageShowForNative: boolean;
   swapProviderManager: ISwapProviderManager[];
   bridgeProviderManager: ISwapProviderManager[];
+  swapApprovingLoading: boolean;
 };
 export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
   globalAtom<IInAppNotificationAtom>({
@@ -32,5 +33,6 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
       swapPercentageInputStageShowForNative: false,
       swapProviderManager: [],
       bridgeProviderManager: [],
+      swapApprovingLoading: false,
     },
   });

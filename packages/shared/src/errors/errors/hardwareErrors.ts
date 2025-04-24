@@ -295,6 +295,20 @@ export class DeviceNotBonded extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleDeviceNotBonded;
 }
 
+// 设备没有配对成功
+export class BleDeviceBondedCanceled extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleDeviceBondedCanceled',
+        defaultKey: ETranslations.feedback_bluetooth_pairing_failed,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.BleDeviceNotBonded;
+}
+
 // 设备配对失败
 export class DeviceBondError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {

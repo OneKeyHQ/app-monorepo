@@ -2273,6 +2273,8 @@
   swap_network_cost_dialog_title = 'swap.network_cost_dialog_title',
   swap_provider_manage_unavailable = 'swap.provider_manage_unavailable',
   swap_step_1 = 'swap.step_1',
+  swap_toast_go_to_swap = 'swap.toast_go_to_swap',
+  swap_toast_go_to_swap_desc = 'swap.toast_go_to_swap_desc',
   swap_account_from_address = 'swap_account.from_address',
   swap_account_to_address = 'swap_account.to_address',
   swap_account_to_address_edit = 'swap_account.to_address_edit',

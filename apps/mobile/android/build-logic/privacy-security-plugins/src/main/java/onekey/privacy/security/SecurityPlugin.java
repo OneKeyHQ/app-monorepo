@@ -1,4 +1,4 @@
-package onekey.privacy.jpush;
+package onekey.privacy.security;
 
 import com.android.build.api.instrumentation.FramesComputationMode;
 import com.android.build.api.instrumentation.InstrumentationScope;
@@ -7,7 +7,7 @@ import com.android.build.api.variant.AndroidComponentsExtension;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 
-public class JPushSecurityPlugin implements Plugin<Project> {
+public class SecurityPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         AndroidComponentsExtension<?, ?, ?> extension = project.getExtensions().getByType(AndroidComponentsExtension.class);
