@@ -863,7 +863,6 @@ class ServiceHistory extends ServiceBase {
           status: getOnChainHistoryTxStatus(resp.data.data.data.status),
         });
       }
-
       return resp.data.data;
     } catch (e) {
       console.log(e);

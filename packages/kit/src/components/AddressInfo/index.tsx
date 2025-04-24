@@ -7,13 +7,16 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { AddressBadge } from '../AddressBadge';
 
 type IProps = {
   accountId?: string;
@@ -21,6 +24,7 @@ type IProps = {
   address: string;
   allowClickAccountNameSwitch?: boolean;
   withWrapper?: boolean;
+  addressMap?: Record<string, IAddressInfo>;
 };
 
 type ISwitchHomeAccountButtonProps = {
@@ -122,6 +126,7 @@ function AddressInfo(props: IProps) {
     address,
     allowClickAccountNameSwitch,
     withWrapper = true,
+    addressMap,
   } = props;
   const addressQueryResult = usePromiseResult(async () => {
     const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
@@ -135,13 +140,17 @@ function AddressInfo(props: IProps) {
     return result;
   }, [accountId, address, networkId]).result;
 
-  if (!addressQueryResult) {
-    return null;
-  }
+  const addressInfoKey = buildAddressMapInfoKey({
+    address,
+    networkId,
+  });
+
+  const addressInfo = addressMap?.[addressInfoKey];
 
   if (
-    !addressQueryResult.walletAccountName &&
-    !addressQueryResult.addressBookName
+    !addressQueryResult?.walletAccountName &&
+    !addressQueryResult?.addressBookName &&
+    !addressInfo
   ) {
     return null;
   }
@@ -152,38 +161,52 @@ function AddressInfo(props: IProps) {
 
   return withWrapper ? (
     <XStack gap="$2" flex={1} flexWrap="wrap">
-      {addressQueryResult.walletAccountName ? (
+      {addressQueryResult?.walletAccountName ? (
         <AccountNameContainer
-          walletAccountName={addressQueryResult.walletAccountName}
-          accountId={addressQueryResult.walletAccountId}
+          walletAccountName={addressQueryResult?.walletAccountName}
+          accountId={addressQueryResult?.walletAccountId}
         >
           <Badge badgeType="success" badgeSize="sm">
-            {addressQueryResult.walletAccountName}
+            {addressQueryResult?.walletAccountName}
           </Badge>
         </AccountNameContainer>
       ) : null}
-      {addressQueryResult.addressBookName ? (
+      {addressQueryResult?.addressBookName ? (
         <Badge badgeType="success" badgeSize="sm">
-          {addressQueryResult.addressBookName}
+          {addressQueryResult?.addressBookName}
         </Badge>
+      ) : null}
+      {addressInfo ? (
+        <AddressBadge
+          title={addressInfo.label}
+          badgeType={addressInfo.type}
+          icon={addressInfo.icon}
+        />
       ) : null}
     </XStack>
   ) : (
     <>
-      {addressQueryResult.walletAccountName ? (
+      {addressQueryResult?.walletAccountName ? (
         <AccountNameContainer
-          walletAccountName={addressQueryResult.walletAccountName}
-          accountId={addressQueryResult.walletAccountId}
+          walletAccountName={addressQueryResult?.walletAccountName}
+          accountId={addressQueryResult?.walletAccountId}
         >
           <Badge badgeType="success" badgeSize="sm">
-            {addressQueryResult.walletAccountName}
+            {addressQueryResult?.walletAccountName}
           </Badge>
         </AccountNameContainer>
       ) : null}
-      {addressQueryResult.addressBookName ? (
+      {addressQueryResult?.addressBookName ? (
         <Badge badgeType="success" badgeSize="sm">
-          {addressQueryResult.addressBookName}
+          {addressQueryResult?.addressBookName}
         </Badge>
+      ) : null}
+      {addressInfo ? (
+        <AddressBadge
+          title={addressInfo.label}
+          badgeType={addressInfo.type}
+          icon={addressInfo.icon}
+        />
       ) : null}
     </>
   );
