@@ -120,6 +120,8 @@ export function convertDeviceError(
       return new HardwareErrors.BleLocationServiceError({ payload });
     case HardwareErrorCode.BleDeviceNotBonded:
       return new HardwareErrors.DeviceNotBonded({ payload });
+    case HardwareErrorCode.BleDeviceBondedCanceled:
+      return new HardwareErrors.DeviceNotBonded({ payload });
     case HardwareErrorCode.BleDeviceBondError:
       return new HardwareErrors.DeviceBondError({ payload });
     case HardwareErrorCode.BleWriteCharacteristicError:

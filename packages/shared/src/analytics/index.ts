@@ -87,10 +87,11 @@ export class Analytics {
     if (platformEnv.isDev || platformEnv.isE2E) {
       return;
     }
+    const deviceInfo = await this.lazyDeviceInfo();
     const event = {
+      ...deviceInfo,
       ...eventProps,
       distinct_id: this.instanceId,
-      ...(await this.lazyDeviceInfo()),
     } as Record<string, string>;
     if (
       !platformEnv.isNative &&

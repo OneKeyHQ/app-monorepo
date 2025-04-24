@@ -4,7 +4,11 @@
         tools:node="remove" />
   <uses-permission
         android:name="android.permission.ACCESS_COARSE_LOCATION"
-        tools:node="remove" />
+        android:maxSdkVersion="30" />
+  <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
   <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
 

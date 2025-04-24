@@ -2,7 +2,6 @@ import { forEach, isNil, isString } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
-import platformEnv from '../platformEnv';
 
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import requestHelper from './requestHelper';
@@ -117,7 +116,6 @@ const newFetch = async function (
 };
 console.log('fetchInterceptor.ts', fetch);
 if (
-  !platformEnv.isWebEmbed &&
   globalThis.fetch &&
   // @ts-ignore
   !globalThis.fetch.isNormalizedByOneKey
