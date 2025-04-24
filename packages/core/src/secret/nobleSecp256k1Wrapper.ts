@@ -69,7 +69,7 @@ const pointAddScalar = (
 ) => {
   const P = necc.Point.fromHex(p);
   const t = normalizeScalar(tweak);
-  const Q = necc.Point.BASE.multiplyAndAddUnsafe(P, t, BigInt(1));
+  const Q = necc.Point.BASE.multiplyAndAddUnsafe(P, t, 1n);
   if (!Q) throw new Error('Tweaked point at infinity');
   return Q.toRawBytes(isCompressed);
 };
