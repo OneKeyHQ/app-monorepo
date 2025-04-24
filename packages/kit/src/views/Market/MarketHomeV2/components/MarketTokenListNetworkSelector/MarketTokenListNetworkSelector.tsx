@@ -26,7 +26,6 @@ function MarketTokenListNetworkSelector({
   onSelectNetworkId,
 }: IMarketTokenListNetworkSelectorProps) {
   const { md } = useMedia();
-  const { syncNetworksSort } = useSwapActions().current;
   const { swapLoadAllNetworkTokenList } = useSwapActions().current;
   const [swapNetworksIncludeAllNetwork] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -94,10 +93,8 @@ function MarketTokenListNetworkSelector({
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
       onSelectNetworkId?.(network.networkId);
-      // We sync sorting like in swap, assuming frequent networks should come first
-      void syncNetworksSort(network.networkId);
     },
-    [onSelectNetworkId, syncNetworksSort],
+    [onSelectNetworkId],
   );
 
   const openChainSelector = useConfigurableChainSelector();
