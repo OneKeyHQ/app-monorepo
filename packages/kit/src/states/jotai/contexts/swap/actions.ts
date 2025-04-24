@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import { inAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';

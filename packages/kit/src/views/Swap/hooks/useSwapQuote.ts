@@ -508,6 +508,9 @@ export function useSwapQuote() {
       setSwapSelectFromToken,
       setSwapSelectToToken,
       setFromTokenAmount,
+      setToTokenAmount,
+      swapTypeSwitchAction,
+      syncNetworksSort,
     ],
   );
 
