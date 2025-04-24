@@ -66,8 +66,8 @@ const InAppNotification = () => {
           if (hasModal) {
             // 2.swap tab have modal   关闭当前的所有 modal  通知 swap 进行询价
             rootNavigationRef.current?.goBack();
-            setTimeout(() => {
-              approvingSuccessActionConfirm();
+            setTimeout(async () => {
+              await approvingSuccessActionConfirm();
             }, 50);
           } else {
             // 1.swap tab no modal
@@ -91,8 +91,8 @@ const InAppNotification = () => {
           } else {
             // 5.no swap tab have swap modal have other modal   退回到 swap modal  再通知 swap modal 进行询价
             rootNavigationRef.current?.goBack();
-            setTimeout(() => {
-              approvingSuccessActionConfirm();
+            setTimeout(async () => {
+              await approvingSuccessActionConfirm();
             }, 50);
           }
         } else {
@@ -118,7 +118,7 @@ const InAppNotification = () => {
       },
     );
     toastRef.current?.close();
-  }, [swapApprovingTransaction]);
+  }, [swapApprovingTransaction, navigation]);
 
   const approvingSuccessAction = useMemo(() => {
     return (
@@ -132,7 +132,7 @@ const InAppNotification = () => {
         </SizableText>
       </Button>
     );
-  }, [approvingSuccessActionConfirm]);
+  }, [approvingSuccessActionConfirm, intl]);
 
   useEffect(() => {
     if (
@@ -222,10 +222,7 @@ const InAppNotification = () => {
   }, [
     intl,
     setInAppNotificationAtom,
-    swapApprovingTransaction?.resetApproveIsMax,
-    swapApprovingTransaction?.resetApproveValue,
-    swapApprovingTransaction?.status,
-    swapApprovingTransaction?.txId,
+    swapApprovingTransaction,
     approvingSuccessAction,
   ]);
 
