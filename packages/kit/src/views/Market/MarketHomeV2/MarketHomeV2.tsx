@@ -28,17 +28,17 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
-import useHomePageWidth from '../Home/hooks/useHomePageWidth';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import useHomePageWidth from '../../Home/hooks/useHomePageWidth';
+import { MarketHomeHeader } from '../components/MarketHomeHeader';
+import { MarketHomeHeader as MDMarketHomeHeader } from '../components/MarketHomeHeader.md';
+import { MarketHomeList } from '../components/MarketHomeList';
+import { MarketWatchList } from '../components/MarketWatchList';
+import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
-import { MarketHomeHeader } from './components/MarketHomeHeader';
-import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
-import { MarketHomeList } from './components/MarketHomeList';
 import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
-import { MarketWatchList } from './components/MarketWatchList';
-import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
 function BasicAnimatedIcon(
