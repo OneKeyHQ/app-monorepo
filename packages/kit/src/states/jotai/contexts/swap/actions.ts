@@ -66,7 +66,6 @@ import {
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
-  swapApprovingAtom,
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
@@ -276,7 +275,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   selectFromToken = contextAtomMethod(
-    async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
+    async (
+      get,
+      set,
+      token: ISwapToken,
+      disableCheckToToken?: boolean,
+      skipCleanManualSelectQuoteProviders?: boolean,
+    ) => {
       const toToken = get(swapSelectToTokenAtom());
       if (
         equalTokenNoCaseSensitive({
@@ -287,7 +292,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
-      this.cleanManualSelectQuoteProviders.call(set);
+      if (!skipCleanManualSelectQuoteProviders) {
+        this.cleanManualSelectQuoteProviders.call(set);
+      }
       await this.syncNetworksSort.call(set, token.networkId);
       const needChangeToToken = this.needChangeToken({
         token,
@@ -310,20 +317,29 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
-    this.cleanManualSelectQuoteProviders.call(set);
-    const fromToken = get(swapSelectFromTokenAtom());
-    if (
-      equalTokenNoCaseSensitive({
-        token1: fromToken,
-        token2: token,
-      })
-    ) {
-      return;
-    }
-    await this.syncNetworksSort.call(set, token.networkId);
-    set(swapSelectToTokenAtom(), token);
-  });
+  selectToToken = contextAtomMethod(
+    async (
+      get,
+      set,
+      token: ISwapToken,
+      skipCleanManualSelectQuoteProviders?: boolean,
+    ) => {
+      if (!skipCleanManualSelectQuoteProviders) {
+        this.cleanManualSelectQuoteProviders.call(set);
+      }
+      const fromToken = get(swapSelectFromTokenAtom());
+      if (
+        equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: token,
+        })
+      ) {
+        return;
+      }
+      await this.syncNetworksSort.call(set, token.networkId);
+      set(swapSelectToTokenAtom(), token);
+    },
+  );
 
   alternationToken = contextAtomMethod((get, set) => {
     const fromToken = get(swapSelectFromTokenAtom());
@@ -386,8 +402,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
-      set(swapApprovingAtom(), false);
-      await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
+      await backgroundApiProxy.serviceSwap.closeApproving();
       try {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), true);
@@ -653,8 +668,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
-      set(swapApprovingAtom(), false);
-      await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
+      await backgroundApiProxy.serviceSwap.closeApproving();
       set(swapQuoteFetchingAtom(), true);
       const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
       await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
@@ -825,12 +839,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     quote.info.provider === preApproveTx.provider &&
                     quote.quoteId === preApproveTx.quoteId,
                 );
-                set(swapQuoteListAtom(), [...updateQuoteList]);
                 if (updateQuoteList.length > 0) {
-                  set(swapQuoteEventTotalCountAtom(), {
-                    count: updateQuoteList.length,
-                    eventId: updateQuoteList[0].eventId,
-                  });
+                  set(swapManualSelectQuoteProvidersAtom(), updateQuoteList[0]);
                 }
               }
               await backgroundApiProxy.serviceSwap.setApprovingTransaction(
