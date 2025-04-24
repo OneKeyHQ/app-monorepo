@@ -27,9 +27,9 @@ dependencies {
 
 gradlePlugin {
     plugins {
-        jpushSecurityPlugin {
-            id = 'JPushSecurityPlugin'
-            implementationClass = 'onekey.privacy.jpush.JPushSecurityPlugin'
+        SecurityPlugin {
+            id = 'so.onekey.plugin.security'
+            implementationClass = 'onekey.privacy.security.SecurityPlugin'
         }
     }
 }

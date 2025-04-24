@@ -26,6 +26,7 @@ export interface IToastProps {
   title: string;
   message?: string;
   duration?: number;
+  actionsAlign?: 'left' | 'right';
   actions?: JSX.Element | JSX.Element[];
 }
 
@@ -178,6 +179,7 @@ function toastMessage({
   haptic,
   preset = 'custom',
   actions,
+  actionsAlign = 'right',
   position,
 }: IToastBaseProps) {
   if (platformEnv.isDev) {
@@ -199,7 +201,7 @@ function toastMessage({
 
     toastIdMap.set(toastId, [Date.now(), duration + 500]);
   }
-  showMessage({
+  return showMessage({
     renderContent: (props) => (
       <ToastContent
         title={title}
@@ -207,6 +209,7 @@ function toastMessage({
         message={message}
         icon={iconMap[haptic as keyof typeof iconMap]}
         actions={actions}
+        actionsAlign={actionsAlign}
       />
     ),
     duration,
@@ -223,16 +226,16 @@ export type IToastShowResult = {
 };
 export const Toast = {
   success: (props: IToastProps) => {
-    toastMessage({ haptic: 'success', ...props });
+    return toastMessage({ haptic: 'success', ...props });
   },
   error: (props: IToastProps) => {
-    toastMessage({ haptic: 'error', ...props });
+    return toastMessage({ haptic: 'error', ...props });
   },
   warning: (props: IToastProps) => {
-    toastMessage({ haptic: 'warning', ...props });
+    return toastMessage({ haptic: 'warning', ...props });
   },
   message: (props: IToastProps) => {
-    toastMessage({ haptic: 'info', preset: 'none', ...props });
+    return toastMessage({ haptic: 'info', preset: 'none', ...props });
   },
   /* show custom view on Toast */
   show: ({

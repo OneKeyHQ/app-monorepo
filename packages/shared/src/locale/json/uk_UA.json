@@ -2268,6 +2268,8 @@
   "swap.network_cost_dialog_title": "Сума замовлення занадто мала",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
   "swap.step_1": "1. ",
+  "swap.toast_go_to_swap": "Перейти до обміну",
+  "swap.toast_go_to_swap_desc": "Схвалити {num} {token} для {provider}",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (відредаговано)",
