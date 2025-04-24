@@ -23,6 +23,7 @@ import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
+import InAppNotification from './InAppNotification';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
@@ -95,6 +96,7 @@ export function Container() {
       <AppStateLockContainer>
         <KeyboardContainer />
         <NavigationContainer>
+          <InAppNotification />
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
           <Bootstrap />

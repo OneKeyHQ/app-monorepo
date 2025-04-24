@@ -2268,6 +2268,8 @@
   "swap.network_cost_dialog_title": "आदेश की राशि बहुत कम है",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
   "swap.step_1": "1. ",
+  "swap.toast_go_to_swap": "स्वैप पर जाएं",
+  "swap.toast_go_to_swap_desc": "{num} {token} को {provider} के लिए स्वीकृत करें",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (संपादित)",
