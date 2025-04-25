@@ -12,6 +12,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
+  IOneKeySuiSignAndExecuteTransactionInput,
+  IOneKeySuiSignAndExecuteTransactionOutput,
+  IOneKeySuiSignTransactionInput,
+  IOneKeySuiSignTransactionOutput,
   ISignAndExecuteTransactionBlockInput,
   ISignMessageInput,
   ISignTransactionBlockInput,
@@ -247,6 +251,89 @@ class ProviderApiSui extends ProviderApiBase {
       bytes: result.messageBytes,
       signature: result.signature,
     };
+  }
+
+  @providerApiMethod()
+  public async signTransaction(
+    request: IJsBridgeMessagePayload,
+    params: IOneKeySuiSignTransactionInput,
+  ): Promise<IOneKeySuiSignTransactionOutput> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const { accountInfo: { accountId, networkId, address } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const dAppAccount = params.account;
+    if (
+      dAppAccount?.address &&
+      address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
+    ) {
+      throw new Error('Sender address mismatch');
+    }
+
+    const encodedTx: IEncodedTxSui = {
+      rawTx: Transaction.from(params.transaction).serialize(),
+      sender: address ?? '',
+    };
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        signOnly: true,
+      });
+
+    if (!result.signature) throw web3Errors.provider.unauthorized();
+
+    return Promise.resolve({
+      bytes: result.rawTx,
+      signature: result.signature,
+    });
+  }
+
+  @providerApiMethod()
+  public async signAndExecuteTransaction(
+    request: IJsBridgeMessagePayload,
+    params: IOneKeySuiSignAndExecuteTransactionInput,
+  ): Promise<IOneKeySuiSignAndExecuteTransactionOutput> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const { accountInfo: { accountId, networkId, address } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const dAppAccount = params.account;
+    if (
+      dAppAccount?.address &&
+      address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
+    ) {
+      throw new Error('Sender address mismatch');
+    }
+
+    const encodedTx: IEncodedTxSui = {
+      rawTx: Transaction.from(params.transaction).serialize(),
+      sender: address ?? '',
+    };
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+
+    const vault = (await vaultFactory.getVault({
+      accountId: accountId ?? '',
+      networkId: networkId ?? '',
+    })) as IVaultSui;
+
+    const tx = await vault.waitPendingTransaction(result.txid, {
+      showRawEffects: true,
+    });
+
+    if (!tx) throw new Error('Transaction not found');
+
+    return Promise.resolve(tx);
   }
 }
 

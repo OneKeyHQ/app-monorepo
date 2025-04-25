@@ -2268,6 +2268,8 @@
   "swap.network_cost_dialog_title": "L'importo dell'ordine è troppo piccolo",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
   "swap.step_1": "1. ",
+  "swap.toast_go_to_swap": "Vai a scambiare",
+  "swap.toast_go_to_swap_desc": "Approva {num} {token} per {provider}",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (modificato)",
