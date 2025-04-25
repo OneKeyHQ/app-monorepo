@@ -2,19 +2,15 @@ import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import {
-  useSwapActions,
-  useSwapApprovingAtom,
-} from '../../../states/jotai/contexts/swap';
+import { useSwapActions } from '../../../states/jotai/contexts/swap';
 
 import { useSwapBuildTx } from './useSwapBuiltTx';
 
@@ -24,7 +20,6 @@ export function useSwapApproving() {
     useSwapActions().current;
   const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const [, setSwapApprovingAtom] = useSwapApprovingAtom();
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
@@ -50,24 +45,6 @@ export function useSwapApproving() {
       cleanApprovingInterval();
     }
     if (
-      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.FAILED
-    ) {
-      setSwapApprovingAtom(false);
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_toast_approve_failed,
-        }),
-      });
-    } else if (
-      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
-    ) {
-      setSwapApprovingAtom(false);
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_toast_approve_canceled,
-        }),
-      });
-    } else if (
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.SUCCESS
     ) {
       if (
@@ -78,30 +55,13 @@ export function useSwapApproving() {
           swapApprovingTransaction?.resetApproveValue,
           !!swapApprovingTransaction?.resetApproveIsMax,
         );
-      } else {
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.swap_page_toast_approve_successful,
-          }),
-        });
       }
-    }
-    if (
-      swapApprovingTransaction?.status ===
-        ESwapApproveTransactionStatus.FAILED ||
-      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
-    ) {
-      setInAppNotificationAtom((prev) => ({
-        ...prev,
-        swapApprovingTransaction: undefined,
-      }));
     }
   }, [
     approvingStateAction,
     cleanApprovingInterval,
     intl,
     setInAppNotificationAtom,
-    setSwapApprovingAtom,
     swapApprovingTransaction?.resetApproveIsMax,
     swapApprovingTransaction?.resetApproveValue,
     swapApprovingTransaction?.status,

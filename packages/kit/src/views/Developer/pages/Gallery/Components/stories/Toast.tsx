@@ -417,6 +417,27 @@ const ToastGallery = () => (
             >
               Custom
             </Button>
+            <Button
+              onPress={() => {
+                const toast = Toast.warning({
+                  duration: ONE_HOUR,
+                  title: 'OneKey Bridge test',
+                  actions: (
+                    <Button
+                      variant="primary"
+                      size="small"
+                      onPress={() => {
+                        toast?.close();
+                      }}
+                    >
+                      close it
+                    </Button>
+                  ),
+                });
+              }}
+            >
+              Toast with close button
+            </Button>
           </YStack>
         ),
       },

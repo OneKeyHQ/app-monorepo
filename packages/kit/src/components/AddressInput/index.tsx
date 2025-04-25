@@ -29,6 +29,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 import type {
   EInputAddressChangeType,
+  IAddressBadge,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
@@ -159,6 +160,7 @@ export type IAddressQueryResult = {
   isEnableTransferAllowList?: boolean;
   isScam?: boolean;
   isCex?: boolean;
+  addressBadges?: IAddressBadge[];
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -206,17 +208,16 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <AddressBadge isScam={result.isScam} />
         <XStack mx="$0.5" gap="$1">
-          <AddressBadge
-            status={result.addressInteractionStatus}
-            networkId={networkId}
-          />
-          <AddressBadge isCex={result.isCex} title={result.addressLabel} />
-          <AddressBadge
-            isContract={result.isContract}
-            title={result.addressLabel}
-          />
+          {result.addressBadges?.map((badge) => (
+            <AddressBadge
+              key={badge.label}
+              title={badge.label}
+              badgeType={badge.type}
+              content={badge.tip}
+              icon={badge.icon}
+            />
+          ))}
         </XStack>
       </XStack>
     );

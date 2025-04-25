@@ -262,6 +262,8 @@ export type IVaultSettings = {
   afterSendTxActionEnabled?: boolean;
 
   createAllDeriveTypeAccountsByDefault?: boolean;
+
+  shouldFixMaxSendAmount?: boolean;
 };
 
 export type IVaultFactoryOptions = {

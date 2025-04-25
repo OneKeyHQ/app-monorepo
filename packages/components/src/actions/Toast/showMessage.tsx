@@ -6,7 +6,12 @@ export function showMessage({
   renderContent,
   ...options
 }: IToastMessageOptions) {
-  toast(renderContent(), {
+  const toastId = toast(renderContent(), {
     ...options,
   });
+  return {
+    close: () => {
+      toast.dismiss(toastId);
+    },
+  };
 }
