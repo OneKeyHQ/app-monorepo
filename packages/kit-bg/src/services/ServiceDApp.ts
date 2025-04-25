@@ -1373,7 +1373,7 @@ class ServiceDApp extends ServiceBase {
       //   origin,
       //   storageType,
       // });
-      console.log(`Build dApp Account Error: `, e);
+      // console.log(`Build dApp Account Error: `, e);
       // If build account error, use the previous account
       return connectedAccountInfo;
     }
