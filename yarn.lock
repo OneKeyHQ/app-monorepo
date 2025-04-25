@@ -7088,7 +7088,7 @@ __metadata:
     react-native-modalize: "npm:^2.1.1"
     react-native-progress: "npm:^5.0.0"
     react-native-root-siblings: "npm:^5.0.1"
-    react-native-svg: "npm:^13.9.0"
+    react-native-svg: "npm:15.11.2"
     react-native-tab-view: "npm:^3.5.1"
     react-native-typewriter: "npm:^0.7.0"
     react-player: "npm:^2.11.2"
@@ -7339,7 +7339,7 @@ __metadata:
     react-native-restart: "npm:0.0.27"
     react-native-safe-area-context: "npm:4.7.2"
     react-native-screens: "npm:3.28.0"
-    react-native-svg: "npm:^13.9.0"
+    react-native-svg: "npm:15.11.2"
     react-native-tcp-socket: "npm:^6.0.6"
     react-native-video: "npm:6.2.0"
     react-native-view-shot: "npm:3.1.2"
@@ -35641,16 +35641,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-svg@npm:^13.9.0":
-  version: 13.14.0
-  resolution: "react-native-svg@npm:13.14.0"
+"react-native-svg@npm:15.11.2":
+  version: 15.11.2
+  resolution: "react-native-svg@npm:15.11.2"
   dependencies:
     css-select: "npm:^5.1.0"
     css-tree: "npm:^1.1.3"
+    warn-once: "npm:0.1.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/4a1cf9d1afad66ddfc98895eb691ca14c40ac8be16a629fc39db8550c20523e171f3deb232932e2e53b865821a2a8f831101d44b90a71f07feaaf16413721f46
+  checksum: 10/bab86df8fdd4f500ad3f242558726693b0409b5e9b2a97cb3e9b5c1dfdcef01fe73fd36f01926ef20b19f99928b6ab1fb9e942bbeb1308aab27aa0d6c4877a5e
   languageName: node
   linkType: hard
 
@@ -41262,7 +41263,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"warn-once@npm:^0.1.0":
+"warn-once@npm:0.1.1, warn-once@npm:^0.1.0":
   version: 0.1.1
   resolution: "warn-once@npm:0.1.1"
   checksum: 10/e6a5a1f5a8dba7744399743d3cfb571db4c3947897875d4962a7c5b1bf2195ab4518c838cb4cea652e71729f21bba2e98dc75686f5fccde0fabbd894e2ed0c0d
