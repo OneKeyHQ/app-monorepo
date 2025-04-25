@@ -1,3 +1,4 @@
+import type { IBadgeProps, IKeyOfIcons } from '@onekeyhq/components';
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
@@ -117,7 +118,7 @@ export type IServerAccountBadgeResp = {
   isCex?: boolean;
   isContract?: boolean;
   isScam?: boolean;
-  badges?: { label: string }[];
+  badges?: IAddressBadge[];
   label?: string;
 };
 
@@ -170,3 +171,12 @@ export interface IServerFetchNonceResponse {
   nonce: number | undefined;
   accountNumber?: number;
 }
+
+export type IAddressBadge = {
+  label: string;
+  type: IBadgeProps['badgeType'];
+  tip?: string;
+  icon?: IKeyOfIcons;
+};
+
+export type IAddressInfo = IAddressBadge;

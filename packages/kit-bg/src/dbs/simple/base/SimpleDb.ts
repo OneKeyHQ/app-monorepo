@@ -1,6 +1,7 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
 import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
@@ -122,4 +123,6 @@ export class SimpleDb {
   changeHistory = new SimpleDbEntityChangeHistory();
 
   recentNetworks = new SimpleDbEntityRecentNetworks();
+
+  addressInfo = new SimpleDbEntityAddressInfo();
 }

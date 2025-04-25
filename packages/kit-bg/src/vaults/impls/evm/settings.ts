@@ -287,6 +287,8 @@ const settings: IVaultSettings = {
 
   withTxMessage: true,
 
+  shouldFixMaxSendAmount: true,
+
   supportBatchEstimateFee: {
     [networkIdMap.eth]: true,
     [networkIdMap.sepolia]: true,

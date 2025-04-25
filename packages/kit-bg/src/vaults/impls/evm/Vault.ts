@@ -725,10 +725,12 @@ export default class Vault extends VaultBase {
     let newValue = encodedTx.value;
 
     if (!isNil(nativeAmountInfo.maxSendAmount)) {
-      newValue = chainValueUtils.fixNativeTokenMaxSendAmount({
-        amount: nativeAmountInfo.maxSendAmount,
-        network,
-      });
+      newValue = numberUtils.numberToHex(
+        chainValueUtils.convertAmountToChainValue({
+          value: nativeAmountInfo.maxSendAmount,
+          network,
+        }),
+      );
     } else if (!isNil(nativeAmountInfo.amount)) {
       newValue = numberUtils.numberToHex(
         chainValueUtils.convertAmountToChainValue({

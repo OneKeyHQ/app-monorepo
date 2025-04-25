@@ -2268,6 +2268,8 @@
   "swap.network_cost_dialog_title": "订单金额太小",
   "swap.provider_manage_unavailable": "*The provider is temporarily unavailable.",
   "swap.step_1": "1. ",
+  "swap.toast_go_to_swap": "前往兑换",
+  "swap.toast_go_to_swap_desc": "授权 {num} {token} 给 {provider}",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": "(已编辑)",
