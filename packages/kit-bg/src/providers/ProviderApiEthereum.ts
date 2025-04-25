@@ -102,6 +102,9 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   private _rpcCache?: RpcCache;
 
+  // Map to duplicate concurrent requests with same parameters
+  private _duplicateRequestsMap: Map<string, Promise<any>> = new Map();
+
   // return a mocked chainId in non-evm, as empty string may cause dapp error
   private _getNetworkMockInfo() {
     return {
@@ -156,50 +159,79 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
-    return this.rpcSemaphore.runExclusive(async () => {
-      const { data } = request;
-      const { accountInfo: { networkId, address } = {} } = (
-        await this.getAccountsInfo(request)
-      )[0];
-      const rpcRequest = data as IJsonRpcRequest;
+    const { data } = request;
+    const rpcRequest = data as IJsonRpcRequest;
+    const { method } = rpcRequest;
 
-      const { method, params } = rpcRequest;
+    const { accountInfo: { networkId, address } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
 
-      if (!EVM_SAFE_RPC_METHODS.includes(method)) {
-        defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
-        throw web3Errors.rpc.methodNotSupported();
-      }
+    const { params } = rpcRequest;
 
-      if (!address || !networkId) {
-        throw web3Errors.rpc.invalidParams('unauthorized');
-      }
+    if (!EVM_SAFE_RPC_METHODS.includes(method)) {
+      defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
+      throw web3Errors.rpc.methodNotSupported();
+    }
 
-      const cache = this.rpcCache.get({
-        address,
-        networkId,
-        data: { method, params },
-      });
+    if (!address || !networkId) {
+      throw web3Errors.rpc.invalidParams('unauthorized');
+    }
 
-      if (cache) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return cache;
-      }
-
-      const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
-        networkId: networkId ?? '',
-        request: rpcRequest,
-        origin: request.origin ?? '',
-      });
-
-      this.rpcCache.set({
-        address,
-        networkId,
-        data: { method, params },
-        value: result,
-      });
-
-      return result;
+    // Check cache first
+    const cache = this.rpcCache.get({
+      address,
+      networkId,
+      data: { method, params },
     });
+
+    if (cache) {
+      console.log('ethRpc cache hit: ===> ', method);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return cache;
+    }
+
+    const requestKey = this.rpcCache.generateKey({
+      address,
+      networkId,
+      data: { method, params },
+    });
+
+    // Check if there's a duplicate request in progress
+    const duplicateRequest = this._duplicateRequestsMap.get(requestKey);
+    if (duplicateRequest) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return duplicateRequest;
+    }
+
+    // Create a new promise for this request
+    const promise = this.rpcSemaphore.runExclusive(async () => {
+      try {
+        const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
+          networkId: networkId ?? '',
+          request: rpcRequest,
+          origin: request.origin ?? '',
+        });
+
+        this.rpcCache.set({
+          address,
+          networkId,
+          data: { method, params },
+          value: result,
+        });
+
+        return result;
+      } finally {
+        // Remove from duplication map after completion
+        this._duplicateRequestsMap.delete(requestKey);
+      }
+    });
+
+    // Store the promise for duplication
+    this._duplicateRequestsMap.set(requestKey, promise);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return promise;
   }
 
   @providerApiMethod()
