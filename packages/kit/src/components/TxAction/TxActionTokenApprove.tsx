@@ -86,6 +86,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     children: accountUtils.shortenAddress({
       address: approveSpender,
     }),
+    originalAddress: approveSpender,
   };
 
   if (!title) {
