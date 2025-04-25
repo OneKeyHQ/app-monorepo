@@ -24,4 +24,16 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public navigationToggle() {}
+
+  @LogToServer()
+  @LogToLocal()
+  public tabBarClick(tabName: string) {
+    return { tabName };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public testWebEmbed() {
+    return { test: 'test' };
+  }
 }
