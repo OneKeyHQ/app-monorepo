@@ -6,12 +6,14 @@ export const swapNetworksIncludeAllNetwork = [
     'logoURI':
       'https://uni.onekey-asset.com/static/logo/chain_selector_logo.png',
     'shortcode': 'onekeyall',
+    'shortname': 'onekeyall',
     'isAllNetworks': true,
   },
   {
     'name': 'Ethereum',
     'symbol': 'ETH',
     'shortcode': 'eth',
+    'shortname': 'eth',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     'networkId': 'evm--1',
     'defaultSelectToken': {
@@ -26,6 +28,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'Optimism',
     'symbol': 'ETH',
     'shortcode': 'optimism',
+    'shortname': 'optimism',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/optimism.png',
     'networkId': 'evm--10',
     'defaultSelectToken': {
@@ -40,6 +43,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'Avalanche',
     'symbol': 'AVAX',
     'shortcode': 'avalanche',
+    'shortname': 'avalanche',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/avalanche.png',
     'networkId': 'evm--43114',
     'defaultSelectToken': {
@@ -54,6 +58,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'Polygon',
     'symbol': 'POL',
     'shortcode': 'polygon',
+    'shortname': 'polygon',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     'networkId': 'evm--137',
     'defaultSelectToken': {
@@ -68,6 +73,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'BNB Chain',
     'symbol': 'BNB',
     'shortcode': 'bsc',
+    'shortname': 'bsc',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     'networkId': 'evm--56',
     'defaultSelectToken': {
@@ -82,6 +88,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'Arbitrum',
     'symbol': 'ETH',
     'shortcode': 'arbitrum',
+    'shortname': 'arbitrum',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     'networkId': 'evm--42161',
     'defaultSelectToken': {
@@ -96,6 +103,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'Base',
     'symbol': 'ETH',
     'shortcode': 'base',
+    'shortname': 'base',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     'networkId': 'evm--8453',
     'defaultSelectToken': {
@@ -110,6 +118,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'Solana',
     'symbol': 'SOL',
     'shortcode': 'sol',
+    'shortname': 'sol',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     'networkId': 'sol--101',
     'defaultSelectToken': {
@@ -124,6 +133,7 @@ export const swapNetworksIncludeAllNetwork = [
     'name': 'Fantom',
     'symbol': 'FTM',
     'shortcode': 'fantom',
+    'shortname': 'fantom',
     'logoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     'networkId': 'evm--250',
     'defaultSelectToken': {
