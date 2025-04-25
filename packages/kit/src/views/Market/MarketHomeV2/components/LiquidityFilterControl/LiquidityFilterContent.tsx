@@ -68,7 +68,7 @@ function LiquidityFilterContent({
   };
 
   return (
-    <Stack gap="$4" {...rest} padding="$4" borderRadius="$3">
+    <Stack width="$64" gap="$4" {...rest} padding="$4" borderRadius="$3">
       {/* Removed bgSurface, Popover will handle background */}
       <Heading size="$headingSm" color="$textSubdued">
         Liquidity ($)
