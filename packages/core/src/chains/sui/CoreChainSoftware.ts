@@ -27,6 +27,7 @@ const curve: ICurveName = 'ed25519';
 
 export function handleSignData(txnBytes: Uint8Array) {
   const serializeTxn = messageWithIntent('TransactionData', txnBytes);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return serializeTxn;
 }
 
