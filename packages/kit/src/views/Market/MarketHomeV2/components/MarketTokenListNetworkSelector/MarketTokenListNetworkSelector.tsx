@@ -1,5 +1,6 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { swapNetworksIncludeAllNetwork } from './data';
@@ -27,6 +28,24 @@ function MarketTokenListNetworkSelector({
     },
     [onSelectNetworkId],
   );
+
+  useEffect(() => {
+    backgroundApiProxy.serviceMarket
+      .fetchMarketChains()
+      .then((data: ISwapNetwork[]) => {
+        console.log('Fetched market chains:', data);
+        // TODO: You can set the fetched chains to state here if needed
+        // For example:
+        // if (data && data.length > 0) {
+        //   setAvailableNetworks(data);
+        //   setCurrentSelectNetwork(data[0]);
+        //   onSelectNetworkId?.(data[0].networkId);
+        // }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to fetch market chains:', error);
+      });
+  }, [onSelectNetworkId]); // Assuming onSelectNetworkId doesn't change often, or add other dependencies if necessary
 
   return (
     <MarketNetworkFilter
