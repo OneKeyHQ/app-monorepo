@@ -130,16 +130,14 @@ function fixNativeTokenMaxSendAmount({
   network: IServerNetwork;
 }) {
   const amountBN = new BigNumber(amount);
-  const fixedAmountBN = amountBN
-    .dp(
-      BigNumber.min(
-        (amountBN.decimalPlaces() ?? network.decimals) - 2,
-        network.decimals - 2,
-      ).toNumber(),
-      BigNumber.ROUND_FLOOR,
-    )
-    .shiftedBy(network.decimals);
-  return toBigIntHex(fixedAmountBN);
+  const fixedAmountBN = amountBN.dp(
+    BigNumber.min(
+      (amountBN.decimalPlaces() ?? network.decimals) - 2,
+      network.decimals - 2,
+    ).toNumber(),
+    BigNumber.ROUND_FLOOR,
+  );
+  return fixedAmountBN.toFixed();
 }
 
 const SATS_PER_BTC = 100_000_000; // 1 BTC = 100,000,000 sats
