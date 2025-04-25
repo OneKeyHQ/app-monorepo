@@ -178,12 +178,6 @@ class ProviderApiEthereum extends ProviderApiBase {
       throw web3Errors.rpc.invalidParams('unauthorized');
     }
 
-    const requestKey = this.rpcCache.generateKey({
-      address,
-      networkId,
-      data: { method, params },
-    });
-
     // Check cache first
     const cache = this.rpcCache.get({
       address,
@@ -196,6 +190,12 @@ class ProviderApiEthereum extends ProviderApiBase {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return cache;
     }
+
+    const requestKey = this.rpcCache.generateKey({
+      address,
+      networkId,
+      data: { method, params },
+    });
 
     // Check if there's a duplicate request in progress
     const duplicateRequest = this._duplicateRequestsMap.get(requestKey);
