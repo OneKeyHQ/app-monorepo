@@ -7,12 +7,12 @@ import { XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
+import { MoreButton } from './MoreButton';
 import { NetworksFilterItem } from './NetworksFilterItem';
 
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
   disableNetworks?: string[];
-  disableMoreNetworks?: boolean;
   moreNetworksCount?: number;
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
@@ -23,7 +23,6 @@ const MarketNetworkFilter = ({
   networks,
   selectedNetwork,
   onSelectNetwork,
-  disableMoreNetworks,
   disableNetworks,
   moreNetworksCount,
   onMoreNetwork,
@@ -59,12 +58,7 @@ const MarketNetworkFilter = ({
         />
       ))}
       {moreNetworksCount && moreNetworksCount > 0 ? (
-        <NetworksFilterItem
-          disabled={disableMoreNetworks}
-          networkName={`${moreNetworksCount}+`}
-          flex={1}
-          onPress={disableMoreNetworks ? undefined : onMoreNetwork}
-        />
+        <MoreButton onPress={onMoreNetwork} />
       ) : null}
     </XStack>
   );

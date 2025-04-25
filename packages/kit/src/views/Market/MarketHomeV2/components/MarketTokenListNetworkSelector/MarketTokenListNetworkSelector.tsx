@@ -1,7 +1,5 @@
 import { memo, useCallback, useState } from 'react';
 
-import { SwapProviderMirror } from '@onekeyhq/kit/src/views/Swap/pages/SwapProviderMirror';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { swapNetworksIncludeAllNetwork } from './data';
@@ -47,14 +45,4 @@ const MarketTokenListNetworkSelectorComponent = memo(
   MarketTokenListNetworkSelector,
 );
 
-function MarketTokenListNetworkSelectorWithProvider(
-  props: IMarketTokenListNetworkSelectorProps,
-) {
-  return (
-    <SwapProviderMirror storeName={EJotaiContextStoreNames.swapModal}>
-      <MarketTokenListNetworkSelectorComponent {...props} />
-    </SwapProviderMirror>
-  );
-}
-
-export default memo(MarketTokenListNetworkSelectorWithProvider);
+export default MarketTokenListNetworkSelectorComponent;
