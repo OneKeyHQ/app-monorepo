@@ -8,6 +8,7 @@ import {
   DiscoveryFilterControl,
   EFilterOption,
 } from '../DiscoveryFilterControl';
+import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
@@ -35,6 +36,8 @@ export function MarketFilterBar() {
           value={filterOption}
           onChange={handleFilterOptionChange}
         />
+
+        <LiquidityFilterControl />
       </XStack>
     </View>
   );
