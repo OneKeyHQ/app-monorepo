@@ -1083,41 +1083,46 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const nativeTx = parseToNativeTx(encodedTx) as Transaction;
 
-    // max native token transfer update
-    if (
-      !isNil(nativeAmountInfo.maxSendAmount) &&
-      nativeTx instanceof Transaction &&
-      nativeTx.instructions.length === 2
-    ) {
-      for (let i = 0; i < nativeTx.instructions.length; i += 1) {
-        const instruction = nativeTx.instructions[i];
-        if (
-          instruction.programId.toString() ===
-          SystemProgram.programId.toString()
-        ) {
-          const instructionType =
-            SystemInstruction.decodeInstructionType(instruction);
-          if (instructionType === 'Transfer') {
-            const { fromPubkey, toPubkey } =
-              SystemInstruction.decodeTransfer(instruction);
+    try {
+      // max native token transfer update
+      if (
+        !isNil(nativeAmountInfo.maxSendAmount) &&
+        nativeTx instanceof Transaction &&
+        nativeTx.instructions.length === 2
+      ) {
+        for (let i = 0; i < nativeTx.instructions.length; i += 1) {
+          const instruction = nativeTx.instructions[i];
+          if (
+            instruction.programId.toString() ===
+            SystemProgram.programId.toString()
+          ) {
+            const instructionType =
+              SystemInstruction.decodeInstructionType(instruction);
+            if (instructionType === 'Transfer') {
+              const { fromPubkey, toPubkey } =
+                SystemInstruction.decodeTransfer(instruction);
 
-            nativeTx.instructions[i] = SystemProgram.transfer({
-              fromPubkey,
-              toPubkey,
-              lamports: BigInt(
-                new BigNumber(nativeAmountInfo.maxSendAmount)
-                  .shiftedBy(network.decimals)
-                  .toFixed(),
-              ),
-            });
-            return bs58.encode(
-              nativeTx.serialize({
-                requireAllSignatures: false,
-              }),
-            );
+              nativeTx.instructions[i] = SystemProgram.transfer({
+                fromPubkey,
+                toPubkey,
+                lamports: BigInt(
+                  new BigNumber(nativeAmountInfo.maxSendAmount)
+                    .shiftedBy(network.decimals)
+                    .toFixed(),
+                ),
+              });
+              return bs58.encode(
+                nativeTx.serialize({
+                  requireAllSignatures: false,
+                }),
+              );
+            }
           }
         }
       }
+    } catch (e) {
+      console.log('error: =====>>>>>: ', e);
+      return Promise.resolve(encodedTx);
     }
 
     return Promise.resolve(encodedTx);
