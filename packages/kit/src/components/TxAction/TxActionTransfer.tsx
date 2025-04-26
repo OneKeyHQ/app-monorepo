@@ -313,6 +313,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     children: accountUtils.shortenAddress({
       address: transferTarget,
     }),
+    originalAddress: transferTarget,
   };
 
   const avatar: ITxActionCommonListViewProps['avatar'] = {

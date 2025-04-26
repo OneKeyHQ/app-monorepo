@@ -21,8 +21,11 @@ import type {
   IModalReceiveParamList,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -36,7 +39,10 @@ type IFormValues = {
 function CreateInvoice() {
   const intl = useIntl();
   const media = useMedia();
-  const form = useForm<IFormValues>();
+  const form = useForm<IFormValues>({
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
+  });
   const route =
     useRoute<
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.CreateInvoice>
@@ -49,11 +55,34 @@ function CreateInvoice() {
   const [isLoading, setIsLoading] = useState(false);
 
   const amountValue = form.watch('amount');
-
+  const [lnUnit, setLnUnit] = useState(ELightningUnit.SATS);
   const { result: invoiceConfig } = usePromiseResult(
     () => serviceLightning.getInvoiceConfig({ networkId }),
     [networkId, serviceLightning],
   );
+
+  const linkedAmount = useMemo(() => {
+    if (lnUnit === ELightningUnit.BTC) {
+      return chainValueUtils.convertBtcToSats(amountValue);
+    }
+    return amountValue;
+  }, [lnUnit, amountValue]);
+
+  const linkedInvoiceConfig = useMemo(() => {
+    return {
+      ...invoiceConfig,
+      maxSendAmount:
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(invoiceConfig?.maxSendAmount ?? 0)
+          : invoiceConfig?.maxSendAmount ?? 0,
+      maxReceiveAmount:
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(
+              invoiceConfig?.maxReceiveAmount ?? 0,
+            )
+          : invoiceConfig?.maxReceiveAmount ?? 0,
+    };
+  }, [invoiceConfig, lnUnit]);
 
   const { result } = usePromiseResult(async () => {
     const accountAddress =
@@ -75,13 +104,13 @@ function CreateInvoice() {
   }, [networkId, accountId]);
 
   const fiatValue = useMemo(() => {
-    const amountBN = new BigNumber(amountValue || '0');
+    const amountBN = new BigNumber(linkedAmount || '0');
     const price = new BigNumber(result?.price || '0');
     if (amountBN.isInteger() && price) {
       return amountBN.multipliedBy(price).toFixed(2);
     }
     return '0.00';
-  }, [amountValue, result?.price]);
+  }, [linkedAmount, result?.price]);
 
   const onSubmit = useCallback(
     async (values: IFormValues) => {
@@ -90,7 +119,10 @@ function CreateInvoice() {
         const response = await serviceLightning.createInvoice({
           accountId,
           networkId,
-          amount: values.amount || '0',
+          amount:
+            lnUnit === ELightningUnit.BTC
+              ? chainValueUtils.convertBtcToSats(values.amount || '0')
+              : values.amount || '0',
           description: values.description,
         });
         navigation.push(EModalReceiveRoutes.ReceiveInvoice, {
@@ -103,7 +135,7 @@ function CreateInvoice() {
         setIsLoading(false);
       }
     },
-    [accountId, networkId, serviceLightning, navigation],
+    [accountId, networkId, serviceLightning, navigation, lnUnit],
   );
 
   return (
@@ -134,37 +166,65 @@ function CreateInvoice() {
                   id: ETranslations.form_lighting_invoice_error_positive_integer_only,
                 }),
               },
-              pattern: {
-                value: /^[0-9]*$/,
-                message: intl.formatMessage({
-                  id: ETranslations.form_lighting_invoice_error_positive_integer_only,
-                }),
-              },
+              pattern:
+                lnUnit === ELightningUnit.BTC
+                  ? {
+                      value: /^\d*\.?\d*$/,
+                      message: '',
+                    }
+                  : {
+                      value: /^[0-9]*$/,
+                      message: intl.formatMessage({
+                        id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                      }),
+                    },
               validate: (value) => {
                 // allow unspecified amount
                 if (!value) return;
 
                 const valueBN = new BigNumber(value);
-                if (!valueBN.isInteger()) {
+                if (lnUnit === ELightningUnit.SATS && !valueBN.isInteger()) {
                   return intl.formatMessage({
                     id: ETranslations.form_lighting_invoice_error_positive_integer_only,
                   });
                 }
                 if (
-                  invoiceConfig?.maxReceiveAmount &&
-                  valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
+                  linkedInvoiceConfig?.maxReceiveAmount &&
+                  valueBN.isGreaterThan(linkedInvoiceConfig?.maxReceiveAmount)
                 ) {
                   return intl.formatMessage(
                     {
                       id: ETranslations.form_lighting_invoice_amount_error_max,
                     },
                     {
-                      amount: invoiceConfig?.maxReceiveAmount,
+                      amount: linkedInvoiceConfig.maxReceiveAmount,
+                      unit: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
                     },
                   );
                 }
               },
             }}
+            labelAddon={
+              <LightningUnitSwitch
+                value={lnUnit}
+                onChange={(v) => {
+                  setLnUnit(v as ELightningUnit);
+                  form.setValue(
+                    'amount',
+                    v === ELightningUnit.BTC
+                      ? chainValueUtils.convertSatsToBtc(
+                          form.getValues('amount'),
+                        )
+                      : chainValueUtils.convertBtcToSats(
+                          form.getValues('amount'),
+                        ),
+                  );
+                  setTimeout(() => {
+                    void form.trigger('amount');
+                  }, 100);
+                }}
+              />
+            }
           >
             <Input
               placeholder={intl.formatMessage({
@@ -177,7 +237,7 @@ function CreateInvoice() {
               keyboardType="number-pad"
               addOns={[
                 {
-                  label: 'sats',
+                  label: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
                 },
               ]}
             />

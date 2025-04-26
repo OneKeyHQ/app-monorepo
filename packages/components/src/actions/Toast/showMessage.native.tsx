@@ -5,7 +5,7 @@ import { View, XStack } from '../../primitives';
 import type { IToastMessageOptions } from './type';
 
 export function showMessage({ renderContent, duration }: IToastMessageOptions) {
-  toast('', {
+  const toastId = toast('', {
     duration,
     disableShadow: true,
     customToast: ({ width }) => (
@@ -34,4 +34,9 @@ export function showMessage({ renderContent, duration }: IToastMessageOptions) {
       </XStack>
     ),
   });
+  return {
+    close: () => {
+      toast.dismiss(toastId);
+    },
+  };
 }

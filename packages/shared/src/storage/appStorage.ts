@@ -1,7 +1,5 @@
-import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 
-import { createPrintMethod } from './createPrintMethod';
 import mockStorageInstance from './instance/mockStorageInstance';
 import nativeAsyncStorageInstance from './instance/nativeAsyncStorageInstance';
 import { buildAppStorageFactory } from './syncStorage';
