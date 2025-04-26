@@ -134,7 +134,7 @@
     "react-native-reanimated": "3.6.1",
     "react-native-web": "0.18.12",
     "react-render-tracker": "^0.7.6",
-    "react-router-dom": "^7.1.1",
+    "react-router-dom": "^7.5.2",
     "rlp": "^3.0.0",
     "set-interval-async": "^3.0.3",
     "socket.io-client": "^4.7.5",
