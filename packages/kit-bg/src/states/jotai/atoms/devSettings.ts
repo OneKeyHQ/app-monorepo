@@ -21,6 +21,7 @@ export interface IDevSettings {
   // disable Solana priority fee
   disableSolanaPriorityFee?: boolean;
   disableAllShortcuts?: boolean;
+  disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
   // use trading view test domain
