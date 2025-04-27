@@ -5,15 +5,27 @@ import { type IMarketToken, defaultData } from './MarketTokenData';
 
 type IMarketTokenListProps = {
   data?: IMarketToken[];
+  isLoading?: boolean;
+  onItemPress?: (item: IMarketToken) => void;
 };
 
-function MarketTokenList({ data = defaultData }: IMarketTokenListProps) {
+function MarketTokenList({
+  data = defaultData,
+  isLoading = false,
+  onItemPress,
+}: IMarketTokenListProps) {
   return (
     <Table<IMarketToken>
       columns={marketTokenColumns}
-      dataSource={data}
+      dataSource={isLoading ? [] : data}
       keyExtractor={(item) => item.id}
-      // Add other Table props as needed, e.g., rowProps, onRow, etc.
+      onRow={
+        onItemPress
+          ? (item) => ({
+              onPress: () => onItemPress(item),
+            })
+          : undefined
+      }
     />
   );
 }

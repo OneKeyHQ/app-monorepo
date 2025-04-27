@@ -75,7 +75,9 @@ function MarketHome() {
         <MarketTokenListNetworkSelector />
         <RiskIndicatorCardDemo />
         <MarketFilterBar />
-        <MarketTokenList />
+        <Stack flex={1}>
+          <MarketTokenList />
+        </Stack>
       </Page.Body>
     </Page>
   );
