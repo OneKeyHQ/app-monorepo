@@ -37,8 +37,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
-  const { syncNetworksSort, needChangeToken, quoteAction } =
-    useSwapActions().current;
+  const { syncNetworksSort, needChangeToken } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
