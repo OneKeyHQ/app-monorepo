@@ -289,6 +289,10 @@ module.exports = ({ platform, basePath, configName }) => {
                 // /(@?tamagui*).*\.(c|m)?(ts|js)x?$/,
                 // // keystonehq
                 // /(@?keystonehq).*\.(c|m)?(ts|js)x?$/,
+
+                /* web-embed on  */
+                /react-router/,
+                /turbo-stream/,
               ],
               exclude: [/react-native-logs/, /react-native-modalize/],
               use: useBabelLoader,

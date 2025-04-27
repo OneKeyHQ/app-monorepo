@@ -25,6 +25,7 @@ import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
+  useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
@@ -63,6 +64,8 @@ export function useSwapQuote() {
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [swapQuoteResultList, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [, setSwapManualSelectQuoteProviders] =
+    useSwapManualSelectQuoteProvidersAtom();
   const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
     useSwapQuoteEventTotalCountAtom();
   const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
@@ -458,6 +461,14 @@ export function useSwapQuote() {
       approvedSwapInfo: ISwapApproveTransaction;
       enableFilled?: boolean;
     }) => {
+      const updateQuoteList = swapQuoteResultList.filter(
+        (quote) =>
+          quote.info.provider === data.approvedSwapInfo.provider &&
+          quote.quoteId === data.approvedSwapInfo.quoteId,
+      );
+      if (updateQuoteList.length > 0) {
+        setSwapManualSelectQuoteProviders(updateQuoteList[0]);
+      }
       const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
@@ -511,6 +522,8 @@ export function useSwapQuote() {
       setToTokenAmount,
       swapTypeSwitchAction,
       syncNetworksSort,
+      swapQuoteResultList,
+      setSwapManualSelectQuoteProviders,
     ],
   );
 
