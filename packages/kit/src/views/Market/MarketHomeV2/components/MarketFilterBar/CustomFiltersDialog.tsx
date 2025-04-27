@@ -9,7 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-interface ICustomFiltersModalProps {
+interface ICustomFiltersDialogProps {
   onClose: () => void;
   onApply: (filters: IFilterOptions) => void;
 }
@@ -76,10 +76,10 @@ export interface IFilterOptions {
 
 const PERIODS = ['5m', '1h', '4h', '24h'];
 
-export default function CustomFiltersModal({
+export default function CustomFiltersDialog({
   onClose,
   onApply,
-}: ICustomFiltersModalProps) {
+}: ICustomFiltersDialogProps) {
   const [selectedPeriod, setSelectedPeriod] = useState(PERIODS[0]);
   const [filters, setFilters] = useState<IFilterOptions>({
     period: PERIODS[0],
