@@ -1727,7 +1727,7 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  BleUtils: da12fa6ef9ea4b080ab577b8042ae95b4914f49e
+  BleUtils: 4ef087a52c16e43232d5e157671ddd3bee8fff18
   boost: d3f49c53809116a5d38da093a8aa78bf551aed09
   Burnt: dde5dd245f124a4594098e3938ba71aae4ec83c3
   CheckBiometricAuthChanged: a60316fd8afb9cf99e527d11b88c0348c64f900d
