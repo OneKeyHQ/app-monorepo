@@ -8,6 +8,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 
@@ -21,14 +22,21 @@ function TxHistoryAddressInfo({
   badge: IAddressBadge;
 }) {
   const { copyText } = useClipboard();
-
+  const { gtMd } = useMedia();
   return (
     <Popover
       placement="bottom-start"
       title={badge.label}
       renderTrigger={
-        <Stack>
-          <SizableText size="$bodyMd" color="$textSubdued">
+        <Stack cursor="pointer">
+          <SizableText
+            hoverStyle={{
+              color: '$text',
+              size: '$bodyMdMedium',
+            }}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
             {badge.label}
           </SizableText>
         </Stack>
@@ -40,12 +48,17 @@ function TxHistoryAddressInfo({
         <YStack
           gap="$2"
           px="$3"
-          py="$2"
+          py="$3"
+          $md={{
+            px: '$5',
+            pt: '$2',
+          }}
           onPress={(event: GestureResponderEvent) => {
             event.stopPropagation();
           }}
         >
           <Stack
+            cursor="pointer"
             testID="account-network-trigger-button"
             role="button"
             flexShrink={1}
@@ -71,16 +84,18 @@ function TxHistoryAddressInfo({
               copyText(address);
             }}
           >
-            <SizableText size="$bodySm">{badge.tip ?? ''}</SizableText>
+            <SizableText size="$bodyMd">{badge.tip ?? ''}</SizableText>
           </Stack>
-          <Stack alignSelf="flex-start">
-            <Badge badgeType={badge.type} badgeSize="sm">
-              <XStack gap="$1" alignItems="center" userSelect="none">
-                {badge.icon ? <Icon name={badge.icon} size="$4" /> : null}
-                <Badge.Text> {badge.label}</Badge.Text>
-              </XStack>
-            </Badge>
-          </Stack>
+          {gtMd ? (
+            <Stack alignSelf="flex-start">
+              <Badge badgeType={badge.type} badgeSize="sm">
+                <XStack gap="$1" alignItems="center" userSelect="none">
+                  {badge.icon ? <Icon name={badge.icon} size="$4" /> : null}
+                  <Badge.Text> {badge.label}</Badge.Text>
+                </XStack>
+              </Badge>
+            </Stack>
+          ) : null}
         </YStack>
       }
     />
