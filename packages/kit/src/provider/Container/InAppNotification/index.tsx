@@ -74,20 +74,20 @@ const InAppNotification = () => {
             setTimeout(async () => {
               await approvingSuccessActionConfirm();
             }, 50);
-          } else if (swapApprovingTransaction) {
+          } else if (swapApprovingTransactionRef.current) {
             // 1.swap tab no modal
             // 不用做任何动作，直接给 swap 发 event 进行询价
             appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-              approvedSwapInfo: swapApprovingTransaction,
+              approvedSwapInfo: swapApprovingTransactionRef.current,
               enableFilled: true,
             });
           }
         } else if (isHasSwapModal) {
           if (isSwapModalOnTheTop) {
             // 4.no swap tab have swap modal no other modal    最外层是 swap modal 不需要做任何动作通知 swap modal 进行询价
-            if (swapApprovingTransaction) {
+            if (swapApprovingTransactionRef.current) {
               appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-                approvedSwapInfo: swapApprovingTransaction,
+                approvedSwapInfo: swapApprovingTransactionRef.current,
                 enableFilled: true,
               });
             }
@@ -142,9 +142,9 @@ const InAppNotification = () => {
       swapApprovingTransaction?.txId &&
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.PENDING
     ) {
-      backgroundApiProxy.serviceSwap.approvingStateAction();
+      void backgroundApiProxy.serviceSwap.approvingStateAction();
     } else {
-      backgroundApiProxy.serviceSwap.cleanApprovingInterval();
+      void backgroundApiProxy.serviceSwap.cleanApprovingInterval();
     }
   }, [swapApprovingTransaction?.txId, swapApprovingTransaction?.status]);
 

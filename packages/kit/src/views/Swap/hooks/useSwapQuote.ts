@@ -522,6 +522,8 @@ export function useSwapQuote() {
       setToTokenAmount,
       swapTypeSwitchAction,
       syncNetworksSort,
+      swapQuoteResultList,
+      setSwapManualSelectQuoteProviders,
     ],
   );
 
