@@ -30,7 +30,7 @@ function FilterSection({
   onMaxChange,
 }: IFilterSectionProps) {
   return (
-    <YStack space="$2">
+    <YStack space="$3">
       <Stack>{label}</Stack>
       <XStack space="$4">
         <Input
@@ -83,8 +83,8 @@ export default function CustomFiltersDialog({
   const [selectedPeriod, setSelectedPeriod] = useState(PERIODS[0]);
   const [filters, setFilters] = useState<IFilterOptions>({
     period: PERIODS[0],
-    liquidity: { min: undefined, max: undefined },
-    turnover: { min: undefined, max: undefined },
+    liquidity: { min: 5000, max: undefined },
+    turnover: { min: 10_000, max: undefined },
     marketCap: { min: undefined, max: undefined },
   });
 
@@ -111,8 +111,8 @@ export default function CustomFiltersDialog({
     setSelectedPeriod(PERIODS[0]);
     setFilters({
       period: PERIODS[0],
-      liquidity: { min: undefined, max: undefined },
-      turnover: { min: undefined, max: undefined },
+      liquidity: { min: 5000, max: undefined },
+      turnover: { min: 10_000, max: undefined },
       marketCap: { min: undefined, max: undefined },
     });
   }, []);
@@ -123,10 +123,10 @@ export default function CustomFiltersDialog({
   }, [filters, onApply, onClose]);
 
   return (
-    <YStack px="$5" py="$6" space="$6">
-      <YStack space="$4">
-        <Stack>
-          <Stack pb="$2">Period</Stack>
+    <YStack px="$5" py="$6" space="$8">
+      <YStack space="$6">
+        <YStack space="$3">
+          <Stack>Period</Stack>
           <XStack>
             <ButtonGroup>
               {PERIODS.map((period) => (
@@ -140,7 +140,7 @@ export default function CustomFiltersDialog({
               ))}
             </ButtonGroup>
           </XStack>
-        </Stack>
+        </YStack>
 
         <FilterSection
           label="Liquidity ($)"

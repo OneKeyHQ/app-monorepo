@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { View } from 'react-native';
 
-import { XStack } from '@onekeyhq/components';
+import { Dialog, XStack } from '@onekeyhq/components';
 
 import {
   DiscoveryFilterControl,
@@ -11,14 +11,19 @@ import {
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
+import CustomFiltersDialog from './CustomFiltersDialog';
 import FilterButton from './FilterButton';
 
+import type { IFilterOptions } from './CustomFiltersDialog';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 export function MarketFilterBar() {
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('24h');
   const [filterOption, setFilterOption] = useState<EFilterOption>(
     EFilterOption.Trending,
+  );
+  const [customFilters, setCustomFilters] = useState<IFilterOptions | null>(
+    null,
   );
 
   const handleTimeRangeChange = (value: ITimeRangeSelectorValue) => {
@@ -27,6 +32,24 @@ export function MarketFilterBar() {
 
   const handleFilterOptionChange = (value: EFilterOption) => {
     setFilterOption(value);
+  };
+
+  const handleOpenDialog = () => {
+    const dialog = Dialog.show({
+      title: 'Custom Filters',
+      showFooter: false,
+      renderContent: (
+        <CustomFiltersDialog
+          onClose={() => {
+            void dialog.close();
+          }}
+          onApply={(filters) => {
+            setCustomFilters(filters);
+            void dialog.close();
+          }}
+        />
+      ),
+    });
   };
 
   return (
@@ -41,7 +64,7 @@ export function MarketFilterBar() {
 
         <LiquidityFilterControl />
 
-        <FilterButton />
+        <FilterButton onPress={handleOpenDialog} />
       </XStack>
     </View>
   );

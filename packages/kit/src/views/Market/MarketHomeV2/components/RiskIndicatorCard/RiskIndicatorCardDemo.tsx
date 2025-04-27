@@ -1,9 +1,9 @@
-import { Stack } from '@onekeyhq/components';
+import { Stack, XStack } from '@onekeyhq/components';
 
 import { RiskIndicatorCard } from './RiskIndicatorCard';
 
 export const RiskIndicatorCardDemo = () => (
-  <Stack gap="$4">
+  <XStack gap="$4">
     <RiskIndicatorCard
       type="unknown"
       title="Unknown risk"
@@ -24,7 +24,7 @@ export const RiskIndicatorCardDemo = () => (
       title="Market Cap"
       description="market cp is...."
     />
-  </Stack>
+  </XStack>
 );
 
 export default RiskIndicatorCardDemo;
