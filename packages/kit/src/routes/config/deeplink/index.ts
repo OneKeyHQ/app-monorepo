@@ -38,10 +38,15 @@ type IProcessDeepLinkParams = {
   parsedUrl: Linking.ParsedURL;
 };
 
-async function processDeepLinkUrlAccount({
-  parsedUrl,
-}: IProcessDeepLinkParams) {
+async function processDeepLinkUrlAccount(
+  params: IProcessDeepLinkParams,
+  times = 0,
+) {
+  if (times > 10) {
+    return;
+  }
   try {
+    const { parsedUrl } = params;
     const { hostname, queryParams, scheme, path } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
@@ -49,6 +54,12 @@ async function processDeepLinkUrlAccount({
     ) {
       console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
       const navigation = appGlobals.$rootAppNavigation;
+      if (!navigation) {
+        setTimeout(() => {
+          void processDeepLinkUrlAccount(params, times + 1);
+        }, 1500);
+        return;
+      }
       switch (platformEnv.isNative ? hostname : path?.slice(1)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
@@ -84,6 +95,7 @@ async function processDeepLinkUrlAccount({
                 screen: EModalReferFriendsRoutes.ReferAFriend,
                 params: {
                   utmSource,
+                  code,
                 },
               });
             }
