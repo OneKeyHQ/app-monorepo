@@ -46,7 +46,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
-  ESwapCleanHistorySource,
   ESwapDirectionType,
   ESwapQuoteKind,
   EWrappedType,
