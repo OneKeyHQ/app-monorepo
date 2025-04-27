@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -476,6 +477,7 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async getSensitiveEncodeKey(): Promise<string> {
+    defaultLogger.app.webembed.getSensitiveEncodeKey();
     return getBgSensitiveTextEncodeKey();
   }
 
@@ -483,6 +485,7 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async webEmbedApiReady(): Promise<void> {
+    defaultLogger.app.webembed.webembedApiReady();
     this.isWebEmbedApiReady = true;
     appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, undefined);
     return Promise.resolve();

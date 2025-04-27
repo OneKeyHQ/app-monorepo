@@ -104,8 +104,14 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async encodeSensitiveText({ text }: { text: string }): Promise<string> {
-    return Promise.resolve(encodeSensitiveTextAsync({ text }));
+  async encodeSensitiveText({
+    text,
+    useRnJsCrypto,
+  }: {
+    text: string;
+    useRnJsCrypto?: boolean;
+  }): Promise<string> {
+    return Promise.resolve(encodeSensitiveTextAsync({ text, useRnJsCrypto }));
   }
 
   @backgroundMethod()
@@ -172,10 +178,14 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async decodeSensitiveText({
     encodedText,
+    useRnJsCrypto,
   }: {
     encodedText: string;
+    useRnJsCrypto?: boolean;
   }): Promise<string> {
-    return Promise.resolve(await decodeSensitiveTextAsync({ encodedText }));
+    return Promise.resolve(
+      await decodeSensitiveTextAsync({ encodedText, useRnJsCrypto }),
+    );
   }
 
   @backgroundMethod()
@@ -199,7 +209,13 @@ export default class ServicePassword extends ServiceBase {
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
   }
 
-  async setCachedPassword(password: string): Promise<string> {
+  async setCachedPassword({
+    password,
+    useRnJsCrypto,
+  }: {
+    password: string;
+    useRnJsCrypto?: boolean;
+  }): Promise<string> {
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
@@ -214,11 +230,13 @@ export default class ServicePassword extends ServiceBase {
       const prevPasswordRaw = prevPassword
         ? await this.decodeSensitiveText({
             encodedText: prevPassword,
+            useRnJsCrypto,
           })
         : '';
       const newPasswordRaw = password
         ? await this.decodeSensitiveText({
             encodedText: password,
+            useRnJsCrypto,
           })
         : '';
       if (password && prevPasswordRaw !== newPasswordRaw) {
@@ -288,7 +306,11 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
-  async getBiologyAuthPassword(): Promise<string> {
+  async getBiologyAuthPassword({
+    useRnJsCrypto,
+  }: {
+    useRnJsCrypto?: boolean;
+  } = {}): Promise<string> {
     const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
       await this.setBiologyAuthEnable(false);
@@ -299,7 +321,7 @@ export default class ServicePassword extends ServiceBase {
       this.handleBiologyAuthError(authRes);
     }
     try {
-      const pwd = await biologyAuthUtils.getPassword();
+      const pwd = await biologyAuthUtils.getPassword({ useRnJsCrypto });
       ensureSensitiveTextEncoded(pwd);
       return pwd;
     } catch (e) {
@@ -331,12 +353,20 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // validatePassword --------------------------------
-  async validatePasswordValidRules(
-    password: string,
-    passwordMode: EPasswordMode,
-  ): Promise<void> {
+  async validatePasswordValidRules({
+    password,
+    passwordMode,
+    useRnJsCrypto,
+  }: {
+    passwordMode: EPasswordMode;
+    password: string;
+    useRnJsCrypto?: boolean;
+  }): Promise<void> {
     ensureSensitiveTextEncoded(password);
-    const realPassword = await decodePasswordAsync({ password });
+    const realPassword = await decodePasswordAsync({
+      password,
+      useRnJsCrypto,
+    });
     // **** length matched
     if (
       passwordMode === EPasswordMode.PASSWORD &&
@@ -353,15 +383,24 @@ export default class ServicePassword extends ServiceBase {
     // **** other rules ....
   }
 
-  async validatePasswordSame(
-    password: string,
-    newPassword: string,
-  ): Promise<void> {
+  async validatePasswordSame({
+    newPassword,
+    password,
+    useRnJsCrypto,
+  }: {
+    newPassword: string;
+    password: string;
+    useRnJsCrypto?: boolean;
+  }): Promise<void> {
     ensureSensitiveTextEncoded(password);
     ensureSensitiveTextEncoded(newPassword);
-    const realPassword = await decodePasswordAsync({ password });
+    const realPassword = await decodePasswordAsync({
+      password,
+      useRnJsCrypto,
+    });
     const realNewPassword = await decodePasswordAsync({
       password: newPassword,
+      useRnJsCrypto,
     });
     if (realPassword === realNewPassword) {
       throw new OneKeyErrors.PasswordUpdateSameFailed();
@@ -373,24 +412,38 @@ export default class ServicePassword extends ServiceBase {
     passwordMode,
     newPassword,
     skipDBVerify,
+    useRnJsCrypto,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
+    useRnJsCrypto?: boolean;
   }): Promise<void> {
     ensureSensitiveTextEncoded(password);
     if (newPassword) {
       ensureSensitiveTextEncoded(newPassword);
     }
     if (!newPassword) {
-      await this.validatePasswordValidRules(password, passwordMode);
+      await this.validatePasswordValidRules({
+        password,
+        passwordMode,
+        useRnJsCrypto,
+      });
     } else {
-      await this.validatePasswordValidRules(newPassword, passwordMode);
-      await this.validatePasswordSame(password, newPassword);
+      await this.validatePasswordValidRules({
+        password: newPassword,
+        passwordMode,
+        useRnJsCrypto,
+      });
+      await this.validatePasswordSame({
+        newPassword,
+        password,
+        useRnJsCrypto,
+      });
     }
     if (!skipDBVerify) {
-      await localDb.verifyPassword(password);
+      await localDb.verifyPassword({ password, useRnJsCrypto });
     }
   }
 
@@ -402,7 +455,7 @@ export default class ServicePassword extends ServiceBase {
     } else {
       ensureSensitiveTextEncoded(password);
       await this.saveBiologyAuthPassword(password);
-      await this.setCachedPassword(password);
+      await this.setCachedPassword({ password });
     }
   }
 
@@ -435,7 +488,7 @@ export default class ServicePassword extends ServiceBase {
     try {
       await this.unLockApp();
       await this.saveBiologyAuthPassword(password);
-      await this.setCachedPassword(password);
+      await this.setCachedPassword({ password });
       await this.setPasswordSetStatus(true, passwordMode);
       await localDb.setPassword({ password });
       return password;
@@ -471,7 +524,7 @@ export default class ServicePassword extends ServiceBase {
     try {
       await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
-      await this.setCachedPassword(newPassword);
+      await this.setCachedPassword({ password: newPassword });
       await this.setPasswordSetStatus(true, passwordMode);
       ({ rollback: masterPasswordUpdateRollback } =
         await this.backgroundApi.serviceMasterPassword.updatePasscodeForMasterPassword(
@@ -517,18 +570,29 @@ export default class ServicePassword extends ServiceBase {
     password,
     passwordMode,
     isBiologyAuth,
+    useRnJsCrypto,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     isBiologyAuth?: boolean;
+    useRnJsCrypto?: boolean;
   }): Promise<string> {
     let verifyingPassword = password;
     if (isBiologyAuth) {
-      verifyingPassword = await this.getBiologyAuthPassword();
+      verifyingPassword = await this.getBiologyAuthPassword({
+        useRnJsCrypto,
+      });
     }
     ensureSensitiveTextEncoded(verifyingPassword);
-    await this.validatePassword({ password: verifyingPassword, passwordMode });
-    await this.setCachedPassword(verifyingPassword);
+    await this.validatePassword({
+      password: verifyingPassword,
+      passwordMode,
+      useRnJsCrypto,
+    });
+    await this.setCachedPassword({
+      password: verifyingPassword,
+      useRnJsCrypto,
+    });
     return verifyingPassword;
   }
 
@@ -540,6 +604,7 @@ export default class ServicePassword extends ServiceBase {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
   }): Promise<IPasswordRes> {
+    console.log('promptPasswordVerify call');
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
       // TODO mutex
       const v4migrationData = await v4migrationAtom.get();
@@ -654,7 +719,6 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async waitPasswordEncryptorReady() {
     if (platformEnv.isNative) {
       await webembedApiProxy.waitRemoteApiReady();
@@ -667,7 +731,6 @@ export default class ServicePassword extends ServiceBase {
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
   }) {
-    await this.waitPasswordEncryptorReady();
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: params,
