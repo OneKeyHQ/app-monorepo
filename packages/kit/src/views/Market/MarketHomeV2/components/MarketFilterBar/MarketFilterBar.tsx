@@ -11,6 +11,8 @@ import {
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
+import FilterButton from './FilterButton';
+
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 export function MarketFilterBar() {
@@ -38,6 +40,8 @@ export function MarketFilterBar() {
         />
 
         <LiquidityFilterControl />
+
+        <FilterButton />
       </XStack>
     </View>
   );
