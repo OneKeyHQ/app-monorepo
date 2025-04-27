@@ -92,7 +92,7 @@ function MarketHome() {
   }, [pageWidth]);
 
   const { result: categories } = usePromiseResult(
-    () => backgroundApiProxy.serviceMarket.fetchCategories(),
+    (runnerId) => backgroundApiProxy.serviceMarket.fetchCategories(runnerId),
     [],
     {
       revalidateOnReconnect: true,

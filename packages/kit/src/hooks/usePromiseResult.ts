@@ -9,6 +9,10 @@ import {
   useNetInfo,
 } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ECacheControl } from '@onekeyhq/shared/src/utils/cacheControl';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -56,23 +60,26 @@ export type IUsePromiseResultReturnWithInitValue<T> =
     result: T;
   };
 
+let _runnerId = 0;
 export function usePromiseResult<T>(
-  method: () => Promise<T>,
+  method: (runnerId: string) => Promise<T>,
   deps: any[],
   options: { initResult: T } & IPromiseResultOptions<T>,
 ): IUsePromiseResultReturnWithInitValue<T>;
-
 export function usePromiseResult<T>(
-  method: () => Promise<T>,
+  method: (runnerId: string) => Promise<T>,
   deps: any[],
   options?: IPromiseResultOptions<T>,
 ): IUsePromiseResultReturn<T>;
-
 export function usePromiseResult<T>(
-  method: () => Promise<T>,
+  method: (runnerId: string) => Promise<T>,
   deps: any[] = [],
   options: IPromiseResultOptions<T> = {},
 ): IUsePromiseResultReturn<T> {
+  const runnerId = useMemo(() => {
+    _runnerId += 1;
+    return String(_runnerId);
+  }, []);
   const defer = useDeferredPromise();
 
   const resolveDefer = useCallback(() => {
@@ -165,7 +172,7 @@ export function usePromiseResult<T>(
       };
 
       const methodWithNonce = async ({ nonce }: { nonce: number }) => {
-        const r = await methodRef?.current?.();
+        const r = await methodRef?.current?.(runnerId);
         return {
           r,
           nonce,
@@ -290,10 +297,24 @@ export function usePromiseResult<T>(
   const runWithPollingNonce = useCallback(() => {
     isDepsChangedOnBlur.current = false;
     void runRef.current({ pollingNonce: pollingNonceRef.current });
-  }, [runRef]);
+  }, []);
 
   const { isRawInternetReachable: isInternetReachable } = useNetInfo();
   const prevIsInternetReachableRef = useRef(isInternetReachable);
+
+  useEffect(() => {
+    if (methodRef.current.length > 1) {
+      const callback = (id: string) => {
+        if (id === runnerId) {
+          runWithPollingNonce();
+        }
+      };
+      appEventBus.on(EAppEventBusNames.UsePromiseResultEventId, callback);
+      return () => {
+        appEventBus.off(EAppEventBusNames.UsePromiseResultEventId, callback);
+      };
+    }
+  }, [runnerId, runWithPollingNonce]);
 
   useEffect(() => {
     if (optionsRef.current.revalidateOnReconnect) {

@@ -32,11 +32,16 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchCategories(filters = [ONEKEY_SEARCH_TRANDING]) {
+  async fetchCategories(
+    runnerId: string | undefined,
+    filters = [ONEKEY_SEARCH_TRANDING],
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketCategory[];
-    }>('/utility/v1/market/category/list');
+    }>('/utility/v1/market/category/list', {
+      runnerId,
+    });
     const { data } = response.data;
     return filters.length
       ? data
@@ -47,7 +52,7 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchSearchTrending() {
-    const categories = await this.fetchCategories([]);
+    const categories = await this.fetchCategories(undefined, []);
     const searchTrendingCategory = categories.find(
       (i) => i.categoryId === ONEKEY_SEARCH_TRANDING,
     );

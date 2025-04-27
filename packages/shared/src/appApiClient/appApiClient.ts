@@ -7,8 +7,12 @@ import { OneKeyError } from '../errors';
 import platformEnv from '../platformEnv';
 import timerUtils from '../utils/timerUtils';
 
+import { createCacheAdapter } from './adapter';
+
 import type { IEndpointInfo } from '../../types/endpoint';
 import type { AxiosInstance, AxiosResponse } from 'axios';
+
+const cacheAdapter = createCacheAdapter();
 
 const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Wallet]: null,
@@ -69,11 +73,13 @@ const getBasicClient = async ({
             'X-OneKey-Dev-Proxy': endpoint,
           },
           autoHandleError,
+          adapter: cacheAdapter,
         }
       : {
           baseURL: endpoint,
           timeout,
           autoHandleError,
+          adapter: cacheAdapter,
         };
   const client = axios.create(options);
   return client;
@@ -92,7 +98,7 @@ const getClient = memoizee(
     promise: true,
     primitive: true,
     maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
-    max: 2,
+    max: 5,
   },
 );
 
