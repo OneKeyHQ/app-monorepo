@@ -36,7 +36,11 @@ function sha512Sync({
 }
 
 async function sha512Async(params: ISha512Params): Promise<string> {
-  if (platformEnv.isNative && !platformEnv.isJest) {
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
     ).default;

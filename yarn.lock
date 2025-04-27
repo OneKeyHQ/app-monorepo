@@ -1443,6 +1443,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@babel/plugin-transform-numeric-separator@npm:^7.25.9":
+  version: 7.25.9
+  resolution: "@babel/plugin-transform-numeric-separator@npm:7.25.9"
+  dependencies:
+    "@babel/helper-plugin-utils": "npm:^7.25.9"
+  peerDependencies:
+    "@babel/core": ^7.0.0-0
+  checksum: 10/0528ef041ed88e8c3f51624ee87b8182a7f246fe4013f0572788e0727d20795b558f2b82e3989b5dd416cbd339500f0d88857de41b6d3b6fdacb1d5344bcc5b1
+  languageName: node
+  linkType: hard
+
 "@babel/plugin-transform-object-assign@npm:^7.16.7":
   version: 7.23.3
   resolution: "@babel/plugin-transform-object-assign@npm:7.23.3"
@@ -6826,7 +6837,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-ble-utils@npm:0.1.3, @onekeyfe/react-native-ble-utils@npm:^0.1.3":
+"@onekeyfe/react-native-ble-utils@npm:0.1.4":
+  version: 0.1.4
+  resolution: "@onekeyfe/react-native-ble-utils@npm:0.1.4"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/d22ada485b22efbfeba534053dc489af8531222ebed31221be6464f85d429fe8f18b25c824e3a358837cfd5c90eef33754fb614667770bbf04c17c71de8d1c42
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/react-native-ble-utils@npm:^0.1.3":
   version: 0.1.3
   resolution: "@onekeyfe/react-native-ble-utils@npm:0.1.3"
   peerDependencies:
@@ -6876,6 +6897,7 @@ __metadata:
     "@babel/plugin-proposal-export-namespace-from": "npm:^7.18.9"
     "@babel/plugin-proposal-private-methods": "npm:^7.18.6"
     "@babel/plugin-proposal-private-property-in-object": "npm:^7.21.11"
+    "@babel/plugin-transform-numeric-separator": "npm:^7.25.9"
     "@babel/plugin-transform-optional-chaining": "npm:^7.25.9"
     "@babel/preset-env": "npm:^7.22.9"
     "@benfen/bfc.js": "npm:0.2.7"
@@ -7253,7 +7275,7 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@notifee/react-native": "npm:9.0.0"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
-    "@onekeyfe/react-native-ble-utils": "npm:0.1.3"
+    "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-lite-card": "npm:1.0.12"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.18"
     "@onekeyfe/react-native-text-input": "npm:0.2.4"
