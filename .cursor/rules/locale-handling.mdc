@@ -1,7 +1,7 @@
 ---
-description: 
+description: Internationalization (i18n) Guidelines
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 # OneKey Internationalization (i18n) Guidelines
 

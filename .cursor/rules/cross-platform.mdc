@@ -1,7 +1,7 @@
 ---
-description: 
+description: Cross-Platform Development Guidelines
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 # OneKey Cross-Platform Development Guidelines
 

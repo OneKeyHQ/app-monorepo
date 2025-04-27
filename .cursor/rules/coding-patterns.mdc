@@ -1,7 +1,7 @@
 ---
-description: 
+description: Coding Patterns
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 # OneKey Coding Patterns
 
