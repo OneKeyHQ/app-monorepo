@@ -3,6 +3,11 @@ import type { ComponentType } from 'react';
 import * as Sentry from '@sentry/react';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EWebEmbedPostMessageType,
+  postMessage,
+} from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   buildBasicOptions,
@@ -25,6 +30,15 @@ export const initSentry = () => {
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
         defaultLogger.app.error.log(errorMessage, stacktrace);
+        if (platformEnv.isWebEmbed) {
+          postMessage({
+            type: EWebEmbedPostMessageType.CaptureException,
+            data: {
+              error: errorMessage,
+              stacktrace,
+            },
+          });
+        }
       },
     }),
     ...buildSentryOptions(Sentry),
