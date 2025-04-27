@@ -595,14 +595,4 @@ export function useSwapQuote() {
       }
     }
   }, [isFocused, pageType, quoteEventHandler, swapApprovingSuccessAction]);
-
-  useEffect(() => {
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.SwapApprovingSuccess,
-        swapApprovingSuccessAction,
-      );
-      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-    };
-  }, [swapApprovingSuccessAction, quoteEventHandler]);
 }
