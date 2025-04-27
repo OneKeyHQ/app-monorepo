@@ -2,10 +2,12 @@ import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -29,8 +31,6 @@ import { AccountEditButton } from '../../../components/AccountEdit';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 function PlusButton({ onPress, loading }: IButtonProps) {
   return (
