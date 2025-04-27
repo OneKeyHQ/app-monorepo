@@ -30,7 +30,7 @@
     "@onekeyfe/kaspa-core-lib": "^1.0.2",
     "@onekeyfe/kaspa-wasm": "^1.0.2",
     "@solana/spl-token": "^0.4.8",
-    "@solana/web3.js": "^1.87.7",
+    "@solana/web3.js": "^1.98.1",
     "@starcoin/starcoin": "^2.3.7",
     "@zondax/izari-filecoin": "^1.2.0",
     "algosdk": "^2.6.0",
