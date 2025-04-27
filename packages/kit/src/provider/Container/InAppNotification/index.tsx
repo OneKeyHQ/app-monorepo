@@ -32,6 +32,10 @@ const InAppNotification = () => {
     { swapHistoryPendingList, swapApprovingTransaction },
     setInAppNotificationAtom,
   ] = useInAppNotificationAtom();
+  const swapApprovingTransactionRef = useRef(swapApprovingTransaction);
+  if (swapApprovingTransactionRef.current !== swapApprovingTransaction) {
+    swapApprovingTransactionRef.current = swapApprovingTransaction;
+  }
   const intl = useIntl();
   const navigation = useAppNavigation();
   useEffect(() => {
@@ -60,6 +64,7 @@ const InAppNotification = () => {
   const toastRef = useRef<{ close: () => void } | undefined>();
 
   const approvingSuccessActionConfirm = useCallback(async () => {
+    toastRef.current?.close();
     handleSwapNavigation(
       ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
         if (isInSwapTab) {
@@ -69,20 +74,20 @@ const InAppNotification = () => {
             setTimeout(async () => {
               await approvingSuccessActionConfirm();
             }, 50);
-          } else if (swapApprovingTransaction) {
+          } else if (swapApprovingTransactionRef.current) {
             // 1.swap tab no modal
             // 不用做任何动作，直接给 swap 发 event 进行询价
             appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-              approvedSwapInfo: swapApprovingTransaction,
+              approvedSwapInfo: swapApprovingTransactionRef.current,
               enableFilled: true,
             });
           }
         } else if (isHasSwapModal) {
           if (isSwapModalOnTheTop) {
             // 4.no swap tab have swap modal no other modal    最外层是 swap modal 不需要做任何动作通知 swap modal 进行询价
-            if (swapApprovingTransaction) {
+            if (swapApprovingTransactionRef.current) {
               appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-                approvedSwapInfo: swapApprovingTransaction,
+                approvedSwapInfo: swapApprovingTransactionRef.current,
                 enableFilled: true,
               });
             }
@@ -93,29 +98,30 @@ const InAppNotification = () => {
               await approvingSuccessActionConfirm();
             }, 50);
           }
-        } else if (swapApprovingTransaction) {
+        } else if (swapApprovingTransactionRef.current) {
           // 3.no swap tab no swap modal 打开 swap modal 通知 swap 进行询价
 
           navigation.pushModal(EModalRoutes.SwapModal, {
             screen: EModalSwapRoutes.SwapMainLand,
             params: {
-              swapTabSwitchType: swapApprovingTransaction.swapType,
+              swapTabSwitchType: swapApprovingTransactionRef.current.swapType,
               swapSource: ESwapSource.APPROVING_SUCCESS,
-              importFromToken: swapApprovingTransaction.fromToken,
-              importToToken: swapApprovingTransaction.toToken,
+              importFromToken: swapApprovingTransactionRef.current.fromToken,
+              importToToken: swapApprovingTransactionRef.current.toToken,
             },
           });
           setTimeout(() => {
-            appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-              approvedSwapInfo: swapApprovingTransaction,
-              enableFilled: true,
-            });
-          }, 300);
+            if (swapApprovingTransactionRef.current) {
+              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+                approvedSwapInfo: swapApprovingTransactionRef.current,
+                enableFilled: true,
+              });
+            }
+          }, 200);
         }
       },
     );
-    toastRef.current?.close();
-  }, [swapApprovingTransaction, navigation]);
+  }, [navigation]);
 
   const approvingSuccessAction = useMemo(() => {
     return (
@@ -133,11 +139,23 @@ const InAppNotification = () => {
 
   useEffect(() => {
     if (
+      swapApprovingTransaction?.txId &&
+      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.PENDING
+    ) {
+      void backgroundApiProxy.serviceSwap.approvingStateAction();
+    } else {
+      void backgroundApiProxy.serviceSwap.cleanApprovingInterval();
+    }
+  }, [swapApprovingTransaction?.txId, swapApprovingTransaction?.status]);
+
+  useEffect(() => {
+    if (
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.FAILED
     ) {
       setInAppNotificationAtom((prev) => ({
         ...prev,
         swapApprovingLoading: false,
+        swapApprovingTransaction: undefined,
       }));
       Toast.error({
         title: intl.formatMessage({
@@ -150,6 +168,7 @@ const InAppNotification = () => {
       setInAppNotificationAtom((prev) => ({
         ...prev,
         swapApprovingLoading: false,
+        swapApprovingTransaction: undefined,
       }));
       Toast.error({
         title: intl.formatMessage({
@@ -161,8 +180,8 @@ const InAppNotification = () => {
     ) {
       if (
         !(
-          swapApprovingTransaction?.resetApproveValue &&
-          Number(swapApprovingTransaction?.resetApproveValue) > 0
+          swapApprovingTransactionRef.current?.resetApproveValue &&
+          Number(swapApprovingTransactionRef.current?.resetApproveValue) > 0
         )
       ) {
         const message = intl.formatMessage(
@@ -170,9 +189,9 @@ const InAppNotification = () => {
             id: ETranslations.swap_toast_go_to_swap_desc,
           },
           {
-            num: swapApprovingTransaction.amount,
-            token: swapApprovingTransaction.fromToken.symbol,
-            provider: swapApprovingTransaction.providerName,
+            num: swapApprovingTransactionRef.current?.amount,
+            token: swapApprovingTransactionRef.current?.fromToken.symbol,
+            provider: swapApprovingTransactionRef.current?.providerName,
           },
         );
         handleSwapNavigation(
@@ -181,10 +200,12 @@ const InAppNotification = () => {
               (isInSwapTab && !hasModal) ||
               (!isInSwapTab && isSwapModalOnTheTop && isHasSwapModal)
             ) {
-              appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-                approvedSwapInfo: swapApprovingTransaction,
-                enableFilled: false,
-              });
+              if (swapApprovingTransactionRef.current) {
+                appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+                  approvedSwapInfo: swapApprovingTransactionRef.current,
+                  enableFilled: false,
+                });
+              }
               Toast.success({
                 title: intl.formatMessage({
                   id: ETranslations.swap_page_toast_approve_successful,
@@ -206,20 +227,10 @@ const InAppNotification = () => {
         );
       }
     }
-    if (
-      swapApprovingTransaction?.status ===
-        ESwapApproveTransactionStatus.FAILED ||
-      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
-    ) {
-      setInAppNotificationAtom((prev) => ({
-        ...prev,
-        swapApprovingTransaction: undefined,
-      }));
-    }
   }, [
     intl,
     setInAppNotificationAtom,
-    swapApprovingTransaction,
+    swapApprovingTransaction?.status,
     approvingSuccessAction,
   ]);
 
