@@ -259,7 +259,6 @@ export const WelcomeItem = memo(
         { scale: scale.value },
       ],
       shadowColor,
-      shadowOffset: SHADOW_OFFSET,
       shadowOpacity: shadowOpacity.value * scale.value,
       shadowRadius: BASE_SHADOW_RADIUS,
       elevation: BASE_ELEVATION * scale.value,
@@ -267,7 +266,10 @@ export const WelcomeItem = memo(
       borderRadius: borderRadius * scale.value * 0.5,
       overflow: 'hidden',
       ...(platformEnv.isWeb
-        ? { overlayColor: 'rgba(128, 128, 128, 0.3)' }
+        ? {
+            overlayColor: 'rgba(128, 128, 128, 0.3)',
+            shadowOffset: SHADOW_OFFSET,
+          }
         : {}),
     }));
 

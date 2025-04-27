@@ -170,6 +170,9 @@ function MobileBrowser() {
     if (!platformEnv.isNativeAndroid) return;
 
     const onBackPress = () => {
+      if (displayHomePage) {
+        return false;
+      }
       if (!displayHomePage && activeTabData?.canGoBack && activeTabId) {
         const webviewRef = webviewRefs[activeTabId];
         if (webviewRef?.innerRef) {
