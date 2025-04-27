@@ -1,1 +1,1 @@
-export * from './MarketFilterBar';
+export { MarketFilterBar } from './MarketFilterBar';
