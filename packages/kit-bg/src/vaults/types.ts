@@ -130,6 +130,7 @@ export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;
   nativeTokenAddress?: string;
+  genesisHash?: string;
 };
 export type IVaultSettings = {
   impl: string;
