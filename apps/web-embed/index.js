@@ -3,6 +3,7 @@ import React, { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { init } from './utils/init';
 
 const PageIndex = lazy(() => import('./pages/PageIndex'));
@@ -15,6 +16,8 @@ const container = document.getElementById('root');
 const root = createRoot(container);
 
 init();
+
+defaultLogger.app.webembed.renderHtmlRoot();
 
 root.render(
   <React.StrictMode>

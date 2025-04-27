@@ -3,8 +3,11 @@ import { memo, useEffect } from 'react';
 import { setBgSensitiveTextEncodeKey } from '@onekeyhq/core/src/secret';
 import type { IBackgroundApiWebembedCallMessage } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import webembedApi from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApi';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+defaultLogger.app.webembed.renderHtmlWebembedPage();
 
 // create button which can refresh, append to body
 const refreshButton = document.createElement('button');
@@ -20,12 +23,27 @@ function printMessageToBody(message: string) {
   document.body.appendChild(p);
 }
 
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  const htmlRenderTime = rootElement.getAttribute('data-html-render-time');
+  const message = `web-embed render html time: ${new Date(
+    parseFloat(htmlRenderTime ?? '0'),
+  )
+    .toTimeString()
+    .slice(0, 8)}`;
+  printMessageToBody(message);
+}
+
+printMessageToBody('web-embed init...');
+
 const handler = async (payload: IJsBridgeMessagePayload) =>
   webembedApi.callWebEmbedApiMethod(
     payload.data as IBackgroundApiWebembedCallMessage,
   );
 
 const init = (times = 0) => {
+  defaultLogger.app.webembed.callPageInit();
+
   if (!globalThis.$onekey && times < 5000) {
     setTimeout(() => {
       init(times + 1);
@@ -33,17 +51,25 @@ const init = (times = 0) => {
     return;
   }
   globalThis.$onekey.$private.webembedReceiveHandler = handler;
+
+  defaultLogger.app.webembed.callPageGetEncodeKey();
+
   void globalThis.$onekey.$private
     .request({
       method: 'getSensitiveEncodeKey',
     })
     .then((key) => {
+      defaultLogger.app.webembed.callPageGetEncodeKeySuccess();
+
       if (key) {
         setBgSensitiveTextEncodeKey(key as string);
+
+        defaultLogger.app.webembed.callPageApiReady();
+
         void globalThis.$onekey.$private.request({
           method: 'webEmbedApiReady',
         });
-        printMessageToBody('web-embed init success!');
+        printMessageToBody('web-embed init success! 73765183');
       } else {
         printMessageToBody('web-embed init failed! encoded key is empty');
       }
@@ -58,7 +84,6 @@ const PageWebEmbedApi = memo(() => {
     }
     isInitExecuted = true;
     init();
-    printMessageToBody('web-embed init...');
     printMessageToBody(`${globalThis.location.href}`);
   }, []);
   return null;

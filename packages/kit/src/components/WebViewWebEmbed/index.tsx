@@ -10,6 +10,7 @@ import {
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -142,6 +143,20 @@ export function WebViewWebEmbed({
     });
     console.log('WebViewWebEmbed fullHash', hashRoutePath, fullHash);
     console.log('WebViewWebEmbed trackEventUrl', trackEventUrl);
+
+    if (
+      devSettingsPersistAtom.enabled &&
+      devSettingsPersistAtom.settings?.disableWebEmbedApi
+    ) {
+      return (
+        <SizableText>
+          WebEmbedApi is disabled, please enable it in dev settings
+        </SizableText>
+      );
+    }
+
+    defaultLogger.app.webembed.renderWebview();
+
     return (
       <WebView
         // *** use remote url
@@ -171,6 +186,8 @@ export function WebViewWebEmbed({
     );
   }, [
     customReceiveHandler,
+    devSettingsPersistAtom.enabled,
+    devSettingsPersistAtom.settings?.disableWebEmbedApi,
     hashRoutePath,
     hashRouteQueryParams,
     nativeWebviewSource,
@@ -211,7 +228,7 @@ export function WebViewWebEmbed({
       if (minimized) {
         return { width: '$8', height: '$6', borderWidth: 4 };
       }
-      return { width: '90%', height: '$40', borderWidth: 4 };
+      return { width: '90%', height: '$60', borderWidth: 4 };
     }
     return { width: 0, height: 0, borderWidth: 0 };
   }, [config?.debug, minimized]);
@@ -261,6 +278,8 @@ export function WebViewWebEmbed({
 }
 
 function WebViewWebEmbedSingletonView() {
+  console.log('WebViewWebEmbedSingletonView render');
+  defaultLogger.app.webembed.renderWebviewSingleton();
   return (
     <WebViewWebEmbed
       isSingleton

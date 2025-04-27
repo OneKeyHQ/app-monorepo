@@ -284,6 +284,13 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
+        name="disableWebEmbedApi"
+        title="禁止 WebEmbedApi"
+        subtitle="禁止 WebEmbedApi 渲染内置 Webview 网页"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
         name="showDevOverlayWindow"
         title="开发者悬浮窗"
         subtitle="始终悬浮于全局的开发调试工具栏"

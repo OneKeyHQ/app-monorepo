@@ -214,6 +214,7 @@ const PasswordVerifyContainer = ({
                 password: '',
                 isBiologyAuth: true,
                 passwordMode,
+                useRnJsCrypto: true,
               });
           }
           if (biologyAuthRes) {
@@ -303,11 +304,13 @@ const PasswordVerifyContainer = ({
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: finalPassword,
+            useRnJsCrypto: true,
           });
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
             passwordMode,
+            useRnJsCrypto: true,
           });
         setPasswordAtom((v) => ({
           ...v,
@@ -426,11 +429,11 @@ const PasswordVerifyContainer = ({
         console.error('failed to waitPasswordEncryptorReady with error', e);
         const errorMessage = (e as Error)?.message || '';
         if (errorMessage) {
-          setPasswordEncryptorInitError(errorMessage);
-          Toast.error({
-            title: errorMessage,
-            message: 'Please restart the app and try again later',
-          });
+          // setPasswordEncryptorInitError(errorMessage);
+          // Toast.error({
+          //   title: errorMessage,
+          //   message: 'Please restart the app and try again later',
+          // });
         }
         throw e;
       }
@@ -439,7 +442,7 @@ const PasswordVerifyContainer = ({
 
   const loadingView = useMemo(() => {
     return passwordEncryptorInitError ? (
-      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+      <SizableText size="$bodyMd" color="$textCritical" textAlign="center">
         {passwordEncryptorInitError}
       </SizableText>
     ) : (
@@ -449,28 +452,32 @@ const PasswordVerifyContainer = ({
 
   return (
     <Stack onLayout={onLayout}>
-      {isPasswordEncryptorReady ? (
-        <PasswordVerify
-          passwordMode={passwordMode}
-          alertText={alertText}
-          disableInput={isProtectionTime}
-          onPasswordChange={() => {
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
-            }));
-          }}
-          status={passwordVerifyStatus}
-          onBiologyAuth={() =>
-            onBiologyAuthenticate(isExtLockAndNoCachePassword)
-          }
-          onInputPasswordAuth={onInputPasswordAuthenticate}
-          isEnable={isBiologyAuthEnable}
-          authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
-        />
-      ) : (
-        loadingView
-      )}
+      <PasswordVerify
+        passwordMode={passwordMode}
+        alertText={alertText}
+        disableInput={isProtectionTime}
+        onPasswordChange={() => {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+          }));
+        }}
+        status={passwordVerifyStatus}
+        onBiologyAuth={() => onBiologyAuthenticate(isExtLockAndNoCachePassword)}
+        onInputPasswordAuth={onInputPasswordAuthenticate}
+        isEnable={isBiologyAuthEnable}
+        authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
+      />
+      {passwordEncryptorInitError ? (
+        <SizableText
+          size="$bodyMd"
+          color="$textCritical"
+          textAlign="center"
+          mt="$2"
+        >
+          {passwordEncryptorInitError}
+        </SizableText>
+      ) : null}
     </Stack>
   );
 };
