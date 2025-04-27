@@ -10,6 +10,12 @@ class WebEmbedApiTest {
   trackEvent() {
     defaultLogger.app.page.testWebEmbed();
   }
+
+  captureException() {
+    setTimeout(() => {
+      throw new Error('test webEmbed error');
+    }, 1000);
+  }
 }
 
 export default WebEmbedApiTest;
