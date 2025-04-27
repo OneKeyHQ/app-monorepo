@@ -115,7 +115,7 @@ function PaginationFrame({
         <IconButton
           variant="tertiary"
           size={pageButtonSize}
-          icon="ChevronLeftOutline"
+          icon="ChevronLeftSmallOutline"
           disabled={disableControls || isFirstPage}
           onPress={onPrev}
           // title={intl.formatMessage({ id: ETranslations.global_previous })}
@@ -166,7 +166,7 @@ function PaginationFrame({
         <IconButton
           variant="tertiary"
           size={pageButtonSize}
-          icon="ChevronRightOutline"
+          icon="ChevronRightSmallOutline"
           disabled={disableControls || isLastPage}
           onPress={onNext}
           // title={intl.formatMessage({ id: ETranslations.global_next_page })}
