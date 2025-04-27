@@ -3,6 +3,7 @@ import { filter, forEach } from 'lodash';
 import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EServiceEndpointEnum,
   IEndpointDomainWhiteList,
@@ -12,6 +13,16 @@ import type {
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 export async function getEndpoints() {
+  if (platformEnv.isWebEmbed) {
+    const enableTestEndpoint =
+      globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false;
+    return getEndpointsMapByDevSettings({
+      enabled: enableTestEndpoint,
+      settings: {
+        enableTestEndpoint,
+      },
+    });
+  }
   const settings = await devSettingsPersistAtom.get();
   return getEndpointsMapByDevSettings(settings);
 }

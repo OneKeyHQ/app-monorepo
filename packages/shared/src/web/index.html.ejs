@@ -45,6 +45,13 @@
             <%= htmlHeadPreloadCode %>
           </script>
       <% } %>
+      <% if ( platform == 'webEmbed' ) { %> 
+        <script>
+          if (typeof globalThis === 'undefined') {
+              var globalThis = window;
+          }
+        </script>
+      <% } %>
   </head>
 
   <!-- html template copy from node_modules/@expo/webpack-config/web-default/index.html -->
@@ -113,6 +120,15 @@
         webEmbed index.html 
       <% } %>
     </div>
+
+    <script>
+      (()=>{
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.setAttribute('data-html-render-time', Date.now().toString());
+        }
+      })();
+    </script>
 
     <% if ( platform !== 'webEmbed' ) { %>
       <img

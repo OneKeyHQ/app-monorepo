@@ -36,6 +36,8 @@ const injectedJavaScript = `
   updateMedate();
 `;
 
+const defaultOnMessage = (event: any) => {};
+
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
     {
@@ -58,6 +60,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onProgress,
       webviewDebuggingEnabled,
       siteMode,
+      onMessage,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -185,7 +188,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           originWhitelist={['*']}
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
           // https://github.com/react-native-webview/react-native-webview/issues/1779
-          onMessage={(event) => {}}
+          onMessage={onMessage || defaultOnMessage}
           {...nativeWebviewProps}
         />
       </Stack>
