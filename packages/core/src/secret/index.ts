@@ -169,11 +169,14 @@ function fixV4VerifyStringToV5({ verifyString }: { verifyString: string }) {
 async function decryptVerifyString({
   password,
   verifyString,
+  useRnJsCrypto,
 }: {
   verifyString: string;
   password: string;
+  useRnJsCrypto?: boolean;
 }) {
   const decrypted = await decryptAsync({
+    useRnJsCrypto,
     password,
     data: Buffer.from(
       verifyString.replace(EncryptPrefixVerifyString, ''),
@@ -431,7 +434,11 @@ export type IBatchGetPublicKeysAsyncParams = {
 async function batchGetPublicKeysAsync(
   params: IBatchGetPublicKeysAsyncParams,
 ): Promise<ISecretPublicKeyInfo[]> {
-  if (platformEnv.isNative) {
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const keys = await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(
       params,
     );
@@ -571,7 +578,11 @@ export type IMnemonicFromEntropyAsyncParams = {
 async function mnemonicFromEntropyAsync(
   params: IMnemonicFromEntropyAsyncParams,
 ): Promise<string> {
-  if (platformEnv.isNative) {
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     return appGlobals.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
   }
   return Promise.resolve(
@@ -586,7 +597,11 @@ export type IMnemonicToSeedAsyncParams = {
 async function mnemonicToSeedAsync(
   params: IMnemonicToSeedAsyncParams,
 ): Promise<Buffer> {
-  if (platformEnv.isNative) {
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const hex = await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync(
       params,
     );
@@ -609,7 +624,11 @@ export type IGenerateRootFingerprintHexAsyncParams = {
 async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
-  if (platformEnv.isNative) {
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     return appGlobals.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
       params,
     );

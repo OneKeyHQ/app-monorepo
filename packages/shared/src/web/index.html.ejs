@@ -121,6 +121,15 @@
       <% } %>
     </div>
 
+    <script>
+      (()=>{
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.setAttribute('data-html-render-time', Date.now().toString());
+        }
+      })();
+    </script>
+
     <% if ( platform !== 'webEmbed' ) { %>
       <img
         width='80'

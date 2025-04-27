@@ -49,11 +49,13 @@ async function decodePasswordAsync({
   key,
   ignoreLogger,
   allowRawPassword,
+  useRnJsCrypto,
 }: {
   password: string;
   key?: string;
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
+  useRnJsCrypto?: boolean;
 }): Promise<string> {
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
@@ -69,6 +71,7 @@ async function decodePasswordAsync({
       encodedText: password,
       key,
       ignoreLogger,
+      useRnJsCrypto,
     });
   }
   if (
@@ -113,17 +116,27 @@ export type IEncryptAsyncParams = {
   password: string;
   data: Buffer | string;
   allowRawPassword?: boolean;
+  useRnJsCrypto?: boolean;
 };
 async function encryptAsync({
   password,
   data,
   allowRawPassword,
+  useRnJsCrypto,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
+  if (!useRnJsCrypto) {
+    console.log('encryptAsync useRnJsCrypto', useRnJsCrypto);
+  }
 
-  if (platformEnv.isNative && !platformEnv.isJest) {
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !useRnJsCrypto &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
     ).default;
@@ -167,6 +180,7 @@ export type IDecryptAsyncParams = {
   data: Buffer | string;
   allowRawPassword?: boolean;
   ignoreLogger?: boolean;
+  useRnJsCrypto?: boolean; // useRnJsCrypto or webembedApi
 };
 /**
  * The recommended asynchronous decryption method
@@ -180,11 +194,20 @@ async function decryptAsync({
   data,
   allowRawPassword,
   ignoreLogger,
+  useRnJsCrypto,
 }: IDecryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
-  if (platformEnv.isNative && !platformEnv.isJest) {
+  if (!useRnJsCrypto) {
+    console.log('decryptAsync useRnJsCrypto', useRnJsCrypto);
+  }
+  if (
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !useRnJsCrypto &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
     ).default;
@@ -206,6 +229,7 @@ async function decryptAsync({
     password,
     allowRawPassword,
     ignoreLogger: true,
+    useRnJsCrypto,
   });
   if (!passwordDecoded) {
     throw new IncorrectPassword();
@@ -320,12 +344,14 @@ async function decodeSensitiveTextAsync({
   key,
   ignoreLogger,
   allowRawPassword,
+  useRnJsCrypto,
 }: {
   encodedText: string;
   key?: string;
   // avoid recursive call log output order confusion
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
+  useRnJsCrypto?: boolean;
 }): Promise<string> {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -340,6 +366,7 @@ async function decodeSensitiveTextAsync({
         ),
         ignoreLogger,
         allowRawPassword,
+        useRnJsCrypto,
       });
       return decrypted.toString('utf-8');
     }
@@ -358,9 +385,11 @@ async function decodeSensitiveTextAsync({
 async function encodeSensitiveTextAsync({
   text,
   key,
+  useRnJsCrypto,
 }: {
   text: string;
   key?: string;
+  useRnJsCrypto?: boolean;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -373,7 +402,7 @@ async function encodeSensitiveTextAsync({
       platformEnv.isDev
     ) {
       // try to decode it to verify if encode by same key
-      await decodeSensitiveTextAsync({ encodedText: text });
+      await decodeSensitiveTextAsync({ encodedText: text, useRnJsCrypto });
     }
     return text;
   }
@@ -388,6 +417,7 @@ async function encodeSensitiveTextAsync({
         password: theKey,
         data: Buffer.from(text, 'utf-8'),
         allowRawPassword: true,
+        useRnJsCrypto,
       })
     ).toString('hex');
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;

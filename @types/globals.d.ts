@@ -31,6 +31,7 @@ declare global {
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
   var $onekey: IWindowOneKeyHub;
+  var $onekeyAppWebembedApiWebviewInitFailed: boolean | undefined;
 
   var $$onekeyDisabledSetTimeout: boolean | undefined;
   var $$onekeyDisabledSetInterval: boolean | undefined;
