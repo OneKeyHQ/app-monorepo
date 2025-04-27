@@ -2,6 +2,7 @@ import { SizableText } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 
 import { type IMarketToken } from './MarketTokenData';
+import { Txns } from './Txns';
 
 export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
   {
@@ -60,8 +61,8 @@ export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
     title: 'Txns',
     dataIndex: 'transactions',
     columnWidth: 100,
-    render: (text: number) => (
-      <SizableText size="$bodyMd">{text.toLocaleString()}K</SizableText>
+    render: (text: number, record) => (
+      <Txns transactions={text} walletInfo={record.walletInfo} />
     ),
     align: 'right',
   },
