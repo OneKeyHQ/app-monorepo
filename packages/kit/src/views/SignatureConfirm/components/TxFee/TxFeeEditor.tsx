@@ -8,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import type { IXStackProps } from '@onekeyhq/components';
 import {
   Button,
+  Checkbox,
   Form,
   Input,
   NumberSizeableText,
@@ -2006,6 +2007,16 @@ function TxFeeEditor(props: IProps) {
         <Stack gap="$5">
           {renderFeeTypeSelector()}
           {renderFeeEditorForm()}
+          <Checkbox
+            description={intl.formatMessage(
+              {
+                id: ETranslations.edit_fee_custom_set_as_default_description,
+              },
+              {
+                network: 'Ethereum',
+              },
+            )}
+          />
         </Stack>
       </ScrollView>
       <Stack
