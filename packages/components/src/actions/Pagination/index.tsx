@@ -12,6 +12,9 @@ import type { IXStackProps } from '../../primitives';
 const DOTS = 'DOTS';
 
 function range(start: number, end: number) {
+  if (start > end) {
+    return [];
+  }
   const length = end - start + 1;
   return Array.from({ length }, (_, idx) => idx + start);
 }
