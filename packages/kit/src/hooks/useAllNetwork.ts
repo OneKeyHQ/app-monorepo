@@ -6,6 +6,7 @@ import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
@@ -147,6 +148,7 @@ function useAllNetworkRequests<T>(params: {
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
+  const [isLocked] = useAppIsLockedAtom();
 
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
@@ -430,7 +432,7 @@ function useAllNetworkRequests<T>(params: {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       // debounced: 0,
       overrideIsFocused: (isPageFocused) =>
-        isPageFocused || !!shouldAlwaysFetch,
+        (isPageFocused || !!shouldAlwaysFetch) && !isLocked,
     },
   );
 

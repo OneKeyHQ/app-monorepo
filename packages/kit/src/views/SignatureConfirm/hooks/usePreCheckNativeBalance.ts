@@ -7,6 +7,7 @@ import {
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import {
   calculateNativeAmountInActions,
   isSendNativeTokenAction,
@@ -99,7 +100,12 @@ function usePreCheckNativeBalance({
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
-            amountToUpdate: amountToUpdate.toFixed(),
+            amountToUpdate: vaultSettings?.shouldFixMaxSendAmount
+              ? chainValueUtils.fixNativeTokenMaxSendAmount({
+                  amount: amountToUpdate,
+                  network,
+                })
+              : amountToUpdate.toFixed(),
           });
         } else {
           updateNativeTokenTransferAmountToUpdate({

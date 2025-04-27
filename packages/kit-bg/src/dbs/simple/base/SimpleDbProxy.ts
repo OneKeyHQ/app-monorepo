@@ -5,6 +5,7 @@ import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBas
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import type { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
 import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
@@ -211,4 +212,8 @@ export class SimpleDbProxy
   recentNetworks = this._createProxyService(
     'recentNetworks',
   ) as SimpleDbEntityRecentNetworks;
+
+  addressInfo = this._createProxyService(
+    'addressInfo',
+  ) as SimpleDbEntityAddressInfo;
 }

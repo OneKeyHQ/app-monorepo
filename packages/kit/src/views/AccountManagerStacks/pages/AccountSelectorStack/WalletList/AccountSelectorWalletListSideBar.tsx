@@ -102,18 +102,21 @@ export function AccountSelectorWalletListSideBar({
       });
 
       if (hideNonBackedUpWallet && !focusWalletChanged.current) {
-        const backedUpWallets = r.wallets;
+        const backedUpWalletsMap = r.wallets.reduce((acc, wallet) => {
+          acc[wallet.id] = wallet;
+          wallet.hiddenWallets?.forEach((hiddenWallet) => {
+            acc[hiddenWallet.id] = hiddenWallet;
+          });
+          return acc;
+        }, {} as Record<string, IDBWallet>);
 
         if (
-          !backedUpWallets.find(
-            (w) =>
-              w.id === selectedAccount.walletId ||
-              w.id === selectedAccount.focusedWallet,
-          )
+          !backedUpWalletsMap[selectedAccount.focusedWallet ?? ''] &&
+          !backedUpWalletsMap[selectedAccount.walletId ?? '']
         ) {
           void actions.current.updateSelectedAccountFocusedWallet({
             num,
-            focusedWallet: backedUpWallets[0]?.id,
+            focusedWallet: r.wallets?.[0]?.id,
           });
         }
 

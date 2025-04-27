@@ -53,6 +53,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
   };
   const description = {
     children: accountUtils.shortenAddress({ address: functionTo }),
+    originalAddress: functionTo,
   };
 
   return (

@@ -548,6 +548,13 @@ const PaginationGallery = LazyLoadPage(
     ),
 );
 
+const CountDownCalendarAlertGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CountDownCalendarAlert'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -791,6 +798,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentStepper,
     component: StepperGallery,
+  },
+  {
+    name: EGalleryRoutes.CountDownCalendarAlert,
+    component: CountDownCalendarAlertGallery,
   },
   {
     name: EGalleryRoutes.ComponentThemeColors,

@@ -17,6 +17,7 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -227,12 +228,13 @@ class ServiceHistory extends ServiceBase {
     }
 
     // 4. Fetch the on-chain history
-    onChainHistoryTxs = await this.fetchAccountOnChainHistory({
+    const { txs, addressMap } = await this.fetchAccountOnChainHistory({
       ...params,
       isAllNetworks,
       accountAddress,
       xpub,
     });
+    onChainHistoryTxs = txs;
 
     // 5. Merge the just-confirmed transactions, locally confirmed transactions, and on-chain history
 
@@ -380,6 +382,7 @@ class ServiceHistory extends ServiceBase {
       accounts,
       allAccounts,
       txs: result,
+      addressMap,
       accountsWithChangedPendingTxs: Array.from(
         accountsWithChangedPendingTxs,
       ).map((item) => {
@@ -705,7 +708,10 @@ class ServiceHistory extends ServiceBase {
         networkId,
       });
     if (isCustomNetwork) {
-      return [];
+      return {
+        txs: [],
+        addressMap: {},
+      };
     }
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -763,7 +769,12 @@ class ServiceHistory extends ServiceBase {
       }
     }
 
-    const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
+    const {
+      data: onChainHistoryTxs,
+      tokens,
+      nfts,
+      addressMap,
+    } = resp.data.data;
 
     const dbAccountCache: {
       [accountId: string]: IDBAccount;
@@ -789,7 +800,10 @@ class ServiceHistory extends ServiceBase {
       )
     ).filter(Boolean);
 
-    return txs;
+    return {
+      txs,
+      addressMap,
+    };
   }
 
   @backgroundMethod()
@@ -849,7 +863,6 @@ class ServiceHistory extends ServiceBase {
           status: getOnChainHistoryTxStatus(resp.data.data.data.status),
         });
       }
-
       return resp.data.data;
     } catch (e) {
       console.log(e);
@@ -1327,6 +1340,30 @@ class ServiceHistory extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  @backgroundMethod()
+  public async updateLocalAddressesInfo({
+    data,
+    merge = true,
+  }: {
+    data: Record<string, IAddressInfo>;
+    merge?: boolean;
+  }) {
+    return this.backgroundApi.simpleDb.addressInfo.updateAddressesInfo({
+      data,
+      merge,
+    });
+  }
+
+  @backgroundMethod()
+  public async clearLocalAddressesInfo() {
+    return this.backgroundApi.simpleDb.addressInfo.clearAddressesInfo();
+  }
+
+  @backgroundMethod()
+  public async getLocalAddressesInfo() {
+    return this.backgroundApi.simpleDb.addressInfo.getAddressesInfo();
+  }
 }
 
 export default ServiceHistory;
