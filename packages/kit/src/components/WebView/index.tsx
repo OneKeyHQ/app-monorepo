@@ -12,6 +12,7 @@ import type { IElectronWebViewEvents, IWebViewOnScroll } from './types';
 import type { ESiteMode } from '../../views/Discovery/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type { WebViewProps as RNWebViewProps } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
   WebViewNavigation,
@@ -48,6 +49,16 @@ interface IWebViewProps extends IElectronWebViewEvents {
    * @description Open website in desktop mode or mobile mode
    */
   siteMode?: ESiteMode;
+  /** @platform native
+   * @description List of origin strings to allow being navigated to.
+   * The strings allow wildcards and follow the same rules as the navigator.
+   * For example, ['https://*.onekey.so', 'https://*.onekey.com'] will allow any URL from these domains.
+   */
+  originWhitelist?: string[];
+  /** @platform native
+   * @description A function that is invoked when the webview calls `window.ReactNativeWebView.postMessage`. Setting this property will inject this global into your webview.
+   */
+  onMessage?: RNWebViewProps['onMessage'];
 }
 
 const WebView: FC<IWebViewProps> = ({

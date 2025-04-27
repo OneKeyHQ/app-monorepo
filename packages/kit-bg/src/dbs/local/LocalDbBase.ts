@@ -225,7 +225,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (options?.verifyPassword) {
       const { verifyPassword } = options;
       ensureSensitiveTextEncoded(verifyPassword);
-      if (!(await this.checkPassword(ctx, verifyPassword))) {
+      if (
+        !(await this.checkPassword({ context: ctx, password: verifyPassword }))
+      ) {
         throw new WrongPassword();
       }
     }
@@ -292,7 +294,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   // ---------------------------------------------- credential
-  async checkPassword(context: IDBContext, password: string): Promise<boolean> {
+  async checkPassword({
+    password,
+    context,
+    useRnJsCrypto,
+  }: {
+    password: string;
+    context: IDBContext;
+    useRnJsCrypto?: boolean;
+  }): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -304,6 +314,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const decrypted = await decryptVerifyString({
         password,
         verifyString: context.verifyString,
+        useRnJsCrypto,
       });
       return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
@@ -311,11 +322,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async verifyPassword(password: string): Promise<void> {
+  async verifyPassword({
+    password,
+    useRnJsCrypto,
+  }: {
+    password: string;
+    useRnJsCrypto?: boolean;
+  }): Promise<void> {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
-      const isValid = await this.checkPassword(ctx, password);
+      const isValid = await this.checkPassword({
+        password,
+        context: ctx,
+        useRnJsCrypto,
+      });
       if (isValid) {
         return;
       }
@@ -445,13 +466,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     oldPassword,
     newPassword,
     isCreateMode,
+    useRnJsCrypto,
   }: {
     oldPassword: string;
     newPassword: string;
     isCreateMode?: boolean;
+    useRnJsCrypto?: boolean;
   }): Promise<void> {
     if (oldPassword) {
-      await this.verifyPassword(oldPassword);
+      await this.verifyPassword({ password: oldPassword, useRnJsCrypto });
     }
     if (!oldPassword && !isCreateMode) {
       throw new Error('changePassword ERROR: oldPassword is required');

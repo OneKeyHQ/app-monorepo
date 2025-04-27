@@ -158,6 +158,10 @@ function normalizeConfig({ platform, config }) {
       developmentConsts.platforms.web,
       developmentConsts.platforms.webEmbed,
     ].includes(platform) && ['@babel/plugin-transform-optional-chaining'],
+    [
+      developmentConsts.platforms.web,
+      developmentConsts.platforms.webEmbed,
+    ].includes(platform) && ['@babel/plugin-transform-numeric-separator'],
     isDev && !isJest && !isNative && ['react-refresh/babel'],
     // Need to adapt to the new version of the metro build system.
     isDev &&
