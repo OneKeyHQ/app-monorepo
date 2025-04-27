@@ -79,6 +79,13 @@ export function WebEmbedDevConfig() {
       >
         Test Tracking Event
       </Button>
+      <Button
+        onPress={() => {
+          void webembedApiProxy.test.captureException();
+        }}
+      >
+        Test Capture Exception
+      </Button>
     </YStack>
   );
 }
