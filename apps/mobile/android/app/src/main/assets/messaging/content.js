@@ -1,3 +1,5 @@
+/* eslint-disable unicorn/prefer-global-this */
+/* eslint-disable no-undef */
 /* eslint-disable no-eval */
 console.log(`content:start`);
 const ReactNativeWebView = {
@@ -8,10 +10,10 @@ const ReactNativeWebView = {
     });
   },
 };
-// eslint-disable-next-line no-undef
-globalThis.wrappedJSObject.ReactNativeWebView = cloneInto(
+
+window.wrappedJSObject.ReactNativeWebView = cloneInto(
   ReactNativeWebView,
-  globalThis,
+  window,
   {
     cloneFunctions: true,
   },
