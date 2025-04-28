@@ -85,7 +85,7 @@ public class GeckoViewExtended extends GeckoView implements WebExtension.Message
             return;
         }
         rt.getWebExtensionController()
-                .ensureBuiltIn("resource://android/assets/messaging/", "messaging@notesnook.com")
+                .ensureBuiltIn("resource://android/assets/messaging/", "messaging@onekey.so")
                 .accept(
                         extension -> {
 

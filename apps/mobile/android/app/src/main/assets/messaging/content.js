@@ -1,7 +1,7 @@
 /* eslint-disable no-eval */
 console.log(`content:start`);
-let ReactNativeWebView = {
-  postMessage: function (message) {
+const ReactNativeWebView = {
+  postMessage(message) {
     browser.runtime.sendMessage({
       action: 'ReactNativeWebView',
       data: message,
@@ -9,9 +9,9 @@ let ReactNativeWebView = {
   },
 };
 // eslint-disable-next-line no-undef
-window.wrappedJSObject.ReactNativeWebView = cloneInto(
+globalThis.wrappedJSObject.ReactNativeWebView = cloneInto(
   ReactNativeWebView,
-  window,
+  globalThis,
   {
     cloneFunctions: true,
   },
@@ -20,28 +20,27 @@ window.wrappedJSObject.ReactNativeWebView = cloneInto(
 browser.runtime.onMessage.addListener((data, sender) => {
   if (data.inject) {
     try {
-      window.eval(data.inject);
+      globalThis.eval(data.inject);
     } catch (e) {
       return Promise.resolve();
     }
     return Promise.resolve();
-  } else {
-    var event;
-    try {
-      // eslint-disable-next-line no-undef
-      event = new MessageEvent('message', data);
-    } catch (e) {
-      event = document.createEvent('MessageEvent');
-      event.initMessageEvent(
-        'message',
-        true,
-        true,
-        data.data,
-        data.origin,
-        data.lastEventId,
-        data.source,
-      );
-    }
-    document.dispatchEvent(event);
   }
+  let event;
+  try {
+    // eslint-disable-next-line no-undef
+    event = new MessageEvent('message', data);
+  } catch (e) {
+    event = document.createEvent('MessageEvent');
+    event.initMessageEvent(
+      'message',
+      true,
+      true,
+      data.data,
+      data.origin,
+      data.lastEventId,
+      data.source,
+    );
+  }
+  document.dispatchEvent(event);
 });

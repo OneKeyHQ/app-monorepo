@@ -1,9 +1,8 @@
-'use strict';
 const port = browser.runtime.connectNative('browser');
 
 async function sendMessageToTab(message) {
   try {
-    let tabs = await browser.tabs.query({});
+    const tabs = await browser.tabs.query({});
     console.log(`background:tabs:${tabs}`, tabs.length);
     return await browser.tabs.sendMessage(tabs[tabs.length - 1].id, message);
   } catch (e) {
@@ -11,7 +10,7 @@ async function sendMessageToTab(message) {
     return e.toString();
   }
 }
-//监听 app message
+// 监听 app message
 port.onMessage.addListener((request) => {
   if (request.inject) {
     sendMessageToTab(request)
@@ -28,13 +27,12 @@ port.onMessage.addListener((request) => {
   }
 });
 
-//接收 content.js message
+// 接收 content.js message
 browser.runtime.onMessage.addListener((data, sender) => {
-  let action = data.action;
-  console.log('background:content:onMessage:' + action);
+  const action = data.action;
+  console.log(`background:content:onMessage:${action}`);
   if (action === 'ReactNativeWebView') {
     port.postMessage(data.data);
   }
   return Promise.resolve('done');
 });
-
