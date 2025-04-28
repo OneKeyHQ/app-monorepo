@@ -541,6 +541,13 @@ const ThemeColorsGallery = LazyLoadPage(
     ),
 );
 
+const PaginationGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Pagination'
+    ),
+);
+
 const CountDownCalendarAlertGallery = LazyLoadPage(
   () =>
     import(
@@ -801,4 +808,8 @@ export const galleryScreenList: {
     component: ThemeColorsGallery,
   },
   { name: EGalleryRoutes.ComponentAnchor, component: AnchorGallery },
+  {
+    name: EGalleryRoutes.ComponentPagination,
+    component: PaginationGallery,
+  },
 ];
