@@ -1,10 +1,9 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { StackActions } from '@react-navigation/native';
 
 import {
-  Button,
   Icon,
   IconButton,
   Page,
@@ -133,35 +132,53 @@ export function Layout({
                   // urlAccountNavigation.replaceHomePage(navigation);
                 }}
               />
-              <XStack ml="$4" alignItems="center" gap="$2">
-                <Switch
-                  thumbProps={{
-                    children: (
-                      <Stack
-                        alignItems="center"
-                        justifyContent="center"
-                        width="$7"
-                        height="$7"
-                      >
-                        <Icon
-                          color="$text"
-                          size="$5"
-                          name={isDarkTheme ? 'MoonOutline' : 'SunOutline'}
-                        />
-                      </Stack>
-                    ),
-                  }}
-                  value={isDarkTheme}
-                  onChange={toggleTheme}
-                />
-              </XStack>
             </XStack>
-            <Button
-              variant={wideScreen ? 'primary' : 'secondary'}
-              onPress={() => setWideScreen(!wideScreen)}
-            >
-              {wideScreen ? 'Normal' : 'Wide'}
-            </Button>
+
+            <XStack ml="$4" alignItems="center" gap="$2">
+              <Switch
+                thumbProps={{
+                  children: (
+                    <Stack
+                      alignItems="center"
+                      justifyContent="center"
+                      width="$7"
+                      height="$7"
+                    >
+                      <Icon
+                        color="$text"
+                        size="$5"
+                        name={isDarkTheme ? 'MoonOutline' : 'SunOutline'}
+                      />
+                    </Stack>
+                  ),
+                }}
+                value={isDarkTheme}
+                onChange={toggleTheme}
+              />
+
+              <Switch
+                thumbProps={{
+                  children: (
+                    <Stack
+                      alignItems="center"
+                      justifyContent="center"
+                      width="$7"
+                      height="$7"
+                    >
+                      <Icon
+                        color="$text"
+                        size="$5"
+                        name={
+                          wideScreen ? 'MinimizeOutline' : 'MinimizeOutline'
+                        }
+                      />
+                    </Stack>
+                  ),
+                }}
+                value={wideScreen}
+                onChange={() => setWideScreen(!wideScreen)}
+              />
+            </XStack>
           </XStack>
           {componentName ? (
             <Stack gap="$2">
