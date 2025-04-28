@@ -6,6 +6,7 @@ import {
   Icon,
   NATIVE_HIT_SLOP,
   SizableText,
+  Stack,
   XStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -20,6 +21,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { NetworkAvatar } from '../NetworkAvatar';
 
 function AllNetworksManagerTrigger({ num }: { num: number }) {
   const intl = useIntl();
@@ -64,44 +66,78 @@ function AllNetworksManagerTrigger({ num }: { num: number }) {
   }
 
   return (
-    <XStack
-      testID="all-networks-manager-trigger-button"
-      role="button"
-      flexShrink={1}
-      alignItems="center"
-      p="$1"
-      m="$-1"
-      borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      focusable
-      focusVisibleStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
-      hitSlop={NATIVE_HIT_SLOP}
-      userSelect="none"
-      onPress={handleOnPress}
-    >
-      <SizableText size="$bodyMd" flexShrink={1} numberOfLines={1}>
-        {intl.formatMessage(
-          { id: ETranslations.global_count_networks },
-          {
-            count: enabledNetworksCompatibleWithWalletId.length,
-          },
-        )}
-      </SizableText>
-      <Icon
-        name="ChevronDownSmallOutline"
-        color="$iconSubdued"
-        size="$5"
-        flexShrink={0}
-      />
+    <XStack alignItems="center" gap="$1">
+      <XStack alignItems="center">
+        <XStack role="button">
+          {enabledNetworksCompatibleWithWalletId
+            ?.slice(0, 3)
+            .map((item, index) => (
+              <Stack
+                key={index}
+                borderWidth={2}
+                borderColor="$bgApp"
+                borderRadius="$full"
+                ml="$-1.5"
+                zIndex={index}
+              >
+                <NetworkAvatar networkId={item?.id} size="$5" />
+              </Stack>
+            ))}
+          {enabledNetworksCompatibleWithWalletId.length > 3 ? (
+            <XStack
+              px="$1.5"
+              borderWidth={2}
+              borderColor="$bgApp"
+              bg="$gray5"
+              borderRadius="$full"
+              ml="$-1.5"
+              alignItems="center"
+              zIndex={999}
+            >
+              <SizableText size="$bodyMd" color="$text" userSelect="none">
+                +{enabledNetworksCompatibleWithWalletId.length - 3}
+              </SizableText>
+            </XStack>
+          ) : null}
+        </XStack>
+      </XStack>
+      <XStack
+        role="button"
+        flexShrink={1}
+        alignItems="center"
+        p="$1"
+        borderRadius="$2"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        }}
+        hitSlop={NATIVE_HIT_SLOP}
+        userSelect="none"
+        onPress={handleOnPress}
+      >
+        <SizableText size="$bodyMd" flexShrink={1} numberOfLines={1}>
+          {intl.formatMessage(
+            { id: ETranslations.global_count_networks },
+            {
+              count: enabledNetworksCompatibleWithWalletId.length,
+            },
+          )}
+        </SizableText>
+        <Icon
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          size="$5"
+          flexShrink={0}
+        />
+      </XStack>
     </XStack>
   );
 }
