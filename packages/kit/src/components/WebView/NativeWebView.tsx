@@ -180,6 +180,7 @@ const NativeWebView = forwardRef(
             onLoadingStart={webViewOnLoadStart}
             onLoadingFinish={onLoadEnd as any}
             remoteDebugging={debuggingEnabled}
+            {...props}
           />
         );
       }
