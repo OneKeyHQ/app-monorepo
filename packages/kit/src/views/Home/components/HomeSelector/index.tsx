@@ -2,7 +2,10 @@ import { memo } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import { XStack } from '@onekeyhq/components';
-import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
+import {
+  AccountSelectorActiveAccountHome,
+  AllNetworksManagerTrigger,
+} from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
@@ -17,6 +20,7 @@ function HomeSelector(props: IProps) {
       gap="$3"
       {...rest}
     >
+      <AllNetworksManagerTrigger num={num} />
       <NetworkSelectorTriggerHome num={num} recordNetworkHistoryEnabled />
       {!createAddressDisabled ? (
         <AccountSelectorActiveAccountHome num={num} />

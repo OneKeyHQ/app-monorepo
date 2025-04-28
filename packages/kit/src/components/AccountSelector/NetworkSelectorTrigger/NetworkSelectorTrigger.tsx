@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,17 +9,11 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../../hooks/useAllNetwork';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
@@ -97,7 +91,7 @@ function NetworkSelectorTriggerHomeCmp({
   recordNetworkHistoryEnabled?: boolean;
 }) {
   const {
-    activeAccount: { network, wallet },
+    activeAccount: { network },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
@@ -110,47 +104,15 @@ function NetworkSelectorTriggerHomeCmp({
     showChainSelector,
   );
 
-  const { enabledNetworksCompatibleWithWalletId, run } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: wallet?.id ?? '',
-      networkId: network?.id,
-    });
-
-  useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, run);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, run);
-    };
-  }, [run]);
-
   const networkTriggerText = useMemo(() => {
     if (network?.isAllNetworks) {
-      if (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })) {
-        return `${intl.formatMessage({
-          id: ETranslations.global_all_networks,
-        })}`;
-      }
-
       return `${intl.formatMessage({
         id: ETranslations.global_all_networks,
-      })} (${intl.formatMessage(
-        {
-          id: ETranslations.network_enabled_count,
-        },
-        {
-          'count': enabledNetworksCompatibleWithWalletId.length,
-        },
-      )})`;
+      })}`;
     }
 
     return network?.name;
-  }, [
-    enabledNetworksCompatibleWithWalletId.length,
-    intl,
-    network?.isAllNetworks,
-    network?.name,
-    wallet?.id,
-  ]);
+  }, [intl, network?.isAllNetworks, network?.name]);
 
   return (
     <XStack
