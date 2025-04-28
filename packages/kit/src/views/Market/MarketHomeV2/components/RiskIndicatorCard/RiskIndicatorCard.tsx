@@ -13,23 +13,31 @@ export interface IRiskIndicatorCardProps {
 
 const typeConfig: Record<
   IRiskIndicatorCardType,
-  { iconName: IIconProps['name']; iconColor: IColorTokens }
+  {
+    iconName: IIconProps['name'];
+    iconColor: IColorTokens;
+    titleColor: IColorTokens;
+  }
 > = {
   unknown: {
     iconName: 'ShieldQuestionSolid',
     iconColor: '$iconSubdued',
+    titleColor: '$text',
   },
   safe: {
     iconName: 'ShieldCheckDoneSolid',
     iconColor: '$iconSuccess',
+    titleColor: '$text',
   },
   danger: {
     iconName: 'ShieldExclamationSolid',
     iconColor: '$iconCritical',
+    titleColor: '$textCritical',
   },
   info: {
     iconName: 'BookOutline',
     iconColor: '$icon',
+    titleColor: '$text',
   },
 };
 
@@ -49,7 +57,15 @@ export const RiskIndicatorCard: FC<IRiskIndicatorCardProps> = ({
       borderColor="$border-subdued"
       maxWidth={320}
     >
-      <Stack flexDirection="row" alignItems="center" space="$3">
+      <Stack
+        flexDirection="row"
+        alignItems="center"
+        space="$3"
+        paddingBottom="$2"
+        marginBottom="$3"
+        borderBottomWidth={1}
+        borderColor="$border-subdued"
+      >
         <Stack padding="$1">
           <Icon
             name={config.iconName}
@@ -57,7 +73,9 @@ export const RiskIndicatorCard: FC<IRiskIndicatorCardProps> = ({
             size="$5" // Adjust size as needed
           />
         </Stack>
-        <SizableText size="$bodyLgMedium">{title}</SizableText>
+        <SizableText size="$bodyLgMedium" color={config.titleColor}>
+          {title}
+        </SizableText>
       </Stack>
       <SizableText size="$bodyMd" color="$text-subdued" paddingTop="$2">
         {description}
