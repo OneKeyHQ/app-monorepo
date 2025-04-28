@@ -42,6 +42,19 @@ const onekeyUtils = {
     },
   },
 };
+
+const initWebembedReceiveHandler = (times = 0) => {
+  if (!globalThis.$onekey && times < 5000) {
+    setTimeout(() => {
+      initWebembedReceiveHandler(times + 1);
+    }, 50);
+    return;
+  }
+  globalThis.$onekey.$private.webembedReceiveHandler = (payload) => {
+    console.log('webembedReceiveHandler', payload);
+  };
+};
+
 window.wrappedJSObject.$onekey = cloneInto(onekeyUtils, window, {
   cloneFunctions: true,
 });
