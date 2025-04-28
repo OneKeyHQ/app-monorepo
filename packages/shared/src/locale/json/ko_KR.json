@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>지갑을 백업하세요</strong> — 이 기기를 잃어버리면 자금에 대한 접근을 잃게 됩니다",
   "wallet_backup.save_recovery_phrase": "복구 구문 저장",
   "wallet_backup.status_not_backed_up": "백업되지 않음",
+  "wallet_label_private_key": "개인 키",
+  "wallet_label_watch_only": "보기 전용",
   "word": "워드"
 }

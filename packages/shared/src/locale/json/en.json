@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>Backup your wallet</strong> — losing this device means losing access to your funds",
   "wallet_backup.save_recovery_phrase": "Save recovery phrase",
   "wallet_backup.status_not_backed_up": "Not backed up",
+  "wallet_label_private_key": "Private key",
+  "wallet_label_watch_only": "Watch-Only",
   "word": "Word"
 }

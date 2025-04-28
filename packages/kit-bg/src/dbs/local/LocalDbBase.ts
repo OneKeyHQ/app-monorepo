@@ -899,7 +899,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await $appLocale.isReady;
       if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
         wallet.name = $appLocale.intl.formatMessage({
-          id: ETranslations.global_watched,
+          id: ETranslations.wallet_label_watch_only,
         });
       }
       if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
@@ -909,7 +909,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
         wallet.name = $appLocale.intl.formatMessage({
-          id: ETranslations.global_private_key,
+          id: ETranslations.wallet_label_private_key,
         });
       }
     }

@@ -1007,7 +1007,7 @@
   "global.connect_to_wallet_no_confirmation": "我們沒有收到確認。請再試一次。",
   "global.connect_wallet": "連接錢包",
   "global.connected": "已連接",
-  "global.connected_account": "外部帳戶",
+  "global.connected_account": "外部錢包",
   "global.connection_failed": "連接失敗",
   "global.connection_failed_help_text": "請重新連接設備再重試。",
   "global.connection_failed_usb_help_text": "請重新連接 USB 再試一次",
@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>備份你的錢包</strong> — 遺失此裝置意味著失去對你資金的存取權",
   "wallet_backup.save_recovery_phrase": "儲存助記詞",
   "wallet_backup.status_not_backed_up": "未備份",
+  "wallet_label_private_key": "導入錢包",
+  "wallet_label_watch_only": "觀察錢包",
   "word": "單字"
 }

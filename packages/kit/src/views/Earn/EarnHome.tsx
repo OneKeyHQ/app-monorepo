@@ -419,6 +419,7 @@ function Overview({
       $gtLg={{
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'wrap',
         flex: 1,
         gap: '$8',
         p: '$8',
@@ -463,6 +464,7 @@ function Overview({
       {/* 24h earnings */}
       <XStack
         gap="$1.5"
+        paddingRight="$24"
         flexShrink={1}
         $gtLg={{
           flexDirection: 'column-reverse',

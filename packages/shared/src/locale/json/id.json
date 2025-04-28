@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>Cadangkan dompet Anda</strong> — kehilangan perangkat ini berarti kehilangan akses ke dana Anda",
   "wallet_backup.save_recovery_phrase": "Simpan frasa pemulihan",
   "wallet_backup.status_not_backed_up": "Tidak dicadangkan",
+  "wallet_label_private_key": "Kunci pribadi",
+  "wallet_label_watch_only": "Hanya-Lihat",
   "word": "Kata"
 }

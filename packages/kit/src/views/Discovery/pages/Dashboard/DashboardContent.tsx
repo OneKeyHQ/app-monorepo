@@ -120,7 +120,6 @@ function DashboardContent({
             ) : null
           }
           discoveryData={homePageData}
-          isLoading={!!isLoading}
         />
 
         <Stack alignItems="center">

@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>สำรองข้อมูลกระเป๋าเงินของคุณ</strong> — การสูญเสียอุปกรณ์นี้หมายถึงการสูญเสียการเข้าถึงเงินของคุณ",
   "wallet_backup.save_recovery_phrase": "บันทึกวลีการกู้คืน",
   "wallet_backup.status_not_backed_up": "ไม่ได้สำรองข้อมูล",
+  "wallet_label_private_key": "คีย์ส่วนตัว",
+  "wallet_label_watch_only": "ดูอย่างเดียว",
   "word": "คำ"
 }
