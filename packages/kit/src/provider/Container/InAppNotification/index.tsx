@@ -184,7 +184,7 @@ const InAppNotification = () => {
           Number(swapApprovingTransactionRef.current?.resetApproveValue) > 0
         )
       ) {
-        const message = intl.formatMessage(
+        let message = intl.formatMessage(
           {
             id: ETranslations.swap_toast_go_to_swap_desc,
           },
@@ -194,6 +194,17 @@ const InAppNotification = () => {
             provider: swapApprovingTransactionRef.current?.providerName,
           },
         );
+        if (swapApprovingTransactionRef.current?.resetApproveIsMax) {
+          message = intl.formatMessage(
+            {
+              id: ETranslations.swap_toast_go_to_swap_desc_unlimited_approve,
+            },
+            {
+              token: swapApprovingTransactionRef.current?.fromToken.symbol,
+              provider: swapApprovingTransactionRef.current?.providerName,
+            },
+          );
+        }
         handleSwapNavigation(
           ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
             if (
