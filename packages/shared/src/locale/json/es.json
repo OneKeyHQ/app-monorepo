@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>Respalda tu billetera</strong> — perder este dispositivo significa perder acceso a tus fondos",
   "wallet_backup.save_recovery_phrase": "Guardar frase de recuperación",
   "wallet_backup.status_not_backed_up": "No respaldado",
+  "wallet_label_private_key": "Clave privada",
+  "wallet_label_watch_only": "Solo visualización",
   "word": "Palabra"
 }

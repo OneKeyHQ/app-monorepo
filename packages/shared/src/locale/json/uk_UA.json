@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>Створіть резервну копію гаманця</strong> — втрата цього пристрою означає втрату доступу до ваших коштів",
   "wallet_backup.save_recovery_phrase": "Зберегти фразу відновлення",
   "wallet_backup.status_not_backed_up": "Не створено резервну копію",
+  "wallet_label_private_key": "Приватний ключ",
+  "wallet_label_watch_only": "Тільки для перегляду",
   "word": "Слово"
 }

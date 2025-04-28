@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>अपने वॉलेट का बैकअप लें</strong> — इस डिवाइस को खोने का मतलब है कि आपके फंड्स तक पहुंच खोना",
   "wallet_backup.save_recovery_phrase": "रिकवरी वाक्यांश सहेजें",
   "wallet_backup.status_not_backed_up": "बैकअप नहीं लिया गया",
+  "wallet_label_private_key": "प्राइवेट की",
+  "wallet_label_watch_only": "केवल-देखने योग्य",
   "word": "शब्द"
 }

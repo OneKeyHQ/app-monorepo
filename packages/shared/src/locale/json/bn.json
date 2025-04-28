@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>আপনার ওয়ালেট ব্যাকআপ করুন</strong> — এই ডিভাইসটি হারালে আপনার তহবিলে প্রবেশাধিকার হারাবেন",
   "wallet_backup.save_recovery_phrase": "পুনরুদ্ধার বাক্যাংশ সংরক্ষণ করুন",
   "wallet_backup.status_not_backed_up": "ব্যাকআপ করা হয়নি",
+  "wallet_label_private_key": "প্রাইভেট কী",
+  "wallet_label_watch_only": "শুধু-দেখার",
   "word": "শব্দ"
 }

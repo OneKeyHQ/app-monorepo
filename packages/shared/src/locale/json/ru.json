@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>Создайте резервную копию вашего кошелька</strong> — потеря этого устройства означает потерю доступа к вашим средствам",
   "wallet_backup.save_recovery_phrase": "Сохранить фразу восстановления",
   "wallet_backup.status_not_backed_up": "Не сохранено",
+  "wallet_label_private_key": "Приватный ключ",
+  "wallet_label_watch_only": "Только для просмотра",
   "word": "Слово"
 }
