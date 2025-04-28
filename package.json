@@ -78,7 +78,7 @@
     "@polkadot/types": "11.3.1",
     "@polkadot/util-crypto": "12.6.2",
     "@privy-io/react-auth": "2.6.2",
-    "@revenuecat/purchases-js": "^0.15.1",
+    "@revenuecat/purchases-js": "0.15.1",
     "@sentry/browser": "8.42.0",
     "@sentry/core": "8.42.0",
     "@sentry/react": "8.42.0",

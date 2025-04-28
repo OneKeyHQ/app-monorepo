@@ -6928,7 +6928,7 @@ __metadata:
     "@polkadot/types": "npm:11.3.1"
     "@polkadot/util-crypto": "npm:12.6.2"
     "@privy-io/react-auth": "npm:2.6.2"
-    "@revenuecat/purchases-js": "npm:^0.15.1"
+    "@revenuecat/purchases-js": "npm:0.15.1"
     "@sentry/babel-plugin-component-annotate": "npm:2.21.1"
     "@sentry/browser": "npm:8.42.0"
     "@sentry/core": "npm:8.42.0"
@@ -11017,7 +11017,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@revenuecat/purchases-js@npm:^0.15.1":
+"@revenuecat/purchases-js@npm:0.15.1":
   version: 0.15.1
   resolution: "@revenuecat/purchases-js@npm:0.15.1"
   checksum: 10/14eecdd16a047e908a9b50ae6394c32ef55dd203674fcdc22db95d0a089281557e15f5dbfe2ae16a1a2f73abffc6444a35a90d6ab0f0c298ac19d275825bad5e
