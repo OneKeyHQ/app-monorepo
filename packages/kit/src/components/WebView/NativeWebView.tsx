@@ -8,7 +8,6 @@ import {
   useState,
 } from 'react';
 
-import GeckoView from '@ammarahmed/react-native-geckoview';
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
 import { RefreshControl, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -17,6 +16,7 @@ import { WebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';

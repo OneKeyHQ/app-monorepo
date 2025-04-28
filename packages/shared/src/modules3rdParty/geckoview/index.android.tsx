@@ -8,8 +8,7 @@ import {
 
 import type { IGeckoViewProps, IWebViewCommands } from './type';
 
-const GeckoViewNative =
-  requireNativeComponent<IGeckoViewProps>('GeckoView');
+const GeckoViewNative = requireNativeComponent<IGeckoViewProps>('GeckoView');
 
 const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
   (props, ref) => {
@@ -25,6 +24,7 @@ const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
       onLoadingFinish,
       onMessagingDisconnected,
       injectedJavaScript,
+      remoteDebugging,
     } = props;
 
     const currentViewRef = useRef(null);
@@ -86,6 +86,7 @@ const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
         onLoadingFinish={onLoadingFinish}
         onMessagingDisconnected={onMessagingDisconnected}
         injectedJavaScript={injectedJavaScript}
+        remoteDebugging={remoteDebugging}
       />
     );
   },
