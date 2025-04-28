@@ -3,6 +3,9 @@ import { isNil, isPlainObject } from 'lodash';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
+import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+
 import { EAtomNames } from './atomNames';
 import {
   buildJotaiStorageKey,
@@ -72,6 +75,10 @@ function checkAtomNameMatched(key: string, value: string) {
 }
 
 export async function jotaiInit() {
+  console.log('jotaiInit wait localDb ready');
+  await localDb.readyDb;
+  console.log('jotaiInit wait localDb ready done');
+
   const allAtoms = await import('./atoms');
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
   Object.entries(allAtoms).forEach(([key, value]) => {
@@ -88,7 +95,7 @@ export async function jotaiInit() {
       throw new Error(`Atom not defined: ${key}`);
     }
   });
-  console.log('allAtoms : ', allAtoms, atoms, EAtomNames);
+  // console.log('allAtoms : ', allAtoms, atoms, EAtomNames);
 
   await Promise.all(
     Object.entries(atoms).map(async ([key, value]) => {

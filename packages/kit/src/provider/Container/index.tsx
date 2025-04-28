@@ -17,6 +17,7 @@ import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { CreateAddressContainer } from './CreateAddressContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
+import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
@@ -107,6 +108,7 @@ export function Container() {
           <HardwareUiStateContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />
+          <DiskFullWarningDialogContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />

@@ -494,10 +494,10 @@ class ServiceAccountSelector extends ServiceBase {
           eventEmitDisabled,
         });
       } else {
-        console.log('syncDeriveType currentGlobalDeriveType !== deriveType', {
-          currentGlobalDeriveType,
-          deriveType,
-        });
+        // console.log('syncDeriveType currentGlobalDeriveType !== deriveType', {
+        //   currentGlobalDeriveType,
+        //   deriveType,
+        // });
       }
     }
   }
