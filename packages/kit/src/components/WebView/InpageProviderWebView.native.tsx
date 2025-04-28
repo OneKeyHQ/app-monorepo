@@ -36,7 +36,7 @@ const injectedJavaScript = `
   updateMedate();
 `;
 
-const defaultOnMessage = (event: any) => {};
+const defaultOnMessage = (_event: any) => {};
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (

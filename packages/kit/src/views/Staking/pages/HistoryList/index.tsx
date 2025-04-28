@@ -5,13 +5,9 @@ import { useIntl } from 'react-intl';
 
 import {
   Empty,
-  Icon,
   NumberSizeableText,
   Page,
   SectionList,
-  Select,
-  SizableText,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';

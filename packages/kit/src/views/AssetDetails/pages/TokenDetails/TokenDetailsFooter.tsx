@@ -20,8 +20,6 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { marketNavigation } from '../../../Market/marketUtils';
-
 import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsFooter(props: { networkId: string }) {
