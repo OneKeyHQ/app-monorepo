@@ -1,23 +1,70 @@
-import { SizableText, Stack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+
+export interface ITxnsWalletInfo {
+  /** Positive (green) count, e.g. incoming wallets */
+  buy: number;
+  /** Negative (red) count, e.g. outgoing wallets */
+  sell: number;
+}
 
 interface ITxnsProps {
+  /**
+   * Total transactions count (e.g. 53030 -> 53.03K)
+   */
   transactions: number;
-  walletInfo?: string;
+  /**
+   * Wallet info object containing buy & sell counts.
+   */
+  walletInfo?: ITxnsWalletInfo;
 }
 
-function Txns({ transactions, walletInfo }: TxnsProps) {
-  const formattedTransactions = transactions.toLocaleString();
-
+/**
+ * Render transactions statistics with a wallet info breakdown.
+ *
+ * Design reference:
+ *   53.03K
+ *   38.55K/39.64K
+ *
+ * The upper row shows the total transactions. The lower row shows a green
+ * value (e.g. wallets added) and a red value (e.g. wallets removed) separated
+ * by a `/`. Colours follow the design system tokens `$textSuccess` and
+ * `$textCritical`.
+ */
+export function Txns({ transactions, walletInfo }: ITxnsProps) {
   return (
-    <Stack space="$0.5">
-      <SizableText size="$bodyMd">{formattedTransactions}</SizableText>
+    <YStack ai="flex-end" gap="$0.5">
+      {/* Total transactions */}
+      <NumberSizeableText size="$bodyMd" formatter="marketCap">
+        {transactions}
+      </NumberSizeableText>
+
+      {/* Wallet info breakdown */}
       {walletInfo ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {walletInfo}
-        </SizableText>
+        <XStack ai="center" gap="$0.5">
+          <NumberSizeableText
+            size="$bodySm"
+            color="$textSuccess"
+            formatter="marketCap"
+          >
+            {walletInfo.buy}
+          </NumberSizeableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            /
+          </SizableText>
+          <NumberSizeableText
+            size="$bodySm"
+            color="$textCritical"
+            formatter="marketCap"
+          >
+            {walletInfo.sell}
+          </NumberSizeableText>
+        </XStack>
       ) : null}
-    </Stack>
+    </YStack>
   );
 }
-
-export { Txns };

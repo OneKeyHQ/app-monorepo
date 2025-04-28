@@ -12,7 +12,7 @@ export interface IMarketToken {
   turnover: number;
   tokenAge: string;
   audit: string;
-  walletInfo?: string;
+  walletInfo?: import('./Txns').ITxnsWalletInfo;
 }
 
 export const defaultData: IMarketToken[] = [
@@ -30,7 +30,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 6.328e7,
     tokenAge: '2M',
     audit: '6p6xgH...GiPN',
-    walletInfo: '38.55K/39.64K',
+    walletInfo: { buy: 38_550, sell: 39_640 },
   },
   {
     id: '2',
@@ -46,7 +46,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 6.328e7,
     tokenAge: '5D',
     audit: '6p6xgH...GiPN',
-    walletInfo: '38.55K/39.64K',
+    walletInfo: { buy: 38_550, sell: 39_640 },
   },
   {
     id: '3',
@@ -62,7 +62,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 2.705e7,
     tokenAge: '1Y',
     audit: '0xd31a...b89c',
-    walletInfo: '38.55K/39.64K',
+    walletInfo: { buy: 38_550, sell: 39_640 },
   },
   {
     id: '4',
@@ -78,7 +78,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 1.83e8,
     tokenAge: '15Y',
     audit: '1a2b3c...4d5e',
-    walletInfo: '125.3K/165.8K',
+    walletInfo: { buy: 125_300, sell: 165_800 },
   },
   {
     id: '5',
@@ -94,7 +94,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 4.27e7,
     tokenAge: '7Y',
     audit: '8f7e6d...5c4b',
-    walletInfo: '82.7K/93.1K',
+    walletInfo: { buy: 82_700, sell: 93_100 },
   },
   {
     id: '6',
@@ -110,7 +110,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 1.96e7,
     tokenAge: '6Y',
     audit: '3e4f5g...6h7i',
-    walletInfo: '62.4K/81.2K',
+    walletInfo: { buy: 62_400, sell: 81_200 },
   },
   {
     id: '7',
@@ -126,7 +126,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 2.54e7,
     tokenAge: '11Y',
     audit: '9j8k7l...6m5n',
-    walletInfo: '56.8K/73.9K',
+    walletInfo: { buy: 56_800, sell: 73_900 },
   },
   {
     id: '8',
@@ -142,7 +142,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 3.18e7,
     tokenAge: '10Y',
     audit: '4o5p6q...7r8s',
-    walletInfo: '91.3K/103.7K',
+    walletInfo: { buy: 91_300, sell: 103_700 },
   },
   {
     id: '9',
@@ -158,7 +158,7 @@ export const defaultData: IMarketToken[] = [
     turnover: 1.47e7,
     tokenAge: '4Y',
     audit: '9t8u7v...6w5x',
-    walletInfo: '43.2K/59.5K',
+    walletInfo: { buy: 43_200, sell: 59_500 },
   },
   {
     id: '10',
@@ -174,6 +174,6 @@ export const defaultData: IMarketToken[] = [
     turnover: 2.14e7,
     tokenAge: '3Y',
     audit: '4y3z2a...1b0c',
-    walletInfo: '48.6K/65.1K',
+    walletInfo: { buy: 48_600, sell: 65_100 },
   },
 ];

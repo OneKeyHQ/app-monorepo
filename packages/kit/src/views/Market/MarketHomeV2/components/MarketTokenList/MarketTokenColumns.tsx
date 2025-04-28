@@ -4,6 +4,8 @@ import type { ITableColumn } from '@onekeyhq/components';
 import { type IMarketToken } from './MarketTokenData';
 import { Txns } from './Txns';
 
+import type { ITxnsWalletInfo } from './Txns';
+
 export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
   {
     title: 'Name',
@@ -106,14 +108,5 @@ export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
     columnWidth: 100,
     render: (text: string) => <SizableText size="$bodyMd">{text}</SizableText>,
     align: 'center',
-  },
-  {
-    title: 'Wallet Info',
-    dataIndex: 'walletInfo',
-    columnWidth: 100,
-    render: (text: string) => (
-      <SizableText size="$bodyMd">{text || '-'}</SizableText>
-    ),
-    align: 'right',
   },
 ];
