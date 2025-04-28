@@ -1059,12 +1059,13 @@ export default class ServiceSwap extends ServiceBase {
     }));
   }
 
-  cleanApprovingInterval = () => {
+  @backgroundMethod()
+  cleanApprovingInterval() {
     if (this.approvingInterval) {
       clearTimeout(this.approvingInterval);
       this.approvingInterval = undefined;
     }
-  };
+  }
 
   async approvingStateRunSync(networkId: string, txId: string) {
     let enableInterval = true;
