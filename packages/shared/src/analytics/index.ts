@@ -1,5 +1,10 @@
 import Axios from 'axios';
 
+import {
+  EWebEmbedPostMessageType,
+  postMessage,
+} from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
+
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
@@ -63,7 +68,17 @@ export class Analytics {
       this.basicInfo.pageName = eventProps.pageName;
     }
     if (this.instanceId && this.baseURL) {
-      void this.requestEvent(eventName, eventProps);
+      if (platformEnv.isWebEmbed) {
+        postMessage({
+          type: EWebEmbedPostMessageType.TrackEvent,
+          data: {
+            eventName,
+            eventProps,
+          },
+        });
+      } else {
+        void this.requestEvent(eventName, eventProps);
+      }
     } else {
       this.cacheEvents.push([eventName, eventProps]);
     }
