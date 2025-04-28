@@ -4,6 +4,7 @@ import {
 } from '@sentry/react-native';
 import wordLists from 'bip39/src/wordlists/english.json';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
@@ -115,6 +116,11 @@ export const buildBasicOptions = ({
               const newErrorText = textSlices.join(' ');
               // Save error message locally
               onError(newErrorText, event.exception?.values[index].stacktrace);
+
+              // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
+              if (platformEnv.isWebEmbed) {
+                return;
+              }
               if (isFilterErrorAndSkipSentry(event.exception.values[index])) {
                 return null;
               }
