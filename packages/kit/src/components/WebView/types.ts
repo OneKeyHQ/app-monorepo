@@ -63,6 +63,11 @@ export interface IInpageProviderWebViewProps
    * @description Use GeckoView instead of the default WebView on Android. GeckoView is Mozilla's alternative to Android's WebView with better privacy and security features.
    */
   useGeckoView?: boolean;
+  /** @platform native
+   * @description Whether to use the injected native code from cross-inpage-provider-injected/dist/injected/injectedNative.js
+   * @default true
+   */
+  useInjectedNativeCode?: boolean;
 }
 
 export type IElectronWebView = {

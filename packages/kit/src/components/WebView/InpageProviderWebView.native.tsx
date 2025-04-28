@@ -10,7 +10,7 @@ import { ESiteMode } from '../../views/Discovery/types';
 
 // refresh hash: 889263555577754
 // @ts-expect-error
-import injectedNativeCode from './injectedNative.text-js';
+import injectedNativeCode from './injectedNative10.text-js';
 import { NativeWebView } from './NativeWebView';
 
 import type { IInpageProviderWebViewProps } from './types';
@@ -62,6 +62,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       siteMode,
       onMessage,
       useGeckoView,
+      useInjectedNativeCode = true,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -93,7 +94,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onShouldStartLoadWithRequest,
     ]);
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string = injectedNativeCode || '';
+      let code: string = useInjectedNativeCode ? injectedNativeCode : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -104,7 +105,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         `;
       }
       return code;
-    }, [nativeInjectedJavaScriptBeforeContentLoaded]);
+    }, [nativeInjectedJavaScriptBeforeContentLoaded, useInjectedNativeCode]);
 
     const progressLoading = useMemo(() => {
       if (!displayProgressBar) {

@@ -83,6 +83,7 @@ const NativeWebView = forwardRef(
           // console.log('onMessage: ', origin, data);
           // - receive
           if (origin) {
+            console.log('webviewOnMessage', data, origin, typeof data);
             jsBridge.receive(data, { origin });
           }
         } catch {
@@ -178,7 +179,7 @@ const NativeWebView = forwardRef(
               injectedJavaScriptBeforeContentLoaded || ''
             }
             source={{ uri: src }}
-            onMessage={webviewOnMessage}
+            onMessage={webviewOnMessage as any}
             onLoadingProgress={onLoadProgress as any}
             onLoadingStart={webViewOnLoadStart}
             onLoadingFinish={onLoadEnd as any}

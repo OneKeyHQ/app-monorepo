@@ -19,6 +19,33 @@ window.wrappedJSObject.ReactNativeWebView = cloneInto(
   },
 );
 
+window.ReactNativeWebView = ReactNativeWebView;
+
+const onekeyUtils = {
+  $private: {
+    request: (...args) => {
+      return new window.Promise((resolve, reject) => {
+        globalThis.$onekey.$private
+          .request(...args)
+          .then((result) => {
+            resolve(cloneInto(result, window));
+          })
+          .catch((error) => {
+            reject(cloneInto(error, window));
+          });
+      });
+    },
+  },
+  jsBridge: {
+    receive: (...args) => {
+      globalThis.$onekey.jsBridge.receive(...args);
+    },
+  },
+};
+window.wrappedJSObject.$onekey = cloneInto(onekeyUtils, window, {
+  cloneFunctions: true,
+});
+
 browser.runtime.onMessage.addListener((data, sender) => {
   if (data.inject) {
     try {
@@ -28,21 +55,4 @@ browser.runtime.onMessage.addListener((data, sender) => {
     }
     return Promise.resolve();
   }
-  let event;
-  try {
-    // eslint-disable-next-line no-undef
-    event = new MessageEvent('message', data);
-  } catch (e) {
-    event = document.createEvent('MessageEvent');
-    event.initMessageEvent(
-      'message',
-      true,
-      true,
-      data.data,
-      data.origin,
-      data.lastEventId,
-      data.source,
-    );
-  }
-  document.dispatchEvent(event);
 });

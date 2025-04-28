@@ -5,7 +5,7 @@
   "description": "Example messaging web extension.",
   "browser_specific_settings": {
     "gecko": {
-      "strict_min_version": "65.0",
+      "strict_min_version": "100.0",
       "id": "messaging@onekey.so"
     }
   },

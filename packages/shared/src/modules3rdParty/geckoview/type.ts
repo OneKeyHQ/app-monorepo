@@ -11,7 +11,7 @@ export interface IGeckoViewProps extends ViewProps {
   onLoadingError?: (
     event: NativeSyntheticEvent<{ error: string; uri: string }>,
   ) => void;
-  onMessage?: (event: NativeSyntheticEvent<any>) => void;
+  onMessage?: (event: NativeSyntheticEvent<{ data: any; url: string }>) => void;
   onLoadingProgress?: (
     event: NativeSyntheticEvent<{ progress: number }>,
   ) => void;

@@ -1,4 +1,10 @@
-import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from 'react';
 
 import {
   UIManager,
@@ -7,6 +13,7 @@ import {
 } from 'react-native';
 
 import type { IGeckoViewProps, IWebViewCommands } from './type';
+import type { NativeSyntheticEvent } from 'react-native';
 
 const GeckoViewNative = requireNativeComponent<IGeckoViewProps>('GeckoView');
 
@@ -24,6 +31,7 @@ const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
       onLoadingFinish,
       onMessagingDisconnected,
       injectedJavaScript,
+      injectedJavaScriptBeforeContentLoaded,
       remoteDebugging,
     } = props;
 
@@ -53,6 +61,7 @@ const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
         dispatchCommand('postMessage', [message]);
       },
       injectJavaScript: (script: string) => {
+        console.log('--script', script);
         dispatchCommand('injectJavaScript', [script]);
       },
       loadUrl: (url: string) => {
@@ -72,6 +81,20 @@ const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
       },
     }));
 
+    useEffect(() => {
+      setTimeout(() => {
+        dispatchCommand('injectJavaScript', [injectedJavaScript]);
+      }, 10);
+    }, [dispatchCommand, injectedJavaScript, ref]);
+
+    const handleMessage = useCallback(
+      (event: NativeSyntheticEvent<{ data: string; url: string }>) => {
+        event.nativeEvent.url = source?.uri || '';
+        onMessage?.(event);
+      },
+      [onMessage, source?.uri],
+    );
+
     return (
       <GeckoViewNative
         style={style}
@@ -82,10 +105,10 @@ const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
         onLoadingStart={onLoadingStart}
         onLoadingError={onLoadingError}
         onLoadingProgress={onLoadingProgress}
-        onMessage={onMessage}
+        onMessage={handleMessage}
         onLoadingFinish={onLoadingFinish}
         onMessagingDisconnected={onMessagingDisconnected}
-        injectedJavaScript={injectedJavaScript}
+        injectedJavaScript={injectedJavaScriptBeforeContentLoaded}
         remoteDebugging={remoteDebugging}
       />
     );
