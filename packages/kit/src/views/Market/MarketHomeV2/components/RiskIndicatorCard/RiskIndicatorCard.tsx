@@ -60,18 +60,14 @@ export const RiskIndicatorCard: FC<IRiskIndicatorCardProps> = ({
       <Stack
         flexDirection="row"
         alignItems="center"
-        space="$3"
+        gap="$3"
         paddingBottom="$2"
         marginBottom="$3"
         borderBottomWidth={1}
         borderColor="$border-subdued"
       >
         <Stack padding="$1">
-          <Icon
-            name={config.iconName}
-            color={config.iconColor}
-            size="$5" // Adjust size as needed
-          />
+          <Icon name={config.iconName} color={config.iconColor} size="$5" />
         </Stack>
         <SizableText size="$bodyLgMedium" color={config.titleColor}>
           {title}
