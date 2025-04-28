@@ -17,6 +17,7 @@ export interface IGeckoViewProps extends ViewProps {
   ) => void;
   onMessagingDisconnected?: () => void;
   injectedJavaScript?: string;
+  injectedJavaScriptBeforeContentLoaded?: string;
 }
 
 export type IWebViewCommands = {
