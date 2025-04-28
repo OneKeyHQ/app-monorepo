@@ -1631,6 +1631,8 @@
   "network_enable_count": "{count} ネットワークを有効にする",
   "network_enable_more": "より多くのネットワークを有効にする",
   "network_enabled_count": "{count} 有効",
+  "network_fee_suggested_by_dapp_description": "dAppが提案するネットワーク手数料は、このトランザクションのデフォルト設定を上書きします",
+  "network_fee_suggested_by_dapp_label": "dAppによって提案されました",
   "network_invisible_in_all_network_tooltip_title": "'すべてのネットワーク'ビューに隠れる",
   "network_none_selected": "ネットワークが選択されていません",
   "network_not_enabled": "有効ではありません",

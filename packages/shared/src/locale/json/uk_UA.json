@@ -1631,6 +1631,8 @@
   "network_enable_count": "Увімкнути {count} мережі",
   "network_enable_more": "Увімкнути більше мереж",
   "network_enabled_count": "{count} увімкнено",
+  "network_fee_suggested_by_dapp_description": "Комісія мережі, запропонована dApp, замінить вашу типову комісію для цієї транзакції",
+  "network_fee_suggested_by_dapp_label": "Запропоновано dApp",
   "network_invisible_in_all_network_tooltip_title": "Приховано в перегляді 'Усі мережі'",
   "network_none_selected": "Мережі не вибрано",
   "network_not_enabled": "Не ввімкнено",

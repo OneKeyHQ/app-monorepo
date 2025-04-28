@@ -1631,6 +1631,8 @@
   "network_enable_count": "Ativar {count} redes",
   "network_enable_more": "Ativar mais redes",
   "network_enabled_count": "{count} habilitado",
+  "network_fee_suggested_by_dapp_description": "A taxa de rede sugerida pelo dApp substituirá seu padrão para esta transação",
+  "network_fee_suggested_by_dapp_label": "Sugerido pelo dApp",
   "network_invisible_in_all_network_tooltip_title": "Oculto na visualização 'Todas as redes'",
   "network_none_selected": "Nenhuma rede selecionada",
   "network_not_enabled": "Não habilitado",

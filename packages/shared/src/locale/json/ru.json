@@ -1631,6 +1631,8 @@
   "network_enable_count": "Включить {count} сетей",
   "network_enable_more": "Включить больше сетей",
   "network_enabled_count": "{count} включено",
+  "network_fee_suggested_by_dapp_description": "Комиссия сети, предложенная dApp, заменит вашу комиссию по умолчанию для этой транзакции",
+  "network_fee_suggested_by_dapp_label": "Предложено dApp",
   "network_invisible_in_all_network_tooltip_title": "Скрыто в представлении 'Все сети'",
   "network_none_selected": "Сети не выбраны",
   "network_not_enabled": "Не включено",

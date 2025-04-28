@@ -1631,6 +1631,8 @@
   "network_enable_count": "{count} নেটওয়ার্ক সক্রিয় করুন",
   "network_enable_more": "আরও নেটওয়ার্ক সক্রিয় করুন",
   "network_enabled_count": "{count} সক্রিয়",
+  "network_fee_suggested_by_dapp_description": "dApp প্রস্তাবিত নেটওয়ার্ক ফি এই লেনদেনের জন্য আপনার ডিফল্টকে অগ্রাহ্য করবে",
+  "network_fee_suggested_by_dapp_label": "dApp দ্বারা প্রস্তাবিত",
   "network_invisible_in_all_network_tooltip_title": "'সব নেটওয়ার্ক' দৃশ্যে লুকানো",
   "network_none_selected": "কোনো নেটওয়ার্ক নির্বাচিত হয়নি",
   "network_not_enabled": "সক্রিয় নয়",

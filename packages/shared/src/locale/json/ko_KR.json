@@ -1631,6 +1631,8 @@
   "network_enable_count": "{count}개의 네트워크를 활성화",
   "network_enable_more": "더 많은 네트워크 활성화",
   "network_enabled_count": "{count} 활성화됨",
+  "network_fee_suggested_by_dapp_description": "dApp에서 제안한 네트워크 수수료가 이 트랜잭션에 대한 기본 설정을 재정의합니다",
+  "network_fee_suggested_by_dapp_label": "dApp에서 제안함",
   "network_invisible_in_all_network_tooltip_title": "'모든 네트워크' 보기에서 숨김",
   "network_none_selected": "네트워크가 선택되지 않았습니다",
   "network_not_enabled": "사용 불가",

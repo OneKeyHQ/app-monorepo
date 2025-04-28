@@ -1636,6 +1636,8 @@
   network_enable_count = 'network_enable_count',
   network_enable_more = 'network_enable_more',
   network_enabled_count = 'network_enabled_count',
+  network_fee_suggested_by_dapp_description = 'network_fee_suggested_by_dapp_description',
+  network_fee_suggested_by_dapp_label = 'network_fee_suggested_by_dapp_label',
   network_invisible_in_all_network_tooltip_title = 'network_invisible_in_all_network_tooltip_title',
   network_none_selected = 'network_none_selected',
   network_not_enabled = 'network_not_enabled',

@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   Checkbox,
   Form,
@@ -2006,6 +2007,13 @@ function TxFeeEditor(props: IProps) {
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$80">
         <Stack gap="$5">
           {renderFeeTypeSelector()}
+          <Alert
+            icon="GasOutline"
+            type="info"
+            description={intl.formatMessage({
+              id: ETranslations.network_fee_suggested_by_dapp_description,
+            })}
+          />
           {renderFeeEditorForm()}
           <Checkbox
             description={intl.formatMessage(

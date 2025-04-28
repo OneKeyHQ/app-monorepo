@@ -1631,6 +1631,8 @@
   "network_enable_count": "Aktifkan {count} jaringan",
   "network_enable_more": "Aktifkan lebih banyak jaringan",
   "network_enabled_count": "{count} diaktifkan",
+  "network_fee_suggested_by_dapp_description": "Biaya jaringan yang disarankan oleh dApp akan menggantikan pengaturan default Anda untuk transaksi ini",
+  "network_fee_suggested_by_dapp_label": "Disarankan oleh dApp",
   "network_invisible_in_all_network_tooltip_title": "Tersembunyi dalam tampilan 'Semua jaringan'",
   "network_none_selected": "Tidak ada jaringan yang dipilih",
   "network_not_enabled": "Tidak diaktifkan",

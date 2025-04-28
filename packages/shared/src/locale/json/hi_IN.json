@@ -1631,6 +1631,8 @@
   "network_enable_count": "{count} नेटवर्क सक्षम करें",
   "network_enable_more": "अधिक नेटवर्क सक्षम करें",
   "network_enabled_count": "{count} सक्षम",
+  "network_fee_suggested_by_dapp_description": "dApp-सुझाए गए नेटवर्क शुल्क इस लेनदेन के लिए आपके डिफ़ॉल्ट को ओवरराइड करेंगे",
+  "network_fee_suggested_by_dapp_label": "dApp द्वारा सुझाया गया",
   "network_invisible_in_all_network_tooltip_title": "'सभी नेटवर्क' दृश्य में छिपा हुआ",
   "network_none_selected": "कोई नेटवर्क चयनित नहीं",
   "network_not_enabled": "सक्रिय नहीं है",

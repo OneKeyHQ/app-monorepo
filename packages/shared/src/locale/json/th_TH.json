@@ -1631,6 +1631,8 @@
   "network_enable_count": "เปิดใช้งาน {count} เครือข่าย",
   "network_enable_more": "เปิดใช้งานเครือข่ายเพิ่มเติม",
   "network_enabled_count": "{count} เปิดใช้งาน",
+  "network_fee_suggested_by_dapp_description": "ค่าธรรมเนียมเครือข่ายที่แนะนำโดย dApp จะมีผลแทนที่ค่าปกติของคุณสำหรับการทำธุรกรรมนี้",
+  "network_fee_suggested_by_dapp_label": "แนะนำโดย dApp",
   "network_invisible_in_all_network_tooltip_title": "ซ่อนในมุมมอง 'เครือข่ายทั้งหมด'",
   "network_none_selected": "ไม่มีเครือข่ายที่เลือก",
   "network_not_enabled": "ไม่ได้เปิดใช้งาน",
