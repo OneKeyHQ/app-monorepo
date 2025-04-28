@@ -181,7 +181,16 @@ export function DesktopLeftSideBar({
       }}
     >
       {platformEnv.isDesktopMac ? (
-        <XStack h={52} ai="center" jc="flex-end" px="$4">
+        // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
+        <XStack
+          $platform-web={{
+            'app-region': 'drag',
+          }}
+          h={52}
+          ai="center"
+          jc="flex-end"
+          px="$4"
+        >
           <HeaderCollapseButton isRootScreen hideWhenCollapse />
         </XStack>
       ) : null}
