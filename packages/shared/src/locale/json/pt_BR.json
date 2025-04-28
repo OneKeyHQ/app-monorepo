@@ -2744,5 +2744,7 @@
   "wallet_backup.backup_warning": "<strong>Faça backup da sua carteira</strong> — perder este dispositivo significa perder acesso aos seus fundos",
   "wallet_backup.save_recovery_phrase": "Salvar frase de recuperação",
   "wallet_backup.status_not_backed_up": "Não foi feito backup",
+  "wallet_label_private_key": "Chave privada",
+  "wallet_label_watch_only": "Somente Visualização",
   "word": "Palavra"
 }
