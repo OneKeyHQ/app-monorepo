@@ -43,6 +43,7 @@ const NativeWebView = forwardRef(
       src,
       receiveHandler,
       onLoadProgress,
+      injectedJavaScript,
       injectedJavaScriptBeforeContentLoaded,
       onMessage,
       onLoadStart,
@@ -173,7 +174,9 @@ const NativeWebView = forwardRef(
           <GeckoView
             style={styles.container}
             ref={webviewRef as any}
-            injectedJavaScript={injectedJavaScriptBeforeContentLoaded || ''}
+            injectedJavaScriptBeforeContentLoaded={
+              injectedJavaScriptBeforeContentLoaded || ''
+            }
             source={{ uri: src }}
             onMessage={webviewOnMessage}
             onLoadingProgress={onLoadProgress as any}
