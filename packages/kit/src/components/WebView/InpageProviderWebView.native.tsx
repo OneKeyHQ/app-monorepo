@@ -61,6 +61,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       webviewDebuggingEnabled,
       siteMode,
       onMessage,
+      useGeckoView,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -189,6 +190,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
           // https://github.com/react-native-webview/react-native-webview/issues/1779
           onMessage={onMessage || defaultOnMessage}
+          useGeckoView={useGeckoView}
           {...nativeWebviewProps}
         />
       </Stack>

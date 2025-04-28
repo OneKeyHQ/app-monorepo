@@ -59,6 +59,10 @@ export interface IInpageProviderWebViewProps
    * @description A function that is invoked when the webview calls `window.ReactNativeWebView.postMessage`. Setting this property will inject this global into your webview.
    */
   onMessage?: (event: WebViewMessageEvent) => void;
+  /** @platform android
+   * @description Use GeckoView instead of the default WebView on Android. GeckoView is Mozilla's alternative to Android's WebView with better privacy and security features.
+   */
+  useGeckoView?: boolean;
 }
 
 export type IElectronWebView = {

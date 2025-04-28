@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 
+import GeckoView from '@ammarahmed/react-native-geckoview';
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
 import { RefreshControl, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -50,6 +51,7 @@ const NativeWebView = forwardRef(
       onScroll,
       pullToRefreshEnabled = true,
       webviewDebuggingEnabled,
+      useGeckoView,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -165,58 +167,89 @@ const NativeWebView = forwardRef(
       webviewDebuggingEnabled,
     ]);
 
-    const renderWebView = (
-      <WebView
-        cacheEnabled={false}
-        style={styles.container}
-        originWhitelist={['*']}
-        allowsBackForwardNavigationGestures
-        fraudulentWebsiteWarningEnabled={false}
-        onLoadProgress={onLoadProgress}
-        ref={webviewRef}
-        injectedJavaScriptBeforeContentLoaded={
-          injectedJavaScriptBeforeContentLoaded || ''
-        }
-        // the video element must also include the `playsinline` attribute
-        allowsInlineMediaPlayback
-        // disable video autoplay
-        mediaPlaybackRequiresUserAction
-        source={{ uri: src }}
-        onMessage={webviewOnMessage}
-        onLoadStart={webViewOnLoadStart}
-        onLoad={onLoad}
-        onLoadEnd={onLoadEnd}
-        renderError={renderError}
-        renderLoading={renderLoading}
-        pullToRefreshEnabled={pullToRefreshEnabled}
-        onScroll={(e) => {
-          if (platformEnv.isNativeAndroid && pullToRefreshEnabled) {
-            const {
-              contentOffset,
-              contentSize,
-              contentInset,
-              layoutMeasurement,
-            } = e.nativeEvent;
-            // @ts-expect-error
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            refreshControlRef?.current?._nativeRef?.setNativeProps?.({
-              enabled:
-                contentOffset?.y === 0 &&
-                Math.round(contentSize.height) >
-                  Math.round(
-                    layoutMeasurement.height +
-                      contentInset.top +
-                      contentInset.bottom,
-                  ),
-            });
+    const renderWebView = useMemo(() => {
+      if (useGeckoView) {
+        return (
+          <GeckoView
+            style={styles.container}
+            ref={webviewRef as any}
+            injectedJavaScript={injectedJavaScriptBeforeContentLoaded || ''}
+            source={{ uri: src }}
+            onLoadingStart={webViewOnLoadStart}
+            onLoadingFinish={onLoadEnd as any}
+            remoteDebugging={debuggingEnabled}
+          />
+        );
+      }
+      return (
+        <WebView
+          cacheEnabled={false}
+          style={styles.container}
+          originWhitelist={['*']}
+          allowsBackForwardNavigationGestures
+          fraudulentWebsiteWarningEnabled={false}
+          onLoadProgress={onLoadProgress}
+          ref={webviewRef}
+          injectedJavaScriptBeforeContentLoaded={
+            injectedJavaScriptBeforeContentLoaded || ''
           }
-          void onScroll?.(e);
-        }}
-        scrollEventThrottle={16}
-        webviewDebuggingEnabled={debuggingEnabled}
-        {...props}
-      />
-    );
+          // the video element must also include the `playsinline` attribute
+          allowsInlineMediaPlayback
+          // disable video autoplay
+          mediaPlaybackRequiresUserAction
+          source={{ uri: src }}
+          onMessage={webviewOnMessage}
+          onLoadStart={webViewOnLoadStart}
+          onLoad={onLoad}
+          onLoadEnd={onLoadEnd}
+          renderError={renderError}
+          renderLoading={renderLoading}
+          pullToRefreshEnabled={pullToRefreshEnabled}
+          onScroll={(e) => {
+            if (platformEnv.isNativeAndroid && pullToRefreshEnabled) {
+              const {
+                contentOffset,
+                contentSize,
+                contentInset,
+                layoutMeasurement,
+              } = e.nativeEvent;
+              // @ts-expect-error
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+              refreshControlRef?.current?._nativeRef?.setNativeProps?.({
+                enabled:
+                  contentOffset?.y === 0 &&
+                  Math.round(contentSize.height) >
+                    Math.round(
+                      layoutMeasurement.height +
+                        contentInset.top +
+                        contentInset.bottom,
+                    ),
+              });
+            }
+            void onScroll?.(e);
+          }}
+          scrollEventThrottle={16}
+          webviewDebuggingEnabled={debuggingEnabled}
+          {...props}
+        />
+      );
+    }, [
+      debuggingEnabled,
+      injectedJavaScriptBeforeContentLoaded,
+      onLoad,
+      onLoadEnd,
+      onLoadProgress,
+      onScroll,
+      props,
+      pullToRefreshEnabled,
+      refreshControlRef,
+      renderError,
+      renderLoading,
+      src,
+      useGeckoView,
+      webViewOnLoadStart,
+      webviewOnMessage,
+    ]);
 
     return platformEnv.isNativeAndroid && pullToRefreshEnabled ? (
       <RefreshControl
