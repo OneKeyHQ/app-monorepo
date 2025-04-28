@@ -1,20 +1,23 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { StackActions } from '@react-navigation/native';
 
 import {
   Button,
+  Icon,
   IconButton,
   Page,
   ScrollView,
   SizableText,
   Stack,
+  Switch,
   XStack,
 } from '@onekeyhq/components';
 import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ERootRoutes,
   ETabDeveloperRoutes,
@@ -83,6 +86,12 @@ export function Layout({
   const navigation = useAppNavigation();
   const [wideScreen, setWideScreen] = useState(initialWideScreen);
   const contentWidth = wideScreen ? 960 : 576;
+  const [settings] = useSettingsPersistAtom();
+  const isDarkTheme = settings.theme === 'dark';
+
+  const toggleTheme = async (isDark: boolean) => {
+    await backgroundApiProxy.serviceSetting.setTheme(isDark ? 'dark' : 'light');
+  };
 
   return (
     <Page skipLoading={skipLoading}>
@@ -124,29 +133,34 @@ export function Layout({
                   // urlAccountNavigation.replaceHomePage(navigation);
                 }}
               />
-              <Button
-                ml="$4"
-                onPress={async () => {
-                  await backgroundApiProxy.serviceSetting.setTheme('light');
-                }}
-              >
-                Light Theme
-              </Button>
-              <Button
-                ml="$4"
-                variant="primary"
-                onPress={async () => {
-                  await backgroundApiProxy.serviceSetting.setTheme('dark');
-                }}
-              >
-                Dark Theme
-              </Button>
+              <XStack ml="$4" alignItems="center" gap="$2">
+                <Switch
+                  thumbProps={{
+                    children: (
+                      <Stack
+                        alignItems="center"
+                        justifyContent="center"
+                        width="$7"
+                        height="$7"
+                      >
+                        <Icon
+                          color="$text"
+                          size="$5"
+                          name={isDarkTheme ? 'MoonOutline' : 'SunOutline'}
+                        />
+                      </Stack>
+                    ),
+                  }}
+                  value={isDarkTheme}
+                  onChange={toggleTheme}
+                />
+              </XStack>
             </XStack>
             <Button
               variant={wideScreen ? 'primary' : 'secondary'}
               onPress={() => setWideScreen(!wideScreen)}
             >
-              {wideScreen ? 'Normal Mode' : 'Wide Mode'}
+              {wideScreen ? 'Normal' : 'Wide'}
             </Button>
           </XStack>
           {componentName ? (
