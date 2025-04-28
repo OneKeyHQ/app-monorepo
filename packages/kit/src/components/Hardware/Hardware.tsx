@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -7,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import type { IColorTokens, UseFormReturn } from '@onekeyhq/components';
 import {
   Alert,
+  Anchor,
   Button,
   Dialog,
   ESwitchSize,
@@ -14,6 +16,7 @@ import {
   IconButton,
   Input,
   LottieView,
+  Popover,
   SizableText,
   Spinner,
   Stack,
@@ -415,6 +418,41 @@ export function EnterPhase({
         <Form.Field
           name="passphrase"
           label={intl.formatMessage({ id: ETranslations.global_passphrase })}
+          description={
+            <XStack gap="$1" pt="$2">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.passphrase_character_limit,
+                })}
+              </SizableText>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.passphrase_allowed_characters_title,
+                })}
+                renderTrigger={
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="InfoCircleOutline"
+                  />
+                }
+                renderContent={() => (
+                  <Stack
+                    p="$5"
+                    $md={{
+                      pt: '$0',
+                    }}
+                  >
+                    <Anchor href="https://www.ascii-code.com/" size="$bodyMd">
+                      {intl.formatMessage({
+                        id: ETranslations.passphrase_allowed_characters_desc,
+                      })}
+                    </Anchor>
+                  </Stack>
+                )}
+              />
+            </XStack>
+          }
           rules={{
             maxLength: {
               value: 50,
@@ -489,12 +527,22 @@ export function EnterPhase({
           <Form.Field
             horizontal
             name="hideImmediately"
-            label={intl.formatMessage({
-              id: ETranslations.form_keep_hidden_wallet_label,
-            })}
-            description={intl.formatMessage({
-              id: ETranslations.form_keep_hidden_wallet_label_desc,
-            })}
+            description={
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.hidden_wallet_accessibility_title,
+                  },
+                  {
+                    strong: (chunks: ReactNode[]) => (
+                      <SizableText size="$bodyMdMedium" color="$text">
+                        {chunks}
+                      </SizableText>
+                    ),
+                  },
+                )}
+              </SizableText>
+            }
           >
             <Switch size={ESwitchSize.small} />
           </Form.Field>
