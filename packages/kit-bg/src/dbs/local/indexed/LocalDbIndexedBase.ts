@@ -334,20 +334,21 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     | IndexedDBObjectStorePromised<IIndexedDBSchemaMap, T[], T, 'versionchange'>
     | undefined {
     const { db, tx, storeName, bucketName, nativeDB } = params;
-    try {
-      const store = this._getObjectStoreAtVersionChange(tx, storeName);
-      // const dd = await store.get('');
-      return store;
-    } catch (error) {
-      errorUtils.autoPrintErrorIgnore(error);
+    const bucketNameFromStoreName =
+      indexedDBUtils.getBucketNameByStoreName(storeName);
 
-      const bucketNameFromStoreName =
-        indexedDBUtils.getBucketNameByStoreName(storeName);
-      if (
-        bucketName === bucketNameFromStoreName ||
-        bucketName ===
-          INDEXED_BUCKET_NAME_BACKUP_PREFIX + bucketNameFromStoreName
-      ) {
+    if (
+      bucketName === bucketNameFromStoreName ||
+      bucketName === INDEXED_BUCKET_NAME_BACKUP_PREFIX + bucketNameFromStoreName
+    ) {
+      try {
+        const store = this._getObjectStoreAtVersionChange(tx, storeName);
+        // const dd = await store.get('');
+        return store;
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const createdStore = this._createObjectStoreAtVersionChange({
           db,
           nativeDB,
@@ -363,8 +364,9 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         }
         return store;
       }
-      return undefined;
     }
+
+    return undefined;
   }
 
   private async _getOrAddRecord<T extends ELocalDBStoreNames>(

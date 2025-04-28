@@ -129,56 +129,43 @@ async function migrateOneKeyV5LegacyDBToBucket({
   const migrateResults: IMigrateRecordsResult[] = [];
 
   // #region migrate account bucket
+  const objectStoreNames: ELocalDBStoreNames[] = [
+    ELocalDBStoreNames.CloudSyncItem,
+    ELocalDBStoreNames.Context,
+    ELocalDBStoreNames.Credential,
+    ELocalDBStoreNames.Device,
+    ELocalDBStoreNames.Wallet,
+    ELocalDBStoreNames.IndexedAccount,
+    ELocalDBStoreNames.Account,
+  ];
+  const updateRecords = {
+    cloudSyncItem: legacyCloudSyncItems,
+    context: legacyContexts,
+    credential: legacyCredentials,
+    device: legacyDevices,
+    wallet: legacyWallets,
+    indexedAccount: legacyIndexedAccounts,
+    account: legacyAccounts,
+  };
   const accountBucketTx = accountBucket.transaction(
-    [
-      ELocalDBStoreNames.Account,
-      ELocalDBStoreNames.Context,
-      ELocalDBStoreNames.Credential,
-      ELocalDBStoreNames.Device,
-      ELocalDBStoreNames.IndexedAccount,
-      ELocalDBStoreNames.Wallet,
-    ],
+    objectStoreNames,
     'readwrite',
   );
-
   migrateResults.push(
     ...(await migrateAccountBucketRecords({
       tx: accountBucketTx,
-      records: {
-        cloudSyncItem: legacyCloudSyncItems,
-        context: legacyContexts,
-        account: legacyAccounts,
-        credential: legacyCredentials,
-        device: legacyDevices,
-        indexedAccount: legacyIndexedAccounts,
-        wallet: legacyWallets,
-      },
+      records: updateRecords,
     })),
   );
 
   const backupAccountBucketTx = backupAccountBucket.transaction(
-    [
-      ELocalDBStoreNames.Account,
-      ELocalDBStoreNames.Context,
-      ELocalDBStoreNames.Credential,
-      ELocalDBStoreNames.Device,
-      ELocalDBStoreNames.IndexedAccount,
-      ELocalDBStoreNames.Wallet,
-    ],
+    objectStoreNames,
     'readwrite',
   );
   migrateResults.push(
     ...(await migrateAccountBucketRecords({
       tx: backupAccountBucketTx,
-      records: {
-        cloudSyncItem: legacyCloudSyncItems,
-        context: legacyContexts,
-        account: legacyAccounts,
-        credential: legacyCredentials,
-        device: legacyDevices,
-        indexedAccount: legacyIndexedAccounts,
-        wallet: legacyWallets,
-      },
+      records: updateRecords,
     })),
   );
   // #endregion

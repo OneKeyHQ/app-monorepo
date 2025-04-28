@@ -85,12 +85,23 @@ export class IndexedDBTransactionPromised<
   objectStore<StoreName extends TxStores[number]>(
     name: StoreName,
   ): IndexedDBObjectStorePromised<DBTypes, TxStores, StoreName, Mode> {
-    const store = this.nativeTx.objectStore(name);
-    return new IndexedDBObjectStorePromised({
-      tx: this,
-      store,
-      mode: this.mode,
-    });
+    // eslint-disable-next-line no-useless-catch
+    try {
+      const store = this.nativeTx.objectStore(name);
+      return new IndexedDBObjectStorePromised({
+        tx: this,
+        store,
+        mode: this.mode,
+      });
+    } catch (error) {
+      // console.error((error as Error)?.message, {
+      //   storeName: name,
+      //   dbName: this?.nativeTx?.db?.name,
+      //   txStoreNames: this?.nativeTx?.objectStoreNames,
+      // });
+
+      throw error;
+    }
   }
 
   onabort: ((this: IDBTransaction, ev: Event) => any) | null = null;
