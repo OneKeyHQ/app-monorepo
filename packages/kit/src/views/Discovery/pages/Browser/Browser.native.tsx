@@ -70,9 +70,12 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
       handleGoBackHome: () => Promise<void> | void;
     }) => {
       const isDiscoveryTabFocused = useRef(true);
-      useListenTabFocusState(ETabRoutes.Discovery, (isFocus: boolean) => {
-        isDiscoveryTabFocused.current = isFocus;
-      });
+      useListenTabFocusState(
+        ETabRoutes.Discovery,
+        (isFocus: boolean, isHideByModal: boolean) => {
+          isDiscoveryTabFocused.current = isFocus && !isHideByModal;
+        },
+      );
 
       useEffect(() => {
         // Only add back handler on Android
