@@ -2,6 +2,47 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-eval */
 console.log(`content:start`);
+const callbackMap = new Map();
+let callbackId = 0;
+const initWebembedReceiveHandler = (times = 0) => {
+  if (!globalThis.$onekey && times < 5000) {
+    setTimeout(() => {
+      initWebembedReceiveHandler(times + 1);
+    }, 50);
+    return;
+  }
+  globalThis.$onekey.$private.webembedReceiveHandler = (payload) => {
+    return new Promise((resolve, reject) => {
+      callbackMap.set(callbackId, { resolve, reject });
+      callbackId += 1;
+      console.log('webembedReceiveHandler', payload);
+      const event = new CustomEvent('webembedReceiveHandler', {
+        detail: {
+          data: cloneInto(payload, window),
+          callbackId,
+        },
+      });
+      window.dispatchEvent(event);
+    });
+  };
+};
+initWebembedReceiveHandler();
+
+const webEmbed = {
+  callWebEmbedApiMethod: (callbackId, error, response) => {
+    const callback = callbackMap.get(callbackId);
+    if (error) {
+      callback.reject(error);
+    } else {
+      callback.resolve(response);
+    }
+    callbackMap.delete(callbackId);
+  },
+};
+window.wrappedJSObject.$webEmbed = cloneInto(webEmbed, window, {
+  cloneFunctions: true,
+});
+
 const ReactNativeWebView = {
   postMessage(message) {
     browser.runtime.sendMessage({
@@ -42,19 +83,6 @@ const onekeyUtils = {
     },
   },
 };
-
-const initWebembedReceiveHandler = (times = 0) => {
-  if (!globalThis.$onekey && times < 5000) {
-    setTimeout(() => {
-      initWebembedReceiveHandler(times + 1);
-    }, 50);
-    return;
-  }
-  globalThis.$onekey.$private.webembedReceiveHandler = (payload) => {
-    console.log('webembedReceiveHandler', payload);
-  };
-};
-initWebembedReceiveHandler();
 
 window.wrappedJSObject.$onekey = cloneInto(onekeyUtils, window, {
   cloneFunctions: true,
