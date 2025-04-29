@@ -123,6 +123,7 @@ const PaginationGallery = () => (
       'For a large number of pages, use ellipses (...) to simplify the interface',
       'The current page should be clearly distinguished from other pages',
     ]}
+    filePath={__CURRENT_FILE_PATH__}
     elements={[
       {
         title: 'Default',
