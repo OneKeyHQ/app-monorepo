@@ -13,14 +13,15 @@ const initWebembedReceiveHandler = (times = 0) => {
   }
   globalThis.$onekey.$private.webembedReceiveHandler = (payload) => {
     return new Promise((resolve, reject) => {
-      callbackMap.set(callbackId, { resolve, reject });
+      const currentCallbackId = callbackId;
       callbackId += 1;
+      callbackMap.set(currentCallbackId, { resolve, reject });
       console.log('webembedReceiveHandler', payload);
       const event = new CustomEvent('webembedReceiveHandler', {
         detail: cloneInto(
           {
             data: payload,
-            callbackId,
+            callbackId: currentCallbackId,
           },
           window,
         ),
