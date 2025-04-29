@@ -3,6 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
+import localDb from '../dbs/local/localDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
@@ -14,6 +15,7 @@ class ServiceBootstrap extends ServiceBase {
   }
 
   public async init() {
+    await localDb.readyDb;
     await this.backgroundApi.serviceSetting.initSystemLocale();
     await Promise.all([
       this.backgroundApi.serviceSetting.refreshLocaleMessages(),

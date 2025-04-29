@@ -12,7 +12,7 @@ function interceptTimeout(
   ) {
     return methodOld(() => {
       if (global[checkProp]) {
-        console.error(`${method} is disabled`);
+        console.error(`interceptTimeout ERROR: ${method} is disabled`);
         return;
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return

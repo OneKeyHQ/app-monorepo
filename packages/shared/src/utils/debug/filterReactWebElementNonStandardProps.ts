@@ -7,10 +7,12 @@ const nonStandardPropsKeys: {
 } = {
   'button': {
     'borderCurve': true,
+    'trackID': true,
   },
   'div': {
     'contentContainerStyle': true,
     'borderCurve': true,
+    'trackID': true,
     'delayMs': true,
     'resizeMode': true,
     'data-on-drag-start': true,

@@ -10,9 +10,9 @@ export function useJotaiContextRootStore(data: IJotaiContextStoreData) {
   dataRef.current = data;
 
   useEffect(() => {
-    console.log('JotaiContextRootStore mount', dataRef.current);
+    // console.log('JotaiContextRootStore mount', dataRef.current);
     return () => {
-      console.log('JotaiContextRootStore unmount', dataRef.current);
+      // console.log('JotaiContextRootStore unmount', dataRef.current);
       jotaiContextStore.removeStore(dataRef.current);
     };
   }, []);

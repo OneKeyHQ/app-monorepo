@@ -24,11 +24,13 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import {
+  EIndexedDBBucketNames,
+  type IDBCloudSyncItem,
+} from '../dbs/local/types';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-
-import type { IDBCloudSyncItem } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceCustomRpc extends ServiceBase {
@@ -113,15 +115,12 @@ class ServiceCustomRpc extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.withTransaction(async (tx) => {
-      if (syncItems?.length) {
-        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
-          tx,
-          items: syncItems,
-        });
-      }
-      await fn();
-    });
+    if (syncItems?.length) {
+      await this.backgroundApi.localDb.addAndUpdateSyncItems({
+        items: syncItems,
+        fn,
+      });
+    }
   }
 
   async withCustomNetworkCloudSync({
@@ -144,15 +143,12 @@ class ServiceCustomRpc extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.withTransaction(async (tx) => {
-      if (syncItems?.length) {
-        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
-          tx,
-          items: syncItems,
-        });
-      }
-      await fn();
-    });
+    if (syncItems?.length) {
+      await this.backgroundApi.localDb.addAndUpdateSyncItems({
+        items: syncItems,
+        fn,
+      });
+    }
   }
 
   /*= ===============================

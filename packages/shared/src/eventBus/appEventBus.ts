@@ -18,6 +18,8 @@ import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
+import { EAppEventBusNames } from './appEventBusNames';
+
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type {
@@ -36,95 +38,6 @@ export enum EFinalizeWalletSetupSteps {
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
   Ready = 'Ready',
-}
-export enum EAppEventBusNames {
-  ConfirmAccountSelected = 'ConfirmAccountSelected',
-  WalletClear = 'WalletClear',
-  WalletUpdate = 'WalletUpdate',
-  WalletRemove = 'WalletRemove',
-  WalletRename = 'WalletRename',
-  AccountUpdate = 'AccountUpdate',
-  AccountRemove = 'AccountRemove',
-  AddDBAccountsToWallet = 'AddDBAccountsToWallet',
-  RenameDBAccounts = 'RenameDBAccounts',
-  CloseCurrentBrowserTab = 'CloseCurrentBrowserTab',
-  DAppConnectUpdate = 'DAppConnectUpdate',
-  OnSwitchDAppNetwork = 'OnSwitchDAppNetwork',
-  DAppNetworkUpdate = 'DAppNetworkUpdate',
-  DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
-  SyncDappAccountToHomeAccount = 'SyncDappAccountToHomeAccount',
-  GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
-  NetworkDeriveTypeChanged = 'NetworkDeriveTypeChanged',
-  AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
-  FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
-  FinalizeWalletSetupError = 'FinalizeWalletSetupError',
-  WalletConnectOpenModal = 'WalletConnectOpenModal',
-  WalletConnectCloseModal = 'WalletConnectCloseModal',
-  WalletConnectModalState = 'WalletConnectModalState',
-  ShowDialogLoading = 'ShowDialogLoading',
-  HideDialogLoading = 'HideDialogLoading',
-  ShowToast = 'ShowToast',
-  ShowAirGapQrcode = 'ShowAirGapQrcode',
-  HideAirGapQrcode = 'HideAirGapQrcode',
-  RealmInit = 'RealmInit',
-  V4RealmInit = 'V4RealmInit',
-  SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
-  UpdateWalletAvatarByDeviceSerialNo = 'UpdateWalletAvatarByDeviceSerialNo',
-  BatchCreateAccount = 'BatchCreateAccount',
-  ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
-  ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
-  ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
-  BeginFirmwareUpdate = 'BeginFirmwareUpdate', // notification begin hardware update, stop hardware progressing
-  FinishFirmwareUpdate = 'FinishFirmwareUpdate',
-  LoadWebEmbedWebView = 'LoadWebEmbedWebView',
-  LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
-  HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
-  SwitchMarketHomeTab = 'SwitchMarketHomeTab',
-  RefreshMarketWatchList = 'RefreshMarketWatchList',
-  RefreshCustomRpcList = 'RefreshCustomRpcList',
-  ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
-  TxFeeInfoChanged = 'TxFeeInfoChanged',
-  SignatureConfirmContainerMounted = 'SignatureConfirmContainerMounted',
-  CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
-  HardCloseHardwareUiStateDialog = 'CloseHardwareUiStateDialog',
-  HistoryTxStatusChanged = 'HistoryTxStatusChanged',
-  EstimateTxFeeRetry = 'estimateTxFeeRetry',
-  TokenListUpdate = 'TokenListUpdate',
-  TabListStateUpdate = 'TabListStateUpdate',
-  RefreshTokenList = 'RefreshTokenList',
-  RefreshHistoryList = 'RefreshHistoryList',
-  RefreshBookmarkList = 'RefreshBookmarkList',
-  AccountDataUpdate = 'AccountDataUpdate',
-  onDragBeginInListView = 'onDragBeginInListView',
-  onDragEndInListView = 'onDragEndInListView',
-  SidePanel_BgToUI = 'SidePanel_BgToUI',
-  SidePanel_UIToBg = 'SidePanel_UIToBg',
-  SwapQuoteEvent = 'SwapQuoteEvent',
-  SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
-  SwapApprovingSuccess = 'SwapApprovingSuccess',
-  AddedCustomNetwork = 'AddedCustomNetwork',
-  ShowFindInWebPage = 'ShowFindInWebPage',
-  ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
-  RefreshNetInfo = 'RefreshNetInfo',
-  ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
-  PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
-  PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
-  PrimeDeviceLogout = 'PrimeDeviceLogout',
-  PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',
-  CreateAddressByDialog = 'CreateAddressByDialog',
-  CheckAddressBeforeSending = 'CheckAddressBeforeSending',
-  HideTabBar = 'HideTabBar',
-  RequestHardwareUIDialog = 'RequestHardwareUIDialog',
-  RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
-  EnabledNetworksChanged = 'EnabledNetworksChanged',
-  CheckWalletBackupStatus = 'CheckWalletBackupStatus',
-  // AccountNameChanged = 'AccountNameChanged',
-  // CurrencyChanged = 'CurrencyChanged',
-  // BackupRequired = 'BackupRequired',
-  // NotificationStatusChanged = 'NotificationStatusChanged',
-  // StoreInitedFromPersistor = 'StoreInitedFromPersistor',
-  // Unlocked = 'Unlocked',
-  // HttpServerRequest = 'HttpServerRequest',
 }
 
 export type IEventBusPayloadShowToast = {
@@ -299,6 +212,7 @@ export interface IAppEventBusPayload {
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
+  [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
     crossChainStatus?: ESwapCrossChainStatus;
@@ -352,7 +266,7 @@ export enum EEventBusBroadcastMethodNames {
 }
 type IEventBusBroadcastMethod = (type: string, payload: any) => Promise<void>;
 
-class AppEventBus extends CrossEventEmitter {
+class AppEventBusClass extends CrossEventEmitter {
   broadcastMethodsResolver: Record<
     EEventBusBroadcastMethodNames,
     ((value: IEventBusBroadcastMethod) => void) | undefined
@@ -517,10 +431,8 @@ class AppEventBus extends CrossEventEmitter {
     }
   }
 }
-const appEventBus = new AppEventBus();
+const appEventBus = new AppEventBusClass();
 
-if (process.env.NODE_ENV !== 'production') {
-  appGlobals.$$appEventBus = appEventBus;
-}
+appGlobals.$appEventBus = appEventBus;
 
-export { appEventBus };
+export { appEventBus, AppEventBusClass, EAppEventBusNames };
