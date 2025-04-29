@@ -122,7 +122,7 @@ export function normalizeErrorProps(
     undefined;
 
   if (key === ETranslations.auth_error_passcode_incorrect) {
-    console.log('IncorrectPasswordI18nKey before', key, msg);
+    // console.log('IncorrectPasswordI18nKey before', key, msg);
   }
 
   if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
@@ -131,7 +131,7 @@ export function normalizeErrorProps(
       (props as IOneKeyError)?.info,
     );
     if (key === ETranslations.auth_error_passcode_incorrect) {
-      console.log('IncorrectPasswordI18nKey', key, msg);
+      // console.log('IncorrectPasswordI18nKey', key, msg);
     }
     if (msg === key) {
       msg = [config?.defaultMessage, key].filter(Boolean).join(' ');
