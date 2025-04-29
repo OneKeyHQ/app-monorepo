@@ -54,6 +54,7 @@ const initWebembedReceiveHandler = (times = 0) => {
     console.log('webembedReceiveHandler', payload);
   };
 };
+initWebembedReceiveHandler();
 
 window.wrappedJSObject.$onekey = cloneInto(onekeyUtils, window, {
   cloneFunctions: true,
