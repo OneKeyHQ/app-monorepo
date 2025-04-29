@@ -24,7 +24,9 @@ const webembedReceiveHandler = (payload) => {
   });
 };
 const bindWebembedReceiveHandler = () => {
-  globalThis.$onekey.$private.webembedReceiveHandler = webembedReceiveHandler;
+  if (globalThis?.$onekey?.$private) {
+    globalThis.$onekey.$private.webembedReceiveHandler = webembedReceiveHandler;
+  }
 };
 
 const webEmbed = {
@@ -73,11 +75,13 @@ const onekeyUtils = {
           .catch((error) => {
             reject(cloneInto(error, window));
           });
+        bindWebembedReceiveHandler();
       });
     },
   },
   jsBridge: {
     receive: (...args) => {
+      bindWebembedReceiveHandler();
       globalThis.$onekey.jsBridge.receive(...args);
     },
   },
@@ -88,8 +92,8 @@ window.wrappedJSObject.$onekey = cloneInto(onekeyUtils, window, {
 });
 
 browser.runtime.onMessage.addListener((data, sender) => {
+  bindWebembedReceiveHandler();
   if (data.inject) {
-    bindWebembedReceiveHandler();
     try {
       globalThis.eval(data.inject);
     } catch (e) {
