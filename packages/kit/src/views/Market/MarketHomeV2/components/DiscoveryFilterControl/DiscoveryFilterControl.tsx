@@ -6,34 +6,30 @@ import type {
   ISelectRenderTriggerProps,
 } from '@onekeyhq/components/src/forms/Select/type';
 
-export enum EFilterOption {
-  Trending = 'trending',
-  TopSearches = 'top_searches',
-  Newest = 'newest',
-}
+export type IEFilterOption = 'trending' | 'top_searches' | 'newest';
 
 export interface IDiscoveryFilterControlProps {
-  value?: EFilterOption;
-  onChange?: (value: EFilterOption) => void;
+  value?: IEFilterOption;
+  onChange?: (value: IEFilterOption) => void;
   testID?: string;
 }
 
 const OPTIONS = [
   {
     label: 'Trending',
-    value: EFilterOption.Trending,
+    value: 'trending',
     leading: <Icon name="FireSolid" color="$iconSubdued" size="$5" />,
   },
   {
     label: 'Top searches',
-    value: EFilterOption.TopSearches,
+    value: 'top_searches',
     leading: (
       <Icon name="ChartTrendingUpSolid" color="$iconSubdued" size="$5" />
     ),
   },
   {
     label: 'Newest',
-    value: EFilterOption.Newest,
+    value: 'newest',
     leading: (
       <Icon name="ClockTimeHistorySolid" color="$iconSubdued" size="$5" />
     ),
@@ -41,15 +37,15 @@ const OPTIONS = [
 ];
 
 export function DiscoveryFilterControl({
-  value = EFilterOption.Trending,
+  value = 'trending',
   onChange,
   testID = 'discovery-filter-control',
 }: IDiscoveryFilterControlProps) {
-  const [selectedValue, setSelectedValue] = useState<EFilterOption>(value);
+  const [selectedValue, setSelectedValue] = useState<IEFilterOption>(value);
 
   const handleChange = useCallback(
     (val: string) => {
-      const newValue = val as EFilterOption;
+      const newValue = val as IEFilterOption;
       setSelectedValue(newValue);
       onChange?.(newValue);
     },
