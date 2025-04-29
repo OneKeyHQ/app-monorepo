@@ -178,6 +178,44 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkWalletIsBoundReferralCode({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: { data: boolean };
+    }>('/rebate/v1/wallet/check', {
+      params: { address, networkId },
+    });
+    return response.data.data.data;
+  }
+
+  @backgroundMethod()
+  async getBoundReferralCodeUnsignedMessage({
+    address,
+    networkId,
+    inviteCode,
+  }: {
+    address: string;
+    networkId: string;
+    inviteCode: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: { message: string };
+    }>('/rebate/v1/wallet/message', {
+      address,
+      networkId,
+      inviteCode,
+    });
+    return response.data.data.message;
+  }
+
+  @backgroundMethod()
   async getWalletReferralCode({ walletId }: { walletId: string }) {
     return this.backgroundApi.simpleDb.referralCode.getWalletReferralCode({
       walletId,
