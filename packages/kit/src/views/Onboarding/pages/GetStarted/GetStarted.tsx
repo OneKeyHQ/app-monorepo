@@ -1,10 +1,16 @@
+import { useEffect } from 'react';
+
+import { useNavigation } from 'react-router-dom';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   IconButton,
   Page,
   View,
+  rootNavigationRef,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -19,6 +25,12 @@ export function GetStarted({
   const { top: topInset } = useSafeAreaInsets();
   const top = isFullModal ? topInset : '$5';
 
+  useEffect(() => {
+    return () => {
+      defaultLogger.account.wallet.onboardingExit();
+    };
+  }, []);
+
   return (
     <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
@@ -31,11 +43,7 @@ export function GetStarted({
 
         <View position="absolute" left="$5" top={top}>
           <Page.Close>
-            <IconButton
-              testID="onboarding-exit-button"
-              icon="CrossedLargeOutline"
-              variant="tertiary"
-            />
+            <IconButton icon="CrossedLargeOutline" variant="tertiary" />
           </Page.Close>
         </View>
       </Page.Body>
