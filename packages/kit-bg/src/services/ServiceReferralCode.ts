@@ -12,6 +12,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
+import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -173,6 +175,27 @@ class ServiceReferralCode extends ServiceBase {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
     return postConfig;
+  }
+
+  @backgroundMethod()
+  async getWalletReferralCode({ walletId }: { walletId: string }) {
+    return this.backgroundApi.simpleDb.referralCode.getWalletReferralCode({
+      walletId,
+    });
+  }
+
+  @backgroundMethod()
+  async setWalletReferralCode({
+    walletId,
+    referralCodeInfo,
+  }: {
+    walletId: string;
+    referralCodeInfo: IWalletReferralCode;
+  }) {
+    return this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
+      walletId,
+      referralCodeInfo,
+    });
   }
 }
 
