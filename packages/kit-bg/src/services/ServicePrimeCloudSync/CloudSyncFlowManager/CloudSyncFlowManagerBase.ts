@@ -15,15 +15,17 @@ import type {
   IExistingSyncItemsInfo,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { IS_DB_BUCKET_SUPPORT } from '../../../dbs/local/consts';
 import { ELocalDBStoreNames } from '../../../dbs/local/localDBStoreNames';
+import {
+  EIndexedDBBucketNames,
+  type IDBCloudSyncItem,
+  type IDBDevice,
+  type ILocalDBTransaction,
+} from '../../../dbs/local/types';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-import type {
-  IDBCloudSyncItem,
-  IDBDevice,
-  ILocalDBTransaction,
-} from '../../../dbs/local/types';
 
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
@@ -212,6 +214,36 @@ export abstract class CloudSyncFlowManagerBase<
     }
   }
 
+  async getSyncItem({
+    shouldDecrypt,
+    target,
+    syncCredential,
+  }: {
+    shouldDecrypt?: boolean; // decrypt the data to rawDataJson
+    target: ICloudSyncTargetMap[T];
+    syncCredential: ICloudSyncCredential | undefined;
+  }): Promise<IDBCloudSyncItem | undefined> {
+    if (!(await this.isSupportSync(target))) {
+      return undefined;
+    }
+
+    return this.backgroundApi.localDb.withTransaction(
+      // EIndexedDBBucketNames.cloudSync,
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        return this.txGetSyncItem({
+          tx,
+          shouldDecrypt,
+          target,
+          syncCredential,
+        });
+      },
+      {
+        readOnly: true,
+      },
+    );
+  }
+
   async txGetSyncItem({
     tx,
     shouldDecrypt,
@@ -293,12 +325,27 @@ export abstract class CloudSyncFlowManagerBase<
         canSyncWithoutServer ||
         (await this.backgroundApi.servicePrimeCloudSync.isCloudSyncIsAvailable())
       ) {
-        existingSyncItem = await this.txGetSyncItem({
-          tx,
-          shouldDecrypt: true,
-          target,
-          syncCredential,
-        });
+        if (IS_DB_BUCKET_SUPPORT) {
+          // TODO TransactionInactiveError: Failed to execute 'get' on 'IDBObjectStore': The transaction has finished.
+          // existingSyncItem = await this.getSyncItem({
+          //   shouldDecrypt: true,
+          //   target,
+          //   syncCredential,
+          // });
+          existingSyncItem = await this.txGetSyncItem({
+            tx,
+            shouldDecrypt: true,
+            target,
+            syncCredential,
+          });
+        } else {
+          existingSyncItem = await this.txGetSyncItem({
+            tx,
+            shouldDecrypt: true,
+            target,
+            syncCredential,
+          });
+        }
       }
 
       if (
@@ -363,16 +410,30 @@ export abstract class CloudSyncFlowManagerBase<
 
     await onExistingSyncItemsInfo(existingSyncItemsInfo);
 
-    const txResult = await runDbTxFn({ tx });
-
     if (newSyncItems.length) {
-      await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
-        tx,
-        items: newSyncItems,
-        // we will startSyncFlowForItems in the end, so skip upload to server here
-        skipUploadToServer: true,
-      });
+      if (IS_DB_BUCKET_SUPPORT) {
+        // void this.backgroundApi.localDb.addAndUpdateSyncItems({
+        //   items: newSyncItems,
+        //   // we will startSyncFlowForItems in the end, so skip upload to server here
+        //   skipUploadToServer: true,
+        // });
+        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+          tx,
+          items: newSyncItems,
+          // we will startSyncFlowForItems in the end, so skip upload to server here
+          skipUploadToServer: true,
+        });
+      } else {
+        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+          tx,
+          items: newSyncItems,
+          // we will startSyncFlowForItems in the end, so skip upload to server here
+          skipUploadToServer: true,
+        });
+      }
     }
+
+    const txResult = await runDbTxFn({ tx });
 
     if (!skipServerSyncFlow) {
       const localItems = [...newSyncItems, ...existingSyncItems].filter(

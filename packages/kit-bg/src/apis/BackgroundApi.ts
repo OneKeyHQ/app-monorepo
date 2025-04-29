@@ -617,5 +617,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceReferralCode', { value });
     return value;
   }
+
+  get serviceDBBackup() {
+    const ServiceDBBackup =
+      require('../services/ServiceDBBackup') as typeof import('../services/ServiceDBBackup');
+    const value = new ServiceDBBackup.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDBBackup', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

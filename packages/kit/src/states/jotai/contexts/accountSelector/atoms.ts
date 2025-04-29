@@ -84,10 +84,10 @@ export function useSelectedAccount({
   );
 
   if (debugName === 'HomePage') {
-    console.log(
-      'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
-      selectedAccountOfNum,
-    );
+    // console.log(
+    //   'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
+    //   selectedAccountOfNum,
+    // );
   }
   return useMemo(() => {
     let selectedAccount = selectedAccountOfNum;

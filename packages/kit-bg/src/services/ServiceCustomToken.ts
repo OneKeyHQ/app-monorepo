@@ -10,12 +10,15 @@ import {
   type ICloudSyncCustomToken,
 } from '@onekeyhq/shared/types/token';
 
+import {
+  EIndexedDBBucketNames,
+  type IDBCloudSyncItem,
+} from '../dbs/local/types';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountsParamsForApi } from './ServiceAllNetwork/ServiceAllNetwork';
-import type { IDBCloudSyncItem } from '../dbs/local/types';
 import type { ICustomTokenDBStruct } from '../dbs/simple/entity/SimpleDbEntityCustomTokens';
 
 @backgroundClass()
@@ -72,15 +75,12 @@ class ServiceCustomToken extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.withTransaction(async (tx) => {
-      if (syncItems?.length) {
-        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
-          tx,
-          items: syncItems,
-        });
-      }
-      await fn();
-    });
+    if (syncItems?.length) {
+      await this.backgroundApi.localDb.addAndUpdateSyncItems({
+        items: syncItems,
+        fn,
+      });
+    }
   }
 
   @backgroundMethod()

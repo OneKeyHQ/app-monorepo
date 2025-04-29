@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -340,6 +341,10 @@ const PasswordVerifyContainer = ({
             skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
+            defaultLogger.setting.page.resetApp({
+              reason: 'WrongPasscodeMaxAttempts',
+            });
+
             // reset app
             try {
               // disable setInterval on ext popup
