@@ -83,7 +83,6 @@ const NativeWebView = forwardRef(
           // console.log('onMessage: ', origin, data);
           // - receive
           if (origin) {
-            console.log('webviewOnMessage', data, origin, typeof data);
             jsBridge.receive(data, { origin });
           }
         } catch {
