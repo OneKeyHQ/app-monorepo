@@ -14,6 +14,10 @@ module.exports = ({
 }) => {
   const config = {
     entry: {
+      // injectedNative: path.join(
+      //   basePath,
+      //   '../../node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedNative.js',
+      // ),
       sentry: path.join(basePath, 'sentry.js'),
       main: path.join(basePath, 'index.js'),
     },
