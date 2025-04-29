@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isString } from 'lodash';
 
+import platformEnv from '../platformEnv';
+
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 import { IndexedDBTransactionPromised } from './IndexedDBTransactionPromised';

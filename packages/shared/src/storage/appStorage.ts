@@ -5,7 +5,6 @@ import nativeAsyncStorageInstance from './instance/nativeAsyncStorageInstance';
 import { buildAppStorageFactory } from './syncStorage';
 
 import type { IAppStorageHub } from './appStorageTypes';
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 const originalClear = nativeAsyncStorageInstance.clear;
 // https://stackoverflow.com/questions/46736268/react-native-asyncstorage-clear-is-failing-on-ios
