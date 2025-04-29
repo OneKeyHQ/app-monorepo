@@ -14,6 +14,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -21,7 +22,6 @@ import { getEndpointInfo } from '../endpoints';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
