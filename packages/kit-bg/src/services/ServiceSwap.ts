@@ -1059,12 +1059,13 @@ export default class ServiceSwap extends ServiceBase {
     }));
   }
 
-  cleanApprovingInterval = () => {
+  @backgroundMethod()
+  async cleanApprovingInterval() {
     if (this.approvingInterval) {
       clearTimeout(this.approvingInterval);
       this.approvingInterval = undefined;
     }
-  };
+  }
 
   async approvingStateRunSync(networkId: string, txId: string) {
     let enableInterval = true;
@@ -1115,7 +1116,7 @@ export default class ServiceSwap extends ServiceBase {
         this.approvingIntervalCount += 1;
         void this.approvingStateAction();
       } else {
-        this.cleanApprovingInterval();
+        void this.cleanApprovingInterval();
         this.approvingIntervalCount = 0;
       }
     }
@@ -1123,7 +1124,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async approvingStateAction() {
-    this.cleanApprovingInterval();
+    void this.cleanApprovingInterval();
     const approvingTransaction = await this.getApprovingTransaction();
     if (approvingTransaction && approvingTransaction.txId) {
       this.approvingInterval = setTimeout(() => {

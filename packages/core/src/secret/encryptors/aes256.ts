@@ -128,7 +128,7 @@ async function encryptAsync({
     throw new IncorrectPassword();
   }
   if (!useRnJsCrypto) {
-    console.log('encryptAsync useRnJsCrypto', useRnJsCrypto);
+    // console.log('encryptAsync useRnJsCrypto', useRnJsCrypto);
   }
 
   if (
@@ -200,7 +200,7 @@ async function decryptAsync({
     throw new IncorrectPassword();
   }
   if (!useRnJsCrypto) {
-    console.log('decryptAsync useRnJsCrypto', useRnJsCrypto);
+    // console.log('decryptAsync useRnJsCrypto', useRnJsCrypto);
   }
   if (
     platformEnv.isNative &&

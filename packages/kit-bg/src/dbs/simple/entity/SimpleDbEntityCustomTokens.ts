@@ -44,6 +44,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   override enableCache = false;
 
+  @backgroundMethod()
   override async getRawData(): Promise<
     ICustomTokenDBStruct | null | undefined
   > {
@@ -53,7 +54,13 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
         rawData as unknown as ICustomTokenDBStructV1Legacy,
       );
     }
-    return rawData;
+    return (
+      rawData ?? {
+        tokens: {},
+        hiddenMap: {},
+        customMap: {},
+      }
+    );
   }
 
   async isV1LegacyData(
@@ -130,6 +137,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   async migrateFromV1LegacyData() {
     if (await this.isV1LegacyData()) {
+      console.log('migrateCustomTokens from v1 legacy data');
       await this.setRawData((rawData) => {
         // the param rawData is automatically converted to ICustomTokenDBStruct by getRawData()
         if (rawData) {
@@ -141,6 +149,10 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
           customMap: {},
         };
       });
+    } else {
+      console.log(
+        'migrateCustomTokens from v1 legacy data skip: no legacy data',
+      );
     }
   }
 

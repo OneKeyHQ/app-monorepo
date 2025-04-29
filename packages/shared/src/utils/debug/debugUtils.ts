@@ -4,6 +4,8 @@ import { isEmpty, isPlainObject } from 'lodash';
 
 import stringUtils from '../stringUtils';
 
+const logEnabled = false;
+
 export function useDebugComponentRemountLog({
   name,
   payload,
@@ -18,6 +20,9 @@ export function useDebugComponentRemountLog({
   payloadRef.current = payload;
 
   useEffect(() => {
+    if (!logEnabled) {
+      return;
+    }
     if (process.env.NODE_ENV !== 'production') {
       console.groupCollapsed(
         `@@ComponentRemountLog mounted: ${nameRef.current}`,
