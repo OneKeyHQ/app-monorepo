@@ -10,7 +10,7 @@ import { ESiteMode } from '../../views/Discovery/types';
 
 // refresh hash: 889263555577754
 // @ts-expect-error
-import injectedNativeCode from './injectedNative10.text-js';
+import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
 
 import type { IInpageProviderWebViewProps } from './types';
