@@ -158,8 +158,8 @@ export class BackgroundApiProxyBase
         backgroundApi: this.backgroundApi,
       });
 
-      if (serviceApi[backgroundMethodName]) {
-        const resultPromise = serviceApi[backgroundMethodName].call(
+      if (serviceApi[backgroundMethodName] && serviceApi[methodName]) {
+        const resultPromise = serviceApi[methodName].call(
           serviceApi,
           ...params,
         );

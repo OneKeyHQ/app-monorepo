@@ -11,6 +11,7 @@ export enum EModalReferFriendsRoutes {
 export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferAFriend]: {
     utmSource?: string;
+    code?: string;
   };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
   [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;

@@ -4,15 +4,20 @@ import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type BackgroundApi from '@onekeyhq/kit-bg/src/apis/BackgroundApi';
 import type BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
+import type {
+  EIndexedDBBucketNames,
+  IIndexedDBSchemaMap,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
 import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import type { DefaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import type { AppEventBusClass } from './eventBus/appEventBus';
+import type { IndexedDBPromised } from './IndexedDBPromised';
 import type { IAppStorage } from './storage/syncStorage';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type Realm from 'realm';
 
@@ -25,6 +30,7 @@ export type IAppGlobals = {
   $defaultLogger?: DefaultLogger;
   $Toast?: IToast;
   $appStorage?: IAppStorage;
+  $appEventBus?: AppEventBusClass;
   // Ext internal (ui,background,contentScript)
   extJsBridgeUiToBg: JsBridgeBase;
   extJsBridgeOffscreenToBg: JsBridgeBase;
@@ -43,8 +49,11 @@ export type IAppGlobals = {
   $$realm?: Realm;
   $$realmV4?: Realm;
   $$localforage?: any;
-  $$appEventBus?: any;
   $$platformEnv?: any;
+  $$indexedDBBuckets?: Record<
+    EIndexedDBBucketNames,
+    IndexedDBPromised<IIndexedDBSchemaMap>
+  >;
 };
 
 const appGlobals: IAppGlobals = {

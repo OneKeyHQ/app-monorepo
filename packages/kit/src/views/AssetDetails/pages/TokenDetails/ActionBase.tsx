@@ -17,6 +17,7 @@ export const ActionBase = ({
   walletId,
   networkId,
   tokenAddress,
+  tokenSymbol,
   type,
   label,
   icon,
@@ -59,6 +60,12 @@ export const ActionBase = ({
     setLoading(true);
 
     if (type === 'buy') {
+      defaultLogger.wallet.walletActions.buyStarted({
+        tokenAddress,
+        tokenSymbol,
+        networkID: networkId,
+      });
+
       defaultLogger.wallet.walletActions.actionBuy({
         walletType: walletType ?? '',
         networkId: networkId ?? '',
@@ -91,13 +98,14 @@ export const ActionBase = ({
       setLoading(false);
     }
   }, [
-    type,
     walletId,
-    walletType,
+    type,
+    tokenAddress,
+    tokenSymbol,
     networkId,
+    walletType,
     source,
     isSoftwareWalletOnlyUser,
-    tokenAddress,
     accountId,
   ]);
   if (hiddenIfDisabled && isDisabled) {

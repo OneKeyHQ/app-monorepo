@@ -1,14 +1,26 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { ELocalDBStoreNames } from './localDBStoreNames';
+
+import type { EIndexedDBBucketNames } from './types';
+
+export const IS_DB_BUCKET_SUPPORT = Boolean(
+  platformEnv.isRuntimeBrowser &&
+    (globalThis?.navigator as INavigator)?.storageBuckets,
+);
 
 const LOCAL_DB_NAME = 'OneKeyV5';
 const LOCAL_DB_VERSION = 9;
 
 // ----------------------------------------------
 
-export const INDEXED_DB_NAME = LOCAL_DB_NAME;
+export const INDEXED_DB_NAME = (bucketName: EIndexedDBBucketNames) =>
+  `${LOCAL_DB_NAME}-${bucketName.split('_')[0]}`;
+export const LEGACY_INDEXED_DB_NAME = LOCAL_DB_NAME;
 export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
 export const REALM_DB_NAME = LOCAL_DB_NAME;
 export const REALM_DB_VERSION = LOCAL_DB_VERSION;
+export const ENABLE_INDEXEDDB_BUCKET = true;
 
 // ---------------------------------------------- const
 

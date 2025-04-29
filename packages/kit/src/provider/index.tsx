@@ -21,7 +21,6 @@ import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 
 import { ColdStartByNotification, Container } from './Container';
-import InAppNotification from './Container/InAppNotification';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
@@ -73,7 +72,6 @@ export function KitProvider(props: any = {}) {
               <LastActivityTracker />
               <SystemLocaleTracker />
               <StateActiveContainer />
-              <InAppNotification />
               <SyncHomeAccountToDappAccountProvider />
             </ThemeProvider>
           </GestureHandlerRootView>

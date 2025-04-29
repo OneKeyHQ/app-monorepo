@@ -74,7 +74,4 @@ const bufferUtils = {
   bytesToUtf8,
 };
 
-// @ts-ignore
-globalThis.$$bufferUtils = bufferUtils;
-
 export default bufferUtils;

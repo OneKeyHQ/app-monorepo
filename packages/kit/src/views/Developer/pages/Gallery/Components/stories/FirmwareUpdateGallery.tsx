@@ -446,6 +446,7 @@ function FirmwareUpdateGalleryV2() {
 
 const FirmwareUpdateGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="FirmwareUpdate"
     elements={[
       {

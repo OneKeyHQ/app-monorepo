@@ -22,6 +22,7 @@ function ProgressDemo() {
 
 const ProgressGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Progress"
     elements={[
       {

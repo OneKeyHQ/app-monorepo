@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
@@ -15,11 +14,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabelSetDialog';
 
-import type { CompositeNavigationProp } from '@react-navigation/native';
-
 export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
   const { serviceAccount } = backgroundApiProxy;
-  const navigation = useNavigation<CompositeNavigationProp<any, any>>();
   const intl = useIntl();
 
   return (

@@ -46,7 +46,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
-  ESwapCleanHistorySource,
   ESwapDirectionType,
   ESwapQuoteKind,
   EWrappedType,
@@ -56,7 +55,6 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
-  useSwapApprovingAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
@@ -91,7 +89,6 @@ export function useSwapBuildTx() {
   const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setSwapApproving] = useSwapApprovingAtom();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
   const [fromTokenAmount, setSwapFromTokenAmount] =
@@ -1016,7 +1013,10 @@ export function useSwapBuildTx() {
           }
         } else {
           try {
-            setSwapApproving(true);
+            setInAppNotificationAtom((pre) => ({
+              ...pre,
+              swapApprovingLoading: true,
+            }));
             const approveInfo: IApproveInfo = {
               owner: swapFromAddressInfo.address,
               spender: allowanceInfo.allowanceTarget,
@@ -1039,12 +1039,15 @@ export function useSwapBuildTx() {
             setInAppNotificationAtom((pre) => ({
               ...pre,
               swapApprovingTransaction: {
+                swapType: swapTypeSwitch,
+                protocol: selectQuote?.protocol ?? EProtocolOfExchange.SWAP,
                 provider: selectQuote?.info.provider,
                 providerName: selectQuote?.info.providerName,
                 fromToken,
                 toToken,
                 quoteId: selectQuote?.quoteId ?? '',
                 amount,
+                toAmount: toTokenAmount?.value,
                 useAddress: swapFromAddressInfo.address ?? '',
                 spenderAddress: allowanceInfo.allowanceTarget,
                 status: ESwapApproveTransactionStatus.PENDING,
@@ -1054,7 +1057,10 @@ export function useSwapBuildTx() {
               },
             }));
           } catch (e) {
-            setSwapApproving(false);
+            setInAppNotificationAtom((pre) => ({
+              ...pre,
+              swapApprovingLoading: false,
+            }));
           }
         }
       }
@@ -1066,13 +1072,14 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.networkId,
       swapFromAddressInfo?.accountInfo?.account?.id,
       swapFromAddressInfo.address,
+      toTokenAmount?.value,
       isBatchTransfer,
+      swapTypeSwitch,
       setSwapBuildTxFetching,
       createBuildTx,
       navigationToTxConfirm,
       handleBuildTxSuccess,
       cancelBuildTx,
-      setSwapApproving,
       syncRecentTokenPairs,
       slippageItem.value,
       isFirstTimeSwap,

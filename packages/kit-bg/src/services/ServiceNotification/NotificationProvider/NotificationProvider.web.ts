@@ -14,7 +14,6 @@ import type { INotificationProviderBaseParams } from './NotificationProviderBase
 export default class NotificationProviderWeb extends NotificationProviderBase {
   constructor(params: INotificationProviderBaseParams) {
     super(params);
-    console.log('NotificationProviderWeb constructor');
     this.initWebSocketProvider();
   }
 

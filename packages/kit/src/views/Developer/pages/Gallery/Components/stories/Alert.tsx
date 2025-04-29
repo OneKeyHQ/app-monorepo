@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 const AlertGallery = () => (
   <Layout
     componentName="Alert"
+    filePath={__CURRENT_FILE_PATH__}
     description="Alert 组件用于向用户显示重要信息、警告或错误消息。它支持不同的状态类型、可关闭选项和操作按钮。"
     suggestions={[
       '使用适当的类型（success、critical、info、warning）来表达正确的信息级别',

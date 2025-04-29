@@ -1,5 +1,4 @@
 import { useRoute } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
 import {
   Dialog,
@@ -14,20 +13,17 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EPrimePages,
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 
 import type { RouteProp } from '@react-navigation/native';
 
 export default function PrimeDeviceLimit() {
-  const intl = useIntl();
-  const { logout, isLoggedIn, getAccessToken } = usePrimeAuthV2();
+  const { logout, getAccessToken } = usePrimeAuthV2();
   const navigation = useAppNavigation();
   const { formatDistanceToNow } = useFormatDate();
   const [{ instanceId: currentInstanceId }] = useSettingsPersistAtom();

@@ -8,6 +8,7 @@ import type { IActionItemsProps } from '../../../Home/components/WalletActions/R
 export type IActionProps = PropsWithChildren<{
   networkId: string;
   tokenAddress: string;
+  tokenSymbol: string;
   accountId: string;
   walletId: string;
   walletType: string | undefined;
@@ -18,6 +19,7 @@ export type IActionProps = PropsWithChildren<{
 export type IActionBaseProps = PropsWithChildren<{
   networkId: string;
   tokenAddress: string;
+  tokenSymbol: string;
   accountId: string;
   walletId: string;
   type: IFiatCryptoType;

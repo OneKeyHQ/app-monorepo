@@ -1,0 +1,34 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# OneKey Package Structure
+
+The OneKey project is organized into several key packages:
+
+## Core Packages
+
+- `@onekeyhq/shared` - Common utilities, types, and helpers used across the entire project
+- `@onekeyhq/components` - UI components library built on Tamagui
+- `@onekeyhq/kit` - Core business logic and UI for the OneKey wallet
+- `@onekeyhq/kit-bg` - Background services and APIs for the wallet
+- `@onekeyhq/core` - Core blockchain functionality and wallet services
+
+## Apps
+
+- `apps/mobile` - iOS and Android mobile applications
+- `apps/desktop` - Desktop applications for macOS, Windows, and Linux
+- `apps/web` - Web application version
+- `apps/ext` - Browser extension version
+
+## Import Hierarchy
+
+The import hierarchy should be respected:
+- `shared` should not import from other packages
+- `components` can import from `shared` only
+- `kit-bg` can import from `shared` and `core` but not `components` or `kit`
+- `kit` can import from `shared`, `components`, and `kit-bg`
+- Apps can import from all packages
+
+This hierarchy prevents circular dependencies and maintains clear separation of concerns.

@@ -85,6 +85,7 @@ const ListViewGallery = () => {
 
   return !showPerformanceList ? (
     <Layout
+    filePath={__CURRENT_FILE_PATH__}
       componentName="ListView"
       elements={[
         {

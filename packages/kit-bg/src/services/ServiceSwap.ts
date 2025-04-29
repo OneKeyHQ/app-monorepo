@@ -38,6 +38,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   maxRecentTokenPairs,
+  swapApprovingStateFetchInterval,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteEventTimeout,
@@ -122,6 +123,10 @@ export default class ServiceSwap extends ServiceBase {
   private swapSupportNetworksTtl = 1000 * 60 * 120;
 
   private _limitOrderCurrentAccountId?: string;
+
+  private approvingInterval: ReturnType<typeof setTimeout> | undefined;
+
+  private approvingIntervalCount = 0;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -997,6 +1002,18 @@ export default class ServiceSwap extends ServiceBase {
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapApprovingTransaction: item,
+      ...(item?.status !== ESwapApproveTransactionStatus.PENDING && {
+        swapApprovingLoading: false,
+      }),
+    }));
+  }
+
+  @backgroundMethod()
+  async closeApproving() {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapApprovingTransaction: undefined,
+      swapApprovingLoading: false,
     }));
   }
 
@@ -1031,6 +1048,93 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         swapProviderManager: data,
       }));
+    }
+  }
+
+  @backgroundMethod()
+  async updateSwapApprovingLoading(loading: boolean) {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapApprovingLoading: loading,
+    }));
+  }
+
+  @backgroundMethod()
+  async cleanApprovingInterval() {
+    if (this.approvingInterval) {
+      clearTimeout(this.approvingInterval);
+      this.approvingInterval = undefined;
+    }
+  }
+
+  async approvingStateRunSync(networkId: string, txId: string) {
+    let enableInterval = true;
+    try {
+      const txState = await this.fetchTxState({
+        txId,
+        networkId,
+      });
+      const preApproveTx = await this.getApprovingTransaction();
+      if (
+        txState.state === ESwapTxHistoryStatus.SUCCESS ||
+        txState.state === ESwapTxHistoryStatus.FAILED
+      ) {
+        enableInterval = false;
+        if (preApproveTx) {
+          if (
+            txState.state === ESwapTxHistoryStatus.SUCCESS ||
+            txState.state === ESwapTxHistoryStatus.FAILED
+          ) {
+            let newApproveTx: ISwapApproveTransaction = {
+              ...preApproveTx,
+              blockNumber: txState.blockNumber,
+              status: ESwapApproveTransactionStatus.SUCCESS,
+            };
+            if (txState.state === ESwapTxHistoryStatus.FAILED) {
+              newApproveTx = {
+                ...preApproveTx,
+                txId: undefined,
+                status: ESwapApproveTransactionStatus.FAILED,
+              };
+            }
+            await this.setApprovingTransaction(newApproveTx);
+          }
+        }
+      } else if (
+        preApproveTx &&
+        preApproveTx.status !== ESwapApproveTransactionStatus.PENDING
+      ) {
+        await this.setApprovingTransaction({
+          ...preApproveTx,
+          status: ESwapApproveTransactionStatus.PENDING,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      if (enableInterval) {
+        this.approvingIntervalCount += 1;
+        void this.approvingStateAction();
+      } else {
+        void this.cleanApprovingInterval();
+        this.approvingIntervalCount = 0;
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async approvingStateAction() {
+    void this.cleanApprovingInterval();
+    const approvingTransaction = await this.getApprovingTransaction();
+    if (approvingTransaction && approvingTransaction.txId) {
+      this.approvingInterval = setTimeout(() => {
+        if (approvingTransaction.txId) {
+          void this.approvingStateRunSync(
+            approvingTransaction.fromToken.networkId,
+            approvingTransaction.txId,
+          );
+        }
+      }, swapApprovingStateFetchInterval * (Math.floor(this.approvingIntervalCount / swapHistoryStateFetchRiceIntervalCount) + 1));
     }
   }
 

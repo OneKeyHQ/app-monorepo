@@ -1,12 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Form, Input, TextArea } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { UseFormReturn } from 'react-hook-form';
@@ -29,6 +32,8 @@ export type IMakeInvoiceFormProps = {
   memo?: string;
   isWebln?: boolean;
   amountReadOnly?: boolean;
+  lnUnit: ELightningUnit;
+  setLnUnit: (unit: ELightningUnit) => void;
 };
 
 function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
@@ -41,6 +46,8 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
     descriptionLabelId,
     memo,
     amountReadOnly,
+    lnUnit,
+    setLnUnit,
   } = props;
   const intl = useIntl();
 
@@ -52,8 +59,36 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
     [networkId],
   );
 
-  const minAmount = new BigNumber(minimumAmount ?? 0).toNumber();
-  const maxAmount = new BigNumber(maximumAmount ?? 0).toNumber();
+  const linkedInvoiceConfig = useMemo(() => {
+    return {
+      ...invoiceConfig,
+      maxSendAmount:
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(invoiceConfig?.maxSendAmount ?? 0)
+          : invoiceConfig?.maxSendAmount ?? 0,
+      maxReceiveAmount:
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(
+              invoiceConfig?.maxReceiveAmount ?? 0,
+            )
+          : invoiceConfig?.maxReceiveAmount ?? 0,
+    };
+  }, [invoiceConfig, lnUnit]);
+
+  const linkedMinAmount = useMemo(() => {
+    return lnUnit === ELightningUnit.BTC
+      ? chainValueUtils.convertSatsToBtc(minimumAmount ?? 0)
+      : minimumAmount ?? 0;
+  }, [lnUnit, minimumAmount]);
+
+  const linkedMaxAmount = useMemo(() => {
+    return lnUnit === ELightningUnit.BTC
+      ? chainValueUtils.convertSatsToBtc(maximumAmount ?? 0)
+      : maximumAmount ?? 0;
+  }, [lnUnit, maximumAmount]);
+
+  const minAmount = new BigNumber(linkedMinAmount).toNumber();
+  const maxAmount = new BigNumber(linkedMaxAmount).toNumber();
 
   const amountRules = useMemo(() => {
     let max;
@@ -61,7 +96,7 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
       maxAmount &&
       maxAmount > 0 &&
       maxAmount > minAmount &&
-      maxAmount < Number(invoiceConfig?.maxReceiveAmount)
+      maxAmount < Number(linkedInvoiceConfig?.maxReceiveAmount)
     ) {
       max = maxAmount;
     }
@@ -90,40 +125,46 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
             ),
           }
         : undefined,
-      pattern: {
-        value: /^[0-9]*$/,
-        message: intl.formatMessage({
-          id: ETranslations.send_field_only_integer,
-        }),
-      },
+      pattern:
+        lnUnit === ELightningUnit.BTC
+          ? {
+              value: /^\d*\.?\d*$/,
+              message: '',
+            }
+          : {
+              value: /^[0-9]*$/,
+              message: intl.formatMessage({
+                id: ETranslations.send_field_only_integer,
+              }),
+            },
       validate: (value: number) => {
         // allow unspecified amount
         if (minAmount <= 0 && !value) return;
         const valueBN = new BigNumber(value);
-        if (!valueBN.isInteger()) {
+        if (lnUnit === ELightningUnit.SATS && !valueBN.isInteger()) {
           return intl.formatMessage({
             id: ETranslations.send_field_only_integer,
           });
         }
 
         if (
-          invoiceConfig?.maxReceiveAmount &&
-          valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
+          linkedInvoiceConfig?.maxReceiveAmount &&
+          valueBN.isGreaterThan(linkedInvoiceConfig?.maxReceiveAmount)
         ) {
           return intl.formatMessage(
             {
               id: ETranslations.dapp_connect_amount_should_not_exceed,
             },
             {
-              0: invoiceConfig?.maxReceiveAmount,
+              0: linkedInvoiceConfig?.maxReceiveAmount,
             },
           );
         }
       },
     };
-  }, [minAmount, maxAmount, invoiceConfig, intl]);
+  }, [minAmount, maxAmount, linkedInvoiceConfig, intl, lnUnit]);
 
-  const amountLabelAddon = useMemo(() => {
+  const amountDescription = useMemo(() => {
     if (Number(amount) > 0 || (minAmount > 0 && minAmount === maxAmount)) {
       return;
     }
@@ -134,12 +175,16 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
           min: minAmount,
           max:
             maxAmount < minAmount
-              ? invoiceConfig?.maxReceiveAmount
-              : Math.min(maxAmount, Number(invoiceConfig?.maxReceiveAmount)),
+              ? linkedInvoiceConfig?.maxReceiveAmount
+              : Math.min(
+                  maxAmount,
+                  Number(linkedInvoiceConfig?.maxReceiveAmount),
+                ),
+          unit: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
         },
       );
     }
-  }, [amount, minAmount, maxAmount, invoiceConfig, intl]);
+  }, [amount, minAmount, maxAmount, linkedInvoiceConfig, intl, lnUnit]);
 
   return (
     <Form form={useFormReturn}>
@@ -149,9 +194,26 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
         })}
         name="amount"
         rules={amountRules}
-        labelAddon={amountLabelAddon}
         // TODO: price
-        // description="$40"
+        labelAddon={
+          <LightningUnitSwitch
+            value={lnUnit}
+            onChange={(value) => {
+              setLnUnit(value as ELightningUnit);
+              const currentAmount = useFormReturn.getValues('amount');
+              useFormReturn.setValue(
+                'amount',
+                value === ELightningUnit.BTC
+                  ? chainValueUtils.convertSatsToBtc(currentAmount ?? 0)
+                  : chainValueUtils.convertBtcToSats(currentAmount ?? 0),
+              );
+              setTimeout(() => {
+                void useFormReturn.trigger('amount');
+              }, 100);
+            }}
+          />
+        }
+        description={amountDescription}
       >
         <Input
           editable={!amountReadOnly}
@@ -162,7 +224,7 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
           flex={1}
           addOns={[
             {
-              label: intl.formatMessage({ id: ETranslations.global_sats }),
+              label: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
             },
           ]}
         />

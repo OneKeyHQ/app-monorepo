@@ -4,11 +4,11 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Label;
 
-class SecurityMethodVisitor extends MethodVisitor implements Opcodes {
+public class JPushMethodVisitor extends MethodVisitor implements Opcodes {
     private final String methodName;
     private final String methodDesc;
 
-    public SecurityMethodVisitor(MethodVisitor methodVisitor, String methodName, String methodDesc) {
+    public JPushMethodVisitor(MethodVisitor methodVisitor, String methodName, String methodDesc) {
         super(Opcodes.ASM9, methodVisitor);
         this.methodName = methodName;
         this.methodDesc = methodDesc;

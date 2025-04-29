@@ -19,6 +19,7 @@ const Demo = () => {
 
 const PasswordKeyboardGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="PasswordKeyboard"
     elements={[
       {

@@ -1,3 +1,5 @@
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 const {
@@ -12,5 +14,13 @@ export {
   withHistoryListProvider,
 };
 
+export const {
+  atom: addressesInfoDataReadyAtom,
+  use: useAddressesInfoDataReadyAtom,
+} = contextAtom<boolean>(false);
+
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
+
+export const { atom: addressesInfoAtom, use: useAddressesInfoAtom } =
+  contextAtom<Record<string, IAddressBadge>>({});

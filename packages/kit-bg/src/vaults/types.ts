@@ -130,6 +130,7 @@ export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;
   nativeTokenAddress?: string;
+  genesisHash?: string;
 };
 export type IVaultSettings = {
   impl: string;
@@ -261,6 +262,8 @@ export type IVaultSettings = {
   afterSendTxActionEnabled?: boolean;
 
   createAllDeriveTypeAccountsByDefault?: boolean;
+
+  shouldFixMaxSendAmount?: boolean;
 };
 
 export type IVaultFactoryOptions = {

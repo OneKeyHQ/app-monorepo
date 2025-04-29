@@ -43,6 +43,7 @@ function TabItemView({
     actionList?: IActionListSection[];
     shortcutKey?: EShortcutEvents;
     tabbarOnPress?: () => void;
+    trackId?: string;
   };
   isCollapse?: boolean;
 }) {
@@ -59,6 +60,7 @@ function TabItemView({
     () => (
       <DesktopTabItem
         onPress={options.tabbarOnPress ?? onPress}
+        trackId={options.trackId}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         shortcutKey={options.shortcutKey}
@@ -179,7 +181,16 @@ export function DesktopLeftSideBar({
       }}
     >
       {platformEnv.isDesktopMac ? (
-        <XStack h={52} ai="center" jc="flex-end" px="$4">
+        // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
+        <XStack
+          $platform-web={{
+            'app-region': 'drag',
+          }}
+          h={52}
+          ai="center"
+          jc="flex-end"
+          px="$4"
+        >
           <HeaderCollapseButton isRootScreen hideWhenCollapse />
         </XStack>
       ) : null}

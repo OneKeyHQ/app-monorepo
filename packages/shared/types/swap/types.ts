@@ -62,6 +62,7 @@ export enum ESwapSource {
   EARN = 'earn',
   MARKET = 'market',
   TAB = 'tab',
+  APPROVING_SUCCESS = 'approving_success',
 }
 
 export enum ESwapSelectTokenSource {
@@ -239,12 +240,15 @@ export interface ISwapOrderHash {
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  protocol: EProtocolOfExchange;
+  swapType: ESwapTabSwitchType;
   provider: string;
   providerName: string;
   quoteId: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
+  toAmount?: string;
   status: ESwapApproveTransactionStatus;
   resetApproveValue?: string;
   resetApproveIsMax?: boolean;
@@ -361,6 +365,12 @@ export type IOneInchOrderStruct = {
   makerTraits: string;
 };
 
+export interface IOneKeyFeeInfo {
+  oneKeyFeeAmount?: string;
+  oneKeyFeeSymbol?: string;
+  oneKeyFeeUsd?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -392,10 +402,7 @@ export interface IFetchQuoteResult {
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
   networkCostBuyAmount?: string;
-  oneKeyFeeExtraInfo?: {
-    oneKeyFeeAmount?: string;
-    oneKeyFeeSymbol?: string;
-  };
+  oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
   networkCostExceedInfo?: {
     tokenInfo: {
       symbol: string;
@@ -737,6 +744,7 @@ export interface ISwapTxHistory {
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
+    oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;

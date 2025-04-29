@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -12,11 +10,13 @@ import {
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
-  ESwapApproveTransactionStatus,
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
-  type ISwapApproveTransaction,
+} from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapApproveTransaction,
+  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -24,8 +24,8 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
-  useSwapApprovingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
@@ -43,38 +43,51 @@ import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 export function useSwapQuote() {
-  const intl = useIntl();
-  const { quoteAction, cleanQuoteInterval, quoteEventHandler } =
-    useSwapActions().current;
+  const {
+    quoteAction,
+    cleanQuoteInterval,
+    quoteEventHandler,
+    syncNetworksSort,
+    closeQuoteEvent,
+    swapTypeSwitchAction,
+  } = useSwapActions().current;
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [toToken] = useSwapSelectToTokenAtom();
+  const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
+
   const [swapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [swapQuoteResultList, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [, setSwapManualSelectQuoteProviders] =
+    useSwapManualSelectQuoteProvidersAtom();
   const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
     useSwapQuoteEventTotalCountAtom();
   const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
-  const { closeQuoteEvent } = useSwapActions().current;
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
-  const [swapApproving] = useSwapApprovingAtom();
 
   const swapTabSwitchTypeRef = useRef(swapTabSwitchType);
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
   const swapToAddressInfoRef = useRef(swapToAddressInfo);
+  const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
+    fromTokenAmount,
+  );
 
   const swapSlippageRef = useRef(slippageItem);
-
+  const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
+  const toTokenRef = useRef<ISwapToken | undefined>(toToken);
+  if (fromTokenAmountRef.current !== fromTokenAmount) {
+    fromTokenAmountRef.current = fromTokenAmount;
+  }
   if (swapToAddressInfoRef.current !== swapToAddressInfo) {
     swapToAddressInfoRef.current = swapToAddressInfo;
   }
@@ -100,6 +113,12 @@ export function useSwapQuote() {
   }
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
+  }
+  if (fromTokenRef.current !== fromToken) {
+    fromTokenRef.current = fromToken;
+  }
+  if (toTokenRef.current !== toToken) {
+    toTokenRef.current = toToken;
   }
   const isFocused = useIsFocused();
   const isFocusRef = useRef(isFocused);
@@ -213,35 +232,6 @@ export function useSwapQuote() {
     cleanQuoteInterval,
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
-  ]);
-
-  useEffect(() => {
-    if (!isFocusRef.current) return;
-    if (
-      swapApprovingTransaction &&
-      swapApprovingTransaction.txId &&
-      swapApprovingTransaction.status ===
-        ESwapApproveTransactionStatus.SUCCESS &&
-      !swapApprovingTransaction.resetApproveValue &&
-      !swapApproving
-    ) {
-      void quoteAction(
-        swapSlippageRef.current,
-        activeAccountRef.current?.address,
-        activeAccountRef.current?.accountInfo?.account?.id,
-        swapApprovingTransaction.blockNumber,
-        undefined,
-        swapApprovingTransaction.kind ?? ESwapQuoteKind.SELL,
-        undefined,
-        swapToAddressInfoRef.current.address,
-      );
-    }
-  }, [
-    intl,
-    cleanQuoteInterval,
-    quoteAction,
-    swapApprovingTransaction,
-    swapApproving,
   ]);
 
   useEffect(() => {
@@ -466,6 +456,77 @@ export function useSwapQuote() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swapAddressInfo.accountInfo?.deriveType]);
 
+  const swapApprovingSuccessAction = useCallback(
+    async (data: {
+      approvedSwapInfo: ISwapApproveTransaction;
+      enableFilled?: boolean;
+    }) => {
+      const updateQuoteList = swapQuoteResultList.filter(
+        (quote) =>
+          quote.info.provider === data.approvedSwapInfo.provider &&
+          quote.quoteId === data.approvedSwapInfo.quoteId,
+      );
+      if (updateQuoteList.length > 0) {
+        setSwapManualSelectQuoteProviders(updateQuoteList[0]);
+      }
+      const { approvedSwapInfo, enableFilled } = data;
+      const {
+        fromToken: fromTokenInfo,
+        toToken: toTokenInfo,
+        amount,
+        kind,
+        toAmount,
+        swapType,
+        blockNumber,
+      } = approvedSwapInfo;
+      if (
+        equalTokenNoCaseSensitive({
+          token1: fromTokenInfo,
+          token2: fromTokenRef.current,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: toTokenInfo,
+          token2: toTokenRef.current,
+        }) &&
+        amount === fromTokenAmountRef.current?.value
+      ) {
+        void quoteAction(
+          swapSlippageRef.current,
+          activeAccountRef.current?.address,
+          activeAccountRef.current?.accountInfo?.account?.id,
+          blockNumber,
+          undefined,
+          kind ?? ESwapQuoteKind.SELL,
+          undefined,
+          swapToAddressInfoRef.current.address,
+        );
+      } else if (enableFilled) {
+        if (swapTabSwitchTypeRef.current !== swapType) {
+          await swapTypeSwitchAction(swapType);
+        }
+        setSwapSelectFromToken(fromTokenInfo);
+        setSwapSelectToToken(toTokenInfo);
+        await syncNetworksSort(fromTokenInfo.networkId);
+        if (kind === ESwapQuoteKind.BUY && toAmount) {
+          setToTokenAmount({ value: toAmount, isInput: true });
+        } else {
+          setFromTokenAmount({ value: amount, isInput: true });
+        }
+      }
+    },
+    [
+      quoteAction,
+      setSwapSelectFromToken,
+      setSwapSelectToToken,
+      setFromTokenAmount,
+      setToTokenAmount,
+      swapTypeSwitchAction,
+      syncNetworksSort,
+      swapQuoteResultList,
+      setSwapManualSelectQuoteProviders,
+    ],
+  );
+
   const pageType = usePageType();
   useListenTabFocusState(
     ETabRoutes.Swap,
@@ -474,6 +535,14 @@ export function useSwapQuote() {
         if (isFocus) {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.off(
+            EAppEventBusNames.SwapApprovingSuccess,
+            swapApprovingSuccessAction,
+          );
+          appEventBus.on(
+            EAppEventBusNames.SwapApprovingSuccess,
+            swapApprovingSuccessAction,
+          );
         } else if (isHiddenModel) {
           if (
             swapQuoteFetchingRef.current ||
@@ -490,19 +559,40 @@ export function useSwapQuote() {
             setFromTokenAmount({ value: '', isInput: true });
           }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.off(
+            EAppEventBusNames.SwapApprovingSuccess,
+            swapApprovingSuccessAction,
+          );
         } else {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.off(
+            EAppEventBusNames.SwapApprovingSuccess,
+            swapApprovingSuccessAction,
+          );
+          appEventBus.on(
+            EAppEventBusNames.SwapApprovingSuccess,
+            swapApprovingSuccessAction,
+          );
         }
       }
     },
   );
+
   useEffect(() => {
     if (pageType === EPageType.modal) {
       if (isFocused) {
         appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        appEventBus.off(
+          EAppEventBusNames.SwapApprovingSuccess,
+          swapApprovingSuccessAction,
+        );
+        appEventBus.on(
+          EAppEventBusNames.SwapApprovingSuccess,
+          swapApprovingSuccessAction,
+        );
       }
     }
-  }, [isFocused, pageType, quoteEventHandler]);
+  }, [isFocused, pageType, quoteEventHandler, swapApprovingSuccessAction]);
 }

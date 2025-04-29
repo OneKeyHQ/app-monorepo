@@ -1,8 +1,13 @@
 import type {
   ExecuteTransactionRequestType,
-  // SignedTransaction,
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui/client';
+import type {
+  SignedTransaction,
+  SuiSignAndExecuteTransactionBlockOutput,
+  SuiSignAndExecuteTransactionInput,
+  SuiSignTransactionInput,
+} from '@mysten/wallet-standard';
 
 type IIdentifierString = `${string}:${string}`;
 type IIdentifierArray = readonly IIdentifierString[];
@@ -90,3 +95,22 @@ export interface ISuiSignMessageOutput {
   messageBytes: string;
   signature: string;
 }
+
+export type IOneKeySuiSignTransactionInput = Omit<
+  SuiSignTransactionInput,
+  'transaction' | 'signal'
+> & {
+  transaction: string;
+};
+
+export type IOneKeySuiSignTransactionOutput = SignedTransaction;
+
+export type IOneKeySuiSignAndExecuteTransactionInput = Omit<
+  SuiSignAndExecuteTransactionInput,
+  'transaction' | 'signal'
+> & {
+  transaction: string;
+};
+
+export type IOneKeySuiSignAndExecuteTransactionOutput =
+  SuiSignAndExecuteTransactionBlockOutput;

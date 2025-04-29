@@ -7,6 +7,7 @@ const ONE_HOUR = 60 * 60 * 1000;
 
 const ToastGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Toast"
     elements={[
       {
@@ -416,6 +417,27 @@ const ToastGallery = () => (
               }}
             >
               Custom
+            </Button>
+            <Button
+              onPress={() => {
+                const toast = Toast.warning({
+                  duration: ONE_HOUR,
+                  title: 'OneKey Bridge test',
+                  actions: (
+                    <Button
+                      variant="primary"
+                      size="small"
+                      onPress={() => {
+                        toast?.close();
+                      }}
+                    >
+                      close it
+                    </Button>
+                  ),
+                });
+              }}
+            >
+              Toast with close button
             </Button>
           </YStack>
         ),

@@ -100,6 +100,7 @@ function CustomStepper() {
 export default function StepperGallery() {
   return (
     <Layout
+      filePath={__CURRENT_FILE_PATH__}
       componentName="Stepper"
       description="The Stepper component is used to display progress through a sequence of logical and numbered steps. It helps users understand where they are in a multi-step process and provides visual feedback on completed, current, and upcoming steps."
       suggestions={[
