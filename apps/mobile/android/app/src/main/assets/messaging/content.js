@@ -5,12 +5,22 @@ console.log(`content:start`);
 const callbackMap = new Map();
 let callbackId = 0;
 const initWebembedReceiveHandler = (times = 0) => {
+  if (globalThis?.$onekey?.$private?.webembedReceiveHandler) {
+    return;
+  }
+  console.log(
+    'initWebembedReceiveHandler',
+    globalThis?.$onekey?.$private,
+    times,
+  );
   if (!globalThis?.$onekey?.$private && times < 5000) {
     setTimeout(() => {
       initWebembedReceiveHandler(times + 1);
     }, 50);
     return;
   }
+
+  console.log('bind webembedReceiveHandler');
   globalThis.$onekey.$private.webembedReceiveHandler = (payload) => {
     return new Promise((resolve, reject) => {
       const currentCallbackId = callbackId;
@@ -30,7 +40,6 @@ const initWebembedReceiveHandler = (times = 0) => {
     });
   };
 };
-initWebembedReceiveHandler();
 
 const webEmbed = {
   callWebEmbedApiMethod: (callbackId, error, response) => {
@@ -69,6 +78,7 @@ window.ReactNativeWebView = ReactNativeWebView;
 const onekeyUtils = {
   $private: {
     request: (...args) => {
+      initWebembedReceiveHandler();
       return new window.Promise((resolve, reject) => {
         globalThis.$onekey.$private
           .request(...args)
