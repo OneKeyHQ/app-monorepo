@@ -10,7 +10,6 @@ const webembedReceiveHandler = (payload) => {
     const currentCallbackId = callbackId;
     callbackId += 1;
     callbackMap.set(currentCallbackId, { resolve, reject });
-    console.log('webembedReceiveHandler', payload);
     const event = new CustomEvent('webembedReceiveHandler', {
       detail: cloneInto(
         {
