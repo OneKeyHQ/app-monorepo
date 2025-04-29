@@ -15,7 +15,7 @@ export interface IMarketToken {
   walletInfo?: import('./Txns').ITxnsWalletInfo;
 }
 
-export const defaultData: IMarketToken[] = [
+const data: IMarketToken[] = [
   {
     id: '1',
     name: 'TRUMP',
@@ -337,4 +337,14 @@ export const defaultData: IMarketToken[] = [
     audit: '8w7x6y...5z4a',
     walletInfo: { buy: 32_700, sell: 39_400 },
   },
+];
+
+export const defaultData: IMarketToken[] = [
+  ...data,
+  ...data,
+  ...data,
+  ...data,
+  ...data,
+  ...data,
+  ...data,
 ];

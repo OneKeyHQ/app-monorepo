@@ -1,4 +1,4 @@
-import { Stack, XStack } from '@onekeyhq/components';
+import { XStack } from '@onekeyhq/components';
 
 import { RiskIndicatorCard } from './RiskIndicatorCard';
 

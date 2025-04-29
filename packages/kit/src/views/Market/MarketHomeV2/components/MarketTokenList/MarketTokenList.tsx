@@ -16,7 +16,7 @@ function MarketTokenList({
   data = defaultData,
   isLoading = false,
   onItemPress,
-  pageSize = 5,
+  pageSize = 10,
 }: IMarketTokenListProps) {
   const [currentPage, setCurrentPage] = useState(1);
 

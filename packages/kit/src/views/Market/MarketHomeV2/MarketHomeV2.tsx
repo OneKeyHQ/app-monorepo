@@ -48,7 +48,7 @@ function MarketHome() {
       )}
       <Page.Body>
         <MarketTokenListNetworkSelector />
-        <RiskIndicatorCardDemo />
+        {/* <RiskIndicatorCardDemo /> */}
         <MarketFilterBar />
         <ScrollView
           flex={1}
