@@ -5,7 +5,7 @@ console.log(`content:start`);
 const callbackMap = new Map();
 let callbackId = 0;
 const initWebembedReceiveHandler = (times = 0) => {
-  if (!globalThis?.$onekey?.$private || times < 5000) {
+  if (!globalThis?.$onekey?.$private && times < 5000) {
     setTimeout(() => {
       initWebembedReceiveHandler(times + 1);
     }, 50);
