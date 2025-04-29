@@ -21,6 +21,7 @@ import { getEndpointInfo } from '../endpoints';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
@@ -37,6 +38,10 @@ export default class ServiceBase {
   _currentNetworkId: string | undefined;
 
   _currentAccountId: string | undefined;
+
+  _currentUrlAccountId: string | undefined;
+
+  _currentUrlNetworkId: string | undefined;
 
   _oneKeyIdAuthClient: AxiosInstance | undefined;
 
@@ -123,8 +128,13 @@ export default class ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    this._currentNetworkId = networkId;
-    this._currentAccountId = accountId;
+    if (accountUtils.isUrlAccountFn({ accountId })) {
+      this._currentUrlNetworkId = networkId;
+      this._currentUrlAccountId = accountId;
+    } else {
+      this._currentNetworkId = networkId;
+      this._currentAccountId = accountId;
+    }
   }
 
   @backgroundMethod()
