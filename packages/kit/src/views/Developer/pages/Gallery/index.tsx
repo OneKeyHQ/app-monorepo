@@ -555,6 +555,13 @@ const CountDownCalendarAlertGallery = LazyLoadPage(
     ),
 );
 
+const FontGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Font'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -811,5 +818,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPagination,
     component: PaginationGallery,
+  },
+  {
+    name: EGalleryRoutes.FontGallery,
+    component: FontGallery,
   },
 ];
