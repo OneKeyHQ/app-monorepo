@@ -22,6 +22,7 @@ import {
   ETabDeveloperRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -61,6 +62,7 @@ export function Layout({
   skipLoading = false,
   wideScreen: initialWideScreen = false,
   children,
+  filePath,
 }: React.PropsWithChildren<{
   componentName?: string;
   description?: string;
@@ -75,6 +77,7 @@ export function Layout({
     | undefined;
   skipLoading?: boolean;
   wideScreen?: boolean;
+  filePath?: string;
   elements?: {
     title: string;
     description?: string;
@@ -177,6 +180,15 @@ export function Layout({
                 }}
                 value={wideScreen}
                 onChange={() => setWideScreen(!wideScreen)}
+              />
+              <IconButton
+                onPress={() => {
+                  if (filePath) {
+                    openUrlExternal(`cursor://file/${filePath}`);
+                  }
+                }}
+                size="medium"
+                icon="CodeOutline"
               />
             </XStack>
           </XStack>
