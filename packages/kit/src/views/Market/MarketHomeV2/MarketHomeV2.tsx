@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, useMedia } from '@onekeyhq/components';
+import { Page, ScrollView, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -50,9 +50,15 @@ function MarketHome() {
         <MarketTokenListNetworkSelector />
         <RiskIndicatorCardDemo />
         <MarketFilterBar />
-        <Stack flex={1}>
+        <ScrollView
+          flex={1}
+          contentContainerStyle={{
+            flexGrow: 1,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
           <MarketTokenList />
-        </Stack>
+        </ScrollView>
       </Page.Body>
     </Page>
   );
