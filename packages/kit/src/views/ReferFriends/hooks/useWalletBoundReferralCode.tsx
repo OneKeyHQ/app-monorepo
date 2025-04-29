@@ -109,6 +109,17 @@ function InviteCode({
 
         // console.log('===>>> signedMessage: ', signedMessage);
 
+        await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
+          walletId: walletInfo.walletId,
+          referralCodeInfo: {
+            walletId: walletInfo.walletId,
+            address: walletInfo.address,
+            networkId: walletInfo.networkId,
+            pubkey: walletInfo.pubkey ?? '',
+            referralCode: verificationCode,
+          },
+        });
+
         onSuccess?.();
       } catch (e) {
         console.log('eeeedialog EEEE=> : ', e);

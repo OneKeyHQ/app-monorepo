@@ -21,7 +21,10 @@ function WalletBoundReferralCodeButtonView({
   const { bindWalletInviteCode, getReferralCodeBondStatus } =
     useWalletBoundReferralCode();
 
-  const { result: displayReferralCodeButton } = usePromiseResult(
+  const {
+    result: displayReferralCodeButton,
+    run: refreshDisplayReferralCodeButton,
+  } = usePromiseResult(
     async () => {
       const referralCodeInfo =
         await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
@@ -43,8 +46,17 @@ function WalletBoundReferralCodeButtonView({
       // TODO: update referral code
       return;
     }
-    bindWalletInviteCode({ wallet });
-  }, [bindWalletInviteCode, getReferralCodeBondStatus, wallet]);
+    bindWalletInviteCode({
+      wallet,
+      onSuccess: () =>
+        setTimeout(() => refreshDisplayReferralCodeButton(), 200),
+    });
+  }, [
+    bindWalletInviteCode,
+    getReferralCodeBondStatus,
+    wallet,
+    refreshDisplayReferralCodeButton,
+  ]);
 
   if (!displayReferralCodeButton) {
     return null;
