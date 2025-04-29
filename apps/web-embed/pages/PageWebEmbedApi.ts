@@ -69,7 +69,6 @@ const init = (times = 0) => {
     } catch (e) {
       error = e;
     }
-    console.log('response', response);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     (globalThis as any).$webEmbed.callWebEmbedApiMethod(
       detail.callbackId,
