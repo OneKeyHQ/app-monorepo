@@ -78,7 +78,6 @@ const onekeyUtils = {
   },
   jsBridge: {
     receive: (...args) => {
-      bindWebembedReceiveHandler();
       globalThis.$onekey.jsBridge.receive(...args);
     },
   },
@@ -90,6 +89,7 @@ window.wrappedJSObject.$onekey = cloneInto(onekeyUtils, window, {
 
 browser.runtime.onMessage.addListener((data, sender) => {
   if (data.inject) {
+    bindWebembedReceiveHandler();
     try {
       globalThis.eval(data.inject);
     } catch (e) {
