@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const EmptyGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Empty"
     elements={[
       {

@@ -185,6 +185,7 @@ function ContentFooter({
 
 const DialogGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Dialog"
     description="需要用户处理事务，又不希望跳转路由以致打断工作流程时，可以使用 Dialog 组件"
     suggestions={[
