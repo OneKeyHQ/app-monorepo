@@ -4,41 +4,27 @@
 console.log(`content:start`);
 const callbackMap = new Map();
 let callbackId = 0;
-const initWebembedReceiveHandler = (times = 0) => {
-  if (globalThis?.$onekey?.$private?.webembedReceiveHandler) {
-    return;
-  }
-  console.log(
-    'initWebembedReceiveHandler',
-    globalThis?.$onekey?.$private,
-    times,
-  );
-  if (!globalThis?.$onekey?.$private && times < 5000) {
-    setTimeout(() => {
-      initWebembedReceiveHandler(times + 1);
-    }, 50);
-    return;
-  }
 
-  console.log('bind webembedReceiveHandler');
-  globalThis.$onekey.$private.webembedReceiveHandler = (payload) => {
-    return new Promise((resolve, reject) => {
-      const currentCallbackId = callbackId;
-      callbackId += 1;
-      callbackMap.set(currentCallbackId, { resolve, reject });
-      console.log('webembedReceiveHandler', payload);
-      const event = new CustomEvent('webembedReceiveHandler', {
-        detail: cloneInto(
-          {
-            data: payload,
-            callbackId: currentCallbackId,
-          },
-          window,
-        ),
-      });
-      window.dispatchEvent(event);
+const webembedReceiveHandler = (payload) => {
+  return new Promise((resolve, reject) => {
+    const currentCallbackId = callbackId;
+    callbackId += 1;
+    callbackMap.set(currentCallbackId, { resolve, reject });
+    console.log('webembedReceiveHandler', payload);
+    const event = new CustomEvent('webembedReceiveHandler', {
+      detail: cloneInto(
+        {
+          data: payload,
+          callbackId: currentCallbackId,
+        },
+        window,
+      ),
     });
-  };
+    window.dispatchEvent(event);
+  });
+};
+const bindWebembedReceiveHandler = () => {
+  globalThis.$onekey.$private.webembedReceiveHandler = webembedReceiveHandler;
 };
 
 const webEmbed = {
@@ -78,7 +64,6 @@ window.ReactNativeWebView = ReactNativeWebView;
 const onekeyUtils = {
   $private: {
     request: (...args) => {
-      initWebembedReceiveHandler();
       return new window.Promise((resolve, reject) => {
         globalThis.$onekey.$private
           .request(...args)
@@ -93,6 +78,7 @@ const onekeyUtils = {
   },
   jsBridge: {
     receive: (...args) => {
+      bindWebembedReceiveHandler();
       globalThis.$onekey.jsBridge.receive(...args);
     },
   },
