@@ -17,6 +17,7 @@ import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabDeveloperRoutes,
@@ -159,37 +160,40 @@ export function Layout({
                 onChange={toggleTheme}
               />
 
-              <Switch
-                thumbProps={{
-                  children: (
-                    <Stack
-                      alignItems="center"
-                      justifyContent="center"
-                      width="$7"
-                      height="$7"
-                    >
-                      <Icon
-                        color="$text"
-                        size="$5"
-                        name={
-                          wideScreen ? 'MinimizeOutline' : 'MinimizeOutline'
-                        }
-                      />
-                    </Stack>
-                  ),
-                }}
-                value={wideScreen}
-                onChange={() => setWideScreen(!wideScreen)}
-              />
-              <IconButton
-                onPress={() => {
-                  if (filePath) {
+              {platformEnv.isWeb ? (
+                <Switch
+                  thumbProps={{
+                    children: (
+                      <Stack
+                        alignItems="center"
+                        justifyContent="center"
+                        width="$7"
+                        height="$7"
+                      >
+                        <Icon
+                          color="$text"
+                          size="$5"
+                          name={
+                            wideScreen ? 'MinimizeOutline' : 'MinimizeOutline'
+                          }
+                        />
+                      </Stack>
+                    ),
+                  }}
+                  value={wideScreen}
+                  onChange={() => setWideScreen(!wideScreen)}
+                />
+              ) : null}
+
+              {platformEnv.isWeb && filePath ? (
+                <IconButton
+                  onPress={() => {
                     openUrlExternal(`cursor://file/${filePath}`);
-                  }
-                }}
-                size="medium"
-                icon="CodeOutline"
-              />
+                  }}
+                  size="medium"
+                  icon="CodeOutline"
+                />
+              ) : null}
             </XStack>
           </XStack>
           {componentName ? (
