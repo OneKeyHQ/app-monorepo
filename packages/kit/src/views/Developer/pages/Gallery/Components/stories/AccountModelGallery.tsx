@@ -134,6 +134,7 @@ function Demo() {
 
 const AccountModelGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="AccountModel"
     elements={[
       {

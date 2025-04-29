@@ -160,7 +160,7 @@ export function Layout({
                 onChange={toggleTheme}
               />
 
-              {platformEnv.isWeb ? (
+              {platformEnv.isWeb || platformEnv.isDesktop ? (
                 <Switch
                   thumbProps={{
                     children: (
@@ -185,7 +185,7 @@ export function Layout({
                 />
               ) : null}
 
-              {platformEnv.isWeb && filePath ? (
+              {(platformEnv.isWeb || platformEnv.isDesktop) && filePath ? (
                 <IconButton
                   onPress={() => {
                     openUrlExternal(`cursor://file/${filePath}`);
