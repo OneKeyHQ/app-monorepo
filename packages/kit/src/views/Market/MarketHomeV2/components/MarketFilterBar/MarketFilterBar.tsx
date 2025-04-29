@@ -4,7 +4,10 @@ import { View } from 'react-native';
 
 import { Dialog, XStack } from '@onekeyhq/components';
 
-import { DiscoveryFilterControl } from '../DiscoveryFilterControl';
+import {
+  DiscoveryFilterControl,
+  EFilterOption,
+} from '../DiscoveryFilterControl';
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
@@ -12,19 +15,20 @@ import CustomFiltersDialog from './CustomFiltersDialog';
 import FilterButton from './FilterButton';
 
 import type { IFilterOptions } from './CustomFiltersDialog';
-import type { IEFilterOption } from '../DiscoveryFilterControl';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 export function MarketFilterBar() {
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('24h');
-  const [filterOption, setFilterOption] = useState<IEFilterOption>('trending');
+  const [filterOption, setFilterOption] = useState<EFilterOption>(
+    EFilterOption.Trending,
+  );
   const [, setCustomFilters] = useState<IFilterOptions | null>(null);
 
   const handleTimeRangeChange = (value: ITimeRangeSelectorValue) => {
     setTimeRange(value);
   };
 
-  const handleFilterOptionChange = (value: IEFilterOption) => {
+  const handleFilterOptionChange = (value: EFilterOption) => {
     setFilterOption(value);
   };
 

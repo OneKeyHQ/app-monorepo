@@ -16,7 +16,6 @@ import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror'
 import { MarketFilterBar } from './components/MarketFilterBar';
 import { MarketTokenList } from './components/MarketTokenList';
 import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
-import { RiskIndicatorCardDemo } from './components/RiskIndicatorCard/RiskIndicatorCardDemo';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
