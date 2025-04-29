@@ -5,6 +5,10 @@ import { EIndexedDBBucketNames } from '../types';
 
 import { LocalDbIndexed } from './LocalDbIndexed';
 
+/*
+yarn jest --watch packages/kit-bg/src/dbs/local/indexed/LocalDbIndexed.test.ts
+*/
+
 // add indexedDB for node
 require('fake-indexeddb/auto');
 

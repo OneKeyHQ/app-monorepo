@@ -437,6 +437,9 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
   }
 
   static async getBucketIndexedDBFactory(bucketName: string) {
+    if (platformEnv.isJest) {
+      return globalThis.indexedDB;
+    }
     const bucketOptions: IStorageBucketOptions = {
       durability: 'strict', // Or `'relaxed'`.
       persisted: true, // Or `false`.
