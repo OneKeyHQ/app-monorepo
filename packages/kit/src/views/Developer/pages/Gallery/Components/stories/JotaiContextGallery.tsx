@@ -47,6 +47,7 @@ function JotaiDemo1() {
 const JotaiGlobalGallery = () => (
   <ProviderJotaiContextDemo>
     <Layout
+    filePath={__CURRENT_FILE_PATH__}
       componentName="JotaiContext"
       elements={[
         {

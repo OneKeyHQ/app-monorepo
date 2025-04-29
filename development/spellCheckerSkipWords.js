@@ -219,6 +219,7 @@ module.exports = [
   'derivetype',
   'deserializer',
   'Deserializer',
+  'devtool',
   'dex',
   'Dex',
   'Dexs',

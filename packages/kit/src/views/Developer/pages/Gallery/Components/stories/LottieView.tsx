@@ -89,6 +89,7 @@ const LottieDemo = () => {
 
 const LottieViewGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="LottieView"
     elements={[
       {

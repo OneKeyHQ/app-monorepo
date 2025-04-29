@@ -75,6 +75,9 @@ declare global {
 
   var WEB_EMBED_ONEKEY_APP_SETTINGS: IWebEmbedOnekeyAppSettings | undefined;
 
+  // Added for webpack/bundler injected variables
+  var __CURRENT_FILE_PATH__: string | undefined;
+
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Error extends Error {
     $$autoPrintErrorIgnore?: boolean;

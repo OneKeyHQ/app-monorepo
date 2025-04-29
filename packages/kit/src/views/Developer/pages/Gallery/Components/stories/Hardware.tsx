@@ -196,6 +196,7 @@ const HardwareActionTest = () => {
 
 const HardwareGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Hardware"
     elements={[
       {
