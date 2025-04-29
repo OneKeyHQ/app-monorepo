@@ -1,12 +1,14 @@
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isString } from 'lodash';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import indexedUtils from './indexed/indexedDBUtils';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 import type {
+  EIndexedDBBucketNames,
   IDBAccount,
   IDBDevice,
   IDBIndexedAccount,
@@ -32,19 +34,28 @@ import type {
   ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
+  ILocalDBWithTransactionOptions,
   ILocalDBWithTransactionTask,
 } from './types';
 
 export abstract class LocalDbBaseContainer implements ILocalDBAgent {
-  protected abstract readyDb: Promise<ILocalDBAgent>;
+  abstract readyDb: Promise<ILocalDBAgent>;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
+  async withTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
+    task: ILocalDBWithTransactionTask<T>,
+    options?: ILocalDBWithTransactionOptions,
+  ): Promise<T> {
     // throw new Error(
     //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     // );
+    if (!isString(bucketName)) {
+      debugger;
+    }
     const db = await this.readyDb;
-    return db.withTransaction(task);
+    // TODO default to readOnly: true
+    return db.withTransaction(bucketName, task, options);
   }
 
   async getRecordsCount<T extends ELocalDBStoreNames>(
@@ -153,7 +164,8 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async removeRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBRemoveRecordsParams<T>,
   ) {
-    return this.withTransaction((tx) => {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
+    return this.withTransaction(bucketName, (tx) => {
       return this.txRemoveRecords({
         ...params,
         tx,

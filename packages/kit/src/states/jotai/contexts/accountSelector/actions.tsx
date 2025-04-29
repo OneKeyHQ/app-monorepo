@@ -122,9 +122,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   setSelectedAccountsAtom(
     set: IJotaiSetter,
     fn: (currentValue: ISelectedAccountsAtomMap) => ISelectedAccountsAtomMap,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     reason?: string,
   ) {
-    console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
+    // console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
     set(selectedAccountsAtom(), (currentValue) => {
       const newValue = fn(currentValue);
       if (isEqual(currentValue, newValue)) {
@@ -148,9 +149,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
         const { num, selectedAccount } = payload;
-        console.log('buildActiveAccountInfoFromSelectedAccount', {
-          selectedAccount,
-        });
+        // console.log('buildActiveAccountInfoFromSelectedAccount', {
+        // selectedAccount,
+        // });
         let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
         try {
           ({ activeAccount } =
@@ -166,10 +167,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             ready: true,
           };
         }
-        console.log('buildActiveAccountInfoFromSelectedAccount update state', {
-          selectedAccount,
-          activeAccount,
-        });
+        // console.log('buildActiveAccountInfoFromSelectedAccount update state', {
+        //   selectedAccount,
+        //   activeAccount,
+        // });
         set(activeAccountsAtom(), (v) => ({
           ...v,
           [num]: activeAccount,
@@ -1237,13 +1238,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
         // **** globalDeriveType -> selectedAccount.deriveType
         if (globalDeriveType) {
-          console.log('syncLocalDeriveTypeFromGlobal >>>> ', {
-            selectedAccount,
-            globalDeriveType,
-            sceneName,
-            sceneUrl,
-            num,
-          });
+          // console.log('syncLocalDeriveTypeFromGlobal >>>> ', {
+          //   selectedAccount,
+          //   globalDeriveType,
+          //   sceneName,
+          //   sceneUrl,
+          //   num,
+          // });
           await this.updateSelectedAccountDeriveType.call(set, {
             updateMeta: {
               eventEmitDisabled: true, // stop update infinite loop here
@@ -1388,9 +1389,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num,
         });
         if (isEqual(currentSaved, selectedAccount)) {
-          console.error(
-            'AccountSelector.saveToStorage skip, selectedAccount not changed',
-          );
+          // console.log(
+          //   'AccountSelector.saveToStorage skip, selectedAccount not changed',
+          // );
           return;
         }
 
@@ -1691,12 +1692,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         triggerBy?: EAccountSelectorAutoSelectTriggerBy;
       },
     ) => {
-      console.log('accountSelector actions.autoSelectAccount >>> ', {
-        sceneName,
-        sceneUrl,
-        num,
-        triggerBy,
-      });
+      // console.log('accountSelector actions.autoSelectAccount >>> ', {
+      //   sceneName,
+      //   sceneUrl,
+      //   num,
+      //   triggerBy,
+      // });
 
       // addressInput scene should keep empty selection, let user select account manually
       if (!accountSelectorUtils.isSceneCanAutoSelect({ sceneName })) {

@@ -19,9 +19,13 @@ import type {
 } from '@onekeyhq/shared/types/market';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  EIndexedDBBucketNames,
+  type IDBCloudSyncItem,
+} from '../dbs/local/types';
+
 import ServiceBase from './ServiceBase';
 
-import type { IDBCloudSyncItem } from '../dbs/local/types';
 import type { AxiosResponse } from 'axios';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
@@ -253,14 +257,9 @@ class ServiceMarket extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.withTransaction(async (tx) => {
-      if (syncItems?.length) {
-        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
-          tx,
-          items: syncItems,
-        });
-      }
-      await fn();
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn,
     });
   }
 

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { random } from 'lodash';
 import { useIntl } from 'react-intl';
 import { I18nManager } from 'react-native';
 
@@ -30,6 +31,7 @@ import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   requestPermissionsAsync,
@@ -615,6 +617,28 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+
+      <SectionPressItem
+        title="Add ServerNetwork Test Data"
+        subtitle="添加 ServerNetwork 测试数据"
+        onPress={async () => {
+          const currentNetworks =
+            await backgroundApiProxy.simpleDb.serverNetwork.getAllServerNetworks();
+          await backgroundApiProxy.simpleDb.serverNetwork.upsertServerNetworks({
+            networkInfos: [
+              ...(currentNetworks?.networks || []),
+              {
+                ...presetNetworksMap.eth,
+                id: `evm--${random(100_000, 200_000)}`,
+              },
+            ],
+          });
+          Toast.success({
+            title: 'success',
+          });
+        }}
+      />
+
       <SectionPressItem
         title="Clear HD Wallet Hash and XFP"
         subtitle="清除所有钱包 hash 和 xfp"

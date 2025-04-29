@@ -93,33 +93,34 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import {
+  EIndexedDBBucketNames,
+  type IDBAccount,
+  type IDBCreateHwWalletParams,
+  type IDBCreateHwWalletParamsBase,
+  type IDBCreateQRWalletParams,
+  type IDBCredentialBase,
+  type IDBDevice,
+  type IDBEnsureAccountNameNotDuplicateParams,
+  type IDBExternalAccount,
+  type IDBGetWalletsParams,
+  type IDBIndexedAccount,
+  type IDBRemoveWalletParams,
+  type IDBSetAccountNameParams,
+  type IDBSetUniversalIndexedAccountNameParams,
+  type IDBSetWalletNameAndAvatarParams,
+  type IDBUtxoAccount,
+  type IDBVariantAccount,
+  type IDBWallet,
+  type IDBWalletId,
+  type IDBWalletIdSingleton,
+} from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
-import type {
-  IDBAccount,
-  IDBCreateHwWalletParams,
-  IDBCreateHwWalletParamsBase,
-  IDBCreateQRWalletParams,
-  IDBCredentialBase,
-  IDBDevice,
-  IDBEnsureAccountNameNotDuplicateParams,
-  IDBExternalAccount,
-  IDBGetWalletsParams,
-  IDBIndexedAccount,
-  IDBRemoveWalletParams,
-  IDBSetAccountNameParams,
-  IDBSetUniversalIndexedAccountNameParams,
-  IDBSetWalletNameAndAvatarParams,
-  IDBUtxoAccount,
-  IDBVariantAccount,
-  IDBWallet,
-  IDBWalletId,
-  IDBWalletIdSingleton,
-} from '../../dbs/local/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
@@ -3439,7 +3440,7 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async clearAllWalletHashAndXfp() {
-    await localDb.withTransaction(async (tx) => {
+    await localDb.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       const { recordPairs } = await localDb.txGetAllRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,

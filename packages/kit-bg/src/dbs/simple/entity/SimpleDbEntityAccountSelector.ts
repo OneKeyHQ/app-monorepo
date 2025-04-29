@@ -99,12 +99,12 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       return data;
     });
 
-    console.log('saveSelectedAccount', {
-      selectedAccount,
-      sceneName,
-      sceneUrl,
-      num,
-    });
+    // console.log('saveSelectedAccount', {
+    //   selectedAccount,
+    //   sceneName,
+    //   sceneUrl,
+    //   num,
+    // });
   }
 
   @backgroundMethod()
