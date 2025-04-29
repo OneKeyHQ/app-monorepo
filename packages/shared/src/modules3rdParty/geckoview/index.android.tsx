@@ -61,7 +61,6 @@ const GeckoView = forwardRef<IWebViewCommands, IGeckoViewProps>(
         dispatchCommand('postMessage', [message]);
       },
       injectJavaScript: (script: string) => {
-        console.log('--script', script);
         dispatchCommand('injectJavaScript', [script]);
       },
       loadUrl: (url: string) => {
