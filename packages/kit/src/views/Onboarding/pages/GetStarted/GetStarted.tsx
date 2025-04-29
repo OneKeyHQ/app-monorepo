@@ -12,10 +12,12 @@ import type {
 
 import { Actions, TermsAndPrivacy, Welcome } from './components';
 
-export function GetStarted(
-  _props: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>,
-) {
-  const { top } = useSafeAreaInsets();
+export function GetStarted({
+  route,
+}: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
+  const { isFullModal } = route.params || {};
+  const { top: topInset } = useSafeAreaInsets();
+  const top = isFullModal ? topInset : '$5';
 
   return (
     <Page safeAreaEnabled>
@@ -27,7 +29,7 @@ export function GetStarted(
 
         <TermsAndPrivacy />
 
-        <View position="absolute" left="$5" top={top || '$5'}>
+        <View position="absolute" left="$5" top={top}>
           <Page.Close>
             <IconButton
               testID="onboarding-exit-button"
