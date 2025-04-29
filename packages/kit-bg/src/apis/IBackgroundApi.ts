@@ -27,6 +27,7 @@ import type ServiceCustomRpc from '../services/ServiceCustomRpc';
 import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
+import type ServiceDBBackup from '../services/ServiceDBBackup';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
@@ -179,6 +180,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceCustomToken: ServiceCustomToken;
   serviceCustomRpc: ServiceCustomRpc;
   serviceReferralCode: ServiceReferralCode;
+  serviceDBBackup: ServiceDBBackup;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;

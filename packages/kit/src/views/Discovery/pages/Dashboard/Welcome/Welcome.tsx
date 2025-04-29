@@ -117,11 +117,9 @@ function DappSideDisplay({
 export function Welcome({
   banner,
   discoveryData,
-  isLoading,
 }: {
   banner: React.ReactNode;
   discoveryData?: { hot?: Array<{ logo?: string; url?: string }> };
-  isLoading: boolean;
 }) {
   const media = useMedia();
 
@@ -141,30 +139,6 @@ export function Welcome({
     width: '$50',
     height: '100%',
   };
-
-  // If loading, show a loading state
-  if (isLoading) {
-    return (
-      <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
-        <Stack
-          alignItems="center"
-          justifyContent="center"
-          width="auto"
-          position="relative"
-          gap="$5"
-          px="$5"
-          py="$6"
-          minHeight="$48"
-          $sm={{
-            width: '100%',
-          }}
-        >
-          <Skeleton width="$40" height="$12" />
-          <Skeleton width="$52" height="$10" />
-        </Stack>
-      </XStack>
-    );
-  }
 
   // Extract both platform and media conditions into the showDefaultTitle variable
   const showDefaultTitle =
@@ -197,7 +171,6 @@ export function Welcome({
           width: '100%',
         }}
       >
-        {/* Show banner if provided, otherwise show DefaultTitle based on conditions */}
         {banner || (showDefaultTitle && <DefaultTitle />)}
         <SearchInput />
       </Stack>

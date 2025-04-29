@@ -4,9 +4,7 @@ import { atom } from 'jotai';
 import { isEqual, isString, merge } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage, {
-  mockStorage,
-} from '@onekeyhq/shared/src/storage/appStorage';
+import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
@@ -21,6 +19,9 @@ import type {
   SyncStorage,
   WritableAtom,
 } from './types';
+
+const appStorage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
+const mockStorage = storageHub._mockStorage;
 
 class JotaiStorage implements AsyncStorage<any> {
   async getItem(key: string, initialValue: any): Promise<any> {
