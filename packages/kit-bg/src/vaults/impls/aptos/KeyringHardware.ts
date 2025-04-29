@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { deriveTransactionType } from '@aptos-labs/ts-sdk';
+
 import type { ISignMessageRequest } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -129,15 +131,23 @@ export class KeyringHardware extends KeyringHardwareBase {
       (this.vault as VaultAptos).client,
       params.unsignedTx,
     );
-    const rawTx = rawTxn.rawTransaction.bcsToHex().toStringWithoutPrefix();
+
+    // support feePayerAddress、secondarySignerAddresses
+    const transaction = deriveTransactionType(rawTxn);
+    const rawTx = transaction.bcsToHex().toStringWithoutPrefix();
+    let transactionType = 0; // STANDARD Transaction
+    if (rawTxn.feePayerAddress || rawTxn.secondarySignerAddresses) {
+      transactionType = 1; // WITH_DATA Transaction
+    }
+
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
-    // TODO: support feePayerAddress、secondarySignerAddresses
     const res = await convertDeviceResponse(() =>
       sdk.aptosSignTransaction(connectId, deviceId, {
         ...deviceCommonParams,
         path: account.path,
         rawTx,
+        transactionType,
       }),
     );
     const result = await buildSignedTx(
