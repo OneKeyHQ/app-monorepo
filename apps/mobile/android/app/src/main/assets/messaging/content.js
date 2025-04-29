@@ -17,10 +17,13 @@ const initWebembedReceiveHandler = (times = 0) => {
       callbackId += 1;
       console.log('webembedReceiveHandler', payload);
       const event = new CustomEvent('webembedReceiveHandler', {
-        detail: {
-          data: cloneInto(payload, window),
-          callbackId,
-        },
+        detail: cloneInto(
+          {
+            data: payload,
+            callbackId,
+          },
+          window,
+        ),
       });
       window.dispatchEvent(event);
     });
