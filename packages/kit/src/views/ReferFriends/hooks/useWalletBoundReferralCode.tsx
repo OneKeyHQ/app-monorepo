@@ -9,6 +9,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -47,9 +48,10 @@ function useGetReferralCodeWalletInfo() {
         return null;
       }
       return {
+        walletId,
+        networkId,
         accountId: firstEvmAccountId,
         address: account.address,
-        networkId,
         pubkey: account.pub,
       };
     } catch {
@@ -89,23 +91,23 @@ function InviteCode({
           );
         console.log('===>>> unsignedMessage: ', unsignedMessage);
 
-        const signedMessage =
-          (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-            accountId: walletInfo.accountId,
-            networkId: walletInfo.networkId,
-            request: {
-              origin: 'https://app.onekey.so/',
-              scope: 'ethereum',
-            },
-            unsignedMessage: {
-              type: EMessageTypesEth.PERSONAL_SIGN,
-              message: unsignedMessage,
-              payload: [unsignedMessage, walletInfo.address],
-            },
-            walletInternalSign: true,
-          })) as string;
+        // const signedMessage =
+        //   (await backgroundApiProxy.serviceDApp.openSignMessageModal({
+        //     accountId: walletInfo.accountId,
+        //     networkId: walletInfo.networkId,
+        //     request: {
+        //       origin: 'https://app.onekey.so/',
+        //       scope: 'ethereum',
+        //     },
+        //     unsignedMessage: {
+        //       type: EMessageTypesEth.PERSONAL_SIGN,
+        //       message: unsignedMessage,
+        //       payload: [unsignedMessage, walletInfo.address],
+        //     },
+        //     walletInternalSign: true,
+        //   })) as string;
 
-        console.log('===>>> signedMessage: ', signedMessage);
+        // console.log('===>>> signedMessage: ', signedMessage);
 
         onSuccess?.();
       } catch (e) {
@@ -122,6 +124,25 @@ function InviteCode({
       getReferralCodeWalletInfo,
     ],
   );
+
+  const handleSkip = useCallback(async () => {
+    const walletInfo = await getReferralCodeWalletInfo(wallet?.id);
+    if (!walletInfo) {
+      return;
+    }
+
+    await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
+      walletId: walletInfo.walletId,
+      referralCodeInfo: {
+        walletId: walletInfo.walletId,
+        address: walletInfo.address,
+        networkId: walletInfo.networkId,
+        pubkey: walletInfo.pubkey ?? '',
+        referralCode: null,
+      },
+    });
+  }, [wallet?.id, getReferralCodeWalletInfo]);
+
   return (
     <YStack mt="$-3">
       <XStack ai="center" gap="$2" pb="$5">
@@ -163,9 +184,7 @@ function InviteCode({
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
         onCancelText="Skip"
-        onCancel={() => {
-          console.log('===>>> skip');
-        }}
+        onCancel={handleSkip}
       />
     </YStack>
   );
@@ -221,8 +240,8 @@ export function useWalletBoundReferralCode() {
         renderContent: (
           <InviteCode wallet={wallet} onSuccess={onSuccess} onFail={onFail} />
         ),
-        onClose: () => {
-          console.log('===>>> close');
+        onClose: (extra) => {
+          console.log('===>>> close: ===>: ', extra);
         },
       });
     },

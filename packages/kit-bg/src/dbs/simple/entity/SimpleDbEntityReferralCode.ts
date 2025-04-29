@@ -7,7 +7,7 @@ export interface IWalletReferralCode {
   address: string;
   networkId: string;
   pubkey: string;
-  referralCode: string;
+  referralCode: string | null;
   createdAt?: number;
 }
 
