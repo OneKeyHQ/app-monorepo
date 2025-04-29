@@ -75,13 +75,11 @@ const onekeyUtils = {
           .catch((error) => {
             reject(cloneInto(error, window));
           });
-        bindWebembedReceiveHandler();
       });
     },
   },
   jsBridge: {
     receive: (...args) => {
-      bindWebembedReceiveHandler();
       globalThis.$onekey.jsBridge.receive(...args);
     },
   },
