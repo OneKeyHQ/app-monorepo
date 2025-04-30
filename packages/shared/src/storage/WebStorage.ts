@@ -61,6 +61,10 @@ async function migrateFromLegacyStorage({
         try {
           await indexed.put(tableName, value, key);
         } catch (error) {
+          console.error(
+            'migrateFromLegacyStorage put ERROR: ',
+            (error as Error | undefined)?.message,
+          );
           try {
             await indexed.add(tableName, value, key);
           } catch (error2) {
@@ -69,13 +73,8 @@ async function migrateFromLegacyStorage({
             // Encountered disk full while committing transaction.
             // QuotaExceededError: Encountered full disk while opening backing store for indexedDB.open.
             console.error(
-              'migrateFromLegacyStorage ERROR: ',
-              [
-                (error as Error | undefined)?.message,
-                (error2 as Error | undefined)?.message,
-              ]
-                .filter(Boolean)
-                .join(','),
+              'migrateFromLegacyStorage add ERROR: ',
+              (error2 as Error | undefined)?.message,
             );
           }
         }

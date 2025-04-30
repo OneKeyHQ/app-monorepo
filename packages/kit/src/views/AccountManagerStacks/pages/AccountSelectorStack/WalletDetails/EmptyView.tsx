@@ -66,11 +66,7 @@ export function EmptyNoWalletView() {
           id: ETranslations.global_create_wallet,
         }),
         onPress: () => {
-          void toOnBoardingPage({
-            params: {
-              showCloseButton: true,
-            },
-          });
+          void toOnBoardingPage();
         },
       }}
     />

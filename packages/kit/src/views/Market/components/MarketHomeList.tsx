@@ -154,8 +154,6 @@ function MarketMdColumn({
   showMoreAction,
   onLongPressRefs,
   wallet,
-  tabIndex,
-  isWatchList,
 }: {
   item: IMarketToken;
   currency: string;
@@ -494,7 +492,7 @@ function BasicMarketHomeList({
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
     useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 
-  const [mdColumnKeys, setMdColumnKeys] = useState<IKeyOfMarketToken[]>([
+  const [mdColumnKeys] = useState<IKeyOfMarketToken[]>([
     'price',
     'priceChangePercentage24H',
   ]);
