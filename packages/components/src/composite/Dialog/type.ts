@@ -109,6 +109,7 @@ export type IDialogContainerProps = PropsWithChildren<
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
   portalContainer?: EPortalContainerConstantName;
+  isOverTopAllViews?: boolean;
   /* Run it after dialog is closed  */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }
@@ -144,4 +145,5 @@ export type IDialogFormProps = PropsWithChildren<{
 export type IRenderToContainer = (
   container: EPortalContainerConstantName,
   element: ReactElement,
+  isOverTopAllViews?: boolean,
 ) => IPortalManager;

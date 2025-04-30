@@ -439,6 +439,7 @@ function dialogShow({
   onClose,
   dialogContainer,
   portalContainer,
+  isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
   dismissKeyboard();
@@ -496,7 +497,7 @@ function dialogShow({
 
   portalRef = {
     current: portalContainer
-      ? renderToContainer(portalContainer, element)
+      ? renderToContainer(portalContainer, element, isOverTopAllViews)
       : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   const close = async (extra?: { flag?: string }, times = 0) => {
@@ -629,7 +630,6 @@ export const useInPageDialog = () => {
       'pagePortalId is required, please set allowInPagePopup to true in Page component',
     );
   }
-  console.log('pagePortalId---', pagePortalId);
   const basicDialogProps = useMemo(
     () => ({
       testID: pagePortalId,

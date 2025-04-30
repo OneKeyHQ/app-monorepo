@@ -3,8 +3,12 @@ import { OverlayContainer } from '../../layouts/OverlayContainer';
 
 import type { IRenderToContainer } from './type';
 
-export const renderToContainer: IRenderToContainer = (_, element) =>
+export const renderToContainer: IRenderToContainer = (
+  container,
+  element,
+  isOverTopAllViews,
+) =>
   Portal.Render(
-    Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+    isOverTopAllViews ? Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL : container,
     <OverlayContainer>{element}</OverlayContainer>,
   );
