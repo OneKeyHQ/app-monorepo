@@ -143,10 +143,16 @@ function fixNativeTokenMaxSendAmount({
 const SATS_PER_BTC = 100_000_000; // 1 BTC = 100,000,000 sats
 
 function convertBtcToSats(btc: string | number): string {
+  if (btc === '' || btc === undefined) {
+    return '';
+  }
   return new BigNumber(btc).times(SATS_PER_BTC).toFixed();
 }
 
 function convertSatsToBtc(sats: string | number): string {
+  if (sats === '' || sats === undefined) {
+    return '';
+  }
   return new BigNumber(sats).dividedBy(SATS_PER_BTC).toFixed();
 }
 

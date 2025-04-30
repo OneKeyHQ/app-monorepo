@@ -7,7 +7,9 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
+import accountUtils, {
+  buildAccountLocalAssetsKey,
+} from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -95,13 +97,21 @@ class ServiceToken extends ServiceBase {
       ...rest
     } = params;
     const { networkId } = rest;
-    if (
-      isAllNetworks &&
-      this._currentNetworkId !== getNetworkIdsMap().onekeyall
-    )
+
+    const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
+
+    const currentNetworkId = isUrlAccount
+      ? this._currentUrlNetworkId
+      : this._currentNetworkId;
+
+    const currentAccountId = isUrlAccount
+      ? this._currentUrlAccountId
+      : this._currentAccountId;
+
+    if (isAllNetworks && currentNetworkId !== getNetworkIdsMap().onekeyall)
       return {
         ...getEmptyTokenData(),
-        networkId: this._currentNetworkId,
+        networkId: currentNetworkId,
       };
 
     const accountParams = {
@@ -281,8 +291,8 @@ class ServiceToken extends ServiceBase {
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
       allNetworksNetworkId &&
-      allNetworksAccountId === this._currentAccountId &&
-      allNetworksNetworkId === this._currentNetworkId
+      allNetworksAccountId === currentAccountId &&
+      allNetworksNetworkId === currentNetworkId
     );
 
     return resp.data.data;
