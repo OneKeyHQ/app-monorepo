@@ -68,6 +68,7 @@ export function AccountExportPrivateKeyButton({
             params: {
               mnemonic,
               isBackup: true,
+              isWalletBackedUp: wallet?.backuped,
             },
           });
           return;

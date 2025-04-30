@@ -128,6 +128,7 @@ async function encryptAsync({
     throw new IncorrectPassword();
   }
   if (!useRnJsCrypto) {
+    console.log('encryptAsync useRnJsCrypto', useRnJsCrypto);
     // console.log('encryptAsync useRnJsCrypto', useRnJsCrypto);
   }
 
