@@ -26,6 +26,12 @@ export type IBasicPageProps = PropsWithChildren<
     /* scrollEnabled. When false, the view cannot be scrolled via interaction.  */
     scrollEnabled?: boolean;
     scrollProps?: Omit<IScrollViewProps, 'children'>;
+    /**
+     * allows for in-page popup dialog/toast
+     *
+     * @default false
+     */
+    allowInPagePopup?: boolean;
   } & IPageLifeCycle
 >;
 
