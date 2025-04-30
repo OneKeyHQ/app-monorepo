@@ -109,6 +109,12 @@ export type IDialogContainerProps = PropsWithChildren<
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
   portalContainer?: EPortalContainerConstantName;
+  /**
+   * If true, the dialog will be rendered on top of all views.
+   * On web, it will be rendered to document.body, on iOS, it will be rendered to Window Overlay top layer.
+   * Default is false.
+   * @platform iOS, Web
+   */
   isOverTopAllViews?: boolean;
   /* Run it after dialog is closed  */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
