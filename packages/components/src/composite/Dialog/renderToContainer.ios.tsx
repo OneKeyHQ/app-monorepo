@@ -7,8 +7,12 @@ export const renderToContainer: IRenderToContainer = (
   container,
   element,
   isOverTopAllViews,
-) =>
-  Portal.Render(
-    isOverTopAllViews ? Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL : container,
-    <OverlayContainer>{element}</OverlayContainer>,
-  );
+) => {
+  if (isOverTopAllViews) {
+    Portal.Render(
+      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+      <OverlayContainer>{element}</OverlayContainer>,
+    );
+  }
+  return Portal.Render(container, element);
+};
