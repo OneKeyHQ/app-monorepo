@@ -205,6 +205,7 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
+        modal={modal}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -633,6 +634,7 @@ export const useInPageDialog = () => {
   const basicDialogProps = useMemo(
     () => ({
       testID: pagePortalId,
+      modal: false,
       portalContainer: pagePortalId as EPortalContainerConstantName,
     }),
     [pagePortalId],
