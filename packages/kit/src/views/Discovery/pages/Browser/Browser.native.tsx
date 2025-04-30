@@ -84,7 +84,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
         }
 
         const onBackPress = () => {
-          if (!isDiscoveryTabFocused.current) {
+          if (!isDiscoveryTabFocused.current || displayHomePage) {
             return false;
           }
           if (!displayHomePage && activeTabData?.canGoBack && activeTabId) {
