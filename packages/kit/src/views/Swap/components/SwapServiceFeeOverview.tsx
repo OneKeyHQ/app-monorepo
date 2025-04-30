@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  IconButton,
   Image,
   Popover,
   SizableText,
