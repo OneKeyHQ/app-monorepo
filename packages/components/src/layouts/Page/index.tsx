@@ -1,6 +1,9 @@
 import { useMemo, useRef } from 'react';
 
+import uuid from 'react-native-uuid';
 import { withStaticProperties } from 'tamagui';
+
+import { Portal } from '../../hocs';
 
 import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
@@ -21,10 +24,15 @@ import type { IPageProps } from './type';
 
 export type { IPageProps, IPageFooterProps, IPageLifeCycle } from './type';
 
+function PagePortal({ pagePortalId }: { pagePortalId: string }) {
+  return pagePortalId ? <Portal.Container name={pagePortalId} /> : null;
+}
+
 function PageProvider({
   children,
   skipLoading = false,
   scrollEnabled = false,
+  allowInPagePopup = false,
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
   fullPage,
@@ -36,6 +44,9 @@ function PageProvider({
 }: IPageProps) {
   const footerRef = useRef<IPageFooterRef>({});
   const closeExtraRef = useRef<{ flag?: string }>({});
+  const pagePortalId = useMemo(() => {
+    return allowInPagePopup ? (uuid.v1() as string) : '';
+  }, [allowInPagePopup]);
   const value = useMemo(
     () => ({
       scrollEnabled,
@@ -43,8 +54,9 @@ function PageProvider({
       safeAreaEnabled,
       footerRef,
       closeExtraRef,
+      pagePortalId,
     }),
-    [safeAreaEnabled, scrollEnabled, scrollProps],
+    [pagePortalId, safeAreaEnabled, scrollEnabled, scrollProps],
   );
 
   const isEnablePageLifeCycle = onMounted || onUnmounted || onClose || onCancel;
@@ -53,7 +65,14 @@ function PageProvider({
     <>
       <PageContext.Provider value={value}>
         <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
-          {children}
+          {allowInPagePopup ? (
+            <>
+              {children}
+              <PagePortal pagePortalId={pagePortalId} />
+            </>
+          ) : (
+            children
+          )}
         </PageContainer>
       </PageContext.Provider>
       {isEnablePageLifeCycle ? (

@@ -33,6 +33,7 @@ import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useBackHandler, useOverlayZIndex } from '../../hooks';
+import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { Spinner, Stack } from '../../primitives';
 
@@ -61,7 +62,7 @@ import type {
   IDialogProps,
   IDialogShowProps,
 } from './type';
-import type { IPortalManager } from '../../hocs';
+import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
@@ -429,16 +430,17 @@ export const DialogContainer = forwardRef<
   IDialogContainerProps
 >(BaseDialogContainer);
 
+type IDialogShowFunctionProps = IDialogShowProps & {
+  dialogContainer?: (o: {
+    ref: React.RefObject<IDialogInstance> | undefined;
+  }) => JSX.Element;
+};
 function dialogShow({
   onClose,
   dialogContainer,
   portalContainer,
   ...props
-}: IDialogShowProps & {
-  dialogContainer?: (o: {
-    ref: React.RefObject<IDialogInstance> | undefined;
-  }) => JSX.Element;
-}): IDialogInstance {
+}: IDialogShowFunctionProps): IDialogInstance {
   dismissKeyboard();
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
@@ -618,4 +620,50 @@ export const Dialog = {
   cancel: dialogCancel,
   loading: dialogLoading,
   debugMessage: dialogDebugMessage,
+};
+
+export const useInPageDialog = () => {
+  const { pagePortalId } = usePageContext();
+  if (!pagePortalId && platformEnv.isDev) {
+    throw new Error(
+      'pagePortalId is required, please set allowInPagePopup to true in Page component',
+    );
+  }
+  console.log('pagePortalId---', pagePortalId);
+  const basicDialogProps = useMemo(
+    () => ({
+      testID: pagePortalId,
+      portalContainer: pagePortalId as EPortalContainerConstantName,
+    }),
+    [pagePortalId],
+  );
+  return useMemo(
+    () => ({
+      show: (props: IDialogShowFunctionProps) => {
+        return dialogShow({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      confirm: (props: IDialogConfirmProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      cancel: (props: IDialogCancelProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      loading: (props: IDialogLoadingProps) => {
+        return dialogLoading({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+    }),
+    [basicDialogProps],
+  );
 };
