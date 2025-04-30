@@ -4,12 +4,17 @@ import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { LEGACY_INDEXED_DB_NAME } from '../../dbs/local/consts';
+import {
+  LEGACY_INDEXED_DB_NAME,
+  storeNameSupportCreatedAt,
+} from '../../dbs/local/consts';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 
+import legacyIndexedDb from './legacyIndexedDb';
 import {
   migrateAccountBucketRecords,
   migrateRecords,
@@ -29,7 +34,9 @@ import type {
   IDBSignedTransaction,
   IDBWallet,
   IIndexedBucketsMap,
+  IIndexedDBSchemaMap,
 } from '../../dbs/local/types';
+import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 async function legacyDbExists(): Promise<boolean> {
   try {
@@ -84,43 +91,47 @@ async function migrateOneKeyV5LegacyDBToBucket({
     return;
   }
 
-  const legacyDb = await openDB(LEGACY_INDEXED_DB_NAME);
-  const legacyContextCount = await legacyDb.count(ELocalDBStoreNames.Context);
-  const legacyAccountCount = await legacyDb.count(ELocalDBStoreNames.Account);
-  const legacyWalletCount = await legacyDb.count(ELocalDBStoreNames.Wallet);
+  await legacyIndexedDb.open();
 
-  const legacyCloudSyncItems: IDBCloudSyncItem[] = await legacyDb.getAll(
-    ELocalDBStoreNames.CloudSyncItem,
-  );
-
-  const legacyAccounts: IDBAccount[] = await legacyDb.getAll(
-    ELocalDBStoreNames.Account,
-  );
-
-  const legacyCredentials: IDBCredential[] = await legacyDb.getAll(
-    ELocalDBStoreNames.Credential,
-  );
-  const legacyDevices: IDBDevice[] = await legacyDb.getAll(
-    ELocalDBStoreNames.Device,
-  );
-  const legacyWallets: IDBWallet[] = await legacyDb.getAll(
-    ELocalDBStoreNames.Wallet,
-  );
-  const legacyIndexedAccounts: IDBIndexedAccount[] = await legacyDb.getAll(
-    ELocalDBStoreNames.IndexedAccount,
-  );
-  const legacyContexts: IDBContext[] = await legacyDb.getAll(
+  const legacyContextCount = await legacyIndexedDb.count(
     ELocalDBStoreNames.Context,
   );
-  const legacyAddresses: IDBAddress[] = await legacyDb.getAll(
+  const legacyAccountCount = await legacyIndexedDb.count(
+    ELocalDBStoreNames.Account,
+  );
+  const legacyWalletCount = await legacyIndexedDb.count(
+    ELocalDBStoreNames.Wallet,
+  );
+
+  const legacyCloudSyncItems: IDBCloudSyncItem[] = await legacyIndexedDb.getAll(
+    ELocalDBStoreNames.CloudSyncItem,
+  );
+  const legacyAccounts: IDBAccount[] = await legacyIndexedDb.getAll(
+    ELocalDBStoreNames.Account,
+  );
+  const legacyCredentials: IDBCredential[] = await legacyIndexedDb.getAll(
+    ELocalDBStoreNames.Credential,
+  );
+  const legacyDevices: IDBDevice[] = await legacyIndexedDb.getAll(
+    ELocalDBStoreNames.Device,
+  );
+  const legacyWallets: IDBWallet[] = await legacyIndexedDb.getAll(
+    ELocalDBStoreNames.Wallet,
+  );
+  const legacyIndexedAccounts: IDBIndexedAccount[] =
+    await legacyIndexedDb.getAll(ELocalDBStoreNames.IndexedAccount);
+  const legacyContexts: IDBContext[] = await legacyIndexedDb.getAll(
+    ELocalDBStoreNames.Context,
+  );
+  const legacyAddresses: IDBAddress[] = await legacyIndexedDb.getAll(
     ELocalDBStoreNames.Address,
   );
-  const legacySignedMessages: IDBSignedMessage[] = await legacyDb.getAll(
+  const legacySignedMessages: IDBSignedMessage[] = await legacyIndexedDb.getAll(
     ELocalDBStoreNames.SignedMessage,
   );
   const legacySignedTransactions: IDBSignedTransaction[] =
-    await legacyDb.getAll(ELocalDBStoreNames.SignedTransaction);
-  const legacyConnectedSites: IDBConnectedSite[] = await legacyDb.getAll(
+    await legacyIndexedDb.getAll(ELocalDBStoreNames.SignedTransaction);
+  const legacyConnectedSites: IDBConnectedSite[] = await legacyIndexedDb.getAll(
     ELocalDBStoreNames.ConnectedSite,
   );
 
