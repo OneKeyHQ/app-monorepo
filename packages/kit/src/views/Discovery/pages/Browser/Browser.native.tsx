@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/components/MobileBrowser/MobileBrowserBottomBar';
 import {
@@ -55,6 +56,65 @@ import { withBrowserProvider } from './WithBrowserProvider';
 import type { WebView } from 'react-native-webview';
 
 const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
+
+const useAndroidHardwareBack = platformEnv.isNativeAndroid
+  ? ({
+      displayHomePage,
+      activeTabData,
+      activeTabId,
+      handleGoBackHome,
+    }: {
+      displayHomePage: boolean;
+      activeTabData: { canGoBack?: boolean } | undefined;
+      activeTabId: string | undefined | null;
+      handleGoBackHome: () => Promise<void> | void;
+    }) => {
+      const isDiscoveryTabFocused = useRef(true);
+      useListenTabFocusState(
+        ETabRoutes.Discovery,
+        (isFocus: boolean, isHideByModal: boolean) => {
+          isDiscoveryTabFocused.current = isFocus && !isHideByModal;
+        },
+      );
+
+      useEffect(() => {
+        // Only add back handler on Android
+        if (!platformEnv.isNativeAndroid) {
+          return;
+        }
+
+        const onBackPress = () => {
+          if (!isDiscoveryTabFocused.current) {
+            return false;
+          }
+          if (!displayHomePage && activeTabData?.canGoBack && activeTabId) {
+            const webviewRef = webviewRefs[activeTabId];
+            if (webviewRef?.innerRef) {
+              try {
+                (webviewRef.innerRef as WebView)?.goBack();
+              } catch (error) {
+                console.error('Error while navigating back:', error);
+              }
+            }
+          } else {
+            void handleGoBackHome();
+          }
+
+          // Prevent default behavior
+          return true;
+        };
+
+        BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () =>
+          BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+      }, [
+        activeTabId,
+        activeTabData?.canGoBack,
+        displayHomePage,
+        handleGoBackHome,
+      ]);
+    }
+  : () => {};
 
 function MobileBrowser() {
   const { tabs } = useWebTabs();
@@ -165,37 +225,12 @@ function MobileBrowser() {
     });
   }, [takeScreenshot, setCurrentWebTab, navigation]);
 
-  useEffect(() => {
-    // Only add back handler on Android
-    if (!platformEnv.isNativeAndroid) return;
-
-    const onBackPress = () => {
-      if (!displayHomePage && activeTabData?.canGoBack && activeTabId) {
-        const webviewRef = webviewRefs[activeTabId];
-        if (webviewRef?.innerRef) {
-          try {
-            (webviewRef.innerRef as WebView)?.goBack();
-          } catch (error) {
-            console.error('Error while navigating back:', error);
-          }
-        }
-      } else {
-        void handleGoBackHome();
-      }
-
-      // Prevent default behavior
-      return true;
-    };
-
-    BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () =>
-      BackHandler.removeEventListener('hardwareBackPress', onBackPress);
-  }, [
-    activeTabId,
-    activeTabData?.canGoBack,
+  useAndroidHardwareBack({
     displayHomePage,
+    activeTabData,
+    activeTabId,
     handleGoBackHome,
-  ]);
+  });
 
   return (
     <Page fullPage>
