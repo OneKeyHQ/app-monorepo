@@ -1,7 +1,7 @@
 import type { SharingOptions } from 'expo-sharing';
 
 const mock = {
-  shareAsync: async (url: string, options: SharingOptions = {}) => {
+  shareAsync: async (url: string, _options: SharingOptions = {}) => {
     throw new Error('Function not implemented.');
   },
   isAvailableAsync: async () => {

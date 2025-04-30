@@ -9,7 +9,6 @@ import {
   Button,
   Dialog,
   Divider,
-  Icon,
   Input,
   SegmentControl,
   SizableText,
