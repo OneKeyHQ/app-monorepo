@@ -30,9 +30,7 @@ function WalletBoundReferralCodeButtonView({
         await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
           walletId: wallet?.id || '',
         });
-      return (
-        referralCodeInfo?.walletId && referralCodeInfo?.referralCode === null
-      );
+      return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
     },
     [wallet?.id],
     {

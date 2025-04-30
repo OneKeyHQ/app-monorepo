@@ -7,7 +7,7 @@ export interface IWalletReferralCode {
   address: string;
   networkId: string;
   pubkey: string;
-  referralCode: string | null;
+  isBound: boolean;
   createdAt?: number;
 }
 
@@ -85,7 +85,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
               address: referralCodeInfo.address,
               networkId: referralCodeInfo.networkId,
               pubkey: referralCodeInfo.pubkey,
-              referralCode: referralCodeInfo.referralCode,
+              isBound: referralCodeInfo.isBound,
               createdAt: Date.now(),
             },
           },

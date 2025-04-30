@@ -217,7 +217,7 @@ function FinalizeWalletSetupPage({
   }, [shouldBondReferralCode, closePage]);
 
   return (
-    <Page>
+    <>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.onboarding_finalize_wallet_setup,
@@ -301,7 +301,7 @@ function FinalizeWalletSetupPage({
           }}
         />
       ) : null}
-    </Page>
+    </>
   );
 }
 
@@ -319,7 +319,9 @@ export function FinalizeWalletSetup({
         sceneName: EAccountSelectorSceneName.home,
       }}
     >
-      <FinalizeWalletSetupPage route={route} navigation={navigation} />
+      <Page allowInPagePopup>
+        <FinalizeWalletSetupPage route={route} navigation={navigation} />
+      </Page>
     </AccountSelectorProviderMirror>
   );
 }

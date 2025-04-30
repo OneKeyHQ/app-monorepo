@@ -9,8 +9,9 @@ import {
   SizableText,
   XStack,
   YStack,
-  useDialogInstance,
+  useInPageDialog,
 } from '@onekeyhq/components';
+import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -81,7 +82,7 @@ function InviteCode({
         if (!walletInfo) {
           throw new OneKeyPlainTextError('Invalid Wallet');
         }
-        const unsignedMessage =
+        let unsignedMessage =
           await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
             {
               address: walletInfo.address,
@@ -90,37 +91,52 @@ function InviteCode({
             },
           );
         console.log('===>>> unsignedMessage: ', unsignedMessage);
+        if (walletInfo.networkId === getNetworkIdsMap().eth) {
+          unsignedMessage = autoFixPersonalSignMessage({
+            message: unsignedMessage,
+          });
+        }
 
-        // const signedMessage =
-        //   (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-        //     accountId: walletInfo.accountId,
-        //     networkId: walletInfo.networkId,
-        //     request: {
-        //       origin: 'https://app.onekey.so/',
-        //       scope: 'ethereum',
-        //     },
-        //     unsignedMessage: {
-        //       type: EMessageTypesEth.PERSONAL_SIGN,
-        //       message: unsignedMessage,
-        //       payload: [unsignedMessage, walletInfo.address],
-        //     },
-        //     walletInternalSign: true,
-        //   })) as string;
-
-        // console.log('===>>> signedMessage: ', signedMessage);
-
-        await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-          walletId: walletInfo.walletId,
-          referralCodeInfo: {
-            walletId: walletInfo.walletId,
-            address: walletInfo.address,
+        const signedMessage =
+          (await backgroundApiProxy.serviceDApp.openSignMessageModal({
+            accountId: walletInfo.accountId,
             networkId: walletInfo.networkId,
-            pubkey: walletInfo.pubkey ?? '',
-            referralCode: verificationCode,
-          },
-        });
+            request: {
+              origin: 'https://app.onekey.so/',
+              scope: 'ethereum',
+            },
+            unsignedMessage: {
+              type: EMessageTypesEth.PERSONAL_SIGN,
+              message: unsignedMessage,
+              payload: [unsignedMessage, walletInfo.address],
+            },
+            walletInternalSign: true,
+          })) as string;
 
-        onSuccess?.();
+        const bindResult =
+          await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
+            {
+              address: walletInfo.address,
+              networkId: walletInfo.networkId,
+              pubkey: walletInfo.pubkey,
+              referralCode: verificationCode,
+              signature: signedMessage,
+            },
+          );
+        console.log('===>>> signedMessage: ', signedMessage);
+        if (bindResult) {
+          await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
+            walletId: walletInfo.walletId,
+            referralCodeInfo: {
+              walletId: walletInfo.walletId,
+              address: walletInfo.address,
+              networkId: walletInfo.networkId,
+              pubkey: walletInfo.pubkey ?? '',
+              isBound: true,
+            },
+          });
+          onSuccess?.();
+        }
       } catch (e) {
         console.log('eeeedialog EEEE=> : ', e);
         preventClose?.();
@@ -149,7 +165,7 @@ function InviteCode({
         address: walletInfo.address,
         networkId: walletInfo.networkId,
         pubkey: walletInfo.pubkey ?? '',
-        referralCode: null,
+        isBound: false,
       },
     });
   }, [wallet?.id, getReferralCodeWalletInfo]);
@@ -233,6 +249,7 @@ export function useWalletBoundReferralCode() {
     }
   };
 
+  const dialog = useInPageDialog();
   const bindWalletInviteCode = useCallback(
     ({
       wallet,
@@ -243,7 +260,7 @@ export function useWalletBoundReferralCode() {
       onSuccess?: () => void;
       onFail?: () => void;
     }) => {
-      Dialog.show({
+      dialog.show({
         showExitButton: true,
         icon: 'GiftOutline',
         tone: 'success',
@@ -256,7 +273,7 @@ export function useWalletBoundReferralCode() {
         },
       });
     },
-    [],
+    [dialog],
   );
 
   return {

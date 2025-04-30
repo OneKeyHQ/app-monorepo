@@ -216,6 +216,33 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async boundReferralCodeWithSignedMessage({
+    networkId,
+    address,
+    pubkey,
+    referralCode,
+    signature,
+  }: {
+    networkId: string;
+    address: string;
+    pubkey?: string;
+    referralCode: string;
+    signature: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: { success: boolean };
+    }>('/rebate/v1/wallet/bind', {
+      networkId,
+      address,
+      pubkey,
+      inviteCode: referralCode,
+      signature,
+    });
+    return response.data.data.success;
+  }
+
+  @backgroundMethod()
   async getWalletReferralCode({ walletId }: { walletId: string }) {
     return this.backgroundApi.simpleDb.referralCode.getWalletReferralCode({
       walletId,
