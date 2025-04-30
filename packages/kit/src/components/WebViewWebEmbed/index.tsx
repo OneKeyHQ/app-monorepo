@@ -4,17 +4,18 @@ import { SizableText, Stack, View, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
-import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import { EWebEmbedPostMessageType } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
 
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
@@ -24,6 +25,7 @@ import WebView from '../WebView';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type { WebViewMessageEvent } from 'react-native-webview';
 
 const initTop = '15%';
 // /onboarding/auto_typing
@@ -129,6 +131,42 @@ export function WebViewWebEmbed({
     return undefined;
   }, [remoteUrl]);
 
+  // Handle messages from WebView - only works in native environments
+  const handleMessage = useCallback((event?: WebViewMessageEvent) => {
+    if (event?.nativeEvent.data) {
+      const data = JSON.parse(event.nativeEvent.data) as {
+        type: string;
+        data: any;
+      };
+      switch (data.type) {
+        case EWebEmbedPostMessageType.TrackEvent:
+          {
+            const { eventName, eventProps } = data.data as {
+              eventName: string;
+              eventProps: Record<string, any>;
+            };
+            analytics.trackEvent(eventName, eventProps);
+          }
+
+          break;
+        case EWebEmbedPostMessageType.CaptureException: {
+          const { error, stackTrace } = data.data as {
+            error: string;
+            stackTrace: Record<string, string>;
+          };
+          if (error) {
+            const errorObj = new Error(error);
+            errorObj.stack = JSON.stringify(stackTrace);
+            captureException(errorObj);
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }, []);
+
   const webview = useMemo(() => {
     if (!webEmbedAppSettings) {
       return null;
@@ -137,12 +175,7 @@ export function WebViewWebEmbed({
       path: hashRoutePath,
       query: hashRouteQueryParams,
     });
-    const trackEventUrl = buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.Utility,
-      env: webEmbedAppSettings.enableTestEndpoint ? 'test' : 'prod',
-    });
     console.log('WebViewWebEmbed fullHash', hashRoutePath, fullHash);
-    console.log('WebViewWebEmbed trackEventUrl', trackEventUrl);
 
     if (
       devSettingsPersistAtom.enabled &&
@@ -159,16 +192,17 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
+        useGeckoView={platformEnv.isNativeAndroid}
         // *** use remote url
         src={remoteUrl || ''}
-        originWhitelist={[trackEventUrl]}
         // *** use web-embed local html file
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
+        onMessage={handleMessage}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
-            window.WEB_EMBED_ONEKEY_APP_SETTINGS = {
+            const WEB_EMBED_ONEKEY_APP_SETTINGS = {
               isDev: "${String(webEmbedAppSettings.isDev)}",
               enableTestEndpoint: "${String(
                 webEmbedAppSettings.enableTestEndpoint,
@@ -181,6 +215,20 @@ export function WebViewWebEmbed({
               appBuildNumber: "${webEmbedAppSettings?.appBuildNumber}",
               appVersion: "${webEmbedAppSettings?.appVersion}",
             };
+            window.WEB_EMBED_ONEKEY_APP_SETTINGS = WEB_EMBED_ONEKEY_APP_SETTINGS;
+            if (typeof window !== 'undefined' && 'wrappedJSObject' in window) {
+              try {
+                window.wrappedJSObject.WEB_EMBED_ONEKEY_APP_SETTINGS = globalThis.cloneInto(
+                  WEB_EMBED_ONEKEY_APP_SETTINGS,
+                  window,
+                  {
+                    cloneFunctions: true,
+                  },
+                );
+              } catch (error) {
+                console.error('cloneInto error', error);
+              }
+          }
           `}
       />
     );
@@ -188,6 +236,7 @@ export function WebViewWebEmbed({
     customReceiveHandler,
     devSettingsPersistAtom.enabled,
     devSettingsPersistAtom.settings?.disableWebEmbedApi,
+    handleMessage,
     hashRoutePath,
     hashRouteQueryParams,
     nativeWebviewSource,

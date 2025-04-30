@@ -81,6 +81,7 @@ function CheckboxGroupDemo() {
 
 const CheckboxGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Checkbox"
     elements={[
       {

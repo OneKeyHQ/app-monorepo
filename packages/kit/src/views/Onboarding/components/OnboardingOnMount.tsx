@@ -105,7 +105,7 @@ function OnboardingOnMountCmp() {
       //   return;
       // }
 
-      console.log('OnboardingOnMount: call checkOnboardingState');
+      // console.log('OnboardingOnMount: call checkOnboardingState');
 
       try {
         if (checkingV4Migration) {
@@ -193,28 +193,28 @@ function OnboardingOnMountCmp() {
   }, [checkOnboardingState, migrateBaseSettings, setV4MigrationPersistAtom]);
 
   useEffect(() => {
-    console.log('OnboardingOnMountOnMount');
+    // console.log('OnboardingOnMountOnMount');
   }, []);
 
   useEffect(() => {
-    console.log('OnboardingOnMount changed: setV4MigrationPersistAtom changed');
+    // console.log('OnboardingOnMount changed: setV4MigrationPersistAtom changed');
   }, [setV4MigrationPersistAtom]);
 
   useEffect(() => {
-    console.log('OnboardingOnMount changed: navigation changed');
+    // console.log('OnboardingOnMount changed: navigation changed');
   }, [navigation]);
 
   useEffect(() => {
-    console.log('OnboardingOnMount changed: v4migrationActions changed');
+    // console.log('OnboardingOnMount changed: v4migrationActions changed');
   }, [v4migrationActions]);
 
   useEffect(() => {
-    console.log('OnboardingOnMount: checkStateOnMount on mount');
+    // console.log('OnboardingOnMount: checkStateOnMount on mount');
     void checkStateOnMount();
   }, [checkStateOnMount]);
 
   useEffect(() => {
-    console.log('OnboardingOnMount: checkOnboardingState on appEventBus');
+    // console.log('OnboardingOnMount: checkOnboardingState on appEventBus');
     const fn = () => {
       void checkOnboardingState({ checkingV4Migration: false });
     };

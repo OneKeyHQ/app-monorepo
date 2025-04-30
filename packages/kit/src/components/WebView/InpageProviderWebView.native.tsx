@@ -36,6 +36,8 @@ const injectedJavaScript = `
   updateMedate();
 `;
 
+const defaultOnMessage = (_event: any) => {};
+
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
     {
@@ -58,6 +60,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onProgress,
       webviewDebuggingEnabled,
       siteMode,
+      onMessage,
+      useGeckoView,
+      useInjectedNativeCode = true,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -89,7 +94,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onShouldStartLoadWithRequest,
     ]);
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string = injectedNativeCode || '';
+      let code: string = useInjectedNativeCode ? injectedNativeCode : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -100,7 +105,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         `;
       }
       return code;
-    }, [nativeInjectedJavaScriptBeforeContentLoaded]);
+    }, [nativeInjectedJavaScriptBeforeContentLoaded, useInjectedNativeCode]);
 
     const progressLoading = useMemo(() => {
       if (!displayProgressBar) {
@@ -185,7 +190,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           originWhitelist={['*']}
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
           // https://github.com/react-native-webview/react-native-webview/issues/1779
-          onMessage={(event) => {}}
+          onMessage={onMessage || defaultOnMessage}
+          useGeckoView={useGeckoView}
           {...nativeWebviewProps}
         />
       </Stack>

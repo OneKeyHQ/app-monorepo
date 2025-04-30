@@ -35,7 +35,8 @@ public class PhoenixMethodVisitor extends MethodVisitor implements Opcodes {
             System.out.println("Phoenix security fix: Injecting security check after super.onCreate");
 
             // Inject security check code after super.onCreate()
-            Label allowContinue = new Label();
+            Label denyLabel = new Label();
+            Label endLabel = new Label();
 
             // Get Intent
             mv.visitVarInsn(ALOAD, 0); // this
@@ -50,13 +51,13 @@ public class PhoenixMethodVisitor extends MethodVisitor implements Opcodes {
 
             // Check if intents is null
             mv.visitVarInsn(ALOAD, 3); // intents
-            mv.visitJumpInsn(IFNULL, allowContinue);
+            mv.visitJumpInsn(IFNULL, denyLabel); // If null, jump to deny
 
             // Check if intents has exactly one element
             mv.visitVarInsn(ALOAD, 3); // intents
             mv.visitMethodInsn(INVOKEVIRTUAL, "java/util/ArrayList", "size", "()I", false);
             mv.visitInsn(ICONST_1);
-            mv.visitJumpInsn(IF_ICMPNE, allowContinue); // if size != 1, deny and continue
+            mv.visitJumpInsn(IF_ICMPNE, denyLabel); // If size != 1, jump to deny
 
             // Get the first Intent
             mv.visitVarInsn(ALOAD, 3); // intents
@@ -72,24 +73,33 @@ public class PhoenixMethodVisitor extends MethodVisitor implements Opcodes {
 
             // Check if ComponentName is null
             mv.visitVarInsn(ALOAD, 5); // componentName
-            mv.visitJumpInsn(IFNULL, allowContinue);
+            mv.visitJumpInsn(IFNULL, denyLabel); // If null, jump to deny
+
+            // Check if package name is correct
+            mv.visitVarInsn(ALOAD, 5); // componentName
+            mv.visitMethodInsn(INVOKEVIRTUAL, "android/content/ComponentName", "getPackageName", "()Ljava/lang/String;", false);
+            mv.visitFieldInsn(GETSTATIC, "so/onekey/app/wallet/BuildConfig", "APPLICATION_ID", "Ljava/lang/String;");
+            mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+            mv.visitJumpInsn(IFEQ, denyLabel); // If package name doesn't match, jump to deny
 
             // Check if it's MainActivity
             mv.visitVarInsn(ALOAD, 5); // componentName
             mv.visitMethodInsn(INVOKEVIRTUAL, "android/content/ComponentName", "getClassName", "()Ljava/lang/String;", false);
             mv.visitLdcInsn("so.onekey.app.wallet.MainActivity");
             mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+            mv.visitJumpInsn(IFEQ, denyLabel); // If not MainActivity, jump to deny
 
-            // If it's MainActivity, allow to continue
-            mv.visitJumpInsn(IFNE, allowContinue);
+            // If we reached here, all checks passed, jump to end
+            mv.visitJumpInsn(GOTO, endLabel);
 
-            // If it's not MainActivity, call finish() and return
+            // Deny label - finish activity and return
+            mv.visitLabel(denyLabel);
             mv.visitVarInsn(ALOAD, 0); // this
             mv.visitMethodInsn(INVOKEVIRTUAL, "com/jakewharton/processphoenix/ProcessPhoenix", "finish", "()V", false);
             mv.visitInsn(RETURN);
 
-            // Label for allowing to continue
-            mv.visitLabel(allowContinue);
+            // End label - continue execution
+            mv.visitLabel(endLabel);
         }
     }
 }

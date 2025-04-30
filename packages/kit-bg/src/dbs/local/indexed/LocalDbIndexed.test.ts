@@ -1,8 +1,13 @@
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 
 import * as consts from '../consts';
+import { EIndexedDBBucketNames } from '../types';
 
 import { LocalDbIndexed } from './LocalDbIndexed';
+
+/*
+yarn jest --watch packages/kit-bg/src/dbs/local/indexed/LocalDbIndexed.test.ts
+*/
 
 // add indexedDB for node
 require('fake-indexeddb/auto');
@@ -21,7 +26,9 @@ describe('LocalDbIndexed tests', () => {
     const context = await db.getContext();
     expect(context.id).toEqual(DB_MAIN_CONTEXT_ID);
     expect(context.backupUUID).toEqual('fake-uuid');
-    expect(db0.indexed.version).toEqual(consts.INDEXED_DB_VERSION);
+    expect(db0.buckets?.[EIndexedDBBucketNames.account].version).toEqual(
+      consts.INDEXED_DB_VERSION,
+    );
   });
   it('getBackupUUID', async () => {
     const db = new LocalDbIndexed();
@@ -38,10 +45,11 @@ describe('LocalDbIndexed tests', () => {
     const db = new LocalDbIndexed();
     // @ts-ignore
     const db0 = await db.readyDb;
-    expect(db0.indexed.objectStoreNames).not.toContain('hello');
-    expect(db0.indexed.version).toBe(1);
+    expect(
+      db0.buckets?.[EIndexedDBBucketNames.account].objectStoreNames,
+    ).not.toContain('hello');
+    expect(db0.buckets?.[EIndexedDBBucketNames.account].version).toBe(1);
 
-    // @ts-ignore
     // ELocalDBStoreNames.hello = 'hello';
   });
   it.skip('reset', async () => {

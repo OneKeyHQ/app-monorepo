@@ -47,6 +47,7 @@ const ScrollViewDemo = () => {
 
 const ScrollViewGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="ScrollView"
     elements={[
       {

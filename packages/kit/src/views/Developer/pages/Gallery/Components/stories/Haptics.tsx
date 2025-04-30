@@ -11,6 +11,7 @@ import { Layout } from './utils/Layout';
 
 const HapticsGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Haptics"
     description="Haptic feedback components"
     suggestions={['Use haptics to provide physical feedback']}
