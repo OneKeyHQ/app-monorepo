@@ -259,7 +259,9 @@ export const WelcomeItem = memo(
         { scale: scale.value },
       ],
       shadowColor,
-      shadowOffset: SHADOW_OFFSET,
+      style: {
+        shadowOffset: SHADOW_OFFSET,
+      },
       shadowOpacity: shadowOpacity.value * scale.value,
       shadowRadius: BASE_SHADOW_RADIUS,
       elevation: BASE_ELEVATION * scale.value,

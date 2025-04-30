@@ -294,6 +294,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     };
   }
 
+  // TODO use generateRootFingerprintHexAsync() instead
   // root fingerprint
   async buildXfpFromMnemonic({ mnemonic }: { mnemonic: string }) {
     const seed = await mnemonicToSeedAsync({ mnemonic });

@@ -272,7 +272,7 @@ function toastWarningAndReset(key: string) {
         item?.[1]?.startsWith('appStorage.getItem__g_states_v5:'),
       );
       if (
-        key === 'OneKeyStorage_readonly' &&
+        key === 'OneKeyStorage-simpleDB_readonly' &&
         atomInitCalls &&
         atomInitCalls?.length >= 30
       ) {

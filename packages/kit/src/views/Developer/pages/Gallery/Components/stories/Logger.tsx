@@ -136,6 +136,7 @@ const LoggerDemo = () => {
 
 const LoggerGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Logger"
     elements={[
       {

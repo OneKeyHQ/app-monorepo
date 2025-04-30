@@ -4,22 +4,26 @@ import { useState } from 'react';
 import { StackActions } from '@react-navigation/native';
 
 import {
-  Button,
+  Icon,
   IconButton,
   Page,
   ScrollView,
   SizableText,
   Stack,
+  Switch,
   XStack,
 } from '@onekeyhq/components';
 import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -59,6 +63,7 @@ export function Layout({
   skipLoading = false,
   wideScreen: initialWideScreen = false,
   children,
+  filePath,
 }: React.PropsWithChildren<{
   componentName?: string;
   description?: string;
@@ -73,6 +78,7 @@ export function Layout({
     | undefined;
   skipLoading?: boolean;
   wideScreen?: boolean;
+  filePath?: string;
   elements?: {
     title: string;
     description?: string;
@@ -83,6 +89,12 @@ export function Layout({
   const navigation = useAppNavigation();
   const [wideScreen, setWideScreen] = useState(initialWideScreen);
   const contentWidth = wideScreen ? 960 : 576;
+  const [settings] = useSettingsPersistAtom();
+  const isDarkTheme = settings.theme === 'dark';
+
+  const toggleTheme = async (isDark: boolean) => {
+    await backgroundApiProxy.serviceSetting.setTheme(isDark ? 'dark' : 'light');
+  };
 
   return (
     <Page skipLoading={skipLoading}>
@@ -124,30 +136,65 @@ export function Layout({
                   // urlAccountNavigation.replaceHomePage(navigation);
                 }}
               />
-              <Button
-                ml="$4"
-                onPress={async () => {
-                  await backgroundApiProxy.serviceSetting.setTheme('light');
-                }}
-              >
-                Light Theme
-              </Button>
-              <Button
-                ml="$4"
-                variant="primary"
-                onPress={async () => {
-                  await backgroundApiProxy.serviceSetting.setTheme('dark');
-                }}
-              >
-                Dark Theme
-              </Button>
             </XStack>
-            <Button
-              variant={wideScreen ? 'primary' : 'secondary'}
-              onPress={() => setWideScreen(!wideScreen)}
-            >
-              {wideScreen ? 'Normal Mode' : 'Wide Mode'}
-            </Button>
+
+            <XStack ml="$4" alignItems="center" gap="$2">
+              <Switch
+                thumbProps={{
+                  children: (
+                    <Stack
+                      alignItems="center"
+                      justifyContent="center"
+                      width="$7"
+                      height="$7"
+                    >
+                      <Icon
+                        color="$text"
+                        size="$5"
+                        name={isDarkTheme ? 'MoonOutline' : 'SunOutline'}
+                      />
+                    </Stack>
+                  ),
+                }}
+                value={isDarkTheme}
+                onChange={toggleTheme}
+              />
+
+              {platformEnv.isWeb || platformEnv.isDesktop ? (
+                <Switch
+                  thumbProps={{
+                    children: (
+                      <Stack
+                        alignItems="center"
+                        justifyContent="center"
+                        width="$7"
+                        height="$7"
+                      >
+                        <Icon
+                          color="$text"
+                          size="$5"
+                          name={
+                            wideScreen ? 'MinimizeOutline' : 'MinimizeOutline'
+                          }
+                        />
+                      </Stack>
+                    ),
+                  }}
+                  value={wideScreen}
+                  onChange={() => setWideScreen(!wideScreen)}
+                />
+              ) : null}
+
+              {(platformEnv.isWeb || platformEnv.isDesktop) && filePath ? (
+                <IconButton
+                  onPress={() => {
+                    openUrlExternal(`cursor://file/${filePath}`);
+                  }}
+                  size="medium"
+                  icon="CodeOutline"
+                />
+              ) : null}
+            </XStack>
           </XStack>
           {componentName ? (
             <Stack gap="$2">

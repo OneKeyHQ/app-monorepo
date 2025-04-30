@@ -23,6 +23,7 @@ export function NotificationRegisterDaily() {
     }
     if (isFocused) {
       void backgroundApiProxy.serviceNotification.registerClientDaily();
+      void backgroundApiProxy.serviceDBBackup.backupDatabaseDaily();
     }
   }, [isFocused]);
 
