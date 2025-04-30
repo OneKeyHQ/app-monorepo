@@ -223,7 +223,6 @@ const SwapActionsState = ({
     if (swapActionState.noConnectWallet) {
       navigation.pushModal(EModalRoutes.OnboardingModal, {
         screen: EOnboardingPages.GetStarted,
-        params: { showCloseButton: true },
       });
       return;
     }

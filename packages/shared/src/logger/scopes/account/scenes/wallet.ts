@@ -230,4 +230,12 @@ export class WalletScene extends BaseScene {
       error: errorMessage,
     };
   }
+
+  @LogToServer()
+  @LogToLocal()
+  public onboardingExit() {
+    return {
+      onboardingExit: true,
+    };
+  }
 }
