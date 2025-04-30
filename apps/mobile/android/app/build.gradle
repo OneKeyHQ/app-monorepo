@@ -15,7 +15,7 @@ sentry {
     // for Sentry. This executes sentry-cli automatically so
     // you don't need to do it manually.
     // Default is disabled.
-    uploadNativeSymbols = System.getenv("SENTRY_DISABLE_AUTO_UPLOAD") != "true"
+    uploadNativeSymbols = false
 
     // Enables or disables the automatic upload of the app's native source code to Sentry.
     // This executes sentry-cli with the --include-sources param automatically so
@@ -149,6 +149,7 @@ android {
         buildConfigField("boolean", "REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS", (findProperty("reactNative.unstable_useRuntimeSchedulerAlways") ?: true).toString())
         buildConfigField("boolean", "NO_FLIPPER", (System.getenv('NO_FLIPPER') == '1').toString())
         def appEnvConfig = readRootEnvFile()
+        missingDimensionStrategy 'abi', 'x86', 'x86_64'
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
@@ -172,8 +173,8 @@ android {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
-            shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
-            minifyEnabled enableProguardInReleaseBuilds
+            shrinkResources true
+            minifyEnabled true
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             ndk {
                 abiFilters "arm64-v8a"
@@ -189,6 +190,7 @@ android {
     		dimension "dimension"
     	}
     	prod {
+            isDefault true
     		dimension "dimension"
     	}
     }
@@ -259,6 +261,10 @@ dependencies {
 
     // Add BouncyCastle OpenPGP dependency
     implementation("org.bouncycastle:bcpg-jdk18on:1.77")
+
+    // geckoview
+    implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")
+    implementation("com.google.code.gson:gson:2.13.1")
 
     // add billing sdk, also update AndroidManifest.xml
     // def billingVersion = 7.0.0
