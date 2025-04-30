@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Skeleton, Stack, XStack, useMedia } from '@onekeyhq/components';
+import { Stack, XStack, useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DefaultTitle } from './DefaultTitle';

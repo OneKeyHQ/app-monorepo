@@ -187,7 +187,9 @@ function SendDataInputContainer() {
     networkId: currentAccount.networkId,
   });
 
-  const isSelectTokenDisabled = allTokens.tokens.length <= 1;
+  const isSelectTokenDisabled =
+    allTokens.tokens.length <= 1 ||
+    networkUtils.isLightningNetworkByNetworkId(networkId);
 
   const tokenMinAmount = useMemo(() => {
     if (!tokenInfo || isNaN(tokenInfo.decimals)) {

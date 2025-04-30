@@ -9,7 +9,6 @@ import {
   SectionList,
   SizableText,
   Skeleton,
-  Toast,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
