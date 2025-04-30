@@ -1,12 +1,6 @@
 import { useState } from 'react';
 
-import {
-  Button,
-  SizableText,
-  Stack,
-  Trigger,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, Stack, Trigger } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
