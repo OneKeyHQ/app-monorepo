@@ -38,28 +38,6 @@ const DisabledDemo = () => {
   );
 };
 
-// Multiple triggers demo
-const MultipleTriggersDemo = () => {
-  const [message, setMessage] = useState('Click a button');
-
-  return (
-    <Stack gap="$4">
-      <SizableText>{message}</SizableText>
-      <XStack gap="$2">
-        <Trigger onPress={() => setMessage('You clicked button 1')}>
-          <Button>Button 1</Button>
-        </Trigger>
-        <Trigger onPress={() => setMessage('You clicked button 2')}>
-          <Button variant="destructive">Button 2</Button>
-        </Trigger>
-        <Trigger onPress={() => setMessage('You clicked button 3')}>
-          <Button variant="tertiary">Button 3</Button>
-        </Trigger>
-      </XStack>
-    </Stack>
-  );
-};
-
 // Event composition demo
 const ComposedEventsDemo = () => {
   const [buttonMessage, setButtonMessage] = useState('Button not clicked');
@@ -91,10 +69,6 @@ const TriggerGallery = () => (
       {
         title: 'Disabled',
         element: <DisabledDemo />,
-      },
-      {
-        title: 'Multiple Triggers',
-        element: <MultipleTriggersDemo />,
       },
       {
         title: 'Composed Events',
