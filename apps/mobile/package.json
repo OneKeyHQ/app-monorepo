@@ -56,7 +56,7 @@
     "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/react-native-compat": "2.11.2",
     "burnt": "0.12.2",
-    "expo": "50.0.20",
+    "expo": "53.0.0",
     "expo-apple-authentication": "6.3.0",
     "expo-application": "5.8.3",
     "expo-barcode-scanner": "12.9.3",
