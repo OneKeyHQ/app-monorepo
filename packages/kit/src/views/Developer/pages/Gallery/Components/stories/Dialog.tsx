@@ -979,7 +979,7 @@ const DialogGallery = () => (
         title: 'in Page Dialog',
         element: () => {
           // eslint-disable-next-line react-hooks/rules-of-hooks
-          const dialog = useInPageDialog();
+          const dialog = useInPageDialog('inTabPages');
           // eslint-disable-next-line react-hooks/rules-of-hooks
           const navigation = useAppNavigation<any>();
           return (
