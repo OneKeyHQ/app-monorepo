@@ -74,14 +74,13 @@ export async function showUpdateHardwareWalletLegacyXfpDialog({
       icon: 'CubeOutline',
       title: 'Hardware wallet legacy data update',
       description:
-        'To complete this update, make sure your OneKey Pro is nearby and ready to connect.',
+        'To complete this update, make sure your OneKey device is nearby and ready to connect.',
       dismissOnOverlayPress: false,
       showCancelButton: false,
       onConfirm: async () => {
         await backgroundApiProxy.serviceAccount.generateWalletsMissingMetaWithUserInteraction(
           {
             walletId,
-            throwError: true,
           },
         );
         onConfirm?.();
@@ -118,7 +117,7 @@ function WalletXfpStatusReminderCmp() {
   const updateButton = useMemo(() => {
     if (walletId && hardwareWalletXfpStatus?.[walletId]?.xfpMissing) {
       const message =
-        'You should connect your hardware wallet to update legacy wallet data';
+        'Connect your OneKey hardware wallet to update wallet data.';
       return (
         <WalletXfpReminderAlert
           message={message}
