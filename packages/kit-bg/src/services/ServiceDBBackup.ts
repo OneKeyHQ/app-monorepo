@@ -21,6 +21,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '../dbs/local/types';
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 
 @backgroundClass()
 class ServiceDBBackup extends ServiceBase {
@@ -109,10 +110,12 @@ class ServiceDBBackup extends ServiceBase {
       // TODO log error
       console.error('ServiceDBBackup backupDatabase error', error);
     } finally {
-      await this.backgroundApi.simpleDb.appStatus.setRawData((prev) => ({
-        ...prev,
-        lastDBBackupTime: Date.now(),
-      }));
+      await this.backgroundApi.simpleDb.appStatus.setRawData(
+        (prev): ISimpleDBAppStatus => ({
+          ...prev,
+          lastDBBackupTime: Date.now(),
+        }),
+      );
     }
   }
 }

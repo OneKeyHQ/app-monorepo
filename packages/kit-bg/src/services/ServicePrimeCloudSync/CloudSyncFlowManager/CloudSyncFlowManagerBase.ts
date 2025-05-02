@@ -454,22 +454,28 @@ export abstract class CloudSyncFlowManagerBase<
   async syncToScene({
     syncCredential,
     items,
+    forceSync,
   }: {
-    syncCredential: ICloudSyncCredential;
+    syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
+    forceSync?: boolean;
   }) {
-    if (!syncCredential) {
+    if (!items.length) {
       return;
     }
+    // if (!syncCredential) {
+    //   return;
+    // }
     for (const item of items) {
       try {
-        if (
-          item.dataType === this.dataType &&
-          cloudSyncItemBuilder.canLocalItemSyncToScene({
-            item,
-            syncCredential,
-          })
-        ) {
+        const shouldSync =
+          forceSync ||
+          (syncCredential &&
+            cloudSyncItemBuilder.canLocalItemSyncToScene({
+              item,
+              syncCredential,
+            }));
+        if (item.dataType === this.dataType && shouldSync) {
           // TODO performance issue of decrypting in the loop
           const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
             item,
