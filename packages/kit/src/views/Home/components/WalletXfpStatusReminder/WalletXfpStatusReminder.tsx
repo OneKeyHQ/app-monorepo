@@ -19,6 +19,7 @@ import {
   useHardwareWalletXfpStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -72,9 +73,17 @@ export async function showUpdateHardwareWalletLegacyXfpDialog({
   if (status?.[walletId]?.xfpMissing) {
     Dialog.show({
       icon: 'CubeOutline',
-      title: 'Hardware wallet legacy data update',
-      description:
-        'To complete this update, make sure your OneKey device is nearby and ready to connect.',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_hardware_legacy_data_update_dialog_title,
+      }),
+      description: appLocale.intl.formatMessage(
+        {
+          id: ETranslations.global_hardware_legacy_data_update_dialog_description,
+        },
+        {
+          walletName: 'OneKey',
+        },
+      ),
       dismissOnOverlayPress: false,
       showCancelButton: false,
       onConfirm: async () => {
@@ -85,7 +94,9 @@ export async function showUpdateHardwareWalletLegacyXfpDialog({
         );
         onConfirm?.();
       },
-      onConfirmText: 'Update data',
+      onConfirmText: appLocale.intl.formatMessage({
+        id: ETranslations.global_hardware_legacy_data_update_dialog_button,
+      }),
     });
   } else {
     onConfirm?.();
@@ -116,8 +127,9 @@ function WalletXfpStatusReminderCmp() {
 
   const updateButton = useMemo(() => {
     if (walletId && hardwareWalletXfpStatus?.[walletId]?.xfpMissing) {
-      const message =
-        'Connect your OneKey hardware wallet to update wallet data.';
+      const message = intl.formatMessage({
+        id: ETranslations.global_hardware_legacy_data_update_banner_title,
+      });
       return (
         <WalletXfpReminderAlert
           message={message}
@@ -128,7 +140,7 @@ function WalletXfpStatusReminderCmp() {
       );
     }
     return null;
-  }, [walletId, hardwareWalletXfpStatus]);
+  }, [walletId, hardwareWalletXfpStatus, intl]);
 
   return <XStack>{updateButton}</XStack>;
 }
