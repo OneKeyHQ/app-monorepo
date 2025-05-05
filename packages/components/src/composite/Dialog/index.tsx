@@ -31,7 +31,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Toast } from '../../actions/Toast';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
-import { Portal } from '../../hocs';
+import { EPortalContainerConstantName, Portal } from '../../hocs';
 import { useBackHandler, useOverlayZIndex } from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
@@ -62,7 +62,7 @@ import type {
   IDialogProps,
   IDialogShowProps,
 } from './type';
-import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
+import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
@@ -624,8 +624,17 @@ export const Dialog = {
   debugMessage: dialogDebugMessage,
 };
 
-export const useInPageDialog = () => {
+export const useInPageDialog = (type?: 'inTabPages' | 'inModalPage') => {
   const { pagePortalId } = usePageContext();
+
+  const portalId = useMemo(() => {
+    if (!type) {
+      return pagePortalId;
+    }
+    if (type === 'inTabPages') {
+      return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;
+    }
+  }, [pagePortalId, type]);
   if (!pagePortalId && platformEnv.isDev) {
     throw new Error(
       'pagePortalId is required, please set allowInPagePopup to true in Page component',
@@ -633,11 +642,11 @@ export const useInPageDialog = () => {
   }
   const basicDialogProps = useMemo(
     () => ({
-      testID: pagePortalId,
-      modal: false,
-      portalContainer: pagePortalId as EPortalContainerConstantName,
+      testID: portalId,
+      modal: !platformEnv.isNative,
+      portalContainer: portalId as EPortalContainerConstantName,
     }),
-    [pagePortalId],
+    [portalId],
   );
   return useMemo(
     () => ({
