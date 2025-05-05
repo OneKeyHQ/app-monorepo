@@ -32,7 +32,11 @@ import { Toast } from '../../actions/Toast';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { EPortalContainerConstantName, Portal } from '../../hocs';
-import { useBackHandler, useOverlayZIndex } from '../../hooks';
+import {
+  useBackHandler,
+  useModalNavigatorContextPortalId,
+  useOverlayZIndex,
+} from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { Spinner, Stack } from '../../primitives';
@@ -624,27 +628,31 @@ export const Dialog = {
   debugMessage: dialogDebugMessage,
 };
 
-export const useInPageDialog = (type?: 'inTabPages' | 'inModalPage') => {
+enum EInPageDialogType {
+  inTabPages = 'inTabPages',
+  inModalPage = 'inModalPage',
+}
+const useInPageDialog = (type: EInPageDialogType) => {
+  const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
-
   const portalId = useMemo(() => {
-    if (!type) {
-      return pagePortalId;
-    }
-    if (type === 'inTabPages') {
+    if (type === EInPageDialogType.inTabPages) {
       return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;
     }
-  }, [pagePortalId, type]);
-  if (!pagePortalId && platformEnv.isDev) {
+    return platformEnv.isNative
+      ? (pagePortalId as EPortalContainerConstantName)
+      : navigatorPortalId;
+  }, [navigatorPortalId, pagePortalId, type]);
+  if (type === 'inModalPage' && !portalId && platformEnv.isDev) {
     throw new Error(
-      'pagePortalId is required, please set allowInPagePopup to true in Page component',
+      'portalId is required, please set allowInPagePopup to true in Page component',
     );
   }
   const basicDialogProps = useMemo(
     () => ({
       testID: portalId,
       modal: !platformEnv.isNative,
-      portalContainer: portalId as EPortalContainerConstantName,
+      portalContainer: portalId,
     }),
     [portalId],
   );
@@ -678,3 +686,8 @@ export const useInPageDialog = (type?: 'inTabPages' | 'inModalPage') => {
     [basicDialogProps],
   );
 };
+
+export const useInTabDialog = () =>
+  useInPageDialog(EInPageDialogType.inTabPages);
+export const useInModalDialog = () =>
+  useInPageDialog(EInPageDialogType.inModalPage);

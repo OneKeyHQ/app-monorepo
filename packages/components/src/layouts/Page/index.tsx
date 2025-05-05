@@ -45,7 +45,7 @@ function PageProvider({
   const footerRef = useRef<IPageFooterRef>({});
   const closeExtraRef = useRef<{ flag?: string }>({});
   const pagePortalId = useMemo(() => {
-    return allowInPagePopup ? (uuid.v1() as string) : '';
+    return allowInPagePopup ? Math.random().toString() : '';
   }, [allowInPagePopup]);
   const value = useMemo(
     () => ({

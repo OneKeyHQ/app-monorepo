@@ -19,7 +19,7 @@ import {
   YStack,
   useDialogInstance,
   useForm,
-  useInPageDialog,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import type {
   IDialogContainerProps,
@@ -979,7 +979,7 @@ const DialogGallery = () => (
         title: 'in Page Dialog',
         element: () => {
           // eslint-disable-next-line react-hooks/rules-of-hooks
-          const dialog = useInPageDialog('inTabPages');
+          const dialog = useInTabDialog();
           // eslint-disable-next-line react-hooks/rules-of-hooks
           const navigation = useAppNavigation<any>();
           return (
