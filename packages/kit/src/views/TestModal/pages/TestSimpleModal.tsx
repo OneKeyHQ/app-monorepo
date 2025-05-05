@@ -15,7 +15,11 @@ import {
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes, ETestModalPages } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ETestModalPages,
+} from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -29,6 +33,33 @@ function CustomConfirmButton() {
     >
       custom confirm button
     </Page.ConfirmButton>
+  );
+}
+
+function InModalDialogButton() {
+  const dialog = useInModalDialog();
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
+  return (
+    <Button
+      onPress={() => {
+        dialog.show({
+          title: 'Lorem ipsum',
+          icon: 'PlaceholderOutline',
+          description:
+            'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+          tone: 'default',
+          onConfirmText: 'push EGalleryRoutes.Components',
+          onConfirm: ({ preventClose }) => {
+            preventClose();
+            navigation.pushModal(EModalRoutes.SettingModal, {
+              screen: EModalSettingRoutes.SettingListModal,
+            });
+          },
+        });
+      }}
+    >
+      in Modal Dialog
+    </Button>
   );
 }
 
@@ -86,10 +117,10 @@ export function TestSimpleModal() {
 
   console.log('render-------');
 
-  const dialog = useInModalDialog();
-
   return (
     <Page
+      allowInPagePopup
+      scrollEnabled
       onClose={(extra) => {
         console.log(`onClose: ${extra?.flag || ''}`);
       }}
@@ -177,26 +208,7 @@ export function TestSimpleModal() {
               Back To Previous Page --- async success
             </Button>
           </Page.Close>
-          <Button
-            onPress={() => {
-              dialog.show({
-                title: 'Lorem ipsum',
-                icon: 'PlaceholderOutline',
-                description:
-                  'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                tone: 'default',
-                onConfirmText: 'push EGalleryRoutes.Components',
-                onConfirm: ({ preventClose }) => {
-                  preventClose();
-                  navigation.pushModal(EModalRoutes.TestModal, {
-                    screen: ETestModalPages.TestSimpleModal,
-                  });
-                },
-              });
-            }}
-          >
-            in Modal Dialog
-          </Button>
+          <InModalDialogButton />
         </YStack>
       </Page.Body>
       {showNewHeader ? (
