@@ -1,6 +1,5 @@
 import { useMemo, useRef } from 'react';
 
-import uuid from 'react-native-uuid';
 import { withStaticProperties } from 'tamagui';
 
 import { Portal } from '../../hocs';
