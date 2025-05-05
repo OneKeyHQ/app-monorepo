@@ -8,13 +8,14 @@ import {
   Switch,
   XStack,
   YStack,
+  useInModalDialog,
   usePageLifeCycle,
   usePageMounted,
   usePageUnMounted,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
-import { ETestModalPages } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ETestModalPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -84,6 +85,8 @@ export function TestSimpleModal() {
   }, [navigation]);
 
   console.log('render-------');
+
+  const dialog = useInModalDialog();
 
   return (
     <Page
@@ -174,6 +177,26 @@ export function TestSimpleModal() {
               Back To Previous Page --- async success
             </Button>
           </Page.Close>
+          <Button
+            onPress={() => {
+              dialog.show({
+                title: 'Lorem ipsum',
+                icon: 'PlaceholderOutline',
+                description:
+                  'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                tone: 'default',
+                onConfirmText: 'push EGalleryRoutes.Components',
+                onConfirm: ({ preventClose }) => {
+                  preventClose();
+                  navigation.pushModal(EModalRoutes.TestModal, {
+                    screen: ETestModalPages.TestSimpleModal,
+                  });
+                },
+              });
+            }}
+          >
+            in Modal Dialog
+          </Button>
         </YStack>
       </Page.Body>
       {showNewHeader ? (
