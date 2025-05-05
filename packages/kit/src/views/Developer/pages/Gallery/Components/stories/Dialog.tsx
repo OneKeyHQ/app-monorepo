@@ -1002,7 +1002,27 @@ const DialogGallery = () => (
                   });
                 }}
               >
-                in Page Dialog
+                in tabs Dialog
+              </Button>
+              <Button
+                onPress={async () => {
+                  const d = dialog.show({
+                    title: 'Lorem ipsum',
+                    icon: 'PlaceholderOutline',
+                    description:
+                      'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                    tone: 'default',
+                    onConfirmText: 'push EGalleryRoutes.Components',
+                    onConfirm: ({ preventClose }) => {
+                      preventClose();
+                      navigation.pushModal(EModalRoutes.TestModal, {
+                        screen: ETestModalPages.TestSimpleModal,
+                      });
+                    },
+                  });
+                }}
+              >
+                in modal Dialog
               </Button>
             </YStack>
           );
