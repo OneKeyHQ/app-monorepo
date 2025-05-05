@@ -643,7 +643,7 @@ const useInPageDialog = (type: EInPageDialogType) => {
       ? (pagePortalId as EPortalContainerConstantName)
       : navigatorPortalId;
   }, [navigatorPortalId, pagePortalId, type]);
- 
+
   const basicDialogProps = useMemo(
     () => ({
       testID: portalId,
