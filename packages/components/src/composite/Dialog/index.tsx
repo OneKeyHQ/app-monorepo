@@ -643,11 +643,7 @@ const useInPageDialog = (type: EInPageDialogType) => {
       ? (pagePortalId as EPortalContainerConstantName)
       : navigatorPortalId;
   }, [navigatorPortalId, pagePortalId, type]);
-  if (type === 'inModalPage' && !portalId && platformEnv.isDev) {
-    throw new Error(
-      'portalId is required, please set allowInPagePopup to true in Page component',
-    );
-  }
+ 
   const basicDialogProps = useMemo(
     () => ({
       testID: portalId,

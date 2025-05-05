@@ -119,7 +119,6 @@ export function TestSimpleModal() {
 
   return (
     <Page
-      allowInPagePopup
       scrollEnabled
       onClose={(extra) => {
         console.log(`onClose: ${extra?.flag || ''}`);

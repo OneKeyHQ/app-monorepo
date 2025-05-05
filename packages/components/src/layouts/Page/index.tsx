@@ -32,7 +32,6 @@ function PageProvider({
   children,
   skipLoading = false,
   scrollEnabled = false,
-  allowInPagePopup = false,
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
   fullPage,
@@ -45,8 +44,8 @@ function PageProvider({
   const footerRef = useRef<IPageFooterRef>({});
   const closeExtraRef = useRef<{ flag?: string }>({});
   const pagePortalId = useMemo(() => {
-    return allowInPagePopup ? Math.random().toString() : '';
-  }, [allowInPagePopup]);
+    return Math.random().toString();
+  }, []);
   const value = useMemo(
     () => ({
       scrollEnabled,
@@ -65,14 +64,10 @@ function PageProvider({
     <>
       <PageContext.Provider value={value}>
         <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
-          {allowInPagePopup ? (
-            <>
-              {children}
-              <PagePortal pagePortalId={pagePortalId} />
-            </>
-          ) : (
-            children
-          )}
+          <>
+            {children}
+            <PagePortal pagePortalId={pagePortalId} />
+          </>
         </PageContainer>
       </PageContext.Provider>
       {isEnablePageLifeCycle ? (
