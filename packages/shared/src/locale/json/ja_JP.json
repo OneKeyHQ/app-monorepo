@@ -1887,7 +1887,7 @@
   "provider.fee": "$0.16 ",
   "provider.ios_popover.approval_require_msg": "スワップ前にトークンを承認する必要がある",
   "provider.ios_popover.approval_require_title": "承認が必要です",
-  "provider.ios_popover.onekey_fee": "OneKey fee",
+  "provider.ios_popover.onekey_fee": "OneKey Fee",
   "provider.ios_popover.onekey_fee_content": "OneKeyは{num}の手数料を請求します（期間限定割引）、これはすでに見積もりに含まれており、高品質でシームレスな体験を提供するためのサポートとなります。",
   "provider.ios_popover.onekey_fee_content_2": "スリッページやネットワーク手数料が実際に受け取る金額に影響を与える可能性があることにご注意ください。ご不明な点やご質問がある場合は、お問い合わせください。",
   "provider.ios_popover.onekey_fee_content_sub": "ブリッジ手数料、スリッページ、変動レートが最終的に受け取る金額に影響を与える可能性があることにご注意ください。手数料についてご不明な点がございましたら、お問い合わせください。",

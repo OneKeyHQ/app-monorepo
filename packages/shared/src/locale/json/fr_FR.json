@@ -1887,7 +1887,7 @@
   "provider.fee": "0,16 $",
   "provider.ios_popover.approval_require_msg": "Il faut approuver le jeton avant l'échange",
   "provider.ios_popover.approval_require_title": "Approbation requise",
-  "provider.ios_popover.onekey_fee": "OneKey fee",
+  "provider.ios_popover.onekey_fee": "OneKey Fee",
   "provider.ios_popover.onekey_fee_content": "OneKey facture des frais de {num} (remise à durée limitée), qui sont déjà inclus dans le devis, nous aidant à offrir une expérience de haute qualité et sans faille.",
   "provider.ios_popover.onekey_fee_content_2": "Veuillez noter que le glissement ou les frais de réseau peuvent affecter le montant réel que vous recevez. Si vous avez des préoccupations ou des questions, veuillez nous contacter.",
   "provider.ios_popover.onekey_fee_content_sub": "Veuillez noter que les frais de pont, le glissement et les taux flottants peuvent affecter le montant final reçu. Si vous avez des préoccupations concernant les frais, veuillez nous contacter.",

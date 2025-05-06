@@ -1887,7 +1887,7 @@
   "provider.fee": "$0.16 ",
   "provider.ios_popover.approval_require_msg": "Cần phải chấp thuận mã thông báo trước khi hoán đổi",
   "provider.ios_popover.approval_require_title": "Yêu cầu phê duyệt",
-  "provider.ios_popover.onekey_fee": "OneKey fee",
+  "provider.ios_popover.onekey_fee": "OneKey Fee",
   "provider.ios_popover.onekey_fee_content": "OneKey tính phí {num} (giảm giá có thời hạn), đã được bao gồm trong báo giá, hỗ trợ chúng tôi cung cấp trải nghiệm liền mạch, chất lượng cao.",
   "provider.ios_popover.onekey_fee_content_2": "Xin lưu ý rằng trượt giá hoặc phí mạng có thể ảnh hưởng đến số tiền thực tế bạn nhận được. Nếu bạn có bất kỳ mối quan tâm hoặc câu hỏi nào, vui lòng liên hệ với chúng tôi.",
   "provider.ios_popover.onekey_fee_content_sub": "Xin lưu ý rằng phí cầu, trượt giá và tỷ giá thả nổi có thể ảnh hưởng đến số tiền cuối cùng nhận được. Nếu bạn có bất kỳ thắc mắc nào về phí, vui lòng liên hệ với chúng tôi.",
