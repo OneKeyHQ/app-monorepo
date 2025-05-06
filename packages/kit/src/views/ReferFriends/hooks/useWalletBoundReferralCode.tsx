@@ -9,7 +9,8 @@ import {
   SizableText,
   XStack,
   YStack,
-  useInPageDialog,
+  useInModalDialog,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -19,7 +20,6 @@ import { FIRST_EVM_ADDRESS_PATH } from '@onekeyhq/shared/src/engine/engineConsts
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
@@ -65,11 +65,9 @@ const NUMBER_OF_DIGITS = 6;
 function InviteCode({
   wallet,
   onSuccess,
-  onFail,
 }: {
   wallet?: IDBWallet;
   onSuccess?: () => void;
-  onFail?: () => void;
 }) {
   const intl = useIntl();
   const [verificationCode, setVerificationCode] = useState('');
@@ -138,18 +136,10 @@ function InviteCode({
           onSuccess?.();
         }
       } catch (e) {
-        console.log('eeeedialog EEEE=> : ', e);
         preventClose?.();
-        // onFail?.();
       }
     },
-    [
-      // onFail,
-      onSuccess,
-      verificationCode,
-      wallet?.id,
-      getReferralCodeWalletInfo,
-    ],
+    [onSuccess, verificationCode, wallet?.id, getReferralCodeWalletInfo],
   );
 
   const handleSkip = useCallback(async () => {
@@ -173,7 +163,11 @@ function InviteCode({
   return (
     <YStack mt="$-3">
       <XStack ai="center" gap="$2" pb="$5">
-        <SizableText size="$bodyLg">Bound wallet:</SizableText>
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.referral_wallet_code_wallet,
+          })}
+        </SizableText>
         <XStack
           gap="$2"
           ai="center"
@@ -200,8 +194,9 @@ function InviteCode({
         }}
       />
       <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
-        Once bounded, all addresses derived from this wallet will be associated
-        with this referral code and cannot be changed.
+        {intl.formatMessage({
+          id: ETranslations.referral_wallet_code_desc,
+        })}
       </SizableText>
       <Dialog.Footer
         showCancelButton
@@ -210,14 +205,20 @@ function InviteCode({
         }}
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
-        onCancelText="Skip"
+        onCancelText={intl.formatMessage({
+          id: ETranslations.global_skip_for_now,
+        })}
         onCancel={handleSkip}
       />
     </YStack>
   );
 }
 
-export function useWalletBoundReferralCode() {
+export function useWalletBoundReferralCode({
+  entry,
+}: {
+  entry?: 'tab' | 'modal';
+} = {}) {
   const intl = useIntl();
   const [shouldBondReferralCode, setShouldBondReferralCode] = useState<
     boolean | undefined
@@ -249,31 +250,25 @@ export function useWalletBoundReferralCode() {
     }
   };
 
-  const dialog = useInPageDialog();
+  const inModalDialog = useInModalDialog();
+  const inTabDialog = useInTabDialog();
+  const dialog = entry === 'modal' ? inModalDialog : inTabDialog;
   const bindWalletInviteCode = useCallback(
-    ({
-      wallet,
-      onSuccess,
-      onFail,
-    }: {
-      wallet?: IDBWallet;
-      onSuccess?: () => void;
-      onFail?: () => void;
-    }) => {
+    ({ wallet, onSuccess }: { wallet?: IDBWallet; onSuccess?: () => void }) => {
       dialog.show({
         showExitButton: true,
         icon: 'GiftOutline',
         tone: 'success',
-        title: 'Do you have a referral code?',
-        renderContent: (
-          <InviteCode wallet={wallet} onSuccess={onSuccess} onFail={onFail} />
-        ),
+        title: intl.formatMessage({
+          id: ETranslations.referral_wallet_code_title,
+        }),
+        renderContent: <InviteCode wallet={wallet} onSuccess={onSuccess} />,
         onClose: (extra) => {
           console.log('===>>> close: ===>: ', extra);
         },
       });
     },
-    [dialog],
+    [dialog, intl],
   );
 
   return {

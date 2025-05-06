@@ -64,7 +64,9 @@ function FinalizeWalletSetupPage({
     shouldBondReferralCode,
     getReferralCodeBondStatus,
     bindWalletInviteCode,
-  } = useWalletBoundReferralCode();
+  } = useWalletBoundReferralCode({
+    entry: 'tab',
+  });
 
   useEffect(() => {
     setOnboardingError(undefined);
@@ -175,8 +177,6 @@ function FinalizeWalletSetupPage({
   }, [navigation]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
-    console.log('===>>> handleWalletSetupReady');
-    console.log('===>>> current wallet: ', wallet?.id, ' . => w: ', wallet);
     const needBondReferralCode = await getReferralCodeBondStatus(wallet?.id);
 
     if (!needBondReferralCode) {
@@ -186,10 +186,7 @@ function FinalizeWalletSetupPage({
           // void useBackupToggleDialog().maybeShow(true);
         }
       }, 1000);
-      return;
     }
-
-    console.log('===>>> needBondReferralCode: ', needBondReferralCode);
   }, [getReferralCodeBondStatus, closePage, wallet]);
 
   const handleWalletSetupReady = useThrottledCallback(
@@ -217,7 +214,7 @@ function FinalizeWalletSetupPage({
   }, [shouldBondReferralCode, closePage]);
 
   return (
-    <>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.onboarding_finalize_wallet_setup,
@@ -294,14 +291,14 @@ function FinalizeWalletSetupPage({
             id: ETranslations.global_next,
           })}
           onConfirm={() => {
-            // closePage();
+            closePage();
             bindWalletInviteCode({
               wallet,
             });
           }}
         />
       ) : null}
-    </>
+    </Page>
   );
 }
 
@@ -319,9 +316,7 @@ export function FinalizeWalletSetup({
         sceneName: EAccountSelectorSceneName.home,
       }}
     >
-      <Page allowInPagePopup>
-        <FinalizeWalletSetupPage route={route} navigation={navigation} />
-      </Page>
+      <FinalizeWalletSetupPage route={route} navigation={navigation} />
     </AccountSelectorProviderMirror>
   );
 }

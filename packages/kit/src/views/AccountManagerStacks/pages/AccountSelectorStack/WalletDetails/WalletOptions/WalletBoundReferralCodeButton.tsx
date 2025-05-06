@@ -19,7 +19,9 @@ function WalletBoundReferralCodeButtonView({
 }) {
   const intl = useIntl();
   const { bindWalletInviteCode, getReferralCodeBondStatus } =
-    useWalletBoundReferralCode();
+    useWalletBoundReferralCode({
+      entry: 'modal',
+    });
 
   const {
     result: displayReferralCodeButton,
