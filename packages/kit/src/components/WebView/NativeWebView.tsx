@@ -23,7 +23,7 @@ import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUti
 
 import ErrorView from './ErrorView';
 
-import type { IInpageProviderWebViewProps } from './types';
+import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
@@ -39,11 +39,9 @@ const styles = StyleSheet.create({
 const NativeWebView = forwardRef(
   (
     {
-      style,
       src,
       receiveHandler,
       onLoadProgress,
-      injectedJavaScript,
       injectedJavaScriptBeforeContentLoaded,
       onMessage,
       onLoadStart,
@@ -99,11 +97,15 @@ const NativeWebView = forwardRef(
         jsBridge,
         reload: () => webviewRef.current?.reload(),
         loadURL: (url: string) => webviewRef.current?.loadUrl(url),
+        sendMessageViaInjectedScript: (message: any) => {
+          const messageStr = JSON.stringify(message);
+          webviewRef.current?.postMessage(messageStr);
+        },
       };
 
       jsBridge.webviewWrapper = wrapper;
 
-      return wrapper;
+      return wrapper as IWebViewRef;
     });
 
     const webViewOnLoadStart = useCallback(
