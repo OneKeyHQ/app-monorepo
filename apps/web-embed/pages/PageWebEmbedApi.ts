@@ -50,6 +50,33 @@ const init = (times = 0) => {
     }, 15);
     return;
   }
+
+  // it only works on GeckoView on Android
+  globalThis.addEventListener('webembedReceiveHandler', async (event) => {
+    if (!event) {
+      return;
+    }
+    const { detail } = event as unknown as {
+      detail: {
+        data: IJsBridgeMessagePayload;
+        callbackId: number;
+      };
+    };
+    let error: unknown;
+    let response: unknown;
+    try {
+      response = await handler(detail.data);
+    } catch (e) {
+      error = e;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    (globalThis as any).$webEmbed.callWebEmbedApiMethod(
+      detail.callbackId,
+      error,
+      response,
+    );
+  });
+
   globalThis.$onekey.$private.webembedReceiveHandler = handler;
 
   defaultLogger.app.webembed.callPageGetEncodeKey();

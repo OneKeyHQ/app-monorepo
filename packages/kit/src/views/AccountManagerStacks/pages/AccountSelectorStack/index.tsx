@@ -8,10 +8,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import { WalletDetails } from './WalletDetails';
-import {
-  AccountSelectorWalletListSideBar,
-  AccountSelectorWalletListSideBarPerfTest,
-} from './WalletList';
+import { AccountSelectorWalletListSideBar } from './WalletList';
 
 export function AccountSelectorStack({
   num,
