@@ -334,6 +334,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       ) {
         // debugger;
       }
+      if (
+        sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
+        sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
+        newSelectedAccount?.deriveType
+      ) {
+        console.log('updateSelectedAccount deriveType: ', newSelectedAccount);
+      }
 
       const newNetworkId = newSelectedAccount?.networkId;
       const oldNetworkId = oldSelectedAccount?.networkId;
@@ -373,7 +380,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 sceneName: sceneInfo?.sceneName,
               },
             );
-          if (!shouldUseGlobalDeriveType && newSelectedAccount?.networkId) {
+          if (
+            !shouldUseGlobalDeriveType &&
+            newSelectedAccount?.networkId &&
+            newSelectedAccount?.deriveType
+          ) {
             const isNewDeriveTypeAvailable =
               await backgroundApiProxy.serviceNetwork.isDeriveTypeAvailableForNetwork(
                 {

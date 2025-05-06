@@ -18,6 +18,9 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
   const {
     activeAccount: { deriveInfo, network, isOthersWallet },
   } = useActiveAccount({ num });
+  if (deriveInfo) {
+    console.log('useAutoSelectDeriveType deriveInfo: ', deriveInfo);
+  }
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { serviceNetwork, serviceAccountSelector } = backgroundApiProxy;
