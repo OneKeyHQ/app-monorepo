@@ -1311,6 +1311,7 @@
   global_show_recovery_phrase = 'global.show_recovery_phrase',
   global_sign = 'global.sign',
   global_single_chain_account = 'global.single_chain_account',
+  global_skip = 'global.skip',
   global_skip_for_now = 'global.skip_for_now',
   global_sped_up = 'global.sped_up',
   global_speed_up = 'global.speed_up',
