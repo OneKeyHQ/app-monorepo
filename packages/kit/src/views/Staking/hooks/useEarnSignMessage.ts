@@ -1,27 +1,10 @@
 import { useCallback } from 'react';
 
-import * as ethUtils from 'ethereumjs-util';
-
+import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
-function autoFixPersonalSignMessage({ message }: { message: string }) {
-  let messageFixed = message;
-  try {
-    ethUtils.toBuffer(message);
-  } catch (error) {
-    const tmpMsg = `0x${message}`;
-    try {
-      ethUtils.toBuffer(tmpMsg);
-      messageFixed = tmpMsg;
-    } catch (err) {
-      // message not including valid hex character
-    }
-  }
-  return messageFixed;
-}
 
 export function useFalconUSDfRegister() {
   return useCallback(
