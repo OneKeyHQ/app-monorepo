@@ -142,24 +142,6 @@ function InviteCode({
     [onSuccess, verificationCode, wallet?.id, getReferralCodeWalletInfo],
   );
 
-  const handleSkip = useCallback(async () => {
-    const walletInfo = await getReferralCodeWalletInfo(wallet?.id);
-    if (!walletInfo) {
-      return;
-    }
-
-    await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-      walletId: walletInfo.walletId,
-      referralCodeInfo: {
-        walletId: walletInfo.walletId,
-        address: walletInfo.address,
-        networkId: walletInfo.networkId,
-        pubkey: walletInfo.pubkey ?? '',
-        isBound: false,
-      },
-    });
-  }, [wallet?.id, getReferralCodeWalletInfo]);
-
   return (
     <YStack mt="$-3">
       <XStack ai="center" gap="$2" pb="$5">
@@ -206,9 +188,8 @@ function InviteCode({
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
         onCancelText={intl.formatMessage({
-          id: ETranslations.global_skip_for_now,
+          id: ETranslations.global_skip,
         })}
-        onCancel={handleSkip}
       />
     </YStack>
   );
@@ -239,6 +220,16 @@ export function useWalletBoundReferralCode({
             networkId,
           },
         );
+      await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
+        walletId: walletInfo.walletId,
+        referralCodeInfo: {
+          walletId: walletInfo.walletId,
+          address: walletInfo.address,
+          networkId: walletInfo.networkId,
+          pubkey: walletInfo.pubkey ?? '',
+          isBound: alreadyBound,
+        },
+      });
       if (alreadyBound) {
         return false;
       }
@@ -263,9 +254,6 @@ export function useWalletBoundReferralCode({
           id: ETranslations.referral_wallet_code_title,
         }),
         renderContent: <InviteCode wallet={wallet} onSuccess={onSuccess} />,
-        onClose: (extra) => {
-          console.log('===>>> close: ===>: ', extra);
-        },
       });
     },
     [dialog, intl],

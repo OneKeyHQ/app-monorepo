@@ -230,16 +230,14 @@ class ServiceReferralCode extends ServiceBase {
     signature: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Rebate);
-    const response = await client.post<{
-      data: { success: boolean };
-    }>('/rebate/v1/wallet/bind', {
+    await client.post('/rebate/v1/wallet/bind', {
       networkId,
       address,
       pubkey,
       inviteCode: referralCode,
       signature,
     });
-    return response.data.data.success;
+    return true;
   }
 
   @backgroundMethod()
