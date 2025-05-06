@@ -32,6 +32,8 @@ import { appIsLocked } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+
 @backgroundClass()
 class ServiceApp extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -238,19 +240,23 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async updateLaunchTimes() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      launchTimes: (v?.launchTimes ?? 0) + 1,
-      launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        launchTimes: (v?.launchTimes ?? 0) + 1,
+        launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
+      }),
+    );
   }
 
   @backgroundMethod()
   async resetLaunchTimesAfterUpdate() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      launchTimesLastReset: 0,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        launchTimesLastReset: 0,
+      }),
+    );
   }
 
   @backgroundMethod()
