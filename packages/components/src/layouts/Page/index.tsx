@@ -62,12 +62,12 @@ function PageProvider({
   return (
     <>
       <PageContext.Provider value={value}>
-        <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
-          <>
+        <>
+          <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
             {children}
-            <PagePortal pagePortalId={pagePortalId} />
-          </>
-        </PageContainer>
+          </PageContainer>
+          <PagePortal pagePortalId={pagePortalId} />
+        </>
       </PageContext.Provider>
       {isEnablePageLifeCycle ? (
         <PageLifeCycle
