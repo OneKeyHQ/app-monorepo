@@ -40,6 +40,7 @@ export type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
 };
 export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive' | 'warning' | 'success';
+  trackId?: string;
   showFooter?: boolean;
   footerProps?: Omit<IStackProps, 'children'>;
   showExitButton?: boolean;
@@ -77,6 +78,7 @@ interface IBasicDialogProps extends TMDialogProps {
   renderIcon?: ReactElement;
   title?: string;
   description?: string | ReactElement;
+  trackId?: string;
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
