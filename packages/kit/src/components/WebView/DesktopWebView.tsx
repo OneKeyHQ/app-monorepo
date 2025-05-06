@@ -20,6 +20,7 @@ import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUti
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
+import { createMessageInjectedScript } from './utils';
 
 import type {
   IElectronWebView,
@@ -198,6 +199,7 @@ const DesktopWebView = forwardRef(
         'DesktopWebView:  custom preload url may disable built-in injected function',
       );
     }
+
     useEffect(
       () => () => {
         // not working, ref is null after unmount
@@ -205,6 +207,7 @@ const DesktopWebView = forwardRef(
       },
       [],
     );
+
     // TODO extract to hooks
     const jsBridgeHost = useMemo(
       () =>
@@ -221,40 +224,16 @@ const DesktopWebView = forwardRef(
         jsBridge: jsBridgeHost,
         reload: () => {
           webviewRef.current?.reload();
-          void waitForDataLoaded({
-            data: () => isWebviewReady,
-            logName: 'waitForWebViewReady',
-            timeout: 5000,
-          });
         },
         loadURL: (url: string) => {
           if (webviewRef.current && url) {
             webviewRef.current.loadURL(url);
           }
-
-          // wait for webview ready
-          void waitForDataLoaded({
-            data: () => isWebviewReady,
-            logName: 'waitForWebViewReady',
-            timeout: 5000,
-          });
         },
         sendMessageViaInjectedScript: (message: unknown) => {
           if (webviewRef.current) {
-            try {
-              const script = `
-                (function() {
-                  try {
-                    window.postMessage(${JSON.stringify(message)});
-                  } catch (error) {
-                    console.error('Failed to send message via injected script:', error);
-                  }
-                })();
-              `;
-              webviewRef.current.executeJavaScript(script);
-            } catch (error) {
-              console.error('Failed to execute JavaScript in webview:', error);
-            }
+            const script = createMessageInjectedScript(message);
+            webviewRef.current.executeJavaScript(script);
           }
         },
       };

@@ -22,6 +22,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
+import { createMessageInjectedScript } from './utils';
 
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -97,9 +98,9 @@ const NativeWebView = forwardRef(
         jsBridge,
         reload: () => webviewRef.current?.reload(),
         loadURL: (url: string) => webviewRef.current?.loadUrl(url),
-        sendMessageViaInjectedScript: (message: any) => {
-          const messageStr = JSON.stringify(message);
-          webviewRef.current?.postMessage(messageStr);
+        sendMessageViaInjectedScript: (message: unknown) => {
+          const script = createMessageInjectedScript(message);
+          webviewRef.current?.injectJavaScript(script);
         },
       };
 

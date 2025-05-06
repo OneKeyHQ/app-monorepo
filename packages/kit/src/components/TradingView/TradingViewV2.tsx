@@ -54,8 +54,7 @@ export function TradingViewV2(props: ITradingViewProps & WebViewProps) {
           webRef.current = ref;
         }}
         displayProgressBar={false}
-        // src="https://tradingview.onekeytest.com/"
-        src="http://192.168.31.115:5173/"
+        src="https://tradingview.onekeytest.com/"
       />
 
       {platformEnv.isNativeIOS || isIPadPortrait ? (
