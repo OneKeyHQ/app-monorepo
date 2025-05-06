@@ -1062,11 +1062,7 @@ class ServiceDApp extends ServiceBase {
     const { origin, accountId, indexedAccountId, networkId, isOthersWallet } =
       params;
 
-    const deriveType =
-      await this.backgroundApi.serviceNetwork.getDeriveTypeOrFallbackToGlobal({
-        deriveType: params.deriveType,
-        networkId: params.networkId,
-      });
+    const deriveType = params.deriveType;
 
     const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
       origin,

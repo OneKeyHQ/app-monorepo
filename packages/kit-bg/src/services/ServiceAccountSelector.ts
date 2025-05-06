@@ -151,11 +151,7 @@ class ServiceAccountSelector extends ServiceBase {
   }> {
     const { othersWalletAccountId, indexedAccountId, networkId, walletId } =
       selectedAccount;
-    const deriveType =
-      await this.backgroundApi.serviceNetwork.getDeriveTypeOrFallbackToGlobal({
-        deriveType: selectedAccount.deriveType,
-        networkId: selectedAccount.networkId,
-      });
+    const deriveType = selectedAccount.deriveType;
 
     defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
       {

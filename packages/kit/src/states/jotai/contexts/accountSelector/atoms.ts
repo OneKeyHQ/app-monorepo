@@ -177,7 +177,7 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
     device: undefined,
     network: undefined,
     vaultSettings: undefined,
-    deriveType: 'default',
+    deriveType: undefined,
     deriveInfoItems: [],
     ready: false,
   });
