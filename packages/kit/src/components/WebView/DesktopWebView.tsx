@@ -25,6 +25,7 @@ import type {
   IElectronWebView,
   IElectronWebViewEvents,
   IInpageProviderWebViewProps,
+  IWebViewRef,
 } from './types';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -83,6 +84,7 @@ const DesktopWebView = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
+      onLoadEnd,
       // @ts-expect-error
       onNewWindow,
       onDomReady,
@@ -164,7 +166,10 @@ const DesktopWebView = forwardRef(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
           );
-          webview.removeEventListener('did-finish-load', onDidFinishLoad);
+          webview.removeEventListener('did-finish-load', (e: any) => {
+            onDidFinishLoad?.();
+            onLoadEnd?.(e);
+          });
           webview.removeEventListener('did-stop-loading', onDidStopLoading);
           webview.removeEventListener('did-fail-load', innerHandleDidFailLoad);
           webview.removeEventListener('page-title-updated', onPageTitleUpdated);
@@ -188,6 +193,7 @@ const DesktopWebView = forwardRef(
       onPageFaviconUpdated,
       onPageTitleUpdated,
       onDidStartNavigation,
+      onLoadEnd,
     ]);
     if (isDev && props.preload) {
       console.warn(
@@ -217,18 +223,47 @@ const DesktopWebView = forwardRef(
       const wrapper = {
         innerRef: webviewRef.current,
         jsBridge: jsBridgeHost,
-        reload: () => webviewRef.current?.reload(),
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        loadURL: (url: string, options?: LoadURLOptions) => {
-          if (onSrcChange) {
-            onSrcChange(url);
-          } else {
-            webviewRef.current?.loadURL(url);
+        reload: () => {
+          webviewRef.current?.reload();
+          void waitForDataLoaded({
+            data: () => isWebviewReady,
+            logName: 'waitForWebViewReady',
+            timeout: 5000,
+          });
+        },
+        loadURL: (url: string) => {
+          if (webviewRef.current && url) {
+            webviewRef.current.loadURL(url);
+          }
+
+          // wait for webview ready
+          void waitForDataLoaded({
+            data: () => isWebviewReady,
+            logName: 'waitForWebViewReady',
+            timeout: 5000,
+          });
+        },
+        sendMessageViaInjectedScript: (message: unknown) => {
+          if (webviewRef.current) {
+            try {
+              const script = `
+                (function() {
+                  try {
+                    window.postMessage(${JSON.stringify(message)});
+                  } catch (error) {
+                    console.error('Failed to send message via injected script:', error);
+                  }
+                })();
+              `;
+              webviewRef.current.executeJavaScript(script);
+            } catch (error) {
+              console.error('Failed to execute JavaScript in webview:', error);
+            }
           }
         },
       };
       jsBridgeHost.webviewWrapper = wrapper;
-      return wrapper;
+      return wrapper as IWebViewRef;
     });
 
     const initWebviewByRef = useCallback(($ref: any) => {

@@ -7,6 +7,7 @@ import type {
 } from './DesktopWebView';
 import type { ESiteMode } from '../../views/Discovery/types';
 import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
@@ -69,6 +70,10 @@ export interface IInpageProviderWebViewProps
    */
   useInjectedNativeCode?: boolean;
 }
+
+export type IWebViewRef = {
+  sendMessageViaInjectedScript: (message: any) => void;
+} & IWebViewWrapperRef;
 
 export type IElectronWebView = {
   reload: () => void;
