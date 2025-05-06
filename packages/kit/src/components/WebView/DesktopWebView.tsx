@@ -146,12 +146,17 @@ const DesktopWebView = forwardRef(
           onDidStartNavigation?.(event);
         };
 
+        const didFinishLoad = (e: any) => {
+          onDidFinishLoad?.();
+          onLoadEnd?.(e);
+        };
+
         webview.addEventListener('did-start-loading', onDidStartLoading);
         webview.addEventListener(
           'did-start-navigation',
           innerHandleDidStartNavigationNavigation,
         );
-        webview.addEventListener('did-finish-load', onDidFinishLoad);
+        webview.addEventListener('did-finish-load', didFinishLoad);
         webview.addEventListener('did-stop-loading', onDidStopLoading);
         webview.addEventListener('did-fail-load', innerHandleDidFailLoad);
         webview.addEventListener('page-title-updated', onPageTitleUpdated);
@@ -165,10 +170,7 @@ const DesktopWebView = forwardRef(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
           );
-          webview.removeEventListener('did-finish-load', (e: any) => {
-            onDidFinishLoad?.();
-            onLoadEnd?.(e);
-          });
+          webview.removeEventListener('did-finish-load', didFinishLoad);
           webview.removeEventListener('did-stop-loading', onDidStopLoading);
           webview.removeEventListener('did-fail-load', innerHandleDidFailLoad);
           webview.removeEventListener('page-title-updated', onPageTitleUpdated);

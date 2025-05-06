@@ -31,7 +31,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           iframeWebviewRef.current?.loadURL(url);
         },
         sendMessageViaInjectedScript: (message: any) => {
-          if (iframeRef.current && iframeRef.current.contentWindow) {
+          if (iframeRef.current?.contentWindow) {
             try {
               iframeRef.current.contentWindow.postMessage(
                 JSON.stringify(message),

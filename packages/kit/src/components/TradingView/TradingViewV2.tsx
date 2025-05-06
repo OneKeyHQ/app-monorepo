@@ -42,14 +42,10 @@ export function TradingViewV2(props: ITradingViewProps & WebViewProps) {
     };
   }, []);
 
-  onLoadEnd?.();
-
   return (
     <Stack position="relative" flex={1}>
       <WebView
-        onLoadEnd={() => {
-          console.log('WebView onLoadEnd');
-        }}
+        onLoadEnd={onLoadEnd}
         onWebViewRef={(ref) => {
           webRef.current = ref;
         }}
