@@ -1,9 +1,25 @@
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
-import { ActionList, HeaderIconButton, useMedia } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IIconButtonProps,
+} from '@onekeyhq/components';
+import {
+  ActionList,
+  Divider,
+  HeaderIconButton,
+  Icon,
+  IconButton,
+  Popover,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -16,19 +32,271 @@ import {
   useToMyOneKeyModal,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
+import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
+import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+
+function MoreActionContentHeader() {
+  const intl = useIntl();
+  const { user } = usePrimeAuthV2();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const { closePopover } = usePopoverContext();
+
+  const { shareReferRewards } = useReferFriends();
+  const { loginOneKeyId } = useLoginOneKeyId();
+
+  const handleLogin = useCallback(async () => {
+    await closePopover?.();
+    await loginOneKeyId({
+      toOneKeyIdPageOnLoginSuccess: true,
+    });
+  }, [closePopover, loginOneKeyId]);
+
+  const handleShareReferRewards = useCallback(async () => {
+    await closePopover?.();
+    await shareReferRewards();
+  }, [closePopover, shareReferRewards]);
+  return (
+    <XStack
+      h="$16"
+      bg="$bgSubdued"
+      ai="center"
+      jc="space-between"
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+    >
+      <XStack gap="$1" ai="center" onPress={handleLogin}>
+        <SizableText>{user?.displayEmail || `Sign in / Register`}</SizableText>
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
+      <XStack gap="$5" ai="center">
+        {devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
+          <PrimeHeaderIconButtonLazy key="prime" visible />
+        ) : null}
+        <IconButton
+          variant="tertiary"
+          title={intl.formatMessage({ id: ETranslations.referral_title })}
+          icon="GiftOutline"
+          onPress={handleShareReferRewards}
+        />
+      </XStack>
+    </XStack>
+  );
+}
+
+function MoreActionContentFooter() {
+  const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const scanQrCode = useScanQrCode();
+  const onLock = useOnLock();
+  const handleLock = useCallback(async () => {
+    await closePopover?.();
+    await onLock();
+  }, [closePopover, onLock]);
+  const handleScan = useCallback(async () => {
+    await closePopover?.();
+    await scanQrCode.start({
+      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+      autoHandleResult: true,
+      account,
+      network,
+      tokens: {
+        data: allTokens.tokens,
+        keys: allTokens.keys,
+        map,
+      },
+    });
+  }, [
+    closePopover,
+    scanQrCode,
+    account,
+    network,
+    allTokens.tokens,
+    allTokens.keys,
+    map,
+  ]);
+  return (
+    <XStack pt="$5" ai="center" jc="flex-end" gap="$5">
+      <IconButton
+        variant="tertiary"
+        title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+        icon="ScanOutline"
+        onPress={handleScan}
+      />
+      <IconButton
+        variant="tertiary"
+        title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
+        icon="LockOutline"
+        onPress={handleLock}
+      />
+    </XStack>
+  );
+}
+
+interface IMoreActionContentGridItemProps {
+  title: IIconButtonProps['title'];
+  icon: IIconButtonProps['icon'];
+  onPress: () => void;
+}
+
+function MoreActionContentGridItem({
+  title,
+  icon,
+  onPress,
+}: IMoreActionContentGridItemProps) {
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    onPress();
+  }, [closePopover, onPress]);
+  return (
+    <YStack
+      onPress={handlePress}
+      mt="$2.5"
+      w={108}
+      ai="center"
+      jc="center"
+      gap="$2"
+    >
+      <Icon name={icon} size="$10" />
+      <SizableText size="$bodyMd">{title}</SizableText>
+    </YStack>
+  );
+}
+
+function MoreActionContentGridRender({
+  items,
+}: {
+  items: IMoreActionContentGridItemProps[];
+}) {
+  const displayItems = useMemo(() => {
+    const remainder = items.length % 3;
+    if (remainder !== 0) {
+      const paddingCount = 3 - remainder;
+      return [
+        ...items,
+        ...Array(paddingCount).fill(null),
+      ] as IMoreActionContentGridItemProps[];
+    }
+    return items;
+  }, [items]);
+  return (
+    <>
+      {displayItems.map((item, index) =>
+        item ? (
+          <MoreActionContentGridItem key={index} {...item} />
+        ) : (
+          <XStack key={index} />
+        ),
+      )}
+    </>
+  );
+}
+
+function MoreActionContentGrid() {
+  const intl = useIntl();
+  const openAddressBook = useShowAddressBook({
+    useNewModal: true,
+  });
+  const toMyOneKeyModal = useToMyOneKeyModal();
+  const handleDeviceManagement = useCallback(async () => {
+    await toMyOneKeyModal();
+  }, [toMyOneKeyModal]);
+
+  const navigation = useAppNavigation();
+  const handleSettings = useCallback(
+    (close: () => void) => {
+      close();
+      navigation.pushModal(EModalRoutes.SettingModal, {
+        screen: EModalSettingRoutes.SettingListModal,
+      });
+    },
+    [navigation],
+  );
+
+  const openNotificationsModal = useCallback(async () => {
+    navigation.pushModal(EModalRoutes.NotificationsModal, {
+      screen: EModalNotificationsRoutes.NotificationList,
+    });
+  }, [navigation]);
+
+  const items = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.address_book_title,
+        }),
+        icon: 'ContactsOutline',
+        onPress: openAddressBook,
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_my_onekey,
+        }),
+        icon: 'OnekeyDeviceCustom',
+        onPress: handleDeviceManagement,
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.settings_settings,
+        }),
+        icon: 'SettingsOutline',
+        onPress: handleSettings,
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_notifications,
+        }),
+        icon: 'BellOutline',
+        onPress: openNotificationsModal,
+      },
+    ] as IMoreActionContentGridItemProps[];
+  }, [
+    handleDeviceManagement,
+    handleSettings,
+    intl,
+    openAddressBook,
+    openNotificationsModal,
+  ]);
+
+  return (
+    <YStack px="$5">
+      <XStack pt="$2.5" pb="$5" jc="space-between" flexWrap="wrap">
+        <MoreActionContentGridRender items={items} />
+      </XStack>
+      <Divider />
+    </YStack>
+  );
+}
+
+function MoreActionContent() {
+  return (
+    <YStack>
+      <MoreActionContentHeader />
+      <MoreActionContentGrid />
+      <MoreActionContentFooter />
+    </YStack>
+  );
+}
 
 function MoreActionButtonCmp() {
   const intl = useIntl();
@@ -141,6 +409,19 @@ function MoreActionButtonCmp() {
     return [];
   }, [intl]);
 
+  return (
+    <Popover
+      title={intl.formatMessage({ id: ETranslations.explore_options })}
+      placement="bottom-start"
+      renderTrigger={
+        <HeaderIconButton
+          title={intl.formatMessage({ id: ETranslations.explore_options })}
+          icon="DotGridOutline"
+        />
+      }
+      renderContent={MoreActionContent}
+    />
+  );
   return (
     <ActionList
       key="more-action"
