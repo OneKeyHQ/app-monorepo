@@ -80,7 +80,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     checkIsDefined(num);
     checkIsDefined(sceneName);
     if (!accountSelectorUtils.isSceneCanPersist({ sceneName })) {
-      console.log(`skip ${sceneName} account selector persist`);
+      // console.log(`skip ${sceneName} account selector persist`);
       return;
     }
     const sceneId = accountSelectorUtils.buildAccountSelectorSceneId({
