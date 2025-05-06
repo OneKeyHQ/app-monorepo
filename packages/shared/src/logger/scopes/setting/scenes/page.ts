@@ -4,6 +4,16 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public resetApp({
+    reason,
+  }: {
+    reason: 'ManualResetFromSettings' | 'WrongPasscodeMaxAttempts';
+  }) {
+    return { reason };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public lockNow() {
     return {};
   }
@@ -100,6 +110,11 @@ export class PageScene extends BaseScene {
     action: 'Cache' | 'Pending txn' | 'ResetApp';
   }) {
     return { action };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public restartApp() {
+    return {};
   }
 
   @LogToServer()

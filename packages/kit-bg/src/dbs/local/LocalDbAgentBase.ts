@@ -2,6 +2,7 @@ import { isNil } from 'lodash';
 
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type {
+  EIndexedDBBucketNames,
   ILocalDBAgent,
   ILocalDBGetAllRecordsParams,
   ILocalDBGetAllRecordsResult,
@@ -23,6 +24,7 @@ import type {
   ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
+  ILocalDBWithTransactionOptions,
   ILocalDBWithTransactionTask,
 } from './types';
 
@@ -67,7 +69,11 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
     return pairs;
   }
 
-  abstract withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T>;
+  abstract withTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
+    task: ILocalDBWithTransactionTask<T>,
+    options?: ILocalDBWithTransactionOptions,
+  ): Promise<T>;
 
   abstract clearRecords(params: { name: ELocalDBStoreNames }): Promise<void>;
 

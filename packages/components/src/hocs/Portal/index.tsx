@@ -37,6 +37,7 @@ export enum EPortalContainerConstantName {
   ACCOUNT_SELECTOR = 'ONEKEY_ACCOUNT_SELECTOR',
   WALLET_ACTIONS = 'ONEKEY_WALLET_ACTIONS',
   HARDWARE_UI_STATE_DIALOG = 'HARDWARE_UI_STATE_DIALOG',
+  IN_PAGE_TAB_CONTAINER = 'IN_PAGE_TAB_CONTAINER',
 }
 
 export interface IPortalManager {
@@ -111,8 +112,7 @@ function PortalBodyRender(props: {
         !isReactMemoElement(_owner?.sibling)
       ) {
         console.error(
-          `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
-            container || ''
+          `use React.memo or React.useMemo with a Component contains children in Portal.Body ${container || ''
           }`,
         );
       }

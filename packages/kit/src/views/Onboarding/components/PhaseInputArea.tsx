@@ -52,6 +52,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseSecretRecoveryPhrase } from '@onekeyhq/shared/src/utils/phrase';
 
 import { PHRASE_LENGTHS, useSuggestion } from './hooks';
 
@@ -263,7 +264,7 @@ function BasicPhaseInput(
   const handleChangeText = useCallback(
     (v: string) => {
       // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
-      const trimmedValue = v ? v.trim() : '';
+      const trimmedValue = v ? parseSecretRecoveryPhrase(v) : '';
       if (
         trimmedValue &&
         trimmedValue.split(' ').filter(Boolean).length === phraseLength &&
@@ -314,7 +315,7 @@ function BasicPhaseInput(
       if (!platformEnv.isNative) {
         const item = event.nativeEvent?.items?.[0];
         if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
-          onPasteMnemonic(item?.data, index);
+          onPasteMnemonic(parseSecretRecoveryPhrase(item?.data || ''), index);
         }
       }
     },

@@ -12,6 +12,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
+import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -173,6 +175,90 @@ class ServiceReferralCode extends ServiceBase {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
     return postConfig;
+  }
+
+  @backgroundMethod()
+  async checkWalletIsBoundReferralCode({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: { data: boolean };
+    }>('/rebate/v1/wallet/check', {
+      params: { address, networkId },
+    });
+    return response.data.data.data;
+  }
+
+  @backgroundMethod()
+  async getBoundReferralCodeUnsignedMessage({
+    address,
+    networkId,
+    inviteCode,
+  }: {
+    address: string;
+    networkId: string;
+    inviteCode: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: { message: string };
+    }>('/rebate/v1/wallet/message', {
+      address,
+      networkId,
+      inviteCode,
+    });
+    return response.data.data.message;
+  }
+
+  @backgroundMethod()
+  async boundReferralCodeWithSignedMessage({
+    networkId,
+    address,
+    pubkey,
+    referralCode,
+    signature,
+  }: {
+    networkId: string;
+    address: string;
+    pubkey?: string;
+    referralCode: string;
+    signature: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    await client.post('/rebate/v1/wallet/bind', {
+      networkId,
+      address,
+      pubkey,
+      inviteCode: referralCode,
+      signature,
+    });
+    return true;
+  }
+
+  @backgroundMethod()
+  async getWalletReferralCode({ walletId }: { walletId: string }) {
+    return this.backgroundApi.simpleDb.referralCode.getWalletReferralCode({
+      walletId,
+    });
+  }
+
+  @backgroundMethod()
+  async setWalletReferralCode({
+    walletId,
+    referralCodeInfo,
+  }: {
+    walletId: string;
+    referralCodeInfo: IWalletReferralCode;
+  }) {
+    return this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
+      walletId,
+      referralCodeInfo,
+    });
   }
 }
 

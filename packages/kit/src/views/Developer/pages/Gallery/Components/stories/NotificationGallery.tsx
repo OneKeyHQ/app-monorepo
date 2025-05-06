@@ -15,6 +15,7 @@ function NotificationGallery() {
   const [icon, setIcon] = useState<string | undefined>(undefined);
   return (
     <Layout
+      filePath={__CURRENT_FILE_PATH__}
       componentName="Notification"
       elements={[
         {

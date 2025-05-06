@@ -47,7 +47,7 @@ export enum EOnboardingPages {
 
 export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: {
-    showCloseButton?: boolean;
+    isFullModal?: boolean;
   };
 
   // v4 migration

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
-  Image,
   SectionList,
   SizableText,
   Stack,

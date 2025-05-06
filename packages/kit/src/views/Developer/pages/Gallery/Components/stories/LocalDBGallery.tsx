@@ -408,6 +408,7 @@ function LocalDBDemo1() {
 
 const LocalDBGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="LocalDB"
     elements={[
       {

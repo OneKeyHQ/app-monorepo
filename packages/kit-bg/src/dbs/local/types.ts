@@ -11,6 +11,10 @@ import type {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import type {
+  IndexedDBObjectStorePromised,
+  IndexedDBPromised,
+} from '@onekeyhq/shared/src/IndexedDBPromised';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type {
   INetworkAccount,
@@ -43,7 +47,7 @@ import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { DBSchema, IDBPObjectStore } from 'idb';
+import type { DBSchema } from 'idb';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {
@@ -418,6 +422,25 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.CloudSyncItem]: RealmSchemaCloudSyncItem;
 }
 
+export type IIndexedBucketsMap = Record<
+  EIndexedDBBucketNames,
+  IndexedDBPromised<IIndexedDBSchemaMap>
+>;
+export const INDEXED_BUCKET_NAME_BACKUP_PREFIX = 'backup-';
+export enum EIndexedDBBucketNames {
+  // default = 'default',
+  // credential = 'credential', // credential, context
+  // wallet = 'wallet', // wallet, device
+  account = 'account_local-db_onekey-bucket', // account
+  backupAccount = `${INDEXED_BUCKET_NAME_BACKUP_PREFIX}account_local-db_onekey-bucket`, // account
+  address = 'address_local-db_onekey-bucket', // address to account map
+  archive = 'archive_local-db_onekey-bucket', // connected site, signed message, signed transaction
+
+  // using independent cloudsync bucket will cause transaction nesting, causing one of the transactions to terminate automatically, so it is still necessary to share the same bucket with account
+  // cloudSync = 'cloud-sync_local-db_onekey-bucket', // cloud sync
+  // misc = 'misc', // misc
+}
+
 export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
@@ -472,81 +495,84 @@ export interface IIndexedDBSchemaMap extends DBSchema {
 }
 
 export type ILocalDBTransactionStores = {
-  [ELocalDBStoreNames.Context]: IDBPObjectStore<
+  [ELocalDBStoreNames.Context]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Context[],
     ELocalDBStoreNames.Context,
     'readwrite'
   >;
-  [ELocalDBStoreNames.Credential]: IDBPObjectStore<
+  [ELocalDBStoreNames.Credential]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Credential[],
     ELocalDBStoreNames.Credential,
     'readwrite'
   >;
-  [ELocalDBStoreNames.Wallet]: IDBPObjectStore<
+  [ELocalDBStoreNames.Wallet]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Wallet[],
     ELocalDBStoreNames.Wallet,
     'readwrite'
   >;
-  [ELocalDBStoreNames.Account]: IDBPObjectStore<
+  [ELocalDBStoreNames.Account]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Account[],
     ELocalDBStoreNames.Account,
     'readwrite'
   >;
-  [ELocalDBStoreNames.IndexedAccount]: IDBPObjectStore<
+  [ELocalDBStoreNames.IndexedAccount]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.IndexedAccount[],
     ELocalDBStoreNames.IndexedAccount,
     'readwrite'
   >;
-  [ELocalDBStoreNames.AccountDerivation]: IDBPObjectStore<
+  [ELocalDBStoreNames.AccountDerivation]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.AccountDerivation[],
     ELocalDBStoreNames.AccountDerivation,
     'readwrite'
   >;
-  [ELocalDBStoreNames.Device]: IDBPObjectStore<
+  [ELocalDBStoreNames.Device]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Device[],
     ELocalDBStoreNames.Device,
     'readwrite'
   >;
-  [ELocalDBStoreNames.Address]: IDBPObjectStore<
+  [ELocalDBStoreNames.Address]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Address[],
     ELocalDBStoreNames.Address,
     'readwrite'
   >;
-  [ELocalDBStoreNames.SignedMessage]: IDBPObjectStore<
+  [ELocalDBStoreNames.SignedMessage]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.SignedMessage[],
     ELocalDBStoreNames.SignedMessage,
     'readwrite'
   >;
-  [ELocalDBStoreNames.SignedTransaction]: IDBPObjectStore<
+  [ELocalDBStoreNames.SignedTransaction]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.SignedTransaction[],
     ELocalDBStoreNames.SignedTransaction,
     'readwrite'
   >;
-  [ELocalDBStoreNames.ConnectedSite]: IDBPObjectStore<
+  [ELocalDBStoreNames.ConnectedSite]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.ConnectedSite[],
     ELocalDBStoreNames.ConnectedSite,
     'readwrite'
   >;
-  [ELocalDBStoreNames.CloudSyncItem]: IDBPObjectStore<
+  [ELocalDBStoreNames.CloudSyncItem]: IndexedDBObjectStorePromised<
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.CloudSyncItem[],
     ELocalDBStoreNames.CloudSyncItem,
     'readwrite'
   >;
 };
+
+// TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
+  bucketName: EIndexedDBBucketNames;
 }
 
 export type ILocalDBRecord<T extends ELocalDBStoreNames> = ILocalDBSchemaMap[T];
@@ -678,6 +704,7 @@ export type ILocalDBWithTransactionOptions = {
 
 export interface ILocalDBAgent {
   withTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T>;

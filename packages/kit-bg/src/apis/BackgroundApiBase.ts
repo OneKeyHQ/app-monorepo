@@ -312,8 +312,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       }
       this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
     } else {
-      if (this.bridge) {
-        if (isFunction(data) && this.bridge.remoteInfo.origin) {
+      if (this.bridge && this.bridge.remoteInfo.origin) {
+        if (isFunction(data)) {
           // eslint-disable-next-line no-param-reassign
           data = await data({ origin: this.bridge.remoteInfo.origin });
         }
@@ -324,8 +324,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           this.bridge.requestSync({ scope, data });
         }
       }
-      if (this.webEmbedBridge) {
-        if (isFunction(data) && this.webEmbedBridge.remoteInfo.origin) {
+      if (this.webEmbedBridge && this.webEmbedBridge.remoteInfo.origin) {
+        if (isFunction(data)) {
           // eslint-disable-next-line no-param-reassign
           data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
         }

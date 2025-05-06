@@ -138,6 +138,7 @@ const TabViewScrollPageDemo = () => {
 
 const TabViewGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="TabView"
     suggestions={[
       '吸顶用 Tab',

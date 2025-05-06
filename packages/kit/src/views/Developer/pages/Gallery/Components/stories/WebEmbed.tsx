@@ -93,6 +93,7 @@ export function WebEmbedDevConfig() {
 function WebEmbedGallery() {
   return (
     <Layout
+      filePath={__CURRENT_FILE_PATH__}
       componentName="WebEmbed"
       elements={[
         {
