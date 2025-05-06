@@ -6,6 +6,7 @@ import appStorage from '../storage/appStorage';
 
 import type { BaseScene } from './base/baseScene';
 import type { BaseScope } from './base/baseScope';
+import platformEnv from '../platformEnv';
 
 export type ILoggerConfig = {
   highlightDurationGt?: string;
@@ -89,6 +90,14 @@ const saveLoggerConfig = debounce(
 
 // eslint-disable-next-line no-async-promise-executor
 const savedLoggerConfigAsync = new Promise<ILoggerConfig>(async (resolve) => {
+  if (platformEnv.isWebEmbed) {
+    resolve({
+      highlightDurationGt: '100',
+      colorfulLog: false,
+      enabled: {},
+    });
+    return;
+  }
   const config = await getSavedLoggerConfig();
   resolve(config);
 });
