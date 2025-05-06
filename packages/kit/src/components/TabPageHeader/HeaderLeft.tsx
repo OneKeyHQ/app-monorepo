@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { NavBackButton, Page, SizableText } from '@onekeyhq/components';
+import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
+import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -66,7 +68,13 @@ export function HeaderLeft({
         }}
       />
     );
-    return accountSelectorTrigger;
+    return (
+      <>
+        {accountSelectorTrigger}
+        <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
+        <AccountSelectorActiveAccountHome num={0} />
+      </>
+    );
   }, [intl, sceneName, spotlightVisible, tourVisited]);
   return (
     <AccountSelectorProviderMirror
