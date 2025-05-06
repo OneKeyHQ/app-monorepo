@@ -2,6 +2,8 @@ import { useMemo, useRef } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import { Portal } from '../../hocs';
+
 import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
 import { PageContainer } from './PageContainer';
@@ -21,6 +23,10 @@ import type { IPageProps } from './type';
 
 export type { IPageProps, IPageFooterProps, IPageLifeCycle } from './type';
 
+function PagePortal({ pagePortalId }: { pagePortalId: string }) {
+  return pagePortalId ? <Portal.Container name={pagePortalId} /> : null;
+}
+
 function PageProvider({
   children,
   skipLoading = false,
@@ -36,6 +42,9 @@ function PageProvider({
 }: IPageProps) {
   const footerRef = useRef<IPageFooterRef>({});
   const closeExtraRef = useRef<{ flag?: string }>({});
+  const pagePortalId = useMemo(() => {
+    return Math.random().toString();
+  }, []);
   const value = useMemo(
     () => ({
       scrollEnabled,
@@ -43,8 +52,9 @@ function PageProvider({
       safeAreaEnabled,
       footerRef,
       closeExtraRef,
+      pagePortalId,
     }),
-    [safeAreaEnabled, scrollEnabled, scrollProps],
+    [pagePortalId, safeAreaEnabled, scrollEnabled, scrollProps],
   );
 
   const isEnablePageLifeCycle = onMounted || onUnmounted || onClose || onCancel;
@@ -52,9 +62,12 @@ function PageProvider({
   return (
     <>
       <PageContext.Provider value={value}>
-        <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
-          {children}
-        </PageContainer>
+        <>
+          <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
+            {children}
+          </PageContainer>
+          <PagePortal pagePortalId={pagePortalId} />
+        </>
       </PageContext.Provider>
       {isEnablePageLifeCycle ? (
         <PageLifeCycle
