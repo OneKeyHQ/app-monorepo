@@ -21,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -349,6 +350,13 @@ function DAppConnectExtensionFloatingTrigger() {
 }
 
 export default function DAppConnectExtensionFloatingTriggerWithHomeProvider() {
+  if (
+    platformEnv.isExtensionUiStandaloneWindow ||
+    platformEnv.isExtensionUiPassKey
+  ) {
+    return null;
+  }
+
   return (
     <AccountSelectorProviderMirror
       config={{
