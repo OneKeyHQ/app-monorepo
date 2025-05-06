@@ -192,6 +192,7 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
+        useGeckoView={platformEnv.isNativeAndroid}
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
@@ -201,7 +202,7 @@ export function WebViewWebEmbed({
         onMessage={handleMessage}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
-            window.WEB_EMBED_ONEKEY_APP_SETTINGS = {
+            const WEB_EMBED_ONEKEY_APP_SETTINGS = {
               isDev: "${String(webEmbedAppSettings.isDev)}",
               enableTestEndpoint: "${String(
                 webEmbedAppSettings.enableTestEndpoint,
@@ -214,6 +215,20 @@ export function WebViewWebEmbed({
               appBuildNumber: "${webEmbedAppSettings?.appBuildNumber}",
               appVersion: "${webEmbedAppSettings?.appVersion}",
             };
+            window.WEB_EMBED_ONEKEY_APP_SETTINGS = WEB_EMBED_ONEKEY_APP_SETTINGS;
+            if (typeof window !== 'undefined' && 'wrappedJSObject' in window) {
+              try {
+                window.wrappedJSObject.WEB_EMBED_ONEKEY_APP_SETTINGS = globalThis.cloneInto(
+                  WEB_EMBED_ONEKEY_APP_SETTINGS,
+                  window,
+                  {
+                    cloneFunctions: true,
+                  },
+                );
+              } catch (error) {
+                console.error('cloneInto error', error);
+              }
+          }
           `}
       />
     );

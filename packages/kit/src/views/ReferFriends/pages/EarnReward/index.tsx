@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Accordion,
   Alert,
-  Divider,
   Empty,
   Icon,
   NumberSizeableText,

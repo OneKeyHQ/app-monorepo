@@ -21,11 +21,7 @@ export function AccountSelectorCreateWalletButton() {
   const onboardingButton = (
     <IconButton
       onPress={() => {
-        void toOnBoardingPage({
-          params: {
-            showCloseButton: true,
-          },
-        });
+        void toOnBoardingPage();
       }}
       icon="PlusSmallOutline"
       testID="account-add-wallet"
@@ -35,11 +31,7 @@ export function AccountSelectorCreateWalletButton() {
     <Stack p="$1" alignItems="center">
       <IconButton
         onPress={() => {
-          void toOnBoardingPage({
-            params: {
-              showCloseButton: true,
-            },
-          });
+          void toOnBoardingPage();
         }}
         icon="PlusSmallOutline"
         testID="add-wallet"
