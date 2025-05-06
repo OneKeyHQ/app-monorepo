@@ -43,7 +43,6 @@ function WalletBoundReferralCodeButtonView({
   const handlePress = useCallback(async () => {
     const shouldBound = await getReferralCodeBondStatus(wallet?.id);
     if (!shouldBound) {
-      // TODO: update referral code
       return;
     }
     bindWalletInviteCode({
