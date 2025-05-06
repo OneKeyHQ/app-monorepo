@@ -205,3 +205,17 @@ export const {
   initialValue: undefined,
   name: EAtomNames.firmwareUpdateResultVerifyAtom,
 });
+
+// hardware xfp generate ----------------------------------------------
+export type IHardwareWalletXfpStatus = {
+  [walletId: string]: {
+    xfpMissing: boolean;
+  };
+};
+export const {
+  target: hardwareWalletXfpStatusAtom,
+  use: useHardwareWalletXfpStatusAtom,
+} = globalAtom<IHardwareWalletXfpStatus>({
+  initialValue: {},
+  name: EAtomNames.hardwareWalletXfpStatusAtom,
+});
