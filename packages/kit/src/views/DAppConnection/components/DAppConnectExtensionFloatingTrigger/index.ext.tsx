@@ -350,22 +350,19 @@ function DAppConnectExtensionFloatingTrigger() {
 }
 
 export default function DAppConnectExtensionFloatingTriggerWithHomeProvider() {
-  if (
-    platformEnv.isExtensionUiStandaloneWindow ||
-    platformEnv.isExtensionUiPassKey
-  ) {
-    return null;
+  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+    return (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <DAppConnectExtensionFloatingTrigger />
+      </AccountSelectorProviderMirror>
+    );
   }
 
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <DAppConnectExtensionFloatingTrigger />
-    </AccountSelectorProviderMirror>
-  );
+  return null;
 }
