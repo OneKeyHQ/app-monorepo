@@ -2000,6 +2000,7 @@
   "referral.total_reward_pop1": "所有邀请的历史总奖励",
   "referral.total_reward_pop2": "待入账的奖励不包括在内",
   "referral.wallet_code_desc": "一旦绑定，从此钱包派生的所有地址将与此邀請碼关联，且无法更改。",
+  "referral.wallet_code_placeholder": "邀请码",
   "referral.wallet_code_title": "是否填写邀请码？",
   "referral.wallet_code_wallet": "绑定钱包",
   "referral.wallet_edit_code": "邀请码",

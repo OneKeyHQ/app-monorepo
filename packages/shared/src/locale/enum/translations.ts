@@ -2005,6 +2005,7 @@
   referral_total_reward_pop1 = 'referral.total_reward_pop1',
   referral_total_reward_pop2 = 'referral.total_reward_pop2',
   referral_wallet_code_desc = 'referral.wallet_code_desc',
+  referral_wallet_code_placeholder = 'referral.wallet_code_placeholder',
   referral_wallet_code_title = 'referral.wallet_code_title',
   referral_wallet_code_wallet = 'referral.wallet_code_wallet',
   referral_wallet_edit_code = 'referral.wallet_edit_code',

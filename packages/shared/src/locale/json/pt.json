@@ -2000,6 +2000,7 @@
   "referral.total_reward_pop1": "Recompensas totais confirmadas para todos os convites",
   "referral.total_reward_pop2": "Recompensas pendentes não estão incluídas",
   "referral.wallet_code_desc": "Uma vez vinculado, todos os endereços derivados desta carteira serão associados a este código de referência e não poderão ser alterados.",
+  "referral.wallet_code_placeholder": "Código de referência",
   "referral.wallet_code_title": "Você tem um código de indicação?",
   "referral.wallet_code_wallet": "Carteira vinculada",
   "referral.wallet_edit_code": "Código de indicação",

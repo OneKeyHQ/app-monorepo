@@ -2000,6 +2000,7 @@
   "referral.total_reward_pop1": "所有邀請的歷史總獎勵",
   "referral.total_reward_pop2": "待入帳的獎勵不包括在內",
   "referral.wallet_code_desc": "一旦綁定，從此錢包衍生的所有地址都將與此邀請碼關聯，且無法更改。",
+  "referral.wallet_code_placeholder": "邀請碼",
   "referral.wallet_code_title": "是否要填寫邀請碼？",
   "referral.wallet_code_wallet": "綁定錢包",
   "referral.wallet_edit_code": "邀請碼",
