@@ -10,6 +10,7 @@ import {
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { exitApp } from '@onekeyhq/shared/src/modules3rdParty/react-native-exit';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -42,8 +43,13 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   restartApp() {
+    defaultLogger.setting.page.restartApp();
     if (platformEnv.isNative) {
-      return RNRestart.restart();
+      setTimeout(() => {
+        exitApp();
+      }, 1200);
+      RNRestart.restart();
+      return;
     }
     if (platformEnv.isDesktop) {
       return globalThis.desktopApi?.reload?.();

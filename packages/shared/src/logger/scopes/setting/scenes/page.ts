@@ -112,6 +112,11 @@ export class PageScene extends BaseScene {
     return { action };
   }
 
+  @LogToLocal({ level: 'info' })
+  public restartApp() {
+    return {};
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public enterCustomRPC() {
