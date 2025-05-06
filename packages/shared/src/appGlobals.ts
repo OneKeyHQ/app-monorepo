@@ -50,6 +50,7 @@ export type IAppGlobals = {
   $$realmV4?: Realm;
   $$localforage?: any;
   $$platformEnv?: any;
+  $$errorUtils?: any;
   $$indexedDBBuckets?: Record<
     EIndexedDBBucketNames,
     IndexedDBPromised<IIndexedDBSchemaMap>

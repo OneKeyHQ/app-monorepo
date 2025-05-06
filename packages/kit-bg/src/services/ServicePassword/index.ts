@@ -593,6 +593,13 @@ export default class ServicePassword extends ServiceBase {
       password: verifyingPassword,
       useRnJsCrypto,
     });
+    if (verifyingPassword) {
+      void this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
+        {
+          password: verifyingPassword,
+        },
+      );
+    }
     return verifyingPassword;
   }
 

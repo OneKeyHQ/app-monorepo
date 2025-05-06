@@ -189,6 +189,7 @@ const PasswordVerify = ({
             icon: 'ErrorOutline',
             tone: 'warning',
             ...inAppStateLockStyle,
+            isOverTopAllViews: true,
             portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
             title: intl.formatMessage(
               {

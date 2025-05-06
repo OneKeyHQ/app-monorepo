@@ -1,7 +1,9 @@
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
+// require('./development/lint/eslint-rule-enforce-return-type');
 
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
+  // '@typescript-eslint/explicit-function-return-type': ['error'],
   // eslint-disable-next-line global-require
   'prettier/prettier': ['error', require('./.prettierrc.js')],
   'no-unused-vars': 'off',
@@ -9,6 +11,7 @@ const jsRules = {
   'no-shadow': 'off',
   'import/no-extraneous-dependencies': 'off',
   // 'force-async-bg-api': 'error', // TODO not working
+  // 'enforce-return-type': 'error',
   'no-restricted-exports': 'off',
   'func-names': 'off',
   'import/no-named-as-default-member': 'off',

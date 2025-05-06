@@ -10,6 +10,7 @@ import {
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { exitApp } from '@onekeyhq/shared/src/modules3rdParty/react-native-exit';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -32,6 +33,8 @@ import { appIsLocked } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+
 @backgroundClass()
 class ServiceApp extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -40,8 +43,13 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   restartApp() {
+    defaultLogger.setting.page.restartApp();
     if (platformEnv.isNative) {
-      return RNRestart.restart();
+      setTimeout(() => {
+        exitApp();
+      }, 1200);
+      RNRestart.restart();
+      return;
     }
     if (platformEnv.isDesktop) {
       return globalThis.desktopApi?.reload?.();
@@ -238,19 +246,23 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async updateLaunchTimes() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      launchTimes: (v?.launchTimes ?? 0) + 1,
-      launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        launchTimes: (v?.launchTimes ?? 0) + 1,
+        launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
+      }),
+    );
   }
 
   @backgroundMethod()
   async resetLaunchTimesAfterUpdate() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      launchTimesLastReset: 0,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        launchTimesLastReset: 0,
+      }),
+    );
   }
 
   @backgroundMethod()
