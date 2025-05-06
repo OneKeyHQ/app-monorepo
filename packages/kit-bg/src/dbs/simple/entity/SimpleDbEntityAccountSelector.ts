@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -95,7 +96,8 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       data.selectorInfo[sceneId] = data.selectorInfo[sceneId] || {};
       data.selectorInfo[sceneId].selector =
         data.selectorInfo[sceneId].selector || {};
-      data.selectorInfo[sceneId].selector[num] = selectedAccount;
+      data.selectorInfo[sceneId].selector[num] =
+        this.cloneAndFixSelectedAccount(selectedAccount);
       return data;
     });
 
@@ -146,7 +148,21 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       sceneName,
       sceneUrl,
     });
-    return cloneDeep(selectedAccountsMap?.[num]);
+
+    return this.cloneAndFixSelectedAccount(selectedAccountsMap?.[num]);
+  }
+
+  cloneAndFixSelectedAccount(
+    selectedAccount: IAccountSelectorSelectedAccount | undefined,
+  ) {
+    const result = cloneDeep(selectedAccount);
+    if (
+      result?.networkId &&
+      networkUtils.isAllNetwork({ networkId: result.networkId })
+    ) {
+      result.deriveType = undefined;
+    }
+    return result;
   }
 
   async getGlobalDeriveType({

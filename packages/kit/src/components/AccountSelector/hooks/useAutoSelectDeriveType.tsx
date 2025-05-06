@@ -48,23 +48,26 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
         return;
       }
       let newDeriveType: IAccountDeriveTypes | undefined;
-      const deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      });
 
-      if (!deriveInfo && deriveInfoItems.length > 0) {
-        const selectedAccount = actions.current.getSelectedAccount({
-          num,
-        });
-        const globalDeriveType =
-          await serviceAccountSelector.getGlobalDeriveType({
-            selectedAccount,
-            sceneName,
+      if (!deriveInfo) {
+        const deriveInfoItems =
+          await serviceNetwork.getDeriveInfoItemsOfNetwork({
+            networkId,
           });
-        newDeriveType =
-          globalDeriveType ||
-          (deriveInfoItems?.[0]?.value as IAccountDeriveTypes) ||
-          'default';
+        if (deriveInfoItems.length > 0) {
+          const selectedAccount = actions.current.getSelectedAccount({
+            num,
+          });
+          const globalDeriveType =
+            await serviceAccountSelector.getGlobalDeriveType({
+              selectedAccount,
+              sceneName,
+            });
+          newDeriveType =
+            globalDeriveType ||
+            (deriveInfoItems?.[0]?.value as IAccountDeriveTypes) ||
+            'default';
+        }
       }
 
       if (newDeriveType) {
