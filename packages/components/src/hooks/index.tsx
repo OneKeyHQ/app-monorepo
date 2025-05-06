@@ -15,6 +15,7 @@ export * from './useShare';
 export * from './useShortcuts';
 export * from './useStyle';
 export * from './useVisibilityChange';
+export * from './useModalNavigatorContext';
 
 export function useFirstMountState() {
   const isFirst = useRef(true);

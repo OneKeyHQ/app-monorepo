@@ -31,8 +31,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Toast } from '../../actions/Toast';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
-import { Portal } from '../../hocs';
-import { useBackHandler, useOverlayZIndex } from '../../hooks';
+import { EPortalContainerConstantName, Portal } from '../../hocs';
+import {
+  useBackHandler,
+  useModalNavigatorContextPortalId,
+  useOverlayZIndex,
+} from '../../hooks';
+import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { Spinner, Stack } from '../../primitives';
 
@@ -204,6 +209,7 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
+        modal={modal}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -429,16 +435,18 @@ export const DialogContainer = forwardRef<
   IDialogContainerProps
 >(BaseDialogContainer);
 
+type IDialogShowFunctionProps = IDialogShowProps & {
+  dialogContainer?: (o: {
+    ref: React.RefObject<IDialogInstance> | undefined;
+  }) => JSX.Element;
+};
 function dialogShow({
   onClose,
   dialogContainer,
   portalContainer,
+  isOverTopAllViews,
   ...props
-}: IDialogShowProps & {
-  dialogContainer?: (o: {
-    ref: React.RefObject<IDialogInstance> | undefined;
-  }) => JSX.Element;
-}): IDialogInstance {
+}: IDialogShowFunctionProps): IDialogInstance {
   dismissKeyboard();
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
@@ -494,7 +502,7 @@ function dialogShow({
 
   portalRef = {
     current: portalContainer
-      ? renderToContainer(portalContainer, element)
+      ? renderToContainer(portalContainer, element, isOverTopAllViews)
       : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   const close = async (extra?: { flag?: string }, times = 0) => {
@@ -619,3 +627,63 @@ export const Dialog = {
   loading: dialogLoading,
   debugMessage: dialogDebugMessage,
 };
+
+enum EInPageDialogType {
+  inTabPages = 'inTabPages',
+  inModalPage = 'inModalPage',
+}
+const useInPageDialog = (type: EInPageDialogType) => {
+  const navigatorPortalId = useModalNavigatorContextPortalId();
+  const { pagePortalId } = usePageContext();
+  const portalId = useMemo(() => {
+    if (type === EInPageDialogType.inTabPages) {
+      return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;
+    }
+    return platformEnv.isNative
+      ? (pagePortalId as EPortalContainerConstantName)
+      : navigatorPortalId;
+  }, [navigatorPortalId, pagePortalId, type]);
+
+  const basicDialogProps = useMemo(
+    () => ({
+      testID: portalId,
+      modal: !platformEnv.isNative,
+      portalContainer: portalId,
+    }),
+    [portalId],
+  );
+  return useMemo(
+    () => ({
+      show: (props: IDialogShowFunctionProps) => {
+        return dialogShow({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      confirm: (props: IDialogConfirmProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      cancel: (props: IDialogCancelProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      loading: (props: IDialogLoadingProps) => {
+        return dialogLoading({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+    }),
+    [basicDialogProps],
+  );
+};
+
+export const useInTabDialog = () =>
+  useInPageDialog(EInPageDialogType.inTabPages);
+export const useInModalDialog = () =>
+  useInPageDialog(EInPageDialogType.inModalPage);

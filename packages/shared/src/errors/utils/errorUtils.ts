@@ -3,6 +3,7 @@ import { isObject, isString, isUndefined, omitBy } from 'lodash';
 import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import appGlobals from '../../appGlobals';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
@@ -187,7 +188,7 @@ function isErrorByClassName({
   return Boolean(errorClassName && classNames.includes(errorClassName));
 }
 
-function getCurrentCallStack() {
+function getCurrentCallStackV1() {
   try {
     throw new Error();
   } catch (e) {
@@ -196,7 +197,30 @@ function getCurrentCallStack() {
   }
 }
 
-export default {
+function getCurrentCallStack() {
+  const e = new Error();
+  const stack = e.stack;
+  return stack;
+}
+
+function logCurrentCallStack(name?: string) {
+  if (process.env.NODE_ENV !== 'production') {
+    if (
+      console &&
+      console.groupCollapsed &&
+      console.groupEnd &&
+      console.trace
+    ) {
+      console.groupCollapsed(`[${name || ''}] logCurrentCallStack ↓↓↓ `);
+      console.trace();
+      console.log(getCurrentCallStack());
+      console.log(getCurrentCallStackV1());
+      console.groupEnd();
+    }
+  }
+}
+
+const errorUtils = {
   autoPrintErrorIgnore,
   normalizeErrorProps,
   safeConsoleLogError,
@@ -205,5 +229,11 @@ export default {
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
   isErrorByClassName,
+  getCurrentCallStackV1,
   getCurrentCallStack,
+  logCurrentCallStack,
 };
+
+appGlobals.$$errorUtils = errorUtils;
+
+export default errorUtils;
