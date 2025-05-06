@@ -15,6 +15,7 @@ interface IBaseTradingViewProps {
   baseToken: string;
   targetToken: string;
   onLoadEnd: () => void;
+  tradingViewUrl?: string;
 }
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
@@ -23,7 +24,8 @@ export function TradingViewV2(props: ITradingViewProps & WebViewProps) {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
-  const { onLoadEnd } = props;
+  const { onLoadEnd, tradingViewUrl = 'https://tradingview.onekeytest.com/' } =
+    props;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -50,7 +52,7 @@ export function TradingViewV2(props: ITradingViewProps & WebViewProps) {
           webRef.current = ref;
         }}
         displayProgressBar={false}
-        src="https://tradingview.onekeytest.com/"
+        src={tradingViewUrl}
       />
 
       {platformEnv.isNativeIOS || isIPadPortrait ? (
