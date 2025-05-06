@@ -97,7 +97,7 @@ export function Layout({
   };
 
   return (
-    <Page skipLoading={skipLoading} allowInPagePopup>
+    <Page skipLoading={skipLoading}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
