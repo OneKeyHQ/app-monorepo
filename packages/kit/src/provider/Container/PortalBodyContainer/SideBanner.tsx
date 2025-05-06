@@ -217,16 +217,21 @@ function BottomMenu() {
       bg="$bgSidebar"
       gap="$2"
     >
-      <XStack gap="$2">
-        <BottomButton
-          title={intl.formatMessage({
-            id: ETranslations.settings_settings,
-          })}
-          icon="SettingsOutline"
-          testID="setting"
-          onPress={openSettingPage}
-          shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
-        />
+      <XStack jc="space-between">
+        <XStack gap="$2">
+          <BottomButton
+            title={intl.formatMessage({
+              id: ETranslations.settings_settings,
+            })}
+            icon="SettingsOutline"
+            testID="setting"
+            onPress={openSettingPage}
+            shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
+          />
+
+          {/* notifications is not supported on web currently */}
+          {platformEnv.isWeb ? null : <NotificationButton />}
+        </XStack>
         {platformEnv.isWeb ? (
           <BottomButton
             title={intl.formatMessage({
@@ -237,8 +242,6 @@ function BottomMenu() {
             onPress={openDownloadUrl}
           />
         ) : null}
-        {/* notifications is not supported on web currently */}
-        {platformEnv.isWeb ? null : <NotificationButton />}
       </XStack>
       <BasicSidebarBanner />
     </YStack>
