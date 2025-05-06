@@ -72,6 +72,7 @@ function MoreActionContentHeader() {
   }, [closePopover, shareReferRewards]);
   return (
     <XStack
+      px="$5"
       h="$16"
       bg="$bgSubdued"
       ai="center"
@@ -135,7 +136,7 @@ function MoreActionContentFooter() {
     map,
   ]);
   return (
-    <XStack pt="$5" ai="center" jc="flex-end" gap="$5">
+    <XStack p="$5" ai="center" jc="flex-end" gap="$5">
       <IconButton
         variant="tertiary"
         title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
@@ -171,6 +172,8 @@ function MoreActionContentGridItem({
   return (
     <YStack
       onPress={handlePress}
+      pressStyle={{ bg: '$bgActive' }}
+      hoverStyle={{ bg: '$bgActive' }}
       mt="$2.5"
       w={108}
       ai="center"
@@ -223,15 +226,11 @@ function MoreActionContentGrid() {
   }, [toMyOneKeyModal]);
 
   const navigation = useAppNavigation();
-  const handleSettings = useCallback(
-    (close: () => void) => {
-      close();
-      navigation.pushModal(EModalRoutes.SettingModal, {
-        screen: EModalSettingRoutes.SettingListModal,
-      });
-    },
-    [navigation],
-  );
+  const handleSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [navigation]);
 
   const openNotificationsModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
