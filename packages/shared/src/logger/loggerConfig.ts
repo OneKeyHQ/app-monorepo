@@ -2,11 +2,11 @@ import { debounce, merge } from 'lodash';
 import natsort from 'natsort';
 
 import appGlobals from '../appGlobals';
+import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 
 import type { BaseScene } from './base/baseScene';
 import type { BaseScope } from './base/baseScope';
-import platformEnv from '../platformEnv';
 
 export type ILoggerConfig = {
   highlightDurationGt?: string;
