@@ -409,7 +409,8 @@ function MoreActionButtonCmp() {
   const intl = useIntl();
   return (
     <Popover
-      title={intl.formatMessage({ id: ETranslations.explore_options })}
+      title=""
+      showHeader={false}
       placement="bottom-end"
       renderTrigger={
         <HeaderIconButton

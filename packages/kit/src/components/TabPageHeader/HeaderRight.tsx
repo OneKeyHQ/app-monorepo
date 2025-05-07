@@ -47,13 +47,10 @@ function SelectorTrigger() {
 }
 
 export function HeaderRight({
-  sceneName,
   tabRoute,
-  children,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
-  children?: ReactNode;
 }) {
   const items = useMemo(() => {
     switch (tabRoute) {
