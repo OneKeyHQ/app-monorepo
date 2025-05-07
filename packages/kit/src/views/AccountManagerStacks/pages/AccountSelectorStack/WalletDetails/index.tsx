@@ -96,7 +96,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     setResult: setListDataResult,
   } = usePromiseResult(
     async () => {
-      if (!selectedAccount?.focusedWallet) {
+      if (!selectedAccount?.focusedWallet || !selectedAccount.deriveType) {
         return Promise.resolve(undefined);
       }
       // await timerUtils.wait(1000);

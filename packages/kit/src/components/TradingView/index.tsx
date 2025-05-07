@@ -1,53 +1,21 @@
-import { Stack, useOrientation, usePropsAndStyle } from '@onekeyhq/components';
-import type { IStackStyle } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useTradingViewProps } from './useTradingViewProps';
-import { WebView } from './WebView';
+import { TradingViewV1 } from './TradingViewV1';
+import { TradingViewV2 } from './TradingViewV2';
 
-import type { ViewStyle } from 'react-native';
+import type { ITradingViewProps } from './TradingViewV1';
 import type { WebViewProps } from 'react-native-webview';
 
-interface IBaseTradingViewProps {
-  mode: 'overview' | 'realtime';
-  identifier: string;
-  baseToken: string;
-  targetToken: string;
-  onLoadEnd: () => void;
-}
-
-export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
-
 export function TradingView(props: ITradingViewProps & WebViewProps) {
-  const [restProps, style] = usePropsAndStyle(props);
-  const { targetToken, identifier, baseToken, ...otherProps } =
-    restProps as IBaseTradingViewProps;
-  const tradingViewProps = useTradingViewProps({
-    targetToken,
-    identifier,
-    baseToken,
-  });
-  const isLandscape = useOrientation();
-  const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
+  const [devSettings] = useDevSettingsPersistAtom();
+  const useTradingViewTestDomain =
+    devSettings.enabled && devSettings.settings?.useTradingViewTestDomain;
 
-  return (
-    <Stack position="relative" style={style as ViewStyle}>
-      <WebView
-        tradingViewProps={tradingViewProps}
-        style={{ flex: 1 }}
-        {...otherProps}
-      />
-      {platformEnv.isNativeIOS || isIPadPortrait ? (
-        <Stack
-          position="absolute"
-          left={0}
-          top={0}
-          bottom={0}
-          width={isIPadPortrait ? 50 : 40}
-          zIndex={1}
-          pointerEvents="auto"
-        />
-      ) : null}
-    </Stack>
-  );
+  if (useTradingViewTestDomain) {
+    return <TradingViewV2 {...props} />;
+  }
+
+  return <TradingViewV1 {...props} />;
 }
+
+export type { ITradingViewProps };

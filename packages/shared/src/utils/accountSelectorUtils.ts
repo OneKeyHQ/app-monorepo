@@ -146,6 +146,7 @@ function isSceneCanAutoSelect({
   return true;
 }
 
+// In the discover page scene, BTC can select a different derive type from the global derive type
 function isSceneUseGlobalDeriveType({
   sceneName,
 }: {

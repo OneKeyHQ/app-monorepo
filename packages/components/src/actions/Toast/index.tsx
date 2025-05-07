@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { createRef } from 'react';
+import { createRef, useEffect } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
@@ -28,6 +28,7 @@ export interface IToastProps {
   duration?: number;
   actionsAlign?: 'left' | 'right';
   actions?: JSX.Element | JSX.Element[];
+  onClose?: () => void;
 }
 
 export interface IToastBaseProps extends IToastProps {
@@ -97,18 +98,25 @@ export function ToastContent({
   icon,
   maxWidth,
   actions,
+  onClose,
   actionsAlign = 'right',
 }: {
   title: string;
   message?: string;
   maxWidth?: number;
   icon?: JSX.Element;
+  onClose?: () => void;
   actions?: IToastProps['actions'];
   actionsAlign?: 'left' | 'right';
 }) {
   const { height, width } = useWindowDimensions();
   const media = useMedia();
-
+  useEffect(
+    () => () => {
+      onClose?.();
+    },
+    [onClose],
+  );
   return (
     <YStack
       flex={1}
@@ -181,6 +189,7 @@ function toastMessage({
   actions,
   actionsAlign = 'right',
   position,
+  onClose,
 }: IToastBaseProps) {
   if (platformEnv.isDev) {
     if (title?.length === 0) {
@@ -204,6 +213,7 @@ function toastMessage({
   return showMessage({
     renderContent: (props) => (
       <ToastContent
+        onClose={onClose}
         title={title}
         maxWidth={props?.width}
         message={message}
