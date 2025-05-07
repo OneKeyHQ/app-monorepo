@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Input, Shortcut, View, XStack } from '@onekeyhq/components';
+import { SearchBar, Shortcut, View, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
@@ -10,9 +10,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 
-const SEARCH_IN_PAGE_KEY = EShortcutEvents.SearchInPage;
 export function UniversalSearchInput() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -25,22 +23,25 @@ export function UniversalSearchInput() {
     });
   }, [navigation]);
 
-  useShortcutsOnRouteFocused(SEARCH_IN_PAGE_KEY, toUniversalSearchPage);
-
   return (
-    <XStack w={184}>
-      <Input
+    <XStack $gtMd={{ maxWidth: 320 }} width="100%">
+      <SearchBar
         leftIconName="SearchOutline"
-        containerProps={{ w: '100%' }}
+        containerProps={{
+          w: '100%',
+          borderRadius: '$full',
+          bg: '$bgStrong',
+          borderColor: '$transparent',
+        }}
         size="small"
         key="searchInput"
         addOns={[
           {
-            label: <Shortcut shortcutKey={SEARCH_IN_PAGE_KEY} />,
+            label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
           },
         ]}
         placeholder={intl.formatMessage({
-          id: ETranslations.global_search_address,
+          id: ETranslations.global_search,
         })}
       />
       <View
