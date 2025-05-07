@@ -47,11 +47,11 @@ type IDialogCancelPropsWithTrack = Parameters<typeof BaseDialog.cancel>[0];
 const Dialog = {
   ...BaseDialog,
   show: (props: IDialogShowPropsWithTrack) =>
-    BaseDialog.show({ trackId: TRACK_ID, ...props }),
+    BaseDialog.show({ trackID: TRACK_ID, ...props }),
   confirm: (props: IDialogConfirmPropsWithTrack) =>
-    BaseDialog.confirm({ trackId: TRACK_ID, ...props }),
+    BaseDialog.confirm({ trackID: TRACK_ID, ...props }),
   cancel: (props: IDialogCancelPropsWithTrack) =>
-    BaseDialog.cancel({ trackId: TRACK_ID, ...props }),
+    BaseDialog.cancel({ trackID: TRACK_ID, ...props }),
   loading: BaseDialog.loading,
 };
 
