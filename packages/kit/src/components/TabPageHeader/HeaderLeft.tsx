@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { NavBackButton, Page, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NavBackButton,
+  Page,
+  SizableText,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,6 +34,7 @@ export function HeaderLeft({
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.switchDappAccount,
   );
+  const { gtMd } = useMedia();
 
   const [isFocus, setIsFocus] = useState(false);
 
@@ -83,14 +90,14 @@ export function HeaderLeft({
     return (
       <XStack gap="$3" ai="center">
         {accountSelectorTrigger}
-        {tabRoute === ETabRoutes.Home ? (
+        {tabRoute === ETabRoutes.Home && gtMd ? (
           <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
         ) : null}
 
-        <AccountSelectorActiveAccountHome num={0} />
+        <AccountSelectorActiveAccountHome num={0} showAccountAddress={false} />
       </XStack>
     );
-  }, [intl, sceneName, spotlightVisible, tabRoute, tourVisited]);
+  }, [gtMd, intl, sceneName, spotlightVisible, tabRoute, tourVisited]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

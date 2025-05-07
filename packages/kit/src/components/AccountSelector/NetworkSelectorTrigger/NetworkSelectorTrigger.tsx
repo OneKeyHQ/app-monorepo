@@ -86,9 +86,11 @@ export const NetworkSelectorTriggerLegacy = memo(
 function NetworkSelectorTriggerHomeCmp({
   num,
   recordNetworkHistoryEnabled,
+  size = 'large',
 }: {
   num: number;
   recordNetworkHistoryEnabled?: boolean;
+  size?: 'small' | 'large';
 }) {
   const {
     activeAccount: { network },
@@ -114,6 +116,7 @@ function NetworkSelectorTriggerHomeCmp({
     return network?.name;
   }, [intl, network?.isAllNetworks, network?.name]);
 
+  const isLarge = size === 'large';
   return (
     <XStack
       testID="account-network-trigger-button"
@@ -139,22 +142,26 @@ function NetworkSelectorTriggerHomeCmp({
       userSelect="none"
       onPress={() => showChainSelector({ recordNetworkHistoryEnabled })}
     >
-      <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText
-        testID="account-network-trigger-button-text"
-        pl="$2"
-        size="$bodyMd"
-        flexShrink={1}
-        numberOfLines={1}
-      >
-        {networkTriggerText}
-      </SizableText>
-      <Icon
-        name="ChevronDownSmallOutline"
-        color="$iconSubdued"
-        size="$5"
-        flexShrink={0}
-      />
+      <NetworkAvatar networkId={network?.id} size={isLarge ? '$5' : '$6'} />
+      {isLarge ? (
+        <>
+          <SizableText
+            testID="account-network-trigger-button-text"
+            pl="$2"
+            size="$bodyMd"
+            flexShrink={1}
+            numberOfLines={1}
+          >
+            {networkTriggerText}
+          </SizableText>
+          <Icon
+            name="ChevronDownSmallOutline"
+            color="$iconSubdued"
+            size="$5"
+            flexShrink={0}
+          />
+        </>
+      ) : null}
     </XStack>
   );
 }

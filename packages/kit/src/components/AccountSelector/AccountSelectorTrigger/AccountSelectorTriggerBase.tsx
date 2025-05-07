@@ -23,7 +23,6 @@ import type { ISpotlightViewProps } from '../../Spotlight';
 
 export function AccountSelectorTriggerBase({
   num,
-  autoWidthForHome,
   spotlightProps,
   horizontalLayout,
   ...others
@@ -38,22 +37,6 @@ export function AccountSelectorTriggerBase({
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, ...others });
   const intl = useIntl();
-  // const media = useMedia();
-
-  // const maxWidth = useMemo(() => {
-  //   if (autoWidthForHome) {
-  //     if (media.gtLg) {
-  //       return '$80';
-  //     }
-  //     if (media.sm) {
-  //       return '$60';
-  //     }
-  //     if (media.md) {
-  //       return '$48';
-  //     }
-  //   }
-  //   return '$48';
-  // }, [autoWidthForHome, media.gtLg, media.md, media.sm]);
 
   const walletName =
     wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });
@@ -98,12 +81,12 @@ export function AccountSelectorTriggerBase({
             <SizableText
               size="$bodyMd"
               color="$text"
-              $gtLg={{
-                maxWidth: '$48',
+              $gtXl={{
+                maxWidth: '$28',
               }}
               numberOfLines={1}
               flexShrink={1}
-              maxWidth={96}
+              maxWidth="$20"
             >
               {`${walletName} / ${displayAccountName}`}
             </SizableText>
