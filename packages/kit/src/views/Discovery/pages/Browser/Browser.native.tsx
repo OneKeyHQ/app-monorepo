@@ -277,10 +277,7 @@ function MobileBrowser() {
                 <HistoryIconButton />
               </Stack>
 
-              <TabCountButton
-                hideWhenEmpty={displayHomePage}
-                testID="browser-header-tabs"
-              />
+              <TabCountButton testID="browser-header-tabs" />
             </XStack>
           </XStack>
         )}
