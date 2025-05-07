@@ -5,7 +5,7 @@ export interface IDialogParams {
   /**
    * Dialog tracking ID or testID for identification
    */
-  trackId?: string;
+  trackId: string;
   /**
    * Additional custom properties
    */

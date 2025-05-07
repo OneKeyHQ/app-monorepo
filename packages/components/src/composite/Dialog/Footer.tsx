@@ -210,6 +210,11 @@ export function Footer(props: IDialogFooterProps) {
               }
               {...restConfirmButtonProps}
               onPress={onConfirmWithLoading}
+              trackID={
+                trackID
+                  ? `${trackID}-confirm-button`
+                  : restConfirmButtonProps?.trackID
+              }
             >
               {onConfirmText ||
                 intl.formatMessage({ id: ETranslations.global_confirm })}
