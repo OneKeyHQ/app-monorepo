@@ -82,11 +82,11 @@ export function AccountSelectorTriggerBase({
               size="$bodyMd"
               color="$text"
               $gtXl={{
-                maxWidth: '$28',
+                maxWidth: '56',
               }}
               numberOfLines={1}
               flexShrink={1}
-              maxWidth="$20"
+              maxWidth="$40"
             >
               {`${walletName} / ${displayAccountName}`}
             </SizableText>

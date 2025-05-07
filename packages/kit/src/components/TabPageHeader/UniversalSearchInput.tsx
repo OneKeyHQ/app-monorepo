@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SearchBar, Shortcut, View, XStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SearchBar,
+  Shortcut,
+  View,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
@@ -14,7 +20,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 export function UniversalSearchInput({
   size = 'large',
 }: {
-  size?: 'large' | 'small';
+  size?: 'large' | 'medium' | 'small';
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -28,8 +34,20 @@ export function UniversalSearchInput({
   }, [navigation]);
 
   const isLarge = size === 'large';
+  if (size === 'small') {
+    return (
+      <IconButton
+        variant="tertiary"
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_search,
+        })}
+        onPress={toUniversalSearchPage}
+      />
+    );
+  }
   return (
-    <XStack $gtMd={{ maxWidth: 320 }} width="100%">
+    <XStack $gtLg={{ maxWidth: 320 }} width="100%">
       <SearchBar
         leftIconName="SearchOutline"
         containerProps={{

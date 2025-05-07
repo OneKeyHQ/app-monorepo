@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useIsWideScreen } from '@onekeyhq/components';
+import { useIsWideScreen, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -66,6 +66,11 @@ function PeopleAction() {
   );
 }
 
+function SearchInput() {
+  const { gtLg } = useMedia();
+  return <UniversalSearchInput size={gtLg ? 'large' : 'small'} />;
+}
+
 export function HeaderRight({
   tabRoute,
 }: {
@@ -84,7 +89,7 @@ export function HeaderRight({
       case ETabRoutes.Home:
         return (
           <>
-            {isWideScreen ? <UniversalSearchInput /> : undefined}
+            {isWideScreen ? <SearchInput /> : undefined}
             {isWideScreen ? undefined : <SelectorTrigger />}
             {fixedItems}
           </>
@@ -94,7 +99,7 @@ export function HeaderRight({
       case ETabRoutes.Market:
         return (
           <>
-            {isWideScreen ? <UniversalSearchInput /> : undefined}
+            {isWideScreen ? <SearchInput /> : undefined}
             {fixedItems}
           </>
         );

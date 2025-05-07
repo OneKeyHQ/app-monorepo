@@ -186,7 +186,7 @@ function MarketHome() {
       />
       <Page.Body>
         <XStack px="$5" pt="$2">
-          {isWideScreen ? null : <UniversalSearchInput size="small" />}
+          {isWideScreen ? null : <UniversalSearchInput size="medium" />}
         </XStack>
         {renderTabContainer()}
       </Page.Body>

@@ -14,6 +14,9 @@ function HomeHeaderContainer() {
         testID="Wallet-Tab-Header"
         gap="$5"
         p="$5"
+        $gtMd={{
+          pt: '$2.5',
+        }}
         bg="$bgApp"
         $gtLg={{
           flexDirection: 'row',
@@ -22,7 +25,7 @@ function HomeHeaderContainer() {
         }}
       >
         <Stack gap="$2.5">
-          {isWideScreen ? null : <UniversalSearchInput size="small" />}
+          {isWideScreen ? null : <UniversalSearchInput size="medium" />}
           <HomeOverviewContainer />
         </Stack>
         <WalletActions
