@@ -18,11 +18,10 @@ import type {
   IDBWallet,
   IDBWalletIdSingleton,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import {
-  EGlobalDeriveTypesScopes,
-  type IAccountSelectorFocusedWallet,
-  type IAccountSelectorSelectedAccount,
-  type IAccountSelectorSelectedAccountsMap,
+import type {
+  IAccountSelectorFocusedWallet,
+  IAccountSelectorSelectedAccount,
+  IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -61,6 +60,7 @@ import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
+import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 

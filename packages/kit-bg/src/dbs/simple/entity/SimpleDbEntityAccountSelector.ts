@@ -9,6 +9,7 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -45,10 +46,7 @@ export interface IAccountSelectorAccountsListSectionData {
 export type IGlobalDeriveTypesMap = Partial<{
   [networkIdOrImpl: string]: IAccountDeriveTypes;
 }>;
-export enum EGlobalDeriveTypesScopes {
-  global = 'global',
-  swapTo = 'swapTo',
-}
+
 export interface IAccountSelectorPersistInfo {
   selectorInfo: {
     [sceneId: string]: {
