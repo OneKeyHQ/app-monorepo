@@ -1,4 +1,4 @@
-import { Page, useSafeAreaInsets } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src//components/TabPageHeader';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
