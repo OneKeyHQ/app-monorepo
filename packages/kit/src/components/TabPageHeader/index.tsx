@@ -25,8 +25,8 @@ export function TabPageHeader({
   });
 
   const renderHeaderLeft = useCallback(
-    () => <HeaderLeft sceneName={sceneName} />,
-    [sceneName],
+    () => <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />,
+    [sceneName, tabRoute],
   );
 
   const { config } = useAccountSelectorContextData();

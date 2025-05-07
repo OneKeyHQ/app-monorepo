@@ -46,7 +46,7 @@ export function TabPageHeader({
         mt={platformEnv.isNativeAndroid ? '$2' : undefined}
       >
         <View>
-          <HeaderLeft sceneName={sceneName} />
+          <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />
         </View>
         <View>
           <HeaderTitle sceneName={sceneName} />

@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProviderMirror } from '../../../../components/AccountSelector/AccountSelectorProvider';
+import { TabPageHeader } from '../../../../components/TabPageHeader';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -30,19 +32,32 @@ function Dashboard() {
   );
 
   return (
-    <Page>
-      <Page.Header headerRight={historyButton} />
-      {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
-      {platformEnv.isNativeIOS ? (
-        <XStack pt={top} px="$5" width="100%" justifyContent="flex-end">
-          <HistoryIconButton />
-        </XStack>
-      ) : null}
-      <Page.Body>
-        <DashboardContent />
-        {platformEnv.isNativeIOSPad ? <MobileBrowserBottomBar id="" /> : null}
-      </Page.Body>
-    </Page>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <Page>
+        <Page.Header headerRight={historyButton} />
+        <TabPageHeader
+          showHeaderRight
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Discovery}
+        />
+        {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
+        {platformEnv.isNativeIOS ? (
+          <XStack pt={top} px="$5" width="100%" justifyContent="flex-end">
+            <HistoryIconButton />
+          </XStack>
+        ) : null}
+        <Page.Body>
+          <DashboardContent />
+          {platformEnv.isNativeIOSPad ? <MobileBrowserBottomBar id="" /> : null}
+        </Page.Body>
+      </Page>
+    </AccountSelectorProviderMirror>
   );
 }
 

@@ -91,7 +91,6 @@ export function AccountSelectorTriggerBase({
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
           pl="$2"
-          pr="$1"
           flexShrink={1}
           flex={platformEnv.isNative ? undefined : 1}
         >
@@ -100,9 +99,6 @@ export function AccountSelectorTriggerBase({
               size="$bodyMd"
               color="$text"
               maxWidth="$20"
-              $gtXl={{
-                maxWidth: '$28',
-              }}
               numberOfLines={1}
               flexShrink={1}
             >

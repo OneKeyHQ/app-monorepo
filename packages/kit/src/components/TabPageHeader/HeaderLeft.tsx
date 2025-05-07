@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { NavBackButton, Page, SizableText } from '@onekeyhq/components';
+import { NavBackButton, Page, SizableText, XStack } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,8 +19,10 @@ import { useSpotlight } from '../Spotlight';
 
 export function HeaderLeft({
   sceneName,
+  tabRoute,
 }: {
   sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
@@ -68,14 +70,27 @@ export function HeaderLeft({
         }}
       />
     );
+
+    if (tabRoute === ETabRoutes.Discovery) {
+      return (
+        <SizableText size="$headingLg">
+          {intl.formatMessage({
+            id: ETranslations.global_browser,
+          })}
+        </SizableText>
+      );
+    }
     return (
-      <>
+      <XStack gap="$3" ai="center">
         {accountSelectorTrigger}
-        <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
+        {tabRoute === ETabRoutes.Home ? (
+          <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
+        ) : null}
+
         <AccountSelectorActiveAccountHome num={0} />
-      </>
+      </XStack>
     );
-  }, [intl, sceneName, spotlightVisible, tourVisited]);
+  }, [intl, sceneName, spotlightVisible, tabRoute, tourVisited]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
