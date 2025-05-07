@@ -644,9 +644,6 @@ class ServiceAccount extends ServiceBase {
   async prepareHdOrHwAccounts(params: IAddHDOrHWAccountsParams) {
     // addHDOrHWAccounts
     const {
-      indexes,
-      indexedAccountId,
-      deriveType,
       skipCloseHardwareUiStateDialog,
       skipDeviceCancel,
       skipDeviceCancelAtFirst,
