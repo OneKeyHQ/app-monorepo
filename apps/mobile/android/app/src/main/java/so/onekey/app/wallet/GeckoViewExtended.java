@@ -150,16 +150,15 @@ public class GeckoViewExtended extends GeckoView implements WebExtension.Message
                     String url = source.getString("uri");
                     if (url.startsWith("file:///android_asset")) {
                         String outputPath = reactContext.getCacheDir().getAbsolutePath() + File.separator + "android_asset";
-                        boolean exists = new File(outputPath).exists();
+                        File file = new File(outputPath);
+                        boolean exists = file.exists();
                         if (exists) {
-                            String newPath = url.replace("file:///android_asset", outputPath);
-                            session.loadUri(newPath);
-                        } else {
-                            new File(outputPath).mkdir();
-                            doCopy("",outputPath);
-                            String newPath = url.replace("file:///android_asset", outputPath);
-                            session.loadUri(newPath);
+                            file.delete();
                         }
+                        new File(outputPath).mkdir();
+                        doCopy("",outputPath);
+                        String newPath = url.replace("file:///android_asset", outputPath);
+                        session.loadUri(newPath);
                     } else {
                         session.loadUri(url);
                     }
