@@ -171,7 +171,7 @@ function DialogFrame({
   const zIndex = useOverlayZIndex(open);
   const renderDialogContent = (
     <Stack>
-      <DialogHeader onClose={onClose} />
+      <DialogHeader trackID={trackID} onClose={onClose} />
       {/* extra children */}
       <Content
         testID={testID}
