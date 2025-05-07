@@ -20,7 +20,7 @@ export const useTakeScreenshot = (id?: string | null) => {
           reject(new Error('capture view id is null'));
           return;
         }
-        captureRef(captureViewRefs[id] ?? null, {
+        captureRef(captureViewRefs[id ?? ''], {
           format: 'jpg',
           quality: 0.2,
         })
