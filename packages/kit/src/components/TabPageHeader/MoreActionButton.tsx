@@ -50,6 +50,12 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
+const pressStyle = {
+  bg: '$bgActive',
+  borderRadius: '$2.5',
+} as const;
+const hoverStyle = { bg: '$bgHover', borderRadius: '$2.5' } as const;
+
 function MoreActionContentHeader() {
   const intl = useIntl();
   const { user } = usePrimeAuthV2();
@@ -72,7 +78,8 @@ function MoreActionContentHeader() {
   }, [closePopover, shareReferRewards]);
   return (
     <XStack
-      px="$5"
+      pl="$3"
+      pr="$5"
       h="$16"
       bg="$bgSubdued"
       ai="center"
@@ -80,13 +87,26 @@ function MoreActionContentHeader() {
       borderBottomWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
     >
-      <XStack gap="$1" ai="center" onPress={handleLogin}>
+      <XStack
+        gap="$1"
+        ai="center"
+        pl="$2"
+        pr={0}
+        py="$1.5"
+        onPress={handleLogin}
+        pressStyle={pressStyle}
+        hoverStyle={hoverStyle}
+      >
         <SizableText>{user?.displayEmail || `Sign in / Register`}</SizableText>
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
       </XStack>
       <XStack gap="$5" ai="center">
         {devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
-          <PrimeHeaderIconButtonLazy key="prime" visible />
+          <PrimeHeaderIconButtonLazy
+            key="prime"
+            visible
+            onPress={closePopover}
+          />
         ) : null}
         <IconButton
           variant="tertiary"
@@ -172,10 +192,11 @@ function MoreActionContentGridItem({
   return (
     <YStack
       onPress={handlePress}
-      pressStyle={{ bg: '$bgActive' }}
-      hoverStyle={{ bg: '$bgActive' }}
+      pressStyle={pressStyle}
+      hoverStyle={hoverStyle}
       mt="$2.5"
-      w={108}
+      py="$2"
+      w="30%"
       ai="center"
       jc="center"
       gap="$2"
@@ -292,7 +313,7 @@ function MoreActionContent() {
     <YStack>
       <MoreActionContentHeader />
       <MoreActionContentGrid />
-      {/* <MoreActionContentFooter /> */}
+      <MoreActionContentFooter />
     </YStack>
   );
 }
