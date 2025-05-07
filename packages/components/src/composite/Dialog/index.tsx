@@ -647,7 +647,7 @@ const useInPageDialog = (type: EInPageDialogType) => {
   const basicDialogProps = useMemo(
     () => ({
       testID: portalId,
-      modal: !platformEnv.isNative,
+      modal: false,
       portalContainer: portalId,
     }),
     [portalId],
