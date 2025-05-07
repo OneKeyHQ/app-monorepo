@@ -337,13 +337,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       ) {
         // debugger;
       }
-      if (
-        sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
-        sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
-        newSelectedAccount?.deriveType === 'default'
-      ) {
-        console.log('updateSelectedAccount deriveType: ', newSelectedAccount);
-      }
+      // if (
+      //   sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
+      //   sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
+      //   newSelectedAccount?.deriveType === 'default'
+      // ) {
+      //   console.log('updateSelectedAccount deriveType: ', newSelectedAccount);
+      // }
 
       const newNetworkId = newSelectedAccount?.networkId;
       const oldNetworkId = oldSelectedAccount?.networkId;
