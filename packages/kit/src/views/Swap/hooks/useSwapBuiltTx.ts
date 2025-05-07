@@ -1043,6 +1043,8 @@ export function useSwapBuildTx() {
                 protocol: selectQuote?.protocol ?? EProtocolOfExchange.SWAP,
                 provider: selectQuote?.info.provider,
                 providerName: selectQuote?.info.providerName,
+                unSupportReceiveAddressDifferent:
+                  selectQuote?.unSupportReceiveAddressDifferent,
                 fromToken,
                 toToken,
                 quoteId: selectQuote?.quoteId ?? '',
