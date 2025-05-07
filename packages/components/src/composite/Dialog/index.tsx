@@ -174,7 +174,6 @@ function DialogFrame({
       <DialogHeader onClose={onClose} />
       {/* extra children */}
       <Content
-        trackId={trackId}
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
