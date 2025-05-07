@@ -27,10 +27,26 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
+import { useReferFriends } from '../../hooks/useReferFriends';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 
 import { MoreActionButton } from './MoreActionButton';
+
+function GiftAction() {
+  const { shareReferRewards } = useReferFriends();
+  const handleShareReferRewards = useCallback(() => {
+    void shareReferRewards();
+  }, [shareReferRewards]);
+  const intl = useIntl();
+  return (
+    <HeaderIconButton
+      title={intl.formatMessage({ id: ETranslations.referral_title })}
+      icon="GiftOutline"
+      onPress={handleShareReferRewards}
+    />
+  );
+}
 
 function MoreAction() {
   return <MoreActionButton key="more-action" />;
@@ -65,14 +81,19 @@ export function HeaderRight({
       case ETabRoutes.Market:
         return <MoreAction />;
       case ETabRoutes.Discovery:
-      case ETabRoutes.Earn:
         return (
           <>
             <SelectorTrigger />
             <MoreAction />
           </>
         );
-
+      case ETabRoutes.Earn:
+        return (
+          <>
+            <GiftAction />
+            <MoreAction />
+          </>
+        );
       default:
         break;
     }
