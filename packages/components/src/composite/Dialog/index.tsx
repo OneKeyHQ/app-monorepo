@@ -356,11 +356,16 @@ function BaseDialogContainer(
   const formRef = useRef();
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
+      if (props.trackId) {
+        defaultLogger.ui.dialog.close({
+          trackId: props.trackId,
+        });
+      }
       changeIsOpen(false);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [changeIsOpen, onClose],
+    [changeIsOpen, onClose, props.trackId],
   );
 
   const handleIsExist = useCallback(
