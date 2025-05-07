@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
 
-import { useNavigation } from 'react-router-dom';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   IconButton,
