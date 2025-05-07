@@ -50,6 +50,8 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
+import type { GestureResponderEvent } from 'react-native';
+
 const pressStyle = {
   bg: '$bgActive',
   borderRadius: '$2.5',
@@ -119,9 +121,20 @@ function MoreActionContentHeader() {
   );
 }
 
+function MoreActionContentFooterItem({ onPress, ...props }: IIconButtonProps) {
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(
+    async (event: GestureResponderEvent) => {
+      await closePopover?.();
+      onPress?.(event);
+    },
+    [closePopover, onPress],
+  );
+  return <IconButton {...props} variant="tertiary" onPress={handlePress} />;
+}
+
 function MoreActionContentFooter() {
   const intl = useIntl();
-  const { closePopover } = usePopoverContext();
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
   const {
@@ -130,11 +143,9 @@ function MoreActionContentFooter() {
   const scanQrCode = useScanQrCode();
   const onLock = useOnLock();
   const handleLock = useCallback(async () => {
-    await closePopover?.();
     await onLock();
-  }, [closePopover, onLock]);
+  }, [onLock]);
   const handleScan = useCallback(async () => {
-    await closePopover?.();
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
       autoHandleResult: true,
@@ -146,29 +157,75 @@ function MoreActionContentFooter() {
         map,
       },
     });
-  }, [
-    closePopover,
-    scanQrCode,
-    account,
-    network,
-    allTokens.tokens,
-    allTokens.keys,
-    map,
-  ]);
+  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
+  const popupMenu = useMemo(() => {
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      const routeInfo = {
+        routes: '',
+      };
+      return [
+        platformEnv.isExtensionUiPopup
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.open_as_sidebar,
+              }),
+              icon: 'LayoutRightOutline' as const,
+              onPress: async () => {
+                defaultLogger.account.wallet.openSidePanel();
+                await extUtils.openPanelOnActionClick(true);
+                await extUtils.openSidePanel(routeInfo);
+                window.close();
+              },
+              trackID: 'wallet-side-panel-mode',
+            }
+          : {
+              label: intl.formatMessage({
+                id: ETranslations.open_as_popup,
+              }),
+              icon: 'LayoutTopOutline' as const,
+              onPress: async () => {
+                await extUtils.openPanelOnActionClick(false);
+                window.close();
+              },
+            },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.global_expand_view,
+          }),
+          icon: 'ExpandOutline' as const,
+          onPress: async () => {
+            defaultLogger.account.wallet.openExpandView();
+            window.close();
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
+              routeInfo,
+            );
+          },
+          trackID: 'wallet-expand-view',
+        },
+      ];
+    }
+    return [];
+  }, [intl]);
+  const items = useMemo(() => {
+    return [
+      ...popupMenu,
+      {
+        title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+        icon: 'ScanOutline' as const,
+        onPress: handleScan,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
+        icon: 'LockOutline' as const,
+        onPress: handleLock,
+      },
+    ];
+  }, [handleLock, handleScan, intl, popupMenu]);
   return (
     <XStack p="$5" ai="center" jc="flex-end" gap="$5">
-      <IconButton
-        variant="tertiary"
-        title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
-        icon="ScanOutline"
-        onPress={handleScan}
-      />
-      <IconButton
-        variant="tertiary"
-        title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
-        icon="LockOutline"
-        onPress={handleLock}
-      />
+      {items.map((item) => (
+        <MoreActionContentFooterItem key={item.title} {...item} />
+      ))}
     </XStack>
   );
 }
