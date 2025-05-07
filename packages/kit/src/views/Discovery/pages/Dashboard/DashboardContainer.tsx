@@ -1,9 +1,6 @@
-import { useCallback } from 'react';
-
-import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { Page, useSafeAreaInsets } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src//components/TabPageHeader';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
-import { HeaderRight } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderRight';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -11,7 +8,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
-import { HistoryIconButton } from '../components/HistoryIconButton';
 
 import DashboardContent from './DashboardContent';
 
@@ -32,11 +28,6 @@ function Dashboard() {
       />
       <Page>
         {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
-        {platformEnv.isNativeIOS ? (
-          <XStack pt={top} px="$5" width="100%" justifyContent="flex-end">
-            <HistoryIconButton />
-          </XStack>
-        ) : null}
         <Page.Body>
           <DashboardContent />
           {platformEnv.isNativeIOSPad ? <MobileBrowserBottomBar id="" /> : null}
