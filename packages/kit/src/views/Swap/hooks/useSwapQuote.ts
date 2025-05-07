@@ -461,14 +461,26 @@ export function useSwapQuote() {
       approvedSwapInfo: ISwapApproveTransaction;
       enableFilled?: boolean;
     }) => {
-      const updateQuoteList = swapQuoteResultList.filter(
-        (quote) =>
-          quote.info.provider === data.approvedSwapInfo.provider &&
-          quote.quoteId === data.approvedSwapInfo.quoteId,
-      );
-      if (updateQuoteList.length > 0) {
-        setSwapManualSelectQuoteProviders(updateQuoteList[0]);
-      }
+      setSwapManualSelectQuoteProviders({
+        protocol: data.approvedSwapInfo.protocol,
+        quoteId: data.approvedSwapInfo.quoteId,
+        info: {
+          provider: data.approvedSwapInfo.provider,
+          providerName: data.approvedSwapInfo.providerName,
+        },
+        fromTokenInfo: {
+          networkId: data.approvedSwapInfo.fromToken.networkId,
+          contractAddress: data.approvedSwapInfo.fromToken.contractAddress,
+          symbol: data.approvedSwapInfo.fromToken.symbol,
+          decimals: data.approvedSwapInfo.fromToken.decimals,
+        },
+        toTokenInfo: {
+          networkId: data.approvedSwapInfo.toToken.networkId,
+          contractAddress: data.approvedSwapInfo.toToken.contractAddress,
+          symbol: data.approvedSwapInfo.toToken.symbol,
+          decimals: data.approvedSwapInfo.toToken.decimals,
+        },
+      });
       const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
@@ -522,7 +534,6 @@ export function useSwapQuote() {
       setToTokenAmount,
       swapTypeSwitchAction,
       syncNetworksSort,
-      swapQuoteResultList,
       setSwapManualSelectQuoteProviders,
     ],
   );
