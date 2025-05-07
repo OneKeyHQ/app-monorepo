@@ -68,10 +68,10 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
 
       if (usedNetworkId) {
         if (sceneName === EAccountSelectorSceneName.discover) {
-          // console.log(
-          //   'useAutoSelectNetwork::: updateSelectedAccountNetwork',
-          //   usedNetworkId,
-          // );
+          console.log(
+            'useAutoSelectNetwork::: updateSelectedAccountNetwork',
+            usedNetworkId,
+          );
         }
 
         void actions.current.updateSelectedAccountNetwork({

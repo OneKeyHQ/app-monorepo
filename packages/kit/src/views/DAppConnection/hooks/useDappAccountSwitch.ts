@@ -18,6 +18,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
 import type { IExtensionActiveTabDAppInfo } from './useActiveTabDAppInfo';
@@ -57,7 +58,7 @@ export function useDappAccountSwitch({
       networkId?: string;
       indexedAccountId?: string;
       isOthersWallet?: boolean;
-      deriveType: IAccountDeriveTypes;
+      deriveType: IAccountDeriveTypes | undefined;
     }) => {
       if (!params.origin) {
         console.log(
@@ -135,7 +136,7 @@ export function useDappAccountSwitch({
     }
     setIsSwitching(true);
     setHideAccountSelectorTrigger(true);
-    if (!accountExist) {
+    if (!accountExist && result?.connectedAccountsInfo?.[0].deriveType) {
       try {
         setSwitchProcessText(
           intl.formatMessage({
@@ -171,15 +172,19 @@ export function useDappAccountSwitch({
     }
 
     // Get DApp network account
-    const dappNetworkAccount =
-      await backgroundApiProxy.serviceDApp.getDappConnectNetworkAccount({
-        origin: result?.origin ?? '',
-        indexedAccountId: indexedAccount?.id,
-        accountId: account?.id,
-        networkId: result?.connectedAccountsInfo?.[0].networkId,
-        isOthersWallet,
-        deriveType,
-      });
+    let dappNetworkAccount: INetworkAccount | null = null;
+
+    if (deriveType) {
+      dappNetworkAccount =
+        await backgroundApiProxy.serviceDApp.getDappConnectNetworkAccount({
+          origin: result?.origin ?? '',
+          indexedAccountId: indexedAccount?.id,
+          accountId: account?.id,
+          networkId: result?.connectedAccountsInfo?.[0].networkId,
+          isOthersWallet,
+          deriveType,
+        });
+    }
 
     if (!dappNetworkAccount) {
       return;

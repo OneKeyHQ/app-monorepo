@@ -74,7 +74,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // throw new NotImplemented();
   }
 
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {

@@ -807,7 +807,7 @@ class ServiceDApp extends ServiceBase {
       isWalletConnectRequest: request.isWalletConnectRequest,
     });
     if (!accountsInfo) {
-      console.log('getConnectedNetworks: ===> Network not found');
+      // console.log('getConnectedNetworks: ===> Network not found');
       return [];
     }
     const networkIds = accountsInfo.map(
@@ -1060,16 +1060,13 @@ class ServiceDApp extends ServiceBase {
     networkId?: string;
     indexedAccountId?: string;
     isOthersWallet?: boolean;
-    deriveType: IAccountDeriveTypes;
+    deriveType: IAccountDeriveTypes | undefined;
   }) {
-    const {
-      origin,
-      accountId,
-      indexedAccountId,
-      networkId,
-      isOthersWallet,
-      deriveType,
-    } = params;
+    const { origin, accountId, indexedAccountId, networkId, isOthersWallet } =
+      params;
+
+    const deriveType = params.deriveType;
+
     const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
       origin,
     );
@@ -1117,13 +1114,17 @@ class ServiceDApp extends ServiceBase {
       )
         ? connectedAccountInfo.deriveType
         : deriveType;
-      const networkAccount =
-        await this.backgroundApi.serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId,
-          networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: usedDeriveType,
-        });
+      let networkAccount: INetworkAccount | undefined;
+
+      if (usedDeriveType) {
+        networkAccount =
+          await this.backgroundApi.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId,
+            networkId: connectedAccountInfo.networkId ?? '',
+            deriveType: usedDeriveType,
+          });
+      }
 
       if (connectedAccount.id === networkAccount?.id) {
         return {
@@ -1148,7 +1149,7 @@ class ServiceDApp extends ServiceBase {
     indexedAccountId?: string;
     isOthersWallet?: boolean;
     deriveType: IAccountDeriveTypes;
-  }) {
+  }): Promise<INetworkAccount | null> {
     const {
       origin,
       accountId,
@@ -1193,13 +1194,16 @@ class ServiceDApp extends ServiceBase {
       )
         ? connectedAccountInfo.deriveType
         : deriveType;
-      const networkAccount =
-        await this.backgroundApi.serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId,
-          networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: usedDeriveType,
-        });
+      let networkAccount: INetworkAccount | null = null;
+      if (usedDeriveType) {
+        networkAccount =
+          await this.backgroundApi.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId,
+            networkId: connectedAccountInfo.networkId ?? '',
+            deriveType: usedDeriveType,
+          });
+      }
       return networkAccount;
     } catch {
       return null;
@@ -1356,9 +1360,10 @@ class ServiceDApp extends ServiceBase {
 
     // 3. build primary account
     let networkAccountWithHomeAccountSelectorInfo: INetworkAccount;
-    const deriveType = networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
-      ? connectedAccountInfo.deriveType
-      : homeAccountSelectorInfo?.deriveType ?? 'default';
+    const deriveType =
+      (networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
+        ? connectedAccountInfo.deriveType
+        : homeAccountSelectorInfo?.deriveType) ?? 'default';
     try {
       networkAccountWithHomeAccountSelectorInfo =
         await serviceAccount.getNetworkAccount({
