@@ -15,13 +15,13 @@ export interface IPopoverParams {
 export class PopoverScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
-  public open(params: IPopoverParams) {
+  public popoverOpen(params: IPopoverParams) {
     return params;
   }
 
   @LogToServer()
   @LogToLocal()
-  public close(params: IPopoverParams) {
+  public popoverClose(params: IPopoverParams) {
     return params;
   }
 }

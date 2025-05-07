@@ -64,7 +64,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
 
   const handleConfirm = useCallback(async () => {
     if (trackIdValue) {
-      defaultLogger.ui.dialog.confirm({
+      defaultLogger.ui.dialog.dialogConfirm({
         trackId: trackIdValue,
       });
     }
@@ -162,7 +162,6 @@ export function Footer(props: IDialogFooterProps) {
     confirmButtonProps = {},
     onCancelText,
     tone,
-    trackID,
   } = restProps;
   const { onCancel } = props;
   const { disabled, disabledOn, ...restConfirmButtonProps } =
@@ -177,11 +176,6 @@ export function Footer(props: IDialogFooterProps) {
         <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
           {showCancelButton ? (
             <Button
-              trackID={
-                trackID
-                  ? `${trackID}-cancel-button`
-                  : cancelButtonProps?.trackID
-              }
               flexGrow={1}
               flexBasis={0}
               $md={
@@ -210,11 +204,6 @@ export function Footer(props: IDialogFooterProps) {
               }
               {...restConfirmButtonProps}
               onPress={onConfirmWithLoading}
-              trackID={
-                trackID
-                  ? `${trackID}-confirm-button`
-                  : restConfirmButtonProps?.trackID
-              }
             >
               {onConfirmText ||
                 intl.formatMessage({ id: ETranslations.global_confirm })}

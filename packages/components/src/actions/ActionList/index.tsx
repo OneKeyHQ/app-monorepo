@@ -237,11 +237,11 @@ function BasicActionList({
   const trackActionListToggle = useDebounce((openStatus: boolean) => {
     if (trackID) {
       if (openStatus) {
-        defaultLogger.ui.actionList.open({
+        defaultLogger.ui.actionList.actionListOpen({
           trackId: trackID,
         });
       } else {
-        defaultLogger.ui.actionList.close({
+        defaultLogger.ui.actionList.actionListClose({
           trackId: trackID,
         });
       }

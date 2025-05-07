@@ -79,7 +79,7 @@ const usePopoverValue = (
     }
 
     if (trackID) {
-      defaultLogger.ui.popover.open({
+      defaultLogger.ui.popover.popoverOpen({
         trackId: trackID,
       });
     }
@@ -94,7 +94,7 @@ const usePopoverValue = (
     }
 
     if (trackID) {
-      defaultLogger.ui.popover.close({
+      defaultLogger.ui.popover.popoverClose({
         trackId: trackID,
       });
     }

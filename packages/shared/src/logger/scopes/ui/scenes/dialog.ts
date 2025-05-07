@@ -15,25 +15,25 @@ export interface IDialogParams {
 export class DialogScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
-  public open(params: IDialogParams) {
+  public dialogOpen(params: IDialogParams) {
     return params;
   }
 
   @LogToServer()
   @LogToLocal()
-  public close(params: IDialogParams) {
+  public dialogClose(params: IDialogParams) {
     return params;
   }
 
   @LogToServer()
   @LogToLocal()
-  public confirm(params: IDialogParams) {
+  public dialogConfirm(params: IDialogParams) {
     return params;
   }
 
   @LogToServer()
   @LogToLocal()
-  public cancel(params: IDialogParams) {
+  public dialogCancel(params: IDialogParams) {
     return params;
   }
 }

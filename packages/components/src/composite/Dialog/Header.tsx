@@ -139,7 +139,7 @@ function BasicDialogHeader({
       {/* close button */}
       {showExitButton ? (
         <IconButton
-          trackID={trackID ? `${trackID}-close-button` : undefined}
+          trackID={trackID}
           position="absolute"
           zIndex={1}
           right="$5"

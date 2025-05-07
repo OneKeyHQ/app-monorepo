@@ -132,7 +132,7 @@ function DialogFrame({
 
   useEffect(() => {
     if (trackID) {
-      defaultLogger.ui.dialog.open({
+      defaultLogger.ui.dialog.dialogOpen({
         trackId: trackID,
       });
     }
@@ -155,7 +155,7 @@ function DialogFrame({
 
   const handleCancelButtonPress = useCallback(async () => {
     if (trackID) {
-      defaultLogger.ui.dialog.cancel({
+      defaultLogger.ui.dialog.dialogCancel({
         trackId: trackID,
       });
     }
@@ -361,7 +361,7 @@ function BaseDialogContainer(
         extra?.flag !== 'confirm' &&
         extra?.flag !== 'cancel'
       ) {
-        defaultLogger.ui.dialog.close({
+        defaultLogger.ui.dialog.dialogClose({
           trackId: props.trackID,
         });
       }

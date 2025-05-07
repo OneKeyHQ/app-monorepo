@@ -15,13 +15,13 @@ export interface IActionListParams {
 export class ActionListScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
-  public open(params: IActionListParams) {
+  public actionListOpen(params: IActionListParams) {
     return params;
   }
 
   @LogToServer()
   @LogToLocal()
-  public close(params: IActionListParams) {
+  public actionListClose(params: IActionListParams) {
     return params;
   }
 }
