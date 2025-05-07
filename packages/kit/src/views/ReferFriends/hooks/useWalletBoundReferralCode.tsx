@@ -5,10 +5,13 @@ import { StyleSheet } from 'react-native';
 
 import {
   Dialog,
-  OTPInput,
+  Form,
+  Input,
   SizableText,
+  Toast,
   XStack,
   YStack,
+  useForm,
   useInModalDialog,
   useInTabDialog,
 } from '@onekeyhq/components';
@@ -61,7 +64,6 @@ function useGetReferralCodeWalletInfo() {
   }, []);
 }
 
-const NUMBER_OF_DIGITS = 6;
 function InviteCode({
   wallet,
   onSuccess,
@@ -70,22 +72,33 @@ function InviteCode({
   onSuccess?: () => void;
 }) {
   const intl = useIntl();
-  const [verificationCode, setVerificationCode] = useState('');
+  const form = useForm({
+    defaultValues: {
+      referralCode: '',
+    },
+  });
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
 
   const handleConfirm = useCallback(
     async ({ preventClose }: { preventClose?: () => void }) => {
       try {
+        const isValidForm = await form.trigger();
+        if (!isValidForm) {
+          preventClose?.();
+          return;
+        }
+
         const walletInfo = await getReferralCodeWalletInfo(wallet?.id);
         if (!walletInfo) {
           throw new OneKeyPlainTextError('Invalid Wallet');
         }
+        const { referralCode } = form.getValues();
         let unsignedMessage =
           await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
             {
               address: walletInfo.address,
               networkId: walletInfo.networkId,
-              inviteCode: verificationCode,
+              inviteCode: referralCode,
             },
           );
         console.log('===>>> unsignedMessage: ', unsignedMessage);
@@ -109,6 +122,7 @@ function InviteCode({
               payload: [unsignedMessage, walletInfo.address],
             },
             walletInternalSign: true,
+            skipBackupCheck: true,
           })) as string;
 
         const bindResult =
@@ -116,8 +130,8 @@ function InviteCode({
             {
               address: walletInfo.address,
               networkId: walletInfo.networkId,
-              pubkey: walletInfo.pubkey,
-              referralCode: verificationCode,
+              pubkey: walletInfo.pubkey || undefined,
+              referralCode,
               signature: signedMessage,
             },
           );
@@ -133,13 +147,18 @@ function InviteCode({
               isBound: true,
             },
           });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.global_success,
+            }),
+          });
           onSuccess?.();
         }
       } catch (e) {
         preventClose?.();
       }
     },
-    [onSuccess, verificationCode, wallet?.id, getReferralCodeWalletInfo],
+    [onSuccess, form, wallet?.id, getReferralCodeWalletInfo, intl],
   );
 
   return (
@@ -165,16 +184,27 @@ function InviteCode({
           <SizableText size="$bodyLg">{wallet?.name}</SizableText>
         </XStack>
       </XStack>
-      <OTPInput
-        type="alphanumeric"
-        autoFocus
-        status="normal"
-        numberOfDigits={NUMBER_OF_DIGITS}
-        value={verificationCode}
-        onTextChange={(value) => {
-          setVerificationCode(value);
-        }}
-      />
+      <Form form={form}>
+        <Form.Field
+          name="referralCode"
+          rules={{
+            required: true,
+            pattern: {
+              value: /^[a-zA-Z0-9]{1,30}$/,
+              message: intl.formatMessage({
+                id: ETranslations.referral_invalid_code,
+              }),
+            },
+          }}
+        >
+          <Input
+            placeholder={intl.formatMessage({
+              id: ETranslations.referral_wallet_code_placeholder,
+            })}
+            maxLength={30}
+          />
+        </Form.Field>
+      </Form>
       <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.referral_wallet_code_desc,
@@ -182,9 +212,6 @@ function InviteCode({
       </SizableText>
       <Dialog.Footer
         showCancelButton
-        confirmButtonProps={{
-          disabled: verificationCode.length !== NUMBER_OF_DIGITS,
-        }}
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
         onCancelText={intl.formatMessage({
