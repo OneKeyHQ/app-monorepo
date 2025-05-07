@@ -1,13 +1,10 @@
 import { useEffect } from 'react';
 
-import { useNavigation } from 'react-router-dom';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   IconButton,
   Page,
   View,
-  rootNavigationRef,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
