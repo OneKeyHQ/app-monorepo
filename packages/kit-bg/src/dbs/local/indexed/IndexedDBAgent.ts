@@ -328,9 +328,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     updater: ILocalDBRecordUpdater<T>;
     tx: ILocalDBTransaction;
   }) {
-    const store = this._getObjectStoreFromTx(tx, name);
-    const newRecord = await updater(oldRecord);
-    return store.put(newRecord as any);
+    if (oldRecord) {
+      const store = this._getObjectStoreFromTx(tx, name);
+      const newRecord = await updater(oldRecord);
+      await store.put(newRecord as any);
+    }
   }
 
   // ----------------------------------------------

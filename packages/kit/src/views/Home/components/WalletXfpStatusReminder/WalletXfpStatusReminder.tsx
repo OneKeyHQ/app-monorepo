@@ -107,6 +107,7 @@ function WalletXfpStatusReminderCmp() {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const walletId = activeAccount?.wallet?.id;
+  const deprecated = activeAccount?.wallet?.deprecated;
 
   const [hardwareWalletXfpStatus] = useHardwareWalletXfpStatusAtom();
 
@@ -126,7 +127,11 @@ function WalletXfpStatusReminderCmp() {
   }, [walletId]);
 
   const updateButton = useMemo(() => {
-    if (walletId && hardwareWalletXfpStatus?.[walletId]?.xfpMissing) {
+    if (
+      !deprecated &&
+      walletId &&
+      hardwareWalletXfpStatus?.[walletId]?.xfpMissing
+    ) {
       const message = intl.formatMessage({
         id: ETranslations.global_hardware_legacy_data_update_banner_title,
       });
@@ -140,7 +145,7 @@ function WalletXfpStatusReminderCmp() {
       );
     }
     return null;
-  }, [walletId, hardwareWalletXfpStatus, intl]);
+  }, [walletId, hardwareWalletXfpStatus, intl, deprecated]);
 
   return <XStack>{updateButton}</XStack>;
 }

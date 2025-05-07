@@ -7,7 +7,9 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -27,7 +29,7 @@ export interface IAccountSelectorSelectedAccount {
   indexedAccountId: string | undefined;
   othersWalletAccountId: string | undefined; // for others wallet only
   networkId: string | undefined;
-  deriveType: IAccountDeriveTypes; // TODO move to jotai global
+  deriveType: IAccountDeriveTypes | undefined; // TODO move to jotai global
   focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
 }
 export type IAccountSelectorSelectedAccountsMap = Partial<{
@@ -44,10 +46,7 @@ export interface IAccountSelectorAccountsListSectionData {
 export type IGlobalDeriveTypesMap = Partial<{
   [networkIdOrImpl: string]: IAccountDeriveTypes;
 }>;
-export enum EGlobalDeriveTypesScopes {
-  global = 'global',
-  swapTo = 'swapTo',
-}
+
 export interface IAccountSelectorPersistInfo {
   selectorInfo: {
     [sceneId: string]: {
@@ -79,7 +78,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     checkIsDefined(num);
     checkIsDefined(sceneName);
     if (!accountSelectorUtils.isSceneCanPersist({ sceneName })) {
-      console.log(`skip ${sceneName} account selector persist`);
+      // console.log(`skip ${sceneName} account selector persist`);
       return;
     }
     const sceneId = accountSelectorUtils.buildAccountSelectorSceneId({
@@ -95,7 +94,8 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       data.selectorInfo[sceneId] = data.selectorInfo[sceneId] || {};
       data.selectorInfo[sceneId].selector =
         data.selectorInfo[sceneId].selector || {};
-      data.selectorInfo[sceneId].selector[num] = selectedAccount;
+      data.selectorInfo[sceneId].selector[num] =
+        this.cloneAndFixSelectedAccount(selectedAccount);
       return data;
     });
 
@@ -146,7 +146,21 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       sceneName,
       sceneUrl,
     });
-    return cloneDeep(selectedAccountsMap?.[num]);
+
+    return this.cloneAndFixSelectedAccount(selectedAccountsMap?.[num]);
+  }
+
+  cloneAndFixSelectedAccount(
+    selectedAccount: IAccountSelectorSelectedAccount | undefined,
+  ) {
+    const result = cloneDeep(selectedAccount);
+    if (
+      result?.networkId &&
+      networkUtils.isAllNetwork({ networkId: result.networkId })
+    ) {
+      result.deriveType = undefined;
+    }
+    return result;
   }
 
   async getGlobalDeriveType({

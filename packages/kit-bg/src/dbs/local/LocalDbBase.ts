@@ -2951,14 +2951,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           dataTime: await this.timeNow(),
         });
 
-    // add or update sync item
-    if (syncItem) {
-      await this.addAndUpdateSyncItems({
-        items: [syncItem],
-      });
-    }
-
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      // add or update sync item
+      if (syncItem) {
+        await this.txAddAndUpdateSyncItems({
+          tx,
+          items: [syncItem],
+        });
+      }
+
       // update wallet name
       await this.txUpdateWallet({
         tx,
@@ -4063,14 +4064,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    // add or update sync item
-    if (syncItem) {
-      await this.addAndUpdateSyncItems({
-        items: [syncItem],
-      });
-    }
-
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      // add or update sync item
+      if (syncItem) {
+        await this.txAddAndUpdateSyncItems({
+          tx,
+          items: [syncItem],
+        });
+      }
+
       if (params.indexedAccountId) {
         await this.txUpdateRecords({
           tx,

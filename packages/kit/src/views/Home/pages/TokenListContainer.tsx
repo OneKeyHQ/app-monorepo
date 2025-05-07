@@ -1369,7 +1369,7 @@ function TokenListContainer(_props: ITabPageProps) {
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      if (!network || !wallet || !deriveInfo) return;
+      if (!network || !wallet || !deriveInfo || !deriveType) return;
 
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,

@@ -24,7 +24,7 @@ function useManageToken({
   walletId: string;
   isOthersWallet?: boolean;
   indexedAccountId?: string;
-  deriveType: IAccountDeriveTypes;
+  deriveType: IAccountDeriveTypes | undefined;
 }) {
   const navigation = useAppNavigation();
 
@@ -37,6 +37,9 @@ function useManageToken({
   // );
 
   const handleOnManageToken = useCallback(() => {
+    if (!deriveType) {
+      throw new Error('deriveType is required');
+    }
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenManagerModal,
       params: {
