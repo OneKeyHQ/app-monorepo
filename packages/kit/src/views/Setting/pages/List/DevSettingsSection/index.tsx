@@ -622,7 +622,7 @@ export const DevSettingsSection = () => {
         title="Haptics"
         onPress={() => {
           Dialog.cancel({
-            title: 'Startup Time(ms)',
+            title: 'Haptics',
             renderContent: <HapticsPanel />,
           });
         }}
