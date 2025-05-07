@@ -22,6 +22,7 @@ import {
   AccountSelectorTriggerHome,
 } from '../AccountSelector';
 import { useSpotlight } from '../Spotlight';
+import { DeriveTypeSelectorTriggerForHome } from '../AccountSelector/DeriveTypeSelectorTrigger';
 
 export function HeaderLeft({
   sceneName,
@@ -93,8 +94,8 @@ export function HeaderLeft({
         {tabRoute === ETabRoutes.Home && gtMd ? (
           <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
         ) : null}
-
         <AccountSelectorActiveAccountHome num={0} showAccountAddress={false} />
+        <DeriveTypeSelectorTriggerForHome num={0} />
       </XStack>
     );
   }, [gtMd, intl, sceneName, spotlightVisible, tabRoute, tourVisited]);
