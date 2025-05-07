@@ -26,6 +26,7 @@ import {
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../../actions/Toast';
@@ -108,6 +109,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
+  trackId,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -129,8 +131,13 @@ function DialogFrame({
   );
 
   useEffect(() => {
+    if (trackId) {
+      defaultLogger.ui.dialog.open({
+        trackId,
+      });
+    }
     onOpen?.();
-  }, [onOpen]);
+  }, [trackId, onOpen]);
 
   const handleBackPress = useCallback(() => {
     if (!open) {
@@ -147,12 +154,17 @@ function DialogFrame({
   }, []);
 
   const handleCancelButtonPress = useCallback(async () => {
+    if (trackId) {
+      defaultLogger.ui.dialog.cancel({
+        trackId,
+      });
+    }
     const cancel = onCancel || footerRef.props?.onCancel;
     cancel?.(() => onClose());
     if (!onCancel?.length) {
       await onClose();
     }
-  }, [footerRef.props?.onCancel, onCancel, onClose]);
+  }, [trackId, footerRef.props?.onCancel, onCancel, onClose]);
 
   const media = useMedia();
 
@@ -190,6 +202,7 @@ function DialogFrame({
             id: ETranslations.global_cancel,
           })
         }
+        trackId={trackId}
       />
     </Stack>
   );
