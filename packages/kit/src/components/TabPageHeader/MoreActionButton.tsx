@@ -14,6 +14,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -324,6 +325,7 @@ function MoreActionContentGrid() {
   const openAddressBook = useShowAddressBook({
     useNewModal: true,
   });
+  const { gtMd } = useMedia();
   const toMyOneKeyModal = useToMyOneKeyModal();
   const handleDeviceManagement = useCallback(async () => {
     await toMyOneKeyModal();
@@ -369,16 +371,19 @@ function MoreActionContentGrid() {
         onPress: handleSettings,
         trackID: 'wallet-settings',
       },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_notifications,
-        }),
-        icon: 'BellOutline',
-        onPress: openNotificationsModal,
-        trackID: 'notification-in-more-action',
-      },
-    ] as IMoreActionContentGridItemProps[];
+      gtMd
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.global_notifications,
+            }),
+            icon: 'BellOutline',
+            onPress: openNotificationsModal,
+            trackID: 'notification-in-more-action',
+          },
+    ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
+    gtMd,
     handleDeviceManagement,
     handleSettings,
     intl,

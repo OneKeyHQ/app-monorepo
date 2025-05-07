@@ -1,37 +1,22 @@
-import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Stack,
-  useIsIpadLandscape,
-  useMedia,
-} from '@onekeyhq/components';
+import { useIsIpadLandscape, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import {
-  useDevSettingsPersistAtom,
-  useNotificationsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
-import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
-import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 
 import { MoreActionButton } from './MoreActionButton';
 
@@ -64,43 +49,71 @@ function SelectorTrigger() {
   );
 }
 
+function PeopleAction() {
+  const { loginOneKeyId } = useLoginOneKeyId();
+  const handlePress = useCallback(async () => {
+    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+  }, [loginOneKeyId]);
+  return (
+    <HeaderIconButton
+      key="onekey-id"
+      title="OneKey ID"
+      icon="PeopleOutline"
+      onPress={handlePress}
+      testID="header-right-onekey-id"
+    />
+  );
+}
+
 export function HeaderRight({
   tabRoute,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
 }) {
+  const { gtMd } = useMedia();
+  const isIpadLandscape = useIsIpadLandscape();
+  const isWideScreen =
+    !platformEnv.isNativeAndroid && (gtMd || isIpadLandscape);
   const items = useMemo(() => {
+    const fixedItems = (
+      <>
+        <MoreAction />
+        {isWideScreen ? <PeopleAction /> : null}
+      </>
+    );
     switch (tabRoute) {
       case ETabRoutes.Home:
         return (
           <>
-            <SelectorTrigger />
-            <MoreAction />
+            {isWideScreen ? undefined : <SelectorTrigger />}
+            {fixedItems}
           </>
         );
       case ETabRoutes.Swap:
       case ETabRoutes.Market:
-        return <MoreAction />;
+        return fixedItems;
       case ETabRoutes.Discovery:
         return (
           <>
             <HistoryIconButton />
-            <TabCountButton />
-            <MoreAction />
+            {isWideScreen ? undefined : (
+              <TabCountButton testID="browser-header-tabs" />
+            )}
+            {fixedItems}
           </>
         );
       case ETabRoutes.Earn:
         return (
           <>
             <GiftAction />
-            <MoreAction />
+            {fixedItems}
           </>
         );
       default:
         break;
     }
-  }, [tabRoute]);
+  }, [isWideScreen, tabRoute]);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
