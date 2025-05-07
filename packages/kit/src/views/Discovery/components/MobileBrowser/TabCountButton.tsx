@@ -9,13 +9,12 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { useTakeScreenshot } from '../../hooks/useTakeScreenshot';
 import {
   useActiveTabId,
   useDisplayHomePageFlag,
   useWebTabs,
 } from '../../hooks/useWebTabs';
-
-import { useTakeScreenshot } from './MobileBrowserBottomBar';
 
 interface ITabCountButtonProps {
   testID: string;

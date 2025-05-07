@@ -2257,6 +2257,19 @@ class ServiceAccount extends ServiceBase {
         wallets.push(wallet);
       }
     }
+
+    if (params.shouldCheckDuplicate && params.indexedAccountId) {
+      // if it is manually triggered, call the non-try-catch modification once first to ensure that the duplicate name detection takes effect and terminates the function with an error
+      await this.setAccountName({
+        name,
+        ...others,
+        indexedAccountId: params.indexedAccountId,
+        skipEventEmit: true,
+        skipSaveLocalSyncItem: params.skipSaveLocalSyncItem,
+        shouldCheckDuplicate: params.shouldCheckDuplicate,
+      });
+    }
+
     for (const wallet of wallets) {
       try {
         const indexedAccountId = accountUtils.buildIndexedAccountId({

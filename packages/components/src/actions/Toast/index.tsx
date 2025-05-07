@@ -125,7 +125,12 @@ export function ToastContent({
 }) {
   const { height, width } = useWindowDimensions();
   const media = useMedia();
-
+  useEffect(
+    () => () => {
+      onClose?.();
+    },
+    [onClose],
+  );
   return (
     <YStack
       flex={1}

@@ -545,6 +545,23 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getDeriveTypeOrFallbackToGlobal({
+    deriveType,
+    networkId,
+  }: {
+    deriveType: IAccountDeriveTypes | undefined;
+    networkId: string | undefined;
+  }): Promise<IAccountDeriveTypes | undefined> {
+    if (deriveType) {
+      return deriveType;
+    }
+    if (networkId) {
+      return this.getGlobalDeriveTypeOfNetwork({ networkId });
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
   async saveGlobalDeriveTypeForNetwork({
     networkId,
     deriveType,
