@@ -158,7 +158,7 @@ function InviteCode({
         preventClose?.();
       }
     },
-    [onSuccess, form, wallet?.id, getReferralCodeWalletInfo],
+    [onSuccess, form, wallet?.id, getReferralCodeWalletInfo, intl],
   );
 
   return (
