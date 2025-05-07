@@ -411,7 +411,7 @@ function MoreActionButtonCmp() {
   return (
     <Popover
       title={intl.formatMessage({ id: ETranslations.explore_options })}
-      placement="bottom-start"
+      placement="bottom-end"
       renderTrigger={
         <HeaderIconButton
           title={intl.formatMessage({ id: ETranslations.explore_options })}
