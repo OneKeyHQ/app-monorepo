@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 
 import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { TabPageHeader } from '@onekeyhq/kit/src//components/TabPageHeader';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import { HeaderRight } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderRight';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../../components/AccountSelector/AccountSelectorProvider';
-import { TabPageHeader } from '../../../../components/TabPageHeader';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -17,19 +17,6 @@ import DashboardContent from './DashboardContent';
 
 function Dashboard() {
   const { top } = useSafeAreaInsets();
-  const historyButton = useCallback(
-    () => (
-      <HeaderRight
-        sceneName={EAccountSelectorSceneName.discover}
-        tabRoute={ETabRoutes.Discovery}
-      >
-        {!platformEnv.isExtension && !platformEnv.isWeb ? (
-          <HistoryIconButton />
-        ) : null}
-      </HeaderRight>
-    ),
-    [],
-  );
 
   return (
     <AccountSelectorProviderMirror
@@ -39,13 +26,11 @@ function Dashboard() {
       }}
       enabledNum={[0]}
     >
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Discovery}
+      />
       <Page>
-        <Page.Header headerRight={historyButton} />
-        <TabPageHeader
-          showHeaderRight
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Discovery}
-        />
         {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
         {platformEnv.isNativeIOS ? (
           <XStack pt={top} px="$5" width="100%" justifyContent="flex-end">

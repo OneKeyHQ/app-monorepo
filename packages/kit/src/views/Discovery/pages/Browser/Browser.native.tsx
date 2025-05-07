@@ -29,7 +29,9 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { TabPageHeader } from '../../../../components/TabPageHeader';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -234,16 +236,21 @@ function MobileBrowser() {
 
   return (
     <Page fullPage>
-      <Page.Header headerShown={false} />
       {/* custom header */}
-      <XStack
-        pt={top}
-        px="$5"
-        alignItems="center"
-        my="$1"
-        mt={platformEnv.isNativeAndroid ? '$3' : undefined}
-      >
-        {!displayHomePage ? (
+
+      {displayHomePage ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Discovery}
+        />
+      ) : (
+        <XStack
+          pt={top}
+          px="$5"
+          alignItems="center"
+          my="$1"
+          mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+        >
           <Stack
             onPress={
               isNativeMobile
@@ -256,33 +263,11 @@ function MobileBrowser() {
               mr="$4"
             />
           </Stack>
-        ) : null}
 
-        {!displayHomePage ? (
           <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
-        ) : (
-          <XStack
-            width="100%"
-            position="relative"
-            justifyContent="center"
-            alignItems="center"
-            $gtSm={{
-              justifyContent: 'space-between',
-            }}
-          >
-            <BrowserTitle />
-
-            <XStack gap="$2" position="absolute" right={0} alignItems="center">
-              <Stack>
-                <HistoryIconButton />
-              </Stack>
-
-              <TabCountButton testID="browser-header-tabs" />
-            </XStack>
-          </XStack>
-        )}
-        <HeaderRightToolBar />
-      </XStack>
+          <HeaderRightToolBar />
+        </XStack>
+      )}
       <Page.Body>
         <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
           <HandleRebuildBrowserData />

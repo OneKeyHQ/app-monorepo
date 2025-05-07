@@ -28,6 +28,8 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
+import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
+import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 
@@ -83,7 +85,8 @@ export function HeaderRight({
       case ETabRoutes.Discovery:
         return (
           <>
-            <SelectorTrigger />
+            <HistoryIconButton />
+            <TabCountButton />
             <MoreAction />
           </>
         );
