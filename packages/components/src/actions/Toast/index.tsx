@@ -92,16 +92,6 @@ function RenderLines({
   );
 }
 
-function OnToastClose({ onClose }: { onClose?: () => void }) {
-  useEffect(
-    () => () => {
-      onClose?.();
-    },
-    [onClose],
-  );
-  return null;
-}
-
 export function ToastContent({
   title,
   message,
@@ -121,7 +111,12 @@ export function ToastContent({
 }) {
   const { height, width } = useWindowDimensions();
   const media = useMedia();
-
+  useEffect(
+    () => () => {
+      onClose?.();
+    },
+    [onClose],
+  );
   return (
     <YStack
       flex={1}
@@ -179,7 +174,6 @@ export function ToastContent({
           ) : null}
         </YStack>
       </XStack>
-      <OnToastClose onClose={onClose} />
     </YStack>
   );
 }
