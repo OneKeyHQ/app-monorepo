@@ -421,6 +421,9 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 const toast = Toast.warning({
+                  onClose: () => {
+                    console.log('onClose');
+                  },
                   duration: ONE_HOUR,
                   title: 'OneKey Bridge test',
                   actions: (
