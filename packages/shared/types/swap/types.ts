@@ -242,6 +242,7 @@ export interface ISwapApproveTransaction {
   toToken: ISwapToken;
   protocol: EProtocolOfExchange;
   swapType: ESwapTabSwitchType;
+  unSupportReceiveAddressDifferent?: boolean;
   provider: string;
   providerName: string;
   quoteId: string;
