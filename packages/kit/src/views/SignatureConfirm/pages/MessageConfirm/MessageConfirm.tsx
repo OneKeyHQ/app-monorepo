@@ -81,6 +81,7 @@ function MessageConfirm() {
     sourceInfo,
     unsignedMessage,
     walletInternalSign,
+    skipBackupCheck,
     swapInfo,
     onSuccess,
     onFail,
@@ -322,11 +323,13 @@ function MessageConfirm() {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId,
       });
-      void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-        walletId,
-      });
+      if (!skipBackupCheck) {
+        void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId,
+        });
+      }
     }
-  }, [sourceInfo, accountId]);
+  }, [sourceInfo, accountId, skipBackupCheck]);
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
@@ -349,6 +352,7 @@ function MessageConfirm() {
         isConfirmationRequired={isConfirmationRequired}
         sourceInfo={sourceInfo}
         walletInternalSign={walletInternalSign}
+        skipBackupCheck={skipBackupCheck}
         onSuccess={onSuccess}
         onFail={onFail}
         onCancel={onCancel}

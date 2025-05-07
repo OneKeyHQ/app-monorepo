@@ -121,6 +121,7 @@ function InviteCode({
               payload: [unsignedMessage, walletInfo.address],
             },
             walletInternalSign: true,
+            skipBackupCheck: true,
           })) as string;
 
         const bindResult =

@@ -264,12 +264,14 @@ class ServiceDApp extends ServiceBase {
     accountId,
     networkId,
     walletInternalSign,
+    skipBackupCheck,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
     walletInternalSign?: boolean;
+    skipBackupCheck?: boolean;
   }) {
     if (!accountId || !networkId) {
       throw new Error('accountId and networkId required');
@@ -285,6 +287,7 @@ class ServiceDApp extends ServiceBase {
         accountId,
         networkId,
         walletInternalSign,
+        skipBackupCheck,
       },
       fullScreen: !platformEnv.isNativeIOS,
     });
