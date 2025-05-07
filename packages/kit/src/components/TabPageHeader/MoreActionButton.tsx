@@ -292,7 +292,7 @@ function MoreActionContent() {
     <YStack>
       <MoreActionContentHeader />
       <MoreActionContentGrid />
-      <MoreActionContentFooter />
+      {/* <MoreActionContentFooter /> */}
     </YStack>
   );
 }
