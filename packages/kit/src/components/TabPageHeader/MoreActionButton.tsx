@@ -123,7 +123,7 @@ function MoreActionContentHeader() {
         <IconButton
           variant="tertiary"
           title={intl.formatMessage({ id: ETranslations.referral_title })}
-          icon="GiftOutline"
+          icon="ColorfulGiftCustom"
           testID="refer-a-friend"
           trackID="gift-in-more-action"
           onPress={handleShareReferRewards}
