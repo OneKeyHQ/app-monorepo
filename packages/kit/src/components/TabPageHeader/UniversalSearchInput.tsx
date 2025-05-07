@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IStackStyle } from '@onekeyhq/components';
 import {
   IconButton,
   SearchBar,
@@ -18,8 +19,10 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import useAppNavigation from '../../hooks/useAppNavigation';
 
 export function UniversalSearchInput({
+  containerProps,
   size = 'large',
 }: {
+  containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
 }) {
   const intl = useIntl();
@@ -47,7 +50,7 @@ export function UniversalSearchInput({
     );
   }
   return (
-    <XStack $gtLg={{ maxWidth: 320 }} width="100%">
+    <XStack $gtLg={{ maxWidth: 320 }} width="100%" {...containerProps}>
       <SearchBar
         leftIconName="SearchOutline"
         containerProps={{

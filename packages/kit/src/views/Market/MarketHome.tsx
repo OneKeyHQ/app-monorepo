@@ -17,9 +17,9 @@ import {
   Spinner,
   Stack,
   Tab,
+  XStack,
   useIsWideScreen,
   useMedia,
-  XStack,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -186,7 +186,15 @@ function MarketHome() {
       />
       <Page.Body>
         <XStack px="$5" pt="$2">
-          {isWideScreen ? null : <UniversalSearchInput size="medium" />}
+          {isWideScreen ? null : (
+            <UniversalSearchInput
+              size="medium"
+              containerProps={{
+                width: '100%',
+                $gtLg: undefined,
+              }}
+            />
+          )}
         </XStack>
         {renderTabContainer()}
       </Page.Body>

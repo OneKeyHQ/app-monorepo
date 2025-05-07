@@ -44,5 +44,8 @@ export const useIsIpadLandscape = platformEnv.isNativeIOSPad
 export const useIsWideScreen = () => {
   const { gtMd } = useMedia();
   const isLandscape = useIsIpadLandscape();
-  return !platformEnv.isNativeAndroid && (gtMd || isLandscape);
+  return (
+    !platformEnv.isNativeAndroid &&
+    ((!platformEnv.isNative && gtMd) || isLandscape)
+  );
 };
