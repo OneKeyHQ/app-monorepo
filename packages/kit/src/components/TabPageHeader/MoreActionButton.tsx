@@ -106,7 +106,10 @@ function MoreActionContentHeader() {
         pressStyle={pressStyle}
         hoverStyle={hoverStyle}
       >
-        <SizableText>{user?.displayEmail || `Sign in / Register`}</SizableText>
+        <SizableText>
+          {user?.displayEmail ||
+            intl.formatMessage({ id: ETranslations.global_sign_in_register })}
+        </SizableText>
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
       </XStack>
       <XStack gap="$5" ai="center">
