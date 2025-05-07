@@ -92,20 +92,6 @@ function RenderLines({
   );
 }
 
-function OnToastClose({
-  onClose,
-}: {
-  onClose?: IToastMessageOptions['onClose'];
-}) {
-  useEffect(
-    () => () => {
-      onClose?.();
-    },
-    [onClose],
-  );
-  return null;
-}
-
 export function ToastContent({
   title,
   message,
@@ -188,7 +174,6 @@ export function ToastContent({
           ) : null}
         </YStack>
       </XStack>
-      <OnToastClose onClose={onClose} />
     </YStack>
   );
 }
