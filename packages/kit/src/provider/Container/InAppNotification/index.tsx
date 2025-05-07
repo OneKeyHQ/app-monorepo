@@ -232,6 +232,13 @@ const InAppNotification = () => {
                 duration: 10_000,
                 actions: approvingSuccessAction,
                 actionsAlign: 'left',
+                onClose: () => {
+                  setInAppNotificationAtom((prev) => ({
+                    ...prev,
+                    swapApprovingLoading: false,
+                    swapApprovingTransaction: undefined,
+                  }));
+                },
               });
             }
           },
