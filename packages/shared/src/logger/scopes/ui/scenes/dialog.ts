@@ -16,36 +16,24 @@ export class DialogScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public open(params: IDialogParams) {
-    return {
-      type: 'open',
-      ...params,
-    };
+    return params;
   }
 
   @LogToServer()
   @LogToLocal()
   public close(params: IDialogParams) {
-    return {
-      type: 'close',
-      ...params,
-    };
+    return params;
   }
 
   @LogToServer()
   @LogToLocal()
   public confirm(params: IDialogParams) {
-    return {
-      type: 'confirm',
-      ...params,
-    };
+    return params;
   }
 
   @LogToServer()
   @LogToLocal()
   public cancel(params: IDialogParams) {
-    return {
-      type: 'cancel',
-      ...params,
-    };
+    return params;
   }
 }
