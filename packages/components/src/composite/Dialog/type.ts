@@ -32,6 +32,7 @@ export type IDialogContextType = {
 export interface IDialogContentProps extends PropsWithChildren {
   estimatedContentHeight?: number;
   testID?: string;
+  trackId?: string;
   isAsync?: boolean;
 }
 

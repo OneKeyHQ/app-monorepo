@@ -174,6 +174,7 @@ function DialogFrame({
       <DialogHeader onClose={onClose} />
       {/* extra children */}
       <Content
+        trackId={trackId}
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
@@ -181,6 +182,7 @@ function DialogFrame({
         {renderContent}
       </Content>
       <Footer
+        trackId={trackId}
         tone={tone}
         showFooter={showFooter}
         footerProps={footerProps}
@@ -202,7 +204,6 @@ function DialogFrame({
             id: ETranslations.global_cancel,
           })
         }
-        trackId={trackId}
       />
     </Stack>
   );
