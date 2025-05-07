@@ -1,0 +1,27 @@
+import { BaseScene } from '../../../base/baseScene';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
+
+export interface IPopoverParams {
+  /**
+   * Popover tracking ID or testID for identification
+   */
+  trackId: string;
+  /**
+   * Additional custom properties
+   */
+  [key: string]: any;
+}
+
+export class PopoverScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal()
+  public open(params: IPopoverParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public close(params: IPopoverParams) {
+    return params;
+  }
+}

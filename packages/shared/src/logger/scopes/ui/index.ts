@@ -3,6 +3,7 @@ import { EScopeName } from '../../types';
 
 import { ButtonScene } from './scenes/button';
 import { DialogScene } from './scenes/dialog';
+import { PopoverScene } from './scenes/popover';
 
 export class UIScope extends BaseScope {
   protected override scopeName = EScopeName.ui;
@@ -10,4 +11,6 @@ export class UIScope extends BaseScope {
   button = this.createScene('button', ButtonScene);
 
   dialog = this.createScene('dialog', DialogScene);
+
+  popover = this.createScene('popover', PopoverScene);
 }
