@@ -12,8 +12,6 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 import DashboardContent from './DashboardContent';
 
 function Dashboard() {
-  const { top } = useSafeAreaInsets();
-
   return (
     <AccountSelectorProviderMirror
       config={{
