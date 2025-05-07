@@ -160,9 +160,9 @@ function DialogFrame({
       });
     }
     const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.(() => onClose());
+    cancel?.(() => onClose({ flag: 'cancel' }));
     if (!onCancel?.length) {
-      await onClose();
+      await onClose({ flag: 'cancel' });
     }
   }, [trackId, footerRef.props?.onCancel, onCancel, onClose]);
 
@@ -356,7 +356,11 @@ function BaseDialogContainer(
   const formRef = useRef();
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
-      if (props.trackId) {
+      if (
+        props.trackId &&
+        extra?.flag !== 'confirm' &&
+        extra?.flag !== 'cancel'
+      ) {
         defaultLogger.ui.dialog.close({
           trackId: props.trackId,
         });

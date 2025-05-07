@@ -255,6 +255,7 @@ const DialogGallery = () => (
             <Button
               onPress={() =>
                 Dialog.show({
+                  trackId: 'test-track-id',
                   title: 'Lorem ipsum',
                   icon: 'PlaceholderOutline',
                   description:

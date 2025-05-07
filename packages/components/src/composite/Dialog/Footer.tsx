@@ -101,7 +101,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
         })
       : true;
     if (result) {
-      void close();
+      void close({ flag: 'confirm' });
     }
   }, [trackIdValue, onConfirm, dialogInstance]);
 
