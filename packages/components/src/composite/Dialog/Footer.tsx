@@ -60,7 +60,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
 
   const { onConfirm, ...restProps } = footerRef.props || props || {};
 
-  const trackIdValue = (restProps as IDialogFooterProps)?.trackId;
+  const trackIdValue = (restProps as IDialogFooterProps)?.trackID;
 
   const handleConfirm = useCallback(async () => {
     if (trackIdValue) {
@@ -162,6 +162,7 @@ export function Footer(props: IDialogFooterProps) {
     confirmButtonProps = {},
     onCancelText,
     tone,
+    trackID,
   } = restProps;
   const { onCancel } = props;
   const { disabled, disabledOn, ...restConfirmButtonProps } =
@@ -176,6 +177,11 @@ export function Footer(props: IDialogFooterProps) {
         <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
           {showCancelButton ? (
             <Button
+              trackID={
+                trackID
+                  ? `${trackID}-cancel-button`
+                  : cancelButtonProps?.trackID
+              }
               flexGrow={1}
               flexBasis={0}
               $md={
@@ -227,7 +233,7 @@ function BasicFooterAction({
   onCancelText,
   confirmButtonProps = {},
   tone,
-  trackId,
+  trackID,
 }: IDialogFooterProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -244,7 +250,7 @@ function BasicFooterAction({
       onConfirmText,
       confirmButtonProps,
       onCancelText,
-      trackId,
+      trackID,
       tone,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -265,7 +271,7 @@ function BasicFooterAction({
       confirmButtonProps,
       onCancelText:
         onCancelText || intl.formatMessage({ id: ETranslations.global_cancel }),
-      trackId,
+      trackID,
       tone,
     };
     footerRef.notifyUpdate?.();
@@ -280,7 +286,7 @@ function BasicFooterAction({
     onConfirmText,
     confirmButtonProps,
     onCancelText,
-    trackId,
+    trackID,
     tone,
     footerRef,
     intl,

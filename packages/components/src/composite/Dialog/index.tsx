@@ -109,7 +109,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
-  trackId,
+  trackID,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -131,13 +131,13 @@ function DialogFrame({
   );
 
   useEffect(() => {
-    if (trackId) {
+    if (trackID) {
       defaultLogger.ui.dialog.open({
-        trackId,
+        trackID,
       });
     }
     onOpen?.();
-  }, [trackId, onOpen]);
+  }, [trackID, onOpen]);
 
   const handleBackPress = useCallback(() => {
     if (!open) {
@@ -154,9 +154,9 @@ function DialogFrame({
   }, []);
 
   const handleCancelButtonPress = useCallback(async () => {
-    if (trackId) {
+    if (trackID) {
       defaultLogger.ui.dialog.cancel({
-        trackId,
+        trackID,
       });
     }
     const cancel = onCancel || footerRef.props?.onCancel;
@@ -164,7 +164,7 @@ function DialogFrame({
     if (!onCancel?.length) {
       await onClose({ flag: 'cancel' });
     }
-  }, [trackId, footerRef.props?.onCancel, onCancel, onClose]);
+  }, [trackID, footerRef.props?.onCancel, onCancel, onClose]);
 
   const media = useMedia();
 
@@ -181,7 +181,7 @@ function DialogFrame({
         {renderContent}
       </Content>
       <Footer
-        trackId={trackId}
+        trackID={trackID}
         tone={tone}
         showFooter={showFooter}
         footerProps={footerProps}
@@ -357,19 +357,19 @@ function BaseDialogContainer(
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
       if (
-        props.trackId &&
+        props.trackID &&
         extra?.flag !== 'confirm' &&
         extra?.flag !== 'cancel'
       ) {
         defaultLogger.ui.dialog.close({
-          trackId: props.trackId,
+          trackID: props.trackID,
         });
       }
       changeIsOpen(false);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [changeIsOpen, onClose, props.trackId],
+    [changeIsOpen, onClose, props.trackID],
   );
 
   const handleIsExist = useCallback(
