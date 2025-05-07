@@ -149,6 +149,10 @@ function NetworkSelectorTriggerHomeCmp({
             testID="account-network-trigger-button-text"
             pl="$2"
             size="$bodyMd"
+            maxWidth="$28"
+            $gtXl={{
+              maxWidth: '$32',
+            }}
             flexShrink={1}
             numberOfLines={1}
           >
