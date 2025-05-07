@@ -6,6 +6,7 @@ import {
   AccountSelectorActiveAccountHome,
   AllNetworksManagerTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorTriggerForHome } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
 
@@ -20,12 +21,12 @@ function HomeSelector(props: IProps) {
       {...rest}
     >
       <AllNetworksManagerTrigger num={num} />
-      {/* {!createAddressDisabled ? (
+      {!createAddressDisabled ? (
         <AccountSelectorActiveAccountHome num={num} />
-      ) : null} */}
-      {/* {!createAddressDisabled ? (
+      ) : null}
+      {!createAddressDisabled ? (
         <DeriveTypeSelectorTriggerForHome num={num} />
-      ) : null} */}
+      ) : null}
     </XStack>
   );
 }

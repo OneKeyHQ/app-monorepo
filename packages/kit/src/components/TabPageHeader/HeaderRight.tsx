@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useIsIpadLandscape, useMedia } from '@onekeyhq/components';
+import { useIsWideScreen } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -72,10 +72,7 @@ export function HeaderRight({
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
 }) {
-  const { gtMd } = useMedia();
-  const isIpadLandscape = useIsIpadLandscape();
-  const isWideScreen =
-    !platformEnv.isNativeAndroid && (gtMd || isIpadLandscape);
+  const isWideScreen = useIsWideScreen();
   const items = useMemo(() => {
     const fixedItems = (
       <>

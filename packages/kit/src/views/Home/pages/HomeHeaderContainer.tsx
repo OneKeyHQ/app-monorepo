@@ -1,12 +1,13 @@
-import { Stack } from '@onekeyhq/components';
+import { Stack, useIsWideScreen } from '@onekeyhq/components';
 
-import HomeSelector from '../components/HomeSelector';
+import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 function HomeHeaderContainer() {
+  const isWideScreen = useIsWideScreen();
   return (
     <HomeTokenListProviderMirror>
       <Stack
@@ -21,7 +22,7 @@ function HomeHeaderContainer() {
         }}
       >
         <Stack gap="$2.5">
-          <HomeSelector />
+          {isWideScreen ? null : <UniversalSearchInput size="small" />}
           <HomeOverviewContainer />
         </Stack>
         <WalletActions

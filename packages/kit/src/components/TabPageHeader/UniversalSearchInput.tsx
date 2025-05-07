@@ -11,7 +11,11 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 
-export function UniversalSearchInput() {
+export function UniversalSearchInput({
+  size = 'large',
+}: {
+  size?: 'large' | 'small';
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
@@ -23,6 +27,7 @@ export function UniversalSearchInput() {
     });
   }, [navigation]);
 
+  const isLarge = size === 'large';
   return (
     <XStack $gtMd={{ maxWidth: 320 }} width="100%">
       <SearchBar
@@ -33,7 +38,7 @@ export function UniversalSearchInput() {
           bg: '$bgStrong',
           borderColor: '$transparent',
         }}
-        size="small"
+        size={isLarge ? 'small' : 'medium'}
         key="searchInput"
         addOns={[
           {

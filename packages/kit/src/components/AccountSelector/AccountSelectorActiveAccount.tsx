@@ -168,7 +168,7 @@ export function AccountSelectorActiveAccountHome({
   showAccountAddress = true,
 }: {
   num: number;
-  showAccountAddress: boolean;
+  showAccountAddress?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });

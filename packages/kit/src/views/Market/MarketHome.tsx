@@ -17,7 +17,9 @@ import {
   Spinner,
   Stack,
   Tab,
+  useIsWideScreen,
   useMedia,
+  XStack,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -32,6 +34,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
+import { UniversalSearchInput } from '../../components/TabPageHeader/UniversalSearchInput';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
@@ -173,13 +176,20 @@ function MarketHome() {
       />
     );
   }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
+
+  const isWideScreen = useIsWideScreen();
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>{renderTabContainer()}</Page.Body>
+      <Page.Body>
+        <XStack px="$5" pt="$2">
+          {isWideScreen ? null : <UniversalSearchInput size="small" />}
+        </XStack>
+        {renderTabContainer()}
+      </Page.Body>
     </Page>
   );
 }
