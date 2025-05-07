@@ -92,11 +92,7 @@ function RenderLines({
   );
 }
 
-function OnToastClose({
-  onClose,
-}: {
-  onClose?: IToastMessageOptions['onClose'];
-}) {
+function OnToastClose({ onClose }: { onClose?: () => void }) {
   useEffect(
     () => () => {
       onClose?.();
