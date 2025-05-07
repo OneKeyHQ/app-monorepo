@@ -8,6 +8,7 @@ import {
   Form,
   Input,
   SizableText,
+  Toast,
   XStack,
   YStack,
   useForm,
@@ -145,6 +146,11 @@ function InviteCode({
               pubkey: walletInfo.pubkey ?? '',
               isBound: true,
             },
+          });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.global_success,
+            }),
           });
           onSuccess?.();
         }
