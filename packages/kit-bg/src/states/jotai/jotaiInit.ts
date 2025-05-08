@@ -82,7 +82,6 @@ export async function jotaiInit() {
         if (
           storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom)
         ) {
-          debugger;
           const backupedInstanceMeta =
             await dbBackupTools.getBackupedInstanceMeta();
           if (backupedInstanceMeta) {
