@@ -49,15 +49,8 @@ function MarketHome() {
         <MarketTokenListNetworkSelector />
         {/* <RiskIndicatorCardDemo /> */}
         <MarketFilterBar />
-        <ScrollView
-          flex={1}
-          contentContainerStyle={{
-            flexGrow: 1,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          <MarketTokenList />
-        </ScrollView>
+
+        <MarketTokenList />
       </Page.Body>
     </Page>
   );

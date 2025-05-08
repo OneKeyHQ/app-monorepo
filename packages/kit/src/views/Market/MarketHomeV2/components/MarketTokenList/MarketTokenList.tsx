@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { Pagination, Table, XStack } from '@onekeyhq/components';
+import { Pagination, Stack, Table, XStack } from '@onekeyhq/components';
 
 import { marketTokenColumns } from './MarketTokenColumns';
 import { type IMarketToken, defaultData } from './MarketTokenData';
@@ -32,18 +32,22 @@ function MarketTokenList({
 
   return (
     <>
-      <Table<IMarketToken>
-        columns={marketTokenColumns}
-        dataSource={isLoading ? [] : paginatedData}
-        keyExtractor={(item) => item.id}
-        onRow={
-          onItemPress
-            ? (item) => ({
-                onPress: () => onItemPress(item),
-              })
-            : undefined
-        }
-      />
+      <Stack overflow="scroll" width="100%">
+        <Stack width={2000}>
+          <Table<IMarketToken>
+            columns={marketTokenColumns}
+            dataSource={isLoading ? [] : paginatedData}
+            keyExtractor={(item) => item.id}
+            onRow={
+              onItemPress
+                ? (item) => ({
+                    onPress: () => onItemPress(item),
+                  })
+                : undefined
+            }
+          />
+        </Stack>
+      </Stack>
       {!isLoading && totalPages > 1 ? (
         <XStack justifyContent="center" py="$4">
           <Pagination
