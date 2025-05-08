@@ -14,7 +14,6 @@ type IProps = {
 
 function TokenListHeader({ tableLayout }: IProps) {
   const intl = useIntl();
-  const media = useMedia();
 
   return (
     <Stack testID="Wallet-Token-List-Header">
