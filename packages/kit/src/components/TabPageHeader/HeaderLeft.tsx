@@ -21,8 +21,8 @@ import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../AccountSelector';
-import { useSpotlight } from '../Spotlight';
 import { DeriveTypeSelectorTriggerForHome } from '../AccountSelector/DeriveTypeSelectorTrigger';
+import { useSpotlight } from '../Spotlight';
 
 export function HeaderLeft({
   sceneName,
