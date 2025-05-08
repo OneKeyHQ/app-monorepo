@@ -13,6 +13,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -29,12 +30,12 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
-import TabCountButton from '../../components/MobileBrowser/TabCountButton';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
@@ -234,16 +235,21 @@ function MobileBrowser() {
 
   return (
     <Page fullPage>
-      <Page.Header headerShown={false} />
       {/* custom header */}
-      <XStack
-        pt={top}
-        px="$5"
-        alignItems="center"
-        my="$1"
-        mt={platformEnv.isNativeAndroid ? '$3' : undefined}
-      >
-        {!displayHomePage ? (
+
+      {displayHomePage ? (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Discovery}
+        />
+      ) : (
+        <XStack
+          pt={top}
+          px="$5"
+          alignItems="center"
+          my="$1"
+          mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+        >
           <Stack
             onPress={
               isNativeMobile
@@ -256,36 +262,11 @@ function MobileBrowser() {
               mr="$4"
             />
           </Stack>
-        ) : null}
 
-        {!displayHomePage ? (
           <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
-        ) : (
-          <XStack
-            width="100%"
-            position="relative"
-            justifyContent="center"
-            alignItems="center"
-            $gtSm={{
-              justifyContent: 'space-between',
-            }}
-          >
-            <BrowserTitle />
-
-            <XStack gap="$2" position="absolute" right={0} alignItems="center">
-              <Stack>
-                <HistoryIconButton />
-              </Stack>
-
-              <TabCountButton
-                hideWhenEmpty={displayHomePage}
-                testID="browser-header-tabs"
-              />
-            </XStack>
-          </XStack>
-        )}
-        <HeaderRightToolBar />
-      </XStack>
+          <HeaderRightToolBar />
+        </XStack>
+      )}
       <Page.Body>
         <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
           <HandleRebuildBrowserData />

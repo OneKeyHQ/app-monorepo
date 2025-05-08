@@ -275,13 +275,7 @@ export function HomePageView({
 
   const renderHomePage = useCallback(() => {
     if (!ready) {
-      return (
-        <TabPageHeader
-          showHeaderRight
-          sceneName={sceneName}
-          tabRoute={ETabRoutes.Home}
-        />
-      );
+      return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
     let content = (
@@ -296,15 +290,7 @@ export function HomePageView({
     }
     return (
       <>
-        <TabPageHeader
-          showHeaderRight
-          sceneName={sceneName}
-          tabRoute={ETabRoutes.Home}
-        >
-          {media.gtMd && sceneName === EAccountSelectorSceneName.home ? (
-            <UniversalSearchInput key="searchInput" />
-          ) : null}
-        </TabPageHeader>
+        <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
         <Page.Body>
           <WalletBackupAlert />
           <NetworkAlert />
@@ -322,7 +308,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, media.gtMd, renderHomePageContent]);
+  }, [ready, wallet, sceneName, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,
