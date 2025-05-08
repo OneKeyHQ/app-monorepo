@@ -1,4 +1,5 @@
 import appGlobals from '../appGlobals';
+import platformEnv from '../platformEnv';
 
 import { getExpoDeviceResult } from './utils/expoDevice';
 import { getUAParserResult } from './utils/uaParser';
@@ -56,6 +57,10 @@ const appDeviceInfo: IAppDeviceInfo = {
       appDeviceInfoData.device.model ||
       appDeviceInfoData.os.name ||
       appDeviceInfoData.device.vendor;
+    // iOS use modelName first
+    if (platformEnv.isNativeIOS && appDeviceInfoData.device.model) {
+      appDeviceInfoData.displayName = appDeviceInfoData.device.model;
+    }
     return appDeviceInfoData;
   },
 };
