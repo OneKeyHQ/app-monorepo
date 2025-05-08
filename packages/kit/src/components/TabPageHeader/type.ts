@@ -8,6 +8,4 @@ export interface ITabPageHeaderProp {
   children?: ReactNode;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
-  showHeaderRight?: boolean;
-  showCustomHeaderRight?: IPageHeaderProps['headerRight'];
 }

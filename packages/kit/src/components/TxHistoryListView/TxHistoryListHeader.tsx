@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,10 +14,6 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
-  SEARCH_DEBOUNCE_INTERVAL,
-  SEARCH_KEY_MIN_LENGTH,
-} from '@onekeyhq/shared/src/consts/walletConsts';
-import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -26,10 +21,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import {
-  useHistoryListActions,
-  useSearchKeyAtom,
-} from '../../states/jotai/contexts/historyList';
 import { ListItem } from '../ListItem';
 import { ListToolToolBar } from '../ListToolBar';
 
@@ -45,9 +36,7 @@ const filterScamHistorySupportedNetworkIds =
 function TxHistoryListHeader({ filteredHistory }: IProps) {
   const intl = useIntl();
   const media = useMedia();
-  const [searchKey] = useSearchKeyAtom();
   const [settings, setSettings] = useSettingsPersistAtom();
-  const { updateSearchKey } = useHistoryListActions().current;
 
   const handleFilterScamHistoryOnChange = useCallback(
     (value: boolean) => {
@@ -74,16 +63,6 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
   return (
     <Stack>
       <ListToolToolBar
-        searchProps={{
-          onChangeText: debounce(
-            (text) => updateSearchKey(text),
-            SEARCH_DEBOUNCE_INTERVAL,
-          ),
-          searchResultCount:
-            searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
-              ? filteredHistory.length
-              : 0,
-        }}
         headerRight={
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_settings })}

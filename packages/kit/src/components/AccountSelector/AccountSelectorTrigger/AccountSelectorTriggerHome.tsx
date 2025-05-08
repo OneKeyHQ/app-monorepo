@@ -11,6 +11,7 @@ export function AccountSelectorTriggerHome({
 }) {
   return (
     <AccountSelectorTriggerBase
+      horizontalLayout
       editable
       autoWidthForHome
       num={num}

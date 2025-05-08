@@ -8,7 +8,11 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
-export function PrimeHeaderIconButton() {
+export function PrimeHeaderIconButton({
+  onPress,
+}: {
+  onPress?: () => void | Promise<void>;
+}) {
   const { isReady, user } = usePrimeAuthV2();
   const navigation = useAppNavigation();
   const [isHover, setIsHover] = useState(false);
@@ -22,7 +26,10 @@ export function PrimeHeaderIconButton() {
     [themeVariant],
   );
 
-  const onPrimeButtonPressed = useCallback(() => {
+  const onPrimeButtonPressed = useCallback(async () => {
+    if (onPress) {
+      await onPress();
+    }
     if (!isReady) {
       Toast.message({
         title: 'Prime not ready.',
@@ -35,7 +42,7 @@ export function PrimeHeaderIconButton() {
     });
 
     setIsHover(false);
-  }, [navigation, isReady]);
+  }, [onPress, isReady, navigation]);
 
   return (
     <Stack testID="headerRightPrimeButton">

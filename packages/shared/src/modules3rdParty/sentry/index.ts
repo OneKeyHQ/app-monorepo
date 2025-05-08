@@ -2,7 +2,6 @@ import type { ComponentType } from 'react';
 
 import * as Sentry from '@sentry/react';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EWebEmbedPostMessageType,
   postMessage,
