@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Dimensions } from 'react-native';
+import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -39,3 +40,12 @@ export const useIsIpadLandscape = platformEnv.isNativeIOSPad
       return isLandscape;
     }
   : () => false;
+
+export const useIsWideScreen = () => {
+  const { gtMd } = useMedia();
+  const isLandscape = useIsIpadLandscape();
+  return (
+    !platformEnv.isNativeAndroid &&
+    ((!platformEnv.isNative && gtMd) || isLandscape)
+  );
+};

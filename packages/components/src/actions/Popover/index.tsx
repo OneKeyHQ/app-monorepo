@@ -39,6 +39,7 @@ import type {
 
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
+  showHeader?: boolean;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
   openPopover?: () => void;
@@ -134,6 +135,7 @@ function RawPopover({
   placement = 'bottom-end',
   usingSheet = true,
   allowFlip = true,
+  showHeader = true,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
@@ -316,43 +318,46 @@ function RawPopover({
               }}
             >
               {/* header */}
-              <XStack
-                borderTopLeftRadius="$6"
-                borderTopRightRadius="$6"
-                backgroundColor="$bg"
-                mx="$5"
-                px="$5"
-                py="$4"
-                justifyContent="space-between"
-                alignItems="center"
-                borderCurve="continuous"
-                gap="$2"
-              >
-                {typeof title === 'string' ? (
-                  <SizableText
-                    size="$headingXl"
-                    color="$text"
-                    flexShrink={1}
-                    style={{
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {title}
-                  </SizableText>
-                ) : (
-                  title
-                )}
-                <IconButton
-                  icon="CrossedSmallOutline"
-                  size="small"
-                  hitSlop={NATIVE_HIT_SLOP}
-                  onPress={closePopover}
-                  testID="popover-btn-close"
-                />
-              </XStack>
-
+              {showHeader ? (
+                <XStack
+                  borderTopLeftRadius="$6"
+                  borderTopRightRadius="$6"
+                  backgroundColor="$bg"
+                  mx="$5"
+                  px="$5"
+                  py="$4"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  borderCurve="continuous"
+                  gap="$2"
+                >
+                  {typeof title === 'string' ? (
+                    <SizableText
+                      size="$headingXl"
+                      color="$text"
+                      flexShrink={1}
+                      style={{
+                        wordBreak: 'break-all',
+                      }}
+                    >
+                      {title}
+                    </SizableText>
+                  ) : (
+                    title
+                  )}
+                  <IconButton
+                    icon="CrossedSmallOutline"
+                    size="small"
+                    hitSlop={NATIVE_HIT_SLOP}
+                    onPress={closePopover}
+                    testID="popover-btn-close"
+                  />
+                </XStack>
+              ) : null}
               <TMPopover.Sheet.ScrollView
                 marginTop="$-0.5"
+                borderTopLeftRadius={showHeader ? undefined : '$6'}
+                borderTopRightRadius={showHeader ? undefined : '$6'}
                 borderBottomLeftRadius="$6"
                 borderBottomRightRadius="$6"
                 backgroundColor="$bg"

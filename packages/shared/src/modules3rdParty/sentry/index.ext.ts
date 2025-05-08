@@ -3,8 +3,6 @@ import type { ComponentType } from 'react';
 
 import * as Sentry from '@sentry/react';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
 import appGlobals from '../../appGlobals';
 
 import {
