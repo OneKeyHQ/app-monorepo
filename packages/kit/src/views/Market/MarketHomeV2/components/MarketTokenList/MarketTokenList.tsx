@@ -32,8 +32,14 @@ function MarketTokenList({
 
   return (
     <>
-      <Stack overflow="scroll" width="100%">
-        <Stack width={2000}>
+      <Stack
+        className="normal-scrollbar"
+        $platform-web={{
+          overflow: 'auto',
+        }}
+        width="100%"
+      >
+        <Stack width={1500}>
           <Table<IMarketToken>
             columns={marketTokenColumns}
             dataSource={isLoading ? [] : paginatedData}
