@@ -1,6 +1,6 @@
 import { memo, useContext } from 'react';
 
-import { Switch } from '@onekeyhq/components';
+import { Checkbox } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
@@ -36,20 +36,21 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
       titleMatch={network.titleMatch}
       testID={`all-networks-manager-item-${network.id}`}
     >
-      <Switch
-        size="small"
+      <Checkbox
         value={isEnabledInAllNetworks}
         onChange={(value) => {
-          setNetworksState((prev) => ({
-            enabledNetworks: {
-              ...prev.enabledNetworks,
-              [network.id]: value,
-            },
-            disabledNetworks: {
-              ...prev.disabledNetworks,
-              [network.id]: !value,
-            },
-          }));
+          if (typeof value === 'boolean') {
+            setNetworksState((prev) => ({
+              enabledNetworks: {
+                ...prev.enabledNetworks,
+                [network.id]: value,
+              },
+              disabledNetworks: {
+                ...prev.disabledNetworks,
+                [network.id]: !value,
+              },
+            }));
+          }
         }}
       />
     </ListItem>

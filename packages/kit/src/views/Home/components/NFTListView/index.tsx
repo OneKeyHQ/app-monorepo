@@ -21,7 +21,6 @@ import {
 import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
-import { NFTListHeader } from './NFTListHeader';
 import { NFTListItem } from './NFTListItem';
 
 import type { ListRenderItemInfo } from 'react-native';
@@ -161,7 +160,6 @@ function NFTListView(props: IProps) {
       numColumns={numColumns}
       data={filteredNfts}
       renderItem={handleRenderItem}
-      ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>

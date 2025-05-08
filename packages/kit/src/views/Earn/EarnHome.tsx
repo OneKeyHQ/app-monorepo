@@ -14,8 +14,6 @@ import {
   Badge,
   Banner,
   Button,
-  HeaderButtonGroup,
-  HeaderIconButton,
   Icon,
   IconButton,
   Image,
@@ -61,7 +59,6 @@ import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useReferFriends } from '../../hooks/useReferFriends';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
@@ -892,40 +889,9 @@ function BasicEarnHome() {
 
   const isLoading = !!isFetchingAccounts;
 
-  const { shareReferRewards } = useReferFriends();
-
-  const handleShareReferRewards = useCallback(() => {
-    void shareReferRewards();
-  }, [shareReferRewards]);
-
-  const renderCustomHeaderRight = useCallback(
-    () => (
-      <HeaderButtonGroup
-        testID="ear-Page-Header-Right"
-        className="app-region-no-drag"
-      >
-        <HeaderIconButton
-          title={intl.formatMessage({ id: ETranslations.referral_title })}
-          icon="GiftOutline"
-          onPress={handleShareReferRewards}
-        />
-      </HeaderButtonGroup>
-    ),
-    [intl, handleShareReferRewards],
-  );
-
-  const headerRight = useMemo(
-    () => renderCustomHeaderRight(),
-    [renderCustomHeaderRight],
-  );
-
   return (
     <Page fullPage>
       <TabPageHeader
-        showHeaderRight
-        // showCustomHeaderRight={
-        //   platformEnv.isNative ? renderCustomHeaderRight : undefined
-        // }
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
       >
