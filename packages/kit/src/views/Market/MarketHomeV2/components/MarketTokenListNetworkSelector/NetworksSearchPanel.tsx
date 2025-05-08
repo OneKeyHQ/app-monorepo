@@ -5,8 +5,6 @@ import { ChainSelectorListView } from '@onekeyhq/kit/src/views/ChainSelector/com
 import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { swapNetworksIncludeAllNetwork } from './data';
-
 // TODO: check IServerNetworkMatch type usage from ChainSelectorListView
 // The default swapNetworksIncludeAllNetwork data structure is NOT IServerNetworkMatch[]
 // and might cause runtime issues if ChainSelectorListView relies on full IServerNetwork properties.
@@ -23,7 +21,7 @@ export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
   onPressItem,
 }) => {
   // Use the prop if provided, otherwise use the default swap data
-  const networksData = networksProp ?? swapNetworksIncludeAllNetwork;
+  const networksData = networksProp;
 
   // Memoize the cast to avoid unnecessary recalculations
   const networksForListView = useMemo(
