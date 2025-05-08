@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getDefaultEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-import { swapNetworksIncludeAllNetwork } from './data';
 import MarketNetworkFilter from './MarketNetworkFilter';
 
 export const swapNetworksCommonCount = 10;
@@ -14,13 +15,39 @@ interface IMarketTokenListNetworkSelectorProps {
   onSelectNetworkId?: (networkId: string) => void;
 }
 
+const mapServerNetworkToSwapNetwork = (
+  serverNetwork?: IServerNetwork,
+): ISwapNetwork | undefined => {
+  if (!serverNetwork) {
+    return undefined;
+  }
+  return {
+    networkId: serverNetwork.id, // Map id to networkId
+    name: serverNetwork.name,
+    symbol: serverNetwork.symbol,
+    shortcode: serverNetwork.shortcode,
+    logoURI: serverNetwork.logoURI,
+    isAllNetworks: serverNetwork.isAllNetworks,
+    // Optional ISwapNetworkBase properties will be undefined if not in IServerNetwork
+  };
+};
+
+const mapServerNetworksToSwapNetworks = (
+  serverNetworks: IServerNetwork[],
+): ISwapNetwork[] =>
+  serverNetworks.map(mapServerNetworkToSwapNetwork).filter(Boolean);
+
 function MarketTokenListNetworkSelector({
   selectedNetworkId: _selectedNetworkId,
   onSelectNetworkId,
 }: IMarketTokenListNetworkSelectorProps) {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
-  >(() => swapNetworksIncludeAllNetwork?.[0]);
+  >(() =>
+    mapServerNetworkToSwapNetwork(
+      getDefaultEnabledNetworksInAllNetworks()?.[0],
+    ),
+  );
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
@@ -37,11 +64,12 @@ function MarketTokenListNetworkSelector({
         // TODO: You can set the fetched chains to state here if needed
         // For example:
         // if (data && data.length > 0) {
-        //   setAvailableNetworks(data);
+        //   setAvailableNetworks(mapServerNetworksToSwapNetworks(data)); // Assuming data might be IServerNetwork[]
         //   setCurrentSelectNetwork(data[0]);
         //   onSelectNetworkId?.(data[0].networkId);
         // }
       })
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       .catch((error: unknown) => {
         console.error('Failed to fetch market chains:', error);
       });
@@ -49,7 +77,9 @@ function MarketTokenListNetworkSelector({
 
   return (
     <MarketNetworkFilter
-      networks={swapNetworksIncludeAllNetwork}
+      networks={mapServerNetworksToSwapNetworks(
+        getDefaultEnabledNetworksInAllNetworks(),
+      )}
       selectedNetwork={currentSelectNetwork}
       onSelectNetwork={onSelectCurrentNetwork}
       moreNetworksCount={2}

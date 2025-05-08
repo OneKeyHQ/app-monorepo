@@ -2,15 +2,14 @@ import { useEffect } from 'react';
 
 import { Animated, Easing } from 'react-native';
 
-import { Page, ScrollView, useMedia } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { TabPageHeader } from '../../../components/TabPageHeader';
 import useHomePageWidth from '../../Home/hooks/useHomePageWidth';
-import { MarketHomeHeader } from '../components/MarketHomeHeader';
-import { MarketHomeHeader as MDMarketHomeHeader } from '../components/MarketHomeHeader.md';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import { MarketFilterBar } from './components/MarketFilterBar';
@@ -36,18 +35,15 @@ function MarketHome() {
     }).start();
   }, [pageWidth]);
 
-  const { gtMd } = useMedia();
-
   return (
     <Page>
-      {gtMd && !platformEnv.isNativeIOSPad ? (
-        <MarketHomeHeader />
-      ) : (
-        <MDMarketHomeHeader />
-      )}
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Market}
+      />
       <Page.Body>
         <MarketTokenListNetworkSelector />
-        {/* <RiskIndicatorCardDemo /> */}
+
         <MarketFilterBar />
 
         <MarketTokenList />
