@@ -95,7 +95,6 @@ export function HeaderLeft({
           <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
         ) : null}
         <AccountSelectorActiveAccountHome num={0} showAccountAddress={false} />
-        <DeriveTypeSelectorTriggerForHome num={0} />
       </XStack>
     );
   }, [gtMd, intl, sceneName, spotlightVisible, tabRoute, tourVisited]);
