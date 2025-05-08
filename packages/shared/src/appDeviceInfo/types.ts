@@ -1,7 +1,6 @@
 import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
 
-import type { IExpoDeviceData } from './appDeviceInfo.native';
-import type { UAParser } from 'ua-parser-js';
+import type { IExpoDeviceData } from './utils/expoDevice';
 
 export type IBrowserEngine =
   | 'Amaya'

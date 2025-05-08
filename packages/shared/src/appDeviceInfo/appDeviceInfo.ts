@@ -1,8 +1,9 @@
+import { uniq } from 'lodash';
+
 import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
 
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
-import { uniq } from 'lodash';
 
 import { getExpoDeviceResult } from './utils/expoDevice';
 import { getUAParserResult } from './utils/uaParser';
