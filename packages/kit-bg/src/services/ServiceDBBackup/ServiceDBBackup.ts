@@ -10,6 +10,7 @@ import {
   INSTANCE_META_BACKUP_KEY,
 } from '@onekeyhq/shared/types/desktop';
 
+import { INDEXED_DB_BUCKET_PRESET_STORE_NAMES } from '../../dbs/local/consts';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { migrateAccountBucketRecords } from '../../migrations/indexedToBucketsMigration/migrateRecordsFn';
@@ -36,7 +37,6 @@ class ServiceDBBackup extends ServiceBase {
     super({ backgroundApi });
   }
 
-  // TODO backup to extensionStorage
   @backgroundMethod()
   async backupDatabaseDaily(): Promise<void> {
     const canBackup =
@@ -56,6 +56,7 @@ class ServiceDBBackup extends ServiceBase {
       return;
     }
 
+    // backup instance meta
     try {
       const settings = await settingsPersistAtom.get();
       const instanceMeta: IInstanceMetaBackup = {
@@ -69,6 +70,7 @@ class ServiceDBBackup extends ServiceBase {
       console.error('ServiceDBBackup backup instance meta error', error);
     }
 
+    // backup accounts db
     try {
       const nativeDb = (await this.backgroundApi.localDb
         .readyDb) as IndexedDBAgent;
@@ -104,15 +106,7 @@ class ServiceDBBackup extends ServiceBase {
       );
 
       const backupTx = backupDB.transaction(
-        [
-          ELocalDBStoreNames.Account,
-          ELocalDBStoreNames.CloudSyncItem,
-          ELocalDBStoreNames.Context,
-          ELocalDBStoreNames.Credential,
-          ELocalDBStoreNames.Device,
-          ELocalDBStoreNames.IndexedAccount,
-          ELocalDBStoreNames.Wallet,
-        ],
+        INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
         'readwrite',
       );
 

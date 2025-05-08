@@ -78,15 +78,17 @@ export async function jotaiInit() {
       );
       // save initValue to storage if storageValue is undefined
       if (isNil(storageValue)) {
-        // TODO initFrom backup
+        // initFrom backup
         if (
-          storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom)
+          isNil(storageValue) &&
+          storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
+          isPlainObject(initValue)
         ) {
           const backupedInstanceMeta =
             await dbBackupTools.getBackupedInstanceMeta();
           if (backupedInstanceMeta) {
             const initValueToUpdate = cloneDeep(
-              initValue,
+              initValue || {},
             ) as ISettingsPersistAtom;
 
             if (backupedInstanceMeta.instanceId) {

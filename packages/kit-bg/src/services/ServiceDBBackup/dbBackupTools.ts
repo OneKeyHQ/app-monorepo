@@ -18,7 +18,7 @@ async function backupInstanceMeta(instanceMeta: IInstanceMetaBackup) {
   try {
     if (platformEnv.isDesktop) {
       await globalThis.desktopApi?.storeSetItemAsync(
-        EDesktopStoreKeys.AppInstanceMetaBackup,
+        EDesktopStoreKeys.AppInstanceMetaBackup, // INSTANCE_META_BACKUP_KEY,
         instanceMeta,
       );
     }
