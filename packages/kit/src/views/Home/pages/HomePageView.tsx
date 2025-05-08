@@ -3,16 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
 
-import {
-  Button,
-  Icon,
-  IconButton,
-  Page,
-  Stack,
-  Tab,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, Page, Stack, Tab, YStack, useMedia } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -193,6 +184,9 @@ export function HomePageView({
       Keyboard.dismiss();
     }
     prevPageIndex.current = pageIndex;
+    appEventBus.emit(EAppEventBusNames.HomeTabsIndexChanged, {
+      index: pageIndex,
+    });
   }, []);
 
   const renderTabs = useCallback(
