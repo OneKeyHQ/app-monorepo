@@ -8,6 +8,8 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import appDeviceInfo from '../appDeviceInfo/appDeviceInfo';
+import { IAppDeviceInfoData } from '../appDeviceInfo/types';
 import { defaultColorScheme } from '../config/appConfig';
 
 import { headerPlatform } from './InterceptorConsts';
@@ -56,6 +58,7 @@ export async function checkRequestIsOneKeyDomain({
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
 export async function getRequestHeaders() {
+  const appDeviceInfoData = await appDeviceInfo.getDeviceInfo();
   const settings: ISettingsPersistAtom =
     await requestHelper.getSettingsPersistAtom();
   const valueSettings: ISettingsValuePersistAtom =

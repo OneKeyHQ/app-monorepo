@@ -1,7 +1,10 @@
+import { useIntl } from 'react-intl';
+
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -33,6 +36,7 @@ function PrimeBenefitsItem({
 
 export function PrimeBenefitsList() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
   return (
     <Stack py="$2">
       <PrimeBenefitsItem
@@ -75,8 +79,12 @@ export function PrimeBenefitsList() {
       />
       <PrimeBenefitsItem
         icon="PhoneOutline"
-        title="Device management"
-        subtitle="Access Prime on up to 5 devices."
+        title={intl.formatMessage({
+          id: ETranslations.prime_device_management,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_device_management_desc,
+        })}
         onPress={() => {
           navigation.pushFullModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDeviceLimit,
