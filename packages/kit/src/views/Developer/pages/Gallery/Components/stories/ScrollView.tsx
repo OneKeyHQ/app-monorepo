@@ -1,11 +1,30 @@
 import { useRef } from 'react';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
-import { Button, ScrollView, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  ScrollView,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const BasicScrollViewDemo = () => <ScrollView h="$10" bg="red" />;
+const BasicScrollViewDemo = () => (
+  <ScrollView h="$40" bg="$green2">
+    <XStack gap="$2">
+      {Array.from({ length: 20 }).map((_, index) => (
+        <Stack key={index} bg="$red5" height="$16" width="$16" />
+      ))}
+    </XStack>
+    <YStack gap="$2" mt="$2">
+      {Array.from({ length: 20 }).map((_, index) => (
+        <Stack key={index} bg="$yellow5" height="$16" width="$16" />
+      ))}
+    </YStack>
+  </ScrollView>
+);
 
 const ScrollViewDemo = () => {
   const ref = useRef<IScrollViewRef | null>(null);

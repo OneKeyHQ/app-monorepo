@@ -13,7 +13,6 @@ const SwapPageContainer = () => {
   return (
     <Page fullPage>
       <TabPageHeader
-        showHeaderRight
         sceneName={EAccountSelectorSceneName.swap}
         tabRoute={ETabRoutes.Swap}
       />
