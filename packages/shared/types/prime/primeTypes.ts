@@ -16,6 +16,7 @@ export type IPrimeDeviceInfo = {
   instanceId: string;
   lastLoginTime: string;
   platform: string;
+  platformName: string;
   version: string;
   deviceName: string;
 };

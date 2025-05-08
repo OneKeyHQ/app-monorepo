@@ -83,6 +83,8 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale.toLowerCase(),
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
+    [normalizeHeaderKey('X-Onekey-Request-Platform-Name')]:
+      appDeviceInfoData.displayName || 'Unknown',
     [normalizeHeaderKey('X-Onekey-Request-Device-Name')]:
       platformEnv.appFullName,
     [normalizeHeaderKey('X-Onekey-Request-Version')]:

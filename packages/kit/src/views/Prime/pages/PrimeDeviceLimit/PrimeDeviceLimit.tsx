@@ -151,7 +151,9 @@ export default function PrimeDeviceLimit() {
               <ListItem
                 key={device.instanceId}
                 icon={getDeviceIcon(device)}
-                title={device.deviceName}
+                title={[device.deviceName, device.version]
+                  .filter(Boolean)
+                  .join(' ')}
                 subtitle={`${device.platform} ${device.instanceId?.slice(
                   0,
                   8,
