@@ -4,14 +4,21 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  EDesktopStoreKeys,
+  type IInstanceMetaBackup,
+  INSTANCE_META_BACKUP_KEY,
+} from '@onekeyhq/shared/types/desktop';
 
-import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
-import { EIndexedDBBucketNames } from '../dbs/local/types';
-import { migrateAccountBucketRecords } from '../migrations/indexedToBucketsMigration/migrateRecordsFn';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import { EIndexedDBBucketNames } from '../../dbs/local/types';
+import { migrateAccountBucketRecords } from '../../migrations/indexedToBucketsMigration/migrateRecordsFn';
+import { settingsPersistAtom } from '../../states/jotai/atoms';
+import ServiceBase from '../ServiceBase';
 
-import ServiceBase from './ServiceBase';
+import dbBackupTools from './dbBackupTools';
 
-import type { IndexedDBAgent } from '../dbs/local/indexed/IndexedDBAgent';
+import type { IndexedDBAgent } from '../../dbs/local/indexed/IndexedDBAgent';
 import type {
   IDBAccount,
   IDBCloudSyncItem,
@@ -20,8 +27,8 @@ import type {
   IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
-} from '../dbs/local/types';
-import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+} from '../../dbs/local/types';
+import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 
 @backgroundClass()
 class ServiceDBBackup extends ServiceBase {
@@ -32,7 +39,9 @@ class ServiceDBBackup extends ServiceBase {
   // TODO backup to extensionStorage
   @backgroundMethod()
   async backupDatabaseDaily(): Promise<void> {
-    if (!platformEnv.isRuntimeBrowser) {
+    const canBackup =
+      platformEnv.isExtension || platformEnv.isDesktop || platformEnv.isWeb;
+    if (!canBackup) {
       return;
     }
 
@@ -45,6 +54,19 @@ class ServiceDBBackup extends ServiceBase {
         })
     ) {
       return;
+    }
+
+    try {
+      const settings = await settingsPersistAtom.get();
+      const instanceMeta: IInstanceMetaBackup = {
+        instanceId: settings.instanceId,
+        sensitiveEncodeKey: settings.sensitiveEncodeKey,
+        instanceIdBackup: settings.instanceIdBackup,
+      };
+
+      await dbBackupTools.backupInstanceMeta(instanceMeta);
+    } catch (error) {
+      console.error('ServiceDBBackup backup instance meta error', error);
     }
 
     try {

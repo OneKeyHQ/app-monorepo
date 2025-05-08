@@ -1,3 +1,5 @@
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ISimpleDBAppStatus {
@@ -18,4 +20,14 @@ export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStat
   entityName = 'appStatus';
 
   override enableCache = true;
+
+  @backgroundMethod()
+  async clearLastDBBackupTimestamp() {
+    await this.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        lastDBBackupTime: undefined,
+      }),
+    );
+  }
 }

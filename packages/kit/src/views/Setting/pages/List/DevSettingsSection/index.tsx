@@ -660,6 +660,17 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        title="Clear Last DB Backup Timestamp"
+        subtitle="清除最后一次 DB 备份时间戳"
+        onPress={async () => {
+          await backgroundApiProxy.simpleDb.appStatus.clearLastDBBackupTimestamp();
+          Toast.success({
+            title: 'success',
+          });
+        }}
+      />
+
+      <SectionPressItem
         title="Clear Cached Password"
         subtitle="清除缓存密码"
         onPress={async () => {

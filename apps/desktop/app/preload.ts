@@ -6,8 +6,11 @@ import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
 import type {
+  EDesktopStoreKeys,
   IDesktopAppState,
   IDesktopMainProcessDevOnlyApiParams,
+  IDesktopStoreMap,
+  IDesktopStoreUpdateSettings,
   IMediaType,
   IPrefType,
 } from '@onekeyhq/shared/types/desktop';
@@ -18,9 +21,7 @@ import type {
 } from '@onekeyhq/shared/types/notification';
 
 import { ipcMessageKeys } from './config';
-import { staticPath } from './resoucePath';
 
-import type { IUpdateSettings } from './libs/store';
 import type { IMacBundleInfo } from './libs/utils';
 
 export interface IVerifyUpdateParams {
@@ -60,6 +61,17 @@ export type IDesktopAPI = {
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
   secureDelItemAsync: (key: string) => Promise<void>;
+
+  storeSetItemAsync: <T extends EDesktopStoreKeys>(
+    key: T,
+    value: IDesktopStoreMap[T],
+  ) => Promise<void>;
+  storeGetItemAsync: <T extends EDesktopStoreKeys>(
+    key: T,
+  ) => Promise<IDesktopStoreMap[T]>;
+  storeDelItemAsync: (key: EDesktopStoreKeys) => Promise<void>;
+  storeClear: () => Promise<void>;
+
   reloadBridgeProcess: () => void;
   addIpcEventListener: (
     event: string,
@@ -81,7 +93,7 @@ export type IDesktopAPI = {
   manualInstallPackage: (event: IInstallUpdateParams) => void;
   getPreviousUpdateBuildNumber: () => string;
   clearUpdate: () => void;
-  setAutoUpdateSettings: (settings: IUpdateSettings) => void;
+  setAutoUpdateSettings: (settings: IDesktopStoreUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
@@ -310,6 +322,21 @@ const desktopApi = Object.freeze({
   secureDelItemAsync(key: string) {
     return ipcRenderer.sendSync(ipcMessageKeys.SECURE_DEL_ITEM_ASYNC, { key });
   },
+
+  storeSetItemAsync: async <T extends EDesktopStoreKeys>(
+    key: T,
+    value: IDesktopStoreMap[T],
+  ) =>
+    ipcRenderer.sendSync(ipcMessageKeys.STORE_SET_ITEM_ASYNC, {
+      key,
+      value,
+    }),
+  storeGetItemAsync: async <T extends EDesktopStoreKeys>(key: T) =>
+    ipcRenderer.sendSync(ipcMessageKeys.STORE_GET_ITEM_ASYNC, { key }),
+  storeDelItemAsync: async <T extends EDesktopStoreKeys>(key: T) =>
+    ipcRenderer.sendSync(ipcMessageKeys.STORE_DEL_ITEM_ASYNC, { key }),
+  storeClear: async () => ipcRenderer.sendSync(ipcMessageKeys.STORE_CLEAR),
+
   reloadBridgeProcess: () => {
     ipcRenderer.send(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS);
   },
@@ -335,7 +362,7 @@ const desktopApi = Object.freeze({
       ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
     ),
   clearUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR),
-  setAutoUpdateSettings: (settings: IUpdateSettings) =>
+  setAutoUpdateSettings: (settings: IDesktopStoreUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
   clearAutoUpdateSettings: () =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR_SETTINGS),
