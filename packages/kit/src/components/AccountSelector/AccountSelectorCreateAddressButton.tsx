@@ -48,7 +48,7 @@ export function AccountSelectorCreateAddressButton({
     walletId: IDBWalletId | undefined;
     networkId: string | undefined;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes;
+    deriveType: IAccountDeriveTypes | undefined;
   };
   buttonRender?: (props: IButtonProps) => React.ReactNode;
   onCreateDone?: (
@@ -146,13 +146,21 @@ export function AccountSelectorCreateAddressButton({
     if (isLoadingRef.current) {
       return;
     }
+    if (!accountRef.current?.deriveType) {
+      return;
+    }
+    const deriveType0 = accountRef.current.deriveType;
     isLoadingRef.current = true;
     setAccountManualCreatingAtom((prev) => ({
       ...prev,
       key: manualCreatingKey,
       isLoading: true,
     }));
-    setAccountIsAutoCreating(accountRef.current);
+    const accountToCreate = {
+      ...accountRef.current,
+      deriveType: deriveType0,
+    };
+    setAccountIsAutoCreating(accountToCreate);
     let resp:
       | {
           walletId: string | undefined;
@@ -161,9 +169,9 @@ export function AccountSelectorCreateAddressButton({
         }
       | undefined;
     try {
-      if (process.env.NODE_ENV !== 'production' && account?.walletId) {
+      if (process.env.NODE_ENV !== 'production' && accountToCreate.walletId) {
         const wallet = await serviceAccount.getWallet({
-          walletId: account?.walletId,
+          walletId: accountToCreate.walletId,
         });
         console.log({ wallet });
       }
@@ -193,7 +201,7 @@ export function AccountSelectorCreateAddressButton({
       resp = await createAddress({
         num,
         selectAfterCreate,
-        account,
+        account: accountToCreate,
         createAllDeriveTypes,
         customNetworks,
       });
@@ -212,7 +220,6 @@ export function AccountSelectorCreateAddressButton({
     setAccountManualCreatingAtom,
     setAccountIsAutoCreating,
     manualCreatingKey,
-    account,
     createAllEnabledNetworks,
     networkId,
     createAddress,
@@ -229,7 +236,7 @@ export function AccountSelectorCreateAddressButton({
       isFocused: boolean;
       walletId: string | undefined;
       networkId: string | undefined;
-      deriveType: IAccountDeriveTypes;
+      deriveType: IAccountDeriveTypes | undefined;
       autoCreateAddress: boolean | undefined;
     }) => {
       if (

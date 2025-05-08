@@ -66,7 +66,7 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
       pairs = pairs.concat(recordPairs);
     }
 
-    return pairs;
+    return pairs.filter(Boolean);
   }
 
   abstract withTransaction<T>(

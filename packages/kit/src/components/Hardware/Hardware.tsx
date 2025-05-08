@@ -426,6 +426,10 @@ export function EnterPhase({
                 })}
               </SizableText>
               <Popover
+                placement="bottom"
+                floatingPanelProps={{
+                  width: '$80',
+                }}
                 title={intl.formatMessage({
                   id: ETranslations.passphrase_allowed_characters_title,
                 })}
@@ -443,7 +447,11 @@ export function EnterPhase({
                       pt: '$0',
                     }}
                   >
-                    <Anchor href="https://www.ascii-code.com/" size="$bodyMd">
+                    <Anchor
+                      href="https://www.ascii-code.com/"
+                      size="$bodyMd"
+                      color="$textInfo"
+                    >
                       {intl.formatMessage({
                         id: ETranslations.passphrase_allowed_characters_desc,
                       })}

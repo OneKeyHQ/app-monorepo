@@ -1,10 +1,16 @@
+import { useEffect } from 'react';
+
+import { useNavigation } from 'react-router-dom';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   IconButton,
   Page,
   View,
+  rootNavigationRef,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -12,10 +18,18 @@ import type {
 
 import { Actions, TermsAndPrivacy, Welcome } from './components';
 
-export function GetStarted(
-  _props: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>,
-) {
-  const { top } = useSafeAreaInsets();
+export function GetStarted({
+  route,
+}: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
+  const { isFullModal } = route.params || {};
+  const { top: topInset } = useSafeAreaInsets();
+  const top = isFullModal ? topInset : '$5';
+
+  useEffect(() => {
+    return () => {
+      defaultLogger.account.wallet.onboardingExit();
+    };
+  }, []);
 
   return (
     <Page safeAreaEnabled>
@@ -27,13 +41,9 @@ export function GetStarted(
 
         <TermsAndPrivacy />
 
-        <View position="absolute" left="$5" top={top || '$5'}>
+        <View position="absolute" left="$5" top={top}>
           <Page.Close>
-            <IconButton
-              testID="onboarding-exit-button"
-              icon="CrossedLargeOutline"
-              variant="tertiary"
-            />
+            <IconButton icon="CrossedLargeOutline" variant="tertiary" />
           </Page.Close>
         </View>
       </Page.Body>

@@ -66,6 +66,7 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IAddEarnOrderParams,
   IEarnOrderItem,
@@ -1334,10 +1335,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async setFalconDepositDoNotShowAgain() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      falconDepositDoNotShowAgain: true,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        falconDepositDoNotShowAgain: true,
+      }),
+    );
   }
 
   @backgroundMethod()

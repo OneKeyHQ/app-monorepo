@@ -42,6 +42,7 @@ export const useToOnBoardingPage = () => {
             ],
             params: {
               ...params,
+              isFullModal,
               fromExt: true,
             },
           });
@@ -53,7 +54,10 @@ export const useToOnBoardingPage = () => {
             EModalRoutes.OnboardingModal,
             {
               screen: EOnboardingPages.GetStarted,
-              params,
+              params: {
+                ...params,
+                isFullModal,
+              },
             },
           );
         }

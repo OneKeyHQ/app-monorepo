@@ -7,6 +7,7 @@ import stringify from 'fast-json-stable-stringify';
 import { get, isNil } from 'lodash';
 
 import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
+import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   backgroundClass,
@@ -490,7 +491,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (message?.toLowerCase() === accountAddress?.toLowerCase() && address) {
       [address, message] = messages;
     }
-    message = this.autoFixPersonalSignMessage({ message });
+    message = autoFixPersonalSignMessage({ message });
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
@@ -574,22 +575,6 @@ class ProviderApiEthereum extends ProviderApiBase {
   async wallet_getSnaps(request: IJsBridgeMessagePayload) {
     defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
-  }
-
-  autoFixPersonalSignMessage({ message }: { message: string }) {
-    let messageFixed = message;
-    try {
-      ethUtils.toBuffer(message);
-    } catch (error) {
-      const tmpMsg = `0x${message}`;
-      try {
-        ethUtils.toBuffer(tmpMsg);
-        messageFixed = tmpMsg;
-      } catch (err) {
-        // message not including valid hex character
-      }
-    }
-    return messageFixed;
   }
 
   @providerApiMethod()

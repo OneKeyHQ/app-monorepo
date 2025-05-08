@@ -16,7 +16,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/components/MobileBrowser/MobileBrowserBottomBar';
+import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/hooks/useTakeScreenshot';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -84,7 +84,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
         }
 
         const onBackPress = () => {
-          if (!isDiscoveryTabFocused.current) {
+          if (!isDiscoveryTabFocused.current || displayHomePage) {
             return false;
           }
           if (!displayHomePage && activeTabData?.canGoBack && activeTabId) {

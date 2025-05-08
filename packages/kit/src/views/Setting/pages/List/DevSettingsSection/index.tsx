@@ -57,6 +57,7 @@ import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
+import { HapticsPanel } from './HapticsPanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -617,7 +618,15 @@ export const DevSettingsSection = () => {
           });
         }}
       />
-
+      <SectionPressItem
+        title="Haptics"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Haptics',
+            renderContent: <HapticsPanel />,
+          });
+        }}
+      />
       <SectionPressItem
         title="Add ServerNetwork Test Data"
         subtitle="添加 ServerNetwork 测试数据"

@@ -21,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -349,15 +350,19 @@ function DAppConnectExtensionFloatingTrigger() {
 }
 
 export default function DAppConnectExtensionFloatingTriggerWithHomeProvider() {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <DAppConnectExtensionFloatingTrigger />
-    </AccountSelectorProviderMirror>
-  );
+  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+    return (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <DAppConnectExtensionFloatingTrigger />
+      </AccountSelectorProviderMirror>
+    );
+  }
+
+  return null;
 }
