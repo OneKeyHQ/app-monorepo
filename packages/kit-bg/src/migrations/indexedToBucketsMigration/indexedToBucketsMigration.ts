@@ -2,15 +2,12 @@ import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   INDEXED_DB_BUCKET_PRESET_STORE_NAMES,
   LEGACY_INDEXED_DB_NAME,
-  storeNameSupportCreatedAt,
 } from '../../dbs/local/consts';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
@@ -35,6 +32,7 @@ import type {
   IDBSignedTransaction,
   IDBWallet,
   IIndexedBucketsMap,
+  IIndexedDBSchemaMap,
 } from '../../dbs/local/types';
 
 async function legacyDbExists(): Promise<boolean> {
