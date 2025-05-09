@@ -239,7 +239,6 @@ export function DesktopTabItem(
       selected,
       showAvatar,
       size,
-      showTooltip,
       children,
     ],
   );
