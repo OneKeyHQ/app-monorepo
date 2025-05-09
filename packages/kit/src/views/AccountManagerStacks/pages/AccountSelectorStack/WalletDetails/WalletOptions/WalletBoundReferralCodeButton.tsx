@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,6 +18,7 @@ function WalletBoundReferralCodeButtonView({
   wallet: IDBWallet | undefined;
 }) {
   const intl = useIntl();
+  const [isLoading, setIsLoading] = useState(false);
   const { bindWalletInviteCode, getReferralCodeBondStatus } =
     useWalletBoundReferralCode({
       entry: 'modal',
@@ -41,20 +42,29 @@ function WalletBoundReferralCodeButtonView({
   );
 
   const handlePress = useCallback(async () => {
-    const shouldBound = await getReferralCodeBondStatus(wallet?.id);
-    if (!shouldBound) {
+    if (isLoading) {
       return;
     }
-    bindWalletInviteCode({
-      wallet,
-      onSuccess: () =>
-        setTimeout(() => refreshDisplayReferralCodeButton(), 200),
-    });
+    try {
+      setIsLoading(true);
+      const shouldBound = await getReferralCodeBondStatus(wallet?.id);
+      if (!shouldBound) {
+        return;
+      }
+      bindWalletInviteCode({
+        wallet,
+        onSuccess: () =>
+          setTimeout(() => refreshDisplayReferralCodeButton(), 200),
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, [
     bindWalletInviteCode,
     getReferralCodeBondStatus,
     wallet,
     refreshDisplayReferralCodeButton,
+    isLoading,
   ]);
 
   if (!displayReferralCodeButton) {
@@ -65,8 +75,11 @@ function WalletBoundReferralCodeButtonView({
     <WalletOptionItem
       testID="wallet-bound-referral-code-button"
       icon="GiftOutline"
-      label={intl.formatMessage({ id: ETranslations.referral_your_code })}
+      label={intl.formatMessage({
+        id: ETranslations.referral_wallet_edit_code,
+      })}
       onPress={handlePress}
+      isLoading={isLoading}
     />
   );
 }
