@@ -436,7 +436,9 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     }
   }
 
-  static async getBucketIndexedDBFactory(bucketName: string) {
+  static async getBucketIndexedDBFactory(
+    bucketName: string,
+  ): Promise<IDBFactory> {
     if (platformEnv.isJest) {
       return globalThis.indexedDB;
     }
@@ -448,9 +450,10 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
       ?.storageBuckets;
     // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
     if (!storageBuckets) {
-      throw new Error(
-        'IndexedDBPromised ERROR: navigator.storageBuckets is not supported',
-      );
+      // throw new Error(
+      // 'IndexedDBPromised ERROR: navigator.storageBuckets is not supported',
+      // );
+      return globalThis.indexedDB;
     }
     const bucket = await storageBuckets?.open(bucketName, bucketOptions);
     if (!bucket?.indexedDB) {

@@ -11,6 +11,7 @@ import { CancellationToken, autoUpdater } from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
 
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import type { IDesktopStoreUpdateSettings } from '@onekeyhq/shared/types/desktop';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
@@ -28,7 +29,6 @@ import {
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
-import type { IUpdateSettings } from '../libs/store';
 import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
 
 interface ILatestVersion {
@@ -541,10 +541,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     await clearUpdateCache();
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
-    logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
-    setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
-  });
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_SETTINGS,
+    (_, settings: IDesktopStoreUpdateSettings) => {
+      logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
+      setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
+    },
+  );
 
   ipcMain.on(ipcMessageKeys.UPDATE_CLEAR_SETTINGS, () => {
     logger.info('auto-update', 'clear update settings');

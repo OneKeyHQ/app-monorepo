@@ -116,7 +116,7 @@ class ServiceApp extends ServiceBase {
 
     await timerUtils.wait(100);
 
-    const shouldDeleteAllOtherIndexedDBs = false;
+    const shouldDeleteAllOtherIndexedDBs = platformEnv.isProduction;
 
     try {
       if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
@@ -181,6 +181,42 @@ class ServiceApp extends ServiceBase {
         globalThis.localStorage.clear();
       } catch {
         console.error('window.localStorage.clear() error');
+      }
+      try {
+        globalThis.sessionStorage.clear();
+      } catch {
+        console.error('window.sessionStorage.clear() error');
+      }
+    }
+
+    if (platformEnv.isExtension) {
+      try {
+        await globalThis.chrome.storage.local.clear();
+      } catch {
+        console.error('chrome.storage.local.clear() error');
+      }
+      // try {
+      //   await globalThis.chrome.storage.sync.clear();
+      // } catch {
+      //   console.error('chrome.storage.sync.clear() error');
+      // }
+      try {
+        await globalThis.chrome.storage.session.clear();
+      } catch {
+        console.error('chrome.storage.session.clear() error');
+      }
+      // try {
+      //   await globalThis.chrome.storage.managed.clear();
+      // } catch {
+      //   console.error('chrome.storage.managed.clear() error');
+      // }
+    }
+
+    if (platformEnv.isDesktop) {
+      try {
+        await globalThis.desktopApi?.storeClear();
+      } catch (error) {
+        console.error('desktopApi.storeClear() error', error);
       }
     }
 

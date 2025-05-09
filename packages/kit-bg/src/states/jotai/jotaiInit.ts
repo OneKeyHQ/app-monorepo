@@ -1,8 +1,9 @@
-import { isNil, isPlainObject } from 'lodash';
+import { cloneDeep, isNil, isPlainObject } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 
 import localDb from '../../dbs/local/localDb';
+import dbBackupTools from '../../services/ServiceDBBackup/dbBackupTools';
 
 import { EAtomNames } from './atomNames';
 import {
@@ -13,6 +14,7 @@ import {
 import { JotaiCrossAtom } from './utils/JotaiCrossAtom';
 import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
 
+import type { ISettingsPersistAtom } from './atoms/settings';
 import type { IJotaiWritableAtomPro } from './types';
 
 function checkAtomNameMatched(key: string, value: string) {
@@ -57,14 +59,14 @@ export async function jotaiInit() {
         return;
       }
       checkAtomNameMatched(key, value.name);
-      const storageKey = buildJotaiStorageKey(value.name);
+      const storageKey = buildJotaiStorageKey(value.name as EAtomNames);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const atomObj = value.atom() as unknown as IJotaiWritableAtomPro<
         any,
         any,
         any
       >;
-      const initValue = atomObj.initialValue;
+      let initValue = atomObj.initialValue;
 
       if (!atomObj.persist) {
         return;
@@ -76,6 +78,51 @@ export async function jotaiInit() {
       );
       // save initValue to storage if storageValue is undefined
       if (isNil(storageValue)) {
+        // initFrom backup
+        if (
+          isNil(storageValue) &&
+          storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
+          isPlainObject(initValue)
+        ) {
+          const backupedInstanceMeta =
+            await dbBackupTools.getBackupedInstanceMeta();
+          if (backupedInstanceMeta) {
+            const initValueToUpdate = cloneDeep(
+              initValue || {},
+            ) as ISettingsPersistAtom;
+
+            if (backupedInstanceMeta.instanceId) {
+              initValueToUpdate.instanceId = backupedInstanceMeta.instanceId;
+            }
+
+            if (backupedInstanceMeta.sensitiveEncodeKey) {
+              initValueToUpdate.sensitiveEncodeKey =
+                backupedInstanceMeta.sensitiveEncodeKey;
+            }
+
+            if (!initValueToUpdate.instanceIdBackup) {
+              initValueToUpdate.instanceIdBackup = {
+                v4MigratedInstanceId: undefined,
+                v5InitializedInstanceId: undefined,
+              };
+            }
+
+            if (backupedInstanceMeta.instanceIdBackup?.v4MigratedInstanceId) {
+              initValueToUpdate.instanceIdBackup.v4MigratedInstanceId =
+                backupedInstanceMeta.instanceIdBackup.v4MigratedInstanceId;
+            }
+
+            if (
+              backupedInstanceMeta.instanceIdBackup?.v5InitializedInstanceId
+            ) {
+              initValueToUpdate.instanceIdBackup.v5InitializedInstanceId =
+                backupedInstanceMeta.instanceIdBackup.v5InitializedInstanceId;
+            }
+
+            initValue = Object.freeze(initValueToUpdate);
+          }
+        }
+
         await onekeyJotaiStorage.setItem(storageKey, initValue);
         storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
       }

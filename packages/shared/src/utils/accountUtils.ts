@@ -27,7 +27,6 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OneKeyInternalError } from '../errors';
 
