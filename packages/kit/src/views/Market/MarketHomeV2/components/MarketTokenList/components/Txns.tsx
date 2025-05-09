@@ -30,10 +30,6 @@ interface ITxnsProps {
  *   53.03K
  *   38.55K/39.64K
  *
- * The upper row shows the total transactions. The lower row shows a green
- * value (e.g. wallets added) and a red value (e.g. wallets removed) separated
- * by a `/`. Colours follow the design system tokens `$textSuccess` and
- * `$textCritical`.
  */
 export function Txns({ transactions, walletInfo }: ITxnsProps) {
   return (
