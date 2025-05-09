@@ -1,5 +1,3 @@
-import platformEnv from '../platformEnv';
-
 import mockStorageInstance from './instance/mockStorageInstance';
 import {
   webStorage,

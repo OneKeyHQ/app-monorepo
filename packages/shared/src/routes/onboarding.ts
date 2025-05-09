@@ -48,6 +48,7 @@ export enum EOnboardingPages {
 export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: {
     isFullModal?: boolean;
+    fromExt?: boolean;
   };
 
   // v4 migration

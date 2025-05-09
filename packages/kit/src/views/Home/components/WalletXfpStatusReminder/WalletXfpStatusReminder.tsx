@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
@@ -20,7 +21,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 export function WalletXfpReminderAlert({
@@ -114,9 +114,11 @@ function WalletXfpStatusReminderCmp() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
 
+  const isFocused = useIsFocused();
+
   useEffect(() => {
     void (async () => {
-      if (walletId) {
+      if (!deprecated && walletId && isFocused) {
         await backgroundApiProxy.serviceAccount.generateWalletsMissingMetaSilently(
           {
             walletId,
@@ -124,7 +126,7 @@ function WalletXfpStatusReminderCmp() {
         );
       }
     })();
-  }, [walletId]);
+  }, [walletId, isFocused, deprecated]);
 
   const updateButton = useMemo(() => {
     if (

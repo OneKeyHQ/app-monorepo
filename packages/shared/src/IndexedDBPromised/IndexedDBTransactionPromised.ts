@@ -4,7 +4,6 @@ import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 import type { IndexedDBPromised } from './IndexedDBPromised';
 import type {
   DBSchema,
-  IDBPDatabase,
   IDBPObjectStore,
   IDBPTransaction,
   StoreNames,
