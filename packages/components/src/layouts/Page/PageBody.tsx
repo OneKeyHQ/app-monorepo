@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Stack } from '../../primitives';
 
-import { PageHeaderDivider } from './PageHeader';
+import { PageHeaderDivider } from './PageHeaderDivider';
 
 import type { IStackProps } from '../../primitives';
 
