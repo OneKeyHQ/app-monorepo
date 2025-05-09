@@ -12,6 +12,15 @@ export type IPrimeUserInfo = {
   primeSubscription: IPrimeSubscriptionInfo | undefined;
 };
 
+export type IPrimeDeviceInfo = {
+  instanceId: string;
+  lastLoginTime: string;
+  platform: string;
+  platformName: string | undefined;
+  version: string;
+  deviceName: string;
+};
+
 export type IPrimeServerUserInfo = {
   createdAt: string;
   updatedAt: string;

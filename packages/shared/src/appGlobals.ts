@@ -14,6 +14,7 @@ import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebe
 import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import type { DefaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import type { IAppDeviceInfo } from './appDeviceInfo/types';
 import type { AppEventBusClass } from './eventBus/appEventBus';
 import type { IndexedDBPromised } from './IndexedDBPromised';
 import type { IAppStorage } from './storage/syncStorage';
@@ -51,6 +52,7 @@ export type IAppGlobals = {
   $$localforage?: any;
   $$platformEnv?: any;
   $$errorUtils?: any;
+  $$appDeviceInfo?: IAppDeviceInfo;
   $$indexedDBBuckets?: Record<
     EIndexedDBBucketNames,
     IndexedDBPromised<IIndexedDBSchemaMap>
