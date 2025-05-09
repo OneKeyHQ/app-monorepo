@@ -2,16 +2,16 @@ import { memo, useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Divider } from '../../content';
 import { EPageType, usePageType } from '../../hocs';
 import { useIsHorizontalLayout, useThemeValue } from '../../hooks';
-import { Stack } from '../../primitives';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
 
+import type { IStackStyle } from '../../primitives';
 import type {
   IModalNavigationOptions,
   IStackNavigationOptions,
@@ -60,27 +60,31 @@ const usePageHeaderReloadOptions = () => {
   return useMemo(() => ({ reload }), [reload]);
 };
 
-function HeaderLine() {
+function BasicPageHeaderDivider(props: IStackStyle) {
   const isHorizontal = useIsHorizontalLayout();
-  return isHorizontal ? (
-    <Stack h={StyleSheet.hairlineWidth} w="100%" bg="$borderSubdued" />
-  ) : null;
+  return isHorizontal ? <Divider {...props} /> : null;
 }
 
-const MemoHeaderLine = memo(HeaderLine);
+export const PageHeaderDivider = memo(BasicPageHeaderDivider);
 
 function PageHeader(props: IPageHeaderProps) {
   const pageHeaderReload = usePageHeaderReloadOptions();
   const reloadOptions = pageHeaderReload.reload(props);
   const navigation = useNavigation();
   useLayoutEffect(() => {
-    navigation.setOptions(reloadOptions);
+    if (reloadOptions.headerShown) {
+      navigation.setOptions(reloadOptions);
+    }
   }, [navigation, reloadOptions]);
 
   const pageType = usePageType();
 
   const isModal = pageType === EPageType.modal;
   const { headerSearchBarOptions } = props;
+
+  if (!reloadOptions.headerShown) {
+    return null;
+  }
   // Android & Web HeaderSearchBar in packages/components/src/layouts/Navigation/Header/HeaderView.tsx
   return (
     <>
@@ -96,7 +100,7 @@ function PageHeader(props: IPageHeaderProps) {
           onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
         />
       ) : null}
-      {isModal ? null : <MemoHeaderLine />}
+      {isModal ? null : <PageHeaderDivider />}
     </>
   );
 }
