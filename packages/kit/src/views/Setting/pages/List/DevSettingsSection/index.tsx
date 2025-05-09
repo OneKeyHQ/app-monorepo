@@ -232,7 +232,7 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
       <SectionFieldItem
         name="enableAnalyticsRequest"
-        title="发送 Analytics 请求"
+        title="测试环境下发送 Analytics 请求"
         subtitle={
           devSettings.settings?.enableAnalyticsRequest ? '开启' : '关闭'
         }
