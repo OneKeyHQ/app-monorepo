@@ -1,4 +1,4 @@
-import { type FC, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,7 +28,6 @@ import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorIn
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,

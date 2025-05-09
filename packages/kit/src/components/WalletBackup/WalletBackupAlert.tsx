@@ -7,7 +7,6 @@ import {
   Button,
   Icon,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
