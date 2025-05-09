@@ -44,9 +44,12 @@ async function getBackupedInstanceMeta(): Promise<
 
   try {
     if (platformEnv.isExtension) {
-      result = (await globalThis.chrome.storage.local.get(
+      const data = await globalThis.chrome.storage.local.get(
         INSTANCE_META_BACKUP_KEY,
-      )) as IInstanceMetaBackup | undefined;
+      );
+      if (data?.[INSTANCE_META_BACKUP_KEY]) {
+        result = data[INSTANCE_META_BACKUP_KEY] as IInstanceMetaBackup;
+      }
     }
   } catch (error) {
     console.error('isExtension getBackupedInstanceMeta error', error);
