@@ -417,7 +417,7 @@ function logIndexedDBCreateTx() {
       globalThis.IDBDatabase.prototype.transaction = function (
         storeNames: string | string[],
         mode?: IDBTransactionMode,
-        options?: IDBTransactionOptions,
+        _options?: IDBTransactionOptions,
       ) {
         clearTimeout(resetTimer);
 

@@ -12,7 +12,7 @@ import { atomsConfig } from './atomNames';
 import { JOTAI_RESET } from './types';
 import jotaiVerify from './utils/jotaiVerify';
 
-import type { IAtomNameKeys } from './atomNames';
+import type { EAtomNames, IAtomNameKeys } from './atomNames';
 import type {
   AsyncStorage,
   IJotaiSetStateActionWithReset,
@@ -61,7 +61,7 @@ export const onekeyJotaiStorage = platformEnv.isExtensionUi
   ? mockStorage // extension real storage is running at bg, the ui is a mock storage
   : new JotaiStorage();
 
-export function buildJotaiStorageKey(name: string) {
+export function buildJotaiStorageKey(name: IAtomNameKeys) {
   const key = `g_states_v5:${name}`;
   return key;
 }

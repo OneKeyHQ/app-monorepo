@@ -1,7 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-import { toBigIntHex } from './numberUtils';
-
 import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
 

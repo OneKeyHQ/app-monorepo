@@ -1,8 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ELocalDBStoreNames } from './localDBStoreNames';
-
-import type { EIndexedDBBucketNames } from './types';
+import { EIndexedDBBucketNames } from './types';
 
 export const IS_DB_BUCKET_SUPPORT = Boolean(
   platformEnv.isRuntimeBrowser &&
@@ -32,6 +31,24 @@ export const storeNameSupportCreatedAt = [
   ELocalDBStoreNames.SignedTransaction,
   ELocalDBStoreNames.ConnectedSite,
 ];
+
+export const INDEXED_DB_BUCKET_PRESET_STORE_NAMES = {
+  [EIndexedDBBucketNames.account]: [
+    ELocalDBStoreNames.Account,
+    ELocalDBStoreNames.CloudSyncItem,
+    ELocalDBStoreNames.Context,
+    ELocalDBStoreNames.Credential,
+    ELocalDBStoreNames.Device,
+    ELocalDBStoreNames.IndexedAccount,
+    ELocalDBStoreNames.Wallet,
+  ],
+  [EIndexedDBBucketNames.address]: [ELocalDBStoreNames.Address],
+  [EIndexedDBBucketNames.archive]: [
+    ELocalDBStoreNames.SignedMessage,
+    ELocalDBStoreNames.SignedTransaction,
+    ELocalDBStoreNames.ConnectedSite,
+  ],
+};
 // ---------------------------------------------- enums
 export enum EDBAccountType {
   SIMPLE = 'simple',

@@ -9,6 +9,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 export function DiskFullWarningDialogContainer() {
   const dialogRef = useRef<IDialogInstance | null>(null);
@@ -22,11 +24,18 @@ export function DiskFullWarningDialogContainer() {
       ) => {
         await hideFn();
         dialogRef.current = Dialog.show({
-          title: 'System Disk Full',
-          description:
-            'The system disk is full. Please clean up some space, then restart the app.',
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.extension_disk_full,
+          }),
+          description: appLocale.intl.formatMessage({
+            id: ETranslations.extension_disk_full_desc,
+          }),
           dismissOnOverlayPress: false,
           disableDrag: true,
+          showCancelButton: false,
+          onConfirmText: appLocale.intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
         });
       },
       1000,

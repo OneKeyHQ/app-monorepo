@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,

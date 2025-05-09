@@ -172,7 +172,7 @@ type IAddressInputBadgeGroupProps = {
 };
 
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
-  const { loading, result, setResolveAddress, onRefresh, networkId } = props;
+  const { loading, result, setResolveAddress, onRefresh } = props;
   if (loading) {
     return <Spinner />;
   }

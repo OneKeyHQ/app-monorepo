@@ -82,6 +82,12 @@ export const ipcMessageKeys = {
   SECURE_GET_ITEM_ASYNC: 'secure/getItemAsync',
   SECURE_DEL_ITEM_ASYNC: 'secure/delItemAsync',
 
+  // store
+  STORE_SET_ITEM_ASYNC: 'store/setItemAsync',
+  STORE_GET_ITEM_ASYNC: 'store/getItemAsync',
+  STORE_DEL_ITEM_ASYNC: 'store/delItemAsync',
+  STORE_CLEAR: 'store/clear',
+
   // Server
   SERVER_START: 'server/start',
   SERVER_STOP: 'server/stop',

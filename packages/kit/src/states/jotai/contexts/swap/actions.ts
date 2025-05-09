@@ -189,9 +189,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             token2: token,
           })
         ) {
-          return defaultTokenSet.limitFromToken;
+          return defaultTokenSet?.limitFromToken;
         }
-        return defaultTokenSet.limitToToken;
+        return defaultTokenSet?.limitToToken;
       }
       return undefined;
     }
@@ -205,14 +205,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         defaultTokenSet?.toToken &&
         !defaultTokenSet?.toToken?.isNative
       ) {
-        return defaultTokenSet.toToken;
+        return defaultTokenSet?.toToken;
       }
       if (
         !token.isNative &&
-        defaultTokenSet.fromToken &&
-        defaultTokenSet.fromToken?.isNative
+        defaultTokenSet?.fromToken &&
+        defaultTokenSet?.fromToken?.isNative
       ) {
-        return defaultTokenSet.fromToken;
+        return defaultTokenSet?.fromToken;
       }
     }
     if (
@@ -1645,12 +1645,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               set(swapSelectToTokenAtom(), fromNetworkDefault?.fromToken);
               void this.syncNetworksSort.call(
                 set,
-                fromNetworkDefault.fromToken?.networkId,
+                fromNetworkDefault?.fromToken?.networkId,
               );
             } else if (
               fromToken?.isNative &&
-              fromNetworkDefault.toToken &&
-              !fromNetworkDefault.toToken.isNative
+              fromNetworkDefault?.toToken &&
+              !fromNetworkDefault?.toToken?.isNative
             ) {
               set(swapSelectToTokenAtom(), fromNetworkDefault?.toToken);
               void this.syncNetworksSort.call(
@@ -1682,10 +1682,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 )
               ) {
                 set(swapSelectToTokenAtom(), fromNetworkDefault?.limitToToken);
-                if (fromNetworkDefault.limitToToken?.networkId) {
+                if (fromNetworkDefault?.limitToToken?.networkId) {
                   void this.syncNetworksSort.call(
                     set,
-                    fromNetworkDefault.limitToToken?.networkId,
+                    fromNetworkDefault?.limitToToken?.networkId,
                   );
                 }
               } else if (
@@ -1699,10 +1699,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   swapSelectToTokenAtom(),
                   fromNetworkDefault?.limitFromToken,
                 );
-                if (fromNetworkDefault.limitFromToken?.networkId) {
+                if (fromNetworkDefault?.limitFromToken?.networkId) {
                   void this.syncNetworksSort.call(
                     set,
-                    fromNetworkDefault.limitFromToken?.networkId,
+                    fromNetworkDefault?.limitFromToken?.networkId,
                   );
                 }
               }

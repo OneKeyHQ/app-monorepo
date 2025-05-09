@@ -644,9 +644,6 @@ class ServiceAccount extends ServiceBase {
   async prepareHdOrHwAccounts(params: IAddHDOrHWAccountsParams) {
     // addHDOrHWAccounts
     const {
-      indexes,
-      indexedAccountId,
-      deriveType,
       skipCloseHardwareUiStateDialog,
       skipDeviceCancel,
       skipDeviceCancelAtFirst,
@@ -3765,6 +3762,21 @@ class ServiceAccount extends ServiceBase {
             [walletId]: {
               ...(v?.[walletId] || {}),
               xfpMissing: true,
+            },
+          }));
+        }
+
+        const hardwareWalletXfpStatus = await hardwareWalletXfpStatusAtom.get();
+        if (
+          hardwareWalletXfpStatus?.[walletId]?.xfpMissing &&
+          wallet &&
+          accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+        ) {
+          await hardwareWalletXfpStatusAtom.set((v) => ({
+            ...v,
+            [walletId]: {
+              ...(v?.[walletId] || {}),
+              xfpMissing: false,
             },
           }));
         }
