@@ -11,6 +11,7 @@ import {
 import { useWindowDimensions } from 'react-native';
 import { Popover as TMPopover, useMedia, withStaticProperties } from 'tamagui';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
@@ -50,6 +51,10 @@ export interface IPopoverProps extends TMPopoverProps {
     | null;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
+  /**
+   * Unique identifier for tracking/analytics purposes.
+   */
+  trackID?: string;
 }
 
 interface IPopoverContext {
@@ -61,9 +66,11 @@ const PopoverContext = createContext({} as IPopoverContext);
 const usePopoverValue = (
   open?: boolean,
   onOpenChange?: IPopoverProps['onOpenChange'],
+  trackID?: string,
 ) => {
   const [isOpen, setIsOpen] = useState(false);
   const isControlled = typeof open !== 'undefined';
+
   const openPopover = useCallback(() => {
     if (isControlled) {
       onOpenChange?.(true);
@@ -71,7 +78,14 @@ const usePopoverValue = (
       setIsOpen(true);
       onOpenChange?.(true);
     }
-  }, [isControlled, onOpenChange]);
+
+    if (trackID) {
+      defaultLogger.ui.popover.popoverOpen({
+        trackId: trackID,
+      });
+    }
+  }, [isControlled, onOpenChange, trackID]);
+
   const closePopover = useCallback(() => {
     if (isControlled) {
       onOpenChange?.(false);
@@ -79,7 +93,14 @@ const usePopoverValue = (
       setIsOpen(false);
       onOpenChange?.(false);
     }
-  }, [isControlled, onOpenChange]);
+
+    if (trackID) {
+      defaultLogger.ui.popover.popoverClose({
+        trackId: trackID,
+      });
+    }
+  }, [isControlled, onOpenChange, trackID]);
+
   return {
     ...(isControlled
       ? {
@@ -381,11 +402,13 @@ function BasicPopover({
   onOpenChange: onOpenChangeFunc,
   renderTrigger,
   sheetProps,
+  trackID,
   ...rest
 }: IPopoverProps) {
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,
+    trackID,
   );
   const { md } = useMedia();
   const memoPopover = useMemo(
@@ -425,6 +448,7 @@ function BasicPopover({
       closePopover={closePopover}
       sheetProps={{ ...sheetProps, modal: true }}
       renderTrigger={renderTrigger}
+      trackID={trackID}
       {...rest}
     />
   );

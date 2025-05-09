@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
+import { useDebounce, useMedia, withStaticProperties } from 'tamagui';
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EShortcutEvents,
@@ -190,6 +191,10 @@ export interface IActionListProps
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => Promise<React.ReactNode>;
+  /**
+   * Unique identifier for tracking/analytics purposes.
+   */
+  trackID?: string;
 }
 
 const useDefaultOpen = (defaultOpen: boolean) => {
@@ -224,17 +229,32 @@ function BasicActionList({
   renderItemsAsync,
   estimatedContentHeight,
   title,
+  trackID,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
   const [asyncItems, setAsyncItems] = useState<ReactNode>(null);
+  const trackActionListToggle = useDebounce((openStatus: boolean) => {
+    if (trackID) {
+      if (openStatus) {
+        defaultLogger.ui.actionList.actionListOpen({
+          trackId: trackID,
+        });
+      } else {
+        defaultLogger.ui.actionList.actionListClose({
+          trackId: trackID,
+        });
+      }
+    }
+  }, 500);
 
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
+      trackActionListToggle(openStatus);
     },
-    [onOpenChange, setOpenStatus],
+    [onOpenChange, setOpenStatus, trackActionListToggle],
   );
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
