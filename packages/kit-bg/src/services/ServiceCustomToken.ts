@@ -10,10 +10,7 @@ import {
   type ICloudSyncCustomToken,
 } from '@onekeyhq/shared/types/token';
 
-import {
-  EIndexedDBBucketNames,
-  type IDBCloudSyncItem,
-} from '../dbs/local/types';
+import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';

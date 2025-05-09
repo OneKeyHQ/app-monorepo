@@ -140,7 +140,6 @@ function useAllNetworkRequests<T>(params: {
     clearAllNetworkData,
     isNFTRequests,
     disabled,
-    interval = 0,
     shouldAlwaysFetch,
     onStarted,
     onFinished,
