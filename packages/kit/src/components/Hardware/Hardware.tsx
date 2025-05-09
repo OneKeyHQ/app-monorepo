@@ -29,7 +29,6 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
@@ -426,6 +425,10 @@ export function EnterPhase({
                 })}
               </SizableText>
               <Popover
+                placement="bottom"
+                floatingPanelProps={{
+                  width: '$80',
+                }}
                 title={intl.formatMessage({
                   id: ETranslations.passphrase_allowed_characters_title,
                 })}
@@ -443,7 +446,11 @@ export function EnterPhase({
                       pt: '$0',
                     }}
                   >
-                    <Anchor href="https://www.ascii-code.com/" size="$bodyMd">
+                    <Anchor
+                      href="https://www.ascii-code.com/"
+                      size="$bodyMd"
+                      color="$textInfo"
+                    >
                       {intl.formatMessage({
                         id: ETranslations.passphrase_allowed_characters_desc,
                       })}

@@ -126,11 +126,11 @@ const InAppNotification = () => {
   const approvingSuccessAction = useMemo(() => {
     return (
       <Button
-        variant="secondary"
+        variant="primary"
         size="small"
         onPress={approvingSuccessActionConfirm}
       >
-        <SizableText>
+        <SizableText size="$bodyMdMedium" color="$textInverse">
           {intl.formatMessage({ id: ETranslations.swap_toast_go_to_swap })}
         </SizableText>
       </Button>
@@ -232,6 +232,13 @@ const InAppNotification = () => {
                 duration: 10_000,
                 actions: approvingSuccessAction,
                 actionsAlign: 'left',
+                onClose: () => {
+                  setInAppNotificationAtom((prev) => ({
+                    ...prev,
+                    swapApprovingLoading: false,
+                    swapApprovingTransaction: undefined,
+                  }));
+                },
               });
             }
           },

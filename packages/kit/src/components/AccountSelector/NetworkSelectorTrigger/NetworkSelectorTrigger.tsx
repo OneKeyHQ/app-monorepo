@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,17 +9,11 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../../hooks/useAllNetwork';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
@@ -92,12 +86,14 @@ export const NetworkSelectorTriggerLegacy = memo(
 function NetworkSelectorTriggerHomeCmp({
   num,
   recordNetworkHistoryEnabled,
+  size = 'large',
 }: {
   num: number;
   recordNetworkHistoryEnabled?: boolean;
+  size?: 'small' | 'large';
 }) {
   const {
-    activeAccount: { network, wallet },
+    activeAccount: { network },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
@@ -110,48 +106,17 @@ function NetworkSelectorTriggerHomeCmp({
     showChainSelector,
   );
 
-  const { enabledNetworksCompatibleWithWalletId, run } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: wallet?.id ?? '',
-      networkId: network?.id,
-    });
-
-  useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, run);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, run);
-    };
-  }, [run]);
-
   const networkTriggerText = useMemo(() => {
     if (network?.isAllNetworks) {
-      if (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })) {
-        return `${intl.formatMessage({
-          id: ETranslations.global_all_networks,
-        })}`;
-      }
-
       return `${intl.formatMessage({
         id: ETranslations.global_all_networks,
-      })} (${intl.formatMessage(
-        {
-          id: ETranslations.network_enabled_count,
-        },
-        {
-          'count': enabledNetworksCompatibleWithWalletId.length,
-        },
-      )})`;
+      })}`;
     }
 
     return network?.name;
-  }, [
-    enabledNetworksCompatibleWithWalletId.length,
-    intl,
-    network?.isAllNetworks,
-    network?.name,
-    wallet?.id,
-  ]);
+  }, [intl, network?.isAllNetworks, network?.name]);
 
+  const isLarge = size === 'large';
   return (
     <XStack
       testID="account-network-trigger-button"
@@ -177,22 +142,30 @@ function NetworkSelectorTriggerHomeCmp({
       userSelect="none"
       onPress={() => showChainSelector({ recordNetworkHistoryEnabled })}
     >
-      <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText
-        testID="account-network-trigger-button-text"
-        pl="$2"
-        size="$bodyMd"
-        flexShrink={1}
-        numberOfLines={1}
-      >
-        {networkTriggerText}
-      </SizableText>
-      <Icon
-        name="ChevronDownSmallOutline"
-        color="$iconSubdued"
-        size="$5"
-        flexShrink={0}
-      />
+      <NetworkAvatar networkId={network?.id} size={isLarge ? '$5' : '$6'} />
+      {isLarge ? (
+        <>
+          <SizableText
+            testID="account-network-trigger-button-text"
+            pl="$2"
+            size="$bodyMd"
+            maxWidth="$28"
+            $gtXl={{
+              maxWidth: '$32',
+            }}
+            flexShrink={1}
+            numberOfLines={1}
+          >
+            {networkTriggerText}
+          </SizableText>
+          <Icon
+            name="ChevronDownSmallOutline"
+            color="$iconSubdued"
+            size="$5"
+            flexShrink={0}
+          />
+        </>
+      ) : null}
     </XStack>
   );
 }

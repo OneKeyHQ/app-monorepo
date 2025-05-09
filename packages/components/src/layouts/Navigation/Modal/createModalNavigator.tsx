@@ -19,7 +19,12 @@ import { useThrottledCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Portal } from '../../../hocs';
 import { useBackHandler } from '../../../hooks';
+import {
+  ModalNavigatorContext,
+  createPortalId,
+} from '../../../hooks/useModalNavigatorContext';
 import { Stack, YStack } from '../../../primitives/Stack';
 
 import type {
@@ -238,71 +243,87 @@ function ModalNavigator({
     );
   });
 
+  const contextValue = useMemo(
+    () => ({
+      portalId: createPortalId(),
+    }),
+    [],
+  );
+
   return (
     <NavigationContent>
-      <Stack
-        flex={1}
-        $gtMd={{
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-        onPress={platformEnv.isNative ? handleBackdropClick : undefined}
-        onPressIn={platformEnv.isNative ? undefined : onPageContainerPressIn}
-        onPressOut={platformEnv.isNative ? undefined : onPageContainerPressOut}
-      >
-        {currentRouteIndex <= 1 ? (
-          <YStack
-            ref={(ref) => (MODAL_ANIMATED_BACKDROP_VIEW_REF = ref)}
-            fullscreen
-            style={{
-              opacity: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
-              willChange: 'opacity',
+      <ModalNavigatorContext.Provider value={contextValue}>
+        <>
+          <Stack
+            flex={1}
+            $gtMd={{
+              justifyContent: 'center',
+              alignItems: 'center',
             }}
-          />
-        ) : null}
-
-        <Stack
-          onPress={platformEnv.isNative ? stopPropagation : undefined}
-          onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
-          testID="APP-Modal-Screen"
-          className="app-region-no-drag"
-          bg="$bgApp"
-          overflow="hidden"
-          width="100%"
-          height="100%"
-          borderTopStartRadius="$6"
-          borderTopEndRadius="$6"
-          $gtMd={{
-            width: '90%',
-            height: '90%',
-            maxWidth: '$160',
-            maxHeight: '$160',
-            borderRadius: '$4',
-            outlineWidth: '$px',
-            outlineStyle: 'solid',
-            outlineColor: '$borderSubdued',
-          }}
-          ref={(ref) => {
-            if (ref) {
-              MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+            onPress={platformEnv.isNative ? handleBackdropClick : undefined}
+            onPressIn={
+              platformEnv.isNative ? undefined : onPageContainerPressIn
             }
-          }}
-          style={{
-            transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-            willChange: 'transform',
-          }}
-        >
-          <StackView
-            {...rest}
-            state={state}
-            // @ts-expect-error
-            descriptors={descriptors}
-            navigation={navigation}
-          />
-        </Stack>
-      </Stack>
+            onPressOut={
+              platformEnv.isNative ? undefined : onPageContainerPressOut
+            }
+          >
+            {currentRouteIndex <= 1 ? (
+              <YStack
+                ref={(ref) => (MODAL_ANIMATED_BACKDROP_VIEW_REF = ref)}
+                fullscreen
+                style={{
+                  opacity: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  willChange: 'opacity',
+                }}
+              />
+            ) : null}
+
+            <Stack
+              onPress={platformEnv.isNative ? stopPropagation : undefined}
+              onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
+              testID="APP-Modal-Screen"
+              className="app-region-no-drag"
+              bg="$bgApp"
+              overflow="hidden"
+              width="100%"
+              height="100%"
+              borderTopStartRadius="$6"
+              borderTopEndRadius="$6"
+              $gtMd={{
+                width: '90%',
+                height: '90%',
+                maxWidth: '$160',
+                maxHeight: '$160',
+                borderRadius: '$4',
+                outlineWidth: '$px',
+                outlineStyle: 'solid',
+                outlineColor: '$borderSubdued',
+              }}
+              ref={(ref) => {
+                if (ref) {
+                  MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+                }
+              }}
+              style={{
+                transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+                willChange: 'transform',
+              }}
+            >
+              <StackView
+                {...rest}
+                state={state}
+                // @ts-expect-error
+                descriptors={descriptors}
+                navigation={navigation}
+              />
+            </Stack>
+          </Stack>
+          <Portal.Container name={contextValue.portalId} />
+        </>
+      </ModalNavigatorContext.Provider>
     </NavigationContent>
   );
 }

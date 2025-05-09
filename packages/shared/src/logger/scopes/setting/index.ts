@@ -5,7 +5,7 @@ import { DeviceScene } from './scenes/device';
 import { PageScene } from './scenes/page';
 
 export class SettingScope extends BaseScope {
-  protected override scopeName = EScopeName.demo;
+  protected override scopeName = EScopeName.setting;
 
   device = this.createScene('device', DeviceScene);
 

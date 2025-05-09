@@ -1,6 +1,7 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
 // import localforage from 'localforage';
 
+import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
 
@@ -43,6 +44,7 @@ async function migrateFromLegacyStorage({
     console.log(
       `WebStorage==>migrateFromLegacyStorage skip: already migrated - ${indexed?.name}`,
     );
+    errorUtils.logCurrentCallStack();
     return;
   }
   // export default new WebStorage();

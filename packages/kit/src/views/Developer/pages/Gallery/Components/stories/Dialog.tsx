@@ -19,6 +19,7 @@ import {
   YStack,
   useDialogInstance,
   useForm,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import type {
   IDialogContainerProps,
@@ -973,6 +974,59 @@ const DialogGallery = () => (
             </Button>
           </YStack>
         ),
+      },
+      {
+        title: 'in Page Dialog',
+        element: () => {
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          const dialog = useInTabDialog();
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          const navigation = useAppNavigation<any>();
+          return (
+            <YStack gap="$4">
+              <Button
+                onPress={async () => {
+                  const d = dialog.show({
+                    title: 'Lorem ipsum',
+                    icon: 'PlaceholderOutline',
+                    description:
+                      'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                    tone: 'default',
+                    onConfirmText: 'push EGalleryRoutes.Components',
+                    onConfirm: ({ preventClose }) => {
+                      preventClose();
+                      navigation.pushModal(EModalRoutes.TestModal, {
+                        screen: ETestModalPages.TestSimpleModal,
+                      });
+                    },
+                  });
+                }}
+              >
+                in tabs Dialog
+              </Button>
+              <Button
+                onPress={async () => {
+                  const d = dialog.show({
+                    title: 'Lorem ipsum',
+                    icon: 'PlaceholderOutline',
+                    description:
+                      'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                    tone: 'default',
+                    onConfirmText: 'push EGalleryRoutes.Components',
+                    onConfirm: ({ preventClose }) => {
+                      preventClose();
+                      navigation.pushModal(EModalRoutes.TestModal, {
+                        screen: ETestModalPages.TestSimpleModal,
+                      });
+                    },
+                  });
+                }}
+              >
+                in modal Dialog
+              </Button>
+            </YStack>
+          );
+        },
       },
     ]}
   />

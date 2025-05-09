@@ -572,9 +572,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async _syncToSceneWithLocalSyncItems({
     items,
     syncCredential,
+    forceSync,
   }: {
     items: IDBCloudSyncItem[];
-    syncCredential: ICloudSyncCredential;
+    syncCredential: ICloudSyncCredential | undefined;
+    forceSync?: boolean;
   }) {
     const walletItems: IDBCloudSyncItem[] = [];
     const accountItems: IDBCloudSyncItem[] = [];
@@ -632,6 +634,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.wallet.syncToScene({
       syncCredential,
       items: walletItems,
+      forceSync,
     });
     if (walletItems?.length) {
       emitEventsStack.push(() => {
@@ -643,10 +646,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.account.syncToScene({
       syncCredential,
       items: accountItems,
+      forceSync,
     });
     await this.syncManagers.indexedAccount.syncToScene({
       syncCredential,
       items: indexedAccountItems,
+      forceSync,
     });
     if (accountItems?.length || indexedAccountItems?.length) {
       emitEventsStack.push(() => {
@@ -658,6 +663,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.browserBookmark.syncToScene({
       syncCredential,
       items: browserBookmarkItems,
+      forceSync,
     });
     if (browserBookmarkItems?.length) {
       emitEventsStack.push(() => {
@@ -669,6 +675,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.marketWatchList.syncToScene({
       syncCredential,
       items: marketWatchListItems,
+      forceSync,
     });
     if (marketWatchListItems?.length) {
       emitEventsStack.push(() => {
@@ -680,6 +687,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customRpc.syncToScene({
       syncCredential,
       items: customRpcItems,
+      forceSync,
     });
     if (customRpcItems?.length) {
       emitEventsStack.push(() => {
@@ -691,6 +699,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customNetwork.syncToScene({
       syncCredential,
       items: customNetworkItems,
+      forceSync,
     });
     if (customNetworkItems?.length) {
       emitEventsStack.push(() => {
@@ -702,6 +711,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customToken.syncToScene({
       syncCredential,
       items: customTokenItems,
+      forceSync,
     });
     if (customTokenItems?.length) {
       emitEventsStack.push(() => {
@@ -713,6 +723,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.addressBook.syncToScene({
       syncCredential,
       items: addressBookItems,
+      forceSync,
     });
     if (addressBookItems?.length) {
       emitEventsStack.push(async () => {
@@ -1239,7 +1250,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         }));
     }
 
-    await this.backgroundApi.serviceAccount.generateAllHDWalletMissingHashAndXfp(
+    await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
       {
         password,
       },
