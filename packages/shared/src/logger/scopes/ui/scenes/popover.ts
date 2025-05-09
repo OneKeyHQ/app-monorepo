@@ -6,10 +6,6 @@ export interface IPopoverParams {
    * Popover tracking ID or testID for identification
    */
   trackId: string;
-  /**
-   * Additional custom properties
-   */
-  [key: string]: any;
 }
 
 export class PopoverScene extends BaseScene {

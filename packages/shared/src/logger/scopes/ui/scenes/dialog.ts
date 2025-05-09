@@ -6,10 +6,6 @@ export interface IDialogParams {
    * Dialog tracking ID or testID for identification
    */
   trackId: string;
-  /**
-   * Additional custom properties
-   */
-  [key: string]: any;
 }
 
 export class DialogScene extends BaseScene {

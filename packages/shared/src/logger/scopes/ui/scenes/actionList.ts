@@ -6,10 +6,6 @@ export interface IActionListParams {
    * Action list tracking ID or testID for identification
    */
   trackId: string;
-  /**
-   * Additional custom properties
-   */
-  [key: string]: any;
 }
 
 export class ActionListScene extends BaseScene {
