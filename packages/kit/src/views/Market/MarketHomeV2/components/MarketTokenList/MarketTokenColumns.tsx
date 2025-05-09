@@ -2,6 +2,7 @@ import { SizableText } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 
 import { RiskIndicator } from './components/RiskIndicator';
+import { TokenIdentityItem } from './components/TokenIdentityItem';
 import { Txns } from './components/Txns';
 import { type IMarketToken } from './MarketTokenData';
 
@@ -11,9 +12,9 @@ export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
   {
     title: 'Name',
     dataIndex: 'name',
-    columnWidth: 100,
+    columnWidth: 200,
     render: (_, record) => (
-      <SizableText size="$bodyMd">{record.name}</SizableText>
+      <TokenIdentityItem symbol={record.symbol} address={record.address} />
     ),
   },
   {

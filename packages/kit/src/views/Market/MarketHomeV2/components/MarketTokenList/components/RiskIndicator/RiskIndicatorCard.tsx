@@ -35,6 +35,7 @@ export const RiskIndicatorCard: FC<IRiskIndicatorCardProps> = ({
         gap="$3"
         paddingBottom="$2"
         marginBottom="$3"
+        bg="$bgSubdued"
         borderBottomWidth={1}
         borderColor="$border-subdued"
       >

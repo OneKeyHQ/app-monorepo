@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 
-import { Popover } from '@onekeyhq/components';
+import { Popover, Stack } from '@onekeyhq/components';
 
 import { RiskIndicatorCard } from './RiskIndicatorCard';
 import { RiskIndicatorIcon } from './RiskIndicatorIcon';
@@ -30,7 +30,11 @@ export const RiskIndicator: FC<IRiskIndicatorProps> = ({ type }) => {
       showHeader={false}
       title=""
       // Icon acts as the trigger element.
-      renderTrigger={<RiskIndicatorIcon type={type} />}
+      renderTrigger={
+        <Stack cursor="pointer">
+          <RiskIndicatorIcon type={type} />
+        </Stack>
+      }
       // Render the full card inside the popover.
       renderContent={
         <RiskIndicatorCard
