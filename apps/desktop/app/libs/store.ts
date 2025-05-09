@@ -2,84 +2,76 @@ import { safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
 
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import {
+  EDesktopStoreKeys,
+  type IDesktopStoreMap,
+  type IDesktopStoreUpdateSettings,
+} from '@onekeyhq/shared/types/desktop';
 
-const store = new Store({ name: 'OneKey' });
+const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
 
 export type ILocalStore = {
-  getUpdateSettings(): IUpdateSettings;
-  setUpdateSettings(updateSettings: IUpdateSettings): void;
+  getUpdateSettings(): IDesktopStoreUpdateSettings;
+  setUpdateSettings(updateSettings: IDesktopStoreUpdateSettings): void;
   clear(): void;
 };
 
-export type IUpdateSettings = {
-  useTestFeedUrl: boolean;
-};
-
-const configKeys = {
-  WinBounds: 'winBounds',
-  UpdateSettings: 'updateSettings',
-  DevTools: 'devTools',
-  Theme: 'theme',
-  EncryptedData: 'EncryptedData',
-  Language: 'language',
-  DisableKeyboardShortcuts: 'disableKeyboardShortcuts',
-  ASCFile: 'ascFile',
-  UpdateBuildNumber: 'updateBuildNumber',
-};
+export const instance = store;
 
 export const clear = () => {
   store.clear();
 };
 
-export const getUpdateSettings = (): IUpdateSettings =>
-  store.get(configKeys.UpdateSettings, {
+export const getUpdateSettings = () =>
+  store.get(EDesktopStoreKeys.UpdateSettings, {
     useTestFeedUrl: false,
-  }) as IUpdateSettings;
+  });
 
-export const setUpdateSettings = (updateSettings: IUpdateSettings): void => {
-  store.set(configKeys.UpdateSettings, updateSettings);
+export const setUpdateSettings = (
+  updateSettings: IDesktopStoreUpdateSettings,
+): void => {
+  store.set(EDesktopStoreKeys.UpdateSettings, updateSettings);
 };
 
-export const getDevTools = () => store.get(configKeys.DevTools, false);
+export const getDevTools = () => store.get(EDesktopStoreKeys.DevTools, false);
 
 export const setDevTools = (devTools: boolean) => {
-  store.set(configKeys.DevTools, devTools);
+  store.set(EDesktopStoreKeys.DevTools, devTools);
 };
 
 export const getDisableKeyboardShortcuts = () =>
-  store.get(configKeys.DisableKeyboardShortcuts, {
+  store.get(EDesktopStoreKeys.DisableKeyboardShortcuts, {
     disableAllShortcuts: false,
-  }) as {
-    disableAllShortcuts: boolean;
-  };
+  });
 
 export const setDisableKeyboardShortcuts = (config: {
   disableAllShortcuts: boolean;
 }) => {
-  store.set(configKeys.DisableKeyboardShortcuts, {
+  store.set(EDesktopStoreKeys.DisableKeyboardShortcuts, {
     ...getDisableKeyboardShortcuts(),
     ...config,
   });
 };
 
-export const getTheme = () => store.get(configKeys.Theme, 'system') as string;
+export const getTheme = () => store.get(EDesktopStoreKeys.Theme, 'system');
 
-export const setTheme = (theme: string) => store.set(configKeys.Theme, theme);
+export const setTheme = (theme: string) =>
+  store.set(EDesktopStoreKeys.Theme, theme);
 
 export const getLanguage = () =>
-  store.get(configKeys.Language, 'system') as ILocaleSymbol;
+  store.get(EDesktopStoreKeys.Language, 'system');
 
 export const setLanguage = (lang: string) =>
-  store.set(configKeys.Language, lang);
+  store.set(EDesktopStoreKeys.Language, lang);
 
 export const getWinBounds = (): Electron.Rectangle =>
-  store.get(configKeys.WinBounds, {}) as Electron.Rectangle;
+  store.get(EDesktopStoreKeys.WinBounds, {} as any);
+
 export const setWinBounds = (bounds: Electron.Rectangle) =>
-  store.set(configKeys.WinBounds, bounds);
+  store.set(EDesktopStoreKeys.WinBounds, bounds);
 
 export const clearUpdateSettings = () => {
-  store.delete(configKeys.UpdateSettings);
+  store.delete(EDesktopStoreKeys.UpdateSettings);
 };
 
 export const getSecureItem = (key: string) => {
@@ -88,10 +80,7 @@ export const getSecureItem = (key: string) => {
     logger.error('safeStorage is not available');
     return undefined;
   }
-  const item = store.get(configKeys.EncryptedData, {}) as Record<
-    string,
-    string
-  >;
+  const item = store.get(EDesktopStoreKeys.EncryptedData, {});
   const value = item[key];
   if (value) {
     try {
@@ -111,43 +100,37 @@ export const setSecureItem = (key: string, value: string): void => {
     return undefined;
   }
   try {
-    const items = store.get(configKeys.EncryptedData, {}) as Record<
-      string,
-      string
-    >;
+    const items = store.get(EDesktopStoreKeys.EncryptedData, {});
     items[key] = safeStorage.encryptString(value).toString('hex');
-    store.set(configKeys.EncryptedData, items);
+    store.set(EDesktopStoreKeys.EncryptedData, items);
   } catch (e) {
     logger.error(`failed to encrypt ${key}`);
   }
 };
 
 export const deleteSecureItem = (key: string) => {
-  const items = store.get(configKeys.EncryptedData, {}) as Record<
-    string,
-    string
-  >;
+  const items = store.get(EDesktopStoreKeys.EncryptedData, {});
   delete items[key];
-  store.set(configKeys.EncryptedData, items);
+  store.set(EDesktopStoreKeys.EncryptedData, items);
 };
 
 export const setASCFile = (ascFile: string) => {
-  store.set(configKeys.ASCFile, ascFile);
+  store.set(EDesktopStoreKeys.ASCFile, ascFile);
 };
 
-export const getASCFile = () => store.get(configKeys.ASCFile, '') as string;
+export const getASCFile = () => store.get(EDesktopStoreKeys.ASCFile, '');
 
 export const clearASCFile = () => {
-  store.delete(configKeys.ASCFile);
+  store.delete(EDesktopStoreKeys.ASCFile);
 };
 
 export const setUpdateBuildNumber = (buildNumber: string) => {
-  store.set(configKeys.UpdateBuildNumber, buildNumber);
+  store.set(EDesktopStoreKeys.UpdateBuildNumber, buildNumber);
 };
 
 export const getUpdateBuildNumber = () =>
-  store.get(configKeys.UpdateBuildNumber, '') as string;
+  store.get(EDesktopStoreKeys.UpdateBuildNumber, '');
 
 export const clearUpdateBuildNumber = () => {
-  store.delete(configKeys.UpdateBuildNumber);
+  store.delete(EDesktopStoreKeys.UpdateBuildNumber);
 };

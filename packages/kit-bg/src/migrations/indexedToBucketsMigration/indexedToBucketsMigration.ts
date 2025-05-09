@@ -2,9 +2,13 @@ import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import type { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { LEGACY_INDEXED_DB_NAME } from '../../dbs/local/consts';
+import {
+  INDEXED_DB_BUCKET_PRESET_STORE_NAMES,
+  LEGACY_INDEXED_DB_NAME,
+} from '../../dbs/local/consts';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 
@@ -28,6 +32,7 @@ import type {
   IDBSignedTransaction,
   IDBWallet,
   IIndexedBucketsMap,
+  IIndexedDBSchemaMap,
 } from '../../dbs/local/types';
 
 async function legacyDbExists(): Promise<boolean> {
@@ -39,18 +44,27 @@ async function legacyDbExists(): Promise<boolean> {
   }
 }
 
-async function migrateOneKeyV5LegacyDBToBucket({
+export type ICheckCurrentDBIsMigratedResult = {
+  isMigrated: boolean;
+
+  buckets: IIndexedBucketsMap;
+
+  accountBucket: IndexedDBPromised<IIndexedDBSchemaMap>;
+  backupAccountBucket: IndexedDBPromised<IIndexedDBSchemaMap>;
+  addressBucket: IndexedDBPromised<IIndexedDBSchemaMap>;
+  archiveBucket: IndexedDBPromised<IIndexedDBSchemaMap>;
+
+  accountCount: number;
+  walletCount: number;
+  contextCount: number;
+  context: IDBContext | undefined;
+};
+
+async function checkCurrentDBIsMigrated({
   buckets,
 }: {
   buckets: IIndexedBucketsMap;
-}) {
-  if (!(await legacyDbExists())) {
-    console.log(
-      'migrateOneKeyV5LegacyDBToBucket skipped:  legacyDb not exists',
-    );
-    return;
-  }
-
+}): Promise<ICheckCurrentDBIsMigratedResult> {
   // const cloudSyncBucket = buckets[EIndexedDBBucketNames.cloudSync];
   const accountBucket = buckets[EIndexedDBBucketNames.account];
   const backupAccountBucket = buckets[EIndexedDBBucketNames.backupAccount];
@@ -77,13 +91,114 @@ async function migrateOneKeyV5LegacyDBToBucket({
     context?.verifyString !== DEFAULT_VERIFY_STRING;
 
   if (isBucketDBMigrated) {
+    return {
+      isMigrated: true,
+      buckets,
+      accountBucket,
+      backupAccountBucket,
+      addressBucket,
+      archiveBucket,
+      accountCount,
+      walletCount,
+      contextCount,
+      context,
+    };
+  }
+  return {
+    isMigrated: false,
+    buckets,
+    accountBucket,
+    backupAccountBucket,
+    addressBucket,
+    archiveBucket,
+    accountCount,
+    walletCount,
+    contextCount,
+    context,
+  };
+}
+
+async function migrateBackupedDataToBucket({
+  isMigrated,
+  accountBucket,
+  backupAccountBucket,
+}: ICheckCurrentDBIsMigratedResult) {
+  if (isMigrated) {
+    console.log(
+      'migrateBackupedDataToBucket skipped:  bucketDB is migrated already',
+    );
+    return;
+  }
+
+  const backupDB = backupAccountBucket;
+
+  const cloudSyncItems: IDBCloudSyncItem[] = await backupDB.getAll(
+    ELocalDBStoreNames.CloudSyncItem,
+  );
+
+  const accounts: IDBAccount[] = await backupDB.getAll(
+    ELocalDBStoreNames.Account,
+  );
+
+  const credentials: IDBCredential[] = await backupDB.getAll(
+    ELocalDBStoreNames.Credential,
+  );
+
+  const devices: IDBDevice[] = await backupDB.getAll(ELocalDBStoreNames.Device);
+
+  const wallets: IDBWallet[] = await backupDB.getAll(ELocalDBStoreNames.Wallet);
+
+  const indexedAccounts: IDBIndexedAccount[] = await backupDB.getAll(
+    ELocalDBStoreNames.IndexedAccount,
+  );
+
+  const contexts: IDBContext[] = await backupDB.getAll(
+    ELocalDBStoreNames.Context,
+  );
+
+  const tx = accountBucket.transaction(
+    INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
+    'readwrite',
+  );
+
+  await migrateAccountBucketRecords({
+    tx,
+    records: {
+      cloudSyncItem: cloudSyncItems,
+      context: contexts,
+      credential: credentials,
+      device: devices,
+      indexedAccount: indexedAccounts,
+      wallet: wallets,
+      account: accounts,
+    },
+  });
+}
+
+async function migrateOneKeyV5LegacyDBToBucket({
+  isMigrated,
+  accountBucket,
+  backupAccountBucket,
+  addressBucket,
+  archiveBucket,
+  accountCount,
+  walletCount,
+  contextCount,
+  context,
+}: ICheckCurrentDBIsMigratedResult) {
+  if (isMigrated) {
     console.log(
       'migrateOneKeyV5LegacyDBToBucket skipped:  bucketDB is migrated already',
     );
     return;
   }
 
-  await legacyIndexedDb.open();
+  if (!(await legacyDbExists())) {
+    console.log(
+      'migrateOneKeyV5LegacyDBToBucket skipped:  legacyDb not exists',
+    );
+    return;
+  }
 
   const legacyContextCount = await legacyIndexedDb.count(
     ELocalDBStoreNames.Context,
@@ -132,15 +247,9 @@ async function migrateOneKeyV5LegacyDBToBucket({
   const migrateResults: IMigrateRecordsResult[] = [];
 
   // #region migrate account bucket
-  const objectStoreNames: ELocalDBStoreNames[] = [
-    ELocalDBStoreNames.CloudSyncItem,
-    ELocalDBStoreNames.Context,
-    ELocalDBStoreNames.Credential,
-    ELocalDBStoreNames.Device,
-    ELocalDBStoreNames.Wallet,
-    ELocalDBStoreNames.IndexedAccount,
-    ELocalDBStoreNames.Account,
-  ];
+  const objectStoreNames: ELocalDBStoreNames[] =
+    INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account];
+
   const updateRecords = {
     cloudSyncItem: legacyCloudSyncItems,
     context: legacyContexts,
@@ -175,7 +284,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
 
   // #region migrate address bucket
   const addressBucketTx = addressBucket.transaction(
-    [ELocalDBStoreNames.Address],
+    INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.address],
     'readwrite',
   );
   migrateResults.push(
@@ -189,11 +298,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
 
   // #region migrate archive bucket
   const archiveBucketTx = archiveBucket.transaction(
-    [
-      ELocalDBStoreNames.SignedMessage,
-      ELocalDBStoreNames.SignedTransaction,
-      ELocalDBStoreNames.ConnectedSite,
-    ],
+    INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.archive],
     'readwrite',
   );
   migrateResults.push(
@@ -255,13 +360,9 @@ async function migrateOneKeyV5LegacyDBToBucket({
   return true;
 }
 
-async function migrateBackupDBToBucket() {
-  // TODO
-  // const backupBucket = await openDB(BACKUP_INDEXED_DB_NAME);
-}
-
 export default {
+  checkCurrentDBIsMigrated,
   migrateOneKeyV5LegacyDBToBucket,
-  migrateBackupDBToBucket,
+  migrateBackupedDataToBucket,
   migrateAccountBucketRecords,
 };
