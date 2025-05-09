@@ -18,9 +18,13 @@ import { Actions, TermsAndPrivacy, Welcome } from './components';
 export function GetStarted({
   route,
 }: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
-  const { isFullModal } = route.params || {};
+  const { isFullModal, fromExt } = route.params || {};
   const { top: topInset } = useSafeAreaInsets();
-  const top = isFullModal ? topInset : '$5';
+  let top = isFullModal ? topInset : '$5';
+
+  if (fromExt) {
+    top = '$5';
+  }
 
   useEffect(() => {
     return () => {
