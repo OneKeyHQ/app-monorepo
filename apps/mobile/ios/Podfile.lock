@@ -1039,7 +1039,7 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.1.0):
+  - react-native-tab-page-view (1.1.1):
     - JXCategoryView (~> 1.6.1)
     - JXPagingView/Pager (~> 2.1.2)
     - React
@@ -1814,7 +1814,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: 74b8d42c387617f274121c6eed0b4c9160099a71
+  react-native-tab-page-view: 7469294e989b3cf01da5e942ff93ac6902347975
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-video: 12a68a3e9a6d93e8bdfa8e352917261c49ac35f7
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
