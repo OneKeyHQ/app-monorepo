@@ -65,6 +65,8 @@ const appDeviceInfo: IAppDeviceInfo = {
   },
 };
 
-appGlobals.$$appDeviceInfo = appDeviceInfo;
+if (process.env.NODE_ENV !== 'production') {
+  appGlobals.$$appDeviceInfo = appDeviceInfo;
+}
 
 export default appDeviceInfo;
