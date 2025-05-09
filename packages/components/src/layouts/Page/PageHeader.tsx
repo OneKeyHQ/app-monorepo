@@ -65,7 +65,11 @@ function PageHeader(props: IPageHeaderProps) {
   const reloadOptions = pageHeaderReload.reload(props);
   const navigation = useNavigation();
   useLayoutEffect(() => {
-    if (reloadOptions.headerShown !== false) {
+    if (reloadOptions.headerShown === false) {
+      navigation.setOptions({
+        headerShown: false,
+      });
+    } else {
       navigation.setOptions(reloadOptions);
     }
   }, [navigation, reloadOptions]);
