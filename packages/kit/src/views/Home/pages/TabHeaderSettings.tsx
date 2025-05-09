@@ -48,29 +48,14 @@ function TokenListSettings() {
     isOthersWallet,
   });
   return manageTokenEnabled ? (
-    <>
-      {md ? (
-        <IconButton
-          title={intl.formatMessage({
-            id: ETranslations.manage_token_custom_token_title,
-          })}
-          variant="tertiary"
-          icon="SliderHorOutline"
-          onPress={handleOnManageToken}
-        />
-      ) : (
-        <Button
-          icon="SliderHorOutline"
-          size="small"
-          variant="tertiary"
-          onPress={handleOnManageToken}
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_manage,
-          })}
-        </Button>
-      )}
-    </>
+    <IconButton
+      title={intl.formatMessage({
+        id: ETranslations.manage_token_custom_token_title,
+      })}
+      variant="tertiary"
+      icon="SliderHorOutline"
+      onPress={handleOnManageToken}
+    />
   ) : null;
 }
 const filterScamHistorySupportedNetworks =
