@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -6,12 +6,12 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Divider } from '../../content';
 import { EPageType, usePageType } from '../../hocs';
-import { useIsHorizontalLayout, useThemeValue } from '../../hooks';
+import { useThemeValue } from '../../hooks';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
 
-import type { IStackStyle } from '../../primitives';
+import { PageHeaderDivider } from './PageHeaderDivider';
+
 import type {
   IModalNavigationOptions,
   IStackNavigationOptions,
@@ -60,19 +60,12 @@ const usePageHeaderReloadOptions = () => {
   return useMemo(() => ({ reload }), [reload]);
 };
 
-function BasicPageHeaderDivider(props: IStackStyle) {
-  const isHorizontal = useIsHorizontalLayout();
-  return isHorizontal ? <Divider {...props} /> : null;
-}
-
-export const PageHeaderDivider = memo(BasicPageHeaderDivider);
-
 function PageHeader(props: IPageHeaderProps) {
   const pageHeaderReload = usePageHeaderReloadOptions();
   const reloadOptions = pageHeaderReload.reload(props);
   const navigation = useNavigation();
   useLayoutEffect(() => {
-    if (reloadOptions.headerShown) {
+    if (reloadOptions.headerShown !== false) {
       navigation.setOptions(reloadOptions);
     }
   }, [navigation, reloadOptions]);
@@ -82,7 +75,7 @@ function PageHeader(props: IPageHeaderProps) {
   const isModal = pageType === EPageType.modal;
   const { headerSearchBarOptions } = props;
 
-  if (!reloadOptions.headerShown) {
+  if (reloadOptions.headerShown === false) {
     return null;
   }
   // Android & Web HeaderSearchBar in packages/components/src/layouts/Navigation/Header/HeaderView.tsx
@@ -100,7 +93,7 @@ function PageHeader(props: IPageHeaderProps) {
           onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
         />
       ) : null}
-      {isModal ? null : <PageHeaderDivider />}
+      {isModal || platformEnv.isNativeIOSPad ? null : <PageHeaderDivider />}
     </>
   );
 }
@@ -108,3 +101,4 @@ function PageHeader(props: IPageHeaderProps) {
 PageHeader.usePageHeaderReloadOptions = usePageHeaderReloadOptions;
 
 export { PageHeader };
+export * from './PageHeaderDivider';
