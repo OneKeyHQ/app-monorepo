@@ -185,8 +185,8 @@ function MarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        <XStack px="$5" pt="$2">
-          {isHorizontal ? null : (
+        {isHorizontal ? null : (
+          <XStack px="$5" pt="$2">
             <UniversalSearchInput
               size="medium"
               containerProps={{
@@ -194,8 +194,8 @@ function MarketHome() {
                 $gtLg: undefined,
               }}
             />
-          )}
-        </XStack>
+          </XStack>
+        )}
         {renderTabContainer()}
       </Page.Body>
     </Page>
