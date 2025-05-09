@@ -147,37 +147,51 @@ export default function PrimeDeviceLimit() {
 
           <Stack>
             {isLoading && !devices?.length ? <Spinner /> : null}
-            {devices?.map((device) => (
-              <ListItem
-                key={device.instanceId}
-                icon={getDeviceIcon(device)}
-                title={[device.deviceName, device.version]
-                  .filter(Boolean)
-                  .join(' ')}
-                subtitle={`${device.platform} ${device.instanceId?.slice(
-                  0,
-                  8,
-                )} · ${formatDistanceToNow(new Date(device.lastLoginTime))}`}
-              >
-                {currentInstanceId === device.instanceId ? (
-                  <Badge badgeType="default" badgeSize="lg">
-                    {intl.formatMessage({
-                      id: ETranslations.prime_current,
-                    })}
-                  </Badge>
-                ) : (
-                  <ListItem.IconButton
-                    icon="CrossedLargeOutline"
-                    onPress={async () => {
-                      await logoutOtherDevices({
-                        deviceName: device.deviceName,
-                        instanceId: device.instanceId,
-                      });
-                    }}
-                  />
-                )}
-              </ListItem>
-            ))}
+            {devices?.map((device) => {
+              let title = '';
+              let subtitle = '';
+
+              const appFullNameWithVersion = [device.deviceName, device.version]
+                .filter(Boolean)
+                .join(' ');
+              const instanceIdLastHash = device.instanceId?.slice(0, 8);
+
+              title = `${device.platformName || device.platform}`;
+              subtitle = `${appFullNameWithVersion} · ${formatDistanceToNow(
+                new Date(device.lastLoginTime),
+              )}`;
+
+              if (process.env.NODE_ENV !== 'production') {
+                title += ` (${instanceIdLastHash})`;
+              }
+
+              return (
+                <ListItem
+                  key={device.instanceId}
+                  icon={getDeviceIcon(device)}
+                  title={title}
+                  subtitle={subtitle}
+                >
+                  {currentInstanceId === device.instanceId ? (
+                    <Badge badgeType="default" badgeSize="lg">
+                      {intl.formatMessage({
+                        id: ETranslations.prime_current,
+                      })}
+                    </Badge>
+                  ) : (
+                    <ListItem.IconButton
+                      icon="CrossedLargeOutline"
+                      onPress={async () => {
+                        await logoutOtherDevices({
+                          deviceName: device.deviceName,
+                          instanceId: device.instanceId,
+                        });
+                      }}
+                    />
+                  )}
+                </ListItem>
+              );
+            })}
           </Stack>
           <Stack py="$5" px="$5">
             <SizableText>
