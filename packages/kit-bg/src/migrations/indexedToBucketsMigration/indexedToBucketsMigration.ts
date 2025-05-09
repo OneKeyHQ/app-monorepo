@@ -90,22 +90,8 @@ async function checkCurrentDBIsMigrated({
     accountCount > 0 ||
     context?.verifyString !== DEFAULT_VERIFY_STRING;
 
-  if (isBucketDBMigrated) {
-    return {
-      isMigrated: true,
-      buckets,
-      accountBucket,
-      backupAccountBucket,
-      addressBucket,
-      archiveBucket,
-      accountCount,
-      walletCount,
-      contextCount,
-      context,
-    };
-  }
   return {
-    isMigrated: false,
+    isMigrated: isBucketDBMigrated,
     buckets,
     accountBucket,
     backupAccountBucket,
@@ -156,6 +142,8 @@ async function migrateBackupedDataToBucket({
     ELocalDBStoreNames.Context,
   );
 
+  await timerUtils.wait(1000);
+
   const tx = accountBucket.transaction(
     INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
     'readwrite',
@@ -173,12 +161,13 @@ async function migrateBackupedDataToBucket({
       account: accounts,
     },
   });
+
+  await timerUtils.wait(1000);
 }
 
 async function migrateOneKeyV5LegacyDBToBucket({
   isMigrated,
   accountBucket,
-  backupAccountBucket,
   addressBucket,
   archiveBucket,
   accountCount,
@@ -270,16 +259,18 @@ async function migrateOneKeyV5LegacyDBToBucket({
     })),
   );
 
-  const backupAccountBucketTx = backupAccountBucket.transaction(
-    objectStoreNames,
-    'readwrite',
-  );
-  migrateResults.push(
-    ...(await migrateAccountBucketRecords({
-      tx: backupAccountBucketTx,
-      records: updateRecords,
-    })),
-  );
+  // Do not update backup data from legacy database, it will overwrite the backup data
+  // const backupAccountBucketTx = backupAccountBucket.transaction(
+  //   objectStoreNames,
+  //   'readwrite',
+  // );
+  // migrateResults.push(
+  //   ...(await migrateAccountBucketRecords({
+  //     tx: backupAccountBucketTx,
+  //     records: updateRecords,
+  //   })),
+  // );
+
   // #endregion
 
   // #region migrate address bucket
@@ -325,6 +316,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
   // #endregion
 
   // #region migrate cloud sync bucket
+
   // const cloudSyncBucketTx = cloudSyncBucket.transaction(
   //   [ELocalDBStoreNames.CloudSyncItem],
   //   'readwrite',
@@ -336,6 +328,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
   //     records: legacyCloudSyncItems,
   //   }),
   // );
+
   // #endregion
 
   // TODO atom is init before localDB
@@ -355,7 +348,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
     },
   });
 
-  await timerUtils.wait(1 * 1000);
+  await timerUtils.wait(1000);
 
   return true;
 }
