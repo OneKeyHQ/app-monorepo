@@ -3768,6 +3768,21 @@ class ServiceAccount extends ServiceBase {
             },
           }));
         }
+
+        const hardwareWalletXfpStatus = await hardwareWalletXfpStatusAtom.get();
+        if (
+          hardwareWalletXfpStatus?.[walletId]?.xfpMissing &&
+          wallet &&
+          accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+        ) {
+          await hardwareWalletXfpStatusAtom.set((v) => ({
+            ...v,
+            [walletId]: {
+              ...(v?.[walletId] || {}),
+              xfpMissing: false,
+            },
+          }));
+        }
       }
     }
 
