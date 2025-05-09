@@ -23,37 +23,37 @@ const AlertGallery = () => (
         element: (
           <YStack gap="$4">
             <Alert
-              title="Title"
+              title="type=default"
               description="Description here..."
               icon="PlaceholderOutline"
             />
             <Alert
               type="success"
-              title="Title"
+              title="type=success"
               description="Description here..."
               icon="PlaceholderOutline"
             />
             <Alert
               type="critical"
-              title="Title"
+              title="type=critical"
               description="Description here..."
               icon="PlaceholderOutline"
             />
             <Alert
               type="danger"
-              title="Title"
+              title="type=danger"
               description="Description here..."
               icon="PlaceholderOutline"
             />
             <Alert
               type="info"
-              title="Title"
+              title="type=info"
               description="Description here..."
               icon="PlaceholderOutline"
             />
             <Alert
               type="warning"
-              title="Title"
+              title="type=warning"
               description="Description here..."
               icon="PlaceholderOutline"
             />
@@ -65,7 +65,7 @@ const AlertGallery = () => (
         element: (
           <YStack gap="$4">
             <Alert
-              title="Title"
+              title="closable"
               description="Description here..."
               icon="PlaceholderOutline"
               closable
@@ -78,13 +78,13 @@ const AlertGallery = () => (
         element: (
           <YStack gap="$4">
             <Alert
-              title="Title"
+              title="primaryAction"
               description="Description here..."
               icon="PlaceholderOutline"
               action={{ primary: 'Action' }}
             />
             <Alert
-              title="Title"
+              title="primaryAction, secondaryAction"
               description="Description here..."
               icon="PlaceholderOutline"
               action={{

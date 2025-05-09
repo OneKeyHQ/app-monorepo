@@ -451,8 +451,9 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
     if (!storageBuckets) {
       // throw new Error(
-      // 'IndexedDBPromised ERROR: navigator.storageBuckets is not supported',
+      //   'IndexedDBPromised ERROR: navigator.storageBuckets is not supported',
       // );
+      // Firefox、Safari not support storageBuckets, use globalThis.indexedDB as fallback
       return globalThis.indexedDB;
     }
     const bucket = await storageBuckets?.open(bucketName, bucketOptions);

@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -59,7 +60,14 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
 
   const { onConfirm, ...restProps } = footerRef.props || props || {};
 
+  const trackIdValue = (restProps as IDialogFooterProps)?.trackID;
+
   const handleConfirm = useCallback(async () => {
+    if (trackIdValue) {
+      defaultLogger.ui.dialog.dialogConfirm({
+        trackId: trackIdValue,
+      });
+    }
     const { close, ref, isExist } = dialogInstance;
     const form = ref.current;
     if (form) {
@@ -93,9 +101,9 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
         })
       : true;
     if (result) {
-      void close();
+      void close({ flag: 'confirm' });
     }
-  }, [onConfirm, dialogInstance]);
+  }, [trackIdValue, onConfirm, dialogInstance]);
 
   return {
     props: restProps,
@@ -219,6 +227,7 @@ function BasicFooterAction({
   onCancelText,
   confirmButtonProps = {},
   tone,
+  trackID,
 }: IDialogFooterProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -235,6 +244,7 @@ function BasicFooterAction({
       onConfirmText,
       confirmButtonProps,
       onCancelText,
+      trackID,
       tone,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,6 +265,7 @@ function BasicFooterAction({
       confirmButtonProps,
       onCancelText:
         onCancelText || intl.formatMessage({ id: ETranslations.global_cancel }),
+      trackID,
       tone,
     };
     footerRef.notifyUpdate?.();
@@ -269,6 +280,7 @@ function BasicFooterAction({
     onConfirmText,
     confirmButtonProps,
     onCancelText,
+    trackID,
     tone,
     footerRef,
     intl,

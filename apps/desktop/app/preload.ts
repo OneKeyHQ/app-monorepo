@@ -22,6 +22,7 @@ import type {
 
 import { ipcMessageKeys } from './config';
 
+import type { IDesktopSystemInfo } from './config';
 import type { IMacBundleInfo } from './libs/utils';
 
 export interface IVerifyUpdateParams {
@@ -44,6 +45,7 @@ export type IDesktopAPI = {
   reload: () => void;
   ready: () => void;
   focus: () => void;
+  getSystemInfo: () => Promise<IDesktopSystemInfo>;
   getMediaAccessStatus: (
     prefType: IMediaType,
   ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
@@ -337,6 +339,12 @@ const desktopApi = Object.freeze({
     ipcRenderer.sendSync(ipcMessageKeys.STORE_DEL_ITEM_ASYNC, { key }),
   storeClear: async () => ipcRenderer.sendSync(ipcMessageKeys.STORE_CLEAR),
 
+  // SystemInfo
+  getSystemInfo: async () => {
+    return ipcRenderer.sendSync(
+      ipcMessageKeys.APP_SYSTEM_INFO,
+    ) as IDesktopSystemInfo;
+  },
   reloadBridgeProcess: () => {
     ipcRenderer.send(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS);
   },
