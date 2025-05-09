@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getDefaultEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
@@ -37,17 +37,39 @@ const mapServerNetworksToSwapNetworks = (
 ): ISwapNetwork[] =>
   serverNetworks.map(mapServerNetworkToSwapNetwork).filter(Boolean);
 
+// Get default networks from presetNetworksMap for market
+const getDefaultMarketNetworks = () => [
+  // for mainnet
+  presetNetworksMap.sol,
+  presetNetworksMap.bsc,
+  presetNetworksMap.eth,
+  presetNetworksMap.base,
+  presetNetworksMap.sonic,
+  presetNetworksMap.tron,
+  presetNetworksMap.sui,
+  presetNetworksMap.aptos,
+  presetNetworksMap.ton,
+
+  // for test
+  presetNetworksMap.btc,
+  presetNetworksMap.arbitrum,
+  presetNetworksMap.avalanche,
+  presetNetworksMap.polygon,
+  presetNetworksMap.core,
+  presetNetworksMap.optimism,
+  presetNetworksMap.blast,
+  presetNetworksMap.mantle,
+  presetNetworksMap.cronos,
+  presetNetworksMap.linea,
+];
+
 function MarketTokenListNetworkSelector({
   selectedNetworkId: _selectedNetworkId,
   onSelectNetworkId,
 }: IMarketTokenListNetworkSelectorProps) {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
-  >(() =>
-    mapServerNetworkToSwapNetwork(
-      getDefaultEnabledNetworksInAllNetworks()?.[0],
-    ),
-  );
+  >(() => mapServerNetworkToSwapNetwork(getDefaultMarketNetworks()[0]));
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
@@ -77,9 +99,7 @@ function MarketTokenListNetworkSelector({
 
   return (
     <MarketNetworkFilter
-      networks={mapServerNetworksToSwapNetworks(
-        getDefaultEnabledNetworksInAllNetworks(),
-      )}
+      networks={mapServerNetworksToSwapNetworks(getDefaultMarketNetworks())}
       selectedNetwork={currentSelectNetwork}
       onSelectNetwork={onSelectCurrentNetwork}
       moreNetworksCount={2}
