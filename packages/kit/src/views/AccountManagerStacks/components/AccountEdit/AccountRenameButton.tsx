@@ -17,6 +17,8 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { showUpdateHardwareWalletLegacyXfpDialog } from '../../../Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
+
 export function AccountRenameButton({
   name,
   wallet,
@@ -81,14 +83,25 @@ export function AccountRenameButton({
             const isQrWallet = accountUtils.isQrWallet({
               walletId: wallet?.id,
             });
+            await serviceAccount.generateWalletsMissingMetaSilently({
+              walletId: wallet?.id || '',
+            });
             if (!isHwWallet || isQrWallet) {
+              // prompt password verify
               await serviceAccount.generateWalletsMissingMetaWithUserInteraction(
                 {
                   walletId: wallet?.id || '',
                 },
               );
+              callShowRenameDialog();
+            } else if (isHwWallet) {
+              await showUpdateHardwareWalletLegacyXfpDialog({
+                walletId: wallet?.id || '',
+                onConfirm: () => {
+                  callShowRenameDialog();
+                },
+              });
             }
-            callShowRenameDialog();
           })();
         } else {
           callShowRenameDialog();

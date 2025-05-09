@@ -79,6 +79,13 @@ export function WebEmbedDevConfig() {
       >
         Test Tracking Event
       </Button>
+      <Button
+        onPress={() => {
+          void webembedApiProxy.test.captureException();
+        }}
+      >
+        Test Capture Exception
+      </Button>
     </YStack>
   );
 }
@@ -86,6 +93,7 @@ export function WebEmbedDevConfig() {
 function WebEmbedGallery() {
   return (
     <Layout
+      filePath={__CURRENT_FILE_PATH__}
       componentName="WebEmbed"
       elements={[
         {

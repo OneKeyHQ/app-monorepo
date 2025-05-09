@@ -19,7 +19,10 @@ import {
   NeedOneKeyBridgeUpgrade,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
-import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  DeviceNotFound,
+  FirmwareUpdateVersionMismatchError,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -280,7 +283,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     serviceHardwareUtils.hardwareLog('checkFirmwareUpdateStatus', features);
 
-    if (error) throw error;
+    if (error) {
+      if (
+        isHardwareErrorByCode({
+          error,
+          code: [HardwareErrorCode.DeviceNotFound],
+        })
+      ) {
+        // ignore
+        return;
+      }
+      throw error;
+    }
 
     if (isBootloaderMode) {
       showBootloaderUpdateModal();

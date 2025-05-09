@@ -516,7 +516,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
 }
 
 const createActions = memoFn(() => {
-  console.log('new ContextJotaiActionsTokenList()', Date.now());
+  // console.log('new ContextJotaiActionsTokenList()', Date.now());
   return new ContextJotaiActionsTokenList();
 });
 

@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { findIndex, isEmpty } from 'lodash';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IDecodedTx,
   IDecodedTxAction,

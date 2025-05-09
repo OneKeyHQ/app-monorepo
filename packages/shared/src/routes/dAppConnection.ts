@@ -7,10 +7,7 @@ import type {
   IRequestInvoiceArgs,
   IVerifyMessageArgs,
 } from '../../types/lightning/webln';
-import type {
-  IAccountToken,
-  IAddCustomTokenRouteParams,
-} from '../../types/token';
+import type { IAddCustomTokenRouteParams } from '../../types/token';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 export enum EDAppConnectionModal {

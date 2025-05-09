@@ -4,25 +4,20 @@ import mockStorageInstance from './instance/mockStorageInstance';
 import nativeAsyncStorageInstance from './instance/nativeAsyncStorageInstance';
 import { buildAppStorageFactory } from './syncStorage';
 
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+import type { IAppStorageHub } from './appStorageTypes';
 
-const appStorage: AsyncStorageStatic = // iOS/Android AsyncStorage
-  nativeAsyncStorageInstance;
-
-const originalClear = appStorage.clear;
+const originalClear = nativeAsyncStorageInstance.clear;
 // https://stackoverflow.com/questions/46736268/react-native-asyncstorage-clear-is-failing-on-ios
-appStorage.clear = async () => {
-  const asyncStorageKeys = await appStorage.getAllKeys();
+nativeAsyncStorageInstance.clear = async () => {
+  const asyncStorageKeys = await nativeAsyncStorageInstance.getAllKeys();
   if (asyncStorageKeys.length > 0) {
     if (platformEnv.isNativeAndroid) {
-      await originalClear.call(appStorage);
+      await originalClear.call(nativeAsyncStorageInstance);
     } else if (platformEnv.isNativeIOS) {
-      await appStorage.multiRemove(asyncStorageKeys);
+      await nativeAsyncStorageInstance.multiRemove(asyncStorageKeys);
     }
   }
 };
-
-export const mockStorage = mockStorageInstance;
 
 /*
 - Extension internal: ExtensionStorage
@@ -31,4 +26,13 @@ export const mockStorage = mockStorageInstance;
 - Desktop | Web: WebStorage -> IndexedDB
  */
 
-export default buildAppStorageFactory(appStorage);
+const appStorage = buildAppStorageFactory(nativeAsyncStorageInstance);
+export default appStorage;
+export const storageHub: IAppStorageHub = {
+  appStorage,
+  _mockStorage: mockStorageInstance,
+  // web storage
+  _webStorageLegacy: undefined,
+  $webStorageSimpleDB: undefined,
+  $webStorageGlobalStates: undefined,
+};

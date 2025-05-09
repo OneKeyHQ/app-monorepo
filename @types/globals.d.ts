@@ -27,10 +27,12 @@ type IOneKeyPerfTrace = {
 
 declare global {
   var $$appGlobals: IAppGlobals;
+  var $onekeySystemDiskIsFull: boolean | undefined;
 
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
   var $onekey: IWindowOneKeyHub;
+  var $onekeyAppWebembedApiWebviewInitFailed: boolean | undefined;
 
   var $$onekeyDisabledSetTimeout: boolean | undefined;
   var $$onekeyDisabledSetInterval: boolean | undefined;
@@ -73,6 +75,9 @@ declare global {
 
   var WEB_EMBED_ONEKEY_APP_SETTINGS: IWebEmbedOnekeyAppSettings | undefined;
 
+  // Added for webpack/bundler injected variables
+  var __CURRENT_FILE_PATH__: string | undefined;
+
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Error extends Error {
     $$autoPrintErrorIgnore?: boolean;
@@ -89,4 +94,30 @@ declare global {
       ids: ETranslations | ETranslationsMock;
     }
   }
+}
+
+declare global {
+  interface IStorageBucketOptions {
+    durability?: 'strict' | 'relaxed';
+    persisted?: boolean;
+  }
+
+  interface IStorageBucket {
+    indexedDB: IDBFactory;
+  }
+
+  interface IStorageBucketManager {
+    open(
+      name: string,
+      options?: IStorageBucketOptions,
+    ): Promise<IStorageBucket>;
+    keys(): Promise<string[]>;
+    delete(name: string): Promise<void>;
+  }
+
+  interface INavigator extends Navigator {
+    storageBuckets?: IStorageBucketManager;
+  }
+
+  var navigator: INavigator!;
 }

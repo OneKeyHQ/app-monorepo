@@ -2,7 +2,15 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { NavBackButton, Page, SizableText } from '@onekeyhq/components';
+import {
+  NavBackButton,
+  Page,
+  SizableText,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
+import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -13,17 +21,21 @@ import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../AccountSelector';
+import { DeriveTypeSelectorTriggerForHome } from '../AccountSelector/DeriveTypeSelectorTrigger';
 import { useSpotlight } from '../Spotlight';
 
 export function HeaderLeft({
   sceneName,
+  tabRoute,
 }: {
   sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.switchDappAccount,
   );
+  const { gtMd } = useMedia();
 
   const [isFocus, setIsFocus] = useState(false);
 
@@ -66,8 +78,27 @@ export function HeaderLeft({
         }}
       />
     );
-    return accountSelectorTrigger;
-  }, [intl, sceneName, spotlightVisible, tourVisited]);
+
+    if (tabRoute === ETabRoutes.Discovery) {
+      return (
+        <SizableText size="$headingLg">
+          {intl.formatMessage({
+            id: ETranslations.global_browser,
+          })}
+        </SizableText>
+      );
+    }
+    return (
+      <XStack gap="$3" ai="center">
+        {accountSelectorTrigger}
+        {tabRoute === ETabRoutes.Home && gtMd ? (
+          <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
+        ) : null}
+        <AccountSelectorActiveAccountHome num={0} showAccountAddress={false} />
+        <DeriveTypeSelectorTriggerForHome num={0} />
+      </XStack>
+    );
+  }, [gtMd, intl, sceneName, spotlightVisible, tabRoute, tourVisited]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

@@ -10,6 +10,7 @@ import { BatchCreateAccountButton } from './BatchCreateAccountButton';
 import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
+import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
 import { WalletProfile } from './WalletProfile';
 
 import type { IWalletDetailsProps } from '..';
@@ -24,6 +25,7 @@ function WalletOptionsView({ wallet }: IWalletOptionsProps) {
     if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
       return (
         <>
+          <WalletBoundReferralCodeButton wallet={wallet} />
           <HdWalletBackupButton wallet={wallet} />
           <BatchCreateAccountButton wallet={wallet} />
         </>
@@ -49,6 +51,7 @@ function WalletOptionsView({ wallet }: IWalletOptionsProps) {
           <Verification device={device} />
           <HardwareHomeScreenButton device={device} />
           <Advance wallet={wallet} /> */}
+          <WalletBoundReferralCodeButton wallet={wallet} />
           <DeviceManagementButton wallet={wallet} />
           <BatchCreateAccountButton wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />

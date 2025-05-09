@@ -17,6 +17,8 @@ import {
   Spinner,
   Stack,
   Tab,
+  XStack,
+  useIsWideScreen,
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
@@ -26,15 +28,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
+import { TabPageHeader } from '../../components/TabPageHeader';
+import { UniversalSearchInput } from '../../components/TabPageHeader/UniversalSearchInput';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
-import { MarketHomeHeader } from './components/MarketHomeHeader';
-import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
@@ -173,14 +176,28 @@ function MarketHome() {
       />
     );
   }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
+
+  const isWideScreen = useIsWideScreen();
   return (
     <Page>
-      {gtMd && !platformEnv.isNativeIOSPad ? (
-        <MarketHomeHeader />
-      ) : (
-        <MDMarketHomeHeader />
-      )}
-      <Page.Body>{renderTabContainer()}</Page.Body>
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Market}
+      />
+      <Page.Body>
+        <XStack px="$5" pt="$2">
+          {isWideScreen ? null : (
+            <UniversalSearchInput
+              size="medium"
+              containerProps={{
+                width: '100%',
+                $gtLg: undefined,
+              }}
+            />
+          )}
+        </XStack>
+        {renderTabContainer()}
+      </Page.Body>
     </Page>
   );
 }

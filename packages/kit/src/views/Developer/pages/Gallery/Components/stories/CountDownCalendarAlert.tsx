@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const CountDownCalendarAlertGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="CountDownCalendarAlert"
     description="The CountDownCalendarAlert component is used to display calendar-based countdown reminders, helping users understand the remaining time for important events or deadlines. It provides an intuitive way to display time, suitable for event announcements, promotional countdowns, and similar scenarios."
     suggestions={[

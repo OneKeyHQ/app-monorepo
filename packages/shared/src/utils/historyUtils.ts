@@ -256,3 +256,13 @@ export function isAccountCompatibleWithTx({
   }
   return false;
 }
+
+export function buildAddressMapInfoKey({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}) {
+  return `${networkId}_${address}`;
+}

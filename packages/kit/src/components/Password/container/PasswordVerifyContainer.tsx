@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Spinner, Stack, Toast } from '@onekeyhq/components';
+import { SizableText, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -214,6 +215,7 @@ const PasswordVerifyContainer = ({
                 password: '',
                 isBiologyAuth: true,
                 passwordMode,
+                useRnJsCrypto: true,
               });
           }
           if (biologyAuthRes) {
@@ -303,11 +305,13 @@ const PasswordVerifyContainer = ({
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: finalPassword,
+            useRnJsCrypto: true,
           });
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
             passwordMode,
+            useRnJsCrypto: true,
           });
         setPasswordAtom((v) => ({
           ...v,
@@ -337,6 +341,10 @@ const PasswordVerifyContainer = ({
             skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
+            defaultLogger.setting.page.resetApp({
+              reason: 'WrongPasscodeMaxAttempts',
+            });
+
             // reset app
             try {
               // disable setInterval on ext popup
@@ -426,11 +434,11 @@ const PasswordVerifyContainer = ({
         console.error('failed to waitPasswordEncryptorReady with error', e);
         const errorMessage = (e as Error)?.message || '';
         if (errorMessage) {
-          setPasswordEncryptorInitError(errorMessage);
-          Toast.error({
-            title: errorMessage,
-            message: 'Please restart the app and try again later',
-          });
+          // setPasswordEncryptorInitError(errorMessage);
+          // Toast.error({
+          //   title: errorMessage,
+          //   message: 'Please restart the app and try again later',
+          // });
         }
         throw e;
       }
@@ -439,7 +447,7 @@ const PasswordVerifyContainer = ({
 
   const loadingView = useMemo(() => {
     return passwordEncryptorInitError ? (
-      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+      <SizableText size="$bodyMd" color="$textCritical" textAlign="center">
         {passwordEncryptorInitError}
       </SizableText>
     ) : (
@@ -449,28 +457,32 @@ const PasswordVerifyContainer = ({
 
   return (
     <Stack onLayout={onLayout}>
-      {isPasswordEncryptorReady ? (
-        <PasswordVerify
-          passwordMode={passwordMode}
-          alertText={alertText}
-          disableInput={isProtectionTime}
-          onPasswordChange={() => {
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
-            }));
-          }}
-          status={passwordVerifyStatus}
-          onBiologyAuth={() =>
-            onBiologyAuthenticate(isExtLockAndNoCachePassword)
-          }
-          onInputPasswordAuth={onInputPasswordAuthenticate}
-          isEnable={isBiologyAuthEnable}
-          authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
-        />
-      ) : (
-        loadingView
-      )}
+      <PasswordVerify
+        passwordMode={passwordMode}
+        alertText={alertText}
+        disableInput={isProtectionTime}
+        onPasswordChange={() => {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+          }));
+        }}
+        status={passwordVerifyStatus}
+        onBiologyAuth={() => onBiologyAuthenticate(isExtLockAndNoCachePassword)}
+        onInputPasswordAuth={onInputPasswordAuthenticate}
+        isEnable={isBiologyAuthEnable}
+        authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
+      />
+      {passwordEncryptorInitError ? (
+        <SizableText
+          size="$bodyMd"
+          color="$textCritical"
+          textAlign="center"
+          mt="$2"
+        >
+          {passwordEncryptorInitError}
+        </SizableText>
+      ) : null}
     </Stack>
   );
 };

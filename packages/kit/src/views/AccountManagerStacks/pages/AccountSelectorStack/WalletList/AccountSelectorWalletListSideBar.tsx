@@ -21,7 +21,6 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -102,18 +101,21 @@ export function AccountSelectorWalletListSideBar({
       });
 
       if (hideNonBackedUpWallet && !focusWalletChanged.current) {
-        const backedUpWallets = r.wallets;
+        const backedUpWalletsMap = r.wallets.reduce((acc, wallet) => {
+          acc[wallet.id] = wallet;
+          wallet.hiddenWallets?.forEach((hiddenWallet) => {
+            acc[hiddenWallet.id] = hiddenWallet;
+          });
+          return acc;
+        }, {} as Record<string, IDBWallet>);
 
         if (
-          !backedUpWallets.find(
-            (w) =>
-              w.id === selectedAccount.walletId ||
-              w.id === selectedAccount.focusedWallet,
-          )
+          !backedUpWalletsMap[selectedAccount.focusedWallet ?? ''] &&
+          !backedUpWalletsMap[selectedAccount.walletId ?? '']
         ) {
           void actions.current.updateSelectedAccountFocusedWallet({
             num,
-            focusedWallet: backedUpWallets[0]?.id,
+            focusedWallet: r.wallets?.[0]?.id,
           });
         }
 

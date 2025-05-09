@@ -57,6 +57,7 @@ export enum EGalleryRoutes {
   ComponentSecureQRToast = 'component-SecureQrToast',
   ComponentSegmentControl = 'component-SegmentControl',
   ComponentSelect = 'component-Select',
+  ComponentPagination = 'component-Pagination',
   ComponentSend = 'component-Send',
   ComponentShortcut = 'component-Shortcut',
   ComponentSkeleton = 'component-Skeleton',
@@ -85,4 +86,5 @@ export enum EGalleryRoutes {
   SignatureConfirmationGallery = 'component-SignatureConfirmation',
   ComponentStepper = 'component-Stepper',
   CountDownCalendarAlert = 'component-CountDownCalendarAlert',
+  ComponentRestart = 'component-Restart',
 }

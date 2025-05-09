@@ -532,6 +532,26 @@ const SwapHistoryDetailModal = () => {
                 }
               />
             ) : null}
+            {txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd ? (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.provider_ios_popover_onekey_fee,
+                })}
+                renderContent={
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: '$',
+                    }}
+                  >
+                    {txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd}
+                  </NumberSizeableText>
+                }
+              />
+            ) : null}
             {txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy

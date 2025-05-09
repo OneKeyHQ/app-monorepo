@@ -541,6 +541,27 @@ const ThemeColorsGallery = LazyLoadPage(
     ),
 );
 
+const PaginationGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Pagination'
+    ),
+);
+
+const CountDownCalendarAlertGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CountDownCalendarAlert'
+    ),
+);
+
+const RestartGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Restart'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -786,8 +807,20 @@ export const galleryScreenList: {
     component: StepperGallery,
   },
   {
+    name: EGalleryRoutes.CountDownCalendarAlert,
+    component: CountDownCalendarAlertGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentThemeColors,
     component: ThemeColorsGallery,
   },
   { name: EGalleryRoutes.ComponentAnchor, component: AnchorGallery },
+  {
+    name: EGalleryRoutes.ComponentPagination,
+    component: PaginationGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRestart,
+    component: RestartGallery,
+  },
 ];

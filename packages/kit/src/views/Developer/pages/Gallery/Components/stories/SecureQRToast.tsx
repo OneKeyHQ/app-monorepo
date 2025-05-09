@@ -8,6 +8,7 @@ const SecureQRToastGallery = () => {
   const scanQrCode = useScanQrCode();
   return (
     <Layout
+      filePath={__CURRENT_FILE_PATH__}
       componentName="SecureQRToast"
       elements={[
         {

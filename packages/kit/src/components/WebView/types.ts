@@ -7,6 +7,8 @@ import type {
 } from './DesktopWebView';
 import type { ESiteMode } from '../../views/Discovery/types';
 import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type { WebViewMessageEvent } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
   WebViewNavigationEvent,
@@ -54,7 +56,24 @@ export interface IInpageProviderWebViewProps
    * @description Open website in desktop mode or mobile mode
    */
   siteMode?: ESiteMode;
+  /** @platform native
+   * @description A function that is invoked when the webview calls `window.ReactNativeWebView.postMessage`. Setting this property will inject this global into your webview.
+   */
+  onMessage?: (event: WebViewMessageEvent) => void;
+  /** @platform android
+   * @description Use GeckoView instead of the default WebView on Android. GeckoView is Mozilla's alternative to Android's WebView with better privacy and security features.
+   */
+  useGeckoView?: boolean;
+  /** @platform native
+   * @description Whether to use the injected native code from cross-inpage-provider-injected/dist/injected/injectedNative.js
+   * @default true
+   */
+  useInjectedNativeCode?: boolean;
 }
+
+export type IWebViewRef = {
+  sendMessageViaInjectedScript: (message: any) => void;
+} & IWebViewWrapperRef;
 
 export type IElectronWebView = {
   reload: () => void;

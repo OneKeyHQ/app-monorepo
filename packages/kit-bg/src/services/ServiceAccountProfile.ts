@@ -13,6 +13,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
+  IAddressBadge,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
@@ -161,6 +162,7 @@ class ServiceAccountProfile extends ServiceBase {
     isCex: boolean;
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
+    badges: IAddressBadge[];
   }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -172,6 +174,7 @@ class ServiceAccountProfile extends ServiceBase {
         isContract: false,
         isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
+        badges: [],
       };
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -191,6 +194,7 @@ class ServiceAccountProfile extends ServiceBase {
         label: addressLabel,
         isScam,
         isCex,
+        badges,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -207,6 +211,7 @@ class ServiceAccountProfile extends ServiceBase {
         isCex: isCex ?? false,
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
+        badges: badges ?? [],
       };
     } catch {
       return {
@@ -214,6 +219,7 @@ class ServiceAccountProfile extends ServiceBase {
         isContract: false,
         isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
+        badges: [],
       };
     }
   }
@@ -241,7 +247,7 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted, addressLabel, isScam, isCex } =
+    const { isContract, interacted, addressLabel, isScam, isCex, badges } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
@@ -260,6 +266,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
     result.isScam = isScam;
     result.isCex = isCex;
+    result.addressBadges = badges;
   }
 
   private async verifyCannotSendToSelf({

@@ -1296,7 +1296,7 @@ PODS:
     - React-Core
     - React-hermes
     - Sentry/HybridSDK (= 8.41.0)
-  - RNSVG (13.14.0):
+  - RNSVG (15.11.2):
     - React-Core
   - RNZipArchive (6.1.0):
     - React-Core
@@ -1328,7 +1328,7 @@ PODS:
     - ZXingObjC/Core
 
 DEPENDENCIES:
-  - BleUtils (from `../../../node_modules/react-native-ble-utils`)
+  - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - Burnt (from `../../../node_modules/burnt/ios`)
   - CheckBiometricAuthChanged (from `../../../node_modules/react-native-check-biometric-auth-changed`)
@@ -1483,7 +1483,7 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   BleUtils:
-    :path: "../../../node_modules/react-native-ble-utils"
+    :path: "../../../node_modules/@onekeyfe/react-native-ble-utils"
   boost:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/boost.podspec"
   Burnt:
@@ -1727,7 +1727,7 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  BleUtils: 06add4249b37bf9ef520ade8de0b6cf3fc8d9259
+  BleUtils: 4ef087a52c16e43232d5e157671ddd3bee8fff18
   boost: d3f49c53809116a5d38da093a8aa78bf551aed09
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
   CheckBiometricAuthChanged: 3a1cda0319a8b4825aeacbdc1fc195c9acee307f
@@ -1781,7 +1781,7 @@ SPEC CHECKSUMS:
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
   PurchasesHybridCommon: ea662e5a551e6fc79c1eb17feb0478c01c59f3e6
-  RCT-Folly: cd21f1661364f975ae76b3308167ad66b09f53f5
+  RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 77f73950d15b8c1a2b48ba5b79020c3003d1c9b5
   RCTTypeSafety: ede1e2576424d89471ef553b2aed09fbbcc038e3
   React: 2ddb437e599df2f1bffa9b248de2de4cfa0227f0
@@ -1859,7 +1859,7 @@ SPEC CHECKSUMS:
   RNReanimated: b13f6c502215f86657a2c8e2e9e851d8fd955360
   RNScreens: 83090da53f79e29b6586c70946fdf174e5baad95
   RNSentry: 2148771a896aa7704ccf5d8b7df6241b2a4d3843
-  RNSVG: 4cab00c621b328a4a2fedaaedc15d8822216723e
+  RNSVG: 36ab724902de0406127ef8d63d940c055e2a1442
   RNZipArchive: 2b0d34cfe303447f5b55ae5658ec62f1ebce4ab5
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d

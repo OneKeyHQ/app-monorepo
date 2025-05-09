@@ -15,6 +15,7 @@ const PopoverDemo = () => {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <Popover
+      trackID="popover-demo"
       title="Popover Demo"
       open={isOpen}
       onOpenChange={setIsOpen}
@@ -51,6 +52,7 @@ const Content = () => {
 
 const PopoverGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Popover"
     elements={[
       {
@@ -61,6 +63,7 @@ const PopoverGallery = () => (
         title: 'Uncontrolled',
         element: () => (
           <Popover
+            trackID="popover-demo-uncontrolled"
             title="Popover Demo"
             renderTrigger={<Button>Uncontrolled Open</Button>}
             renderContent={({ closePopover }) => (
@@ -81,6 +84,7 @@ const PopoverGallery = () => (
         title: 'usePopoverContext',
         element: () => (
           <Popover
+            trackID="popover-demo-usePopoverContext"
             title="Popover Demo"
             renderTrigger={<Button>Uncontrolled Open</Button>}
             renderContent={<Content />}

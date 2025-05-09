@@ -32,6 +32,7 @@ export type IDialogContextType = {
 export interface IDialogContentProps extends PropsWithChildren {
   estimatedContentHeight?: number;
   testID?: string;
+  trackID?: string;
   isAsync?: boolean;
 }
 
@@ -40,6 +41,7 @@ export type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
 };
 export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive' | 'warning' | 'success';
+  trackID?: string;
   showFooter?: boolean;
   footerProps?: Omit<IStackProps, 'children'>;
   showExitButton?: boolean;
@@ -77,6 +79,7 @@ interface IBasicDialogProps extends TMDialogProps {
   renderIcon?: ReactElement;
   title?: string;
   description?: string | ReactElement;
+  trackID?: string;
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
@@ -109,6 +112,13 @@ export type IDialogContainerProps = PropsWithChildren<
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
   portalContainer?: EPortalContainerConstantName;
+  /**
+   * If true, the dialog will be rendered on top of all views.
+   * On web, it will be rendered to document.body, on iOS, it will be rendered to Window Overlay top layer.
+   * Default is false.
+   * @platform iOS, Web
+   */
+  isOverTopAllViews?: boolean;
   /* Run it after dialog is closed  */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }
@@ -144,4 +154,5 @@ export type IDialogFormProps = PropsWithChildren<{
 export type IRenderToContainer = (
   container: EPortalContainerConstantName,
   element: ReactElement,
+  isOverTopAllViews?: boolean,
 ) => IPortalManager;

@@ -4,9 +4,7 @@ import { atom } from 'jotai';
 import { isEqual, isString, merge } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage, {
-  mockStorage,
-} from '@onekeyhq/shared/src/storage/appStorage';
+import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
@@ -14,13 +12,16 @@ import { atomsConfig } from './atomNames';
 import { JOTAI_RESET } from './types';
 import jotaiVerify from './utils/jotaiVerify';
 
-import type { IAtomNameKeys } from './atomNames';
+import type { EAtomNames, IAtomNameKeys } from './atomNames';
 import type {
   AsyncStorage,
   IJotaiSetStateActionWithReset,
   SyncStorage,
   WritableAtom,
 } from './types';
+
+const appStorage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
+const mockStorage = storageHub._mockStorage;
 
 class JotaiStorage implements AsyncStorage<any> {
   async getItem(key: string, initialValue: any): Promise<any> {
@@ -60,7 +61,7 @@ export const onekeyJotaiStorage = platformEnv.isExtensionUi
   ? mockStorage // extension real storage is running at bg, the ui is a mock storage
   : new JotaiStorage();
 
-export function buildJotaiStorageKey(name: string) {
+export function buildJotaiStorageKey(name: IAtomNameKeys) {
   const key = `g_states_v5:${name}`;
   return key;
 }

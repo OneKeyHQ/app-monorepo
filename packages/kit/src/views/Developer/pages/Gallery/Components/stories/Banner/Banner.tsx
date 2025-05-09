@@ -21,6 +21,7 @@ const EmptyComponent = () => (
 
 const BannerGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Banner"
     elements={[
       {

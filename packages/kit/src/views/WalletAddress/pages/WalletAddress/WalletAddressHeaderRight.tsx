@@ -3,7 +3,6 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   HeaderButtonGroup,
   IconButton,
   Popover,

@@ -20,11 +20,13 @@ import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUti
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
+import { createMessageInjectedScript } from './utils';
 
 import type {
   IElectronWebView,
   IElectronWebViewEvents,
   IInpageProviderWebViewProps,
+  IWebViewRef,
 } from './types';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -32,7 +34,6 @@ import type {
   DidFailLoadEvent,
   DidStartNavigationEvent,
   Event,
-  LoadURLOptions,
   PageFaviconUpdatedEvent,
   PageTitleUpdatedEvent,
 } from 'electron';
@@ -75,7 +76,6 @@ const DesktopWebView = forwardRef(
       style,
       receiveHandler,
       allowpopups,
-      onSrcChange,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -83,6 +83,7 @@ const DesktopWebView = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
+      onLoadEnd,
       // @ts-expect-error
       onNewWindow,
       onDomReady,
@@ -145,12 +146,17 @@ const DesktopWebView = forwardRef(
           onDidStartNavigation?.(event);
         };
 
+        const didFinishLoad = (e: any) => {
+          onDidFinishLoad?.();
+          onLoadEnd?.(e);
+        };
+
         webview.addEventListener('did-start-loading', onDidStartLoading);
         webview.addEventListener(
           'did-start-navigation',
           innerHandleDidStartNavigationNavigation,
         );
-        webview.addEventListener('did-finish-load', onDidFinishLoad);
+        webview.addEventListener('did-finish-load', didFinishLoad);
         webview.addEventListener('did-stop-loading', onDidStopLoading);
         webview.addEventListener('did-fail-load', innerHandleDidFailLoad);
         webview.addEventListener('page-title-updated', onPageTitleUpdated);
@@ -164,7 +170,7 @@ const DesktopWebView = forwardRef(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
           );
-          webview.removeEventListener('did-finish-load', onDidFinishLoad);
+          webview.removeEventListener('did-finish-load', didFinishLoad);
           webview.removeEventListener('did-stop-loading', onDidStopLoading);
           webview.removeEventListener('did-fail-load', innerHandleDidFailLoad);
           webview.removeEventListener('page-title-updated', onPageTitleUpdated);
@@ -188,6 +194,7 @@ const DesktopWebView = forwardRef(
       onPageFaviconUpdated,
       onPageTitleUpdated,
       onDidStartNavigation,
+      onLoadEnd,
     ]);
     if (isDev && props.preload) {
       console.warn(
@@ -217,18 +224,23 @@ const DesktopWebView = forwardRef(
       const wrapper = {
         innerRef: webviewRef.current,
         jsBridge: jsBridgeHost,
-        reload: () => webviewRef.current?.reload(),
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        loadURL: (url: string, options?: LoadURLOptions) => {
-          if (onSrcChange) {
-            onSrcChange(url);
-          } else {
-            webviewRef.current?.loadURL(url);
+        reload: () => {
+          webviewRef.current?.reload();
+        },
+        loadURL: (url: string) => {
+          if (webviewRef.current && url) {
+            webviewRef.current.loadURL(url);
+          }
+        },
+        sendMessageViaInjectedScript: (message: unknown) => {
+          if (webviewRef.current) {
+            const script = createMessageInjectedScript(message);
+            webviewRef.current.executeJavaScript(script);
           }
         },
       };
       jsBridgeHost.webviewWrapper = wrapper;
-      return wrapper;
+      return wrapper as IWebViewRef;
     });
 
     const initWebviewByRef = useCallback(($ref: any) => {

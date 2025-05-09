@@ -35,6 +35,7 @@ type IProps = {
   isConfirmationRequired?: boolean;
   sourceInfo?: IDappSourceInfo;
   walletInternalSign?: boolean;
+  skipBackupCheck?: boolean;
   onSuccess?: (result: string) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
@@ -53,6 +54,7 @@ function MessageConfirmActions(props: IProps) {
     isConfirmationRequired,
     sourceInfo,
     walletInternalSign,
+    skipBackupCheck,
     onSuccess,
     onFail,
     onCancel,
@@ -80,9 +82,10 @@ function MessageConfirmActions(props: IProps) {
           accountId,
         });
         if (
-          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          !skipBackupCheck &&
+          (await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
             walletId,
-          })
+          }))
         ) {
           return;
         }
@@ -159,6 +162,7 @@ function MessageConfirmActions(props: IProps) {
       onSuccess,
       intl,
       sourceInfo,
+      skipBackupCheck,
     ],
   );
 

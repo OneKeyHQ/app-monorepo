@@ -25,6 +25,7 @@ import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
+  useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
@@ -63,6 +64,8 @@ export function useSwapQuote() {
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [swapQuoteResultList, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [, setSwapManualSelectQuoteProviders] =
+    useSwapManualSelectQuoteProvidersAtom();
   const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
     useSwapQuoteEventTotalCountAtom();
   const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
@@ -458,6 +461,26 @@ export function useSwapQuote() {
       approvedSwapInfo: ISwapApproveTransaction;
       enableFilled?: boolean;
     }) => {
+      setSwapManualSelectQuoteProviders({
+        protocol: data.approvedSwapInfo.protocol,
+        quoteId: data.approvedSwapInfo.quoteId,
+        info: {
+          provider: data.approvedSwapInfo.provider,
+          providerName: data.approvedSwapInfo.providerName,
+        },
+        fromTokenInfo: {
+          networkId: data.approvedSwapInfo.fromToken.networkId,
+          contractAddress: data.approvedSwapInfo.fromToken.contractAddress,
+          symbol: data.approvedSwapInfo.fromToken.symbol,
+          decimals: data.approvedSwapInfo.fromToken.decimals,
+        },
+        toTokenInfo: {
+          networkId: data.approvedSwapInfo.toToken.networkId,
+          contractAddress: data.approvedSwapInfo.toToken.contractAddress,
+          symbol: data.approvedSwapInfo.toToken.symbol,
+          decimals: data.approvedSwapInfo.toToken.decimals,
+        },
+      });
       const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
@@ -511,6 +534,7 @@ export function useSwapQuote() {
       setToTokenAmount,
       swapTypeSwitchAction,
       syncNetworksSort,
+      setSwapManualSelectQuoteProviders,
     ],
   );
 
@@ -582,14 +606,4 @@ export function useSwapQuote() {
       }
     }
   }, [isFocused, pageType, quoteEventHandler, swapApprovingSuccessAction]);
-
-  useEffect(() => {
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.SwapApprovingSuccess,
-        swapApprovingSuccessAction,
-      );
-      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-    };
-  }, [swapApprovingSuccessAction, quoteEventHandler]);
 }

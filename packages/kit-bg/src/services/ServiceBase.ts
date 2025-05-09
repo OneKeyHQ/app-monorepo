@@ -14,6 +14,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -38,6 +39,10 @@ export default class ServiceBase {
 
   _currentAccountId: string | undefined;
 
+  _currentUrlAccountId: string | undefined;
+
+  _currentUrlNetworkId: string | undefined;
+
   _oneKeyIdAuthClient: AxiosInstance | undefined;
 
   getClient = async (name: EServiceEndpointEnum) =>
@@ -61,7 +66,10 @@ export default class ServiceBase {
         return config;
       });
       client.interceptors.response.use(
-        (response) => response,
+        (response) => {
+          const r = response;
+          return r;
+        },
         (error) => {
           // check invalid token and logout
           const errorCode: number | undefined = (
@@ -123,8 +131,13 @@ export default class ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    this._currentNetworkId = networkId;
-    this._currentAccountId = accountId;
+    if (accountUtils.isUrlAccountFn({ accountId })) {
+      this._currentUrlNetworkId = networkId;
+      this._currentUrlAccountId = accountId;
+    } else {
+      this._currentNetworkId = networkId;
+      this._currentAccountId = accountId;
+    }
   }
 
   @backgroundMethod()

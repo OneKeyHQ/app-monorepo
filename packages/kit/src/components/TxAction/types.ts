@@ -49,6 +49,7 @@ export type ITxActionCommonListViewProps = {
     prefix?: string;
     icon?: IKeyOfIcons;
     children?: string;
+    originalAddress?: string;
   };
   change?: React.ReactNode;
   changeDescription?: React.ReactNode;

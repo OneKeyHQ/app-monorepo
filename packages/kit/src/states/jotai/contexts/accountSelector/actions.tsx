@@ -60,6 +60,7 @@ import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
+import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -77,6 +78,7 @@ import {
 
 import type {
   IAccountSelectorActiveAccountInfo,
+  IAccountSelectorAvailableNetworks,
   IAccountSelectorRouteParams,
   IAccountSelectorUpdateMeta,
   ISelectedAccountsAtomMap,
@@ -92,6 +94,7 @@ export type IAccountSelectorSyncFromSceneParams = {
   };
   num: number;
   withNetworkSync?: boolean;
+  availableNetworks?: IAccountSelectorAvailableNetworks;
 };
 
 export type IFinalizeWalletSetupCreateWalletResult = {
@@ -122,9 +125,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   setSelectedAccountsAtom(
     set: IJotaiSetter,
     fn: (currentValue: ISelectedAccountsAtomMap) => ISelectedAccountsAtomMap,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     reason?: string,
   ) {
-    console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
+    // console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
     set(selectedAccountsAtom(), (currentValue) => {
       const newValue = fn(currentValue);
       if (isEqual(currentValue, newValue)) {
@@ -148,9 +152,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
         const { num, selectedAccount } = payload;
-        console.log('buildActiveAccountInfoFromSelectedAccount', {
-          selectedAccount,
-        });
+        // console.log('buildActiveAccountInfoFromSelectedAccount', {
+        // selectedAccount,
+        // });
         let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
         try {
           ({ activeAccount } =
@@ -166,10 +170,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             ready: true,
           };
         }
-        console.log('buildActiveAccountInfoFromSelectedAccount update state', {
-          selectedAccount,
-          activeAccount,
-        });
+        // console.log('buildActiveAccountInfoFromSelectedAccount update state', {
+        //   selectedAccount,
+        //   activeAccount,
+        // });
         set(activeAccountsAtom(), (v) => ({
           ...v,
           [num]: activeAccount,
@@ -333,6 +337,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       ) {
         // debugger;
       }
+      // if (
+      //   sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
+      //   sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
+      //   newSelectedAccount?.deriveType === 'default'
+      // ) {
+      //   console.log('updateSelectedAccount deriveType: ', newSelectedAccount);
+      // }
 
       const newNetworkId = newSelectedAccount?.networkId;
       const oldNetworkId = oldSelectedAccount?.networkId;
@@ -372,7 +383,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 sceneName: sceneInfo?.sceneName,
               },
             );
-          if (!shouldUseGlobalDeriveType && newSelectedAccount?.networkId) {
+          if (
+            !shouldUseGlobalDeriveType &&
+            newSelectedAccount?.networkId &&
+            newSelectedAccount?.deriveType
+          ) {
             const isNewDeriveTypeAvailable =
               await backgroundApiProxy.serviceNetwork.isDeriveTypeAvailableForNetwork(
                 {
@@ -1237,13 +1252,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
         // **** globalDeriveType -> selectedAccount.deriveType
         if (globalDeriveType) {
-          console.log('syncLocalDeriveTypeFromGlobal >>>> ', {
-            selectedAccount,
-            globalDeriveType,
-            sceneName,
-            sceneUrl,
-            num,
-          });
+          // console.log('syncLocalDeriveTypeFromGlobal >>>> ', {
+          //   selectedAccount,
+          //   globalDeriveType,
+          //   sceneName,
+          //   sceneUrl,
+          //   num,
+          // });
           await this.updateSelectedAccountDeriveType.call(set, {
             updateMeta: {
               eventEmitDisabled: true, // stop update infinite loop here
@@ -1388,9 +1403,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num,
         });
         if (isEqual(currentSaved, selectedAccount)) {
-          console.error(
-            'AccountSelector.saveToStorage skip, selectedAccount not changed',
-          );
+          // console.log(
+          //   'AccountSelector.saveToStorage skip, selectedAccount not changed',
+          // );
           return;
         }
 
@@ -1494,7 +1509,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (
       get,
       set,
-      { from, num, withNetworkSync }: IAccountSelectorSyncFromSceneParams,
+      {
+        from,
+        num,
+        withNetworkSync,
+        availableNetworks,
+      }: IAccountSelectorSyncFromSceneParams,
     ) => {
       const sceneInfo = await this.getCurrentSceneInfo.call(set);
       const { sceneName, sceneUrl, sceneNum } = from;
@@ -1506,13 +1526,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num: sceneNum,
         });
 
+      const globalDeriveTypesMap = (
+        await backgroundApiProxy.simpleDb.accountSelector.getRawData()
+      )?.globalDeriveTypesMap?.[EGlobalDeriveTypesScopes.global];
+
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => {
+          const oldNetworkId = v?.networkId;
+          const oldDeriveType = v?.deriveType;
+
           if (selectedAccount) {
             // networkId won't be synced in default
             if (!withNetworkSync) {
-              selectedAccount.networkId = v?.networkId;
+              selectedAccount.networkId = oldNetworkId;
+              selectedAccount.deriveType = oldDeriveType;
             }
             if (
               sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
@@ -1520,8 +1548,35 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 networkId: selectedAccount.networkId,
               })
             ) {
-              selectedAccount.networkId = v?.networkId;
+              selectedAccount.networkId = oldNetworkId;
+              selectedAccount.deriveType = oldDeriveType;
             }
+
+            if (
+              selectedAccount.networkId &&
+              availableNetworks?.networkIds?.length
+            ) {
+              if (
+                !availableNetworks.networkIds.includes(
+                  selectedAccount.networkId,
+                )
+              ) {
+                selectedAccount.networkId =
+                  oldNetworkId || availableNetworks.defaultNetworkId;
+                selectedAccount.deriveType = oldDeriveType;
+              }
+            }
+
+            if (selectedAccount.networkId && !selectedAccount.deriveType) {
+              const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+                networkId: selectedAccount.networkId,
+              });
+              const deriveType = globalDeriveTypesMap?.[key];
+              if (deriveType) {
+                selectedAccount.deriveType = deriveType;
+              }
+            }
+
             return selectedAccount;
           }
           return v;
@@ -1691,12 +1746,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         triggerBy?: EAccountSelectorAutoSelectTriggerBy;
       },
     ) => {
-      console.log('accountSelector actions.autoSelectAccount >>> ', {
-        sceneName,
-        sceneUrl,
-        num,
-        triggerBy,
-      });
+      // console.log('accountSelector actions.autoSelectAccount >>> ', {
+      //   sceneName,
+      //   sceneUrl,
+      //   num,
+      //   triggerBy,
+      // });
 
       // addressInput scene should keep empty selection, let user select account manually
       if (!accountSelectorUtils.isSceneCanAutoSelect({ sceneName })) {

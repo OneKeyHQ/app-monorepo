@@ -94,38 +94,39 @@ import type {
 import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import {
+  EIndexedDBBucketNames,
+  type IDBAccount,
+  type IDBApiGetContextOptions,
+  type IDBCloudSyncItem,
+  type IDBContext,
+  type IDBCreateHDWalletParams,
+  type IDBCreateHwWalletParams,
+  type IDBCreateQRWalletParams,
+  type IDBCredentialBase,
+  type IDBDevice,
+  type IDBDeviceSettings,
+  type IDBEnsureAccountNameNotDuplicateParams,
+  type IDBExternalAccount,
+  type IDBGetWalletsParams,
+  type IDBIndexedAccount,
+  type IDBRemoveWalletParams,
+  type IDBSetAccountNameParams,
+  type IDBSetWalletNameAndAvatarParams,
+  type IDBUpdateDeviceSettingsParams,
+  type IDBUpdateFirmwareVerifiedParams,
+  type IDBWallet,
+  type IDBWalletId,
+  type IDBWalletIdSingleton,
+  type IDBWalletNextIdKeys,
+  type IDBWalletNextIds,
+  type IDBWalletType,
+  type ILocalDBRecordUpdater,
+  type ILocalDBTransaction,
+  type ILocalDBTxGetRecordByIdResult,
+} from './types';
 
 import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
-import type {
-  IDBAccount,
-  IDBApiGetContextOptions,
-  IDBCloudSyncItem,
-  IDBContext,
-  IDBCreateHDWalletParams,
-  IDBCreateHwWalletParams,
-  IDBCreateQRWalletParams,
-  IDBCredentialBase,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBEnsureAccountNameNotDuplicateParams,
-  IDBExternalAccount,
-  IDBGetWalletsParams,
-  IDBIndexedAccount,
-  IDBRemoveWalletParams,
-  IDBSetAccountNameParams,
-  IDBSetWalletNameAndAvatarParams,
-  IDBUpdateDeviceSettingsParams,
-  IDBUpdateFirmwareVerifiedParams,
-  IDBWallet,
-  IDBWalletId,
-  IDBWalletIdSingleton,
-  IDBWalletNextIdKeys,
-  IDBWalletNextIds,
-  IDBWalletType,
-  ILocalDBRecordUpdater,
-  ILocalDBTransaction,
-  ILocalDBTxGetRecordByIdResult,
-} from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
@@ -225,7 +226,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (options?.verifyPassword) {
       const { verifyPassword } = options;
       ensureSensitiveTextEncoded(verifyPassword);
-      if (!(await this.checkPassword(ctx, verifyPassword))) {
+      if (
+        !(await this.checkPassword({ context: ctx, password: verifyPassword }))
+      ) {
         throw new WrongPassword();
       }
     }
@@ -256,7 +259,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async resetContext() {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateContext({
         tx,
         updater(item) {
@@ -275,7 +278,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return backupUUID;
     }
     const newBackupUUID = generateUUID();
-    await this.withTransaction(async (tx) =>
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) =>
       this.txUpdateContext({
         tx,
         updater: (record) => {
@@ -291,8 +294,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this.backgroundApi.servicePrimeCloudSync.timeNow();
   }
 
-  // ---------------------------------------------- credential
-  async checkPassword(context: IDBContext, password: string): Promise<boolean> {
+  // #region ---------------------------------------------- credential
+  async checkPassword({
+    password,
+    context,
+    useRnJsCrypto,
+  }: {
+    password: string;
+    context: IDBContext;
+    useRnJsCrypto?: boolean;
+  }): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -304,6 +315,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const decrypted = await decryptVerifyString({
         password,
         verifyString: context.verifyString,
+        useRnJsCrypto,
       });
       return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
@@ -311,11 +323,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async verifyPassword(password: string): Promise<void> {
+  async verifyPassword({
+    password,
+    useRnJsCrypto,
+  }: {
+    password: string;
+    useRnJsCrypto?: boolean;
+  }): Promise<void> {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
-      const isValid = await this.checkPassword(ctx, password);
+      const isValid = await this.checkPassword({
+        password,
+        context: ctx,
+        useRnJsCrypto,
+      });
       if (isValid) {
         return;
       }
@@ -333,7 +355,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async resetPasswordSet(): Promise<void> {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateContext({
         tx,
         updater: (record) => {
@@ -417,7 +439,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async updateContextVerifyString({ verifyString }: { verifyString: string }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateContextVerifyString({
         tx,
         verifyString,
@@ -445,18 +467,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     oldPassword,
     newPassword,
     isCreateMode,
+    useRnJsCrypto,
   }: {
     oldPassword: string;
     newPassword: string;
     isCreateMode?: boolean;
+    useRnJsCrypto?: boolean;
   }): Promise<void> {
     if (oldPassword) {
-      await this.verifyPassword(oldPassword);
+      await this.verifyPassword({ password: oldPassword, useRnJsCrypto });
     }
     if (!oldPassword && !isCreateMode) {
       throw new Error('changePassword ERROR: oldPassword is required');
     }
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       if (oldPassword) {
         // update all credentials
         await this.txUpdateAllCredentialsPassword({
@@ -486,7 +510,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     credentials: IDBCredentialBase[];
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Credential,
@@ -503,7 +527,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return credential;
   }
 
-  // ---------------------------------------------- wallet
+  // #endregion
+
+  // #region ---------------------------------------------- wallet
 
   async txUpdateWallet({
     tx,
@@ -876,7 +902,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await $appLocale.isReady;
       if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
         wallet.name = $appLocale.intl.formatMessage({
-          id: ETranslations.global_watched,
+          id: ETranslations.wallet_label_watch_only,
         });
       }
       if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
@@ -886,7 +912,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
         wallet.name = $appLocale.intl.formatMessage({
-          id: ETranslations.global_private_key,
+          id: ETranslations.wallet_label_private_key,
         });
       }
     }
@@ -965,7 +991,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: string;
     walletOrder: number;
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -985,7 +1011,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       xfp?: string;
     };
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,
@@ -1012,7 +1038,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccountId: string;
     order: number;
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
@@ -1167,7 +1193,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     skipIfExists: boolean;
   }) {
-    return this.withTransaction(async (tx) =>
+    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) =>
       this.txAddIndexedAccount({
         tx,
         walletId,
@@ -1368,7 +1394,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
     let indexedAccountId = '';
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
         tx,
         walletId,
@@ -1559,7 +1585,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async clearAllSyncItems() {
     const { syncItems } = await this.getAllSyncItems();
-    await this.withTransaction(async (tx) => {
+    // EIndexedDBBucketNames.cloudSync
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,
@@ -1614,13 +1641,39 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ids: string[];
     updater: ILocalDBRecordUpdater<ELocalDBStoreNames.CloudSyncItem>;
   }) {
-    await this.withTransaction(async (tx) => {
+    // EIndexedDBBucketNames.cloudSync
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,
         ids,
         updater,
       });
+    });
+  }
+
+  async addAndUpdateSyncItems({
+    items,
+    skipUpdate,
+    skipUploadToServer,
+    fn,
+  }: {
+    items: IDBCloudSyncItem[];
+    skipUpdate?: boolean;
+    skipUploadToServer?: boolean;
+    fn?: () => Promise<void>;
+  }) {
+    // EIndexedDBBucketNames.cloudSync
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      if (items?.length) {
+        await this.txAddAndUpdateSyncItems({
+          tx,
+          items,
+          skipUpdate,
+          skipUploadToServer,
+        });
+      }
+      await fn?.();
     });
   }
 
@@ -1671,7 +1724,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async removeCloudSyncPoolItems({ keys }: { keys: string[] }) {
-    await this.withTransaction(async (tx) => {
+    // EIndexedDBBucketNames.cloudSync
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveCloudSyncPoolItems({ tx, keys });
     });
   }
@@ -1769,7 +1823,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       currentWalletToCreate?.name === defaultWalletName;
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       if (!currentWalletToCreate) {
         return;
       }
@@ -1867,7 +1921,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       const { device, verifyResult } = params;
       const { id, featuresInfo, features } = device;
       await this.txUpdateRecords({
@@ -1904,7 +1958,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -1925,7 +1979,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     label: string;
   }) {
     const device = await this.getDevice(dbDeviceId);
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -1949,7 +2003,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     passphraseProtection: boolean;
   }) {
     const device = await this.getDevice(dbDeviceId);
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -1973,7 +2027,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     versionCacheInfo: IDeviceVersionCacheInfo;
   }) {
     const device = await this.getDevice(dbDeviceId);
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -2172,7 +2226,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
         tx,
         targets: [
@@ -2352,7 +2406,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     device: IDBDevice;
     skipIfExists?: boolean;
   }) {
-    return this.withTransaction(async (tx) =>
+    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) =>
       this.txAddDbDevice({
         tx,
         device,
@@ -2408,7 +2462,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async restoreTempCreatedWallet({ walletId }: { walletId: string }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -2525,7 +2579,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
         tx,
         targets: [
@@ -2670,7 +2724,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async clearQrWalletAirGapAccountKeys({ walletId }: { walletId: string }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,
@@ -2718,7 +2772,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       target,
     });
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       // call remove account & indexed account
       // remove credential
       // remove wallet
@@ -2800,12 +2854,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         }
       }
-
-      await this.txRemoveCloudSyncPoolItems({
-        tx,
-        keys: [syncKeyInfo.key],
-      });
     });
+
+    await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
 
     delete this.tempWallets[walletId];
 
@@ -2827,7 +2878,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     isTemp: boolean;
     hideImmediately?: boolean;
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -2900,7 +2951,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           dataTime: await this.timeNow(),
         });
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      // add or update sync item
+      if (syncItem) {
+        await this.txAddAndUpdateSyncItems({
+          tx,
+          items: [syncItem],
+        });
+      }
+
       // update wallet name
       await this.txUpdateWallet({
         tx,
@@ -2915,14 +2974,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return w;
         },
       });
-
-      // add or update sync item
-      if (syncItem) {
-        await this.txAddAndUpdateSyncItems({
-          tx,
-          items: [syncItem],
-        });
-      }
 
       // **** do NOT update device name, qr wallet use device name to check sign origin
       // if (wallet.associatedDevice) {
@@ -2963,7 +3014,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!wallet || wallet.deprecated === isDeprecated) {
       return;
     }
-    return this.withTransaction(async (tx) => {
+    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -3140,90 +3191,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async saveAccountAddresses({
-    networkId,
-    account,
-  }: {
-    networkId: string;
-    account: INetworkAccount; // TODO support accounts array
-  }) {
-    if (networkUtils.isAllNetwork({ networkId })) {
-      return;
-    }
-    if (accountUtils.isAllNetworkMockAccount({ accountId: account.id })) {
-      return;
-    }
-    if (accountUtils.isUrlAccountFn({ accountId: account.id })) {
-      return;
-    }
-
-    const accountId = account.id;
-    const { indexedAccountId, address, addressDetail, type } = account;
-    let id = address ? `${networkId}--${address}` : '';
-    if (type === EDBAccountType.SIMPLE) {
-      const impl = networkUtils.getNetworkImpl({ networkId });
-      id = addressDetail?.normalizedAddress
-        ? `${impl}--${addressDetail?.normalizedAddress}`
-        : '';
-    }
-    if (!id) {
-      return;
-    }
-    const walletId = accountUtils.getWalletIdFromAccountId({
-      accountId,
-    });
-
-    await this.withTransaction(async (tx) => {
-      let recordPair:
-        | ILocalDBTxGetRecordByIdResult<ELocalDBStoreNames.Address>
-        | undefined;
-      try {
-        recordPair = await this.txGetRecordById({
-          tx,
-          name: ELocalDBStoreNames.Address,
-          id,
-        });
-      } catch (error) {
-        //
-      }
-      const record = recordPair?.[0];
-      if (record && recordPair) {
-        const newAccountId = indexedAccountId ?? accountId;
-        const oldAccountId = record?.wallets?.[walletId];
-        if (newAccountId && oldAccountId !== newAccountId) {
-          await this.txUpdateRecords({
-            tx,
-            name: ELocalDBStoreNames.Address,
-            recordPairs: [recordPair],
-            updater: (r) => {
-              // DO NOT use              r.wallets = r.wallets || {};
-              // it will reset nextIds to {}
-              if (!r.wallets) {
-                r.wallets = {};
-              }
-
-              r.wallets[walletId] = newAccountId;
-              return r;
-            },
-          });
-        }
-      } else {
-        await this.txAddRecords({
-          tx,
-          name: ELocalDBStoreNames.Address,
-          records: [
-            {
-              id,
-              wallets: {
-                [walletId]: indexedAccountId ?? accountId,
-              },
-            },
-          ],
-        });
-      }
-    });
-  }
-
   getNextIdsValue({
     nextIds,
     key,
@@ -3306,171 +3273,176 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
 
     // db transaction: add accounts to wallet
-    const addResults = await this.withTransaction(async (tx) => {
-      const addResults0 =
-        await syncManagers.account.txWithSyncFlowOfDBRecordCreating({
-          tx,
-          targets: accounts.map((account) => ({
-            targetId: account.id,
-            dataType: EPrimeCloudSyncDataType.Account,
-            account: { ...account, name: account.name },
-          })),
-          onExistingSyncItemsInfo: async (existingSyncItemsInfo) => {
-            // fix account name by existing sync item
-            accounts.forEach((account) => {
-              const existingSyncItem = existingSyncItemsInfo[account.id];
-              if (existingSyncItem?.syncPayload?.name) {
-                account.name = existingSyncItem.syncPayload.name;
+    const addResults = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const addResults0 =
+          await syncManagers.account.txWithSyncFlowOfDBRecordCreating({
+            tx,
+            targets: accounts.map((account) => ({
+              targetId: account.id,
+              dataType: EPrimeCloudSyncDataType.Account,
+              account: { ...account, name: account.name },
+            })),
+            onExistingSyncItemsInfo: async (existingSyncItemsInfo) => {
+              // fix account name by existing sync item
+              accounts.forEach((account) => {
+                const existingSyncItem = existingSyncItemsInfo[account.id];
+                if (existingSyncItem?.syncPayload?.name) {
+                  account.name = existingSyncItem.syncPayload.name;
+                }
+              });
+            },
+            useCreateGenesisTime: async ({ target }) => {
+              const accountDefaultName =
+                accountDefaultNameMap[target.account.id];
+              return Boolean(
+                accountDefaultName &&
+                  target.account.name === accountDefaultName,
+              );
+            },
+            runDbTxFn: async () => {
+              const firstAccount: IDBAccount | undefined = accounts?.[0];
+
+              const shouldBuildIdHash =
+                firstAccount &&
+                firstAccount?.pathIndex === 0 &&
+                firstAccount?.address &&
+                firstAccount?.coinType === COINTYPE_ETH &&
+                firstAccount?.indexedAccountId &&
+                firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
+
+              // build idHash for account avatar by firstEvmAddress
+              if (shouldBuildIdHash) {
+                const firstEvmAddress = firstAccount.address.toLowerCase();
+                await this.txUpdateWallet({
+                  tx,
+                  walletId,
+                  updater: (w) => {
+                    w.firstEvmAddress = firstEvmAddress;
+                    return w;
+                  },
+                });
+                await this.txUpdateRecords({
+                  tx,
+                  name: ELocalDBStoreNames.IndexedAccount,
+                  ids: [firstAccount?.indexedAccountId].filter(Boolean),
+                  updater: (item) => {
+                    item.idHash = this.buildIndexedAccountIdHash({
+                      firstEvmAddress,
+                      indexedAccountId: item.id,
+                      index: firstAccount.pathIndex,
+                    });
+                    return item;
+                  },
+                });
               }
-            });
-          },
-          useCreateGenesisTime: async ({ target }) => {
-            const accountDefaultName = accountDefaultNameMap[target.account.id];
-            return Boolean(
-              accountDefaultName && target.account.name === accountDefaultName,
-            );
-          },
-          runDbTxFn: async () => {
-            const firstAccount: IDBAccount | undefined = accounts?.[0];
 
-            const shouldBuildIdHash =
-              firstAccount &&
-              firstAccount?.pathIndex === 0 &&
-              firstAccount?.address &&
-              firstAccount?.coinType === COINTYPE_ETH &&
-              firstAccount?.indexedAccountId &&
-              firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
+              let removed = 0;
+              if (existsAccounts && existsAccounts.length) {
+                // TODO remove and re-add, may cause nextIds not correct,
+                // TODO return actual removed count
+                await this.txRemoveRecords({
+                  tx,
+                  name: ELocalDBStoreNames.Account,
+                  ids,
+                  ignoreNotFound: true,
+                });
 
-            // build idHash for account avatar by firstEvmAddress
-            if (shouldBuildIdHash) {
-              const firstEvmAddress = firstAccount.address.toLowerCase();
-              await this.txUpdateWallet({
-                tx,
-                walletId,
-                updater: (w) => {
-                  w.firstEvmAddress = firstEvmAddress;
-                  return w;
-                },
-              });
-              await this.txUpdateRecords({
-                tx,
-                name: ELocalDBStoreNames.IndexedAccount,
-                ids: [firstAccount?.indexedAccountId].filter(Boolean),
-                updater: (item) => {
-                  item.idHash = this.buildIndexedAccountIdHash({
-                    firstEvmAddress,
-                    indexedAccountId: item.id,
-                    index: firstAccount.pathIndex,
-                  });
-                  return item;
-                },
-              });
-            }
+                removed = existsAccounts.length;
+              }
 
-            let removed = 0;
-            if (existsAccounts && existsAccounts.length) {
-              // TODO remove and re-add, may cause nextIds not correct,
-              // TODO return actual removed count
-              await this.txRemoveRecords({
+              // add account record
+              let { added, addedIds } = await this.txAddRecords({
                 tx,
                 name: ELocalDBStoreNames.Account,
-                ids,
-                ignoreNotFound: true,
-              });
-
-              removed = existsAccounts.length;
-            }
-
-            // add account record
-            let { added, addedIds } = await this.txAddRecords({
-              tx,
-              name: ELocalDBStoreNames.Account,
-              records: accounts,
-              skipIfExists: true,
-            });
-
-            let actualAdded = added - removed;
-
-            // filter out url account
-            const allAddedIds = addedIds;
-            addedIds = addedIds.filter(
-              (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
-            );
-            const urlAccountsCount = allAddedIds.length - addedIds.length;
-            actualAdded = Math.max(0, actualAdded - urlAccountsCount);
-
-            // update singleton wallet.accounts & nextAccountId
-            if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
-              await this.txUpdateWallet({
-                tx,
-                walletId,
-                updater: (w) => {
-                  // DO NOT use  w.nextIds = w.nextIds || {};
-                  // it will reset nextIds to {}
-                  if (!w.nextIds) {
-                    w.nextIds = {};
-                  }
-
-                  const nextIdsData = w.nextIds;
-                  const currentNextAccountId = this.getNextIdsValue({
-                    nextIds: nextIdsData,
-                    key: 'accountGlobalNum',
-                    defaultValue: 1,
-                  });
-                  const newAccountGlobalNum =
-                    currentNextAccountId + actualAdded;
-                  w.nextIds.accountGlobalNum = newAccountGlobalNum;
-
-                  // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
-                  // w.accounts is List not Array in realmDB
-                  w.accounts = Array.from(w.accounts || []);
-
-                  w.accounts = uniq(
-                    [].concat(Array.from(w.accounts) as any, addedIds as any),
-                  ).filter(Boolean);
-
-                  return w;
-                },
-              });
-            }
-
-            // add imported account credential
-            if (walletId === WALLET_TYPE_IMPORTED) {
-              if (addedIds.length !== 1) {
-                throw new Error(
-                  'Only one can be imported at a time into a private key account.',
-                );
-              }
-              if (!importedCredential) {
-                throw new Error(
-                  'importedCredential is required for imported account',
-                );
-              }
-              await this.txAddRecords({
-                tx,
-                name: ELocalDBStoreNames.Credential,
-                records: [
-                  {
-                    id: addedIds[0],
-                    credential: importedCredential,
-                  },
-                ],
+                records: accounts,
                 skipIfExists: true,
               });
-            }
 
-            const isOverrideAccounts = removed > 0 && actualAdded === 0;
+              let actualAdded = added - removed;
 
-            return {
-              isOverrideAccounts,
-              existsAccounts,
-            };
+              // filter out url account
+              const allAddedIds = addedIds;
+              addedIds = addedIds.filter(
+                (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
+              );
+              const urlAccountsCount = allAddedIds.length - addedIds.length;
+              actualAdded = Math.max(0, actualAdded - urlAccountsCount);
 
-            // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
-          },
-        });
-      return addResults0;
-    });
+              // update singleton wallet.accounts & nextAccountId
+              if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
+                await this.txUpdateWallet({
+                  tx,
+                  walletId,
+                  updater: (w) => {
+                    // DO NOT use  w.nextIds = w.nextIds || {};
+                    // it will reset nextIds to {}
+                    if (!w.nextIds) {
+                      w.nextIds = {};
+                    }
+
+                    const nextIdsData = w.nextIds;
+                    const currentNextAccountId = this.getNextIdsValue({
+                      nextIds: nextIdsData,
+                      key: 'accountGlobalNum',
+                      defaultValue: 1,
+                    });
+                    const newAccountGlobalNum =
+                      currentNextAccountId + actualAdded;
+                    w.nextIds.accountGlobalNum = newAccountGlobalNum;
+
+                    // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
+                    // w.accounts is List not Array in realmDB
+                    w.accounts = Array.from(w.accounts || []);
+
+                    w.accounts = uniq(
+                      [].concat(Array.from(w.accounts) as any, addedIds as any),
+                    ).filter(Boolean);
+
+                    return w;
+                  },
+                });
+              }
+
+              // add imported account credential
+              if (walletId === WALLET_TYPE_IMPORTED) {
+                if (addedIds.length !== 1) {
+                  throw new Error(
+                    'Only one can be imported at a time into a private key account.',
+                  );
+                }
+                if (!importedCredential) {
+                  throw new Error(
+                    'importedCredential is required for imported account',
+                  );
+                }
+                await this.txAddRecords({
+                  tx,
+                  name: ELocalDBStoreNames.Credential,
+                  records: [
+                    {
+                      id: addedIds[0],
+                      credential: importedCredential,
+                    },
+                  ],
+                  skipIfExists: true,
+                });
+              }
+
+              const isOverrideAccounts = removed > 0 && actualAdded === 0;
+
+              return {
+                isOverrideAccounts,
+                existsAccounts,
+              };
+
+              // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
+            },
+          });
+        return addResults0;
+      },
+    );
 
     // saveAccountAddresses
     if (allAccountsBelongToNetworkId) {
@@ -3504,7 +3476,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       throw new Error('saveTonMnemonic ERROR: Not a imported account');
     }
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txAddRecords({
         tx,
         name: ELocalDBStoreNames.Credential,
@@ -3519,7 +3491,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  // ---------------------------------------------- account
+  // #endregion
+
+  // #region ---------------------------------------------- account
 
   async getSingletonAccountsOfWallet({
     walletId,
@@ -3654,7 +3628,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accountId: string;
     order: number;
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -3775,7 +3749,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     indexedAccounts: IDBIndexedAccount[];
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
@@ -3814,7 +3788,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     // const syncItemKey = await getSyncItemKeyFn();
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
@@ -3834,7 +3808,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -3857,7 +3831,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const mapEntries = Object.entries(walletToRemovedAccountsMap);
     if (mapEntries.length > 0) {
-      await this.withTransaction(async (tx) => {
+      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
         for (const [walletId, accountIds] of mapEntries) {
           if (!walletId || !accountIds || accountIds.length === 0) {
             // eslint-disable-next-line no-continue
@@ -3900,7 +3874,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       syncItemKey = keyInfo.key;
     }
 
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -3927,14 +3901,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ids: [accountId],
         });
       }
-
-      if (syncItemKey) {
-        await this.txRemoveCloudSyncPoolItems({
-          tx,
-          keys: [syncItemKey],
-        });
-      }
     });
+
+    if (syncItemKey) {
+      await this.removeCloudSyncPoolItems({ keys: [syncItemKey] });
+    }
   }
 
   async updateExternalAccount({
@@ -3954,7 +3925,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     networkIds?: string[];
     createAtNetwork?: string;
   }) {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -4092,7 +4063,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       }
     }
-    await this.withTransaction(async (tx) => {
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      // add or update sync item
+      if (syncItem) {
+        await this.txAddAndUpdateSyncItems({
+          tx,
+          items: [syncItem],
+        });
+      }
+
       if (params.indexedAccountId) {
         await this.txUpdateRecords({
           tx,
@@ -4119,20 +4099,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         });
       }
-
-      // add or update sync item
-      if (syncItem) {
-        await this.txAddAndUpdateSyncItems({
-          tx,
-          items: [syncItem],
-        });
-      }
     });
 
     void this.emitRenameDBAccountsEvent(params);
   }
 
-  // ---------------------------------------------- device
+  // #endregion
+
+  // #region ---------------------------------------------- device
 
   async getSameDeviceByUUIDEvenIfReset(uuid: string) {
     const { devices } = await this.getAllDevices();
@@ -4325,7 +4299,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     dbDeviceId,
     settings,
   }: IDBUpdateDeviceSettingsParams): Promise<void> {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -4338,10 +4312,101 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  // ---------------------------------------------- signature record
+  // #endregion
+
+  // #region ---------------------------------------------- account address
+
+  async saveAccountAddresses({
+    networkId,
+    account,
+  }: {
+    networkId: string;
+    account: INetworkAccount; // TODO support accounts array
+  }) {
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return;
+    }
+    if (accountUtils.isAllNetworkMockAccount({ accountId: account.id })) {
+      return;
+    }
+    if (accountUtils.isUrlAccountFn({ accountId: account.id })) {
+      return;
+    }
+
+    const accountId = account.id;
+    const { indexedAccountId, address, addressDetail, type } = account;
+    let id = address ? `${networkId}--${address}` : '';
+    if (type === EDBAccountType.SIMPLE) {
+      const impl = networkUtils.getNetworkImpl({ networkId });
+      id = addressDetail?.normalizedAddress
+        ? `${impl}--${addressDetail?.normalizedAddress}`
+        : '';
+    }
+    if (!id) {
+      return;
+    }
+    const walletId = accountUtils.getWalletIdFromAccountId({
+      accountId,
+    });
+
+    await this.withTransaction(EIndexedDBBucketNames.address, async (tx) => {
+      let recordPair:
+        | ILocalDBTxGetRecordByIdResult<ELocalDBStoreNames.Address>
+        | undefined;
+      try {
+        recordPair = await this.txGetRecordById({
+          tx,
+          name: ELocalDBStoreNames.Address,
+          id,
+        });
+      } catch (error) {
+        //
+      }
+      const record = recordPair?.[0];
+      if (record && recordPair) {
+        const newAccountId = indexedAccountId ?? accountId;
+        const oldAccountId = record?.wallets?.[walletId];
+        if (newAccountId && oldAccountId !== newAccountId) {
+          await this.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Address,
+            recordPairs: [recordPair],
+            updater: (r) => {
+              // DO NOT use              r.wallets = r.wallets || {};
+              // it will reset nextIds to {}
+              if (!r.wallets) {
+                r.wallets = {};
+              }
+
+              r.wallets[walletId] = newAccountId;
+              return r;
+            },
+          });
+        }
+      } else {
+        await this.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Address,
+          records: [
+            {
+              id,
+              wallets: {
+                [walletId]: indexedAccountId ?? accountId,
+              },
+            },
+          ],
+        });
+      }
+    });
+  }
+
+  // #endregion
+
+  // #region ---------------------------------------------- signature record
+
   async addSignedMessage(params: ICreateSignedMessageParams) {
-    await this.withTransaction(async (tx) => {
-      const [ctx] = await this.txGetContext({ tx }); // check context
+    const ctx = await this.getContext();
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
       await this.txAddRecords({
         name: ELocalDBStoreNames.SignedMessage,
         tx,
@@ -4353,9 +4418,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         ],
       });
+    });
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateContext({
         tx,
         updater: (r) => {
+          // TODO save nextId to archive bucket store
           r.nextSignatureMessageId += 1;
           return r;
         },
@@ -4366,8 +4435,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async addSignedTransaction(params: ICreateSignedTransactionParams) {
     const { data, ...rest } = params;
     const dataStringify = JSON.stringify(data);
-    await this.withTransaction(async (tx) => {
-      const [ctx] = await this.txGetContext({ tx }); // check context
+    const ctx = await this.getContext();
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
       await this.txAddRecords({
         name: ELocalDBStoreNames.SignedTransaction,
         tx,
@@ -4380,6 +4449,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         ],
       });
+    });
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateContext({
         tx,
         updater: (r) => {
@@ -4391,8 +4463,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async addConnectedSite(params: ICreateConnectedSiteParams) {
-    await this.withTransaction(async (tx) => {
-      const [ctx] = await this.txGetContext({ tx }); // check context
+    const ctx = await this.getContext();
+
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
       await this.txAddRecords({
         name: ELocalDBStoreNames.ConnectedSite,
         tx,
@@ -4404,6 +4477,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         ],
       });
+    });
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateContext({
         tx,
         updater: (r) => {
@@ -4418,7 +4494,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const allSignedMessage = await this.getAllRecords({
       name: ELocalDBStoreNames.SignedMessage,
     });
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
       await this.txRemoveRecords({
         name: ELocalDBStoreNames.SignedMessage,
         tx,
@@ -4431,7 +4507,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const allSignedTransaction = await this.getAllRecords({
       name: ELocalDBStoreNames.SignedTransaction,
     });
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
       await this.txRemoveRecords({
         name: ELocalDBStoreNames.SignedTransaction,
         tx,
@@ -4444,7 +4520,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const allConnectedSite = await this.getAllRecords({
       name: ELocalDBStoreNames.ConnectedSite,
     });
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
       await this.txRemoveRecords({
         name: ELocalDBStoreNames.ConnectedSite,
         tx,
@@ -4453,158 +4529,176 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  // ---------------------------------------------- demo
+  // #endregion
+
+  // #region ---------------------------------------------- demo
+
   async demoGetDbContext() {
     const c = await this.getContext();
 
-    const ctx = await this.withTransaction(async (tx) => {
-      // Uncaught (in promise) DOMException: Failed to execute 'abort' on 'IDBTransaction': The transaction has finished.
-      // const [c] = await localDb.getRecordByIdFull({
-      //   name: ELocalDBStoreNames.Context,
-      //   id: DB_MAIN_CONTEXT_ID,
-      // });
+    const ctx = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        // Uncaught (in promise) DOMException: Failed to execute 'abort' on 'IDBTransaction': The transaction has finished.
+        // const [c] = await localDb.getRecordByIdFull({
+        //   name: ELocalDBStoreNames.Context,
+        //   id: DB_MAIN_CONTEXT_ID,
+        // });
 
-      const { recordPairs: recordPairs2 } = await this.txGetAllRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-      });
+        const { recordPairs: recordPairs2 } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+        });
 
-      return {
-        context: c,
-        backupUUID: c.backupUUID,
-        recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
-      };
-    });
+        return {
+          context: c,
+          backupUUID: c.backupUUID,
+          recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
+        };
+      },
+    );
 
     // const ctx = await localDb.getContext();
     return ctx;
   }
 
   async demoDbUpdateUUID() {
-    const ctx = await this.withTransaction(async (tx) => {
-      await this.txUpdateContext({
-        tx,
-        updater: (r) => {
-          r.backupUUID = generateUUID();
-          return Promise.resolve(r);
-        },
-      });
+    const ctx = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txUpdateContext({
+          tx,
+          updater: (r) => {
+            r.backupUUID = generateUUID();
+            return Promise.resolve(r);
+          },
+        });
 
-      // await wait(5000);
-      // throw new Error('test error');
+        // await wait(5000);
+        // throw new Error('test error');
 
-      await this.txUpdateWallet({
-        tx,
-        walletId: WALLET_TYPE_WATCHING,
-        updater: async (r) => {
-          r.name = `hello world: ${await this.timeNow()}`;
-          return Promise.resolve(r);
-        },
-      });
+        await this.txUpdateWallet({
+          tx,
+          walletId: WALLET_TYPE_WATCHING,
+          updater: async (r) => {
+            r.name = `hello world: ${await this.timeNow()}`;
+            return Promise.resolve(r);
+          },
+        });
 
-      const [c] = await this.txGetContext({ tx });
+        const [c] = await this.txGetContext({ tx });
 
-      const [watchingWallet] = await this.txGetWallet({
-        tx,
-        walletId: WALLET_TYPE_WATCHING,
-      });
+        const [watchingWallet] = await this.txGetWallet({
+          tx,
+          walletId: WALLET_TYPE_WATCHING,
+        });
 
-      return {
-        context: c,
-        watchingWallet,
-        backupUUID: c.backupUUID,
-        walletName: watchingWallet.name,
-      };
-    });
+        return {
+          context: c,
+          watchingWallet,
+          backupUUID: c.backupUUID,
+          walletName: watchingWallet.name,
+        };
+      },
+    );
 
     // const ctx = await localDb.getContext();
     return ctx;
   }
 
   async demoDbUpdateUUIDFixed() {
-    const ctx = await this.withTransaction(async (tx) => {
-      const contextRecordPair = await this.txGetContext({ tx });
+    const ctx = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const contextRecordPair = await this.txGetContext({ tx });
 
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Context,
-        recordPairs: [contextRecordPair],
-        updater: (r) => {
-          r.backupUUID = '1111';
-          return Promise.resolve(r);
-        },
-      });
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Context,
+          recordPairs: [contextRecordPair],
+          updater: (r) => {
+            r.backupUUID = '1111';
+            return Promise.resolve(r);
+          },
+        });
 
-      const [c] = await this.txGetContext({ tx });
+        const [c] = await this.txGetContext({ tx });
 
-      return {
-        context: c,
-        backupUUID: c.backupUUID,
-      };
-    });
+        return {
+          context: c,
+          backupUUID: c.backupUUID,
+        };
+      },
+    );
 
     // const ctx = await localDb.getContext();
     return ctx;
   }
 
   async demoAddRecord1() {
-    const ctx = await this.withTransaction(async (tx) => {
-      const id = generateUUID();
-      await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        records: [
-          {
-            id,
-            // type: 'hd',
-            credential: '8888',
-          },
-        ],
-      });
+    const ctx = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const id = generateUUID();
+        await this.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+          records: [
+            {
+              id,
+              // type: 'hd',
+              credential: '8888',
+            },
+          ],
+        });
 
-      const [c] = await this.txGetRecordById({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        id,
-      });
+        const [c] = await this.txGetRecordById({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+          id,
+        });
 
-      return {
-        c,
-        credential: c.credential,
-      };
-    });
+        return {
+          c,
+          credential: c.credential,
+        };
+      },
+    );
 
     // const ctx = await localDb.getContext();
     return ctx;
   }
 
   async demoRemoveRecord1() {
-    const ctx = await this.withTransaction(async (tx) => {
-      const { recordPairs } = await this.txGetAllRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-      });
-      await Promise.all(
-        recordPairs.filter(Boolean).map((r) =>
-          this.txRemoveRecords({
-            tx,
-            name: ELocalDBStoreNames.Credential,
-            recordPairs: [r],
-          }),
-        ),
-      );
-      const { recordPairs: recordPairs2 } = await this.txGetAllRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-      });
+    const ctx = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const { recordPairs } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+        });
+        await Promise.all(
+          recordPairs.filter(Boolean).map((r) =>
+            this.txRemoveRecords({
+              tx,
+              name: ELocalDBStoreNames.Credential,
+              recordPairs: [r],
+            }),
+          ),
+        );
+        const { recordPairs: recordPairs2 } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+        });
 
-      return {
-        recordPairs: recordPairs.filter(Boolean).map((r) => r[0]),
-        recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
-        // c,
-        // credential: c.credential,
-      };
-    });
+        return {
+          recordPairs: recordPairs.filter(Boolean).map((r) => r[0]),
+          recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
+          // c,
+          // credential: c.credential,
+        };
+      },
+    );
 
     // const ctx = await localDb.getContext();
     return ctx;
@@ -4612,50 +4706,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // TODO long time logic, multiple transaction
   async demoUpdateCredentialRecord() {
-    const ctx = await this.withTransaction(async (tx) => {
-      const { recordPairs } = await this.txGetAllRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-      });
-      await Promise.all(
-        recordPairs.filter(Boolean).map((r) =>
-          this.txUpdateRecords({
-            tx,
-            name: ELocalDBStoreNames.Credential,
-            recordPairs: [r],
-            updater: (r0) => {
-              r0.credential = '6666';
-              return Promise.resolve(r0);
-            },
-          }),
-        ),
-      );
-      const { recordPairs: recordPairs2 } = await this.txGetAllRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-      });
+    const ctx = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const { recordPairs } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+        });
+        await Promise.all(
+          recordPairs.filter(Boolean).map((r) =>
+            this.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.Credential,
+              recordPairs: [r],
+              updater: (r0) => {
+                r0.credential = '6666';
+                return Promise.resolve(r0);
+              },
+            }),
+          ),
+        );
+        const { recordPairs: recordPairs2 } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+        });
 
-      // await wait(5000);
-      // throw new Error('failed');
+        // await wait(5000);
+        // throw new Error('failed');
 
-      return {
-        recordPairs: recordPairs.filter(Boolean).map((r) => r[0]),
-        recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
-        // c,
-        // credential: c.credential,
-      };
-    });
+        return {
+          recordPairs: recordPairs.filter(Boolean).map((r) => r[0]),
+          recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
+          // c,
+          // credential: c.credential,
+        };
+      },
+    );
 
     // const ctx = await localDb.getContext();
     return ctx;
   }
+
+  // #endregion
 
   async updateWalletsBackupStatus(walletsBackedUpStatusMap: {
     [walletId: string]: {
       isBackedUp?: boolean;
     };
   }): Promise<void> {
-    await this.withTransaction(async (tx) => {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,

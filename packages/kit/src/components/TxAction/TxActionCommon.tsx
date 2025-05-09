@@ -14,17 +14,20 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { useAddressesInfoAtom } from '../../states/jotai/contexts/historyList';
 import {
   InfoItem,
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { NetworkAvatar } from '../NetworkAvatar';
 import { Token } from '../Token';
+import TxHistoryAddressInfo from '../TxHistoryListView/TxHistoryAddressInfo';
 
 import type {
   ITxActionCommonDetailViewProps,
@@ -151,8 +154,28 @@ function TxActionCommonTitle({
 }
 
 function TxActionCommonDescription({
+  networkId,
   description,
-}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'> & {
+  networkId: string;
+}) {
+  const [addressesInfo] = useAddressesInfoAtom();
+
+  if (description?.originalAddress) {
+    const addressInfoKey = buildAddressMapInfoKey({
+      networkId,
+      address: description?.originalAddress,
+    });
+    if (addressesInfo[addressInfoKey]) {
+      return (
+        <TxHistoryAddressInfo
+          address={description.originalAddress}
+          badge={addressesInfo[addressInfoKey]}
+        />
+      );
+    }
+  }
+
   return (
     <XStack alignItems="center" flex={1}>
       {description?.prefix ? (
@@ -325,6 +348,7 @@ function TxActionCommonListView(
                 </>
               ) : null}
               <TxActionCommonDescription
+                networkId={networkId}
                 description={description}
                 tableLayout={tableLayout}
               />
