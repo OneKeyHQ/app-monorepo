@@ -36,7 +36,8 @@ const LastActivityTracker = () => {
               ? 'test'
               : 'prod',
         }),
-        enableAnalyticsInDev: !!devSettings.settings?.enableAnalyticsRequest,
+        enableAnalyticsInDev:
+          devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
       });
       setSentryUser({
         id: instanceId,
