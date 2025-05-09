@@ -1160,8 +1160,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     //     allowEmptyConnectId: true,
     //   },
     // );
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     if (actionType === 'nextPhase') {
-      await timerUtils.wait(15 * 1000);
+      const isWebUsb = hardwareTransportType === EHardwareTransportType.WEBUSB;
+      await timerUtils.wait(isWebUsb ? 20 * 1000 : 15 * 1000);
     }
     if (actionType === 'retry') {
       await timerUtils.wait(5 * 1000);
