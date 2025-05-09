@@ -1,5 +1,7 @@
 import type { IRiskIndicatorType } from './components/RiskIndicator';
 
+const tokenImageUri = 'https://uni.onekey-asset.com/static/chain/btc.png';
+
 export interface IMarketToken {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ export interface IMarketToken {
   turnover: number;
   tokenAge: string;
   audit: IRiskIndicatorType;
+  tokenImageUri: string;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
 }
 
@@ -34,6 +37,7 @@ const data: IMarketToken[] = [
     turnover: 6.328e7,
     tokenAge: '2M',
     audit: 'safe',
+    tokenImageUri,
     walletInfo: { buy: 38_550, sell: 39_640 },
   },
   {
@@ -51,6 +55,7 @@ const data: IMarketToken[] = [
     turnover: 6.328e7,
     tokenAge: '5D',
     audit: 'danger',
+    tokenImageUri,
     walletInfo: { buy: 38_550, sell: 39_640 },
   },
   {
@@ -68,6 +73,7 @@ const data: IMarketToken[] = [
     turnover: 2.705e7,
     tokenAge: '1Y',
     audit: 'info',
+    tokenImageUri,
     walletInfo: { buy: 38_550, sell: 39_640 },
   },
   {
@@ -85,6 +91,7 @@ const data: IMarketToken[] = [
     turnover: 1.83e8,
     tokenAge: '15Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 125_300, sell: 165_800 },
   },
   {
@@ -102,6 +109,7 @@ const data: IMarketToken[] = [
     turnover: 4.27e7,
     tokenAge: '7Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 82_700, sell: 93_100 },
   },
   {
@@ -119,6 +127,7 @@ const data: IMarketToken[] = [
     turnover: 1.96e7,
     tokenAge: '6Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 62_400, sell: 81_200 },
   },
   {
@@ -136,6 +145,7 @@ const data: IMarketToken[] = [
     turnover: 2.54e7,
     tokenAge: '11Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 56_800, sell: 73_900 },
   },
   {
@@ -154,6 +164,7 @@ const data: IMarketToken[] = [
     tokenAge: '10Y',
     audit: 'unknown',
     walletInfo: { buy: 91_300, sell: 103_700 },
+    tokenImageUri,
   },
   {
     id: '9',
@@ -170,6 +181,7 @@ const data: IMarketToken[] = [
     turnover: 1.47e7,
     tokenAge: '4Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 43_200, sell: 59_500 },
   },
   {
@@ -187,6 +199,7 @@ const data: IMarketToken[] = [
     turnover: 2.14e7,
     tokenAge: '3Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 48_600, sell: 65_100 },
   },
   // Added more tokens for pagination demo
@@ -205,6 +218,7 @@ const data: IMarketToken[] = [
     turnover: 1.89e7,
     tokenAge: '6Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 53_700, sell: 61_200 },
   },
   {
@@ -222,6 +236,7 @@ const data: IMarketToken[] = [
     turnover: 2.36e7,
     tokenAge: '4Y',
     audit: 'unknown',
+    tokenImageUri,
     walletInfo: { buy: 67_500, sell: 78_100 },
   },
   {
@@ -240,6 +255,7 @@ const data: IMarketToken[] = [
     tokenAge: '5Y',
     audit: 'unknown',
     walletInfo: { buy: 72_400, sell: 84_600 },
+    tokenImageUri,
   },
   {
     id: '14',
@@ -257,6 +273,7 @@ const data: IMarketToken[] = [
     tokenAge: '3Y',
     audit: 'unknown',
     walletInfo: { buy: 87_300, sell: 96_400 },
+    tokenImageUri,
   },
   {
     id: '15',
@@ -274,6 +291,7 @@ const data: IMarketToken[] = [
     tokenAge: '12Y',
     audit: 'unknown',
     walletInfo: { buy: 42_100, sell: 53_800 },
+    tokenImageUri,
   },
   {
     id: '16',
@@ -291,6 +309,7 @@ const data: IMarketToken[] = [
     tokenAge: '9Y',
     audit: 'unknown',
     walletInfo: { buy: 36_900, sell: 44_500 },
+    tokenImageUri,
   },
   {
     id: '17',
@@ -308,6 +327,7 @@ const data: IMarketToken[] = [
     tokenAge: '5Y',
     audit: 'unknown',
     walletInfo: { buy: 40_200, sell: 51_700 },
+    tokenImageUri,
   },
   {
     id: '18',
@@ -325,6 +345,7 @@ const data: IMarketToken[] = [
     tokenAge: '6Y',
     audit: 'unknown',
     walletInfo: { buy: 28_600, sell: 36_100 },
+    tokenImageUri,
   },
   {
     id: '19',
@@ -342,6 +363,7 @@ const data: IMarketToken[] = [
     tokenAge: '6Y',
     audit: 'unknown',
     walletInfo: { buy: 34_500, sell: 42_800 },
+    tokenImageUri,
   },
   {
     id: '20',
@@ -359,6 +381,7 @@ const data: IMarketToken[] = [
     tokenAge: '3Y',
     audit: 'unknown',
     walletInfo: { buy: 32_700, sell: 39_400 },
+    tokenImageUri,
   },
   {
     id: '14',
@@ -376,6 +399,7 @@ const data: IMarketToken[] = [
     tokenAge: '0Y',
     audit: 'unknown',
     walletInfo: { buy: 0, sell: 0 },
+    tokenImageUri,
   },
   {
     id: '15',
@@ -393,6 +417,7 @@ const data: IMarketToken[] = [
     tokenAge: '0Y',
     audit: 'unknown',
     walletInfo: { buy: 0, sell: 0 },
+    tokenImageUri,
   },
 ];
 

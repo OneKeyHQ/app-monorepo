@@ -14,7 +14,12 @@ export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
     dataIndex: 'name',
     columnWidth: 200,
     render: (_, record) => (
-      <TokenIdentityItem symbol={record.symbol} address={record.address} />
+      <TokenIdentityItem
+        tokenLogoURI={record.tokenImageUri}
+        networkLogoURI={record.tokenImageUri}
+        symbol={record.symbol}
+        address={record.address}
+      />
     ),
   },
   {

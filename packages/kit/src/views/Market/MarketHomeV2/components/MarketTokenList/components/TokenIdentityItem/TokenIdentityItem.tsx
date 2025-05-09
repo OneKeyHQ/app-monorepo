@@ -54,7 +54,6 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   address,
   tokenLogoURI,
   networkLogoURI,
-  networkId,
   onCopied,
 }) => {
   const { copyText } = useClipboard();
@@ -69,10 +68,8 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   return (
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
-        showNetworkIcon
         tokenImageUri={tokenLogoURI}
         networkImageUri={networkLogoURI}
-        networkId={networkId}
         fallbackIcon="CryptoCoinOutline"
       />
 
