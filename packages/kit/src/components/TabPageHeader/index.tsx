@@ -39,12 +39,10 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   );
 
   return (
-    <>
-      <Page.Header
-        headerTitle={renderHeaderTitle}
-        headerLeft={renderHeaderLeft}
-        headerRight={renderHeaderRight}
-      />
-    </>
+    <Page.Header
+      headerTitle={renderHeaderTitle}
+      headerLeft={renderHeaderLeft}
+      headerRight={renderHeaderRight}
+    />
   );
 }
