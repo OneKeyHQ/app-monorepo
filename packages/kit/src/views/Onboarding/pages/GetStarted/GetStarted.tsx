@@ -1,13 +1,10 @@
 import { useEffect } from 'react';
 
-import { useNavigation } from 'react-router-dom';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   IconButton,
   Page,
   View,
-  rootNavigationRef,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -21,9 +18,13 @@ import { Actions, TermsAndPrivacy, Welcome } from './components';
 export function GetStarted({
   route,
 }: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
-  const { isFullModal } = route.params || {};
+  const { isFullModal, fromExt } = route.params || {};
   const { top: topInset } = useSafeAreaInsets();
-  const top = isFullModal ? topInset : '$5';
+  let top = isFullModal ? topInset : '$5';
+
+  if (fromExt) {
+    top = '$5';
+  }
 
   useEffect(() => {
     return () => {

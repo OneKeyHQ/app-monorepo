@@ -145,43 +145,71 @@ const useDesktopEvents = platformEnv.isDesktop
 
       const ensureModalClosedAndNavigate = useCallback(
         (navigateAction?: () => void) => {
-          const routeState = rootNavigationRef.current?.getRootState();
-          if (routeState?.routes) {
-            const allModalRoutes = routeState.routes.filter(
-              (_, index) => index !== 0,
-            );
-            const hasMultipleModalRoutes = allModalRoutes.length === 1;
+          function getAllModalRoutes() {
+            const routeState = rootNavigationRef.current?.getRootState();
+            if (!routeState?.routes) {
+              return;
+            }
+            return routeState.routes.filter((_, index) => index !== 0);
+          }
 
-            if (allModalRoutes.length > 1) {
+          function closeAllModalRoutes() {
+            const allModalRoutes = getAllModalRoutes();
+
+            if (!allModalRoutes) {
               return;
             }
 
-            if (hasMultipleModalRoutes) {
-              let index = 1;
-              // close all modal routes
-              allModalRoutes.forEach((route) => {
-                const routeLength =
-                  route.state?.routes?.[0]?.state?.routes.length || 1;
-                for (let i = 0; i < routeLength; i += 1)
-                  setTimeout(() => {
-                    rootNavigationRef.current?.goBack();
-                  }, index * 10);
+            let index = 1;
+            // close all modal routes
+            allModalRoutes.forEach((route) => {
+              const routeLength =
+                route.state?.routes?.[0]?.state?.routes.length || 1;
+              for (let i = 0; i < routeLength; i += 1)
+                setTimeout(() => {
+                  rootNavigationRef.current?.goBack();
+                }, index * 10);
 
-                index += 1;
-              });
               index += 1;
+            });
+            index += 1;
 
-              setTimeout(() => {
-                navigateAction?.();
-              }, index * 10);
-            } else {
-              setTimeout(() => {
-                navigateAction?.();
-              }, 100);
-            }
+            setTimeout(() => {
+              navigateAction?.();
+            }, index * 10);
           }
+
+          const allModalRoutes = getAllModalRoutes();
+
+          if (!allModalRoutes) {
+            return;
+          }
+
+          if (allModalRoutes.length === 1 || allModalRoutes.length === 2) {
+            closeAllModalRoutes();
+            return;
+          }
+
+          if (allModalRoutes.length > 2) {
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.global_close,
+              }),
+              showCancelButton: true,
+              showFooter: true,
+              showConfirmButton: true,
+              onConfirm: () => {
+                closeAllModalRoutes();
+              },
+            });
+            return;
+          }
+
+          setTimeout(() => {
+            navigateAction?.();
+          }, 100);
         },
-        [],
+        [intl],
       );
 
       useEffect(() => {
@@ -205,16 +233,24 @@ const useDesktopEvents = platformEnv.isDesktop
       useShortcuts(undefined, (eventName) => {
         switch (eventName) {
           case EShortcutEvents.TabWallet:
-            navigation.switchTab(ETabRoutes.Home);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Home);
+            });
             break;
           case EShortcutEvents.TabEarn:
-            navigation.switchTab(ETabRoutes.Earn);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Earn);
+            });
             break;
           case EShortcutEvents.TabSwap:
-            navigation.switchTab(ETabRoutes.Swap);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Swap);
+            });
             break;
           case EShortcutEvents.TabMarket:
-            navigation.switchTab(ETabRoutes.Market);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Market);
+            });
             break;
           case EShortcutEvents.TabReferAFriend:
             if (!isOpenedReferFriendsPage()) {
@@ -235,7 +271,9 @@ const useDesktopEvents = platformEnv.isDesktop
             }
             break;
           case EShortcutEvents.TabBrowser:
-            navigation.switchTab(ETabRoutes.Discovery);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Discovery);
+            });
             break;
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {

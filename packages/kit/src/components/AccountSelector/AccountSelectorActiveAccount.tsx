@@ -163,7 +163,13 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   // );
 };
 
-export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
+export function AccountSelectorActiveAccountHome({
+  num,
+  showAccountAddress = true,
+}: {
+  num: number;
+  showAccountAddress?: boolean;
+}) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
@@ -297,56 +303,69 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   // show address if account has an address
   if (account?.address) {
+    if (showAccountAddress) {
+      return (
+        <Tooltip
+          shortcutKey={EShortcutEvents.CopyAddressOrUrl}
+          renderContent={intl.formatMessage({
+            id: ETranslations.global_copy_address,
+          })}
+          placement="top"
+          renderTrigger={
+            <XStack
+              alignItems="center"
+              onPress={handleAddressOnPress}
+              py="$1"
+              px="$2"
+              my="$-1"
+              mx="$-2"
+              borderRadius="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusable
+              focusVisibleStyle={{
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }}
+              hitSlop={NATIVE_HIT_SLOP}
+              userSelect="none"
+              testID="account-selector-address"
+            >
+              {platformEnv.isE2E ? (
+                <SizableText
+                  testID="account-selector-address-text"
+                  size="$bodyMd"
+                  width={200}
+                >
+                  {account?.address}
+                </SizableText>
+              ) : (
+                <SizableText
+                  testID="account-selector-address-text"
+                  size="$bodyMd"
+                >
+                  {accountUtils.shortenAddress({ address: account?.address })}
+                </SizableText>
+              )}
+            </XStack>
+          }
+        />
+      );
+    }
     return (
-      <Tooltip
-        shortcutKey={EShortcutEvents.CopyAddressOrUrl}
-        renderContent={intl.formatMessage({
+      <IconButton
+        title={intl.formatMessage({
           id: ETranslations.global_copy_address,
         })}
-        placement="top"
-        renderTrigger={
-          <XStack
-            alignItems="center"
-            onPress={handleAddressOnPress}
-            py="$1"
-            px="$2"
-            my="$-1"
-            mx="$-2"
-            borderRadius="$2"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusable
-            focusVisibleStyle={{
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-            }}
-            hitSlop={NATIVE_HIT_SLOP}
-            userSelect="none"
-            testID="account-selector-address"
-          >
-            {platformEnv.isE2E ? (
-              <SizableText
-                testID="account-selector-address-text"
-                size="$bodyMd"
-                width={200}
-              >
-                {account?.address}
-              </SizableText>
-            ) : (
-              <SizableText
-                testID="account-selector-address-text"
-                size="$bodyMd"
-              >
-                {accountUtils.shortenAddress({ address: account?.address })}
-              </SizableText>
-            )}
-          </XStack>
-        }
+        icon="Copy3Outline"
+        size="small"
+        variant="tertiary"
+        onPress={handleAddressOnPress}
       />
     );
   }

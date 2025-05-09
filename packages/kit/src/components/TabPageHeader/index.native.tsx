@@ -12,29 +12,16 @@ import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function TabPageHeader({
-  sceneName,
-  tabRoute,
-  showHeaderRight,
-  showCustomHeaderRight,
-}: ITabPageHeaderProp) {
-  useDebugComponentRemountLog({
-    name: `native TabPageHeader:${sceneName}:${String(showHeaderRight)}`,
-  });
+export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
 
   const headerRight = useMemo(() => {
-    if (showCustomHeaderRight) {
-      return showCustomHeaderRight({
-        canGoBack: false,
-      });
-    }
     return (
       <HomeTokenListProviderMirror>
         <HeaderRight sceneName={sceneName} tabRoute={tabRoute} />
       </HomeTokenListProviderMirror>
     );
-  }, [sceneName, showCustomHeaderRight, tabRoute]);
+  }, [sceneName, tabRoute]);
   return (
     <>
       <Page.Header headerShown={false} />
@@ -46,12 +33,12 @@ export function TabPageHeader({
         mt={platformEnv.isNativeAndroid ? '$2' : undefined}
       >
         <View>
-          <HeaderLeft sceneName={sceneName} />
+          <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />
         </View>
         <View>
           <HeaderTitle sceneName={sceneName} />
         </View>
-        {showHeaderRight || showCustomHeaderRight ? headerRight : null}
+        {headerRight}
       </XStack>
     </>
   );

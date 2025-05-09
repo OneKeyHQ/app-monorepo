@@ -10,8 +10,6 @@ import {
   wrap,
 } from '@sentry/react-native';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
 import appGlobals from '../../appGlobals';
 
 import { buildBasicOptions, navigationIntegration } from './basicOptions';

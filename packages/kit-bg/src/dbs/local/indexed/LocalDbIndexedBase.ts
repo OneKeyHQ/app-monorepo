@@ -33,6 +33,7 @@ import {
 import { IndexedDBAgent } from './IndexedDBAgent';
 import indexedDBUtils from './indexedDBUtils';
 
+import type { ICheckCurrentDBIsMigratedResult } from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
 import type {
   IDBWalletIdSingleton,
   IIndexedBucketsMap,
@@ -219,11 +220,36 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     }
 
     try {
-      await indexedToBucketsMigration.migrateOneKeyV5LegacyDBToBucket({
-        buckets,
-      });
+      const checkMigratedResult: ICheckCurrentDBIsMigratedResult =
+        await indexedToBucketsMigration.checkCurrentDBIsMigrated({
+          buckets,
+        });
+      if (checkMigratedResult) {
+        try {
+          await indexedToBucketsMigration.migrateOneKeyV5LegacyDBToBucket(
+            checkMigratedResult,
+          );
+        } catch (error) {
+          console.error(
+            'migrateOneKeyV5LegacyDBToBucket ERROR: ',
+            error,
+            checkMigratedResult,
+          );
+        }
+        try {
+          await indexedToBucketsMigration.migrateBackupedDataToBucket(
+            checkMigratedResult,
+          );
+        } catch (error) {
+          console.error(
+            'migrateBackupedDataToBucket ERROR: ',
+            error,
+            checkMigratedResult,
+          );
+        }
+      }
     } catch (error) {
-      console.error('migrateOneKeyV5LegacyDBToBucket ERROR: ', error);
+      console.error('checkCurrentDBIsMigrated ERROR: ', error);
     }
 
     return db;

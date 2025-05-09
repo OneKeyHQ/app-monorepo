@@ -29,6 +29,7 @@ import {
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
+  IDesktopStoreMap,
   IDesktopSubModuleInitParams,
   IMediaType,
 } from '@onekeyhq/shared/types/desktop';
@@ -738,6 +739,38 @@ function createMainWindow() {
       event.returnValue = '';
     },
   );
+
+  ipcMain.on(
+    ipcMessageKeys.STORE_GET_ITEM_ASYNC,
+    async (event, { key }: { key: keyof IDesktopStoreMap }) => {
+      const value = store.instance.get(key);
+      event.returnValue = value;
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.STORE_SET_ITEM_ASYNC,
+    async (
+      event,
+      { key, value }: { key: keyof IDesktopStoreMap; value: any },
+    ) => {
+      store.instance.set(key, value);
+      event.returnValue = undefined;
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.STORE_DEL_ITEM_ASYNC,
+    async (event, { key }: { key: keyof IDesktopStoreMap }) => {
+      store.instance.delete(key);
+      event.returnValue = undefined;
+    },
+  );
+
+  ipcMain.on(ipcMessageKeys.STORE_CLEAR, async (event) => {
+    store.instance.clear();
+    event.returnValue = undefined;
+  });
 
   ipcMain.on(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, (event) => {
     logger.debug('reloadBridgeProcess receive');
