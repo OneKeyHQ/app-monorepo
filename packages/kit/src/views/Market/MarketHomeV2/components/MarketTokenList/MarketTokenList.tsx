@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { Pagination, Stack, Table, XStack } from '@onekeyhq/components';
 
+import { useToDetailPage } from './hooks/useToDetailPage';
 import { marketTokenColumns } from './MarketTokenColumns';
 import { type IMarketToken, defaultData } from './MarketTokenData';
 
@@ -19,6 +20,7 @@ function MarketTokenList({
   pageSize = 10,
 }: IMarketTokenListProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const toDetailPage = useToDetailPage();
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
@@ -49,7 +51,12 @@ function MarketTokenList({
                 ? (item) => ({
                     onPress: () => onItemPress(item),
                   })
-                : undefined
+                : (_item) => ({
+                    onPress: () =>
+                      toDetailPage({
+                        coingeckoId: 'bitcoin',
+                      }),
+                  })
             }
           />
         </Stack>
