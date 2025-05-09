@@ -210,7 +210,7 @@ export const TabComponent = (
         {ListHeaderComponent}
       </Stack>
       {renderPageContent}
-      {ToolBar || undefined}
+      {ToolBar || null}
     </NestedTabView>
   );
 };

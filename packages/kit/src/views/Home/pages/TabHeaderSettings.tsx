@@ -190,14 +190,14 @@ function DelayedRender({
 }
 
 function Container({ children }: PropsWithChildren) {
-  return platformEnv.isNativeIOS ? (
+  return platformEnv.isNativeAndroid ? (
+    children
+  ) : (
     <DelayedRender>
       <Stack position="absolute" top="$3" right="$5">
         {children}
       </Stack>
     </DelayedRender>
-  ) : (
-    children
   );
 }
 
