@@ -30,6 +30,8 @@ export interface IDevSettings {
   usePrimeSandboxPayment?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
+  // enable analytics requests in dev environment
+  enableAnalyticsRequest?: boolean;
   autoNavigation?: {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
@@ -57,6 +59,7 @@ export const {
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
+      enableAnalyticsRequest: false,
 
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,

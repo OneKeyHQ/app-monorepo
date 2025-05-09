@@ -230,6 +230,15 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="enableAnalyticsRequest"
+        title="发送 Analytics 请求"
+        subtitle={
+          devSettings.settings?.enableAnalyticsRequest ? '开启' : '关闭'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       {platformEnv.isNative ? (
         <SectionFieldItem
           name="webviewDebuggingEnabled"
