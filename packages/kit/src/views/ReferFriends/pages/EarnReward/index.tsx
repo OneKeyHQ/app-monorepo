@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,7 +22,25 @@ import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+
+interface ISectionData {
+  title: string;
+  amount: string;
+  data: [
+    {
+      name: string;
+      action: string;
+      token: {
+        uri: string;
+        symbol: symbol;
+        amount: string;
+        fiatAmount: string;
+      };
+    },
+  ];
+}
 
 function EmptyData() {
   const intl = useIntl();
@@ -58,31 +77,13 @@ function ListHeader() {
   );
 }
 
-function UndistributedList() {
+function UndistributedList({ listData }: { listData: ISectionData[] }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const sectionData = [
-    {
-      title: '0x1234...1234',
-      amount: '10.25',
-      data: [
-        {
-          name: 'Vault name',
-          action: '10 ETH deposited',
-          token: {
-            uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
-            symbol: 'USDC',
-            amount: 10.25,
-            fiatAmount: 0.1,
-          },
-        },
-      ],
-    },
-  ];
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
-      {sectionData.map(({ title, amount, data }, index) => (
+      {listData.map(({ title, amount, data }, index) => (
         <YStack key={index}>
           <Accordion type="multiple" gap="$2">
             <Accordion.Item value={String(index)}>
@@ -95,7 +96,6 @@ function UndistributedList() {
                 px="$2"
                 py="$1"
                 mx="$-2"
-                my="$-1"
                 hoverStyle={{
                   bg: '$bgHover',
                 }}
@@ -163,7 +163,11 @@ function UndistributedList() {
                         </SizableText>
                       </YStack>
                       <XStack ai="center">
-                        <Token size="xs" networkId="evm--1" mr="$2" />
+                        <Token
+                          size="xs"
+                          tokenImageUri={item.token.uri}
+                          mr="$2"
+                        />
                         <NumberSizeableText
                           mr="$1"
                           formatter="balance"
@@ -344,6 +348,44 @@ function TotalList() {
     </YStack>
   );
 }
+const formatSections = (data: IEarnRewardItem[]) => {
+  const formattedData = data.reduce<Record<string, IEarnRewardItem[]>>(
+    (acc: Record<string, IEarnRewardItem[]>, item: IEarnRewardItem) => {
+      const address = item.accountAddress;
+      if (!acc[address]) {
+        acc[address] = [];
+      }
+      acc[address].push(item);
+      return acc;
+    },
+    {},
+  );
+
+  const sectionDataArray = Object.entries(formattedData).map(
+    ([address, items]) => {
+      const totalAmount = items.reduce(
+        (sum, item) => sum.plus(new BigNumber(item.amount || '0')),
+        new BigNumber(0),
+      );
+
+      return {
+        title: address,
+        amount: totalAmount.toFixed(),
+        data: items.map((item) => ({
+          name: item?.vaultName || '',
+          action: 'aaaas',
+          token: {
+            uri: item?.token.logoURI || '',
+            symbol: item?.token.symbol || '',
+            amount: totalAmount.toFixed(),
+            fiatAmount: item?.fiatValue || '0',
+          },
+        })),
+      };
+    },
+  );
+  return sectionDataArray;
+};
 
 export default function EarnReward() {
   const intl = useIntl();
@@ -355,6 +397,10 @@ export default function EarnReward() {
       }
     | undefined
   >();
+  const [listData, setListData] = useState<ISectionData[]>([]);
+  const [undistributedListData, setUndistributedListData] = useState<
+    ISectionData[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const [settings] = useSettingsPersistAtom();
@@ -368,34 +414,28 @@ export default function EarnReward() {
     return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor);
   }, []);
 
-  const fetchSummaryInfo = useCallback(() => {
-    return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
-  }, []);
+  // const fetchSummaryInfo = useCallback(() => {
+  //   return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+  // }, []);
 
   const onRefresh = useCallback(() => {
     setIsLoading(true);
-    void Promise.allSettled([fetchSales(), fetchSummaryInfo()]).then(
-      ([salesResult, summaryResult]) => {
-        if (salesResult.status === 'fulfilled') {
-          const data = salesResult.value;
-          // originalData.current.push(...data.items);
-        }
-
-        if (summaryResult.status === 'fulfilled') {
-          const data = summaryResult.value;
-          setAmount({
-            available: data.Earn.available?.[0].amount || '0',
-            pending: data.Earn.pending?.[0].amount || '0',
-          });
-        }
-        setIsLoading(false);
-      },
-    );
-  }, [fetchSales, fetchSummaryInfo]);
+    void Promise.allSettled([fetchSales()]).then(([salesResult]) => {
+      if (salesResult.status === 'fulfilled') {
+        const data = salesResult.value;
+        setUndistributedListData(formatSections(data.items));
+        setAmount({
+          available: '0',
+          pending: data.fiatValue || '0',
+        });
+      }
+      setIsLoading(false);
+    });
+  }, [fetchSales, setUndistributedListData]);
 
   useEffect(() => {
     onRefresh();
-  }, [fetchSales, fetchSummaryInfo, onRefresh]);
+  }, [fetchSales, onRefresh]);
 
   const tabs = useMemo(
     () => [
@@ -403,7 +443,8 @@ export default function EarnReward() {
         title: intl.formatMessage({
           id: ETranslations.earn_referral_undistributed,
         }),
-        page: UndistributedList,
+        // eslint-disable-next-line react/no-unstable-nested-components
+        page: () => <UndistributedList listData={undistributedListData} />,
       },
       {
         title: intl.formatMessage({
@@ -412,11 +453,11 @@ export default function EarnReward() {
         page: TotalList,
       },
     ],
-    [intl],
+    [intl, undistributedListData],
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.referral_earn_reward })}
       />
@@ -450,7 +491,7 @@ export default function EarnReward() {
                     onClose={tourVisited}
                   />
                 ) : null}
-                <YStack p="$5" pt={0}>
+                <YStack px="$5" py="$2.5">
                   <SizableText size="$bodyLg">
                     {intl.formatMessage({
                       id: ETranslations.referral_reward_undistributed,
@@ -463,21 +504,6 @@ export default function EarnReward() {
                   >
                     {amount.pending}
                   </NumberSizeableText>
-                  <SizableText mt="$1">
-                    <NumberSizeableText
-                      size="$bodyMdMedium"
-                      formatter="balance"
-                      formatterOptions={{ currency: currencySymbol }}
-                      mr="$1"
-                    >
-                      {amount.available}
-                    </NumberSizeableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.referral_total_reward,
-                      })}
-                    </SizableText>
-                  </SizableText>
                 </YStack>
               </YStack>
             )

@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  IEarnRewardResponse,
   IHardwareSalesRecord,
   IInviteHistory,
   IInvitePostConfig,
@@ -117,7 +118,7 @@ class ServiceReferralCode extends ServiceBase {
       params.cursor = cursor;
     }
     const response = await client.get<{
-      data: IHardwareSalesRecord;
+      data: IEarnRewardResponse;
     }>('/rebate/v1/invite/records', { params });
     return response.data.data;
   }
