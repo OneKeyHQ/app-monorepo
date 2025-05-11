@@ -1,7 +1,8 @@
 import appGlobals from '../../appGlobals';
 import { EAppEventBusNames } from '../../eventBus/appEventBusNames';
+import storageChecker from '../../storageChecker/storageChecker';
 
-const diskFullErrorMessage = `Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing.`;
+const diskFullErrorMessage = `Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing`;
 
 // @ts-ignore
 globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9 =
@@ -23,13 +24,9 @@ globalThis.IDBDatabase.prototype.transaction = function (
         mode,
         options,
       });
-
-      appGlobals?.$appEventBus?.emit(
-        EAppEventBusNames.ShowSystemDiskFullWarning,
-        undefined,
-      );
-      // TODO use custom Error
-      throw new Error(diskFullErrorMessage);
+    }
+    if (isWriteMode) {
+      storageChecker.checkIfDiskIsFullSync();
     }
     const tx =
       // @ts-ignore
@@ -45,14 +42,7 @@ globalThis.IDBDatabase.prototype.transaction = function (
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return tx;
   } catch (error) {
-    const err = error as Error | undefined;
-    if (err?.message === diskFullErrorMessage) {
-      globalThis.$onekeySystemDiskIsFull = true;
-      appGlobals?.$appEventBus?.emit(
-        EAppEventBusNames.ShowSystemDiskFullWarning,
-        undefined,
-      );
-    }
+    storageChecker.handleDiskFullError(error);
     throw error;
   }
 };

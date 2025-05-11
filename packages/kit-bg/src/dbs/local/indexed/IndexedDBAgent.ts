@@ -15,6 +15,7 @@ import type {
   IndexedDBPromised,
   IndexedDBTransactionPromised,
 } from '@onekeyhq/shared/src/IndexedDBPromised';
+import storageChecker from '@onekeyhq/shared/src/storageChecker/storageChecker';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -584,6 +585,8 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
     resetUtils.checkNotInResetting();
+    await storageChecker.checkIfDiskIsFull();
+
     const { name, tx, updater } = params;
     const pairs = await this.buildRecordPairsFromIds(params);
     dbPerfMonitor.logLocalDbCall(`txUpdateRecords`, name, [
@@ -606,6 +609,8 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
     resetUtils.checkNotInResetting();
+    await storageChecker.checkIfDiskIsFull();
+
     const { name, tx, records, skipIfExists } = params;
     const store = this._getObjectStoreFromTx(tx, name);
     const result: ILocalDBTxAddRecordsResult = {
