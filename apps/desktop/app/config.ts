@@ -1,3 +1,6 @@
+import type { Contexts } from '@sentry/core';
+import type { Systeminformation } from 'systeminformation';
+
 export const cspRules = [
   // Default to only own resources
   "default-src 'self' 'unsafe-inline' onekey.243096.com dev.243096.com onekey-asset.com",
@@ -6,6 +9,13 @@ export const cspRules = [
   // Allow images from trezor.io
   "img-src 'self' onekey.243096.com devs.243096.com onekey.so *.onekey.so onekey-asset.com",
 ];
+
+export type IDesktopSystemInfo = {
+  system: Systeminformation.SystemData;
+  cpu: Systeminformation.CpuData;
+  os: Systeminformation.OsData;
+  sentryContexts: Contexts;
+};
 
 export const ipcMessageKeys = {
   IS_DEV: 'IS_DEV',
@@ -42,6 +52,7 @@ export const ipcMessageKeys = {
 
   // App
   APP_VERSION: 'app/version',
+  APP_SYSTEM_INFO: 'app/systemInfo',
   APP_STATE: 'appState',
   APP_READY: 'app/ready',
   APP_RELOAD: 'app/reload',

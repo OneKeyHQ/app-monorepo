@@ -101,7 +101,13 @@ export function DialogHyperlinkTextDescription(props: IHyperlinkTextProps) {
   ) : null;
 }
 
-function BasicDialogHeader({ onClose }: { onClose: () => void }) {
+function BasicDialogHeader({
+  onClose,
+  trackID,
+}: {
+  onClose: () => void;
+  trackID?: string;
+}) {
   const { headerProps } = useContext(DialogHeaderContext);
   const {
     icon,
@@ -133,6 +139,7 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
       {/* close button */}
       {showExitButton ? (
         <IconButton
+          trackID={trackID}
           position="absolute"
           zIndex={1}
           right="$5"
