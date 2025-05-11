@@ -4,9 +4,9 @@ import { forwardRef, useCallback, useEffect, useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
+  Dialog as BaseDialog,
   Button,
   Checkbox,
-  Dialog,
   DialogContainer,
   Form,
   Input,
@@ -36,6 +36,24 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
+
+const TRACK_ID = 'demo-dialog';
+
+// Wrap BaseDialog to automatically inject trackId into every call
+type IDialogShowPropsWithTrack = Parameters<typeof BaseDialog.show>[0];
+type IDialogConfirmPropsWithTrack = Parameters<typeof BaseDialog.confirm>[0];
+type IDialogCancelPropsWithTrack = Parameters<typeof BaseDialog.cancel>[0];
+
+const Dialog = {
+  ...BaseDialog,
+  show: (props: IDialogShowPropsWithTrack) =>
+    BaseDialog.show({ trackID: TRACK_ID, ...props }),
+  confirm: (props: IDialogConfirmPropsWithTrack) =>
+    BaseDialog.confirm({ trackID: TRACK_ID, ...props }),
+  cancel: (props: IDialogCancelPropsWithTrack) =>
+    BaseDialog.cancel({ trackID: TRACK_ID, ...props }),
+  loading: BaseDialog.loading,
+};
 
 const CustomFooter = ({
   index,
@@ -986,7 +1004,7 @@ const DialogGallery = () => (
             <YStack gap="$4">
               <Button
                 onPress={async () => {
-                  const d = dialog.show({
+                  dialog.show({
                     title: 'Lorem ipsum',
                     icon: 'PlaceholderOutline',
                     description:
@@ -1006,7 +1024,7 @@ const DialogGallery = () => (
               </Button>
               <Button
                 onPress={async () => {
-                  const d = dialog.show({
+                  dialog.show({
                     title: 'Lorem ipsum',
                     icon: 'PlaceholderOutline',
                     description:
