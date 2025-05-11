@@ -5,6 +5,7 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,7 +33,6 @@ import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
-import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
