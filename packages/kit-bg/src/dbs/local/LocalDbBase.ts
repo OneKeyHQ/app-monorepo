@@ -980,6 +980,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet.airGapAccountsInfo = JSON.parse(wallet.airGapAccountsInfoRaw);
     }
 
+    // eslint-disable-next-line spellcheck/spell-checker
     // wallet.xfp = 'aaaaaaaa'; // mock qr wallet xfp
     return wallet;
   }
