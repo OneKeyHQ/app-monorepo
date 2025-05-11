@@ -26,6 +26,7 @@ import {
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
@@ -278,7 +279,7 @@ export abstract class CloudSyncFlowManagerBase<
       }
       return syncItem;
     } catch (error) {
-      console.error('getSyncItem error', error);
+      errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
   }

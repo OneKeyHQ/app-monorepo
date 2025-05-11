@@ -41,7 +41,8 @@ export class IndexedDBTransactionPromised<
       };
 
       const error = () => {
-        reject(tx.error || indexedDBPromisedUtils.newAbortError());
+        const err = tx.error || indexedDBPromisedUtils.newAbortError();
+        reject(err);
         unListen?.();
       };
 

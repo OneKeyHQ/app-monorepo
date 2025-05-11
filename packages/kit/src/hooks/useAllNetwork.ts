@@ -288,10 +288,10 @@ function useAllNetworkRequests<T>(params: {
       }
 
       currentRequestsUUID.current = requestsUUID;
-      console.log(
-        'currentRequestsUUID set: =====>>>>>: ',
-        currentRequestsUUID.current,
-      );
+      // console.log(
+      //   'currentRequestsUUID set: =====>>>>>: ',
+      //   currentRequestsUUID.current,
+      // );
       const customTokensRawData =
         (await backgroundApiProxy.simpleDb.customTokens.getRawData()) ??
         undefined;
@@ -320,13 +320,14 @@ function useAllNetworkRequests<T>(params: {
         try {
           const promises = Array.from(accountsInfoBackendIndexed).map(
             (networkDataString) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { accountId, networkId, apiAddress } = networkDataString;
-              console.log(
-                'accountsBackedIndexedRequests: =====>>>>>: ',
-                accountId,
-                networkId,
-                apiAddress,
-              );
+              // console.log(
+              //   'accountsBackedIndexedRequests: =====>>>>>: ',
+              //   accountId,
+              //   networkId,
+              //   apiAddress,
+              // );
               return allNetworkRequests({
                 accountId,
                 networkId,
@@ -346,13 +347,14 @@ function useAllNetworkRequests<T>(params: {
         try {
           const promises = Array.from(accountsInfoBackendNotIndexed).map(
             (networkDataString) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { accountId, networkId, apiAddress } = networkDataString;
-              console.log(
-                'accountsBackedNotIndexedRequests: =====>>>>>: ',
-                accountId,
-                networkId,
-                apiAddress,
-              );
+              // console.log(
+              //   'accountsBackedNotIndexedRequests: =====>>>>>: ',
+              //   accountId,
+              //   networkId,
+              //   apiAddress,
+              // );
               return allNetworkRequests({
                 accountId,
                 networkId,

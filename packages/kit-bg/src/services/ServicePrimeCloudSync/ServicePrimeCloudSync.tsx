@@ -16,6 +16,8 @@ import {
   OneKeyErrorPrimeMasterPasswordInvalid,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -890,6 +892,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName?: string;
   } = {}) {
     try {
+      if (!(await this.isCloudSyncIsAvailable())) {
+        return;
+      }
       await this.ensureCloudSyncIsAvailable({
         callerName,
       });
@@ -908,7 +913,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         encryptedSecurityPasswordR1ForServer,
       });
     } catch (error) {
-      console.error(error);
+      errorUtils.autoPrintErrorIgnore(error);
       if (throwError) {
         throw error;
       }
@@ -987,6 +992,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow?: boolean;
     encryptedSecurityPasswordR1ForServer?: string;
   }) {
+    if (!(await this.isCloudSyncIsAvailable())) {
+      return;
+    }
+
     await this.ensureCloudSyncIsAvailable();
 
     // TODO check passcode, syncPassword, accountSalt, isPrime are both available
@@ -1051,7 +1060,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     try {
       return await this.getSyncCredentialWithCache();
     } catch (error) {
-      console.error(error);
+      errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
   }

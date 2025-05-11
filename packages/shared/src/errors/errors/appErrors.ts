@@ -57,6 +57,19 @@ export class IncorrectMasterPassword extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.IncorrectMasterPassword;
 }
 
+export class LocalDBRecordNotFoundError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalDBRecordNotFoundError',
+        // defaultKey: ETranslations.local_db_record_not_found,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
+}
+
 export class NotImplemented extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

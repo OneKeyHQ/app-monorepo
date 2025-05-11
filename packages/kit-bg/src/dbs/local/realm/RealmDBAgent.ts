@@ -42,6 +42,7 @@ import type {
   ILocalDBWithTransactionTask,
   IRealmDBSchemaMap,
 } from '../types';
+import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
 
 export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   constructor(realm: Realm) {
@@ -260,7 +261,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     // @ts-ignore
     const record = obj?.record;
     if (!record) {
-      throw new Error(`record not found: ${name} ${id}`);
+      throw new LocalDBRecordNotFoundError(`record not found: ${name} ${id}`);
     }
     // eslint-disable-next-line
     return [record as any, obj];
