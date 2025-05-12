@@ -537,7 +537,14 @@ function MoreActionButtonCmp() {
                   height="$4"
                   alignItems="center"
                   justifyContent="center"
-                />
+                >
+                  <Stack
+                    width="$1"
+                    height="$1"
+                    backgroundColor="white"
+                    borderRadius="$full"
+                  />
+                </Stack>
               </Stack>
             </Stack>
           ) : null}
