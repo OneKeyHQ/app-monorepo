@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -34,7 +34,6 @@ import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 
-import { TxHistoryListHeader } from './TxHistoryListHeader';
 import { TxHistoryListItem } from './TxHistoryListItem';
 
 type IProps = {
@@ -49,6 +48,12 @@ type IProps = {
   inTabList?: boolean;
   contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   hideValue?: boolean;
+  listViewStyleProps?: Pick<
+    ComponentProps<typeof SectionList>,
+    | 'ListHeaderComponentStyle'
+    | 'ListFooterComponentStyle'
+    | 'contentContainerStyle'
+  >;
 };
 
 const ListFooterComponent = () => {
@@ -102,6 +107,7 @@ function BaseTxHistoryListView(props: IProps) {
     contentContainerStyle,
     inTabList = false,
     hideValue,
+    listViewStyleProps,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -194,6 +200,7 @@ function BaseTxHistoryListView(props: IProps) {
       keyExtractor={(tx, index) =>
         (tx as IAccountHistoryTx).id || index.toString(10)
       }
+      {...listViewStyleProps}
     />
   );
 }
