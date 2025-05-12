@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { debounce, noop } from 'lodash';
+import { debounce, isEqual, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,6 +9,7 @@ import {
   SizableText,
   YStack,
   rootNavigationRef,
+  useFormInstances,
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -56,6 +57,7 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
+      const [formInstances] = useFormInstances();
       const intl = useIntl();
       const navigation = useAppNavigation();
       const onLock = useOnLockCallback();
@@ -185,15 +187,21 @@ const useDesktopEvents = platformEnv.isDesktop
             return;
           }
 
-          if (allModalRoutes.length === 1 || allModalRoutes.length === 2) {
-            closeAllModalRoutes();
-            return;
-          }
+          const formInstance = formInstances[formInstances.length - 1];
+          const isFormChanged =
+            formInstance &&
+            !isEqual(
+              formInstance.formState.defaultValues,
+              formInstance.getValues(),
+            );
 
-          if (allModalRoutes.length > 2) {
+          if (allModalRoutes.length > 0 && isFormChanged) {
             Dialog.show({
               title: intl.formatMessage({
                 id: ETranslations.global_close,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.global_close_confirm_description,
               }),
               showCancelButton: true,
               showFooter: true,
@@ -205,11 +213,13 @@ const useDesktopEvents = platformEnv.isDesktop
             return;
           }
 
+          closeAllModalRoutes();
+
           setTimeout(() => {
             navigateAction?.();
           }, 100);
         },
-        [intl],
+        [intl, formInstances],
       );
 
       useEffect(() => {
