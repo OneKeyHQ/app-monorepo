@@ -1575,6 +1575,11 @@ function TokenListContainer(_props: ITabPageProps) {
           </Stack>
         ) : null
       }
+      listViewStyleProps={{
+        ListHeaderComponentStyle: {
+          pt: '$3',
+        },
+      }}
     />
   );
 }
