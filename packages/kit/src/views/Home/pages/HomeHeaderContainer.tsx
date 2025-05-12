@@ -31,18 +31,13 @@ function HomeHeaderContainer() {
           testID="Wallet-Tab-Header"
           gap="$5"
           p="$5"
-          $gtMd={
-            platformEnv.isNative
-              ? undefined
-              : {
-                  pt: '$2.5',
-                }
-          }
+          $md={{
+            pt: '$2.5',
+          }}
           bg="$bgApp"
           $gtLg={{
             flexDirection: 'row',
             justifyContent: 'space-between',
-            alignItems: 'center',
           }}
         >
           <Stack gap="$2.5">
