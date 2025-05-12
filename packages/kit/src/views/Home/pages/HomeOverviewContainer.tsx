@@ -30,6 +30,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -290,50 +291,56 @@ function HomeOverviewContainer() {
 
   return (
     <YStack gap="$2.5" alignItems="flex-start">
-      <XStack alignItems="center" gap="$3">
-        <XStack
-          flexShrink={1}
-          borderRadius="$3"
-          px="$1"
-          py="$0.5"
-          mx="$-1"
-          my="$-0.5"
-          cursor="default"
-          focusable
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          focusVisibleStyle={{
-            outlineColor: '$focusRing',
-            outlineWidth: 2,
-            outlineOffset: 0,
-            outlineStyle: 'solid',
-          }}
-          onPress={handleBalanceOnPress}
-        >
-          <NumberSizeableTextWrapper
-            hideValue
+      <YStack w="100%" gap="$2">
+        <AllNetworksManagerTrigger num={0} />
+        <XStack alignItems="center" gap="$3">
+          <XStack
             flexShrink={1}
-            minWidth={0}
-            {...numberFormatter}
-            size={
-              md
-                ? balanceSizeList.find(
-                    (item) =>
-                      numberFormat(String(balanceString), numberFormatter, true)
-                        .length >= item.length,
-                  )?.size ?? defaultBalanceSize
-                : defaultBalanceSize
-            }
+            borderRadius="$3"
+            px="$1"
+            py="$0.5"
+            mx="$-1"
+            my="$-0.5"
+            cursor="default"
+            focusable
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
+            focusVisibleStyle={{
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineOffset: 0,
+              outlineStyle: 'solid',
+            }}
+            onPress={handleBalanceOnPress}
           >
-            {balanceString}
-          </NumberSizeableTextWrapper>
+            <NumberSizeableTextWrapper
+              hideValue
+              flexShrink={1}
+              minWidth={0}
+              {...numberFormatter}
+              size={
+                md
+                  ? balanceSizeList.find(
+                      (item) =>
+                        numberFormat(
+                          String(balanceString),
+                          numberFormatter,
+                          true,
+                        ).length >= item.length,
+                    )?.size ?? defaultBalanceSize
+                  : defaultBalanceSize
+              }
+            >
+              {balanceString}
+            </NumberSizeableTextWrapper>
+          </XStack>
+          {refreshButton}
         </XStack>
-        {refreshButton}
-      </XStack>
+      </YStack>
       {vaultSettings?.hasFrozenBalance ? (
         <Button
           onPress={handleBalanceDetailsOnPress}

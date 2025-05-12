@@ -1,4 +1,4 @@
-import { Stack, XStack, useIsWideScreen } from '@onekeyhq/components';
+import { Stack, XStack, useIsHorizontalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
@@ -8,11 +8,11 @@ import { WalletActions } from '../components/WalletActions';
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 function HomeHeaderContainer() {
-  const isWideScreen = useIsWideScreen();
+  const isHorizontal = useIsHorizontalLayout();
   return (
     <HomeTokenListProviderMirror>
       <>
-        {isWideScreen ? null : (
+        {isHorizontal ? null : (
           <XStack
             pt={platformEnv.isNative ? '$5' : '$2.5'}
             px="$5"

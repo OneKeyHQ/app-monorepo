@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { PageHeaderDivider } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
@@ -40,6 +41,7 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
         </View>
         {headerRight}
       </XStack>
+      <PageHeaderDivider mt="$3" />
     </>
   );
 }
