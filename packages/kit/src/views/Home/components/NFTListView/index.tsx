@@ -2,7 +2,6 @@ import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps } from '@onekeyhq/components';
-
 import {
   ListView,
   Stack,
