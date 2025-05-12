@@ -19,13 +19,11 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
-import HomeSelector from '../components/HomeSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { WalletXfpStatusReminder } from '../components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import useHomePageWidth from '../hooks/useHomePageWidth';
@@ -237,13 +235,13 @@ export function HomePageView({
     ) {
       return (
         <YStack height="100%">
-          <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             {emptyAccountView}
           </Stack>
         </YStack>
       );
     }
+
     if (isRequiredValidation) {
       return (
         <WalletContentWithAuth
