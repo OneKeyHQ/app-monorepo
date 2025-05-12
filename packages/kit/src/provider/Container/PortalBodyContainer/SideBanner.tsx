@@ -152,17 +152,36 @@ function NotificationButton() {
   );
 }
 
+function DownloadButton() {
+  const intl = useIntl();
+  const onPress = useCallback(() => {
+    openUrlExternal(DOWNLOAD_URL);
+  }, []);
+
+  if (!platformEnv.isWeb) {
+    return null;
+  }
+
+  return (
+    <DesktopTabItem
+      onPress={onPress}
+      icon="DownloadOutline"
+      selected={false}
+      label={intl.formatMessage({
+        id: ETranslations.global_download,
+      })}
+    />
+  );
+}
+
 function BottomMenu() {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const openSettingPage = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [appNavigation]);
-
-  const openDownloadUrl = useCallback(() => {
-    openUrlExternal(DOWNLOAD_URL);
-  }, []);
 
   return (
     <YStack
@@ -172,24 +191,17 @@ function BottomMenu() {
       bg="$bgSidebar"
       gap="$2"
     >
-      <XStack gap="$2">
-        <DesktopTabItem
-          icon="SettingsOutline"
-          onPress={openSettingPage}
-          testID="setting"
-          shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
-          showTooltip={false}
-        />
-        {/* notifications is not supported on web currently */}
-        {platformEnv.isWeb ? null : <NotificationButton />}
-        {platformEnv.isWeb ? (
-          <DesktopTabItem
-            icon="DownloadOutline"
-            onPress={openDownloadUrl}
-            testID="downloadApp"
-          />
-        ) : null}
-      </XStack>
+      <DesktopTabItem
+        onPress={openSettingPage}
+        selected={false}
+        icon="SettingsOutline"
+        label={intl.formatMessage({
+          id: ETranslations.settings_settings,
+        })}
+        shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
+        testID="setting"
+      />
+      <DownloadButton />
       <BasicSidebarBanner />
     </YStack>
   );

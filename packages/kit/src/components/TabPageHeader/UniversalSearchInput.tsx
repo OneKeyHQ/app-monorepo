@@ -9,6 +9,7 @@ import {
   Shortcut,
   View,
   XStack,
+  useIsHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -77,6 +78,21 @@ export function UniversalSearchInput({
         right={0}
         bottom={0}
         onPress={toUniversalSearchPage}
+      />
+    </XStack>
+  );
+}
+
+export function MDUniversalSearchInput() {
+  const isHorizontal = useIsHorizontalLayout();
+  return isHorizontal ? null : (
+    <XStack px="$5" pt="$2">
+      <UniversalSearchInput
+        size="medium"
+        containerProps={{
+          width: '100%',
+          $gtLg: undefined,
+        }}
       />
     </XStack>
   );

@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
 
-import { Icon, Page, Stack, Tab, YStack, useMedia } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -273,8 +273,6 @@ export function HomePageView({
     emptyAccountView,
     network?.id,
   ]);
-
-  const media = useMedia();
 
   const renderHomePage = useCallback(() => {
     if (!ready) {
