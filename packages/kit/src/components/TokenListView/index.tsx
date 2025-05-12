@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -69,6 +69,12 @@ type IProps = {
   };
   emptyAccountView?: ReactNode;
   showActiveAccountTokenList?: boolean;
+  listViewStyleProps?: Pick<
+    ComponentProps<typeof ListView>,
+    | 'ListHeaderComponentStyle'
+    | 'ListFooterComponentStyle'
+    | 'contentContainerStyle'
+  >;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -96,6 +102,7 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchTokenList = { tokens: [] },
     emptyAccountView,
     showActiveAccountTokenList = false,
+    listViewStyleProps,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -304,6 +311,7 @@ function TokenListViewCmp(props: IProps) {
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
+      {...listViewStyleProps}
     />
   );
 }

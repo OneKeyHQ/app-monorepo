@@ -7,8 +7,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import HomeSelector from '../../Home/components/HomeSelector';
-import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 function LNHardwareWalletAuth({
   children,
@@ -71,11 +69,6 @@ function LNHardwareWalletAuth({
 
   return (
     <Stack testID="LNHardwareAuth" w="100%" h="100%">
-      <HomeTokenListProviderMirror>
-        <Stack testID="Wallet-Tab-Header" p="$5">
-          <HomeSelector mb="$2.5" />
-        </Stack>
-      </HomeTokenListProviderMirror>
       <Stack
         flex={1}
         testID="LNHardware"

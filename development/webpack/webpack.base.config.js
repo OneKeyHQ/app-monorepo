@@ -17,8 +17,9 @@ class BuildDoneNotifyPlugin {
       if (IS_EAS_BUILD) {
         exit(0);
       } else {
-        const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${(compilation.endTime - compilation.startTime) / 1000
-          }s`;
+        const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${
+          (compilation.endTime - compilation.startTime) / 1000
+        }s`;
         setTimeout(() => {
           console.log('\u001b[33m'); // yellow color
           console.log('===================================');
@@ -373,6 +374,24 @@ module.exports = ({ platform, basePath, configName }) => {
     resolve: baseResolve({ platform, configName, basePath }),
     experiments: baseExperiments,
     performance: basePerformance,
+    optimization: {
+      splitChunks: {
+        cacheGroups: {
+          icons: {
+            test: (module) => {
+              const iconTestRegex =
+                /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
+              return module.resource && iconTestRegex.test(module.resource);
+            },
+            name: 'icons',
+            chunks: 'async',
+            enforce: true,
+            priority: 30,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    },
   };
 };
 
