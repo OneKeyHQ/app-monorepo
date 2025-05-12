@@ -193,15 +193,30 @@ export function UniversalSearch({
           return (
             <ListItem
               onPress={() => {
-                navigation.switchTab(ETabRoutes.Home);
                 navigation.pop();
                 setTimeout(async () => {
                   const { network, addressInfo } = searchAddressItem.payload;
+                  navigation.switchTab(ETabRoutes.Home);
                   await urlAccountNavigation.pushUrlAccountPage(navigation, {
                     address: addressInfo.displayAddress,
                     networkId: network.id,
                     contextNetworkId: activeAccount?.network?.id,
                   });
+                  setTimeout(() => {
+                    universalSearchActions.current.addIntoRecentSearchList({
+                      id: `${addressInfo.displayAddress}-${network.id || ''}-${
+                        activeAccount?.network?.id || ''
+                      }`,
+                      text: addressInfo.displayAddress,
+                      type: item.type,
+                      timestamp: Date.now(),
+                      extra: {
+                        displayAddress: addressInfo.displayAddress,
+                        networkId: network.id,
+                        contextNetworkId: activeAccount?.network?.id || '',
+                      },
+                    });
+                  }, 10);
                 }, 80);
               }}
               renderAvatar={
