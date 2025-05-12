@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
+  IListViewProps,
   ListView,
   NestedScrollView,
   SizableText,
@@ -46,7 +47,6 @@ type IProps = {
   withFooter?: boolean;
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
-  withPresetVerticalPadding?: boolean;
   withNetwork?: boolean;
   withSmallBalanceTokens?: boolean;
   inTabList?: boolean;
@@ -86,7 +86,6 @@ function TokenListViewCmp(props: IProps) {
     isBuyTokenSupported,
     onManageToken,
     manageTokenEnabled,
-    withPresetVerticalPadding = true,
     isAllNetworks,
     searchAll,
     isTokenSelector,
@@ -248,7 +247,6 @@ function TokenListViewCmp(props: IProps) {
     <ListView
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
-      // py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
       onLayout={onLayout}

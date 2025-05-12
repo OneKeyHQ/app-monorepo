@@ -60,7 +60,7 @@ function AllNetworksManagerTrigger({ num }: { num: number }) {
   }
 
   return (
-    <YStack m="$-1">
+    <YStack m="$-1" alignSelf="flex-start">
       <XStack
         borderRadius="$2"
         p="$1"

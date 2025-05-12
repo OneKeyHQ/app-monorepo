@@ -81,9 +81,9 @@ export function HeaderLeft({
     if (tabRoute === ETabRoutes.Discovery) {
       return (
         <SizableText size="$headingLg">
-          {intl.formatMessage({
+          {/* {intl.formatMessage({
             id: ETranslations.global_browser,
-          })}
+          })} */}
         </SizableText>
       );
     }
