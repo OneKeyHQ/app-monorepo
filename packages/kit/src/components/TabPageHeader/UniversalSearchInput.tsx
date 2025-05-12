@@ -53,13 +53,6 @@ export function UniversalSearchInput({
   return (
     <XStack $gtLg={{ maxWidth: 320 }} width="100%" {...containerProps}>
       <SearchBar
-        leftIconName="SearchOutline"
-        containerProps={{
-          w: '100%',
-          borderRadius: '$full',
-          bg: '$bgStrong',
-          borderColor: '$transparent',
-        }}
         size={isLarge ? 'small' : 'medium'}
         key="searchInput"
         addOns={[
@@ -67,9 +60,6 @@ export function UniversalSearchInput({
             label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
           },
         ]}
-        placeholder={intl.formatMessage({
-          id: ETranslations.global_search,
-        })}
       />
       <View
         position="absolute"
