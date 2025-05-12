@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useIsWideScreen, useMedia } from '@onekeyhq/components';
+import { useIsHorizontalLayout, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -77,20 +77,20 @@ export function HeaderRight({
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
 }) {
-  const isWideScreen = useIsWideScreen();
+  const isHorizontal = useIsHorizontalLayout();
   const items = useMemo(() => {
     const fixedItems = (
       <>
         <MoreAction />
-        {isWideScreen ? <PeopleAction /> : null}
+        {isHorizontal ? <PeopleAction /> : null}
       </>
     );
     switch (tabRoute) {
       case ETabRoutes.Home:
         return (
           <>
-            {isWideScreen ? <SearchInput /> : undefined}
-            {isWideScreen ? undefined : <SelectorTrigger />}
+            {isHorizontal ? <SearchInput /> : undefined}
+            {isHorizontal ? undefined : <SelectorTrigger />}
             {fixedItems}
           </>
         );
@@ -99,7 +99,7 @@ export function HeaderRight({
       case ETabRoutes.Market:
         return (
           <>
-            {isWideScreen ? <SearchInput /> : undefined}
+            {isHorizontal ? <SearchInput /> : undefined}
             {fixedItems}
           </>
         );
@@ -107,7 +107,7 @@ export function HeaderRight({
         return (
           <>
             <HistoryIconButton />
-            {isWideScreen ? undefined : (
+            {isHorizontal ? undefined : (
               <TabCountButton testID="browser-header-tabs" />
             )}
             {fixedItems}
@@ -123,7 +123,7 @@ export function HeaderRight({
       default:
         break;
     }
-  }, [isWideScreen, tabRoute]);
+  }, [isHorizontal, tabRoute]);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"

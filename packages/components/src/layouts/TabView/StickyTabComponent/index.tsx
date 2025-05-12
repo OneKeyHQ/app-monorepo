@@ -55,6 +55,7 @@ export const TabComponent = (
     onSelectedPageIndex,
     shouldSelectedPageIndex,
     tabContentContainerStyle,
+    ToolBar,
     ...props
   }: ITabProps,
   // fix missing forwardRef warnings.
@@ -181,6 +182,7 @@ export const TabComponent = (
           ref={pageManager.headerView}
           {...pageManagerProps}
           {...headerProps}
+          ToolBar={ToolBar}
           onLayout={(event) => {
             headerViewHeight.current = event.nativeEvent.layout.height;
             reloadContentHeight();
