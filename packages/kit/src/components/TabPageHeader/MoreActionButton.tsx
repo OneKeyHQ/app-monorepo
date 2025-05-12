@@ -434,7 +434,7 @@ const useIsShowRedDot = () => {
   const isHorizontal = useIsHorizontalLayout();
   const [{ firstTimeGuideOpened, badge: notificationBadges }] =
     useNotificationsAtom();
-  if (!isHorizontal) {
+  if (isHorizontal) {
     return false;
   }
   const isShowNotificationDot =
@@ -464,40 +464,33 @@ function MoreActionButtonCmp() {
             icon="DotGridOutline"
             // disabled={platformEnv.isNative}
           />
-          <Stack
-            position="absolute"
-            right="$-2.5"
-            top="$-2"
-            alignItems="flex-end"
-            w="$10"
-            pointerEvents="none"
-          >
+          {isShowRedDot ? (
             <Stack
-              bg="$bgApp"
-              borderRadius="$full"
-              borderWidth={2}
-              borderColor="$transparent"
+              position="absolute"
+              right="$-2.5"
+              top="$-2"
+              alignItems="flex-end"
+              w="$10"
+              pointerEvents="none"
             >
               <Stack
-                px="$1"
+                bg="$bgApp"
                 borderRadius="$full"
-                bg="$bgCriticalStrong"
-                minWidth="$4"
-                height="$4"
-                alignItems="center"
-                justifyContent="center"
+                borderWidth={2}
+                borderColor="$transparent"
               >
-                {isShowRedDot ? (
-                  <Stack
-                    width="$1"
-                    height="$1"
-                    backgroundColor="white"
-                    borderRadius="$full"
-                  />
-                ) : null}
+                <Stack
+                  px="$1"
+                  borderRadius="$full"
+                  bg="$bgCriticalStrong"
+                  minWidth="$4"
+                  height="$4"
+                  alignItems="center"
+                  justifyContent="center"
+                />
               </Stack>
             </Stack>
-          </Stack>
+          ) : null}
         </XStack>
       }
       renderContent={MoreActionContent}
