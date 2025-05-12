@@ -9,6 +9,7 @@ import {
   SizableText,
   YStack,
   rootNavigationRef,
+  useDialogInstances,
   useFormInstances,
   useShortcuts,
 } from '@onekeyhq/components';
@@ -58,6 +59,7 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
       const [formInstances] = useFormInstances();
+      const [dialogInstances] = useDialogInstances();
       const intl = useIntl();
       const navigation = useAppNavigation();
       const onLock = useOnLockCallback();
@@ -183,7 +185,7 @@ const useDesktopEvents = platformEnv.isDesktop
 
           const allModalRoutes = getAllModalRoutes();
 
-          if (!allModalRoutes) {
+          if (!allModalRoutes || dialogInstances.length !== 0) {
             return;
           }
 
@@ -219,7 +221,7 @@ const useDesktopEvents = platformEnv.isDesktop
             navigateAction?.();
           }, 100);
         },
-        [intl, formInstances],
+        [intl, formInstances, dialogInstances],
       );
 
       useEffect(() => {
