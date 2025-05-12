@@ -184,20 +184,7 @@ function MarketHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>
-        {isHorizontal ? null : (
-          <XStack px="$5" pt="$2">
-            <UniversalSearchInput
-              size="medium"
-              containerProps={{
-                width: '100%',
-                $gtLg: undefined,
-              }}
-            />
-          </XStack>
-        )}
-        {renderTabContainer()}
-      </Page.Body>
+      <Page.Body>{renderTabContainer()}</Page.Body>
     </Page>
   );
 }
