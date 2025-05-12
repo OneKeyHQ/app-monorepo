@@ -8,6 +8,7 @@
 import { debounce } from 'lodash';
 
 import appGlobals from '../appGlobals';
+import { SystemDiskFullError } from '../errors';
 import { EAppEventBusNames } from '../eventBus/appEventBusNames';
 import platformEnv from '../platformEnv';
 
@@ -30,7 +31,7 @@ function checkIfDiskIsFullSync() {
       EAppEventBusNames.ShowSystemDiskFullWarning,
       undefined,
     );
-    throw new Error(diskFullErrorMessage); // TODO use custom Error
+    throw new SystemDiskFullError();
   }
 }
 async function checkIfDiskIsFull() {

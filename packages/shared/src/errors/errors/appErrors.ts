@@ -70,6 +70,15 @@ export class LocalDBRecordNotFoundError extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
 }
 
+export class SystemDiskFullError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'System Disk is full',
+      }),
+    );
+  }
+}
 export class NotImplemented extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

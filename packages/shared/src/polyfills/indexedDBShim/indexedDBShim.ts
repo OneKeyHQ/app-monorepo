@@ -1,8 +1,4 @@
-import appGlobals from '../../appGlobals';
-import { EAppEventBusNames } from '../../eventBus/appEventBusNames';
 import storageChecker from '../../storageChecker/storageChecker';
-
-const diskFullErrorMessage = `Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing`;
 
 // @ts-ignore
 globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9 =
