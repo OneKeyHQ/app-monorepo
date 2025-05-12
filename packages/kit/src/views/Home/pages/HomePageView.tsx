@@ -19,7 +19,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -32,6 +31,7 @@ import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
@@ -184,6 +184,9 @@ export function HomePageView({
       Keyboard.dismiss();
     }
     prevPageIndex.current = pageIndex;
+    appEventBus.emit(EAppEventBusNames.HomeTabsIndexChanged, {
+      index: pageIndex,
+    });
   }, []);
 
   const renderTabs = useCallback(
@@ -191,6 +194,7 @@ export function HomePageView({
       <Tab
         disableRefresh={!platformEnv.isNative}
         data={tabs}
+        ToolBar={<TabHeaderSettings />}
         ListHeaderComponent={<HomeHeaderContainer />}
         onSelectedPageIndex={handleSelectPageIndexChange}
         initialScrollIndex={0}

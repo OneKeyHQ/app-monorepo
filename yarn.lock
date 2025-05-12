@@ -6904,13 +6904,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-tab-page-view@npm:1.0.18":
-  version: 1.0.18
-  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.18"
+"@onekeyfe/react-native-tab-page-view@npm:1.1.1":
+  version: 1.1.1
+  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.1.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/565d182fd39dcb59ac1a28cbc92ce8bbdf9ee3848d60362f9c423d227f6404942908b6cfa94d76a104c5188aac1852e2e2914a5c34dc074e2415e6a20415909e
+  checksum: 10/3761d41a7425877803e9f6021bf4e3c4e7a4d6012e856d51767ac7fa22abdddc5bad986473a4564bd8097d6c28847ed96b925c9f535f1617bc9be8968910fae1
   languageName: node
   linkType: hard
 
@@ -7316,7 +7316,7 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-lite-card": "npm:1.0.12"
-    "@onekeyfe/react-native-tab-page-view": "npm:1.0.18"
+    "@onekeyfe/react-native-tab-page-view": "npm:1.1.1"
     "@onekeyfe/react-native-text-input": "npm:0.2.4"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
