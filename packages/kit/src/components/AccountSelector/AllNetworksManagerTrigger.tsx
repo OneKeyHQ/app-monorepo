@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -23,7 +24,13 @@ import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hoo
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../NetworkAvatar';
 
-function AllNetworksManagerTrigger({ num }: { num: number }) {
+function AllNetworksManagerTrigger({
+  num,
+  containerProps,
+}: {
+  num: number;
+  containerProps?: ComponentProps<typeof Stack>;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const {
@@ -66,7 +73,7 @@ function AllNetworksManagerTrigger({ num }: { num: number }) {
   }
 
   return (
-    <XStack alignItems="center" gap="$1">
+    <XStack alignItems="center" gap="$1" {...containerProps}>
       <XStack alignItems="center">
         <XStack role="button">
           {enabledNetworksCompatibleWithWalletId
