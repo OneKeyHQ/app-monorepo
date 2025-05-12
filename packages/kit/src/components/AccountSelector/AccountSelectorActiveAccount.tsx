@@ -191,10 +191,12 @@ export function AccountSelectorActiveAccountHome({
   num,
   showAccountAddress = true,
   showCopyButton = false,
+  showCreateAddressButton = true,
 }: {
   num: number;
   showAccountAddress?: boolean;
   showCopyButton?: boolean;
+  showCreateAddressButton?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -389,7 +391,7 @@ export function AccountSelectorActiveAccountHome({
     return null;
   }
 
-  if (activeAccount.canCreateAddress) {
+  if (activeAccount.canCreateAddress && showCreateAddressButton) {
     // show create button if account not exists
     return (
       <AccountSelectorCreateAddressButton

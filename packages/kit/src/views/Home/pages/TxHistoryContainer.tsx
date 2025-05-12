@@ -385,6 +385,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
       {...(media.gtLg && {
         tableLayout: true,
       })}
+      listViewStyleProps={{
+        contentContainerStyle: {
+          pt: '$3',
+        },
+      }}
     />
   );
 }
