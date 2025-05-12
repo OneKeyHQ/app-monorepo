@@ -26,6 +26,7 @@ import {
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../../actions/Toast';
@@ -108,6 +109,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
+  trackID,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -129,8 +131,13 @@ function DialogFrame({
   );
 
   useEffect(() => {
+    if (trackID) {
+      defaultLogger.ui.dialog.dialogOpen({
+        trackId: trackID,
+      });
+    }
     onOpen?.();
-  }, [onOpen]);
+  }, [trackID, onOpen]);
 
   const handleBackPress = useCallback(() => {
     if (!open) {
@@ -147,19 +154,24 @@ function DialogFrame({
   }, []);
 
   const handleCancelButtonPress = useCallback(async () => {
-    const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.(() => onClose());
-    if (!onCancel?.length) {
-      await onClose();
+    if (trackID) {
+      defaultLogger.ui.dialog.dialogCancel({
+        trackId: trackID,
+      });
     }
-  }, [footerRef.props?.onCancel, onCancel, onClose]);
+    const cancel = onCancel || footerRef.props?.onCancel;
+    cancel?.(() => onClose({ flag: 'cancel' }));
+    if (!onCancel?.length) {
+      await onClose({ flag: 'cancel' });
+    }
+  }, [trackID, footerRef.props?.onCancel, onCancel, onClose]);
 
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open);
   const renderDialogContent = (
     <Stack>
-      <DialogHeader onClose={onClose} />
+      <DialogHeader trackID={trackID} onClose={onClose} />
       {/* extra children */}
       <Content
         testID={testID}
@@ -169,6 +181,7 @@ function DialogFrame({
         {renderContent}
       </Content>
       <Footer
+        trackID={trackID}
         tone={tone}
         showFooter={showFooter}
         footerProps={footerProps}
@@ -343,11 +356,20 @@ function BaseDialogContainer(
   const formRef = useRef();
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
+      if (
+        props.trackID &&
+        extra?.flag !== 'confirm' &&
+        extra?.flag !== 'cancel'
+      ) {
+        defaultLogger.ui.dialog.dialogClose({
+          trackId: props.trackID,
+        });
+      }
       changeIsOpen(false);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [changeIsOpen, onClose],
+    [changeIsOpen, onClose, props.trackID],
   );
 
   const handleIsExist = useCallback(

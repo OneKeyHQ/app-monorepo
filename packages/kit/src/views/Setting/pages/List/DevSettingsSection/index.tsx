@@ -24,6 +24,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -766,6 +767,16 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+
+      <SectionPressItem
+        title="Device Info"
+        subtitle="设备信息"
+        onPress={async () => {
+          Dialog.debugMessage({
+            debugMessage: await appDeviceInfo.getDeviceInfo(),
+          });
+        }}
+      />
     </Section>
   );
 };
