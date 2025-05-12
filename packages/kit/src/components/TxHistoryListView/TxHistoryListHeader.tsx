@@ -67,21 +67,13 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_settings })}
             renderTrigger={
-              media.md ? (
-                <IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.manage_token_custom_token_title,
-                  })}
-                  variant="tertiary"
-                  icon="SliderHorOutline"
-                />
-              ) : (
-                <Button icon="SliderHorOutline" size="small" variant="tertiary">
-                  {intl.formatMessage({
-                    id: ETranslations.global_manage,
-                  })}
-                </Button>
-              )
+              <IconButton
+                title={intl.formatMessage({
+                  id: ETranslations.manage_token_custom_token_title,
+                })}
+                variant="tertiary"
+                icon="SliderHorOutline"
+              />
             }
             renderContent={
               <Stack py="$2">

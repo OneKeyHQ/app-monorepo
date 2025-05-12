@@ -41,7 +41,7 @@ export const useIsIpadLandscape = platformEnv.isNativeIOSPad
     }
   : () => false;
 
-export const useIsWideScreen = () => {
+export const useIsHorizontalLayout = () => {
   const { gtMd } = useMedia();
   const isLandscape = useIsIpadLandscape();
   return (

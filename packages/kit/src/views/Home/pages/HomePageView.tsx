@@ -30,6 +30,7 @@ import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
@@ -182,6 +183,9 @@ export function HomePageView({
       Keyboard.dismiss();
     }
     prevPageIndex.current = pageIndex;
+    appEventBus.emit(EAppEventBusNames.HomeTabsIndexChanged, {
+      index: pageIndex,
+    });
   }, []);
 
   const renderTabs = useCallback(
@@ -189,6 +193,7 @@ export function HomePageView({
       <Tab
         disableRefresh={!platformEnv.isNative}
         data={tabs}
+        ToolBar={<TabHeaderSettings />}
         ListHeaderComponent={<HomeHeaderContainer />}
         onSelectedPageIndex={handleSelectPageIndexChange}
         initialScrollIndex={0}

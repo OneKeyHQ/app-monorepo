@@ -190,13 +190,7 @@ function BaseTxHistoryListView(props: IProps) {
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListFooterComponent={ListFooterComponent}
-      ListHeaderComponent={
-        showHeader ? (
-          <TxHistoryListHeader filteredHistory={filteredHistory} />
-        ) : (
-          ListHeaderComponent
-        )
-      }
+      ListHeaderComponent={ListHeaderComponent}
       keyExtractor={(tx, index) =>
         (tx as IAccountHistoryTx).id || index.toString(10)
       }
