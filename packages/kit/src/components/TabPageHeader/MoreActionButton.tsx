@@ -434,7 +434,7 @@ const useIsShowRedDot = () => {
   const isHorizontal = useIsHorizontalLayout();
   const [{ firstTimeGuideOpened, badge: notificationBadges }] =
     useNotificationsAtom();
-  if (isHorizontal) {
+  if (!isHorizontal) {
     return false;
   }
   const isShowNotificationDot =
@@ -462,6 +462,7 @@ function MoreActionButtonCmp() {
           <HeaderIconButton
             title={intl.formatMessage({ id: ETranslations.explore_options })}
             icon="DotGridOutline"
+            // disabled={platformEnv.isNative}
           />
           <Stack
             position="absolute"
