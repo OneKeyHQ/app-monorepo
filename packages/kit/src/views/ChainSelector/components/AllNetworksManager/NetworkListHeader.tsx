@@ -37,7 +37,7 @@ function NetworkListHeader() {
           <ListItem
             h="$12"
             title={intl.formatMessage({
-              id: ETranslations.global_enable_all,
+              id: ETranslations.global_select_all,
             })}
             onPress={() => {
               if (isAllNetworksEnabled) {
