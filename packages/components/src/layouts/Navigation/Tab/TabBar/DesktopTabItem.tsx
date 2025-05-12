@@ -40,7 +40,9 @@ export interface IDesktopTabItemProps {
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
   shortcutKey?: EShortcutEvents | string[];
+  showTooltip?: boolean;
   onClose?: () => void;
+  children?: React.ReactNode;
   trackId?: string;
 }
 
@@ -86,8 +88,10 @@ export function DesktopTabItem(
     onPress,
     onClose,
     shortcutKey,
+    showTooltip = true,
     trackId,
     size = 'medium',
+    children,
     ...rest
   } = props;
 
@@ -216,6 +220,7 @@ export function DesktopTabItem(
             }}
           />
         ) : null}
+        {children}
       </XStack>
     ),
     [
@@ -234,6 +239,7 @@ export function DesktopTabItem(
       selected,
       showAvatar,
       size,
+      children,
     ],
   );
   return (
@@ -242,7 +248,7 @@ export function DesktopTabItem(
       ref={stackRef}
       style={tabBarStyle as ViewStyle}
     >
-      {platformEnv.isDesktop && shortcutKey ? (
+      {platformEnv.isDesktop && shortcutKey && showTooltip ? (
         <Tooltip
           shortcutKey={shortcutKey}
           renderTrigger={trigger}

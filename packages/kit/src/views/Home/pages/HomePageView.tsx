@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
 
-import { Icon, Page, Stack, Tab, YStack, useMedia } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -19,7 +19,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -32,6 +31,7 @@ import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
@@ -184,6 +184,9 @@ export function HomePageView({
       Keyboard.dismiss();
     }
     prevPageIndex.current = pageIndex;
+    appEventBus.emit(EAppEventBusNames.HomeTabsIndexChanged, {
+      index: pageIndex,
+    });
   }, []);
 
   const renderTabs = useCallback(
@@ -191,6 +194,7 @@ export function HomePageView({
       <Tab
         disableRefresh={!platformEnv.isNative}
         data={tabs}
+        ToolBar={<TabHeaderSettings />}
         ListHeaderComponent={<HomeHeaderContainer />}
         onSelectedPageIndex={handleSelectPageIndexChange}
         initialScrollIndex={0}
@@ -270,8 +274,6 @@ export function HomePageView({
     emptyAccountView,
     network?.id,
   ]);
-
-  const media = useMedia();
 
   const renderHomePage = useCallback(() => {
     if (!ready) {

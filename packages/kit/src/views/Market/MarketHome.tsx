@@ -18,7 +18,7 @@ import {
   Stack,
   Tab,
   XStack,
-  useIsWideScreen,
+  useIsHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
@@ -177,7 +177,7 @@ function MarketHome() {
     );
   }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
 
-  const isWideScreen = useIsWideScreen();
+  const isHorizontal = useIsHorizontalLayout();
   return (
     <Page>
       <TabPageHeader
@@ -185,8 +185,8 @@ function MarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        <XStack px="$5" pt="$2">
-          {isWideScreen ? null : (
+        {isHorizontal ? null : (
+          <XStack px="$5" pt="$2">
             <UniversalSearchInput
               size="medium"
               containerProps={{
@@ -194,8 +194,8 @@ function MarketHome() {
                 $gtLg: undefined,
               }}
             />
-          )}
-        </XStack>
+          </XStack>
+        )}
         {renderTabContainer()}
       </Page.Body>
     </Page>
