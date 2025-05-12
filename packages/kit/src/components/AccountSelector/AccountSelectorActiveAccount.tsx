@@ -2,7 +2,10 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IPageNavigationProp,
+} from '@onekeyhq/components';
 import {
   Icon,
   IconButton,
@@ -163,12 +166,35 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   // );
 };
 
+function CopyButton({
+  onPress,
+  visible,
+}: {
+  onPress: IIconButtonProps['onPress'];
+  visible: boolean;
+}) {
+  const intl = useIntl();
+  return visible ? (
+    <IconButton
+      title={intl.formatMessage({
+        id: ETranslations.global_copy_address,
+      })}
+      icon="Copy3Outline"
+      size="small"
+      variant="tertiary"
+      onPress={onPress}
+    />
+  ) : null;
+}
+
 export function AccountSelectorActiveAccountHome({
   num,
   showAccountAddress = true,
+  showCopyButton = false,
 }: {
   num: number;
   showAccountAddress?: boolean;
+  showCopyButton?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -289,14 +315,9 @@ export function AccountSelectorActiveAccountHome({
     deriveInfoItems.length > 1
   ) {
     return (
-      <IconButton
-        title={intl.formatMessage({
-          id: ETranslations.global_copy_address,
-        })}
-        icon="Copy3Outline"
-        size="small"
-        variant="tertiary"
+      <CopyButton
         onPress={handleMultiDeriveAddressOnPress}
+        visible={showCopyButton}
       />
     );
   }
@@ -357,16 +378,9 @@ export function AccountSelectorActiveAccountHome({
         />
       );
     }
+
     return (
-      <IconButton
-        title={intl.formatMessage({
-          id: ETranslations.global_copy_address,
-        })}
-        icon="Copy3Outline"
-        size="small"
-        variant="tertiary"
-        onPress={handleAddressOnPress}
-      />
+      <CopyButton onPress={handleAddressOnPress} visible={showCopyButton} />
     );
   }
 

@@ -23,6 +23,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IPrimeDeviceInfo,
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -190,21 +191,14 @@ class ServicePrime extends ServiceBase {
     // eslint-disable-next-line no-param-reassign
     accessToken =
       accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
-    const result = await client.get<
-      IApiClientResponse<
-        Array<{
-          instanceId: string;
-          lastLoginTime: string;
-          platform: string;
-          version: string;
-          deviceName: string;
-        }>
-      >
-    >('/prime/v1/user/devices', {
-      headers: {
-        'X-Onekey-Request-Token': `${accessToken}`,
+    const result = await client.get<IApiClientResponse<IPrimeDeviceInfo[]>>(
+      '/prime/v1/user/devices',
+      {
+        headers: {
+          'X-Onekey-Request-Token': `${accessToken}`,
+        },
       },
-    });
+    );
     const devices = result?.data?.data;
     return devices;
   }

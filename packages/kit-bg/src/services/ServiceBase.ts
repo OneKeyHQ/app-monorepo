@@ -66,7 +66,10 @@ export default class ServiceBase {
         return config;
       });
       client.interceptors.response.use(
-        (response) => response,
+        (response) => {
+          const r = response;
+          return r;
+        },
         (error) => {
           // check invalid token and logout
           const errorCode: number | undefined = (

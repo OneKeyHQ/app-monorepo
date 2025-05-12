@@ -1,18 +1,9 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  IconButton,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, Stack, XStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
-
-import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
   filteredTokens: IAccountToken[];
@@ -21,46 +12,11 @@ type IProps = {
   manageTokenEnabled?: boolean;
 };
 
-function TokenListHeader({
-  tableLayout,
-  onManageToken,
-  manageTokenEnabled,
-}: IProps) {
+function TokenListHeader({ tableLayout }: IProps) {
   const intl = useIntl();
-  const media = useMedia();
 
   return (
     <Stack testID="Wallet-Token-List-Header">
-      <ListToolToolBar
-        headerRight={
-          manageTokenEnabled ? (
-            <>
-              {media.md ? (
-                <IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.manage_token_custom_token_title,
-                  })}
-                  variant="tertiary"
-                  icon="SliderHorOutline"
-                  onPress={onManageToken}
-                />
-              ) : (
-                <Button
-                  icon="SliderHorOutline"
-                  size="small"
-                  variant="tertiary"
-                  onPress={onManageToken}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.global_manage,
-                  })}
-                </Button>
-              )}
-            </>
-          ) : null
-        }
-      />
-
       {tableLayout ? (
         <XStack px="$5" py="$2" gap="$3">
           <XStack
