@@ -55,9 +55,9 @@ function SearchTextItem({
 }
 
 export function RecentSearched({
-  searchType,
+  filterTypes,
 }: {
-  searchType?: EUniversalSearchType;
+  filterTypes?: EUniversalSearchType[];
 }) {
   const intl = useIntl();
   const [{ recentSearch }] = useUniversalSearchAtom();
@@ -91,7 +91,7 @@ export function RecentSearched({
   }, [actions]);
 
   return recentSearch.length &&
-    searchType === EUniversalSearchType.MarketToken ? (
+    filterTypes?.includes(EUniversalSearchType.MarketToken) ? (
     <YStack px="$5" pb="$5">
       <XStack jc="space-between" pt="$5">
         <SizableText size="$headingSm" color="$textSubdued">
@@ -110,7 +110,7 @@ export function RecentSearched({
           <SearchTextItem
             onPress={handlePress}
             item={i}
-            searchType={searchType}
+            searchType={EUniversalSearchType.MarketToken}
             key={i.text}
           />
         ))}

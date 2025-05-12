@@ -6,6 +6,6 @@ export enum EUniversalSearchPages {
 
 export type IUniversalSearchParamList = {
   [EUniversalSearchPages.UniversalSearch]: {
-    filterType?: EUniversalSearchType;
+    filterTypes?: EUniversalSearchType[];
   };
 };
