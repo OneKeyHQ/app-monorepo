@@ -256,6 +256,9 @@ interface IMoreActionContentGridItemProps {
   testID?: string;
   trackID?: string;
   onPress: () => void;
+  showRedDot?: boolean;
+  showBadges?: boolean;
+  badges?: number;
 }
 
 function MoreActionContentGridItem({
@@ -264,6 +267,9 @@ function MoreActionContentGridItem({
   onPress,
   testID,
   trackID,
+  showRedDot,
+  showBadges,
+  badges = 0,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
@@ -302,6 +308,46 @@ function MoreActionContentGridItem({
         <Icon name={icon} />
       </YStack>
       <SizableText size="$bodyMd">{title}</SizableText>
+      {showRedDot ? (
+        <Stack
+          position="absolute"
+          right="$4"
+          top="$0.5"
+          alignItems="flex-end"
+          w="$10"
+          pointerEvents="none"
+        >
+          <Stack
+            bg="$bgApp"
+            borderRadius="$full"
+            borderWidth={2}
+            borderColor="$transparent"
+          >
+            <Stack
+              px="$1"
+              borderRadius="$full"
+              bg="$bgCriticalStrong"
+              minWidth="$4"
+              height="$4"
+              alignItems="center"
+              justifyContent="center"
+            >
+              {showBadges ? (
+                <SizableText color="$textOnColor" size="$bodySm">
+                  {badges && badges > 99 ? '99+' : badges}
+                </SizableText>
+              ) : (
+                <Stack
+                  width="$1"
+                  height="$1"
+                  backgroundColor="white"
+                  borderRadius="$full"
+                />
+              )}
+            </Stack>
+          </Stack>
+        </Stack>
+      ) : null}
     </YStack>
   );
 }
@@ -358,7 +404,7 @@ function MoreActionContentGrid() {
       screen: EModalNotificationsRoutes.NotificationList,
     });
   }, [navigation]);
-
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
       {
@@ -394,10 +440,15 @@ function MoreActionContentGrid() {
             }),
             icon: 'BellOutline',
             onPress: openNotificationsModal,
+            showRedDot: !firstTimeGuideOpened || badge,
+            showBadges: firstTimeGuideOpened,
+            badges: badge,
             trackID: 'notification-in-more-action',
           },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
+    badge,
+    firstTimeGuideOpened,
     gtMd,
     handleDeviceManagement,
     handleSettings,
@@ -437,8 +488,7 @@ const useIsShowRedDot = () => {
   if (isHorizontal) {
     return false;
   }
-  const isShowNotificationDot =
-    firstTimeGuideOpened || (notificationBadges && notificationBadges > 0);
+  const isShowNotificationDot = !firstTimeGuideOpened || notificationBadges;
   return isShowNotificationDot;
 };
 
@@ -462,7 +512,7 @@ function MoreActionButtonCmp() {
           <HeaderIconButton
             title={intl.formatMessage({ id: ETranslations.explore_options })}
             icon="DotGridOutline"
-            // disabled={platformEnv.isNative}
+            pointerEvents={platformEnv.isNative ? 'none' : undefined}
           />
           {isShowRedDot ? (
             <Stack
