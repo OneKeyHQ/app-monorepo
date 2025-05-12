@@ -14,17 +14,20 @@ export function PrimeHeaderIconButton({
   onPress?: () => void | Promise<void>;
 }) {
   const { isReady, user } = usePrimeAuthV2();
+  const isPrime = user?.primeSubscription?.isActive;
+
   const navigation = useAppNavigation();
   const [isHover, setIsHover] = useState(false);
   const themeVariant = useThemeVariant();
 
-  // const icon = useMemo(
-  //   () =>
-  //     themeVariant === 'light'
-  //       ? 'OnekeyPrimeLightColored'
-  //       : 'OnekeyPrimeDarkColored',
-  //   [themeVariant],
-  // );
+  const icon = useMemo(() => {
+    if (isPrime && user?.privyUserId) {
+      return themeVariant === 'light'
+        ? 'OnekeyPrimeLightColored'
+        : 'OnekeyPrimeDarkColored';
+    }
+    return 'PrimeOutline';
+  }, [isPrime, themeVariant, user?.privyUserId]);
 
   const onPrimeButtonPressed = useCallback(async () => {
     if (onPress) {
@@ -50,8 +53,7 @@ export function PrimeHeaderIconButton({
         onPointerEnter={() => setIsHover(true)}
         onPointerLeave={() => setIsHover(false)}
         title="Prime"
-        // icon={user?.privyUserId || isHover ? icon : 'PrimeOutline'}
-        icon="PrimeOutline"
+        icon={icon}
         tooltipProps={{
           open: isHover,
         }}
