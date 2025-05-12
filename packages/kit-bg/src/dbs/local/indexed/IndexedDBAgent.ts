@@ -585,7 +585,6 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
     resetUtils.checkNotInResetting();
-    await storageChecker.checkIfDiskIsFull();
 
     const { name, tx, updater } = params;
     const pairs = await this.buildRecordPairsFromIds(params);
@@ -609,7 +608,6 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
     resetUtils.checkNotInResetting();
-    await storageChecker.checkIfDiskIsFull();
 
     const { name, tx, records, skipIfExists } = params;
     const store = this._getObjectStoreFromTx(tx, name);

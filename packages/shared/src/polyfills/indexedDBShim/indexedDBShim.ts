@@ -27,6 +27,7 @@ globalThis.IDBDatabase.prototype.transaction = function (
     }
     if (isWriteMode) {
       storageChecker.checkIfDiskIsFullSync();
+      void storageChecker.checkIfDiskIsFullDebounced();
     }
     const tx =
       // @ts-ignore
