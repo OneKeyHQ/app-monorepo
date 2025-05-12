@@ -57,6 +57,11 @@ enum ESearchStatus {
   done = 'done',
 }
 
+const AllTypes = [
+  EUniversalSearchType.Address,
+  EUniversalSearchType.MarketToken,
+];
+
 const SkeletonItem = () => (
   <XStack py="$2" alignItems="center">
     <Skeleton w="$10" h="$10" radius="round" />
@@ -133,7 +138,7 @@ export function UniversalSearch({
         await backgroundApiProxy.serviceUniversalSearch.universalSearch({
           input,
           networkId: activeAccount?.network?.id,
-          searchTypes: [EUniversalSearchType.Address],
+          searchTypes: AllTypes,
         });
       const searchResultSections: {
         title: string;
@@ -141,7 +146,9 @@ export function UniversalSearch({
       }[] = [];
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
         searchResultSections.push({
-          title: 'Wallet',
+          title: intl.formatMessage({
+            id: ETranslations.global_wallets,
+          }),
           data: result?.[EUniversalSearchType.Address]
             ?.items as IUniversalSearchResultItem[],
         });
@@ -149,7 +156,9 @@ export function UniversalSearch({
 
       if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
         searchResultSections.push({
-          title: 'Market Token',
+          title: intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_tokens,
+          }),
           data: result?.[EUniversalSearchType.MarketToken]
             ?.items as IUniversalSearchResultItem[],
         });
@@ -167,15 +176,8 @@ export function UniversalSearch({
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
-      if (section?.data?.[0]?.type === EUniversalSearchType.MarketToken) {
-        return (
-          <SizableText px="$5" pb={0} size="$headingSm" color="$textSubdued">
-            {section.title}
-          </SizableText>
-        );
-      }
       return (
-        <SizableText px="$5" pb={0} size="$headingSm">
+        <SizableText px="$5" pb={0} size="$headingSm" color="$textSubdued">
           {section.title}
         </SizableText>
       );
@@ -310,7 +312,7 @@ export function UniversalSearch({
           <SectionList
             mt="$5"
             sections={sections}
-            // renderSectionHeader={renderSectionHeader}
+            renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
               <Empty
                 icon="SearchOutline"
@@ -358,10 +360,6 @@ export function UniversalSearch({
   );
 }
 
-const AllTypes = [
-  EUniversalSearchType.Address,
-  EUniversalSearchType.MarketToken,
-];
 const UniversalSearchWithProvider = ({
   route,
 }: IPageScreenProps<
