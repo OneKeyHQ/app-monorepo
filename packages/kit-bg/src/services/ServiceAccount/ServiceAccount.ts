@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { debounce, isEmpty, isNil } from 'lodash';
+import { debounce, isEmpty, isNil, uniq } from 'lodash';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
@@ -3969,33 +3969,113 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async removeDuplicateHDWallets({
+  async mergeDuplicateHDWallets({
     sameWallets,
-    selectedWalletsMap,
   }: {
     sameWallets: {
       walletHash: string;
       wallets: IDBWallet[];
     }[];
-    selectedWalletsMap: {
-      [walletHash: string]: string; // walletId
-    };
   }) {
     const walletsToRemove: string[] = [];
 
+    const { accounts: allAccounts } = await this.getAllAccounts();
+
     for (const sameWallet of sameWallets) {
-      const selectedWalletId = selectedWalletsMap[sameWallet.walletHash];
-      if (selectedWalletId) {
-        for (const wallet of sameWallet.wallets) {
-          if (wallet.id !== selectedWalletId) {
-            walletsToRemove.push(wallet.id);
-          }
+      let keepWallet: IDBWallet | undefined;
+      const accountsToAddParams: {
+        oldIndexedAccountId: string;
+        deriveType: IAccountDeriveTypes;
+        networkId: string;
+        index: number;
+        name: string;
+      }[] = [];
+      for (let i = 0; i < sameWallet.wallets.length; i += 1) {
+        const wallet = sameWallet.wallets[i];
+        if (i === 0) {
+          keepWallet = wallet;
+        } else {
+          walletsToRemove.push(wallet.id);
+          await Promise.all(
+            allAccounts
+              .filter(
+                (item) =>
+                  accountUtils.parseAccountId({ accountId: item.id })
+                    .walletId === wallet.id,
+              )
+              .map(async (item) => {
+                let networkIds: string[] = [];
+                if (item.impl === IMPL_EVM) {
+                  networkIds = [getNetworkIdsMap().eth];
+                } else {
+                  ({ networkIds } =
+                    await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls(
+                      {
+                        impls: [item.impl],
+                      },
+                    ));
+                }
+                for (const networkId of networkIds) {
+                  const { deriveType } =
+                    await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate(
+                      {
+                        networkId,
+                        template: item.template,
+                      },
+                    );
+                  const indexedAccount = await this.getIndexedAccountByAccount({
+                    account: item,
+                  });
+                  if (!isNil(item.pathIndex) && indexedAccount?.name) {
+                    accountsToAddParams.push({
+                      oldIndexedAccountId: indexedAccount.id,
+                      networkId,
+                      deriveType,
+                      index: item.pathIndex,
+                      name: indexedAccount?.name,
+                    });
+                  }
+                }
+              }),
+          );
         }
       }
+      const indexedAccountNames: {
+        [indexedAccountId: string]: string[];
+      } = {};
+      if (keepWallet && keepWallet?.id && accountsToAddParams?.length) {
+        for (const accountToAddParam of accountsToAddParams) {
+          const indexedAccountIdToAdd = accountUtils.buildIndexedAccountId({
+            walletId: keepWallet?.id,
+            index: accountToAddParam.index,
+          });
+          const existingIndexedAccount = await this.getIndexedAccountSafe({
+            id: indexedAccountIdToAdd,
+          });
+          await this.addHDOrHWAccounts({
+            walletId: keepWallet?.id,
+            networkId: accountToAddParam.networkId,
+            deriveType: accountToAddParam.deriveType,
+            indexes: [accountToAddParam.index],
+            names: [accountToAddParam.name],
+            indexedAccountId: undefined,
+          });
+          indexedAccountNames[indexedAccountIdToAdd] = uniq(
+            [
+              ...(indexedAccountNames[indexedAccountIdToAdd] || []),
+              accountToAddParam.name,
+              existingIndexedAccount?.name,
+            ].filter(Boolean),
+          );
+        }
+      }
+
+      // TODO merge wallet name history
+      // TODO merge indexedAccount name history
     }
 
     for (const walletId of walletsToRemove) {
-      await this.removeWallet({ walletId });
+      // await this.removeWallet({ walletId });
     }
     // await timerUtils.wait(3000);
   }

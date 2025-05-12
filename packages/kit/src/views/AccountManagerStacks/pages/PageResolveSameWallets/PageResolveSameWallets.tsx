@@ -143,10 +143,10 @@ export default function PageResolveSameWallets({
             onConfirm: async () => {
               try {
                 setIsRemoving(true);
-                await backgroundApiProxy.serviceAccount.removeDuplicateHDWallets(
+                await backgroundApiProxy.serviceAccount.mergeDuplicateHDWallets(
                   {
                     sameWallets,
-                    selectedWalletsMap: selectedWalletsMap.current,
+                    // selectedWalletsMap: selectedWalletsMap.current,
                   },
                 );
                 // TODO accountSelector action autoSelect next wallet
