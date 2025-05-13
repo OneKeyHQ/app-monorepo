@@ -19,19 +19,23 @@ export function AccountSelectorTriggerBase({
   num,
   spotlightProps,
   horizontalLayout,
+  showWalletAvatar = true,
+  showWalletName = true,
   ...others
 }: {
   num: number;
   autoWidthForHome?: boolean;
   spotlightProps?: ISpotlightViewProps;
   horizontalLayout?: boolean;
+  showWalletAvatar?: boolean;
+  showWalletName?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, ...others });
   const intl = useIntl();
-
+  console.log('wallet---', wallet);
   const walletName =
     wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });
   const displayAccountName =
@@ -64,6 +68,7 @@ export function AccountSelectorTriggerBase({
           indexedAccount={indexedAccount}
           account={account}
           dbAccount={dbAccount}
+          wallet={showWalletAvatar ? wallet : undefined}
         />
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
@@ -82,7 +87,9 @@ export function AccountSelectorTriggerBase({
               flexShrink={1}
               maxWidth="$40"
             >
-              {`${walletName} / ${displayAccountName}`}
+              {showWalletName
+                ? `${walletName} / ${displayAccountName}`
+                : displayAccountName}
             </SizableText>
           ) : (
             <>
@@ -115,6 +122,7 @@ export function AccountSelectorTriggerBase({
       horizontalLayout,
       indexedAccount,
       showAccountSelector,
+      showWalletName,
       walletName,
     ],
   );
