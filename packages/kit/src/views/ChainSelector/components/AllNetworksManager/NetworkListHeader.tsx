@@ -35,28 +35,25 @@ function NetworkListHeader() {
       {searchKey?.trim() ? null : (
         <>
           <ListItem
+            h="$12"
             title={intl.formatMessage({
-              id: ETranslations.global_enable_all,
+              id: ETranslations.global_select_all,
             })}
+            onPress={() => {
+              if (isAllNetworksEnabled) {
+                setNetworksState({
+                  enabledNetworks: {},
+                  disabledNetworks: toggleAllNetworks,
+                });
+              } else {
+                setNetworksState({
+                  enabledNetworks: toggleAllNetworks,
+                  disabledNetworks: {},
+                });
+              }
+            }}
           >
-            <Checkbox
-              value={isAllNetworksEnabled}
-              onChange={(value) => {
-                if (typeof value === 'boolean') {
-                  if (value) {
-                    setNetworksState({
-                      enabledNetworks: toggleAllNetworks,
-                      disabledNetworks: {},
-                    });
-                  } else {
-                    setNetworksState({
-                      enabledNetworks: {},
-                      disabledNetworks: toggleAllNetworks,
-                    });
-                  }
-                }
-              }}
-            />
+            <Checkbox value={isAllNetworksEnabled} />
           </ListItem>
           <Divider m="$5" />
         </>

@@ -8,6 +8,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { HeaderLeft } from './HeaderLeft';
+import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
@@ -41,6 +42,7 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
         </View>
         {headerRight}
       </XStack>
+      <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
       <PageHeaderDivider mt="$3" />
     </>
   );
