@@ -27,7 +27,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
 
-function useGetReferralCodeWalletInfo() {
+export function useGetReferralCodeWalletInfo() {
   return useCallback(async (walletId: string | undefined) => {
     if (!walletId) {
       return null;

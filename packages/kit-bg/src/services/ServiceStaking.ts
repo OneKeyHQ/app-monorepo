@@ -216,6 +216,8 @@ class ServiceStaking extends ServiceBase {
       morphoVault,
       approveType,
       permitSignature,
+      bindedAccountAddress,
+      bindedNetworkId,
       ...rest
     } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -231,7 +233,7 @@ class ServiceStaking extends ServiceBase {
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v2/stake`, {
+    }>(`/earn/v2/stake/v2`, {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
@@ -243,6 +245,8 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
+      bindedAccountAddress,
+      bindedNetworkId,
       approveType,
       permitSignature:
         approveType === EApproveType.Permit ? permitSignature : undefined,
