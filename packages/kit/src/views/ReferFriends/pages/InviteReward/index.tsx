@@ -578,7 +578,7 @@ function Dashboard({
         </SizableText>
         {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
-            {earn.available?.map(({ token, fiatValue }, index) => {
+            {earn.available?.map(({ token, fiatValue, amount }, index) => {
               return (
                 <Fragment key={index}>
                   <XStack gap="$2" py={5}>
@@ -590,8 +590,20 @@ function Dashboard({
                         tokenSymbol: token.symbol,
                       }}
                     >
-                      {fiatValue}
+                      {amount}
                     </NumberSizeableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      (
+                      <Currency
+                        formatter="balance"
+                        size="$bodyMd"
+                        sourceCurrency="usd"
+                        color="$textSubdued"
+                      >
+                        {fiatValue}
+                      </Currency>
+                      )
+                    </SizableText>
                   </XStack>
                   {index !== (earn.available?.length || 1) - 1 ? (
                     <Divider bg="$borderSubdued" />
