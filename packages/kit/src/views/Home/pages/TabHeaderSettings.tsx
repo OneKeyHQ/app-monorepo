@@ -164,7 +164,9 @@ function DelayedRender({
 
 function Container({ children }: PropsWithChildren) {
   return platformEnv.isNativeAndroid ? (
-    children
+    <Stack position="absolute" x="$0" y="$4">
+      {children}
+    </Stack>
   ) : (
     <DelayedRender>
       <Stack position="absolute" top="$3" right="$5">
@@ -175,27 +177,27 @@ function Container({ children }: PropsWithChildren) {
 }
 
 function BasicTabHeaderSettings() {
-  const [tabIndex, setTabIndex] = useState(0);
+  const [tabName, setTabName] = useState<string>('');
   useEffect(() => {
-    const callback = ({ index }: { index: number }) => {
-      setTabIndex(index);
+    const callback = ({ tabId }: { tabId: string }) => {
+      setTabName(tabId);
     };
-    appEventBus.on(EAppEventBusNames.HomeTabsIndexChanged, callback);
+    appEventBus.on(EAppEventBusNames.HomeTabsChanged, callback);
     return () => {
-      appEventBus.off(EAppEventBusNames.HomeTabsIndexChanged, callback);
+      appEventBus.off(EAppEventBusNames.HomeTabsChanged, callback);
     };
   }, []);
 
   const content = useMemo(() => {
-    switch (tabIndex) {
-      case 0:
+    switch (tabName) {
+      case 'crypto':
         return <TokenListSettings />;
-      case 2:
+      case 'history':
         return <TxHistorySettings />;
       default:
         return null;
     }
-  }, [tabIndex]);
+  }, [tabName]);
   return <Container>{content}</Container>;
 }
 
