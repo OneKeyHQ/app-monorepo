@@ -12,8 +12,10 @@ import {
   IconButton,
   Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
+  useIsHorizontalLayout,
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
@@ -26,6 +28,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useToMyOneKeyModal } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -253,6 +256,9 @@ interface IMoreActionContentGridItemProps {
   testID?: string;
   trackID?: string;
   onPress: () => void;
+  showRedDot?: boolean;
+  showBadges?: boolean;
+  badges?: number;
 }
 
 function MoreActionContentGridItem({
@@ -261,6 +267,9 @@ function MoreActionContentGridItem({
   onPress,
   testID,
   trackID,
+  showRedDot,
+  showBadges,
+  badges = 0,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
@@ -299,6 +308,46 @@ function MoreActionContentGridItem({
         <Icon name={icon} />
       </YStack>
       <SizableText size="$bodyMd">{title}</SizableText>
+      {showRedDot ? (
+        <Stack
+          position="absolute"
+          right="$4"
+          top="$0.5"
+          alignItems="flex-end"
+          w="$10"
+          pointerEvents="none"
+        >
+          <Stack
+            bg="$bgApp"
+            borderRadius="$full"
+            borderWidth={2}
+            borderColor="$transparent"
+          >
+            <Stack
+              px="$1"
+              borderRadius="$full"
+              bg="$bgCriticalStrong"
+              minWidth="$4"
+              height="$4"
+              alignItems="center"
+              justifyContent="center"
+            >
+              {showBadges ? (
+                <SizableText color="$textOnColor" size="$bodySm">
+                  {badges && badges > 99 ? '99+' : badges}
+                </SizableText>
+              ) : (
+                <Stack
+                  width="$1"
+                  height="$1"
+                  backgroundColor="white"
+                  borderRadius="$full"
+                />
+              )}
+            </Stack>
+          </Stack>
+        </Stack>
+      ) : null}
     </YStack>
   );
 }
@@ -355,7 +404,7 @@ function MoreActionContentGrid() {
       screen: EModalNotificationsRoutes.NotificationList,
     });
   }, [navigation]);
-
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
       {
@@ -391,10 +440,15 @@ function MoreActionContentGrid() {
             }),
             icon: 'BellOutline',
             onPress: openNotificationsModal,
+            showRedDot: !firstTimeGuideOpened || badge,
+            showBadges: firstTimeGuideOpened,
+            badges: badge,
             trackID: 'notification-in-more-action',
           },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
+    badge,
+    firstTimeGuideOpened,
     gtMd,
     handleDeviceManagement,
     handleSettings,
@@ -427,8 +481,20 @@ function MoreActionContent() {
   );
 }
 
+const useIsShowRedDot = () => {
+  const isHorizontal = useIsHorizontalLayout();
+  const [{ firstTimeGuideOpened, badge: notificationBadges }] =
+    useNotificationsAtom();
+  if (isHorizontal) {
+    return false;
+  }
+  const isShowNotificationDot = !firstTimeGuideOpened || notificationBadges;
+  return isShowNotificationDot;
+};
+
 function MoreActionButtonCmp() {
   const intl = useIntl();
+  const isShowRedDot = useIsShowRedDot();
   return (
     <Popover
       title=""
@@ -442,10 +508,47 @@ function MoreActionButtonCmp() {
         overflow: 'hidden',
       }}
       renderTrigger={
-        <HeaderIconButton
-          title={intl.formatMessage({ id: ETranslations.explore_options })}
-          icon="DotGridOutline"
-        />
+        <XStack key="moreActions" testID="moreActions">
+          <HeaderIconButton
+            title={intl.formatMessage({ id: ETranslations.explore_options })}
+            icon="DotGridOutline"
+            pointerEvents={platformEnv.isNative ? 'none' : undefined}
+          />
+          {isShowRedDot ? (
+            <Stack
+              position="absolute"
+              right="$-2.5"
+              top="$-2"
+              alignItems="flex-end"
+              w="$10"
+              pointerEvents="none"
+            >
+              <Stack
+                bg="$bgApp"
+                borderRadius="$full"
+                borderWidth={2}
+                borderColor="$transparent"
+              >
+                <Stack
+                  px="$1"
+                  borderRadius="$full"
+                  bg="$bgCriticalStrong"
+                  minWidth="$4"
+                  height="$4"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Stack
+                    width="$1"
+                    height="$1"
+                    backgroundColor="white"
+                    borderRadius="$full"
+                  />
+                </Stack>
+              </Stack>
+            </Stack>
+          ) : null}
+        </XStack>
       }
       renderContent={MoreActionContent}
     />

@@ -81,9 +81,9 @@ export function HeaderLeft({
     if (tabRoute === ETabRoutes.Discovery) {
       return (
         <SizableText size="$headingLg">
-          {intl.formatMessage({
+          {/* {intl.formatMessage({
             id: ETranslations.global_browser,
-          })}
+          })} */}
         </SizableText>
       );
     }
@@ -97,6 +97,7 @@ export function HeaderLeft({
           num={0}
           showAccountAddress={false}
           showCopyButton={tabRoute === ETabRoutes.Home}
+          showCreateAddressButton={tabRoute !== ETabRoutes.Home}
         />
       </XStack>
     );

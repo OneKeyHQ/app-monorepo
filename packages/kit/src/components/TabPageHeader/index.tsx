@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import { HeaderLeft } from './HeaderLeft';
+import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
@@ -39,10 +39,13 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   );
 
   return (
-    <Page.Header
-      headerTitle={renderHeaderTitle}
-      headerLeft={renderHeaderLeft}
-      headerRight={renderHeaderRight}
-    />
+    <>
+      <Page.Header
+        headerTitle={renderHeaderTitle}
+        headerLeft={renderHeaderLeft}
+        headerRight={renderHeaderRight}
+      />
+      <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+    </>
   );
 }

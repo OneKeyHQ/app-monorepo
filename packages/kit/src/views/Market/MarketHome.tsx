@@ -17,8 +17,6 @@ import {
   Spinner,
   Stack,
   Tab,
-  XStack,
-  useIsHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
@@ -177,27 +175,13 @@ function MarketHome() {
     );
   }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
 
-  const isHorizontal = useIsHorizontalLayout();
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>
-        {isHorizontal ? null : (
-          <XStack px="$5" pt="$2">
-            <UniversalSearchInput
-              size="medium"
-              containerProps={{
-                width: '100%',
-                $gtLg: undefined,
-              }}
-            />
-          </XStack>
-        )}
-        {renderTabContainer()}
-      </Page.Body>
+      <Page.Body>{renderTabContainer()}</Page.Body>
     </Page>
   );
 }

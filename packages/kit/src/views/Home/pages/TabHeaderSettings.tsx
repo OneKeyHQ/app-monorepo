@@ -4,13 +4,11 @@ import type { PropsWithChildren } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   ESwitchSize,
   IconButton,
   Popover,
   Stack,
   Switch,
-  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -26,7 +24,6 @@ import { useManageToken } from '../../../hooks/useManageToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 function TokenListSettings() {
-  const { md } = useMedia();
   const intl = useIntl();
 
   const {
@@ -65,7 +62,6 @@ const filterScamHistorySupportedNetworkIds =
 
 function TxHistorySettings() {
   const intl = useIntl();
-  const media = useMedia();
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const handleFilterScamHistoryOnChange = useCallback(
