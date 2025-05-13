@@ -48,6 +48,8 @@ import { TokenPriceChart } from '../components/TokenPriceChart';
 import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
+import { SwapPanel } from './components/SwapPanel';
+
 function TokenDetailHeader({
   coinGeckoId,
   token: responseToken,
@@ -320,6 +322,8 @@ function MarketDetail({
         headerLeft={renderHeaderLeft}
       />
       <Page.Body>
+        <SwapPanel />
+
         {gtMd ? (
           <YStack flex={1}>
             <XStack flex={1} pt="$5">
