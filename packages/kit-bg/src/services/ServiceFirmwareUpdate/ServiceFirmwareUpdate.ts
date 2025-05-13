@@ -19,10 +19,7 @@ import {
   NeedOneKeyBridgeUpgrade,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
-import {
-  DeviceNotFound,
-  FirmwareUpdateVersionMismatchError,
-} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -1540,17 +1537,31 @@ class ServiceFirmwareUpdate extends ServiceBase {
         asyncFunc: async () => {
           // make sure device is ready after reboot
           // TODO move to fn and re-checking release \ device \ version matched
-          const features =
-            await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+          try {
+            const features =
+              await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+                connectId,
+                params: {
+                  allowEmptyConnectId: true,
+                },
+              });
+            serviceHardwareUtils.hardwareLog('retryUpdateTask', {
               connectId,
-              params: {
-                allowEmptyConnectId: true,
+              features,
+            });
+          } catch (error) {
+            await firmwareUpdateStepInfoAtom.set({
+              step: EFirmwareUpdateSteps.installing,
+              payload: {
+                installingTarget: {
+                  totalPhase: releaseResult?.totalPhase,
+                  currentPhase: '',
+                  updateInfo: releaseResult?.updateInfos,
+                } as any,
               },
             });
-          serviceHardwareUtils.hardwareLog('retryUpdateTask', {
-            connectId,
-            features,
-          });
+            throw error;
+          }
         },
         timeout: timerUtils.getTimeDurationMs({
           // user may retry just when device reboot, getFeatures() will pending forever, so we need timeout reject, then user can see retry button
