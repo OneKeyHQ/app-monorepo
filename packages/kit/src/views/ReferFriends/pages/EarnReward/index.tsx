@@ -379,7 +379,7 @@ export default function EarnReward() {
                     formatter="balance"
                     formatterOptions={{ currency: currencySymbol }}
                   >
-                    {amount.pending}
+                    {amount?.pending || 0}
                   </NumberSizeableText>
                 </YStack>
               </YStack>
