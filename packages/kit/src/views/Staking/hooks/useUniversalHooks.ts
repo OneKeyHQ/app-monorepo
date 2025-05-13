@@ -153,7 +153,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToTxConfirm, accountId, networkId],
+    [getReferralCodeWalletInfo, accountId, networkId, navigationToTxConfirm],
   );
 }
 
