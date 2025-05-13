@@ -12,7 +12,7 @@ export interface ISimpleDBAppStatus {
 
   launchTimes?: number;
   launchTimesLastReset?: number;
-  hdWalletsBackupMigrated?: boolean;
+  hdWalletsBackupMigrated?: boolean; // is mnemonic backuped by user
   falconDepositDoNotShowAgain?: boolean;
   lastDBBackupTime?: number;
 }
