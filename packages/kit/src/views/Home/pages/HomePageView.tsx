@@ -122,6 +122,7 @@ export function HomePageView({
     () =>
       [
         {
+          id: 'crypto',
           title: intl.formatMessage({
             id: ETranslations.global_crypto,
           }),
@@ -129,6 +130,7 @@ export function HomePageView({
         },
         isNFTEnabled
           ? {
+              id: 'nft',
               title: intl.formatMessage({
                 id: ETranslations.global_nft,
               }),
@@ -140,6 +142,7 @@ export function HomePageView({
         //   page: memo(DefiListContainer, () => true),
         // },
         {
+          id: 'history',
           title: intl.formatMessage({
             id: ETranslations.global_history,
           }),
@@ -175,18 +178,22 @@ export function HomePageView({
   );
 
   const prevPageIndex = useRef<number | undefined>();
-  const handleSelectPageIndexChange = useCallback((pageIndex: number) => {
-    if (
-      prevPageIndex.current !== undefined &&
-      prevPageIndex.current !== pageIndex
-    ) {
-      Keyboard.dismiss();
-    }
-    prevPageIndex.current = pageIndex;
-    appEventBus.emit(EAppEventBusNames.HomeTabsIndexChanged, {
-      index: pageIndex,
-    });
-  }, []);
+  const handleSelectPageIndexChange = useCallback(
+    (pageIndex: number) => {
+      if (
+        prevPageIndex.current !== undefined &&
+        prevPageIndex.current !== pageIndex
+      ) {
+        Keyboard.dismiss();
+      }
+      prevPageIndex.current = pageIndex;
+      appEventBus.emit(EAppEventBusNames.HomeTabsChanged, {
+        index: pageIndex,
+        tabId: tabs[pageIndex].id,
+      });
+    },
+    [tabs],
+  );
 
   const renderTabs = useCallback(
     () => (
