@@ -773,7 +773,7 @@ function isAllNetworkMockAddress({ address }: { address?: string }) {
 }
 
 function isValidWalletXfp({ xfp }: { xfp: string | undefined }) {
-  return xfp && xfp.length > 8 && xfp.includes('--');
+  return Boolean(xfp && xfp.length > 8 && xfp.includes('--'));
 }
 
 function buildFullXfp({

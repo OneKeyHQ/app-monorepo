@@ -1,6 +1,7 @@
 import { sha512Sync } from '@onekeyhq/core/src/secret/hash';
 import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import type {
   ICloudSyncCredential,
@@ -278,7 +279,7 @@ export abstract class CloudSyncFlowManagerBase<
       }
       return syncItem;
     } catch (error) {
-      console.error('getSyncItem error', error);
+      errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
   }

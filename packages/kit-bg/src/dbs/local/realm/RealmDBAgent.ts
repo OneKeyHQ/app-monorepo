@@ -2,6 +2,7 @@ import { Semaphore, withTimeout } from 'async-mutex';
 import { isNumber } from 'lodash';
 import Realm from 'realm';
 
+import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -260,7 +261,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     // @ts-ignore
     const record = obj?.record;
     if (!record) {
-      throw new Error(`record not found: ${name} ${id}`);
+      throw new LocalDBRecordNotFoundError(`record not found: ${name} ${id}`);
     }
     // eslint-disable-next-line
     return [record as any, obj];

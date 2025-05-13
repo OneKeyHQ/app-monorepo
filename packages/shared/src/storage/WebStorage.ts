@@ -1,6 +1,7 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
 // import localforage from 'localforage';
 
+import { SystemDiskFullError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
@@ -130,8 +131,7 @@ class WebStorage implements AsyncStorageStatic {
     if (globalThis.$onekeySystemDiskIsFull) {
       appEventBus.emit(EAppEventBusNames.ShowSystemDiskFullWarning, undefined);
       console.error('WebStorage==>checkDiskFull ', payload);
-      // TODO use custom Error
-      throw new Error('System Disk is full');
+      throw new SystemDiskFullError();
     }
   }
 
