@@ -8,9 +8,9 @@ import {
   Image,
   SizableText,
   YStack,
+  getDialogInstances,
+  getFormInstances,
   rootNavigationRef,
-  useDialogInstances,
-  useFormInstances,
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -58,8 +58,8 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
-      const [formInstances] = useFormInstances();
-      const [dialogInstances] = useDialogInstances();
+      const formInstances = getFormInstances();
+      const dialogInstances = getDialogInstances();
       const intl = useIntl();
       const navigation = useAppNavigation();
       const onLock = useOnLockCallback();

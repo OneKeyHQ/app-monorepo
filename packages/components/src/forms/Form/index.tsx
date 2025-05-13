@@ -8,8 +8,6 @@ import {
   useMemo,
 } from 'react';
 
-import { useAtom } from 'jotai';
-import isEqual from 'lodash/isEqual';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
@@ -29,7 +27,7 @@ import {
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
-import { formInstancesAtom } from './jotai';
+import { addFormInstance, removeFormInstance } from './formInstances';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
@@ -58,17 +56,13 @@ function HiddenSubmit() {
 }
 
 export function FormWrapper({ form: formContext, children }: IFormProps) {
-  const [, setFormInstances] = useAtom(formInstancesAtom);
-
   useEffect(() => {
-    setFormInstances((prevInstances) => [...prevInstances, formContext]);
+    addFormInstance(formContext);
 
     return () => {
-      setFormInstances((prevInstances) =>
-        prevInstances.filter((instance) => instance !== formContext),
-      );
+      removeFormInstance(formContext);
     };
-  }, [formContext, setFormInstances]);
+  }, [formContext]);
 
   return (
     <FormProvider {...formContext}>
@@ -288,4 +282,4 @@ export const Form = withStaticProperties(FormWrapper, {
   FieldDescription,
 });
 
-export * from './jotai';
+export * from './formInstances';
