@@ -18,10 +18,7 @@ import type {
   IMarketWatchListItem,
 } from '@onekeyhq/shared/types/market';
 
-import {
-  EIndexedDBBucketNames,
-  type IDBCloudSyncItem,
-} from '../dbs/local/types';
+import { type IDBCloudSyncItem } from '../dbs/local/types';
 
 import ServiceBase from './ServiceBase';
 

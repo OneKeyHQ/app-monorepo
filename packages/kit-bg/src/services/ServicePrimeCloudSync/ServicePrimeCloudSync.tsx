@@ -16,7 +16,6 @@ import {
   OneKeyErrorPrimeMasterPasswordInvalid,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,

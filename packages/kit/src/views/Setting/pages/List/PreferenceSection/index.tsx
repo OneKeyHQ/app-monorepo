@@ -84,7 +84,7 @@ const ThemeListItem = () => {
 const LanguageListItem = () => {
   const locales = useLocaleOptions();
   const intl = useIntl();
-  const [{ locale, currencyInfo }] = useSettingsPersistAtom();
+  const [{ locale }] = useSettingsPersistAtom();
   const onChange = useCallback(async (text: string) => {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
     setTimeout(() => {

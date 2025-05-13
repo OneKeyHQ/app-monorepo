@@ -26,9 +26,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import openUrlUtils, {
-  openUrlExternal,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 

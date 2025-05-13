@@ -19,10 +19,7 @@ import {
   NeedOneKeyBridgeUpgrade,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
-import {
-  DeviceNotFound,
-  FirmwareUpdateVersionMismatchError,
-} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,

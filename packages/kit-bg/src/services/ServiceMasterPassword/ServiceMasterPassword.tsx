@@ -34,10 +34,7 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
-import {
-  primeMasterPasswordPersistAtom,
-  primePersistAtom,
-} from '../../states/jotai/atoms/prime';
+import { primeMasterPasswordPersistAtom } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 

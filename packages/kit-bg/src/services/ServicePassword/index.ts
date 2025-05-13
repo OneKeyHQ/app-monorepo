@@ -19,7 +19,6 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
-  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';

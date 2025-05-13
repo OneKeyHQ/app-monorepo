@@ -1,9 +1,6 @@
 import { isNil, isNumber } from 'lodash';
 
-import {
-  LocalDBRecordNotFoundError,
-  OneKeyError,
-} from '@onekeyhq/shared/src/errors';
+import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -15,7 +12,6 @@ import type {
   IndexedDBPromised,
   IndexedDBTransactionPromised,
 } from '@onekeyhq/shared/src/IndexedDBPromised';
-import storageChecker from '@onekeyhq/shared/src/storageChecker/storageChecker';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';

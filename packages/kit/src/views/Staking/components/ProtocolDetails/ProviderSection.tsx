@@ -66,7 +66,6 @@ function ProviderInfo({
   babylonConfirmedCap,
   babylonStakingCap,
   token,
-  poolFee,
 }: IProviderInfoProps) {
   const intl = useIntl();
   let minOrMaxStakingItem: { label: string; value: string } | undefined;
