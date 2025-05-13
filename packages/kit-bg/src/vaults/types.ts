@@ -56,6 +56,10 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
+import type {
+  IAccountDeriveInfoMapKaspa,
+  IAccountDeriveTypesKaspa,
+} from './impls/kaspa/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
@@ -96,6 +100,7 @@ export interface IAccountDeriveInfo {
   coinType: string;
   coinName?: string;
   addressEncoding?: EAddressEncodings;
+  useAddressEncodingDerive?: boolean;
 
   labelKey?: MessageDescriptor['id'];
   label?: string;
@@ -120,11 +125,13 @@ export type IAccountDeriveInfoMapBase = {
 export type IAccountDeriveInfoMap =
   | IAccountDeriveInfoMapEvm
   | IAccountDeriveInfoMapBtc
-  | IAccountDeriveInfoMapCosmos;
+  | IAccountDeriveInfoMapCosmos
+  | IAccountDeriveInfoMapKaspa;
 export type IAccountDeriveTypes =
   | 'default'
   | IAccountDeriveTypesEvm
-  | IAccountDeriveTypesBtc;
+  | IAccountDeriveTypesBtc
+  | IAccountDeriveTypesKaspa;
 
 export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
@@ -368,6 +375,7 @@ export type IBuildHwAllNetworkPrepareAccountsParams = {
   path: string; // full path
   template: string;
   index: number;
+  addressEncoding?: EAddressEncodings;
 };
 
 export type IBuildPrepareAccountsPrefixedPathParams = {
@@ -605,6 +613,8 @@ export type ISignAndSendTransactionParams = ISignTransactionParams;
 export type ISignTransactionParams = ISignTransactionParamsBase & {
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;
+  // addressEncoding other derive address
+  addressEncoding?: EAddressEncodings;
 };
 
 export interface IBatchSignTransactionParamsBase {
@@ -622,6 +632,9 @@ export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;
+
+  // addressEncoding other derive address
+  addressEncoding?: EAddressEncodings;
 }
 
 export interface IBuildHistoryTxParams {

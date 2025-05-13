@@ -6,6 +6,7 @@ import { SignatureType } from '../transaction';
 import { EOpcodes } from '../types';
 
 import type { IEncodedTxKaspa } from '../../types';
+import type { IKaspaTransaction } from '../types';
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 import type { IScriptPublicKey, ITransactionInput } from '@onekeyfe/kaspa-wasm';
 
@@ -239,6 +240,48 @@ const getKaspaApi = async () => {
       };
 
       return unSignTx;
+    },
+    deserializeFromSafeJSON: async (
+      json: string,
+    ): Promise<IKaspaTransaction> => {
+      const { Transaction } = Loader;
+      const tx = Transaction.deserializeFromSafeJSON(json);
+      return {
+        version: tx.version,
+        // @ts-expect-error
+        inputs: tx.inputs.map((input) => ({
+          previousOutpoint: {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            transactionId: input.previousOutpoint.transactionId,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            index: input.previousOutpoint.index,
+          },
+          signatureScript: input.signatureScript,
+          sequence: input.sequence.toString(),
+          sigOpCount: input.sigOpCount,
+        })),
+        // @ts-expect-error
+        outputs: tx.outputs.map((output) => ({
+          amount: output.value.toString(),
+          ...(typeof output.scriptPublicKey === 'object'
+            ? {
+                scriptPublicKey: {
+                  version: output.scriptPublicKey.version,
+                  scriptPublicKey: output.scriptPublicKey.script,
+                },
+              }
+            : {
+                scriptPublicKey: output.scriptPublicKey,
+              }),
+        })),
+        mass: tx.mass.toString(),
+        // @ts-expect-error
+        lockTime: tx.lockTime.toString(),
+        subnetworkId: tx.subnetworkId,
+        // @ts-expect-error
+        gas: tx.gas?.toString() ?? '0',
+        payload: tx.payload,
+      };
     },
   };
 };

@@ -95,6 +95,7 @@ export class KeyringQr extends KeyringQrBase {
     }
     const deriveType =
       await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+        accountId: dbAccount.id,
         networkId: this.networkId,
         template: dbAccount.template,
       });
