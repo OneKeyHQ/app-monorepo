@@ -144,10 +144,7 @@ export default function PageResolveSameWallets({
               try {
                 setIsRemoving(true);
                 await backgroundApiProxy.serviceAccount.mergeDuplicateHDWallets(
-                  {
-                    sameWallets,
-                    // selectedWalletsMap: selectedWalletsMap.current,
-                  },
+                  { password: '' },
                 );
                 // TODO accountSelector action autoSelect next wallet
                 navigation.popStack();

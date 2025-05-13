@@ -45,16 +45,6 @@ export default function PagePrimeCloudSync() {
                     await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
                       success,
                     );
-                    if (localSameWallets?.length) {
-                      navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-                        screen:
-                          EAccountManagerStacksRoutes.PageResolveSameWallets,
-                        params: {
-                          sameWallets: localSameWallets,
-                        },
-                      });
-                      return;
-                    }
                     if (serverDiffItems?.length) {
                       console.log('serverDiffItems>>>', serverDiffItems);
                       return;

@@ -8,6 +8,7 @@ export interface ISimpleDBAppStatus {
 
   allHdWalletsHashAndXfpGenerated?: boolean;
   allQrWalletsXfpGenerated?: boolean;
+  allHdDuplicateWalletsMerged?: boolean;
 
   launchTimes?: number;
   launchTimesLastReset?: number;
