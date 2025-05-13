@@ -4151,13 +4151,6 @@ class ServiceAccount extends ServiceBase {
             try {
               await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
                 items: [
-                  ...walletNames.map((name) => ({
-                    entityType: EChangeHistoryEntityType.Wallet,
-                    entityId: keepWallet?.id,
-                    contentType: EChangeHistoryContentType.Name,
-                    oldValue: '',
-                    value: name,
-                  })),
                   {
                     entityType: EChangeHistoryEntityType.Wallet,
                     entityId: keepWallet?.id,
@@ -4165,6 +4158,13 @@ class ServiceAccount extends ServiceBase {
                     oldValue: '',
                     value: keepWallet?.name,
                   },
+                  ...walletNames.map((name) => ({
+                    entityType: EChangeHistoryEntityType.Wallet,
+                    entityId: keepWallet?.id,
+                    contentType: EChangeHistoryContentType.Name,
+                    oldValue: '',
+                    value: name,
+                  })),
                 ],
               });
             } catch (e) {

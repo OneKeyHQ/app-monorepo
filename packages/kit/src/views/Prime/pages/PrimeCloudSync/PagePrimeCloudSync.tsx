@@ -37,7 +37,6 @@ export default function PagePrimeCloudSync() {
                     const {
                       success,
                       isServerMasterPasswordSet,
-                      localSameWallets,
                       serverDiffItems,
                       encryptedSecurityPasswordR1ForServer,
                     } =
