@@ -35,7 +35,6 @@ export function AccountSelectorTriggerBase({
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, ...others });
   const intl = useIntl();
-  console.log('wallet---', wallet);
   const walletName =
     wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });
   const displayAccountName =
@@ -122,7 +121,9 @@ export function AccountSelectorTriggerBase({
       horizontalLayout,
       indexedAccount,
       showAccountSelector,
+      showWalletAvatar,
       showWalletName,
+      wallet,
       walletName,
     ],
   );
