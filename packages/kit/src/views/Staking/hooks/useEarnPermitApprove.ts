@@ -10,6 +10,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
+
 interface IUseEarnPermitApproveParams {
   networkId: string;
   accountId: string;
@@ -24,6 +26,11 @@ interface IUseEarnPermitApproveParams {
 }
 
 export function useEarnPermitApprove() {
+  const { navigationToMessageConfirmAsync } = useSignatureConfirm({
+    accountId: '',
+    networkId: '',
+  });
+
   const getPermitSignature = useCallback(
     async ({
       networkId,
@@ -63,18 +70,16 @@ export function useEarnPermitApprove() {
 
       const unsignedMessage = JSON.stringify(permit2Data);
 
-      const signHash =
-        (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-          accountId,
-          networkId,
-          request: { origin: 'https://app.morpho.org/', scope: 'ethereum' },
-          unsignedMessage: {
-            type: EMessageTypesEth.TYPED_DATA_V4,
-            message: unsignedMessage,
-            payload: [account.address, unsignedMessage],
-          },
-          walletInternalSign: true,
-        })) as string;
+      const signHash = await navigationToMessageConfirmAsync({
+        accountId,
+        networkId,
+        unsignedMessage: {
+          type: EMessageTypesEth.TYPED_DATA_V4,
+          message: unsignedMessage,
+          payload: [account.address, unsignedMessage],
+        },
+        walletInternalSign: true,
+      });
 
       let permitBundlerAction;
       if (token.symbol === 'USDC') {
@@ -104,7 +109,7 @@ export function useEarnPermitApprove() {
 
       return permitBundlerAction;
     },
-    [],
+    [navigationToMessageConfirmAsync],
   );
 
   return { getPermitSignature };

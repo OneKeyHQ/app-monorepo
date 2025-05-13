@@ -26,6 +26,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 
 function useGetReferralCodeWalletInfo() {
   return useCallback(async (walletId: string | undefined) => {
@@ -78,6 +80,18 @@ function InviteCode({
     },
   });
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
+  const { result: walletInfo } = usePromiseResult(async () => {
+    const r = await getReferralCodeWalletInfo(wallet?.id);
+    if (!r) {
+      return null;
+    }
+    return r;
+  }, [wallet?.id, getReferralCodeWalletInfo]);
+
+  const { navigationToMessageConfirmAsync } = useSignatureConfirm({
+    accountId: walletInfo?.accountId ?? '',
+    networkId: walletInfo?.networkId ?? '',
+  });
 
   const handleConfirm = useCallback(
     async ({ preventClose }: { preventClose?: () => void }) => {
@@ -88,7 +102,6 @@ function InviteCode({
           return;
         }
 
-        const walletInfo = await getReferralCodeWalletInfo(wallet?.id);
         if (!walletInfo) {
           throw new OneKeyPlainTextError('Invalid Wallet');
         }
@@ -108,22 +121,18 @@ function InviteCode({
           });
         }
 
-        const signedMessage =
-          (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-            accountId: walletInfo.accountId,
-            networkId: walletInfo.networkId,
-            request: {
-              origin: 'https://app.onekey.so/',
-              scope: 'ethereum',
-            },
-            unsignedMessage: {
-              type: EMessageTypesEth.PERSONAL_SIGN,
-              message: unsignedMessage,
-              payload: [unsignedMessage, walletInfo.address],
-            },
-            walletInternalSign: true,
-            skipBackupCheck: true,
-          })) as string;
+        const signedMessage = await navigationToMessageConfirmAsync({
+          accountId: walletInfo.accountId,
+          networkId: walletInfo.networkId,
+          unsignedMessage: {
+            type: EMessageTypesEth.PERSONAL_SIGN,
+            message: unsignedMessage,
+            payload: [unsignedMessage, walletInfo.address],
+          },
+          walletInternalSign: true,
+          sameModal: false,
+          skipBackupCheck: true,
+        });
 
         const bindResult =
           await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
@@ -158,7 +167,7 @@ function InviteCode({
         preventClose?.();
       }
     },
-    [onSuccess, form, wallet?.id, getReferralCodeWalletInfo, intl],
+    [onSuccess, form, walletInfo, intl, navigationToMessageConfirmAsync],
   );
 
   return (
