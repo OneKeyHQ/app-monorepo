@@ -577,10 +577,14 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
     if (password && wallet && accountUtils.isHdWallet({ walletId })) {
-      await this.generateHDWalletMissingHashAndXfp({
-        password,
-        hdWallets: [wallet].filter(Boolean),
-      });
+      if (!accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+        setTimeout(async () => {
+          await this.generateHDWalletMissingHashAndXfp({
+            password,
+            hdWallets: [wallet].filter(Boolean),
+          });
+        }, 1000);
+      }
     }
 
     // canAutoCreateNextAccount
