@@ -155,12 +155,6 @@ export function FirmwareUpdateCheckList({
                       },
                     );
                   }
-
-                  // navigation.dispatch(
-                  //   StackActions.replace(EModalFirmwareUpdateRoutes.Install, {
-                  //     result,
-                  //   }),
-                  // );
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
