@@ -26,10 +26,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
+import type { IntlShape } from 'react-intl';
+
 interface ISectionData {
   title: string;
   amount: string;
   data: {
+    orderTotalAmount: string;
     name: string;
     action: string;
     token: {
@@ -58,7 +61,6 @@ function EmptyData() {
 
 function ListHeader() {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
 
   return (
     <XStack ai="center" jc="space-between">
@@ -77,7 +79,6 @@ function ListHeader() {
 }
 
 function UndistributedList({ listData }: { listData: ISectionData[] }) {
-  const intl = useIntl();
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
@@ -141,7 +142,6 @@ function UndistributedList({ listData }: { listData: ISectionData[] }) {
               <Accordion.HeightAnimator animation="quick">
                 <Accordion.Content
                   unstyled
-                  pt="$2"
                   pb="$5"
                   animation="100ms"
                   enterStyle={{ opacity: 0 }}
@@ -166,16 +166,17 @@ function UndistributedList({ listData }: { listData: ISectionData[] }) {
                           tokenImageUri={item.token.uri}
                           mr="$2"
                         />
-                        <NumberSizeableText
-                          mr="$1"
-                          formatter="balance"
-                          size="$bodyMd"
-                          formatterOptions={{
-                            tokenSymbol: item.token.symbol || '',
-                          }}
-                        >
-                          {item.token.amount}
-                        </NumberSizeableText>
+                        <XStack mr="$1">
+                          <NumberSizeableText
+                            formatter="balance"
+                            size="$bodyMd"
+                            formatterOptions={{
+                              tokenSymbol: item.token.symbol || '',
+                            }}
+                          >
+                            {item.token.amount}
+                          </NumberSizeableText>
+                        </XStack>
                         <XStack ai="center">
                           <SizableText size="$bodyMd" color="$textSubdued">
                             (
@@ -344,7 +345,7 @@ function TotalList() {
     </YStack>
   );
 }
-const formatSections = (data: IEarnRewardItem[]) => {
+const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
   const formattedData = data.reduce<Record<string, IEarnRewardItem[]>>(
     (acc: Record<string, IEarnRewardItem[]>, item: IEarnRewardItem) => {
       const address = item.accountAddress;
@@ -367,16 +368,23 @@ const formatSections = (data: IEarnRewardItem[]) => {
       return {
         title: address,
         amount: totalFiatValue.toFixed(),
-        data: items.map((item) => ({
-          name: item?.vaultName || '',
-          action: 'aaaas',
-          token: {
-            uri: item?.token.logoURI || '',
-            symbol: item?.token.symbol || '',
-            amount: item.amount || '0',
-            fiatAmount: item?.fiatValue || '0',
-          },
-        })),
+        data: items.map((item) => {
+          const orderTotalAmount = item?.orderTotalAmount || '0';
+          const symbol = item?.token?.symbol || '';
+          return {
+            name: item?.vaultName || '',
+            orderTotalAmount,
+            action: `${orderTotalAmount} ${symbol} ${intl.formatMessage({
+              id: ETranslations.earn_deposited,
+            })}`,
+            token: {
+              uri: item?.token.logoURI || '',
+              symbol,
+              amount: item.amount || '0',
+              fiatAmount: item?.fiatValue || '0',
+            },
+          };
+        }),
       };
     },
   );
@@ -419,7 +427,7 @@ export default function EarnReward() {
     void Promise.allSettled([fetchSales()]).then(([salesResult]) => {
       if (salesResult.status === 'fulfilled') {
         const data = salesResult.value;
-        setUndistributedListData(formatSections(data.items));
+        setUndistributedListData(formatSections(data.items, intl));
         setAmount({
           available: '0',
           pending: data.fiatValue || '0',
@@ -427,7 +435,7 @@ export default function EarnReward() {
       }
       setIsLoading(false);
     });
-  }, [fetchSales, setUndistributedListData]);
+  }, [fetchSales, intl]);
 
   useEffect(() => {
     onRefresh();
