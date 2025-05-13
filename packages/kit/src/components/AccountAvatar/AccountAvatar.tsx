@@ -281,11 +281,21 @@ function BasicAccountAvatar({
           alignItems="center"
           height="$5"
           width="$5"
-          top="$2.5"
-          left="$2.5"
-          borderRadius="$full"
+          bottom="$-1.5"
+          right="$-1.5"
           zIndex="$1"
         >
+          <Stack
+            position="absolute"
+            top="$0"
+            bottom="$0"
+            borderCurve="continuous"
+            bg="$bgApp"
+            {...(wallet.type === 'hw' &&
+            !accountUtils.isHwHiddenWallet({ wallet })
+              ? { right: '$0.5', left: '$0.5', borderRadius: 2 }
+              : { right: '$0', left: '$0', borderRadius: '$1' })}
+          />
           <WalletAvatar wallet={wallet} size="$5" />
         </Stack>
       ) : null}
