@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ESwapApproveTransactionStatus,
@@ -25,6 +26,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDebouncedCallback } from '../../../hooks/useDebounce';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
 
@@ -44,22 +46,44 @@ const InAppNotification = () => {
   }, [swapHistoryPendingList]);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const swapLimitOrdersFetchLoopReload = useDebouncedCallback(
+    () => {
+      if (!activeAccount?.ready) {
+        return;
+      }
+      void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
+        activeAccount?.indexedAccount?.id,
+        !activeAccount?.indexedAccount?.id
+          ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+          : undefined,
+      );
+    },
+    300,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
   useEffect(() => {
-    if (!activeAccount?.ready) {
-      return;
-    }
-    void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
+    noopObject([
       activeAccount?.indexedAccount?.id,
-      !activeAccount?.indexedAccount?.id
-        ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
-        : undefined,
-    );
+      activeAccount?.account?.id,
+      activeAccount?.dbAccount?.id,
+      activeAccount?.ready,
+      activeAccount,
+      swapLimitOrdersFetchLoopReload,
+    ]);
+
+    void swapLimitOrdersFetchLoopReload();
   }, [
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
     activeAccount?.dbAccount?.id,
     activeAccount?.ready,
     activeAccount,
+    swapLimitOrdersFetchLoopReload,
   ]);
 
   const toastRef = useRef<{ close: () => void } | undefined>();

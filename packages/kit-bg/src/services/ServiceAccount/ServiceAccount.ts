@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { debounce, isEmpty, isNil, uniq } from 'lodash';
+import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
@@ -60,7 +60,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
+import type {
+  IChangeHistoryItem,
+  IChangeHistoryUpdateItem,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -3968,6 +3971,7 @@ class ServiceAccount extends ServiceBase {
     return sameWallets;
   }
 
+  // TODO try catch
   @backgroundMethod()
   async mergeDuplicateHDWallets({
     sameWallets,
@@ -3990,12 +3994,19 @@ class ServiceAccount extends ServiceBase {
         index: number;
         name: string;
       }[] = [];
+      const walletNames: string[] = [];
+      const indexedAccountNames: {
+        indexedAccountId: string;
+        name: string;
+      }[] = [];
+
       for (let i = 0; i < sameWallet.wallets.length; i += 1) {
         const wallet = sameWallet.wallets[i];
         if (i === 0) {
           keepWallet = wallet;
         } else {
           walletsToRemove.push(wallet.id);
+          walletNames.push(wallet.name);
           await Promise.all(
             allAccounts
               .filter(
@@ -4003,6 +4014,7 @@ class ServiceAccount extends ServiceBase {
                   accountUtils.parseAccountId({ accountId: item.id })
                     .walletId === wallet.id,
               )
+              // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
               .map(async (item) => {
                 let networkIds: string[] = [];
                 if (item.impl === IMPL_EVM) {
@@ -4034,15 +4046,41 @@ class ServiceAccount extends ServiceBase {
                       index: item.pathIndex,
                       name: indexedAccount?.name,
                     });
+
+                    if (keepWallet?.id) {
+                      const indexedAccountIdToAdd =
+                        accountUtils.buildIndexedAccountId({
+                          walletId: keepWallet?.id,
+                          index: item.pathIndex,
+                        });
+                      if (indexedAccountIdToAdd) {
+                        const indexedAccountNameChangeHistory =
+                          await this.backgroundApi.simpleDb.changeHistory.getChangeHistory(
+                            {
+                              entityType:
+                                EChangeHistoryEntityType.IndexedAccount,
+                              entityId: indexedAccount?.id,
+                              contentType: EChangeHistoryContentType.Name,
+                            },
+                          );
+
+                        indexedAccountNames.push(
+                          ...indexedAccountNameChangeHistory.map(
+                            (info: IChangeHistoryItem) => ({
+                              indexedAccountId: indexedAccountIdToAdd,
+                              name: info.value,
+                            }),
+                          ),
+                        );
+                      }
+                    }
                   }
                 }
               }),
           );
         }
       }
-      const indexedAccountNames: {
-        [indexedAccountId: string]: string[];
-      } = {};
+
       if (keepWallet && keepWallet?.id && accountsToAddParams?.length) {
         for (const accountToAddParam of accountsToAddParams) {
           const indexedAccountIdToAdd = accountUtils.buildIndexedAccountId({
@@ -4060,22 +4098,56 @@ class ServiceAccount extends ServiceBase {
             names: [accountToAddParam.name],
             indexedAccountId: undefined,
           });
-          indexedAccountNames[indexedAccountIdToAdd] = uniq(
-            [
-              ...(indexedAccountNames[indexedAccountIdToAdd] || []),
-              accountToAddParam.name,
-              existingIndexedAccount?.name,
-            ].filter(Boolean),
-          );
+          indexedAccountNames.push({
+            indexedAccountId: indexedAccountIdToAdd,
+            name: accountToAddParam.name,
+          });
+          if (existingIndexedAccount?.name) {
+            indexedAccountNames.push({
+              indexedAccountId: indexedAccountIdToAdd,
+              name: existingIndexedAccount?.name,
+            });
+          }
         }
       }
 
-      // TODO merge wallet name history
-      // TODO merge indexedAccount name history
+      const indexedAccountNamesUnique = uniqBy(
+        indexedAccountNames,
+        (item) => item.indexedAccountId + item.name,
+      );
+      await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+        items: indexedAccountNamesUnique.map(({ indexedAccountId, name }) => ({
+          entityType: EChangeHistoryEntityType.IndexedAccount,
+          entityId: indexedAccountId,
+          contentType: EChangeHistoryContentType.Name,
+          oldValue: '',
+          value: name,
+        })),
+      });
+      if (keepWallet) {
+        await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+          items: [
+            ...walletNames.map((name) => ({
+              entityType: EChangeHistoryEntityType.Wallet,
+              entityId: keepWallet?.id,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: '',
+              value: name,
+            })),
+            {
+              entityType: EChangeHistoryEntityType.Wallet,
+              entityId: keepWallet?.id,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: '',
+              value: keepWallet?.name,
+            },
+          ],
+        });
+      }
     }
 
     for (const walletId of walletsToRemove) {
-      // await this.removeWallet({ walletId });
+      await this.removeWallet({ walletId });
     }
     // await timerUtils.wait(3000);
   }
