@@ -79,15 +79,7 @@ function TokenDetailHeader({
   const {
     name,
     symbol,
-    stats: {
-      performance,
-      volume24h,
-      marketCap,
-      marketCapRank,
-      fdv,
-      currentPrice,
-      lastUpdated,
-    },
+    stats: { performance, currentPrice, lastUpdated },
   } = token;
   return (
     <YStack

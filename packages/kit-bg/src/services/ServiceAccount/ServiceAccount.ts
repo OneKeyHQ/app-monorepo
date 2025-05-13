@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { debounce, isEmpty, isNil } from 'lodash';
+import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
@@ -60,7 +60,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
+import type {
+  IChangeHistoryItem,
+  IChangeHistoryUpdateItem,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -3969,35 +3972,227 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async removeDuplicateHDWallets({
-    sameWallets,
-    selectedWalletsMap,
-  }: {
-    sameWallets: {
-      walletHash: string;
-      wallets: IDBWallet[];
-    }[];
-    selectedWalletsMap: {
-      [walletHash: string]: string; // walletId
-    };
-  }) {
-    const walletsToRemove: string[] = [];
+  async mergeDuplicateHDWallets({ password }: { password: string }) {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.allHdDuplicateWalletsMerged) {
+      return;
+    }
 
-    for (const sameWallet of sameWallets) {
-      const selectedWalletId = selectedWalletsMap[sameWallet.walletHash];
-      if (selectedWalletId) {
-        for (const wallet of sameWallet.wallets) {
-          if (wallet.id !== selectedWalletId) {
-            walletsToRemove.push(wallet.id);
+    try {
+      const sameWallets = await this.getLocalSameHDWallets({ password });
+
+      if (sameWallets?.length) {
+        const walletsToRemove: string[] = [];
+
+        const { accounts: allAccounts } = await this.getAllAccounts();
+
+        for (const sameWallet of sameWallets) {
+          let keepWallet: IDBWallet | undefined;
+          const accountsToAddParams: {
+            oldIndexedAccountId: string;
+            deriveType: IAccountDeriveTypes;
+            networkId: string;
+            index: number;
+            name: string;
+          }[] = [];
+          const walletNames: string[] = [];
+          const indexedAccountNames: {
+            indexedAccountId: string;
+            name: string;
+          }[] = [];
+
+          for (let i = 0; i < sameWallet.wallets.length; i += 1) {
+            const wallet = sameWallet.wallets[i];
+            if (i === 0) {
+              keepWallet = wallet;
+            } else {
+              walletsToRemove.push(wallet.id);
+              walletNames.push(wallet.name);
+              await Promise.all(
+                allAccounts
+                  .filter(
+                    (item) =>
+                      item?.id &&
+                      wallet?.id &&
+                      accountUtils.parseAccountId({ accountId: item?.id })
+                        ?.walletId === wallet?.id,
+                  )
+                  // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
+                  .map(async (item) => {
+                    let networkIds: string[] = [];
+                    if (item.impl === IMPL_EVM) {
+                      networkIds = [getNetworkIdsMap().eth];
+                    } else {
+                      ({ networkIds } =
+                        await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls(
+                          {
+                            impls: [item.impl],
+                          },
+                        ));
+                    }
+                    for (const networkId of networkIds) {
+                      const { deriveType } =
+                        await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate(
+                          {
+                            networkId,
+                            template: item.template,
+                          },
+                        );
+                      let indexedAccount: IDBIndexedAccount | undefined;
+                      try {
+                        indexedAccount = await this.getIndexedAccountByAccount({
+                          account: item,
+                        });
+                      } catch (e) {
+                        console.error(e);
+                      }
+                      if (
+                        indexedAccount &&
+                        !isNil(item.pathIndex) &&
+                        indexedAccount?.name
+                      ) {
+                        accountsToAddParams.push({
+                          oldIndexedAccountId: indexedAccount.id,
+                          networkId,
+                          deriveType,
+                          index: item.pathIndex,
+                          name: indexedAccount?.name,
+                        });
+
+                        if (keepWallet?.id && item.pathIndex >= 0) {
+                          const indexedAccountIdToAdd =
+                            accountUtils.buildIndexedAccountId({
+                              walletId: keepWallet?.id,
+                              index: item.pathIndex,
+                            });
+                          if (indexedAccountIdToAdd) {
+                            const indexedAccountNameChangeHistory =
+                              await this.backgroundApi.simpleDb.changeHistory.getChangeHistory(
+                                {
+                                  entityType:
+                                    EChangeHistoryEntityType.IndexedAccount,
+                                  entityId: indexedAccount?.id,
+                                  contentType: EChangeHistoryContentType.Name,
+                                },
+                              );
+
+                            indexedAccountNames.push(
+                              ...indexedAccountNameChangeHistory.map(
+                                (info: IChangeHistoryItem) => ({
+                                  indexedAccountId: indexedAccountIdToAdd,
+                                  name: info.value,
+                                }),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    }
+                  }),
+              );
+            }
+          }
+
+          if (keepWallet && keepWallet?.id && accountsToAddParams?.length) {
+            for (const accountToAddParam of accountsToAddParams) {
+              const indexedAccountIdToAdd = accountUtils.buildIndexedAccountId({
+                walletId: keepWallet?.id,
+                index: accountToAddParam.index,
+              });
+              const existingIndexedAccount = await this.getIndexedAccountSafe({
+                id: indexedAccountIdToAdd,
+              });
+              try {
+                await this.addHDOrHWAccounts({
+                  walletId: keepWallet?.id,
+                  networkId: accountToAddParam.networkId,
+                  deriveType: accountToAddParam.deriveType,
+                  indexes: [accountToAddParam.index],
+                  names: [accountToAddParam.name],
+                  indexedAccountId: undefined,
+                });
+              } catch (e) {
+                console.error(e);
+              }
+              indexedAccountNames.push({
+                indexedAccountId: indexedAccountIdToAdd,
+                name: accountToAddParam.name,
+              });
+              if (existingIndexedAccount?.name) {
+                indexedAccountNames.push({
+                  indexedAccountId: indexedAccountIdToAdd,
+                  name: existingIndexedAccount?.name,
+                });
+              }
+            }
+          }
+
+          const indexedAccountNamesUnique = uniqBy(
+            indexedAccountNames,
+            (item) => item.indexedAccountId + item.name,
+          );
+
+          try {
+            await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+              items: indexedAccountNamesUnique.map(
+                ({ indexedAccountId, name }) => ({
+                  entityType: EChangeHistoryEntityType.IndexedAccount,
+                  entityId: indexedAccountId,
+                  contentType: EChangeHistoryContentType.Name,
+                  oldValue: '',
+                  value: name,
+                }),
+              ),
+            });
+          } catch (e) {
+            console.error(e);
+          }
+          if (keepWallet) {
+            try {
+              await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+                items: [
+                  {
+                    entityType: EChangeHistoryEntityType.Wallet,
+                    entityId: keepWallet?.id,
+                    contentType: EChangeHistoryContentType.Name,
+                    oldValue: '',
+                    value: keepWallet?.name,
+                  },
+                  ...walletNames.map((name) => ({
+                    entityType: EChangeHistoryEntityType.Wallet,
+                    entityId: keepWallet?.id,
+                    contentType: EChangeHistoryContentType.Name,
+                    oldValue: '',
+                    value: name,
+                  })),
+                ],
+              });
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
-      }
-    }
 
-    for (const walletId of walletsToRemove) {
-      await this.removeWallet({ walletId });
+        for (const walletId of walletsToRemove) {
+          try {
+            await this.removeWallet({ walletId });
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        // await timerUtils.wait(3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      await simpleDb.appStatus.setRawData(
+        (v): ISimpleDBAppStatus => ({
+          ...v,
+          allHdDuplicateWalletsMerged: true,
+        }),
+      );
     }
-    // await timerUtils.wait(3000);
   }
 
   @backgroundMethod()
