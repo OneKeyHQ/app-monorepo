@@ -1448,6 +1448,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           break;
         }
       } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
         break;
       }
       if (maxLoop >= 1000) {
