@@ -195,7 +195,7 @@ function MoreActionContentFooter() {
               trackID: 'wallet-side-panel-mode',
             }
           : {
-              label: intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.open_as_popup,
               }),
               icon: 'LayoutTopOutline' as const,
