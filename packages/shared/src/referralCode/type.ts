@@ -118,14 +118,6 @@ export interface IEarnRewardItem {
     symbol: string;
   };
   userId: string;
-  infoFirst: {
-    networkId: string;
-    accountAddress: string;
-    provider: string;
-    vaultAddress: string;
-    vaultName: string;
-    type: string;
-  };
   accountAddress: string;
   vaultName: string;
   vaultAddress: string;
