@@ -258,8 +258,9 @@ export interface IAppEventBusPayload {
     promiseId: number;
     walletId: string;
   };
-  [EAppEventBusNames.HomeTabsIndexChanged]: {
+  [EAppEventBusNames.HomeTabsChanged]: {
     index: number;
+    tabId: string;
   };
 }
 
