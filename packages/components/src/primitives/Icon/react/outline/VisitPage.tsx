@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgVisitPage = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
@@ -20,7 +21,7 @@ const SvgVisitPage = (props: SvgProps) => (
       strokeLinecap="square"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m14.5 14.5 6.5 2-3 1.5-1.5 3-2-6.5Z"
+      d="m14.5 14.5 6.5 2-3 1.5-1.5 3z"
     />
   </Svg>
 );

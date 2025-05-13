@@ -19,12 +19,7 @@ function TokenListHeader({ tableLayout }: IProps) {
     <Stack testID="Wallet-Token-List-Header">
       {tableLayout ? (
         <XStack px="$5" py="$2" gap="$3">
-          <XStack
-            flexGrow={1}
-            flexBasis={0}
-            gap={89}
-            spaceDirection="horizontal"
-          >
+          <XStack flexGrow={1} flexBasis={0} gap={89}>
             <SizableText
               flexGrow={1}
               flexBasis={0}

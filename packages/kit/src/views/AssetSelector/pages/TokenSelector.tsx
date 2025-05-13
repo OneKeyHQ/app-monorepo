@@ -327,7 +327,6 @@ function TokenSelector() {
       <Page.Body>
         <TokenListView
           showActiveAccountTokenList={showActiveAccountTokenList}
-          withPresetVerticalPadding={false}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isAllNetworks ?? network?.isAllNetworks}
           withNetwork={isAllNetworks ?? network?.isAllNetworks}
