@@ -45,6 +45,7 @@ import { Spinner, Stack } from '../../primitives';
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
+import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
@@ -56,7 +57,6 @@ import {
   DialogTitle,
   SetDialogHeader,
 } from './Header';
-import { addDialogInstance, removeDialogInstance } from './jotai';
 import { renderToContainer } from './renderToContainer';
 
 import type {
@@ -80,7 +80,7 @@ export type {
   IDialogInstance,
   IDialogShowProps,
 } from './type';
-export * from './jotai';
+export * from './dialogInstances';
 
 export const FIX_SHEET_PROPS: IStackProps = {
   display: 'block',
