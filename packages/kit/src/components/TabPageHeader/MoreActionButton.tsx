@@ -12,8 +12,10 @@ import {
   IconButton,
   Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
+  useIsHorizontalLayout,
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
@@ -26,6 +28,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useToMyOneKeyModal } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -88,9 +91,8 @@ function MoreActionContentHeader() {
   }, [closePopover, shareReferRewards]);
   return (
     <XStack
-      pl="$3"
-      pr="$5"
-      h="$16"
+      px="$5"
+      py="$4"
       bg="$bgSubdued"
       ai="center"
       jc="space-between"
@@ -100,20 +102,21 @@ function MoreActionContentHeader() {
       <XStack
         gap="$1"
         ai="center"
-        pl="$2"
-        pr={0}
-        py="$1.5"
+        p="$1"
+        pl="$1.5"
+        m="$-1"
+        ml="$-1.5"
         onPress={handleLogin}
         pressStyle={pressStyle}
         hoverStyle={hoverStyle}
       >
-        <SizableText>
+        <SizableText size="$bodyMd" userSelect="none">
           {user?.displayEmail ||
-            intl.formatMessage({ id: ETranslations.global_sign_in_register })}
+            intl.formatMessage({ id: ETranslations.prime_signup_login })}
         </SizableText>
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
       </XStack>
-      <XStack gap="$5" ai="center">
+      <XStack gap="$5">
         {devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
           <PrimeHeaderIconButtonLazy
             key="prime"
@@ -239,7 +242,7 @@ function MoreActionContentFooter() {
     ];
   }, [handleLock, handleScan, intl, popupMenu]);
   return (
-    <XStack p="$5" ai="center" jc="flex-end" gap="$5">
+    <XStack jc="flex-end" gap="$5">
       {items.map((item) => (
         <MoreActionContentFooterItem key={item.title} {...item} />
       ))}
@@ -253,6 +256,9 @@ interface IMoreActionContentGridItemProps {
   testID?: string;
   trackID?: string;
   onPress: () => void;
+  showRedDot?: boolean;
+  showBadges?: boolean;
+  badges?: number;
 }
 
 function MoreActionContentGridItem({
@@ -261,6 +267,9 @@ function MoreActionContentGridItem({
   onPress,
   testID,
   trackID,
+  showRedDot,
+  showBadges,
+  badges = 0,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
@@ -276,17 +285,69 @@ function MoreActionContentGridItem({
     <YStack
       testID={testID}
       onPress={handlePress}
-      pressStyle={pressStyle}
-      hoverStyle={hoverStyle}
-      mt="$2.5"
-      py="$2"
-      w="30%"
+      group
+      flexBasis="33.33%"
       ai="center"
-      jc="center"
       gap="$2"
+      py="$2.5"
+      px={5}
+      userSelect="none"
     >
-      <Icon name={icon} size="$10" />
+      <YStack
+        p="$3"
+        borderRadius="$2"
+        borderCurve="continuous"
+        bg="$bgStrong"
+        $group-hover={{
+          bg: '$neutral4',
+        }}
+        $group-press={{
+          bg: '$neutral5',
+        }}
+      >
+        <Icon name={icon} />
+      </YStack>
       <SizableText size="$bodyMd">{title}</SizableText>
+      {showRedDot ? (
+        <Stack
+          position="absolute"
+          right="$4"
+          top="$0.5"
+          alignItems="flex-end"
+          w="$10"
+          pointerEvents="none"
+        >
+          <Stack
+            bg="$bgApp"
+            borderRadius="$full"
+            borderWidth={2}
+            borderColor="$transparent"
+          >
+            <Stack
+              px="$1"
+              borderRadius="$full"
+              bg="$bgCriticalStrong"
+              minWidth="$4"
+              height="$4"
+              alignItems="center"
+              justifyContent="center"
+            >
+              {showBadges ? (
+                <SizableText color="$textOnColor" size="$bodySm">
+                  {badges && badges > 99 ? '99+' : badges}
+                </SizableText>
+              ) : (
+                <Stack
+                  width="$1"
+                  height="$1"
+                  backgroundColor="white"
+                  borderRadius="$full"
+                />
+              )}
+            </Stack>
+          </Stack>
+        </Stack>
+      ) : null}
     </YStack>
   );
 }
@@ -343,7 +404,7 @@ function MoreActionContentGrid() {
       screen: EModalNotificationsRoutes.NotificationList,
     });
   }, [navigation]);
-
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
       {
@@ -379,10 +440,15 @@ function MoreActionContentGrid() {
             }),
             icon: 'BellOutline',
             onPress: openNotificationsModal,
+            showRedDot: !firstTimeGuideOpened || badge,
+            showBadges: firstTimeGuideOpened,
+            badges: badge,
             trackID: 'notification-in-more-action',
           },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
+    badge,
+    firstTimeGuideOpened,
     gtMd,
     handleDeviceManagement,
     handleSettings,
@@ -392,8 +458,8 @@ function MoreActionContentGrid() {
   ]);
 
   return (
-    <YStack px="$5">
-      <XStack pt="$2.5" pb="$5" jc="space-between" flexWrap="wrap">
+    <YStack gap="$5">
+      <XStack flexWrap="wrap" mx={-5} my="$-2.5">
         <MoreActionContentGridRender items={items} />
       </XStack>
       <Divider />
@@ -406,25 +472,83 @@ function MoreActionContent() {
     <MoreActionProvider>
       <YStack>
         <MoreActionContentHeader />
-        <MoreActionContentGrid />
-        <MoreActionContentFooter />
+        <YStack p="$5" gap="$5">
+          <MoreActionContentGrid />
+          <MoreActionContentFooter />
+        </YStack>
       </YStack>
     </MoreActionProvider>
   );
 }
 
+const useIsShowRedDot = () => {
+  const isHorizontal = useIsHorizontalLayout();
+  const [{ firstTimeGuideOpened, badge: notificationBadges }] =
+    useNotificationsAtom();
+  if (isHorizontal) {
+    return false;
+  }
+  const isShowNotificationDot = !firstTimeGuideOpened || notificationBadges;
+  return isShowNotificationDot;
+};
+
 function MoreActionButtonCmp() {
   const intl = useIntl();
+  const isShowRedDot = useIsShowRedDot();
   return (
     <Popover
       title=""
+      offset={{
+        mainAxis: 12,
+        crossAxis: 20,
+      }}
       showHeader={false}
       placement="bottom-end"
+      floatingPanelProps={{
+        overflow: 'hidden',
+      }}
       renderTrigger={
-        <HeaderIconButton
-          title={intl.formatMessage({ id: ETranslations.explore_options })}
-          icon="DotGridOutline"
-        />
+        <XStack key="moreActions" testID="moreActions">
+          <HeaderIconButton
+            title={intl.formatMessage({ id: ETranslations.explore_options })}
+            icon="DotGridOutline"
+            pointerEvents={platformEnv.isNative ? 'none' : undefined}
+          />
+          {isShowRedDot ? (
+            <Stack
+              position="absolute"
+              right="$-2.5"
+              top="$-2"
+              alignItems="flex-end"
+              w="$10"
+              pointerEvents="none"
+            >
+              <Stack
+                bg="$bgApp"
+                borderRadius="$full"
+                borderWidth={2}
+                borderColor="$transparent"
+              >
+                <Stack
+                  px="$1"
+                  borderRadius="$full"
+                  bg="$bgCriticalStrong"
+                  minWidth="$4"
+                  height="$4"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Stack
+                    width="$1"
+                    height="$1"
+                    backgroundColor="white"
+                    borderRadius="$full"
+                  />
+                </Stack>
+              </Stack>
+            </Stack>
+          ) : null}
+        </XStack>
       }
       renderContent={MoreActionContent}
     />

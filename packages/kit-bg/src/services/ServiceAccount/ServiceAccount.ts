@@ -577,10 +577,14 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
     if (password && wallet && accountUtils.isHdWallet({ walletId })) {
-      await this.generateHDWalletMissingHashAndXfp({
-        password,
-        hdWallets: [wallet].filter(Boolean),
-      });
+      if (!accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+        setTimeout(async () => {
+          await this.generateHDWalletMissingHashAndXfp({
+            password,
+            hdWallets: [wallet].filter(Boolean),
+          });
+        }, 1000);
+      }
     }
 
     // canAutoCreateNextAccount
@@ -1433,6 +1437,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
+    // eslint-disable-next-line spellcheck/spell-checker
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
     if (networkId === IMPL_EVM) {
       // eslint-disable-next-line no-param-reassign
