@@ -18,6 +18,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -28,18 +29,16 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 interface ISectionData {
   title: string;
   amount: string;
-  data: [
-    {
-      name: string;
-      action: string;
-      token: {
-        uri: string;
-        symbol: symbol;
-        amount: string;
-        fiatAmount: string;
-      };
-    },
-  ];
+  data: {
+    name: string;
+    action: string;
+    token: {
+      uri: string;
+      symbol: string;
+      amount: string;
+      fiatAmount: string;
+    };
+  }[];
 }
 
 function EmptyData() {
@@ -79,7 +78,6 @@ function ListHeader() {
 
 function UndistributedList({ listData }: { listData: ISectionData[] }) {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
@@ -115,17 +113,17 @@ function UndistributedList({ listData }: { listData: ISectionData[] }) {
                       {title}
                     </SizableText>
                     <XStack ai="center" gap="$2">
-                      <NumberSizeableText
+                      <Currency
+                        sourceCurrency="usd"
                         color="$textSuccess"
                         formatter="balance"
                         size="$bodyLgMedium"
                         formatterOptions={{
-                          currency: settings.currencyInfo.symbol,
                           showPlusMinusSigns: true,
                         }}
                       >
                         {amount}
-                      </NumberSizeableText>
+                      </Currency>
                       <Stack
                         animation="quick"
                         rotate={open ? '180deg' : '0deg'}
@@ -173,7 +171,7 @@ function UndistributedList({ listData }: { listData: ISectionData[] }) {
                           formatter="balance"
                           size="$bodyMd"
                           formatterOptions={{
-                            tokenSymbol: item.token.symbol,
+                            tokenSymbol: item.token.symbol || '',
                           }}
                         >
                           {item.token.amount}
@@ -182,15 +180,13 @@ function UndistributedList({ listData }: { listData: ISectionData[] }) {
                           <SizableText size="$bodyMd" color="$textSubdued">
                             (
                           </SizableText>
-                          <NumberSizeableText
+                          <Currency
+                            sourceCurrency="usd"
                             formatter="balance"
                             size="$bodyMd"
-                            formatterOptions={{
-                              currency: settings.currencyInfo.symbol,
-                            }}
                           >
                             {item.token.fiatAmount}
-                          </NumberSizeableText>
+                          </Currency>
                           <SizableText size="$bodyMd" color="$textSubdued">
                             )
                           </SizableText>
@@ -361,23 +357,23 @@ const formatSections = (data: IEarnRewardItem[]) => {
     {},
   );
 
-  const sectionDataArray = Object.entries(formattedData).map(
+  const sectionDataArray: ISectionData[] = Object.entries(formattedData).map(
     ([address, items]) => {
-      const totalAmount = items.reduce(
-        (sum, item) => sum.plus(new BigNumber(item.amount || '0')),
+      const totalFiatValue = items.reduce(
+        (sum, item) => sum.plus(new BigNumber(item.fiatValue || '0')),
         new BigNumber(0),
       );
 
       return {
         title: address,
-        amount: totalAmount.toFixed(),
+        amount: totalFiatValue.toFixed(),
         data: items.map((item) => ({
           name: item?.vaultName || '',
           action: 'aaaas',
           token: {
             uri: item?.token.logoURI || '',
             symbol: item?.token.symbol || '',
-            amount: totalAmount.toFixed(),
+            amount: item.amount || '0',
             fiatAmount: item?.fiatValue || '0',
           },
         })),
