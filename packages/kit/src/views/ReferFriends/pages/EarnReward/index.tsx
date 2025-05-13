@@ -25,6 +25,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -366,7 +367,11 @@ const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
       );
 
       return {
-        title: address,
+        title: accountUtils.shortenAddress({
+          address,
+          leadingLength: 6,
+          trailingLength: 4,
+        }),
         amount: totalFiatValue.toFixed(),
         data: items.map((item) => {
           const orderTotalAmount = item?.orderTotalAmount || '0';
