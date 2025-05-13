@@ -106,16 +106,20 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnReward(cursor?: string) {
+  async getEarnReward(cursor?: string, available?: boolean) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
       cursor?: string;
+      status?: string;
     } = {
       subject: 'Earn',
     };
     if (cursor) {
       params.cursor = cursor;
+    }
+    if (available) {
+      params.status = 'AVAILABLE';
     }
     const response = await client.get<{
       data: IEarnRewardResponse;
