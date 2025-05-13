@@ -36,6 +36,8 @@ export interface IDevSettings {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
   };
+  // Enable market v2
+  enableMarketV2?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -59,8 +61,8 @@ export const {
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
+      enableMarketV2: false,
       enableAnalyticsRequest: false,
-
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
 

@@ -218,3 +218,18 @@ body > div.cet-container {
 .onekey-body >.cet-titlebar >.cet-menubar {
   margin-left: 16px;
 }
+
+.normal-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.normal-scrollbar::-webkit-scrollbar-track {
+  background: #F9F9F9;
+  border-radius: 100px;
+}
+
+.normal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.27);
+  border-radius: 100px;
+}
