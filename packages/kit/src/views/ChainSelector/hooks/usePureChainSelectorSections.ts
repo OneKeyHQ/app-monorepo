@@ -58,7 +58,7 @@ export function usePureChainSelectorSections({
       }
     }
 
-    const data = filterFrequentlyUsedNetworks(networks).reduce(
+    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
       (result, item) => {
         const char = item.name[0].toUpperCase();
         if (!result[char]) {

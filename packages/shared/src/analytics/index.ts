@@ -35,9 +35,20 @@ export class Analytics {
 
   private deviceInfo: Record<string, any> | null = null;
 
-  init({ instanceId, baseURL }: { instanceId: string; baseURL: string }) {
+  private enableAnalyticsInDev = false;
+
+  init({
+    instanceId,
+    baseURL,
+    enableAnalyticsInDev = false,
+  }: {
+    instanceId: string;
+    baseURL: string;
+    enableAnalyticsInDev?: boolean;
+  }) {
     this.instanceId = instanceId;
     this.baseURL = baseURL;
+    this.enableAnalyticsInDev = enableAnalyticsInDev;
     while (this.cacheEvents.length) {
       const params = this.cacheEvents.pop();
       if (params) {
@@ -99,7 +110,7 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    if (platformEnv.isDev || platformEnv.isE2E) {
+    if (!this.enableAnalyticsInDev) {
       return;
     }
     const deviceInfo = await this.lazyDeviceInfo();
@@ -125,7 +136,7 @@ export class Analytics {
   }
 
   private async requestUserProfile(attributes: Record<string, any>) {
-    if (platformEnv.isDev || platformEnv.isE2E) {
+    if (!this.enableAnalyticsInDev) {
       return;
     }
     const axios = this.lazyAxios();

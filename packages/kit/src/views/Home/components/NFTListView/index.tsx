@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps } from '@onekeyhq/components';
@@ -32,6 +33,12 @@ type IProps = {
   initialized?: boolean;
   onRefresh?: () => void;
   isAllNetworks?: boolean;
+  listViewStyleProps?: Pick<
+    ComponentProps<typeof ListView>,
+    | 'ListHeaderComponentStyle'
+    | 'ListFooterComponentStyle'
+    | 'contentContainerStyle'
+  >;
 };
 
 const useMumColumns: () => {
@@ -82,6 +89,7 @@ function NFTListView(props: IProps) {
     initialized,
     inTabList = false,
     isAllNetworks,
+    listViewStyleProps,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -164,6 +172,7 @@ function NFTListView(props: IProps) {
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }
+      {...listViewStyleProps}
     />
   );
 }

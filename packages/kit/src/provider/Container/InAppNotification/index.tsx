@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -100,7 +101,9 @@ const InAppNotification = () => {
           }
         } else if (swapApprovingTransactionRef.current) {
           // 3.no swap tab no swap modal 打开 swap modal 通知 swap 进行询价
-
+          const approvedSwapInfoCopyData = cloneDeep(
+            swapApprovingTransactionRef.current,
+          );
           navigation.pushModal(EModalRoutes.SwapModal, {
             screen: EModalSwapRoutes.SwapMainLand,
             params: {
@@ -111,9 +114,9 @@ const InAppNotification = () => {
             },
           });
           setTimeout(() => {
-            if (swapApprovingTransactionRef.current) {
+            if (approvedSwapInfoCopyData) {
               appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-                approvedSwapInfo: swapApprovingTransactionRef.current,
+                approvedSwapInfo: approvedSwapInfoCopyData,
                 enableFilled: true,
               });
             }

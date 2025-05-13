@@ -63,7 +63,7 @@ export type IDBContext = {
   nextWalletNo: number;
   verifyString: string;
   networkOrderChanged?: boolean;
-  backupUUID: string;
+  backupUUID: string; // deprecated
   nextSignatureMessageId: number;
   nextSignatureTransactionId: number;
   nextConnectedSiteId: number;
@@ -267,6 +267,7 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
+  // eslint-disable-next-line spellcheck/spell-checker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address
 };

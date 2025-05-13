@@ -19,31 +19,35 @@ import type { IIndexedDBSchemaMap } from '../../dbs/local/types';
 class LegacyIndexedDb {
   legacyDb!: Promise<IDBPDatabase<IIndexedDBSchemaMap>>;
 
-  async open() {
-    // eslint-disable-next-line no-async-promise-executor
-    this.legacyDb = new Promise(async (resolve) => {
-      const legacyDb = await openDB<IIndexedDBSchemaMap>(
-        LEGACY_INDEXED_DB_NAME,
-        INDEXED_DB_VERSION,
-        {
-          upgrade: (db, oldVersion, newVersion, transaction) => {
-            this._handleDbUpgrade({
-              db,
-              oldVersion,
-              newVersion,
-              transaction,
-            });
+  async open(): Promise<IDBPDatabase<IIndexedDBSchemaMap>> {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    if (!this.legacyDb) {
+      // eslint-disable-next-line no-async-promise-executor
+      this.legacyDb = new Promise(async (resolve) => {
+        const legacyDb = await openDB<IIndexedDBSchemaMap>(
+          LEGACY_INDEXED_DB_NAME,
+          INDEXED_DB_VERSION,
+          {
+            upgrade: (db, oldVersion, newVersion, transaction) => {
+              this._handleDbUpgrade({
+                db,
+                oldVersion,
+                newVersion,
+                transaction,
+              });
+            },
           },
-        },
-      );
-      resolve(legacyDb);
-    });
-    await this.legacyDb;
+        );
+        resolve(legacyDb);
+      });
+    }
+
+    return this.legacyDb;
   }
 
   async count(name: ELocalDBStoreNames) {
     try {
-      const legacyDb = await this.legacyDb;
+      const legacyDb = await this.open();
       return await legacyDb.count(name);
     } catch (error) {
       console.error(error);
@@ -53,7 +57,7 @@ class LegacyIndexedDb {
 
   async getAll<T extends ELocalDBStoreNames>(name: T) {
     try {
-      const legacyDb = await this.legacyDb;
+      const legacyDb = await this.open();
       return await legacyDb.getAll(name);
     } catch (error) {
       console.error(error);

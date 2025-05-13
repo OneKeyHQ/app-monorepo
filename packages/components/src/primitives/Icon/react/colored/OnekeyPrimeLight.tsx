@@ -1,25 +1,23 @@
-import Svg, {
-  SvgProps,
-  Path,
-  Defs,
-  LinearGradient,
-  Stop,
-} from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgOnekeyPrimeLight = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M1 12h4v9h7V3H4l-3 9Z"
       fill="#000"
+      fillRule="evenodd"
+      d="M1 12h4v9h7V3H4z"
+      clipRule="evenodd"
     />
-    <Path d="M22 11a8 8 0 0 0-8-8v16a8 8 0 0 0 8-8Z" fill="url(#a)" />
+    <Path
+      fill="url(#paint0_linear_9617_89)"
+      d="M22 11a8 8 0 0 0-8-8v16a8 8 0 0 0 8-8"
+    />
     <Defs>
       <LinearGradient
-        id="a"
+        id="paint0_linear_9617_89"
         x1={18}
-        y1={3}
         x2={18}
+        y1={3}
         y2={19}
         gradientUnits="userSpaceOnUse"
       >
