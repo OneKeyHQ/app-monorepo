@@ -258,6 +258,10 @@ export interface IAppEventBusPayload {
     promiseId: number;
     walletId: string;
   };
+  [EAppEventBusNames.HomeTabsChanged]: {
+    index: number;
+    tabId: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

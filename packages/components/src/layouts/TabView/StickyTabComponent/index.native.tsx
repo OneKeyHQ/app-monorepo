@@ -24,6 +24,7 @@ export const TabComponent = (
     ListHeaderComponent,
     onSelectedPageIndex,
     tabContentContainerStyle,
+    ToolBar,
     style,
     onRefresh: onRefreshCallBack,
     initialHeaderHeight = 0,
@@ -203,11 +204,13 @@ export const TabComponent = (
       refresh={isRefreshing}
       onRefreshCallBack={onRefresh}
       onPageChange={onPageChange}
+      showToolBar={!!ToolBar}
     >
       <Stack bg="$bgApp" collapsable={false} onLayout={onLayout}>
         {ListHeaderComponent}
       </Stack>
       {renderPageContent}
+      {ToolBar || null}
     </NestedTabView>
   );
 };

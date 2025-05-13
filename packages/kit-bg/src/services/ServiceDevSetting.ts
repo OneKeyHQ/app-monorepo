@@ -72,6 +72,8 @@ class ServiceDevSetting extends ServiceBase {
         serviceName: EServiceEndpointEnum.Utility,
         env: devSettings.settings?.enableTestEndpoint ? 'test' : 'prod',
       }),
+      enableAnalyticsInDev:
+        devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
     });
   }
 }

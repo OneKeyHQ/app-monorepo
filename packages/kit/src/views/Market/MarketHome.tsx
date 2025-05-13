@@ -17,12 +17,11 @@ import {
   Spinner,
   Stack,
   Tab,
-  XStack,
-  useIsWideScreen,
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -40,6 +39,7 @@ import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
+import { MarketHomeV2 } from './MarketHomeV2';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
@@ -177,32 +177,26 @@ function MarketHome() {
     );
   }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
 
-  const isWideScreen = useIsWideScreen();
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>
-        <XStack px="$5" pt="$2">
-          {isWideScreen ? null : (
-            <UniversalSearchInput
-              size="medium"
-              containerProps={{
-                width: '100%',
-                $gtLg: undefined,
-              }}
-            />
-          )}
-        </XStack>
-        {renderTabContainer()}
-      </Page.Body>
+      <Page.Body>{renderTabContainer()}</Page.Body>
     </Page>
   );
 }
 
 export default function MarketHomeWithProvider() {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const enableMarketV2 =
+    devSettings.enabled && devSettings.settings?.enableMarketV2;
+
+  if (enableMarketV2) {
+    return <MarketHomeV2 />;
+  }
+
   return (
     <AccountSelectorProviderMirror
       config={{

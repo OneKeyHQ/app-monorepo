@@ -231,6 +231,15 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="enableAnalyticsRequest"
+        title="测试环境下发送 Analytics 请求"
+        subtitle={
+          devSettings.settings?.enableAnalyticsRequest ? '开启' : '关闭'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       {platformEnv.isNative ? (
         <SectionFieldItem
           name="webviewDebuggingEnabled"
@@ -449,7 +458,7 @@ export const DevSettingsSection = () => {
       <SectionPressItem
         title="NotificationDevSettings"
         onPress={() => {
-          const dialog = Dialog.cancel({
+          Dialog.cancel({
             title: 'NotificationDevSettings',
             renderContent: <NotificationDevSettings />,
           });
@@ -768,6 +777,14 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
 
+      <SectionFieldItem
+        name="enableMarketV2"
+        title="Enable Market V2"
+        subtitle="启用新版市场"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      
       <SectionPressItem
         title="Device Info"
         subtitle="设备信息"

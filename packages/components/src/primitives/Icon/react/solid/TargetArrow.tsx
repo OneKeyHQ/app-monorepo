@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgTargetArrow = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
@@ -7,11 +8,11 @@ const SvgTargetArrow = (props: SvgProps) => (
     />
     <Path
       fill="currentColor"
-      d="M4 12a8 8 0 0 1 8-8 1 1 0 1 0 0-2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10a1 1 0 1 0-2 0 8 8 0 1 1-16 0Z"
+      d="M4 12a8 8 0 0 1 8-8 1 1 0 1 0 0-2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10a1 1 0 1 0-2 0 8 8 0 1 1-16 0"
     />
     <Path
       fill="currentColor"
-      d="M10.8 8.183a1 1 0 1 0-.6-1.908A6.002 6.002 0 0 0 12 18a6.002 6.002 0 0 0 5.725-4.2 1 1 0 1 0-1.908-.6A4.002 4.002 0 0 1 8 12a4.002 4.002 0 0 1 2.8-3.817Z"
+      d="M10.8 8.183a1 1 0 1 0-.6-1.908A6.002 6.002 0 0 0 12 18a6 6 0 0 0 5.725-4.2 1 1 0 1 0-1.908-.6A4.002 4.002 0 0 1 8 12a4 4 0 0 1 2.8-3.817"
     />
   </Svg>
 );

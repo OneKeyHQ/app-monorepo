@@ -1,3 +1,5 @@
+import storageChecker from '../storageChecker/storageChecker';
+
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 
@@ -41,7 +43,9 @@ export class IndexedDBTransactionPromised<
       };
 
       const error = () => {
-        reject(tx.error || indexedDBPromisedUtils.newAbortError());
+        const err = tx.error || indexedDBPromisedUtils.newAbortError();
+        storageChecker.handleDiskFullError(err);
+        reject(err);
         unListen?.();
       };
 

@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useMemo, useRef } from 'react';
-import type { ForwardedRef } from 'react';
+import type { ForwardedRef, ReactElement } from 'react';
 
 import { PageHeaderView } from '@onekeyfe/react-native-tab-page-view';
 import { useProps, useStyle } from '@tamagui/core';
@@ -32,6 +32,7 @@ export type IHeaderProps = Omit<
     itemTitleSelectedStyle?: TextStyle & { color: string };
     cursorStyle?: StackStyle;
     showHorizontalScrollButton?: boolean;
+    ToolBar?: ReactElement;
   };
 
 const HeaderComponent = (
@@ -50,6 +51,7 @@ const HeaderComponent = (
       h: '$1',
       bg: '$bgPrimary',
     },
+    ToolBar,
     showHorizontalScrollButton,
     ...props
   }: IHeaderProps,
@@ -79,6 +81,7 @@ const HeaderComponent = (
             bg: '$bgApp',
             borderBottomColor: '$borderSubdued',
             borderBottomWidth: StyleSheet.hairlineWidth,
+            position: 'relative',
           }
         : {}),
       ...style,
@@ -176,6 +179,7 @@ const HeaderComponent = (
         itemTitleSelectedStyle={rawItemTitleSelectedStyle}
         cursorStyle={rawCursorStyle}
         scrollEventThrottle={16}
+        ToolBar={ToolBar}
         onScroll={(event) => {
           scrollValue.current = event.nativeEvent;
           rawProps?.onScroll?.(event);

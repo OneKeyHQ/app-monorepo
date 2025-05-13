@@ -8,10 +8,11 @@ export interface ISimpleDBAppStatus {
 
   allHdWalletsHashAndXfpGenerated?: boolean;
   allQrWalletsXfpGenerated?: boolean;
+  allHdDuplicateWalletsMerged?: boolean;
 
   launchTimes?: number;
   launchTimesLastReset?: number;
-  hdWalletsBackupMigrated?: boolean;
+  hdWalletsBackupMigrated?: boolean; // is mnemonic backuped by user
   falconDepositDoNotShowAgain?: boolean;
   lastDBBackupTime?: number;
 }

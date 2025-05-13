@@ -14,7 +14,7 @@
     "views/*/background",
     "views/*/pages/**",
     "views/*/config/*",
-    "views/*/components/**",
+    "views/**/components/**",
     "views/*/assets/*",
     "views/*/hooks",
     "views/*/hooks/usePrivyUniversal",
