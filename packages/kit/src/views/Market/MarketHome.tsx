@@ -33,7 +33,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
-import { UniversalSearchInput } from '../../components/TabPageHeader/UniversalSearchInput';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
