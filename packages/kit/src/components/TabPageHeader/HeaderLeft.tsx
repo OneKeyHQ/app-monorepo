@@ -23,6 +23,14 @@ import {
 } from '../AccountSelector';
 import { useSpotlight } from '../Spotlight';
 
+export function HeaderLeftCloseButton() {
+  return (
+    <Page.Close>
+      <NavBackButton />
+    </Page.Close>
+  );
+}
+
 export function HeaderLeft({
   sceneName,
   tabRoute,
@@ -55,11 +63,7 @@ export function HeaderLeft({
       return customHeaderLeftItems;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return (
-        <Page.Close>
-          <NavBackButton />
-        </Page.Close>
-      );
+      return <HeaderLeftCloseButton />;
     }
 
     const accountSelectorTrigger = (

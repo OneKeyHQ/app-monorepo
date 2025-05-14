@@ -107,11 +107,11 @@ function NotificationsButton() {
   );
 }
 
-function MoreAction() {
+export function MoreAction() {
   return <MoreActionButton key="more-action" />;
 }
 
-function SelectorTrigger() {
+export function SelectorTrigger() {
   return (
     <NetworkSelectorTriggerHome
       num={0}
@@ -137,7 +137,7 @@ function PeopleAction() {
   );
 }
 
-function SearchInput() {
+export function SearchInput() {
   const { gtLg } = useMedia();
   return <UniversalSearchInput size={gtLg ? 'large' : 'small'} />;
 }
