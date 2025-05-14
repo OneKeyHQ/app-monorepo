@@ -801,6 +801,13 @@ export interface IFetchLimitOrderRes {
   };
 }
 
+export interface ISpeedSwapConfig {
+  speedConfig: {
+    slippage: number;
+  };
+  supportSpeedSwap: boolean;
+}
+
 export enum ESwapLimitOrderStatus {
   PRESIGNATURE_PENDING = 'presignaturePending',
   OPEN = 'open',

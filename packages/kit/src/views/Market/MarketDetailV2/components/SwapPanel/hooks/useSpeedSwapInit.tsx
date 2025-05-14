@@ -1,0 +1,29 @@
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+
+export function useSpeedSwapInit(networkId: string) {
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const config = await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
+        networkId,
+      });
+      return config;
+    },
+    [networkId],
+    {
+      initResult: {
+        speedConfig: {
+          slippage: 0.5,
+        },
+        supportSpeedSwap: false,
+      },
+      watchLoading: true,
+    },
+  );
+
+  return {
+    isLoading,
+    speedConfig: result?.speedConfig,
+    supportSpeedSwap: result?.supportSpeedSwap,
+  };
+}
