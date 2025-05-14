@@ -1,6 +1,9 @@
 import type { CompositionEvent } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Input } from '../../forms/Input';
@@ -18,6 +21,7 @@ export function SearchBar({
   onChangeText,
   onSearchTextChange,
   testID,
+  containerProps,
   ...rest
 }: ISearchBarProps) {
   const [value, setValue] = useState(defaultValue ?? '');
@@ -69,6 +73,7 @@ export function SearchBar({
     },
     [handleChange],
   );
+  const intl = useIntl();
   return (
     <Input
       value={value}
@@ -86,9 +91,19 @@ export function SearchBar({
       returnKeyType="search"
       returnKeyLabel="Search"
       testID={testID ? `nav-header-search-${testID}` : 'nav-header-search'}
+      placeholder={intl.formatMessage({
+        id: ETranslations.global_search,
+      })}
       {...rest}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
+      containerProps={{
+        w: '100%',
+        borderRadius: '$full',
+        bg: '$bgStrong',
+        borderColor: '$transparent',
+        ...containerProps,
+      }}
     />
   );
 }

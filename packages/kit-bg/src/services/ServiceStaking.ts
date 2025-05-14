@@ -229,9 +229,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new Error('Staking config not found');
     }
-    const resp = await client.post<{
-      data: IStakeTxResponse;
-    }>(`/earn/v2/stake`, {
+    const paramsToSend: Record<string, any> = {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
@@ -247,7 +245,19 @@ class ServiceStaking extends ServiceBase {
       permitSignature:
         approveType === EApproveType.Permit ? permitSignature : undefined,
       ...rest,
-    });
+    };
+
+    const walletReferralCode =
+      await this.backgroundApi.serviceReferralCode.checkAndUpdateReferralCode({
+        accountId,
+      });
+    if (walletReferralCode) {
+      paramsToSend.bindedAccountAddress = walletReferralCode.address;
+      paramsToSend.bindedNetworkId = walletReferralCode.networkId;
+    }
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v2/stake`, paramsToSend);
     return resp.data.data;
   }
 

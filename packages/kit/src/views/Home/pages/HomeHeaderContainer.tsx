@@ -11,20 +11,10 @@ function HomeHeaderContainer() {
   return (
     <HomeTokenListProviderMirror>
       <>
-        {isHorizontal ? null : (
-          <XStack
-            pt={platformEnv.isNative ? '$5' : '$2.5'}
-            px="$5"
-            width="100%"
-          />
-        )}
         <Stack
           testID="Wallet-Tab-Header"
           gap="$5"
           p="$5"
-          $md={{
-            pt: '$2.5',
-          }}
           bg="$bgApp"
           $gtLg={{
             flexDirection: 'row',

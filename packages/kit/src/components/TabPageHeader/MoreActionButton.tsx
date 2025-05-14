@@ -195,7 +195,7 @@ function MoreActionContentFooter() {
               trackID: 'wallet-side-panel-mode',
             }
           : {
-              label: intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.open_as_popup,
               }),
               icon: 'LayoutTopOutline' as const,
@@ -286,7 +286,7 @@ function MoreActionContentGridItem({
       testID={testID}
       onPress={handlePress}
       group
-      flexBasis="33.33%"
+      flexBasis="25%"
       ai="center"
       gap="$2"
       py="$2.5"
@@ -307,11 +307,13 @@ function MoreActionContentGridItem({
       >
         <Icon name={icon} />
       </YStack>
-      <SizableText size="$bodyMd">{title}</SizableText>
+      <SizableText size="$bodySm" textAlign="center">
+        {title}
+      </SizableText>
       {showRedDot ? (
         <Stack
           position="absolute"
-          right="$4"
+          right="$3"
           top="$0.5"
           alignItems="flex-end"
           w="$10"
@@ -459,7 +461,7 @@ function MoreActionContentGrid() {
 
   return (
     <YStack gap="$5">
-      <XStack flexWrap="wrap" mx={-5} my="$-2.5">
+      <XStack flexWrap="wrap" mx="$-3" my="$-2.5">
         <MoreActionContentGridRender items={items} />
       </XStack>
       <Divider />
