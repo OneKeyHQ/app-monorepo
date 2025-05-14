@@ -16,7 +16,6 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { useGetReferralCodeWalletInfo } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
 
 const createStakeInfoWithOrderId = ({
@@ -68,7 +67,6 @@ export function useUniversalStake({
     accountId,
     networkId,
   });
-  const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
   return useCallback(
     async ({
       amount,
@@ -97,9 +95,6 @@ export function useUniversalStake({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const walletInfo = await getReferralCodeWalletInfo(
-        accountUtils.getWalletIdFromAccountId({ accountId }),
-      );
       const stakeTx =
         await backgroundApiProxy.serviceStaking.buildStakeTransaction({
           amount,
@@ -112,8 +107,6 @@ export function useUniversalStake({
           morphoVault,
           approveType,
           permitSignature,
-          bindedAccountAddress: walletInfo?.address,
-          bindedNetworkId: walletInfo?.networkId,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -153,7 +146,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [getReferralCodeWalletInfo, accountId, networkId, navigationToTxConfirm],
+    [accountId, networkId, navigationToTxConfirm],
   );
 }
 

@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IEarnRewardResponse,
   IHardwareSalesRecord,
@@ -9,6 +10,7 @@ import type {
   IInvitePostConfig,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
@@ -153,6 +155,30 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkAndUpdateReferralCode({ accountId }: { accountId: string }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const walletReferralCode = await this.getWalletReferralCode({
+      walletId,
+    });
+    if (walletReferralCode) {
+      const alreadyBound = await this.checkWalletIsBoundReferralCode({
+        address: walletReferralCode.address,
+        networkId: walletReferralCode.networkId,
+      });
+      await this.updateWalletReferralCode({
+        walletId,
+        referralCodeInfo: {
+          isBound: alreadyBound,
+        },
+      });
+      if (alreadyBound) {
+        return walletReferralCode;
+      }
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
   async updateMyReferralCode(code: string) {
     await this.backgroundApi.simpleDb.referralCode.updateCode({
       myReferralCode: code,
@@ -261,6 +287,20 @@ class ServiceReferralCode extends ServiceBase {
     referralCodeInfo: IWalletReferralCode;
   }) {
     return this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
+      walletId,
+      referralCodeInfo,
+    });
+  }
+
+  @backgroundMethod()
+  async updateWalletReferralCode({
+    walletId,
+    referralCodeInfo,
+  }: {
+    walletId: string;
+    referralCodeInfo: Partial<IWalletReferralCode>;
+  }) {
+    return this.backgroundApi.simpleDb.referralCode.updateWalletReferralCode({
       walletId,
       referralCodeInfo,
     });

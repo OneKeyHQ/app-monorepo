@@ -93,6 +93,24 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     );
   }
 
+  async updateWalletReferralCode({
+    walletId,
+    referralCodeInfo,
+  }: {
+    walletId: string;
+    referralCodeInfo: Partial<IWalletReferralCode>;
+  }) {
+    const data = await this.getRawData();
+    if (data?.walletReferralCode?.[walletId]) {
+      data.walletReferralCode[walletId] = {
+        ...data.walletReferralCode[walletId],
+        ...referralCodeInfo,
+      };
+      return this.setRawData(data);
+    }
+    return Promise.resolve(undefined);
+  }
+
   async reset() {
     return this.setRawData({
       myReferralCode: '',

@@ -29,7 +29,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 
-export function useGetReferralCodeWalletInfo() {
+function useGetReferralCodeWalletInfo() {
   return useCallback(async (walletId: string | undefined) => {
     if (!walletId) {
       return null;
