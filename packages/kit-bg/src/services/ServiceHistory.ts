@@ -51,6 +51,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -1363,6 +1364,24 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async getLocalAddressesInfo() {
     return this.backgroundApi.simpleDb.addressInfo.getAddressesInfo();
+  }
+
+  @backgroundMethod()
+  async migrateFilterScamHistorySetting() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.filterScamHistorySettingMigrated) {
+      console.log('migrateFilterScamHistorySetting: already migrated');
+      return;
+    }
+
+    await this.backgroundApi.serviceSetting.setFilterScamHistoryEnabled(true);
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        filterScamHistorySettingMigrated: true,
+      }),
+    );
   }
 }
 

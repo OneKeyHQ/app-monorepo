@@ -495,17 +495,39 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
 
       if (filterNetworksWithoutAccount && indexedAccountId) {
         for (const network of compatibleNetworks.mainnetItems) {
-          const { networkAccounts } =
-            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          const [{ networkAccounts }, vaultSettings] = await Promise.all([
+            backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
                 indexedAccountId,
                 networkId: network.id,
                 excludeEmptyAccount: true,
               },
-            );
+            ),
+            backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: network.id,
+            }),
+          ]);
 
-          if (!networkAccounts || networkAccounts.length === 0) {
+          if (vaultSettings.mergeDeriveAssetsEnabled) {
+            if (!networkAccounts || networkAccounts.length === 0) {
+              compatibleNetworksWithoutAccount.push(network);
+            }
+          } else if (!networkAccounts || networkAccounts.length === 0) {
             compatibleNetworksWithoutAccount.push(network);
+          } else {
+            const currentDeriveType =
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId: network.id,
+                },
+              );
+            if (
+              !networkAccounts.some(
+                (account) => account.deriveType === currentDeriveType,
+              )
+            ) {
+              compatibleNetworksWithoutAccount.push(network);
+            }
           }
         }
       }
