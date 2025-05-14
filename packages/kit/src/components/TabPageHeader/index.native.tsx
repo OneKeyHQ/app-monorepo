@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import { PageHeaderDivider } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
@@ -18,6 +17,7 @@ export function TabPageHeader({
   sceneName,
   tabRoute,
   customHeaderRightItems,
+  customHeaderLeftItems,
 }: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
 
@@ -43,7 +43,11 @@ export function TabPageHeader({
         mt={platformEnv.isNativeAndroid ? '$2' : undefined}
       >
         <View>
-          <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />
+          <HeaderLeft
+            sceneName={sceneName}
+            tabRoute={tabRoute}
+            customHeaderLeftItems={customHeaderLeftItems}
+          />
         </View>
         <View>
           <HeaderTitle sceneName={sceneName} />

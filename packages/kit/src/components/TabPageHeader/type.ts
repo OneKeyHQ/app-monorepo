@@ -8,4 +8,5 @@ export interface ITabPageHeaderProp {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
+  customHeaderLeftItems?: ReactNode;
 }

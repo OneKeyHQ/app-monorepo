@@ -17,10 +17,17 @@ export function TabPageHeader({
   sceneName,
   tabRoute,
   customHeaderRightItems,
+  customHeaderLeftItems,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
-    () => <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />,
-    [sceneName, tabRoute],
+    () => (
+      <HeaderLeft
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderLeftItems={customHeaderLeftItems}
+      />
+    ),
+    [sceneName, tabRoute, customHeaderLeftItems],
   );
 
   const { config } = useAccountSelectorContextData();
