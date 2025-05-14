@@ -44,12 +44,11 @@ import { MarketTokenPrice } from '../components/MarketTokenPrice';
 import { MarketTradeButton } from '../components/MarketTradeButton';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { TokenDetailTabs } from '../components/TokenDetailTabs';
-import { TokenPriceChart } from '../components/TokenPriceChart';
 import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
-import { MarketDetailHeader } from './components/MarketDetailHeader/MarketDetailHeader';
-import { SwapPanel } from './components/SwapPanel';
+import { MarketDetailHeader, SwapPanel } from './components';
+import { TokenPriceChart as NewTokenPriceChart } from './components/TokenPriceChart/TokenPriceChart';
 
 function TokenDetailHeader({
   coinGeckoId,
@@ -302,14 +301,10 @@ function MarketDetail({
 
   const tokenPriceChart = useMemo(
     () => (
-      <TokenPriceChart
-        isFetching={!tokenDetail}
-        tickers={tokenDetail?.tickers}
-        fallbackToChart={!!tokenDetail?.fallbackToChart}
-        tvPlatform={tokenDetail?.tvPlatform}
+      <NewTokenPriceChart
+        tokenDetail={tokenDetail}
         coinGeckoId={coinGeckoId}
         defer={defer}
-        symbol={tokenDetail?.symbol}
       />
     ),
     [coinGeckoId, defer, tokenDetail],
