@@ -110,7 +110,10 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    if (!this.enableAnalyticsInDev) {
+    if (
+      (platformEnv.isDev || platformEnv.isE2E) &&
+      !this.enableAnalyticsInDev
+    ) {
       return;
     }
     const deviceInfo = await this.lazyDeviceInfo();
@@ -136,7 +139,10 @@ export class Analytics {
   }
 
   private async requestUserProfile(attributes: Record<string, any>) {
-    if (!this.enableAnalyticsInDev) {
+    if (
+      (platformEnv.isDev || platformEnv.isE2E) &&
+      !this.enableAnalyticsInDev
+    ) {
       return;
     }
     const axios = this.lazyAxios();
