@@ -20,7 +20,6 @@ import {
   useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,25 +30,25 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
-import { OpenInAppButton } from '../../components/OpenInAppButton';
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { OpenInAppButton } from '../../../components/OpenInAppButton';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { MarketDetailOverview } from '../components/MarketDetailOverview';
+import { MarketHomeHeaderSearchBar } from '../components/MarketHomeHeaderSearchBar';
+import { MarketStar } from '../components/MarketStar';
+import { MarketTokenIcon } from '../components/MarketTokenIcon';
+import { MarketTokenPrice } from '../components/MarketTokenPrice';
+import { MarketTradeButton } from '../components/MarketTradeButton';
+import { PriceChangePercentage } from '../components/PriceChangePercentage';
+import { TokenDetailTabs } from '../components/TokenDetailTabs';
+import { TokenPriceChart } from '../components/TokenPriceChart';
+import { buildMarketFullUrl } from '../marketUtils';
+import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
-import { MarketDetailOverview } from './components/MarketDetailOverview';
-import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
-import { MarketStar } from './components/MarketStar';
-import { MarketTokenIcon } from './components/MarketTokenIcon';
-import { MarketTokenPrice } from './components/MarketTokenPrice';
-import { MarketTradeButton } from './components/MarketTradeButton';
-import { PriceChangePercentage } from './components/PriceChangePercentage';
-import { TokenDetailTabs } from './components/TokenDetailTabs';
-import { TokenPriceChart } from './components/TokenPriceChart';
-import MarketDetailV2 from './MarketDetailV2/MarketDetailV2';
-import { buildMarketFullUrl } from './marketUtils';
-import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
+import { SwapPanel } from './components/SwapPanel';
 
 function TokenDetailHeader({
   coinGeckoId,
@@ -323,6 +322,8 @@ function MarketDetail({
         headerLeft={renderHeaderLeft}
       />
       <Page.Body>
+        <SwapPanel />
+
         {gtMd ? (
           <YStack flex={1}>
             <XStack flex={1} pt="$5">
@@ -357,14 +358,6 @@ function MarketDetail({
 export default function MarketDetailWithProvider(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>,
 ) {
-  const [devSettings] = useDevSettingsPersistAtom();
-  const enableMarketV2 =
-    devSettings.enabled && devSettings.settings?.enableMarketV2;
-
-  if (enableMarketV2) {
-    return <MarketDetailV2 {...props} />;
-  }
-
   return (
     <AccountSelectorProviderMirror
       config={{
