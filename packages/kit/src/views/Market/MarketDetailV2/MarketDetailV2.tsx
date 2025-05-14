@@ -48,6 +48,7 @@ import { TokenPriceChart } from '../components/TokenPriceChart';
 import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
+import { MarketDetailHeader } from './components/MarketDetailHeader/MarketDetailHeader';
 import { SwapPanel } from './components/SwapPanel';
 
 function TokenDetailHeader({
@@ -316,11 +317,7 @@ function MarketDetail({
 
   return (
     <Page>
-      <Page.Header
-        headerTitle={renderHeaderTitle}
-        headerRight={renderHeaderRight}
-        headerLeft={renderHeaderLeft}
-      />
+      <MarketDetailHeader />
       <Page.Body>
         <SwapPanel />
 
