@@ -177,7 +177,7 @@ function Container({ children }: PropsWithChildren) {
 }
 
 function BasicTabHeaderSettings() {
-  const [tabName, setTabName] = useState<string>('');
+  const [tabName, setTabName] = useState<string>('crypto');
   useEffect(() => {
     const callback = ({ tabId }: { tabId: string }) => {
       setTabName(tabId);
