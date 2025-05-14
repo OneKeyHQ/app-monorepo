@@ -233,7 +233,7 @@ class ServiceStaking extends ServiceBase {
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v2/stake/v2`, {
+    }>(`/earn/v2/stake`, {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
