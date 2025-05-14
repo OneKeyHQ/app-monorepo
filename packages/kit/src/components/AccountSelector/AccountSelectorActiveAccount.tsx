@@ -65,8 +65,10 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     const refresh = async () => {
       await run({ alwaysSetState: true });
     };
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
     return () => {
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
     };
   }, [run]);
