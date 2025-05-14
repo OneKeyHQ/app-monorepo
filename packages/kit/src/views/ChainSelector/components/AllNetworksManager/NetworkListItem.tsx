@@ -36,7 +36,8 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
 
   return (
     <ListItem
-      h={48}
+      h="$12"
+      py="$0"
       onPress={handleToggle}
       renderAvatar={
         <NetworkAvatarBase

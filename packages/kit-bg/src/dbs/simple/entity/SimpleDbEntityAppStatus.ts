@@ -15,6 +15,7 @@ export interface ISimpleDBAppStatus {
   hdWalletsBackupMigrated?: boolean; // is mnemonic backuped by user
   falconDepositDoNotShowAgain?: boolean;
   lastDBBackupTime?: number;
+  filterScamHistorySettingMigrated?: boolean;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {

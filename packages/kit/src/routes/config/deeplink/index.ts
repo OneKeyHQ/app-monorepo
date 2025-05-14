@@ -155,6 +155,7 @@ async function processDeepLinkWalletConnect({
     ) {
       if (
         (path === WALLET_CONNECT_DEEP_LINK_NAME && !hostname) ||
+        (path === `/${WALLET_CONNECT_DEEP_LINK_NAME}` && !hostname) ||
         (hostname === WALLET_CONNECT_DEEP_LINK_NAME && !path)
       ) {
         if (queryParams?.uri) {
