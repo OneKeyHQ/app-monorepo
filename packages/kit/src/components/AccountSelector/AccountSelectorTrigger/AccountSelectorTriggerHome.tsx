@@ -14,6 +14,8 @@ export function AccountSelectorTriggerHome({
       horizontalLayout
       editable
       autoWidthForHome
+      showWalletAvatar
+      showWalletName={false}
       num={num}
       linkNetwork={false}
       spotlightProps={spotlightProps}

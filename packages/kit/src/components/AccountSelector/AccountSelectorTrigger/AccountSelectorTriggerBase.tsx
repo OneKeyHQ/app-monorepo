@@ -19,8 +19,8 @@ export function AccountSelectorTriggerBase({
   num,
   spotlightProps,
   horizontalLayout,
-  showWalletAvatar = true,
-  showWalletName = false,
+  showWalletAvatar,
+  showWalletName = true,
   ...others
 }: {
   num: number;
