@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   EPageType,
   Page,
   ScrollView,
-  SizableText,
-  Skeleton,
-  View,
   XStack,
   YStack,
   useDeferredPromise,
@@ -20,9 +17,7 @@ import type {
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TokenDetailTabs } from '../components/TokenDetailTabs';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
@@ -34,6 +29,7 @@ import {
   SwapPanel,
   TokenDetailHeaderSkeleton,
 } from './components';
+import { useMarketDetailData } from './useMarketDetailData';
 
 function MarketDetail({
   route,
@@ -45,29 +41,8 @@ function MarketDetail({
 
   const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const [tokenDetail, setTokenDetail] = useState<
-    IMarketTokenDetail | undefined
-  >(undefined);
-
-  const fetchMarketTokenDetail = useCallback(async () => {
-    const response =
-      await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
-        coinGeckoId,
-      );
-    setTokenDetail(response);
-  }, [coinGeckoId]);
-
-  const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await fetchMarketTokenDetail();
-    setIsRefreshing(false);
-  }, [fetchMarketTokenDetail]);
-
-  useEffect(() => {
-    void fetchMarketTokenDetail();
-  }, [fetchMarketTokenDetail]);
+  const { tokenDetail, isRefreshing, onRefresh } =
+    useMarketDetailData(coinGeckoId);
 
   const tokenDetailHeader = useMemo(() => {
     if (tokenDetail) {
