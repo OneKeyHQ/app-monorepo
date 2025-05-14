@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -144,12 +144,18 @@ function SearchInput() {
 
 export function HeaderRight({
   tabRoute,
+  customHeaderRightItems,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
+  customHeaderRightItems?: ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
   const items = useMemo(() => {
+    if (customHeaderRightItems) {
+      return customHeaderRightItems;
+    }
+
     const fixedItems = (
       <>
         {isHorizontal ? <NotificationsButton /> : null}
@@ -195,7 +201,7 @@ export function HeaderRight({
       default:
         break;
     }
-  }, [isHorizontal, tabRoute]);
+  }, [isHorizontal, tabRoute, customHeaderRightItems]);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"

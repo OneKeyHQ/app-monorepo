@@ -14,16 +14,24 @@ import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
+export function TabPageHeader({
+  sceneName,
+  tabRoute,
+  customHeaderRightItems,
+}: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
 
   const headerRight = useMemo(() => {
     return (
       <HomeTokenListProviderMirror>
-        <HeaderRight sceneName={sceneName} tabRoute={tabRoute} />
+        <HeaderRight
+          sceneName={sceneName}
+          tabRoute={tabRoute}
+          customHeaderRightItems={customHeaderRightItems}
+        />
       </HomeTokenListProviderMirror>
     );
-  }, [sceneName, tabRoute]);
+  }, [sceneName, tabRoute, customHeaderRightItems]);
   return (
     <>
       <Page.Header headerShown={false} />
