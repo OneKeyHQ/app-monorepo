@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "পরিসঞ্চারিত সরবরাহ",
   "global.clear": "পরিষ্কার",
   "global.close": "বন্ধ করুন",
+  "global.close_confirm_description": "আপনার সেভ না করা পরিবর্তন আছে। আপনি যদি এখন বন্ধ করেন, এই তথ্য হারিয়ে যাবে।",
   "global.collect_to_device": "ডিভাইসে সংগ্রহ করুন",
   "global.collect_to_device_canceled": "ডিভাইসে বাতিল করা হয়েছে",
   "global.collect_to_device_failed": "সংগ্রহ করতে ব্যর্থ হয়েছে, দয়া করে আবার চেষ্টা করুন",

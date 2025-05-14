@@ -45,6 +45,7 @@ import { Spinner, Stack } from '../../primitives';
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
+import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
@@ -79,6 +80,7 @@ export type {
   IDialogInstance,
   IDialogShowProps,
 } from './type';
+export * from './dialogInstances';
 
 export const FIX_SHEET_PROPS: IStackProps = {
   display: 'block',
@@ -479,6 +481,8 @@ function dialogShow({
       }
     | undefined;
 
+  let dialogInstance: IDialogInstance | undefined;
+
   const buildForwardOnClose =
     (options: {
       onClose?: (extra?: { flag?: string }) => void | Promise<void>;
@@ -493,6 +497,10 @@ function dialogShow({
           if (portalRef) {
             portalRef.current.destroy();
             portalRef = undefined;
+          }
+          if (dialogInstance) {
+            removeDialogInstance(dialogInstance);
+            dialogInstance = undefined;
           }
           void options.onClose?.(extra);
           resolve();
@@ -539,11 +547,13 @@ function dialogShow({
     }
     return instanceRef?.current?.close(extra);
   };
-  return {
+  dialogInstance = {
     close,
     getForm: () => instanceRef?.current?.getForm(),
     isExist,
   };
+  addDialogInstance(dialogInstance);
+  return dialogInstance;
 }
 
 const dialogConfirm = (props: IDialogConfirmProps) =>
