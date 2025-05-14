@@ -1064,6 +1064,7 @@
   global_circulating_supply = 'global.circulating_supply',
   global_clear = 'global.clear',
   global_close = 'global.close',
+  global_close_confirm_description = 'global.close_confirm_description',
   global_collect_to_device = 'global.collect_to_device',
   global_collect_to_device_canceled = 'global.collect_to_device_canceled',
   global_collect_to_device_failed = 'global.collect_to_device_failed',

@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "Lượng cung ứng lưu hành",
   "global.clear": "Xóa",
   "global.close": "Đóng",
+  "global.close_confirm_description": "Bạn có các thay đổi chưa được lưu. Nếu bạn đóng bây giờ, thông tin này sẽ bị mất.",
   "global.collect_to_device": "Thu thập vào thiết bị",
   "global.collect_to_device_canceled": "Đã hủy trên thiết bị",
   "global.collect_to_device_failed": "Không thể thu thập, vui lòng thử lại",

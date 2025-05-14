@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "流通供給量",
   "global.clear": "クリア",
   "global.close": "閉じる",
+  "global.close_confirm_description": "未保存の変更があります。今閉じると、この情報は失われます。",
   "global.collect_to_device": "デバイスに収集",
   "global.collect_to_device_canceled": "デバイスでキャンセルされました",
   "global.collect_to_device_failed": "収集に失敗しました、もう一度お試しください",

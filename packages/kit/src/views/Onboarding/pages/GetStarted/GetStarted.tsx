@@ -8,6 +8,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -18,12 +19,12 @@ import { Actions, TermsAndPrivacy, Welcome } from './components';
 export function GetStarted({
   route,
 }: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
-  const { isFullModal, fromExt } = route.params || {};
-  const { top: topInset } = useSafeAreaInsets();
-  let top = isFullModal ? topInset : '$5';
+  const { isFullModal } = route.params || {};
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  let top: number | string = '$5';
 
-  if (fromExt) {
-    top = '$5';
+  if (isFullModal && platformEnv.isNative) {
+    top = safeAreaTop;
   }
 
   useEffect(() => {
