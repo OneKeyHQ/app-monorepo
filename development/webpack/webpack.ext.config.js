@@ -59,6 +59,14 @@ module.exports = ({
         publicPath: `http://localhost:${WEB_PORT}/`,
         writeToDisk: true,
       },
+      client: {
+        webSocketURL: {
+          hostname: 'localhost',
+          pathname: '/ws',
+          port: WEB_PORT,
+          protocol: 'ws',
+        },
+      },
     },
   });
   const extConfigs = ({ name }) =>
