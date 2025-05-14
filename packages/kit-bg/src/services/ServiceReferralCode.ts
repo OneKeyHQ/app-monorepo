@@ -3,11 +3,13 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  IEarnRewardResponse,
   IHardwareSalesRecord,
   IInviteHistory,
   IInvitePostConfig,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
@@ -105,19 +107,23 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnReward(cursor?: string) {
+  async getEarnReward(cursor?: string, available?: boolean) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
       cursor?: string;
+      status?: string;
     } = {
       subject: 'Earn',
     };
     if (cursor) {
       params.cursor = cursor;
     }
+    if (available) {
+      params.status = 'AVAILABLE';
+    }
     const response = await client.get<{
-      data: IHardwareSalesRecord;
+      data: IEarnRewardResponse;
     }>('/rebate/v1/invite/records', { params });
     return response.data.data;
   }
@@ -145,6 +151,32 @@ class ServiceReferralCode extends ServiceBase {
       });
     }
     return valid;
+  }
+
+  @backgroundMethod()
+  async checkAndUpdateReferralCode({ accountId }: { accountId: string }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const walletReferralCode = await this.getWalletReferralCode({
+      walletId,
+    });
+    if (walletReferralCode) {
+      const alreadyBound = await this.checkWalletIsBoundReferralCode({
+        address: walletReferralCode.address,
+        networkId: walletReferralCode.networkId,
+      });
+      const newWalletReferralCode = {
+        ...walletReferralCode,
+        isBound: alreadyBound,
+      };
+      await this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
+        walletId,
+        referralCodeInfo: newWalletReferralCode,
+      });
+      if (alreadyBound) {
+        return newWalletReferralCode;
+      }
+    }
+    return undefined;
   }
 
   @backgroundMethod()

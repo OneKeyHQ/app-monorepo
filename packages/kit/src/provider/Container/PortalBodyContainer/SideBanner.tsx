@@ -11,7 +11,6 @@ import {
   Portal,
   SizableText,
   Stack,
-  XStack,
   YStack,
   useIsIpadLandscape,
   useMedia,
@@ -26,7 +25,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';

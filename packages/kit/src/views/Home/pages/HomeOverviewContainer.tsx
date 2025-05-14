@@ -292,7 +292,12 @@ function HomeOverviewContainer() {
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
-        <AllNetworksManagerTrigger num={0} />
+        <AllNetworksManagerTrigger
+          num={0}
+          containerProps={{
+            ml: '$1',
+          }}
+        />
         <XStack alignItems="center" gap="$3">
           <XStack
             flexShrink={1}

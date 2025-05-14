@@ -6,6 +6,7 @@ import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
@@ -106,7 +107,6 @@ export function useUniversalStake({
           morphoVault,
           approveType,
           permitSignature,
-          // inviteCode,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -146,7 +146,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToTxConfirm, accountId, networkId],
+    [accountId, networkId, navigationToTxConfirm],
   );
 }
 

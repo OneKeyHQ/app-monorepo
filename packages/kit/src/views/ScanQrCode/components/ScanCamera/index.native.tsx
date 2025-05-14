@@ -10,7 +10,6 @@ import type { IScanCameraProps } from './types';
 export type { IScanCameraProps };
 
 export function ScanCamera({
-  style,
   children,
   handleScanResult,
   ...rest

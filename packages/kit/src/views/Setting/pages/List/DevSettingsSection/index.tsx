@@ -458,7 +458,7 @@ export const DevSettingsSection = () => {
       <SectionPressItem
         title="NotificationDevSettings"
         onPress={() => {
-          const dialog = Dialog.cancel({
+          Dialog.cancel({
             title: 'NotificationDevSettings',
             renderContent: <NotificationDevSettings />,
           });
@@ -773,6 +773,14 @@ export const DevSettingsSection = () => {
             ? '新版 TradingView'
             : '旧版 TradingView'
         }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
+      <SectionFieldItem
+        name="enableMarketV2"
+        title="Enable Market V2"
+        subtitle="启用新版市场"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>

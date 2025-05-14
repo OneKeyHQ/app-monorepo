@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "จำนวนหุ้นที่หมุนเวียน",
   "global.clear": "ชัดเจน",
   "global.close": "ปิด",
+  "global.close_confirm_description": "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก หากคุณปิดตอนนี้ ข้อมูลนี้จะสูญหาย",
   "global.collect_to_device": "รวบรวมไปยังอุปกรณ์",
   "global.collect_to_device_canceled": "ยกเลิกบนอุปกรณ์",
   "global.collect_to_device_failed": "การเก็บรวบรวมล้มเหลว โปรดลองอีกครั้ง",

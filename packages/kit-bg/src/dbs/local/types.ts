@@ -63,7 +63,7 @@ export type IDBContext = {
   nextWalletNo: number;
   verifyString: string;
   networkOrderChanged?: boolean;
-  backupUUID: string;
+  backupUUID: string; // deprecated
   nextSignatureMessageId: number;
   nextSignatureTransactionId: number;
   nextConnectedSiteId: number;

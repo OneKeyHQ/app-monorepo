@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -32,12 +33,12 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
-import { UniversalSearchInput } from '../../components/TabPageHeader/UniversalSearchInput';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
+import { MarketHomeV2 } from './MarketHomeV2';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
@@ -187,6 +188,14 @@ function MarketHome() {
 }
 
 export default function MarketHomeWithProvider() {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const enableMarketV2 =
+    devSettings.enabled && devSettings.settings?.enableMarketV2;
+
+  if (enableMarketV2) {
+    return <MarketHomeV2 />;
+  }
+
   return (
     <AccountSelectorProviderMirror
       config={{
