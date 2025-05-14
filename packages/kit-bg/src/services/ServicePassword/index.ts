@@ -593,11 +593,24 @@ export default class ServicePassword extends ServiceBase {
       useRnJsCrypto,
     });
     if (verifyingPassword) {
-      void this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
-        {
-          password: verifyingPassword,
-        },
-      );
+      void (async () => {
+        try {
+          await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
+            {
+              password: verifyingPassword,
+            },
+          );
+        } catch (e) {
+          console.error(e);
+        }
+        try {
+          await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
+            password: verifyingPassword,
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      })();
     }
     return verifyingPassword;
   }

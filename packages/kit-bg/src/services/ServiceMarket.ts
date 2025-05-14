@@ -17,6 +17,7 @@ import type {
   IMarketTokenDetail,
   IMarketWatchListItem,
 } from '@onekeyhq/shared/types/market';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 
@@ -193,6 +194,16 @@ class ServiceMarket extends ServiceBase {
       return this.fetchCategory('all', data, false);
     }
     return [];
+  }
+
+  @backgroundMethod()
+  async fetchMarketChains() {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: ISwapNetwork[];
+    }>('/utility/v2/market/chains');
+    const { data } = response.data;
+    return data;
   }
 
   async buildMarketWatchListSyncItems({

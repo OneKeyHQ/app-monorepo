@@ -1485,10 +1485,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     success: boolean;
     isServerMasterPasswordSet?: boolean;
     encryptedSecurityPasswordR1ForServer?: string;
-    localSameWallets?: {
-      walletHash: string;
-      wallets: IDBWallet[];
-    }[];
     serverDiffItems?: ICloudSyncServerDiffItem[];
   }> {
     const isPrimeLoggedIn =
@@ -1513,26 +1509,6 @@ class ServicePrimeCloudSync extends ServiceBase {
           description: 'Please enter your password to enable cloud sync',
         },
       });
-
-    const sameWallets = await this.withDialogLoading(
-      {
-        title: 'Checking status',
-      },
-      async () => {
-        const sameWallets0: {
-          walletHash: string;
-          wallets: IDBWallet[];
-        }[] = await this.backgroundApi.serviceAccount.getLocalSameHDWallets({
-          password,
-        });
-        return sameWallets0;
-      },
-    );
-
-    // should resolve same wallets from UI
-    if (sameWallets.length > 0) {
-      return { success: false, localSameWallets: sameWallets };
-    }
 
     const { isServerMasterPasswordSet, encryptedSecurityPasswordR1ForServer } =
       await this.backgroundApi.serviceMasterPassword.setupMasterPassword({
