@@ -784,7 +784,7 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-      
+
       <SectionPressItem
         title="Device Info"
         subtitle="设备信息"
