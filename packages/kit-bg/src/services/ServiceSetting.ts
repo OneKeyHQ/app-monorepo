@@ -545,6 +545,14 @@ class ServiceSetting extends ServiceBase {
       hiddenWalletImmediately: value,
     }));
   }
+
+  @backgroundMethod()
+  public async setFilterScamHistoryEnabled(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isFilterScamHistoryEnabled: value,
+    }));
+  }
 }
 
 export default ServiceSetting;
