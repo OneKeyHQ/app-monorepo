@@ -396,6 +396,7 @@ class EvmApiProvider extends BaseApiProvider {
     const gas = this.defaultFeeRates.map((rate) => ({
       gasPrice: new B(gasPrice)
         .multipliedBy(rate)
+        .decimalPlaces(0)
         .shiftedBy(-network.feeMeta.decimals)
         .toFixed(),
     }));
@@ -460,9 +461,11 @@ class EvmApiProvider extends BaseApiProvider {
             .shiftedBy(-params.network.feeMeta.decimals)
             .toFixed(),
           maxFeePerGas: maxFeePerGasEach
+            .decimalPlaces(0)
             .shiftedBy(-params.network.feeMeta.decimals)
             .toFixed(),
           maxPriorityFeePerGas: maxPriorityFeePerGasEach
+            .decimalPlaces(0)
             .shiftedBy(-params.network.feeMeta.decimals)
             .toFixed(),
         };
