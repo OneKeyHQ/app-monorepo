@@ -2,7 +2,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IEarnRewardResponse,
   IHardwareSalesRecord,
