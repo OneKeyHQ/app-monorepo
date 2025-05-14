@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "Oferta circulante",
   "global.clear": "Limpar",
   "global.close": "Fechar",
+  "global.close_confirm_description": "Você tem alterações não salvas. Se fechar agora, estas informações serão perdidas.",
   "global.collect_to_device": "Coletar no dispositivo",
   "global.collect_to_device_canceled": "Cancelado no dispositivo",
   "global.collect_to_device_failed": "Falha ao coletar, por favor tente novamente",

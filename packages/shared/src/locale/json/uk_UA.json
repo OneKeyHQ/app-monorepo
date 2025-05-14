@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "Обіговий запас",
   "global.clear": "Очистити",
   "global.close": "Закрити",
+  "global.close_confirm_description": "У вас є незбережені зміни. Якщо ви закриєте зараз, ця інформація буде втрачена.",
   "global.collect_to_device": "Зберігати на пристрої",
   "global.collect_to_device_canceled": "Скасовано на пристрої",
   "global.collect_to_device_failed": "Не вдалося зібрати, будь ласка, спробуйте ще раз",
