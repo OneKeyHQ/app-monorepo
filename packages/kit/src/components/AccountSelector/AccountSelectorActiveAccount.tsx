@@ -208,11 +208,13 @@ export function AccountSelectorActiveAccountHome({
   showAccountAddress = true,
   showCopyButton = false,
   showCreateAddressButton = true,
+  showNoAddressTip = true,
 }: {
   num: number;
   showAccountAddress?: boolean;
   showCopyButton?: boolean;
   showCreateAddressButton?: boolean;
+  showNoAddressTip?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -435,11 +437,11 @@ export function AccountSelectorActiveAccountHome({
     );
   }
 
-  return (
+  return showNoAddressTip ? (
     <XStack onPress={() => logActiveAccount()}>
       <SizableText size="$bodyMd" color="$textCaution">
         {intl.formatMessage({ id: ETranslations.wallet_no_address })}
       </SizableText>
     </XStack>
-  );
+  ) : null;
 }
