@@ -196,7 +196,6 @@ export const useReferFriends = () => {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
         }
       };
-      const sharedUrl = `https://onekey.so/r/${myReferralCode}`;
       const dialog = Dialog.show({
         icon: 'GiftOutline',
         title: intl.formatMessage({ id: ETranslations.earn_referral_title }),
