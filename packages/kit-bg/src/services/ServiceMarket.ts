@@ -19,10 +19,7 @@ import type {
 } from '@onekeyhq/shared/types/market';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  EIndexedDBBucketNames,
-  type IDBCloudSyncItem,
-} from '../dbs/local/types';
+import { type IDBCloudSyncItem } from '../dbs/local/types';
 
 import ServiceBase from './ServiceBase';
 

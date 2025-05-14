@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
-import { isArray, isEmpty, isNil, trim } from 'lodash';
+import { isArray, isEmpty, isNil } from 'lodash';
 
 import type {
   IEncodedTxAlgo,
@@ -14,10 +13,8 @@ import {
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   ManageTokenInsufficientBalanceError,
-  OneKeyError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -57,10 +54,7 @@ import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
 import { encodeTransaction } from './utils';
 
-import type {
-  ISdkAlgoAccountInformation,
-  ISdkAlgoEncodedTransaction,
-} from './sdkAlgo';
+import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
