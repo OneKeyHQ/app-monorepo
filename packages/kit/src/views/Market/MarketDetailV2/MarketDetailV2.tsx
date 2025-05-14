@@ -21,11 +21,9 @@ import {
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
@@ -34,92 +32,18 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { OpenInAppButton } from '../../../components/OpenInAppButton';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { MarketDetailOverview } from '../components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from '../components/MarketHomeHeaderSearchBar';
-import { MarketStar } from '../components/MarketStar';
 import { MarketTokenIcon } from '../components/MarketTokenIcon';
-import { MarketTokenPrice } from '../components/MarketTokenPrice';
-import { MarketTradeButton } from '../components/MarketTradeButton';
-import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { TokenDetailTabs } from '../components/TokenDetailTabs';
 import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
-import { MarketDetailHeader, SwapPanel } from './components';
-import { TokenPriceChart as NewTokenPriceChart } from './components/TokenPriceChart/TokenPriceChart';
-
-function TokenDetailHeader({
-  coinGeckoId,
-  token: responseToken,
-}: {
-  coinGeckoId: string;
-  token: IMarketTokenDetail;
-}) {
-  const { gtMd: gtMdMedia } = useMedia();
-
-  const pageType = usePageType();
-
-  const {
-    activeAccount: { wallet },
-  } = useActiveAccount({
-    num: 0,
-  });
-
-  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
-
-  const { result: token } = usePromiseResult(
-    () => backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(coinGeckoId),
-    [coinGeckoId],
-    {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 45 }),
-      initResult: responseToken,
-    },
-  );
-  const {
-    name,
-    symbol,
-    stats: { performance, currentPrice, lastUpdated },
-  } = token;
-  return (
-    <YStack
-      px="$5"
-      $md={{ minHeight: 150 }}
-      {...(pageType === EPageType.modal ? { minHeight: 150 } : null)}
-    >
-      <YStack flex={1}>
-        <SizableText size="$headingMd" color="$textSubdued">
-          {name}
-        </SizableText>
-        <XStack ai="center" jc="space-between" pt="$2">
-          <MarketTokenPrice
-            size="$heading3xl"
-            price={currentPrice}
-            tokenName={name}
-            tokenSymbol={symbol}
-            lastUpdated={lastUpdated}
-          />
-          <MarketStar
-            coingeckoId={coinGeckoId}
-            mr="$-2"
-            size="medium"
-            from={EWatchlistFrom.details}
-          />
-        </XStack>
-        <PriceChangePercentage pt="$0.5" width="100%">
-          {performance.priceChangePercentage24h}
-        </PriceChangePercentage>
-      </YStack>
-      <MarketTradeButton
-        coinGeckoId={coinGeckoId}
-        token={token}
-        wallet={wallet}
-      />
-      {gtMd ? <MarketDetailOverview token={token} /> : null}
-    </YStack>
-  );
-}
+import {
+  MarketDetailHeader,
+  TokenPriceChart as NewTokenPriceChart,
+  SwapPanel,
+  TokenDetailHeader,
+} from './components';
 
 function SkeletonHeader() {
   return (
