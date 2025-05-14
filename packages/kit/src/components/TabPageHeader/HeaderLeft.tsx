@@ -91,13 +91,18 @@ export function HeaderLeft({
       <XStack gap="$3" ai="center">
         {accountSelectorTrigger}
         {tabRoute === ETabRoutes.Home && gtMd ? (
-          <NetworkSelectorTriggerHome num={0} recordNetworkHistoryEnabled />
+          <NetworkSelectorTriggerHome
+            num={0}
+            recordNetworkHistoryEnabled
+            hideOnNoAccount
+          />
         ) : null}
         <AccountSelectorActiveAccountHome
           num={0}
           showAccountAddress={false}
           showCopyButton={tabRoute === ETabRoutes.Home}
-          showCreateAddressButton={false}
+          showCreateAddressButton={tabRoute !== ETabRoutes.Home}
+          showNoAddressTip={false}
         />
       </XStack>
     );

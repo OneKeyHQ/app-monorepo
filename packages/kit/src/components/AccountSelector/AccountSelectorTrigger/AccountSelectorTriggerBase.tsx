@@ -19,19 +19,22 @@ export function AccountSelectorTriggerBase({
   num,
   spotlightProps,
   horizontalLayout,
+  showWalletAvatar,
+  showWalletName = true,
   ...others
 }: {
   num: number;
   autoWidthForHome?: boolean;
   spotlightProps?: ISpotlightViewProps;
   horizontalLayout?: boolean;
+  showWalletAvatar?: boolean;
+  showWalletName?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, ...others });
   const intl = useIntl();
-
   const walletName =
     wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });
   const displayAccountName =
@@ -45,7 +48,7 @@ export function AccountSelectorTriggerBase({
         width="$full"
         // width="$80"
         // flex={1}
-        py="$0.5"
+        py="$1"
         px="$1.5"
         mx="$-1.5"
         borderRadius="$2"
@@ -64,16 +67,20 @@ export function AccountSelectorTriggerBase({
           indexedAccount={indexedAccount}
           account={account}
           dbAccount={dbAccount}
+          wallet={showWalletAvatar ? wallet : undefined}
         />
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
-          pl="$2"
+          pl={showWalletAvatar ? '$2.5' : '$2'}
           flexShrink={1}
           flex={platformEnv.isNative ? undefined : 1}
         >
           {horizontalLayout ? (
             <SizableText
-              size="$bodyMd"
+              size={showWalletName ? '$bodyMdMedium' : '$bodyLgMedium'}
+              $gtMd={{
+                size: '$bodyMdMedium',
+              }}
               color="$text"
               $gtXl={{
                 maxWidth: '56',
@@ -82,7 +89,9 @@ export function AccountSelectorTriggerBase({
               flexShrink={1}
               maxWidth="$40"
             >
-              {`${walletName} / ${displayAccountName}`}
+              {showWalletName
+                ? `${walletName} / ${displayAccountName}`
+                : displayAccountName}
             </SizableText>
           ) : (
             <>
@@ -115,6 +124,9 @@ export function AccountSelectorTriggerBase({
       horizontalLayout,
       indexedAccount,
       showAccountSelector,
+      showWalletAvatar,
+      showWalletName,
+      wallet,
       walletName,
     ],
   );
