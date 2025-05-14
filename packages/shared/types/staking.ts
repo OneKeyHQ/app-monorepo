@@ -109,6 +109,8 @@ export type IStakeBaseParams = {
   permitSignature?: string;
 
   inviteCode?: string;
+  bindedAccountAddress?: string;
+  bindedNetworkId?: string;
 };
 
 export type IWithdrawBaseParams = {
