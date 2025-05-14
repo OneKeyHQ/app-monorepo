@@ -232,7 +232,7 @@ const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
           leadingLength: 6,
           trailingLength: 4,
         }),
-        amount: totalFiatValue.toFixed(),
+        amount: totalFiatValue.toFixed(2),
         data: items.map((item) => {
           const orderTotalAmount = item?.orderTotalAmount || '0';
           const symbol = item?.token?.symbol || '';
