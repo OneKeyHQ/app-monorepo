@@ -32,8 +32,8 @@ import {
   MarketDetailHeader,
   TokenPriceChart as NewTokenPriceChart,
   SwapPanel,
+  TokenDetailHeaderSkeleton,
 } from './components';
-import { MarketDetailSkeleton } from './components/MarketDetailHeader/MarketDetailSkeleton';
 
 function MarketDetail({
   route,
@@ -78,7 +78,7 @@ function MarketDetail({
         />
       );
     }
-    return <MarketDetailSkeleton gtMd={gtMd} />;
+    return <TokenDetailHeaderSkeleton gtMd={gtMd} />;
   }, [coinGeckoId, gtMd, tokenDetail]);
 
   const defer = useDeferredPromise();

@@ -21,11 +21,13 @@ function SkeletonHeaderOverItemItem() {
   );
 }
 
-interface IMarketDetailSkeletonProps {
+interface ITokenDetailHeaderSkeletonProps {
   gtMd: boolean;
 }
 
-export function MarketDetailSkeleton({ gtMd }: IMarketDetailSkeletonProps) {
+export function TokenDetailHeaderSkeleton({
+  gtMd,
+}: ITokenDetailHeaderSkeletonProps) {
   return (
     <YStack px="$5">
       {gtMd ? (
