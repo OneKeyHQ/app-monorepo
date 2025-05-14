@@ -169,12 +169,13 @@ export default function PrimeDashboard() {
               {user?.isLoggedIn ? <PrimeUserInfo /> : null}
             </Stack>
 
+            <PrimeBenefitsList />
+
             {platformEnv.isDev ? (
               <PrimeDebugPanel
                 shouldShowConfirmButton={shouldShowConfirmButton}
               />
             ) : null}
-            <PrimeBenefitsList />
           </Page.Body>
 
           <Page.Footer
