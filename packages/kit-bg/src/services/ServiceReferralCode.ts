@@ -164,14 +164,16 @@ class ServiceReferralCode extends ServiceBase {
         address: walletReferralCode.address,
         networkId: walletReferralCode.networkId,
       });
-      await this.updateWalletReferralCode({
+      const newWalletReferralCode = {
+        ...walletReferralCode,
+        isBound: alreadyBound,
+      };
+      await this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
         walletId,
-        referralCodeInfo: {
-          isBound: alreadyBound,
-        },
+        referralCodeInfo: newWalletReferralCode,
       });
       if (alreadyBound) {
-        return walletReferralCode;
+        return newWalletReferralCode;
       }
     }
     return undefined;
@@ -286,20 +288,6 @@ class ServiceReferralCode extends ServiceBase {
     referralCodeInfo: IWalletReferralCode;
   }) {
     return this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
-      walletId,
-      referralCodeInfo,
-    });
-  }
-
-  @backgroundMethod()
-  async updateWalletReferralCode({
-    walletId,
-    referralCodeInfo,
-  }: {
-    walletId: string;
-    referralCodeInfo: Partial<IWalletReferralCode>;
-  }) {
-    return this.backgroundApi.simpleDb.referralCode.updateWalletReferralCode({
       walletId,
       referralCodeInfo,
     });
