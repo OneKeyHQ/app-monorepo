@@ -331,11 +331,6 @@ function NFTListContainer(props: ITabPageProps) {
       isLoading={nftListState.isRefreshing}
       initialized={nftListState.initialized}
       isAllNetworks={network?.isAllNetworks}
-      listViewStyleProps={{
-        contentContainerStyle: {
-          pt: '$3',
-        },
-      }}
     />
   );
 }

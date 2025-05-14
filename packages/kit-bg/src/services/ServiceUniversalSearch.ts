@@ -12,6 +12,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
+  IUniversalSearchMarketTokenResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
@@ -61,20 +62,38 @@ class ServiceUniversalSearch extends ServiceBase {
     searchTypes: EUniversalSearchType[];
   }): Promise<IUniversalSearchBatchResult> {
     const result: IUniversalSearchBatchResult = {};
-    if (searchTypes.includes(EUniversalSearchType.Address)) {
-      const r = await this.universalSearchOfAddress({ input, networkId });
-      result[EUniversalSearchType.Address] = r;
+    const promiseResults = await Promise.allSettled([
+      searchTypes.includes(EUniversalSearchType.Address)
+        ? this.universalSearchOfAddress({ input, networkId })
+        : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.MarketToken)
+        ? this.universalSearchOfMarketToken(input)
+        : Promise.resolve([]),
+    ]);
+    const [addressResultSettled, marketTokenResultSettled] = promiseResults;
+
+    if (
+      addressResultSettled.status === 'fulfilled' &&
+      addressResultSettled.value &&
+      'items' in addressResultSettled.value &&
+      addressResultSettled.value.items.length > 0
+    ) {
+      result[EUniversalSearchType.Address] = addressResultSettled.value;
     }
 
-    if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
-      const items = await this.universalSearchOfMarketToken(input);
+    if (
+      marketTokenResultSettled.status === 'fulfilled' &&
+      marketTokenResultSettled.value &&
+      marketTokenResultSettled.value.length > 0
+    ) {
       result[EUniversalSearchType.MarketToken] = {
-        items: items.map((item) => ({
+        items: marketTokenResultSettled.value.map((item) => ({
           type: EUniversalSearchType.MarketToken,
           payload: item,
         })),
       };
     }
+
     return result;
   }
 
