@@ -48,7 +48,7 @@ export function AccountSelectorTriggerBase({
         width="$full"
         // width="$80"
         // flex={1}
-        py="$0.5"
+        py="$1"
         px="$1.5"
         mx="$-1.5"
         borderRadius="$2"
@@ -71,13 +71,16 @@ export function AccountSelectorTriggerBase({
         />
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
-          pl="$2"
+          pl={showWalletAvatar ? '$2.5' : '$2'}
           flexShrink={1}
           flex={platformEnv.isNative ? undefined : 1}
         >
           {horizontalLayout ? (
             <SizableText
-              size="$bodyMd"
+              size={showWalletName ? '$bodyMdMedium' : '$bodyLgMedium'}
+              $gtMd={{
+                size: '$bodyMdMedium',
+              }}
               color="$text"
               $gtXl={{
                 maxWidth: '56',

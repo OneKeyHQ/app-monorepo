@@ -72,7 +72,7 @@ export function UniversalSearchInput({
 export function MDUniversalSearchInput() {
   const isHorizontal = useIsHorizontalLayout();
   return isHorizontal ? null : (
-    <XStack px="$5" pt="$2">
+    <XStack px="$5" pt="$0.5">
       <UniversalSearchInput
         size="medium"
         containerProps={{
