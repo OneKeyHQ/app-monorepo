@@ -298,7 +298,6 @@ class ServiceAddressBook extends ServiceBase {
     items,
     isDeleted,
     skipSaveLocalSyncItem,
-    skipEventEmit,
   }: {
     fn: () => Promise<void>;
     items: IAddressItem[];

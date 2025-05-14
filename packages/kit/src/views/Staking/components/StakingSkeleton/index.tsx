@@ -24,15 +24,6 @@ export const HistorySkeleton = () => (
   </YStack>
 );
 
-const OverviewSkeletonItem = () => (
-  <YStack $md={{ width: '50%' }} $gtMd={{ width: '25%' }} mb="$2" gap="$0.5">
-    <YStack>
-      <Skeleton.BodyMd />
-      <Skeleton.BodyLg />
-    </YStack>
-  </YStack>
-);
-
 export const OverviewSkeleton = () => (
   <Stack gap="$8">
     <YStack gap="$6">

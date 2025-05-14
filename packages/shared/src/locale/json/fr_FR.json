@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "Offre en circulation",
   "global.clear": "Clair",
   "global.close": "Fermer",
+  "global.close_confirm_description": "Vous avez des modifications non enregistrées. Si vous fermez maintenant, ces informations seront perdues.",
   "global.collect_to_device": "Collecter sur l'appareil",
   "global.collect_to_device_canceled": "Annulé sur l'appareil",
   "global.collect_to_device_failed": "Échec de la collecte, veuillez réessayer",

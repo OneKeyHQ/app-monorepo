@@ -21,7 +21,7 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import si, { Systeminformation } from 'systeminformation';
+import si from 'systeminformation';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
