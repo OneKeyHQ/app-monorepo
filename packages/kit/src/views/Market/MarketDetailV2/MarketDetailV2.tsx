@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { CommonActions, StackActions } from '@react-navigation/native';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   EPageType,
-  HeaderIconButton,
-  NavBackButton,
   Page,
   ScrollView,
   SizableText,
@@ -17,54 +13,27 @@ import {
   useDeferredPromise,
   useMedia,
   usePageType,
-  useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
-import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import type {
+  ETabMarketRoutes,
+  ITabMarketParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { OpenInAppButton } from '../../../components/OpenInAppButton';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { MarketHomeHeaderSearchBar } from '../components/MarketHomeHeaderSearchBar';
-import { MarketTokenIcon } from '../components/MarketTokenIcon';
 import { TokenDetailTabs } from '../components/TokenDetailTabs';
-import { buildMarketFullUrl } from '../marketUtils';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import {
+  TokenDetailHeader as LegacyTokenDetailHeader,
   MarketDetailHeader,
   TokenPriceChart as NewTokenPriceChart,
   SwapPanel,
-  TokenDetailHeader,
 } from './components';
-
-function SkeletonHeader() {
-  return (
-    <YStack>
-      <Skeleton w="$24" h="$4" />
-      <View pt="$5" pb="$3.5">
-        <Skeleton w="$40" h="$7" />
-      </View>
-      <Skeleton w="$24" h="$3" />
-    </YStack>
-  );
-}
-
-function SkeletonHeaderOverItemItem() {
-  return (
-    <YStack gap="$2" flexGrow={1} flexBasis={0}>
-      <Skeleton w="$10" h="$3" />
-      <Skeleton w="$24" h="$3" />
-    </YStack>
-  );
-}
+import { MarketDetailSkeleton } from './components/MarketDetailHeader/MarketDetailSkeleton';
 
 function MarketDetail({
   route,
@@ -100,125 +69,16 @@ function MarketDetail({
     void fetchMarketTokenDetail();
   }, [fetchMarketTokenDetail]);
 
-  const renderHeaderTitle = useCallback(
-    () => (
-      <XStack gap="$2">
-        <MarketTokenIcon uri={tokenDetail?.image || ''} size="sm" />
-        <SizableText>{tokenDetail?.symbol?.toUpperCase()}</SizableText>
-      </XStack>
-    ),
-    [tokenDetail?.image, tokenDetail?.symbol],
-  );
-  const { shareText } = useShare();
-
-  const buildDeepLinkUrl = useCallback(
-    () =>
-      uriUtils.buildDeepLinkUrl({
-        path: EOneKeyDeepLinkPath.market_detail,
-        query: {
-          coinGeckoId,
-        },
-      }),
-    [coinGeckoId],
-  );
-
-  const buildFullUrl = useCallback(
-    async () => buildMarketFullUrl({ coinGeckoId }),
-    [coinGeckoId],
-  );
-
-  const renderHeaderRight = useCallback(
-    () => (
-      <XStack gap="$6" ai="center">
-        {!platformEnv.isExtensionUiPopup && !platformEnv.isNative ? (
-          <OpenInAppButton
-            buildDeepLinkUrl={buildDeepLinkUrl}
-            buildFullUrl={buildFullUrl}
-          />
-        ) : null}
-        <HeaderIconButton
-          icon="ShareOutline"
-          onPress={async () => {
-            const url = buildMarketFullUrl({ coinGeckoId });
-            await shareText(url);
-          }}
-        />
-        {gtMd ? <MarketHomeHeaderSearchBar /> : null}
-      </XStack>
-    ),
-    [buildDeepLinkUrl, buildFullUrl, coinGeckoId, gtMd, shareText],
-  );
-
-  const navigation = useAppNavigation();
-
-  const popPage = useCallback(() => {
-    navigation.dispatch((state) => {
-      if (state.routes.length > 1) {
-        return StackActions.pop(state.routes.length);
-      }
-      return CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: ETabMarketRoutes.TabMarket,
-          },
-        ],
-      });
-    });
-  }, [navigation]);
-
-  const renderHeaderLeft = useCallback(
-    () => <NavBackButton onPress={popPage} />,
-    [popPage],
-  );
-
   const tokenDetailHeader = useMemo(() => {
     if (tokenDetail) {
       return (
-        <TokenDetailHeader coinGeckoId={coinGeckoId} token={tokenDetail} />
+        <LegacyTokenDetailHeader
+          coinGeckoId={coinGeckoId}
+          token={tokenDetail}
+        />
       );
     }
-    return (
-      <YStack px="$5">
-        {gtMd ? (
-          <YStack gap="$12" width={392}>
-            <SkeletonHeader />
-            <YStack gap="$3">
-              <Skeleton w={252} h="$3" />
-            </YStack>
-            <YStack gap="$6">
-              <XStack>
-                <SkeletonHeaderOverItemItem />
-                <SkeletonHeaderOverItemItem />
-              </XStack>
-              <XStack>
-                <SkeletonHeaderOverItemItem />
-                <SkeletonHeaderOverItemItem />
-              </XStack>
-              <XStack>
-                <SkeletonHeaderOverItemItem />
-                <SkeletonHeaderOverItemItem />
-              </XStack>
-            </YStack>
-            <YStack gap="$6">
-              <Skeleton w="$10" h="$3" />
-              <Skeleton w={252} h="$3" />
-              <Skeleton w={252} h="$3" />
-              <Skeleton w={252} h="$3" />
-            </YStack>
-          </YStack>
-        ) : (
-          <YStack gap="$6" pt="$1">
-            <SkeletonHeader />
-            <XStack>
-              <SkeletonHeaderOverItemItem />
-              <SkeletonHeaderOverItemItem />
-              <SkeletonHeaderOverItemItem />
-            </XStack>
-          </YStack>
-        )}
-      </YStack>
-    );
+    return <MarketDetailSkeleton gtMd={gtMd} />;
   }, [coinGeckoId, gtMd, tokenDetail]);
 
   const defer = useDeferredPromise();
@@ -236,7 +96,11 @@ function MarketDetail({
 
   return (
     <Page>
-      <MarketDetailHeader />
+      <MarketDetailHeader
+        tokenDetail={tokenDetail}
+        coinGeckoId={coinGeckoId}
+        gtMd={gtMd}
+      />
       <Page.Body>
         <SwapPanel />
 
