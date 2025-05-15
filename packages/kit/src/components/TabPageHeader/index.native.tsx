@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import { PageHeaderDivider } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
@@ -14,16 +13,25 @@ import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
+export function TabPageHeader({
+  sceneName,
+  tabRoute,
+  customHeaderRightItems,
+  customHeaderLeftItems,
+}: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
 
   const headerRight = useMemo(() => {
     return (
       <HomeTokenListProviderMirror>
-        <HeaderRight sceneName={sceneName} tabRoute={tabRoute} />
+        <HeaderRight
+          sceneName={sceneName}
+          tabRoute={tabRoute}
+          customHeaderRightItems={customHeaderRightItems}
+        />
       </HomeTokenListProviderMirror>
     );
-  }, [sceneName, tabRoute]);
+  }, [sceneName, tabRoute, customHeaderRightItems]);
 
   return (
     <>
@@ -36,7 +44,11 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
         {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
       >
         <View>
-          <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />
+          <HeaderLeft
+            sceneName={sceneName}
+            tabRoute={tabRoute}
+            customHeaderLeftItems={customHeaderLeftItems}
+          />
         </View>
         <View>
           <HeaderTitle sceneName={sceneName} />
