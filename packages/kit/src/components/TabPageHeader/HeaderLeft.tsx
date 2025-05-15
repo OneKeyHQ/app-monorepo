@@ -110,7 +110,7 @@ export function HeaderLeft({
           num={0}
           showAccountAddress={false}
           showCopyButton={tabRoute === ETabRoutes.Home}
-          showCreateAddressButton={tabRoute !== ETabRoutes.Home}
+          showCreateAddressButton={false}
           showNoAddressTip={false}
         />
       </XStack>
