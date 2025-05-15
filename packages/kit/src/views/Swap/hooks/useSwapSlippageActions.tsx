@@ -14,7 +14,7 @@ import {
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
-import SlippageSettingDialog from '../../../components/SwapSlippage';
+import SlippageSettingDialog from '../../../components/SlippageSettingDialog';
 import { useSwapSlippageDialogOpeningAtom } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
