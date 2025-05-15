@@ -27,6 +27,10 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -175,6 +179,7 @@ export function AccountSelectorAddAccountButton({
             },
           );
         }
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
         popNavigation();
       }
     },

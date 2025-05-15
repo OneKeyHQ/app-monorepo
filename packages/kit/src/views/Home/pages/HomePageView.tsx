@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
 
-import { Icon, Page, Stack, Tab, YStack, useMedia } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -19,18 +19,18 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
-import HomeSelector from '../components/HomeSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
+import { WalletXfpStatusReminder } from '../components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
@@ -122,6 +122,7 @@ export function HomePageView({
     () =>
       [
         {
+          id: 'crypto',
           title: intl.formatMessage({
             id: ETranslations.global_crypto,
           }),
@@ -129,6 +130,7 @@ export function HomePageView({
         },
         isNFTEnabled
           ? {
+              id: 'nft',
               title: intl.formatMessage({
                 id: ETranslations.global_nft,
               }),
@@ -140,6 +142,7 @@ export function HomePageView({
         //   page: memo(DefiListContainer, () => true),
         // },
         {
+          id: 'history',
           title: intl.formatMessage({
             id: ETranslations.global_history,
           }),
@@ -175,21 +178,29 @@ export function HomePageView({
   );
 
   const prevPageIndex = useRef<number | undefined>();
-  const handleSelectPageIndexChange = useCallback((pageIndex: number) => {
-    if (
-      prevPageIndex.current !== undefined &&
-      prevPageIndex.current !== pageIndex
-    ) {
-      Keyboard.dismiss();
-    }
-    prevPageIndex.current = pageIndex;
-  }, []);
+  const handleSelectPageIndexChange = useCallback(
+    (pageIndex: number) => {
+      if (
+        prevPageIndex.current !== undefined &&
+        prevPageIndex.current !== pageIndex
+      ) {
+        Keyboard.dismiss();
+      }
+      prevPageIndex.current = pageIndex;
+      appEventBus.emit(EAppEventBusNames.HomeTabsChanged, {
+        index: pageIndex,
+        tabId: tabs[pageIndex].id,
+      });
+    },
+    [tabs],
+  );
 
   const renderTabs = useCallback(
     () => (
       <Tab
         disableRefresh={!platformEnv.isNative}
         data={tabs}
+        ToolBar={<TabHeaderSettings />}
         ListHeaderComponent={<HomeHeaderContainer />}
         onSelectedPageIndex={handleSelectPageIndexChange}
         initialScrollIndex={0}
@@ -236,13 +247,13 @@ export function HomePageView({
     ) {
       return (
         <YStack height="100%">
-          <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             {emptyAccountView}
           </Stack>
         </YStack>
       );
     }
+
     if (isRequiredValidation) {
       return (
         <WalletContentWithAuth
@@ -270,17 +281,9 @@ export function HomePageView({
     network?.id,
   ]);
 
-  const media = useMedia();
-
   const renderHomePage = useCallback(() => {
     if (!ready) {
-      return (
-        <TabPageHeader
-          showHeaderRight
-          sceneName={sceneName}
-          tabRoute={ETabRoutes.Home}
-        />
-      );
+      return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
     let content = (
@@ -295,15 +298,7 @@ export function HomePageView({
     }
     return (
       <>
-        <TabPageHeader
-          showHeaderRight
-          sceneName={sceneName}
-          tabRoute={ETabRoutes.Home}
-        >
-          {media.gtMd && sceneName === EAccountSelectorSceneName.home ? (
-            <UniversalSearchInput key="searchInput" />
-          ) : null}
-        </TabPageHeader>
+        <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
         <Page.Body>
           <WalletBackupAlert />
           <NetworkAlert />
@@ -313,6 +308,7 @@ export function HomePageView({
               <>
                 <UpdateReminder />
                 <HomeFirmwareUpdateReminder />
+                <WalletXfpStatusReminder />
               </>
             ) : null
           }
@@ -320,7 +316,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, media.gtMd, renderHomePageContent]);
+  }, [ready, wallet, sceneName, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,

@@ -242,6 +242,7 @@ export interface ISwapApproveTransaction {
   toToken: ISwapToken;
   protocol: EProtocolOfExchange;
   swapType: ESwapTabSwitchType;
+  unSupportReceiveAddressDifferent?: boolean;
   provider: string;
   providerName: string;
   quoteId: string;
@@ -365,6 +366,12 @@ export type IOneInchOrderStruct = {
   makerTraits: string;
 };
 
+export interface IOneKeyFeeInfo {
+  oneKeyFeeAmount?: string;
+  oneKeyFeeSymbol?: string;
+  oneKeyFeeUsd?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -396,10 +403,7 @@ export interface IFetchQuoteResult {
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
   networkCostBuyAmount?: string;
-  oneKeyFeeExtraInfo?: {
-    oneKeyFeeAmount?: string;
-    oneKeyFeeSymbol?: string;
-  };
+  oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
   networkCostExceedInfo?: {
     tokenInfo: {
       symbol: string;
@@ -741,6 +745,7 @@ export interface ISwapTxHistory {
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
+    oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;

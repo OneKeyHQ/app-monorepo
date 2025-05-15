@@ -555,6 +555,20 @@ const CountDownCalendarAlertGallery = LazyLoadPage(
     ),
 );
 
+const TriggerGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Trigger'
+    ),
+);
+
+const RestartGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Restart'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -581,6 +595,7 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentShortcut, component: ShortcutGallery },
   { name: EGalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: EGalleryRoutes.ComponentTooltip, component: TooltipGallery },
+  { name: EGalleryRoutes.ComponentTrigger, component: TriggerGallery },
   { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: EGalleryRoutes.ComponentInput, component: InputGallery },
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
@@ -811,5 +826,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPagination,
     component: PaginationGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRestart,
+    component: RestartGallery,
   },
 ];

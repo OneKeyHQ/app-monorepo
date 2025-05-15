@@ -2,7 +2,7 @@ import { Semaphore } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import appStorageInstance from '@onekeyhq/shared/src/storage/appStorage';
+import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
@@ -16,7 +16,8 @@ type ISimpleDbEntitySavedData<T> = {
 };
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
-  appStorage: AsyncStorageStatic = appStorageInstance;
+  appStorage: AsyncStorageStatic =
+    storageHub.$webStorageSimpleDB || storageHub.appStorage;
 
   mutex = new Semaphore(1);
 

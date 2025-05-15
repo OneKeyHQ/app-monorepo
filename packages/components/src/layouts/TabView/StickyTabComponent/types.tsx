@@ -17,6 +17,7 @@ export interface ITabProps extends IScrollViewProps {
   initialScrollIndex?: number;
   tabContentContainerStyle?: IStackProps;
   ListHeaderComponent?: ReactElement;
+  ToolBar?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
   contentItemWidth?: Animated.Value;
   contentWidth?: number;

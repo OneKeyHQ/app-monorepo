@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { debounce, noop } from 'lodash';
+import { debounce, isEqual, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,6 +8,8 @@ import {
   Image,
   SizableText,
   YStack,
+  getDialogInstances,
+  getFormInstances,
   rootNavigationRef,
   useShortcuts,
 } from '@onekeyhq/components';
@@ -56,6 +58,8 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
+      const formInstances = getFormInstances();
+      const dialogInstances = getDialogInstances();
       const intl = useIntl();
       const navigation = useAppNavigation();
       const onLock = useOnLockCallback();
@@ -145,43 +149,79 @@ const useDesktopEvents = platformEnv.isDesktop
 
       const ensureModalClosedAndNavigate = useCallback(
         (navigateAction?: () => void) => {
-          const routeState = rootNavigationRef.current?.getRootState();
-          if (routeState?.routes) {
-            const allModalRoutes = routeState.routes.filter(
-              (_, index) => index !== 0,
-            );
-            const hasMultipleModalRoutes = allModalRoutes.length === 1;
+          function getAllModalRoutes() {
+            const routeState = rootNavigationRef.current?.getRootState();
+            if (!routeState?.routes) {
+              return;
+            }
+            return routeState.routes.filter((_, index) => index !== 0);
+          }
 
-            if (allModalRoutes.length > 1) {
+          function closeAllModalRoutes() {
+            const allModalRoutes = getAllModalRoutes();
+
+            if (!allModalRoutes) {
               return;
             }
 
-            if (hasMultipleModalRoutes) {
-              let index = 1;
-              // close all modal routes
-              allModalRoutes.forEach((route) => {
-                const routeLength =
-                  route.state?.routes?.[0]?.state?.routes.length || 1;
-                for (let i = 0; i < routeLength; i += 1)
-                  setTimeout(() => {
-                    rootNavigationRef.current?.goBack();
-                  }, index * 10);
+            let index = 1;
+            // close all modal routes
+            allModalRoutes.forEach((route) => {
+              const routeLength =
+                route.state?.routes?.[0]?.state?.routes.length || 1;
+              for (let i = 0; i < routeLength; i += 1)
+                setTimeout(() => {
+                  rootNavigationRef.current?.goBack();
+                }, index * 10);
 
-                index += 1;
-              });
               index += 1;
+            });
+            index += 1;
 
-              setTimeout(() => {
-                navigateAction?.();
-              }, index * 10);
-            } else {
-              setTimeout(() => {
-                navigateAction?.();
-              }, 100);
-            }
+            setTimeout(() => {
+              navigateAction?.();
+            }, index * 10);
           }
+
+          const allModalRoutes = getAllModalRoutes();
+
+          if (!allModalRoutes || dialogInstances.length !== 0) {
+            return;
+          }
+
+          const formInstance = formInstances[formInstances.length - 1];
+          const isFormChanged =
+            formInstance &&
+            !isEqual(
+              formInstance.formState.defaultValues,
+              formInstance.getValues(),
+            );
+
+          if (allModalRoutes.length > 0 && isFormChanged) {
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.global_close,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.global_close_confirm_description,
+              }),
+              showCancelButton: true,
+              showFooter: true,
+              showConfirmButton: true,
+              onConfirm: () => {
+                closeAllModalRoutes();
+              },
+            });
+            return;
+          }
+
+          closeAllModalRoutes();
+
+          setTimeout(() => {
+            navigateAction?.();
+          }, 100);
         },
-        [],
+        [intl, formInstances, dialogInstances],
       );
 
       useEffect(() => {
@@ -205,16 +245,24 @@ const useDesktopEvents = platformEnv.isDesktop
       useShortcuts(undefined, (eventName) => {
         switch (eventName) {
           case EShortcutEvents.TabWallet:
-            navigation.switchTab(ETabRoutes.Home);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Home);
+            });
             break;
           case EShortcutEvents.TabEarn:
-            navigation.switchTab(ETabRoutes.Earn);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Earn);
+            });
             break;
           case EShortcutEvents.TabSwap:
-            navigation.switchTab(ETabRoutes.Swap);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Swap);
+            });
             break;
           case EShortcutEvents.TabMarket:
-            navigation.switchTab(ETabRoutes.Market);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Market);
+            });
             break;
           case EShortcutEvents.TabReferAFriend:
             if (!isOpenedReferFriendsPage()) {
@@ -235,7 +283,9 @@ const useDesktopEvents = platformEnv.isDesktop
             }
             break;
           case EShortcutEvents.TabBrowser:
-            navigation.switchTab(ETabRoutes.Discovery);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Discovery);
+            });
             break;
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {

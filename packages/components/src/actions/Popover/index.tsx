@@ -11,6 +11,7 @@ import {
 import { useWindowDimensions } from 'react-native';
 import { Popover as TMPopover, useMedia, withStaticProperties } from 'tamagui';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
@@ -39,6 +40,7 @@ import type {
 
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
+  showHeader?: boolean;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
   openPopover?: () => void;
@@ -49,6 +51,10 @@ export interface IPopoverProps extends TMPopoverProps {
     | null;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
+  /**
+   * Unique identifier for tracking/analytics purposes.
+   */
+  trackID?: string;
 }
 
 interface IPopoverContext {
@@ -60,9 +66,11 @@ const PopoverContext = createContext({} as IPopoverContext);
 const usePopoverValue = (
   open?: boolean,
   onOpenChange?: IPopoverProps['onOpenChange'],
+  trackID?: string,
 ) => {
   const [isOpen, setIsOpen] = useState(false);
   const isControlled = typeof open !== 'undefined';
+
   const openPopover = useCallback(() => {
     if (isControlled) {
       onOpenChange?.(true);
@@ -70,7 +78,14 @@ const usePopoverValue = (
       setIsOpen(true);
       onOpenChange?.(true);
     }
-  }, [isControlled, onOpenChange]);
+
+    if (trackID) {
+      defaultLogger.ui.popover.popoverOpen({
+        trackId: trackID,
+      });
+    }
+  }, [isControlled, onOpenChange, trackID]);
+
   const closePopover = useCallback(() => {
     if (isControlled) {
       onOpenChange?.(false);
@@ -78,7 +93,14 @@ const usePopoverValue = (
       setIsOpen(false);
       onOpenChange?.(false);
     }
-  }, [isControlled, onOpenChange]);
+
+    if (trackID) {
+      defaultLogger.ui.popover.popoverClose({
+        trackId: trackID,
+      });
+    }
+  }, [isControlled, onOpenChange, trackID]);
+
   return {
     ...(isControlled
       ? {
@@ -134,6 +156,7 @@ function RawPopover({
   placement = 'bottom-end',
   usingSheet = true,
   allowFlip = true,
+  showHeader = true,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
@@ -316,43 +339,46 @@ function RawPopover({
               }}
             >
               {/* header */}
-              <XStack
-                borderTopLeftRadius="$6"
-                borderTopRightRadius="$6"
-                backgroundColor="$bg"
-                mx="$5"
-                px="$5"
-                py="$4"
-                justifyContent="space-between"
-                alignItems="center"
-                borderCurve="continuous"
-                gap="$2"
-              >
-                {typeof title === 'string' ? (
-                  <SizableText
-                    size="$headingXl"
-                    color="$text"
-                    flexShrink={1}
-                    style={{
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {title}
-                  </SizableText>
-                ) : (
-                  title
-                )}
-                <IconButton
-                  icon="CrossedSmallOutline"
-                  size="small"
-                  hitSlop={NATIVE_HIT_SLOP}
-                  onPress={closePopover}
-                  testID="popover-btn-close"
-                />
-              </XStack>
-
+              {showHeader ? (
+                <XStack
+                  borderTopLeftRadius="$6"
+                  borderTopRightRadius="$6"
+                  backgroundColor="$bg"
+                  mx="$5"
+                  px="$5"
+                  py="$4"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  borderCurve="continuous"
+                  gap="$2"
+                >
+                  {typeof title === 'string' ? (
+                    <SizableText
+                      size="$headingXl"
+                      color="$text"
+                      flexShrink={1}
+                      style={{
+                        wordBreak: 'break-all',
+                      }}
+                    >
+                      {title}
+                    </SizableText>
+                  ) : (
+                    title
+                  )}
+                  <IconButton
+                    icon="CrossedSmallOutline"
+                    size="small"
+                    hitSlop={NATIVE_HIT_SLOP}
+                    onPress={closePopover}
+                    testID="popover-btn-close"
+                  />
+                </XStack>
+              ) : null}
               <TMPopover.Sheet.ScrollView
                 marginTop="$-0.5"
+                borderTopLeftRadius={showHeader ? undefined : '$6'}
+                borderTopRightRadius={showHeader ? undefined : '$6'}
                 borderBottomLeftRadius="$6"
                 borderBottomRightRadius="$6"
                 backgroundColor="$bg"
@@ -376,11 +402,13 @@ function BasicPopover({
   onOpenChange: onOpenChangeFunc,
   renderTrigger,
   sheetProps,
+  trackID,
   ...rest
 }: IPopoverProps) {
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,
+    trackID,
   );
   const { md } = useMedia();
   const memoPopover = useMemo(
@@ -420,6 +448,7 @@ function BasicPopover({
       closePopover={closePopover}
       sheetProps={{ ...sheetProps, modal: true }}
       renderTrigger={renderTrigger}
+      trackID={trackID}
       {...rest}
     />
   );

@@ -75,7 +75,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomNonceEnabled: false,
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
-  isFilterScamHistoryEnabled: false,
+  isFilterScamHistoryEnabled: true,
   hardwareTransportType: platformEnv.isNative
     ? EHardwareTransportType.BLE
     : EHardwareTransportType.Bridge,

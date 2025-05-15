@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {

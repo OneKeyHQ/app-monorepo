@@ -202,6 +202,7 @@ const StickySectionListDemo = () => {
 
 const SectionListGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="SectionList"
     elements={[
       {

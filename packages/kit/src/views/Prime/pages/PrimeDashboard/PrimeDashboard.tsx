@@ -9,7 +9,6 @@ import {
   Icon,
   IconButton,
   Page,
-  RichSizeableText,
   SizableText,
   Stack,
   Theme,
@@ -17,10 +16,12 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
@@ -60,22 +61,30 @@ function PrimeBanner() {
 }
 
 function PrimeTerms() {
-  const intl = useIntl();
+  const linkView = useCallback(
+    () => (
+      <SizableText
+        size="$bodyMd"
+        color="$textInteractive"
+        cursor="pointer"
+        onPress={() => {
+          openUrlExternal('https://help.onekey.so/hc/articles/11967482818831');
+        }}
+      >
+        OneKey Prime Terms
+      </SizableText>
+    ),
+    [],
+  );
   return (
-    <RichSizeableText
+    <HyperlinkText
       size="$bodyMd"
-      linkList={{
-        link: {
-          url: 'https://help.onekey.so/hc/articles/11967482818831',
-          color: '$textLink',
-          size: '$bodyMd',
-        },
+      values={{
+        link: linkView,
       }}
-    >
-      {intl.formatMessage({
-        id: ETranslations.prime_agree_to_terms,
-      })}
-    </RichSizeableText>
+      translationId={ETranslations.prime_agree_to_terms}
+      defaultMessage={ETranslations.prime_agree_to_terms}
+    />
   );
 }
 

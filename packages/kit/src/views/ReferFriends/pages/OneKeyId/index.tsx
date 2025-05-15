@@ -15,9 +15,14 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
 
@@ -27,6 +32,16 @@ export default function OneKeyId() {
   const toInviteRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.InviteReward);
   }, [navigation]);
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isPrimeEnabled =
+    devSettings.enabled && devSettings.settings?.showPrimeTest;
+
+  const toPrimePage = useCallback(() => {
+    if (isPrimeEnabled)
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDashboard,
+      });
+  }, [navigation, isPrimeEnabled]);
 
   return (
     <Page scrollEnabled>
@@ -79,14 +94,23 @@ export default function OneKeyId() {
               subtitle={intl.formatMessage({
                 id: ETranslations.id_prime,
               })}
+              onPress={toPrimePage}
             >
-              <Badge badgeSize="sm">
-                <Badge.Text>
-                  {intl.formatMessage({
-                    id: ETranslations.id_prime_soon,
-                  })}
-                </Badge.Text>
-              </Badge>
+              {isPrimeEnabled ? (
+                <IconButton
+                  icon="ChevronRightSmallOutline"
+                  variant="tertiary"
+                  size="small"
+                />
+              ) : (
+                <Badge badgeSize="sm">
+                  <Badge.Text>
+                    {intl.formatMessage({
+                      id: ETranslations.id_prime_soon,
+                    })}
+                  </Badge.Text>
+                </Badge>
+              )}
             </ListItem>
             <ListItem
               userSelect="none"

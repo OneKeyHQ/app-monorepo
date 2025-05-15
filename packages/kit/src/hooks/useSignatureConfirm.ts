@@ -2,6 +2,7 @@
 import { useCallback } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type {
   IEncodedTx,
@@ -14,11 +15,14 @@ import type {
   ITransferPayload,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
@@ -58,6 +62,7 @@ function useSignatureConfirm(params: IParams) {
   const { accountId, networkId } = params;
 
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const normalizeTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
@@ -259,6 +264,8 @@ function useSignatureConfirm(params: IParams) {
       walletInternalSign?: boolean;
       sameModal?: boolean;
       swapInfo?: ISwapTxInfo;
+      sourceInfo?: IDappSourceInfo;
+      skipBackupCheck?: boolean;
       onSuccess?: (result: string) => void;
       onFail?: (error: Error) => void;
       onCancel?: () => void;
@@ -270,6 +277,8 @@ function useSignatureConfirm(params: IParams) {
         sameModal,
         walletInternalSign,
         swapInfo,
+        sourceInfo,
+        skipBackupCheck,
         onSuccess,
         onFail,
         onCancel,
@@ -282,6 +291,8 @@ function useSignatureConfirm(params: IParams) {
           unsignedMessage,
           walletInternalSign,
           swapInfo,
+          sourceInfo,
+          skipBackupCheck,
           onSuccess,
           onFail,
           onCancel,
@@ -295,6 +306,8 @@ function useSignatureConfirm(params: IParams) {
             unsignedMessage,
             walletInternalSign,
             swapInfo,
+            sourceInfo,
+            skipBackupCheck,
             onSuccess,
             onFail,
             onCancel,
@@ -305,8 +318,40 @@ function useSignatureConfirm(params: IParams) {
     [navigation],
   );
 
+  // Promise-based version of navigationToMessageConfirm
+  const navigationToMessageConfirmAsync = useCallback(
+    async (params: {
+      unsignedMessage: IUnsignedMessage;
+      accountId: string;
+      networkId: string;
+      walletInternalSign?: boolean;
+      sameModal?: boolean;
+      swapInfo?: ISwapTxInfo;
+      sourceInfo?: IDappSourceInfo;
+      skipBackupCheck?: boolean;
+    }): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        navigationToMessageConfirm({
+          ...params,
+          onSuccess: (result) => resolve(result),
+          onFail: (error) => reject(error),
+          onCancel: () =>
+            reject(
+              new OneKeyPlainTextError(
+                intl.formatMessage({
+                  id: ETranslations.feedback_user_rejected,
+                }),
+              ),
+            ),
+        });
+      });
+    },
+    [navigationToMessageConfirm, intl],
+  );
+
   return {
     navigationToMessageConfirm,
+    navigationToMessageConfirmAsync,
     navigationToTxConfirm,
     normalizeTxConfirm,
   };

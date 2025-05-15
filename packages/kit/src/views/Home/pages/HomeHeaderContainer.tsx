@@ -1,35 +1,36 @@
-import { Stack } from '@onekeyhq/components';
+import { Stack, XStack, useIsHorizontalLayout } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import HomeSelector from '../components/HomeSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 function HomeHeaderContainer() {
+  const isHorizontal = useIsHorizontalLayout();
   return (
     <HomeTokenListProviderMirror>
-      <Stack
-        testID="Wallet-Tab-Header"
-        gap="$5"
-        p="$5"
-        bg="$bgApp"
-        $gtLg={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Stack gap="$2.5">
-          <HomeSelector />
-          <HomeOverviewContainer />
-        </Stack>
-        <WalletActions
+      <>
+        <Stack
+          testID="Wallet-Tab-Header"
+          gap="$5"
+          p="$5"
+          bg="$bgApp"
           $gtLg={{
-            pt: 0,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
           }}
-        />
-      </Stack>
+        >
+          <Stack gap="$2.5">
+            <HomeOverviewContainer />
+          </Stack>
+          <WalletActions
+            $gtLg={{
+              pt: 0,
+            }}
+          />
+        </Stack>
+      </>
     </HomeTokenListProviderMirror>
   );
 }

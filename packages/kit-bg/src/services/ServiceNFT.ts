@@ -7,7 +7,9 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
+import accountUtils, {
+  buildAccountLocalAssetsKey,
+} from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -79,16 +81,21 @@ class ServiceNFT extends ServiceBase {
       ...rest
     } = params;
 
-    // console.log('fetchAccountNFTs', params);
+    const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
 
-    if (
-      isAllNetworks &&
-      this._currentNetworkId !== getNetworkIdsMap().onekeyall
-    ) {
+    const currentNetworkId = isUrlAccount
+      ? this._currentUrlNetworkId
+      : this._currentNetworkId;
+
+    const currentAccountId = isUrlAccount
+      ? this._currentUrlAccountId
+      : this._currentAccountId;
+
+    if (isAllNetworks && currentNetworkId !== getNetworkIdsMap().onekeyall) {
       return {
         data: [],
         next: '',
-        networkId: this._currentNetworkId,
+        networkId: currentNetworkId,
       };
     }
 
@@ -141,13 +148,13 @@ class ServiceNFT extends ServiceBase {
       networkId,
     }));
 
-    resp.data.data.networkId = this._currentNetworkId;
+    resp.data.data.networkId = currentNetworkId;
 
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
       allNetworksNetworkId &&
-      allNetworksAccountId === this._currentAccountId &&
-      allNetworksNetworkId === this._currentNetworkId
+      allNetworksAccountId === currentAccountId &&
+      allNetworksNetworkId === currentNetworkId
     );
 
     if (saveToLocal) {

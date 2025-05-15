@@ -74,7 +74,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
 }
 
 const createActions = memoFn(() => {
-  console.log('new ContextJotaiActionsAccountOverview()', Date.now());
+  // console.log('new ContextJotaiActionsAccountOverview()', Date.now());
   return new ContextJotaiActionsAccountOverview();
 });
 

@@ -9,20 +9,18 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { useTakeScreenshot } from '../../hooks/useTakeScreenshot';
 import {
   useActiveTabId,
   useDisplayHomePageFlag,
   useWebTabs,
 } from '../../hooks/useWebTabs';
 
-import { useTakeScreenshot } from './MobileBrowserBottomBar';
-
 interface ITabCountButtonProps {
   testID: string;
-  hideWhenEmpty?: boolean;
 }
 
-function TabCountButton({ testID, hideWhenEmpty }: ITabCountButtonProps) {
+function TabCountButton({ testID }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -45,7 +43,7 @@ function TabCountButton({ testID, hideWhenEmpty }: ITabCountButtonProps) {
     });
   }, [takeScreenshot, navigation, displayHomePage]);
 
-  if (hideWhenEmpty && tabCount === 0) {
+  if (displayHomePage && tabCount === 0) {
     return null;
   }
 

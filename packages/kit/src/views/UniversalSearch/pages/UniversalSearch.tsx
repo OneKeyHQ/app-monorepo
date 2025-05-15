@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -12,6 +13,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Tab,
   View,
   XStack,
   YStack,
@@ -21,7 +23,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
@@ -57,6 +59,11 @@ enum ESearchStatus {
   done = 'done',
 }
 
+const AllTypes = [
+  EUniversalSearchType.Address,
+  EUniversalSearchType.MarketToken,
+];
+
 const SkeletonItem = () => (
   <XStack py="$2" alignItems="center">
     <Skeleton w="$10" h="$10" radius="round" />
@@ -71,35 +78,24 @@ const SkeletonItem = () => (
   </XStack>
 );
 
-function ListEmptyComponent({
-  searchType,
-}: {
-  searchType?: EUniversalSearchType;
-}) {
+function ListEmptyComponent() {
   const intl = useIntl();
-  switch (searchType) {
-    case EUniversalSearchType.MarketToken: {
-      return (
-        <YStack px="$5">
-          <SizableText numberOfLines={1} size="$headingSm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.market_trending })}
-          </SizableText>
-          <SkeletonItem />
-          <SkeletonItem />
-          <SkeletonItem />
-        </YStack>
-      );
-    }
-    default: {
-      return null;
-    }
-  }
+  return (
+    <YStack px="$5">
+      <SizableText numberOfLines={1} size="$headingSm" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.market_trending })}
+      </SizableText>
+      <SkeletonItem />
+      <SkeletonItem />
+      <SkeletonItem />
+    </YStack>
+  );
 }
 
 export function UniversalSearch({
-  searchType,
+  filterTypes,
 }: {
-  searchType?: EUniversalSearchType;
+  filterTypes?: EUniversalSearchType[];
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -114,17 +110,6 @@ export function UniversalSearch({
     IUniversalSection[]
   >([]);
 
-  const searchPlaceholderText = useMemo(
-    () =>
-      intl.formatMessage({
-        id:
-          searchType === EUniversalSearchType.MarketToken
-            ? ETranslations.global_search_tokens
-            : ETranslations.global_search,
-      }),
-    [intl, searchType],
-  );
-
   const fetchRecommendList = useCallback(async () => {
     const searchResultSections: {
       title: string;
@@ -132,7 +117,7 @@ export function UniversalSearch({
     }[] = [];
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
-        searchTypes: searchType ? [searchType] : [],
+        searchTypes: [EUniversalSearchType.MarketToken],
       });
     if (result?.[EUniversalSearchType.MarketToken]?.items) {
       searchResultSections.push({
@@ -142,7 +127,7 @@ export function UniversalSearch({
       });
     }
     setRecommendSections(searchResultSections);
-  }, [intl, searchType]);
+  }, [intl]);
 
   useEffect(() => {
     void fetchRecommendList();
@@ -155,7 +140,7 @@ export function UniversalSearch({
         await backgroundApiProxy.serviceUniversalSearch.universalSearch({
           input,
           networkId: activeAccount?.network?.id,
-          searchTypes: [searchType || EUniversalSearchType.Address],
+          searchTypes: AllTypes,
         });
       const searchResultSections: {
         title: string;
@@ -163,7 +148,9 @@ export function UniversalSearch({
       }[] = [];
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
         searchResultSections.push({
-          title: 'Wallet',
+          title: intl.formatMessage({
+            id: ETranslations.global_wallets,
+          }),
           data: result?.[EUniversalSearchType.Address]
             ?.items as IUniversalSearchResultItem[],
         });
@@ -171,7 +158,9 @@ export function UniversalSearch({
 
       if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
         searchResultSections.push({
-          title: 'Market Token',
+          title: intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_tokens,
+          }),
           data: result?.[EUniversalSearchType.MarketToken]
             ?.items as IUniversalSearchResultItem[],
         });
@@ -189,20 +178,15 @@ export function UniversalSearch({
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
-      if (searchType === EUniversalSearchType.MarketToken) {
-        return (
-          <SizableText px="$5" pb={0} size="$headingSm" color="$textSubdued">
+      return (
+        <XStack bg="$bgApp" h="$9" ai="center">
+          <SizableText px="$5" size="$headingSm" color="$textSubdued">
             {section.title}
           </SizableText>
-        );
-      }
-      return (
-        <SizableText px="$5" pb={0} size="$headingSm">
-          {section.title}
-        </SizableText>
+        </XStack>
       );
     },
-    [searchType],
+    [],
   );
 
   const renderItem = useCallback(
@@ -216,11 +200,27 @@ export function UniversalSearch({
                 navigation.pop();
                 setTimeout(async () => {
                   const { network, addressInfo } = searchAddressItem.payload;
+                  navigation.switchTab(ETabRoutes.Home);
                   await urlAccountNavigation.pushUrlAccountPage(navigation, {
                     address: addressInfo.displayAddress,
                     networkId: network.id,
                     contextNetworkId: activeAccount?.network?.id,
                   });
+                  setTimeout(() => {
+                    universalSearchActions.current.addIntoRecentSearchList({
+                      id: `${addressInfo.displayAddress}-${network.id || ''}-${
+                        activeAccount?.network?.id || ''
+                      }`,
+                      text: addressInfo.displayAddress,
+                      type: item.type,
+                      timestamp: Date.now(),
+                      extra: {
+                        displayAddress: addressInfo.displayAddress,
+                        networkId: network.id,
+                        contextNetworkId: activeAccount?.network?.id || '',
+                      },
+                    });
+                  }, 10);
                 }, 80);
               }}
               renderAvatar={
@@ -245,6 +245,7 @@ export function UniversalSearch({
               onPress={async () => {
                 navigation.pop();
                 setTimeout(async () => {
+                  navigation.switchTab(ETabRoutes.Market);
                   navigation.push(ETabMarketRoutes.MarketDetail, {
                     token: coingeckoId,
                   });
@@ -302,6 +303,54 @@ export function UniversalSearch({
     ],
   );
 
+  const tabTitles = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_all,
+        }),
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_wallets,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_tokens,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_my_assets,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
+      },
+    ];
+  }, [intl]);
+
+  const [filterType, setFilterType] = useState(tabTitles[0].title);
+  const handleTabSelectedPageIndex = useCallback(
+    (index: number) => {
+      setFilterType(tabTitles[index].title);
+    },
+    [tabTitles],
+  );
+
+  const filterSections = useMemo(() => {
+    if (filterType === tabTitles[0].title) {
+      return sections;
+    }
+    return sections.filter((i) => i.title === filterType);
+  }, [filterType, sections, tabTitles]);
+
   const renderResult = useCallback(() => {
     switch (searchStatus) {
       case ESearchStatus.init:
@@ -310,8 +359,8 @@ export function UniversalSearch({
             renderSectionHeader={renderSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
-            ListHeaderComponent={<RecentSearched searchType={searchType} />}
-            ListEmptyComponent={<ListEmptyComponent searchType={searchType} />}
+            ListHeaderComponent={<RecentSearched filterTypes={filterTypes} />}
+            ListEmptyComponent={<ListEmptyComponent />}
             estimatedItemSize="$16"
           />
         );
@@ -327,36 +376,55 @@ export function UniversalSearch({
 
       case ESearchStatus.done:
         return (
-          <SectionList
-            mt="$5"
-            sections={sections}
-            // renderSectionHeader={renderSectionHeader}
-            ListEmptyComponent={
-              <Empty
-                icon="SearchOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_results,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.global_search_no_results_desc,
-                })}
+          <>
+            <XStack
+              borderColor="$borderSubdued"
+              borderWidth={0}
+              borderBottomWidth={StyleSheet.hairlineWidth}
+              mb="$3"
+            >
+              <Tab.Header
+                style={{
+                  height: 44,
+                  borderBottomWidth: 0,
+                }}
+                data={tabTitles}
+                onSelectedPageIndex={handleTabSelectedPageIndex}
               />
-            }
-            renderItem={renderItem}
-            estimatedItemSize="$16"
-          />
+            </XStack>
+            <SectionList
+              stickySectionHeadersEnabled
+              sections={filterSections}
+              renderSectionHeader={renderSectionHeader}
+              ListEmptyComponent={
+                <Empty
+                  icon="SearchOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_results,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.global_search_no_results_desc,
+                  })}
+                />
+              }
+              renderItem={renderItem}
+              estimatedItemSize="$16"
+            />
+          </>
         );
       default:
         break;
     }
   }, [
+    filterSections,
+    filterTypes,
+    handleTabSelectedPageIndex,
     intl,
     recommendSections,
     renderItem,
     renderSectionHeader,
     searchStatus,
-    searchType,
-    sections,
+    tabTitles,
   ]);
 
   return (
@@ -368,7 +436,6 @@ export function UniversalSearch({
         <View px="$5">
           <SearchBar
             autoFocus
-            placeholder={searchPlaceholderText}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />
@@ -398,9 +465,7 @@ const UniversalSearchWithProvider = ({
       <UniversalSearchProviderMirror
         storeName={EJotaiContextStoreNames.universalSearch}
       >
-        <UniversalSearch
-          searchType={route?.params?.filterType || EUniversalSearchType.Address}
-        />
+        <UniversalSearch filterTypes={route?.params?.filterTypes || AllTypes} />
       </UniversalSearchProviderMirror>
     </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>

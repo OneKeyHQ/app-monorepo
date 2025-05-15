@@ -272,7 +272,7 @@ function toastWarningAndReset(key: string) {
         item?.[1]?.startsWith('appStorage.getItem__g_states_v5:'),
       );
       if (
-        key === 'OneKeyStorage_readonly' &&
+        key === 'OneKeyStorage-simpleDB_readonly' &&
         atomInitCalls &&
         atomInitCalls?.length >= 30
       ) {
@@ -417,7 +417,7 @@ function logIndexedDBCreateTx() {
       globalThis.IDBDatabase.prototype.transaction = function (
         storeNames: string | string[],
         mode?: IDBTransactionMode,
-        options?: IDBTransactionOptions,
+        _options?: IDBTransactionOptions,
       ) {
         clearTimeout(resetTimer);
 

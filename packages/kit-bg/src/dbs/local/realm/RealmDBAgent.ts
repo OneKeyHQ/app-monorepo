@@ -2,11 +2,13 @@ import { Semaphore, withTimeout } from 'async-mutex';
 import { isNumber } from 'lodash';
 import Realm from 'realm';
 
+import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { storeNameSupportCreatedAt } from '../consts';
+import indexedUtils from '../indexed/indexedDBUtils';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 
 import { realmDBSchemasMap } from './schemas';
@@ -14,6 +16,7 @@ import { realmDBSchemasMap } from './schemas';
 import type { RealmObjectBase } from './base/RealmObjectBase';
 import type { ELocalDBStoreNames } from '../localDBStoreNames';
 import type {
+  EIndexedDBBucketNames,
   ILocalDBAgent,
   ILocalDBGetAllRecordsParams,
   ILocalDBGetAllRecordsResult,
@@ -48,7 +51,8 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   }
 
   async clearRecords({ name }: { name: ELocalDBStoreNames }): Promise<void> {
-    await this.withTransaction(async (tx) => {
+    const bucketName = indexedUtils.getBucketNameByStoreName(name);
+    await this.withTransaction(bucketName, async (tx) => {
       const { recordPairs } = await this.txGetAllRecords({ name, tx });
       await this.txRemoveRecords({
         tx,
@@ -100,6 +104,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   );
 
   async withTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T> {
@@ -109,7 +114,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         this.realm.beginTransaction();
       }
       try {
-        const tx = {};
+        const tx = {
+          bucketName,
+        };
         const result = await task(tx);
         // await timerUtils.wait(2000);
         if (!options?.readOnly) {
@@ -134,7 +141,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) => {
         const { count } = await this.txGetRecordsCount({ ...params, tx });
         return { count };
@@ -146,7 +155,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getRecordsByIds<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsByIdsParams<T>,
   ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) => {
         const { records } = await this.txGetRecordsByIds({ ...params, tx });
         return { records };
@@ -158,7 +169,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) => {
         const { records } = await this.txGetAllRecords({ ...params, tx });
         return { records };
@@ -170,7 +183,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
     return this.withTransaction(
+      bucketName,
       async (tx) => {
         const [record] = await this.txGetRecordById({ ...params, tx });
         return record;
@@ -246,7 +261,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     // @ts-ignore
     const record = obj?.record;
     if (!record) {
-      throw new Error(`record not found: ${name} ${id}`);
+      throw new LocalDBRecordNotFoundError(`record not found: ${name} ${id}`);
     }
     // eslint-disable-next-line
     return [record as any, obj];

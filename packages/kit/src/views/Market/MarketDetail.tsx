@@ -20,6 +20,7 @@ import {
   useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -46,6 +47,7 @@ import { MarketTradeButton } from './components/MarketTradeButton';
 import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
+import MarketDetailV2 from './MarketDetailV2/MarketDetailV2';
 import { buildMarketFullUrl } from './marketUtils';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
@@ -79,15 +81,7 @@ function TokenDetailHeader({
   const {
     name,
     symbol,
-    stats: {
-      performance,
-      volume24h,
-      marketCap,
-      marketCapRank,
-      fdv,
-      currentPrice,
-      lastUpdated,
-    },
+    stats: { performance, currentPrice, lastUpdated },
   } = token;
   return (
     <YStack
@@ -363,6 +357,14 @@ function MarketDetail({
 export default function MarketDetailWithProvider(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>,
 ) {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const enableMarketV2 =
+    devSettings.enabled && devSettings.settings?.enableMarketV2;
+
+  if (enableMarketV2) {
+    return <MarketDetailV2 {...props} />;
+  }
+
   return (
     <AccountSelectorProviderMirror
       config={{

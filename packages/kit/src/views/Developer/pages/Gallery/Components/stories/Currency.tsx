@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const CurrencyGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Currency"
     elements={[
       {

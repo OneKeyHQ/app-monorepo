@@ -33,6 +33,7 @@ const bannerData = [
 
 const SliderGallery = () => (
   <Layout
+    filePath={__CURRENT_FILE_PATH__}
     componentName="Swiper"
     elements={[
       {

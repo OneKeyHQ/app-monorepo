@@ -1,40 +1,30 @@
 import { useMemo } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { PageHeaderDivider } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { HeaderLeft } from './HeaderLeft';
+import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function TabPageHeader({
-  sceneName,
-  tabRoute,
-  showHeaderRight,
-  showCustomHeaderRight,
-}: ITabPageHeaderProp) {
-  useDebugComponentRemountLog({
-    name: `native TabPageHeader:${sceneName}:${String(showHeaderRight)}`,
-  });
+export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
 
   const headerRight = useMemo(() => {
-    if (showCustomHeaderRight) {
-      return showCustomHeaderRight({
-        canGoBack: false,
-      });
-    }
     return (
       <HomeTokenListProviderMirror>
         <HeaderRight sceneName={sceneName} tabRoute={tabRoute} />
       </HomeTokenListProviderMirror>
     );
-  }, [sceneName, showCustomHeaderRight, tabRoute]);
+  }, [sceneName, tabRoute]);
+
   return (
     <>
       <Page.Header headerShown={false} />
@@ -42,17 +32,19 @@ export function TabPageHeader({
         alignItems="center"
         justifyContent="space-between"
         px="$5"
-        pt={top}
-        mt={platformEnv.isNativeAndroid ? '$2' : undefined}
+        h="$11"
+        {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
       >
         <View>
-          <HeaderLeft sceneName={sceneName} />
+          <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />
         </View>
         <View>
           <HeaderTitle sceneName={sceneName} />
         </View>
-        {showHeaderRight || showCustomHeaderRight ? headerRight : null}
+        {headerRight}
       </XStack>
+      <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+      <PageHeaderDivider mt="$3" />
     </>
   );
 }

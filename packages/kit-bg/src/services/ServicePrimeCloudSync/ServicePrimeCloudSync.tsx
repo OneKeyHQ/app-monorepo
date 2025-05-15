@@ -16,6 +16,7 @@ import {
   OneKeyErrorPrimeMasterPasswordInvalid,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -45,6 +46,13 @@ import type { ICloudSyncCustomToken } from '@onekeyhq/shared/types/token';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
+  EIndexedDBBucketNames,
+  type IDBAccount,
+  type IDBCloudSyncItem,
+  type IDBIndexedAccount,
+  type IDBWallet,
+} from '../../dbs/local/types';
+import {
   addressBookPersistAtom,
   devSettingsPersistAtom,
   primeCloudSyncPersistAtom,
@@ -63,13 +71,6 @@ import { CloudSyncFlowManagerLock } from './CloudSyncFlowManager/CloudSyncFlowMa
 import { CloudSyncFlowManagerMarketWatchList } from './CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList';
 import { CloudSyncFlowManagerWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerWallet';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
-
-import type {
-  IDBAccount,
-  IDBCloudSyncItem,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
 
 const nonce = 0;
 
@@ -572,9 +573,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async _syncToSceneWithLocalSyncItems({
     items,
     syncCredential,
+    forceSync,
   }: {
     items: IDBCloudSyncItem[];
-    syncCredential: ICloudSyncCredential;
+    syncCredential: ICloudSyncCredential | undefined;
+    forceSync?: boolean;
   }) {
     const walletItems: IDBCloudSyncItem[] = [];
     const accountItems: IDBCloudSyncItem[] = [];
@@ -632,6 +635,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.wallet.syncToScene({
       syncCredential,
       items: walletItems,
+      forceSync,
     });
     if (walletItems?.length) {
       emitEventsStack.push(() => {
@@ -643,10 +647,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.account.syncToScene({
       syncCredential,
       items: accountItems,
+      forceSync,
     });
     await this.syncManagers.indexedAccount.syncToScene({
       syncCredential,
       items: indexedAccountItems,
+      forceSync,
     });
     if (accountItems?.length || indexedAccountItems?.length) {
       emitEventsStack.push(() => {
@@ -658,6 +664,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.browserBookmark.syncToScene({
       syncCredential,
       items: browserBookmarkItems,
+      forceSync,
     });
     if (browserBookmarkItems?.length) {
       emitEventsStack.push(() => {
@@ -669,6 +676,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.marketWatchList.syncToScene({
       syncCredential,
       items: marketWatchListItems,
+      forceSync,
     });
     if (marketWatchListItems?.length) {
       emitEventsStack.push(() => {
@@ -680,6 +688,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customRpc.syncToScene({
       syncCredential,
       items: customRpcItems,
+      forceSync,
     });
     if (customRpcItems?.length) {
       emitEventsStack.push(() => {
@@ -691,6 +700,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customNetwork.syncToScene({
       syncCredential,
       items: customNetworkItems,
+      forceSync,
     });
     if (customNetworkItems?.length) {
       emitEventsStack.push(() => {
@@ -702,6 +712,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customToken.syncToScene({
       syncCredential,
       items: customTokenItems,
+      forceSync,
     });
     if (customTokenItems?.length) {
       emitEventsStack.push(() => {
@@ -713,6 +724,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.addressBook.syncToScene({
       syncCredential,
       items: addressBookItems,
+      forceSync,
     });
     if (addressBookItems?.length) {
       emitEventsStack.push(async () => {
@@ -805,18 +817,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential: ICloudSyncCredential | undefined;
     shouldSyncToScene: boolean;
   }) {
-    await localDb.withTransaction(async (tx) => {
-      console.log('updateLocalItemsByServer', localItems);
-      await localDb.txAddAndUpdateSyncItems({
-        tx,
-        items: localItems,
-        // the data is already from the server, so it doesn't need to be uploaded back to the server
-        skipUploadToServer: true,
-      });
-      console.log('updateLocalItemsByServer sucess', localItems);
-
-      return localItems;
+    console.log('updateLocalItemsByServer', localItems);
+    await localDb.addAndUpdateSyncItems({
+      items: localItems,
+      // the data is already from the server, so it doesn't need to be uploaded back to the server
+      skipUploadToServer: true,
     });
+    console.log('updateLocalItemsByServer sucess', localItems);
 
     if (shouldSyncToScene && syncCredential) {
       // we need to query from the database again, not use the localSyncItems above, because when updating, the timestamp may not be written if it does not match
@@ -884,6 +891,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName?: string;
   } = {}) {
     try {
+      if (!(await this.isCloudSyncIsAvailable())) {
+        return;
+      }
       await this.ensureCloudSyncIsAvailable({
         callerName,
       });
@@ -902,7 +912,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         encryptedSecurityPasswordR1ForServer,
       });
     } catch (error) {
-      console.error(error);
+      errorUtils.autoPrintErrorIgnore(error);
       if (throwError) {
         throw error;
       }
@@ -981,6 +991,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow?: boolean;
     encryptedSecurityPasswordR1ForServer?: string;
   }) {
+    if (!(await this.isCloudSyncIsAvailable())) {
+      return;
+    }
+
     await this.ensureCloudSyncIsAvailable();
 
     // TODO check passcode, syncPassword, accountSalt, isPrime are both available
@@ -1045,7 +1059,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     try {
       return await this.getSyncCredentialWithCache();
     } catch (error) {
-      console.error(error);
+      errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
   }
@@ -1220,12 +1234,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
         initDataTime: undefined,
       });
-    await localDb.withTransaction(async (tx) => {
-      await localDb.txAddAndUpdateSyncItems({
-        tx,
-        items: syncItemsForIndexedAccounts,
-        skipUploadToServer: true, // startSyncFlow() will handle uploading to server
-      });
+    await localDb.addAndUpdateSyncItems({
+      items: syncItemsForIndexedAccounts,
+      skipUploadToServer: true, // startSyncFlow() will handle uploading to server
     });
   }
 
@@ -1247,7 +1258,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         }));
     }
 
-    await this.backgroundApi.serviceAccount.generateAllHDWalletMissingHashAndXfp(
+    await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
       {
         password,
       },
@@ -1390,16 +1401,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     // const totalItemsUniqById = uniqBy(totalItems, (item) => item.id);
     // const totalItemsUniqByDeleted = uniqBy(totalItems, (item) => item.isDeleted);
 
-    await localDb.withTransaction(async (tx) => {
-      await localDb.txAddAndUpdateSyncItems({
-        tx,
-        items: totalItems,
-        // as init item dataTime is undefined, server will reject the upload
-        skipUploadToServer: true, // startSyncFlow() will handle uploading to server
-      });
-
-      // TODO rebuild missing item.data if needed, as data is undefined when credential is not available (prime is inactive)
+    await localDb.addAndUpdateSyncItems({
+      items: totalItems,
+      // as init item dataTime is undefined, server will reject the upload
+      skipUploadToServer: true, // startSyncFlow() will handle uploading to server
     });
+
+    // TODO rebuild missing item.data if needed, as data is undefined when credential is not available (prime is inactive)
 
     return {
       allWallets, // TODO handle same hash HD wallets
@@ -1464,12 +1472,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
     }
     if (itemsToUpdate.length) {
-      await localDb.withTransaction(async (tx) => {
-        await localDb.txAddAndUpdateSyncItems({
-          tx,
-          items: itemsToUpdate,
-          skipUploadToServer,
-        });
+      await localDb.addAndUpdateSyncItems({
+        items: itemsToUpdate,
+        skipUploadToServer,
       });
     }
   }
@@ -1480,10 +1485,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     success: boolean;
     isServerMasterPasswordSet?: boolean;
     encryptedSecurityPasswordR1ForServer?: string;
-    localSameWallets?: {
-      walletHash: string;
-      wallets: IDBWallet[];
-    }[];
     serverDiffItems?: ICloudSyncServerDiffItem[];
   }> {
     const isPrimeLoggedIn =
@@ -1508,26 +1509,6 @@ class ServicePrimeCloudSync extends ServiceBase {
           description: 'Please enter your password to enable cloud sync',
         },
       });
-
-    const sameWallets = await this.withDialogLoading(
-      {
-        title: 'Checking status',
-      },
-      async () => {
-        const sameWallets0: {
-          walletHash: string;
-          wallets: IDBWallet[];
-        }[] = await this.backgroundApi.serviceAccount.getLocalSameHDWallets({
-          password,
-        });
-        return sameWallets0;
-      },
-    );
-
-    // should resolve same wallets from UI
-    if (sameWallets.length > 0) {
-      return { success: false, localSameWallets: sameWallets };
-    }
 
     const { isServerMasterPasswordSet, encryptedSecurityPasswordR1ForServer } =
       await this.backgroundApi.serviceMasterPassword.setupMasterPassword({
@@ -1753,12 +1734,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   async debugDownloadAllServerSyncItemsAndSaveToLocal() {
     const localItems = await this.decryptAllServerSyncItems();
-    await localDb.withTransaction(async (tx) => {
-      await localDb.txAddAndUpdateSyncItems({
-        tx,
-        items: localItems,
-        skipUploadToServer: true,
-      });
+    await localDb.addAndUpdateSyncItems({
+      items: localItems,
+      skipUploadToServer: true,
     });
   }
 
@@ -1771,53 +1749,64 @@ class ServicePrimeCloudSync extends ServiceBase {
         name: ELocalDBStoreNames.Device,
         id: fromDeviceId,
       });
-      await localDb.withTransaction(async (tx) => {
-        await localDb.txAddRecords({
-          tx,
-          name: ELocalDBStoreNames.Device,
-          skipIfExists: true,
-          records: [
-            {
-              ...device,
-              id: toDeviceId,
-            },
-          ],
-        });
-      });
+      await localDb.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await localDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            skipIfExists: true,
+            records: [
+              {
+                ...device,
+                id: toDeviceId,
+              },
+            ],
+          });
+        },
+      );
     }
   }
 
   @backgroundMethod()
   async debugClearSyncItemPwdHash() {
     const { syncItems } = await localDb.getAllSyncItems();
-    await localDb.withTransaction(async (tx) => {
-      await localDb.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.CloudSyncItem,
-        ids: syncItems.map((item) => item.id),
-        updater: (record) => {
-          record.pwdHash = '';
-          return record;
-        },
-      });
-    });
+    await localDb.withTransaction(
+      // EIndexedDBBucketNames.cloudSync,
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await localDb.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: syncItems.map((item) => item.id),
+          updater: (record) => {
+            record.pwdHash = '';
+            return record;
+          },
+        });
+      },
+    );
   }
 
   @backgroundMethod()
   async debugTamperingSyncItemData() {
     const { syncItems } = await localDb.getAllSyncItems();
-    await localDb.withTransaction(async (tx) => {
-      await localDb.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.CloudSyncItem,
-        ids: syncItems.map((item) => item.id),
-        updater: (record) => {
-          record.data = '999999';
-          record.localSceneUpdated = false;
-          return record;
-        },
-      });
-    });
+    await localDb.withTransaction(
+      // EIndexedDBBucketNames.cloudSync,
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await localDb.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: syncItems.map((item) => item.id),
+          updater: (record) => {
+            record.data = '999999';
+            record.localSceneUpdated = false;
+            return record;
+          },
+        });
+      },
+    );
   }
 }
 

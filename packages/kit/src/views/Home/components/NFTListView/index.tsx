@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps } from '@onekeyhq/components';
@@ -21,7 +22,6 @@ import {
 import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
-import { NFTListHeader } from './NFTListHeader';
 import { NFTListItem } from './NFTListItem';
 
 import type { ListRenderItemInfo } from 'react-native';
@@ -33,6 +33,12 @@ type IProps = {
   initialized?: boolean;
   onRefresh?: () => void;
   isAllNetworks?: boolean;
+  listViewStyleProps?: Pick<
+    ComponentProps<typeof ListView>,
+    | 'ListHeaderComponentStyle'
+    | 'ListFooterComponentStyle'
+    | 'contentContainerStyle'
+  >;
 };
 
 const useMumColumns: () => {
@@ -83,6 +89,7 @@ function NFTListView(props: IProps) {
     initialized,
     inTabList = false,
     isAllNetworks,
+    listViewStyleProps,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -132,6 +139,7 @@ function NFTListView(props: IProps) {
     });
   const contentContainerStyle = useMemo(
     () => ({
+      pt: '$3',
       pb: '$6',
       px: '$2.5',
     }),
@@ -161,11 +169,11 @@ function NFTListView(props: IProps) {
       numColumns={numColumns}
       data={filteredNfts}
       renderItem={handleRenderItem}
-      ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }
+      {...listViewStyleProps}
     />
   );
 }

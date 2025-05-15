@@ -10,7 +10,7 @@ import {
   wrap,
 } from '@sentry/react-native';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import appGlobals from '../../appGlobals';
 
 import { buildBasicOptions, navigationIntegration } from './basicOptions';
 
@@ -28,7 +28,7 @@ export const initSentry = () => {
     dsn: 'https://efa7cea7131f10dc294bd2c64bd636bf@o4508208799809536.ingest.de.sentry.io/4508208802627664',
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
-        defaultLogger.app.error.log(errorMessage, stacktrace);
+        appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
       },
     }),
     maxCacheItems: 60,

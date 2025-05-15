@@ -1,8 +1,4 @@
-import type {
-  IAccountToken,
-  IToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 

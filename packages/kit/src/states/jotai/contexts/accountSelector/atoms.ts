@@ -48,7 +48,7 @@ export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
     indexedAccountId: undefined,
     othersWalletAccountId: undefined,
     networkId: undefined,
-    deriveType: 'default',
+    deriveType: undefined,
     focusedWallet: undefined,
   });
 export type ISelectedAccountsAtomMap = Partial<{
@@ -84,10 +84,10 @@ export function useSelectedAccount({
   );
 
   if (debugName === 'HomePage') {
-    console.log(
-      'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
-      selectedAccountOfNum,
-    );
+    // console.log(
+    //   'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
+    //   selectedAccountOfNum,
+    // );
   }
   return useMemo(() => {
     let selectedAccount = selectedAccountOfNum;
@@ -161,7 +161,7 @@ export interface IAccountSelectorActiveAccountInfo {
   device: IDBDevice | undefined;
   network: IServerNetwork | undefined;
   vaultSettings: IVaultSettings | undefined;
-  deriveType: IAccountDeriveTypes;
+  deriveType: IAccountDeriveTypes | undefined;
   deriveInfo?: IAccountDeriveInfo | undefined;
   deriveInfoItems: IAccountDeriveInfoItems[];
   canCreateAddress?: boolean;
@@ -177,7 +177,7 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
     device: undefined,
     network: undefined,
     vaultSettings: undefined,
-    deriveType: 'default',
+    deriveType: undefined,
     deriveInfoItems: [],
     ready: false,
   });

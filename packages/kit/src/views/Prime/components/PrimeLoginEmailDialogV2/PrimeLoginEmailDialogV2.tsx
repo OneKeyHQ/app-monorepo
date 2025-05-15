@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';

@@ -700,7 +700,7 @@ test('sha512Async - iterations = 1 (默认值) 无 iterationSalt', async () => {
   const testData = 'hello world';
   const result = await sha512Async({ data: testData });
 
-  console.log('result', result);
+  // console.log('result', result);
 
   // 验证结果是否为有效的 SHA-512 哈希（128个十六进制字符）
   expect(result).toHaveLength(128);

@@ -1,13 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import {
-  Button,
-  ESwitchSize,
-  Page,
-  Stack,
-  Switch,
-  Toast,
-} from '@onekeyhq/components';
+import { Button, ESwitchSize, Page, Stack, Switch } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -44,7 +37,6 @@ export default function PagePrimeCloudSync() {
                     const {
                       success,
                       isServerMasterPasswordSet,
-                      localSameWallets,
                       serverDiffItems,
                       encryptedSecurityPasswordR1ForServer,
                     } =
@@ -52,16 +44,6 @@ export default function PagePrimeCloudSync() {
                     await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
                       success,
                     );
-                    if (localSameWallets?.length) {
-                      navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-                        screen:
-                          EAccountManagerStacksRoutes.PageResolveSameWallets,
-                        params: {
-                          sameWallets: localSameWallets,
-                        },
-                      });
-                      return;
-                    }
                     if (serverDiffItems?.length) {
                       console.log('serverDiffItems>>>', serverDiffItems);
                       return;

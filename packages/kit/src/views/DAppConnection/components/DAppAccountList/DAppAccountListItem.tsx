@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import {
   NetworkSelectorTriggerDappConnection,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
+import { useAccountSelectorAvailableNetworks } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorAvailableNetworks';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -43,6 +44,13 @@ function DAppAccountListInitFromHome({
 }) {
   const [, setSyncLoading] = useAccountSelectorSyncLoadingAtom();
   const actions = useAccountSelectorActions();
+
+  const availableNetworks = useAccountSelectorAvailableNetworks({
+    num,
+  });
+  const availableNetworksRef = useRef(availableNetworks);
+  availableNetworksRef.current = availableNetworks;
+
   useEffect(() => {
     void (async () => {
       try {
@@ -53,7 +61,7 @@ function DAppAccountListInitFromHome({
           },
         }));
         // required delay here, should be called after AccountSelectEffects AutoSelect
-        await timerUtils.wait(600);
+        await timerUtils.wait(800);
         if (shouldSyncFromHome) {
           // alert('syncFromScene home');
           await actions.current.syncFromScene({
@@ -63,6 +71,7 @@ function DAppAccountListInitFromHome({
             },
             num, // TODO multiple account selector of wallet connect
             withNetworkSync: true,
+            availableNetworks: availableNetworksRef.current,
           });
         }
       } finally {

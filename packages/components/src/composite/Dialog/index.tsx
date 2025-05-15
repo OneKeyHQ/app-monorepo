@@ -26,19 +26,26 @@ import {
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../../actions/Toast';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
-import { Portal } from '../../hocs';
-import { useBackHandler, useOverlayZIndex } from '../../hooks';
+import { EPortalContainerConstantName, Portal } from '../../hocs';
+import {
+  useBackHandler,
+  useModalNavigatorContextPortalId,
+  useOverlayZIndex,
+} from '../../hooks';
+import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
+import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
@@ -73,6 +80,7 @@ export type {
   IDialogInstance,
   IDialogShowProps,
 } from './type';
+export * from './dialogInstances';
 
 export const FIX_SHEET_PROPS: IStackProps = {
   display: 'block',
@@ -103,6 +111,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
+  trackID,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -124,8 +133,13 @@ function DialogFrame({
   );
 
   useEffect(() => {
+    if (trackID) {
+      defaultLogger.ui.dialog.dialogOpen({
+        trackId: trackID,
+      });
+    }
     onOpen?.();
-  }, [onOpen]);
+  }, [trackID, onOpen]);
 
   const handleBackPress = useCallback(() => {
     if (!open) {
@@ -142,19 +156,24 @@ function DialogFrame({
   }, []);
 
   const handleCancelButtonPress = useCallback(async () => {
-    const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.(() => onClose());
-    if (!onCancel?.length) {
-      await onClose();
+    if (trackID) {
+      defaultLogger.ui.dialog.dialogCancel({
+        trackId: trackID,
+      });
     }
-  }, [footerRef.props?.onCancel, onCancel, onClose]);
+    const cancel = onCancel || footerRef.props?.onCancel;
+    cancel?.(() => onClose({ flag: 'cancel' }));
+    if (!onCancel?.length) {
+      await onClose({ flag: 'cancel' });
+    }
+  }, [trackID, footerRef.props?.onCancel, onCancel, onClose]);
 
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open);
   const renderDialogContent = (
     <Stack>
-      <DialogHeader onClose={onClose} />
+      <DialogHeader trackID={trackID} onClose={onClose} />
       {/* extra children */}
       <Content
         testID={testID}
@@ -164,6 +183,7 @@ function DialogFrame({
         {renderContent}
       </Content>
       <Footer
+        trackID={trackID}
         tone={tone}
         showFooter={showFooter}
         footerProps={footerProps}
@@ -204,6 +224,7 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
+        modal={modal}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -337,11 +358,20 @@ function BaseDialogContainer(
   const formRef = useRef();
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
+      if (
+        props.trackID &&
+        extra?.flag !== 'confirm' &&
+        extra?.flag !== 'cancel'
+      ) {
+        defaultLogger.ui.dialog.dialogClose({
+          trackId: props.trackID,
+        });
+      }
       changeIsOpen(false);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [changeIsOpen, onClose],
+    [changeIsOpen, onClose, props.trackID],
   );
 
   const handleIsExist = useCallback(
@@ -429,16 +459,18 @@ export const DialogContainer = forwardRef<
   IDialogContainerProps
 >(BaseDialogContainer);
 
+type IDialogShowFunctionProps = IDialogShowProps & {
+  dialogContainer?: (o: {
+    ref: React.RefObject<IDialogInstance> | undefined;
+  }) => JSX.Element;
+};
 function dialogShow({
   onClose,
   dialogContainer,
   portalContainer,
+  isOverTopAllViews,
   ...props
-}: IDialogShowProps & {
-  dialogContainer?: (o: {
-    ref: React.RefObject<IDialogInstance> | undefined;
-  }) => JSX.Element;
-}): IDialogInstance {
+}: IDialogShowFunctionProps): IDialogInstance {
   dismissKeyboard();
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
@@ -448,6 +480,8 @@ function dialogShow({
         current: IPortalManager;
       }
     | undefined;
+
+  let dialogInstance: IDialogInstance | undefined;
 
   const buildForwardOnClose =
     (options: {
@@ -463,6 +497,10 @@ function dialogShow({
           if (portalRef) {
             portalRef.current.destroy();
             portalRef = undefined;
+          }
+          if (dialogInstance) {
+            removeDialogInstance(dialogInstance);
+            dialogInstance = undefined;
           }
           void options.onClose?.(extra);
           resolve();
@@ -494,7 +532,7 @@ function dialogShow({
 
   portalRef = {
     current: portalContainer
-      ? renderToContainer(portalContainer, element)
+      ? renderToContainer(portalContainer, element, isOverTopAllViews)
       : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   const close = async (extra?: { flag?: string }, times = 0) => {
@@ -509,11 +547,13 @@ function dialogShow({
     }
     return instanceRef?.current?.close(extra);
   };
-  return {
+  dialogInstance = {
     close,
     getForm: () => instanceRef?.current?.getForm(),
     isExist,
   };
+  addDialogInstance(dialogInstance);
+  return dialogInstance;
 }
 
 const dialogConfirm = (props: IDialogConfirmProps) =>
@@ -619,3 +659,63 @@ export const Dialog = {
   loading: dialogLoading,
   debugMessage: dialogDebugMessage,
 };
+
+enum EInPageDialogType {
+  inTabPages = 'inTabPages',
+  inModalPage = 'inModalPage',
+}
+const useInPageDialog = (type: EInPageDialogType) => {
+  const navigatorPortalId = useModalNavigatorContextPortalId();
+  const { pagePortalId } = usePageContext();
+  const portalId = useMemo(() => {
+    if (type === EInPageDialogType.inTabPages) {
+      return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;
+    }
+    return platformEnv.isNative
+      ? (pagePortalId as EPortalContainerConstantName)
+      : navigatorPortalId;
+  }, [navigatorPortalId, pagePortalId, type]);
+
+  const basicDialogProps = useMemo(
+    () => ({
+      testID: portalId,
+      modal: false,
+      portalContainer: portalId,
+    }),
+    [portalId],
+  );
+  return useMemo(
+    () => ({
+      show: (props: IDialogShowFunctionProps) => {
+        return dialogShow({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      confirm: (props: IDialogConfirmProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      cancel: (props: IDialogCancelProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      loading: (props: IDialogLoadingProps) => {
+        return dialogLoading({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+    }),
+    [basicDialogProps],
+  );
+};
+
+export const useInTabDialog = () =>
+  useInPageDialog(EInPageDialogType.inTabPages);
+export const useInModalDialog = () =>
+  useInPageDialog(EInPageDialogType.inModalPage);

@@ -1,9 +1,24 @@
 import { useCallback, useMemo } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
-import { ActionList, HeaderIconButton, useMedia } from '@onekeyhq/components';
+import type { IIconButtonProps } from '@onekeyhq/components';
+import {
+  Divider,
+  HeaderIconButton,
+  Icon,
+  IconButton,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+  useIsHorizontalLayout,
+  useMedia,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -11,87 +26,154 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import {
-  useIsShowMyOneKeyOnTabbar,
-  useToMyOneKeyModal,
-} from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
+import { useToMyOneKeyModal } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
+import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
+import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-function MoreActionButtonCmp() {
+import type { GestureResponderEvent } from 'react-native';
+
+const pressStyle = {
+  bg: '$bgActive',
+  borderRadius: '$2.5',
+} as const;
+const hoverStyle = { bg: '$bgHover', borderRadius: '$2.5' } as const;
+
+function MoreActionProvider({ children }: PropsWithChildren) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+    >
+      <HomeTokenListProviderMirror>{children}</HomeTokenListProviderMirror>
+    </AccountSelectorProviderMirror>
+  );
+}
+
+function MoreActionContentHeader() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const onLock = useOnLock();
-  const scanQrCode = useScanQrCode();
+  const { user } = usePrimeAuthV2();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const { closePopover } = usePopoverContext();
+
+  const { shareReferRewards } = useReferFriends();
+  const { loginOneKeyId } = useLoginOneKeyId();
+
+  const handleLogin = useCallback(async () => {
+    await closePopover?.();
+    await loginOneKeyId({
+      toOneKeyIdPageOnLoginSuccess: true,
+    });
+  }, [closePopover, loginOneKeyId]);
+
+  const handleShareReferRewards = useCallback(async () => {
+    await closePopover?.();
+    await shareReferRewards();
+  }, [closePopover, shareReferRewards]);
+  return (
+    <XStack
+      px="$5"
+      py="$4"
+      bg="$bgSubdued"
+      ai="center"
+      jc="space-between"
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+    >
+      <XStack
+        gap="$1"
+        ai="center"
+        p="$1"
+        pl="$1.5"
+        m="$-1"
+        ml="$-1.5"
+        onPress={handleLogin}
+        pressStyle={pressStyle}
+        hoverStyle={hoverStyle}
+      >
+        <SizableText size="$bodyMd" userSelect="none">
+          {user?.displayEmail ||
+            intl.formatMessage({ id: ETranslations.prime_signup_login })}
+        </SizableText>
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
+      <XStack gap="$5">
+        {devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
+          <PrimeHeaderIconButtonLazy
+            key="prime"
+            visible
+            onPress={closePopover}
+          />
+        ) : null}
+        <IconButton
+          variant="tertiary"
+          title={intl.formatMessage({ id: ETranslations.referral_title })}
+          icon="ColorfulGiftCustom"
+          testID="refer-a-friend"
+          trackID="gift-in-more-action"
+          onPress={handleShareReferRewards}
+        />
+      </XStack>
+    </XStack>
+  );
+}
+
+function MoreActionContentFooterItem({ onPress, ...props }: IIconButtonProps) {
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(
+    async (event: GestureResponderEvent) => {
+      await closePopover?.();
+      onPress?.(event);
+    },
+    [closePopover, onPress],
+  );
+  return <IconButton {...props} variant="tertiary" onPress={handlePress} />;
+}
+
+function MoreActionContentFooter() {
+  const intl = useIntl();
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-  const openAddressBook = useShowAddressBook({
-    useNewModal: true,
-  });
-
-  const handleScan = useCallback(
-    async (close: () => void) => {
-      close();
-      await scanQrCode.start({
-        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-        autoHandleResult: true,
-        account,
-        network,
-        tokens: {
-          data: allTokens.tokens,
-          keys: allTokens.keys,
-          map,
-        },
-      });
-    },
-    [scanQrCode, account, allTokens, map, network],
-  );
-
-  const handleSettings = useCallback(
-    (close: () => void) => {
-      close();
-      navigation.pushModal(EModalRoutes.SettingModal, {
-        screen: EModalSettingRoutes.SettingListModal,
-      });
-    },
-    [navigation],
-  );
-
-  const toMyOneKeyModal = useToMyOneKeyModal();
-  const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
-  const handleDeviceManagement = useCallback(
-    async (close: () => void) => {
-      close();
-      void toMyOneKeyModal();
-    },
-    [toMyOneKeyModal],
-  );
-
-  const handleAddressBook = useCallback(
-    (close: () => void) => {
-      close();
-      void openAddressBook();
-    },
-    [openAddressBook],
-  );
-  const { toReferFriendsPage } = useReferFriends();
-  const { loginOneKeyId } = useLoginOneKeyId();
-  const media = useMedia();
+  const scanQrCode = useScanQrCode();
+  const onLock = useOnLock();
+  const handleLock = useCallback(async () => {
+    await onLock();
+  }, [onLock]);
+  const handleScan = useCallback(async () => {
+    await scanQrCode.start({
+      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+      autoHandleResult: true,
+      account,
+      network,
+      tokens: {
+        data: allTokens.tokens,
+        keys: allTokens.keys,
+        map,
+      },
+    });
+  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       const routeInfo = {
@@ -100,7 +182,7 @@ function MoreActionButtonCmp() {
       return [
         platformEnv.isExtensionUiPopup
           ? {
-              label: intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.open_as_sidebar,
               }),
               icon: 'LayoutRightOutline' as const,
@@ -113,7 +195,7 @@ function MoreActionButtonCmp() {
               trackID: 'wallet-side-panel-mode',
             }
           : {
-              label: intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.open_as_popup,
               }),
               icon: 'LayoutTopOutline' as const,
@@ -123,7 +205,7 @@ function MoreActionButtonCmp() {
               },
             },
         {
-          label: intl.formatMessage({
+          title: intl.formatMessage({
             id: ETranslations.global_expand_view,
           }),
           icon: 'ExpandOutline' as const,
@@ -140,133 +222,345 @@ function MoreActionButtonCmp() {
     }
     return [];
   }, [intl]);
+  const items = useMemo(() => {
+    return [
+      ...popupMenu,
+      {
+        title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+        icon: 'ScanOutline' as const,
+        onPress: handleScan,
+        testID: 'scan-qr-code',
+        trackID: 'wallet-scan',
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
+        icon: 'LockOutline' as const,
+        onPress: handleLock,
+        testID: 'lock-now',
+        trackID: 'wallet-lock-now',
+      },
+    ];
+  }, [handleLock, handleScan, intl, popupMenu]);
+  return (
+    <XStack jc="flex-end" gap="$5">
+      {items.map((item) => (
+        <MoreActionContentFooterItem key={item.title} {...item} />
+      ))}
+    </XStack>
+  );
+}
+
+interface IMoreActionContentGridItemProps {
+  title: IIconButtonProps['title'];
+  icon: IIconButtonProps['icon'];
+  testID?: string;
+  trackID?: string;
+  onPress: () => void;
+  showRedDot?: boolean;
+  showBadges?: boolean;
+  badges?: number;
+}
+
+function MoreActionContentGridItem({
+  title,
+  icon,
+  onPress,
+  testID,
+  trackID,
+  showRedDot,
+  showBadges,
+  badges = 0,
+}: IMoreActionContentGridItemProps) {
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    onPress();
+    if (trackID) {
+      defaultLogger.ui.button.click({
+        trackId: trackID,
+      });
+    }
+  }, [closePopover, onPress, trackID]);
+  return (
+    <YStack
+      testID={testID}
+      onPress={handlePress}
+      group
+      flexBasis="25%"
+      ai="center"
+      gap="$2"
+      py="$2.5"
+      px={5}
+      userSelect="none"
+    >
+      <YStack
+        p="$3"
+        borderRadius="$2"
+        borderCurve="continuous"
+        bg="$bgStrong"
+        $group-hover={{
+          bg: '$neutral4',
+        }}
+        $group-press={{
+          bg: '$neutral5',
+        }}
+      >
+        <Icon name={icon} />
+      </YStack>
+      <SizableText size="$bodySm" textAlign="center">
+        {title}
+      </SizableText>
+      {showRedDot ? (
+        <Stack
+          position="absolute"
+          right="$3"
+          top="$0.5"
+          alignItems="flex-end"
+          w="$10"
+          pointerEvents="none"
+        >
+          <Stack
+            bg="$bgApp"
+            borderRadius="$full"
+            borderWidth={2}
+            borderColor="$transparent"
+          >
+            <Stack
+              px="$1"
+              borderRadius="$full"
+              bg="$bgCriticalStrong"
+              minWidth="$4"
+              height="$4"
+              alignItems="center"
+              justifyContent="center"
+            >
+              {showBadges ? (
+                <SizableText color="$textOnColor" size="$bodySm">
+                  {badges && badges > 99 ? '99+' : badges}
+                </SizableText>
+              ) : (
+                <Stack
+                  width="$1"
+                  height="$1"
+                  backgroundColor="white"
+                  borderRadius="$full"
+                />
+              )}
+            </Stack>
+          </Stack>
+        </Stack>
+      ) : null}
+    </YStack>
+  );
+}
+
+function MoreActionContentGridRender({
+  items,
+}: {
+  items: IMoreActionContentGridItemProps[];
+}) {
+  const displayItems = useMemo(() => {
+    const remainder = items.length % 3;
+    if (remainder !== 0) {
+      const paddingCount = 3 - remainder;
+      return [
+        ...items,
+        ...Array(paddingCount).fill(null),
+      ] as IMoreActionContentGridItemProps[];
+    }
+    return items;
+  }, [items]);
+  return (
+    <>
+      {displayItems.map((item, index) =>
+        item ? (
+          <MoreActionContentGridItem key={index} {...item} />
+        ) : (
+          <XStack key={index} />
+        ),
+      )}
+    </>
+  );
+}
+
+function MoreActionContentGrid() {
+  const intl = useIntl();
+  const openAddressBook = useShowAddressBook({
+    useNewModal: true,
+  });
+  const { gtMd } = useMedia();
+  const toMyOneKeyModal = useToMyOneKeyModal();
+  const handleDeviceManagement = useCallback(async () => {
+    await toMyOneKeyModal();
+  }, [toMyOneKeyModal]);
+
+  const navigation = useAppNavigation();
+  const handleSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [navigation]);
+
+  const openNotificationsModal = useCallback(async () => {
+    navigation.pushModal(EModalRoutes.NotificationsModal, {
+      screen: EModalNotificationsRoutes.NotificationList,
+    });
+  }, [navigation]);
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
+  const items = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.address_book_title,
+        }),
+        icon: 'ContactsOutline',
+        onPress: openAddressBook,
+        testID: 'address-book',
+        trackID: 'wallet-address-book',
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_my_onekey,
+        }),
+        icon: 'OnekeyDeviceCustom',
+        onPress: handleDeviceManagement,
+        testID: 'my-onekey',
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.settings_settings,
+        }),
+        icon: 'SettingsOutline',
+        onPress: handleSettings,
+        trackID: 'wallet-settings',
+      },
+      gtMd
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.global_notifications,
+            }),
+            icon: 'BellOutline',
+            onPress: openNotificationsModal,
+            showRedDot: !firstTimeGuideOpened || badge,
+            showBadges: firstTimeGuideOpened,
+            badges: badge,
+            trackID: 'notification-in-more-action',
+          },
+    ].filter(Boolean) as IMoreActionContentGridItemProps[];
+  }, [
+    badge,
+    firstTimeGuideOpened,
+    gtMd,
+    handleDeviceManagement,
+    handleSettings,
+    intl,
+    openAddressBook,
+    openNotificationsModal,
+  ]);
 
   return (
-    <ActionList
-      key="more-action"
-      title={intl.formatMessage({ id: ETranslations.explore_options })}
+    <YStack gap="$5">
+      <XStack flexWrap="wrap" mx="$-3" my="$-2.5">
+        <MoreActionContentGridRender items={items} />
+      </XStack>
+      <Divider />
+    </YStack>
+  );
+}
+
+function MoreActionContent() {
+  return (
+    <MoreActionProvider>
+      <YStack>
+        <MoreActionContentHeader />
+        <YStack p="$5" gap="$5">
+          <MoreActionContentGrid />
+          <MoreActionContentFooter />
+        </YStack>
+      </YStack>
+    </MoreActionProvider>
+  );
+}
+
+const useIsShowRedDot = () => {
+  const isHorizontal = useIsHorizontalLayout();
+  const [{ firstTimeGuideOpened, badge: notificationBadges }] =
+    useNotificationsAtom();
+  if (isHorizontal) {
+    return false;
+  }
+  const isShowNotificationDot = !firstTimeGuideOpened || notificationBadges;
+  return isShowNotificationDot;
+};
+
+function MoreActionButtonCmp() {
+  const intl = useIntl();
+  const isShowRedDot = useIsShowRedDot();
+  return (
+    <Popover
+      title=""
+      offset={{
+        mainAxis: 12,
+        crossAxis: 20,
+      }}
+      showHeader={false}
+      placement="bottom-end"
+      floatingPanelProps={{
+        overflow: 'hidden',
+      }}
       renderTrigger={
-        <HeaderIconButton
-          title={intl.formatMessage({ id: ETranslations.explore_options })}
-          icon="DotGridOutline"
-        />
+        <XStack key="moreActions" testID="moreActions">
+          <HeaderIconButton
+            title={intl.formatMessage({ id: ETranslations.explore_options })}
+            icon="DotGridOutline"
+            pointerEvents={platformEnv.isNative ? 'none' : undefined}
+          />
+          {isShowRedDot ? (
+            <Stack
+              position="absolute"
+              right="$-2.5"
+              top="$-2"
+              alignItems="flex-end"
+              w="$10"
+              pointerEvents="none"
+            >
+              <Stack
+                bg="$bgApp"
+                borderRadius="$full"
+                borderWidth={2}
+                borderColor="$transparent"
+              >
+                <Stack
+                  px="$1"
+                  borderRadius="$full"
+                  bg="$bgCriticalStrong"
+                  minWidth="$4"
+                  height="$4"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Stack
+                    width="$1"
+                    height="$1"
+                    backgroundColor="white"
+                    borderRadius="$full"
+                  />
+                </Stack>
+              </Stack>
+            </Stack>
+          ) : null}
+        </XStack>
       }
-      sections={[
-        {
-          items: [
-            {
-              label: intl.formatMessage({
-                id: ETranslations.settings_lock_now,
-              }),
-              icon: 'LockOutline' as const,
-              onPress: () => {
-                void onLock();
-              },
-              testID: 'lock-now',
-              trackID: 'wallet-lock-now',
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.scan_scan_qr_code,
-              }),
-              icon: 'ScanOutline' as const,
-              onPress: handleScan,
-              testID: 'scan-qr-code',
-              trackID: 'wallet-scan',
-            },
-            ...popupMenu,
-          ].filter(Boolean),
-        },
-        {
-          items: [
-            media.md
-              ? {
-                  label: 'OneKey ID',
-                  icon: 'PeopleOutline',
-                  onPress: async () => {
-                    await loginOneKeyId({
-                      toOneKeyIdPageOnLoginSuccess: true,
-                    });
-                  },
-                  testID: 'onekey_id',
-                }
-              : null,
-            !isShowMyOneKeyOnTabbar
-              ? {
-                  label: intl.formatMessage({
-                    id: ETranslations.id_refer_a_friend,
-                  }),
-                  icon: 'GiftOutline',
-                  onPress: toReferFriendsPage,
-                  testID: 'refer-a-friend',
-                }
-              : null,
-          ].filter(Boolean) as IActionListItemProps[],
-        },
-        {
-          items: !isShowMyOneKeyOnTabbar
-            ? [
-                {
-                  label: intl.formatMessage({
-                    id: ETranslations.global_my_onekey,
-                  }),
-                  icon: 'OnekeyDeviceCustom',
-                  onPress: handleDeviceManagement,
-                  testID: 'my-onekey',
-                },
-                {
-                  label: intl.formatMessage({
-                    id: ETranslations.address_book_title,
-                  }),
-                  icon: 'ContactsOutline',
-                  onPress: handleAddressBook,
-                  testID: 'address-book',
-                  trackID: 'wallet-address-book',
-                },
-              ]
-            : [
-                {
-                  label: intl.formatMessage({
-                    id: ETranslations.address_book_title,
-                  }),
-                  icon: 'ContactsOutline',
-                  onPress: handleAddressBook,
-                  testID: 'address-book',
-                  trackID: 'wallet-address-book',
-                },
-              ],
-        },
-        !isShowMyOneKeyOnTabbar
-          ? {
-              items: [
-                {
-                  label: intl.formatMessage({
-                    id: ETranslations.settings_settings,
-                  }),
-                  icon: 'SettingsOutline',
-                  onPress: handleSettings,
-                  trackID: 'wallet-settings',
-                },
-              ],
-            }
-          : null,
-      ].filter(Boolean)}
+      renderContent={MoreActionContent}
     />
   );
 }
 
 export function MoreActionButton() {
   return (
-    <AccountSelectorProviderMirror
-      enabledNum={[0]}
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-    >
-      <HomeTokenListProviderMirror>
-        <MoreActionButtonCmp />
-      </HomeTokenListProviderMirror>
-    </AccountSelectorProviderMirror>
+    <MoreActionProvider>
+      <MoreActionButtonCmp />
+    </MoreActionProvider>
   );
 }

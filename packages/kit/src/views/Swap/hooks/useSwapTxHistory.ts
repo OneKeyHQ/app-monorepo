@@ -105,6 +105,8 @@ export function useSwapTxHistoryActions() {
             supportUrl: swapTxInfo.swapBuildResData.result?.supportUrl,
             orderSupportUrl:
               swapTxInfo.swapBuildResData.result?.orderSupportUrl,
+            oneKeyFeeExtraInfo:
+              swapTxInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };

@@ -91,6 +91,47 @@ interface IHardwareSalesRecordItem {
   status: string;
 }
 
+export interface IEarnRewardItem {
+  _id: string;
+  itemUniqueId: string;
+  amount: string;
+  effectiveTime: string;
+  info: Array<{
+    networkId: string;
+    accountAddress: string;
+    provider: string;
+    vaultAddress: string;
+    vaultName: string;
+    type: string;
+  }>;
+  orderTotalAmount: string;
+  payReceipt: string | null;
+  payTime: string | null;
+  side: string;
+  subject: string;
+  title: string;
+  token: {
+    networkId: string;
+    address: string;
+    name: string;
+    logoURI: string;
+    symbol: string;
+  };
+  userId: string;
+  accountAddress: string;
+  vaultName: string;
+  vaultAddress: string;
+  fiatValue: string;
+  status: string;
+  heading: string;
+}
+
+export interface IEarnRewardResponse {
+  fiatValue: string;
+  items: IEarnRewardItem[];
+  total: number;
+}
+
 export interface IHardwareSalesRecord {
   available: {
     token: {

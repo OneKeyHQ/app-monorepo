@@ -24,7 +24,6 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -39,8 +38,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function PopoverLine({ children }: PropsWithChildren) {
@@ -457,14 +454,11 @@ function Dashboard({
       >
         <YStack onPress={toHardwareSalesRewardPage}>
           <XStack ai="center" jc="space-between">
-            <SizableText size="$headingMd">
-              {hardwareSales.title ||
-                intl.formatMessage({ id: ETranslations.referral_sales_reward })}
-            </SizableText>
+            <SizableText size="$headingMd">{hardwareSales.title}</SizableText>
             <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
           </XStack>
           <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-            {hardwareSales.description || ' '}
+            {hardwareSales.description}
           </SizableText>
         </YStack>
         <YStack pt="$4">
@@ -568,32 +562,18 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        // onPress={toEarnRewardPage}
+        onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <XStack ai="flex-end">
-            <SizableText size="$headingMd">
-              {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              position="relative"
-              top={-2}
-            >
-              {`  (${intl.formatMessage({
-                id: ETranslations.coming_soon,
-              })})`}
-            </SizableText>
-          </XStack>
-          {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
+          <SizableText size="$headingMd">{earn.title}</SizableText>
+          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
+          {earn.description}
         </SizableText>
         {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
-            {earn.available?.map(({ token, fiatValue }, index) => {
+            {earn.available?.map(({ token, fiatValue, amount }, index) => {
               return (
                 <Fragment key={index}>
                   <XStack gap="$2" py={5}>
@@ -605,8 +585,20 @@ function Dashboard({
                         tokenSymbol: token.symbol,
                       }}
                     >
-                      {fiatValue}
+                      {amount}
                     </NumberSizeableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      (
+                      <Currency
+                        formatter="balance"
+                        size="$bodyMd"
+                        sourceCurrency="usd"
+                        color="$textSubdued"
+                      >
+                        {fiatValue}
+                      </Currency>
+                      )
+                    </SizableText>
                   </XStack>
                   {index !== (earn.available?.length || 1) - 1 ? (
                     <Divider bg="$borderSubdued" />
@@ -618,35 +610,6 @@ function Dashboard({
         ) : (
           <NoRewardYet />
         )}
-      </YStack>
-      <YStack
-        px="$5"
-        py="$4"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-      >
-        <XStack ai="center" jc="space-between">
-          <XStack ai="flex-end">
-            <SizableText size="$headingMd">
-              {intl.formatMessage({ id: ETranslations.referral_swap_reward })}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              position="relative"
-              top={-2}
-            >
-              {`  (${intl.formatMessage({
-                id: ETranslations.coming_soon,
-              })})`}
-            </SizableText>
-          </XStack>
-        </XStack>
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_swap_reward_desc })}
-        </SizableText>
-        <NoRewardYet />
       </YStack>
     </YStack>
   );

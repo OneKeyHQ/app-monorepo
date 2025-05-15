@@ -8,7 +8,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function FlipperPluginsContainer() {
-  console.log('FlipperPluginsContainer render');
   const [realmReady, setRealmReady] = useState(false);
   useEffect(() => {
     const fn = () => {

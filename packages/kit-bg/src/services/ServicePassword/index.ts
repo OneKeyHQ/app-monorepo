@@ -19,7 +19,6 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
-  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
@@ -593,6 +592,26 @@ export default class ServicePassword extends ServiceBase {
       password: verifyingPassword,
       useRnJsCrypto,
     });
+    if (verifyingPassword) {
+      void (async () => {
+        try {
+          await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
+            {
+              password: verifyingPassword,
+            },
+          );
+        } catch (e) {
+          console.error(e);
+        }
+        try {
+          await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
+            password: verifyingPassword,
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+    }
     return verifyingPassword;
   }
 
@@ -604,7 +623,7 @@ export default class ServicePassword extends ServiceBase {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
   }): Promise<IPasswordRes> {
-    console.log('promptPasswordVerify call');
+    // console.log('promptPasswordVerify call');
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
       // TODO mutex
       const v4migrationData = await v4migrationAtom.get();
