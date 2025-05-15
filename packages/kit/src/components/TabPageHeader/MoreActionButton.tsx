@@ -4,12 +4,16 @@ import type { PropsWithChildren } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
+
 import type { IIconButtonProps } from '@onekeyhq/components';
 import {
   Divider,
   HeaderIconButton,
   Icon,
   IconButton,
+  LottieView,
   Popover,
   SizableText,
   Stack,
@@ -48,6 +52,7 @@ import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import type { GestureResponderEvent } from 'react-native';
+import { useThemeVariant } from '../../hooks/useThemeVariant';
 
 const pressStyle = {
   bg: '$bgActive',
@@ -93,7 +98,6 @@ function MoreActionContentHeader() {
     <XStack
       px="$5"
       py="$4"
-      bg="$bgSubdued"
       ai="center"
       jc="space-between"
       borderBottomWidth={StyleSheet.hairlineWidth}
@@ -110,7 +114,13 @@ function MoreActionContentHeader() {
         pressStyle={pressStyle}
         hoverStyle={hoverStyle}
       >
-        <SizableText size="$bodyMd" userSelect="none">
+        <SizableText
+          size="$bodyLgMedium"
+          $gtMd={{
+            size: '$bodyMdMedium',
+          }}
+          userSelect="none"
+        >
           {user?.displayEmail ||
             intl.formatMessage({ id: ETranslations.prime_signup_login })}
         </SizableText>
@@ -259,6 +269,7 @@ interface IMoreActionContentGridItemProps {
   showRedDot?: boolean;
   showBadges?: boolean;
   badges?: number;
+  lottieSrc?: string;
 }
 
 function MoreActionContentGridItem({
@@ -270,6 +281,7 @@ function MoreActionContentGridItem({
   showRedDot,
   showBadges,
   badges = 0,
+  lottieSrc,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
@@ -294,19 +306,24 @@ function MoreActionContentGridItem({
       userSelect="none"
     >
       <YStack
-        p="$3"
+        p={lottieSrc ? '$2' : '$3'}
+        borderWidth={1}
+        borderColor="$borderSubdued"
         borderRadius="$2"
         borderCurve="continuous"
-        bg="$bgStrong"
         $group-hover={{
-          bg: '$neutral4',
+          bg: '$bgHover',
         }}
         $group-press={{
-          bg: '$neutral5',
+          bg: '$bgActive',
         }}
       >
-        <Icon name={icon} />
+        {icon ? <Icon name={icon} /> : null}
+        {lottieSrc ? (
+          <LottieView width={32} height={32} source={lottieSrc} />
+        ) : null}
       </YStack>
+
       <SizableText size="$bodySm" textAlign="center">
         {title}
       </SizableText>
@@ -385,6 +402,7 @@ function MoreActionContentGridRender({
 
 function MoreActionContentGrid() {
   const intl = useIntl();
+  const themeVariant = useThemeVariant();
   const openAddressBook = useShowAddressBook({
     useNewModal: true,
   });
@@ -425,6 +443,12 @@ function MoreActionContentGrid() {
         icon: 'OnekeyDeviceCustom',
         onPress: handleDeviceManagement,
         testID: 'my-onekey',
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.id_refer_a_friend }),
+        lottieSrc:
+          themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
+        testID: 'referral',
       },
       {
         title: intl.formatMessage({
