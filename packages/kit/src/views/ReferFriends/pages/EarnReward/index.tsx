@@ -28,10 +28,9 @@ import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import type { IntlShape } from 'react-intl';
-
 interface ISectionData {
   title: string;
+  address: string;
   amount: string;
   data: {
     orderTotalAmount: string;
@@ -84,10 +83,10 @@ function List({ listData }: { listData: ISectionData[] }) {
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
-      {listData.map(({ title, amount, data }, index) => (
-        <YStack key={index}>
-          <Accordion type="multiple" gap="$2">
-            <Accordion.Item value={String(index)}>
+      <YStack>
+        <Accordion type="single" collapsible gap="$2">
+          {listData.map(({ title, amount, data, address }) => (
+            <Accordion.Item value={address} key={address}>
               <Accordion.Trigger
                 unstyled
                 flexDirection="row"
@@ -212,9 +211,9 @@ function List({ listData }: { listData: ISectionData[] }) {
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>
-          </Accordion>
-        </YStack>
-      ))}
+          ))}
+        </Accordion>
+      </YStack>
     </YStack>
   );
 }
@@ -240,6 +239,7 @@ const formatSections = (data: IEarnRewardItem[]) => {
       );
 
       return {
+        address,
         title: accountUtils.shortenAddress({
           address,
           leadingLength: 6,
