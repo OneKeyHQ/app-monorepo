@@ -13,10 +13,21 @@ import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
+export function TabPageHeader({
+  sceneName,
+  tabRoute,
+  customHeaderRightItems,
+  customHeaderLeftItems,
+}: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
-    () => <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />,
-    [sceneName, tabRoute],
+    () => (
+      <HeaderLeft
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderLeftItems={customHeaderLeftItems}
+      />
+    ),
+    [sceneName, tabRoute, customHeaderLeftItems],
   );
 
   const { config } = useAccountSelectorContextData();
@@ -26,11 +37,15 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
       config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <HeaderRight sceneName={sceneName} tabRoute={tabRoute} />
+            <HeaderRight
+              sceneName={sceneName}
+              tabRoute={tabRoute}
+              customHeaderRightItems={customHeaderRightItems}
+            />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [config, sceneName, tabRoute],
+    [config, sceneName, tabRoute, customHeaderRightItems],
   );
 
   const renderHeaderTitle = useCallback(
