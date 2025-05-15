@@ -4,11 +4,10 @@ import { BigNumber } from 'bignumber.js';
 
 import type { IInputProps } from '@onekeyhq/components';
 import { Input } from '@onekeyhq/components';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { swapSlippageDecimal } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
-
-import { validateAmountInput } from './utils';
 
 const BaseSlippageInput = ({
   swapSlippage,

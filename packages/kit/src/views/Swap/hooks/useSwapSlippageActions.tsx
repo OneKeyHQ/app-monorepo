@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
-import SlippageSettingDialog from '@onekeyhq/components/src/SwapSlippage';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -15,6 +14,7 @@ import {
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SlippageSettingDialog from '../../../components/SwapSlippage';
 import { useSwapSlippageDialogOpeningAtom } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
