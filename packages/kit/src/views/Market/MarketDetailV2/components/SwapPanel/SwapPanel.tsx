@@ -31,7 +31,10 @@ export function SwapPanel() {
 
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">
+      {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={handleTradeTypeChange} />
+
+      {/* Amount input section */}
       <AmountInputSection
         value={amount}
         onChange={handleAmountChange}
@@ -39,16 +42,28 @@ export function SwapPanel() {
         selectableTokens={selectableTokensForAmountInput}
         onTokenChange={handleInputTokenChange}
       />
+
+      {/* Quick amount selector */}
       <QuickAmountSelector onSelect={handleQuickAmountSelect} />
+
+      {/* Balance display */}
       <BalanceDisplay balance={balance} token={balanceToken} />
+
+      {/* Unsupported swap warning */}
       {showUnsupportedSwapWarning ? <UnsupportedSwapWarning /> : null}
+
+      {/* Buy button */}
       <ActionButton
         tradeType={tradeType}
         amount={amount}
         token={currentExecutingToken}
         totalValue={totalValue}
       />
+
+      {/* Slippage setting */}
       <SlippageSetting />
+
+      {/* AntiMEV toggle */}
       <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
     </YStack>
   );
