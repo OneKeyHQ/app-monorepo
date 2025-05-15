@@ -7,6 +7,7 @@ import { BalanceDisplay } from './components/BalanceDisplay';
 import { QuickAmountSelector } from './components/QuickAmountSelector';
 import { SlippageSetting } from './components/SlippageSetting';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
+import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
 import { useSwapPanel } from './useSwapPanel';
 
 export function SwapPanel() {
@@ -25,6 +26,7 @@ export function SwapPanel() {
     totalValue,
     balance,
     balanceToken,
+    showUnsupportedSwapWarning,
   } = useSwapPanel();
 
   return (
@@ -39,6 +41,7 @@ export function SwapPanel() {
       />
       <QuickAmountSelector onSelect={handleQuickAmountSelect} />
       <BalanceDisplay balance={balance} token={balanceToken} />
+      {showUnsupportedSwapWarning ? <UnsupportedSwapWarning /> : null}
       <ActionButton
         tradeType={tradeType}
         amount={amount}

@@ -18,6 +18,7 @@ export function useSwapPanel() {
   const [outputTokenSymbol, setOutputTokenSymbol] = useState(
     MOCK_TOKENS[1].value,
   ); // Default to USDC for buying
+  const [showUnsupportedSwapWarning] = useState(true);
 
   const handleAmountChange = useCallback((newAmount: string) => {
     setAmount(newAmount);
@@ -132,5 +133,6 @@ export function useSwapPanel() {
     inputTokenSymbol,
     outputTokenSymbol,
     mockTokens: MOCK_TOKENS, // exposing for now
+    showUnsupportedSwapWarning,
   };
 }
