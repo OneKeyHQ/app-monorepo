@@ -36,9 +36,11 @@ export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
   contextAtom<{
     feeType: EFeeType;
     presetIndex: number;
+    source?: 'dapp' | 'wallet';
   }>({
     feeType: EFeeType.Standard,
     presetIndex: 0,
+    source: 'wallet',
   });
 
 export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<

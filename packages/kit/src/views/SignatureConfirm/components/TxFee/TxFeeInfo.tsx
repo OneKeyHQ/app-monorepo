@@ -135,7 +135,7 @@ function TxFeeInfo(props: IProps) {
     [unsignedTxs],
   );
 
-  const { result: [vaultSettings, network] = [] } =
+  const { result: [vaultSettings, network, defaultCustomFeeInfo] = [] } =
     usePromiseResult(async () => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -147,6 +147,7 @@ function TxFeeInfo(props: IProps) {
       return Promise.all([
         backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        backgroundApiProxy.serviceGas.getCustomFeeInfo({ networkId }),
       ]);
     }, [accountId, networkId]);
 
@@ -424,7 +425,7 @@ function TxFeeInfo(props: IProps) {
       updateIsSinglePreset(items.length === 1);
 
       if (vaultSettings?.editFeeEnabled && feeInfoEditable && !isMultiTxs) {
-        const customFeeInfo: IFeeInfoUnit = {
+        let customFeeInfo: IFeeInfoUnit = {
           common: txFee.common,
         };
 
@@ -494,72 +495,120 @@ function TxFeeInfo(props: IProps) {
           };
         }
 
-        if (useFeeInTx && network && !feeInTxUpdated.current) {
-          const {
-            gas,
-            gasLimit,
-            gasPrice,
-            maxFeePerGas,
-            maxPriorityFeePerGas,
-          } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
-
-          const limit = gasLimit || gas;
+        if (network && !feeInTxUpdated.current) {
           let originalFeeChanged = false;
-          if (
-            maxFeePerGas &&
-            maxPriorityFeePerGas &&
-            customFeeInfo.gasEIP1559
-          ) {
-            customFeeInfo.gasEIP1559 = {
-              ...customFeeInfo.gasEIP1559,
-              maxFeePerGas: chainValueUtils.convertChainValueToGwei({
-                value: maxFeePerGas,
-                network,
-              }),
-              maxPriorityFeePerGas: chainValueUtils.convertChainValueToGwei({
-                value: maxPriorityFeePerGas,
-                network,
-              }),
-              gasLimit: limit ?? customFeeInfo.gasEIP1559?.gasLimit,
-              gasLimitForDisplay:
-                limit ?? customFeeInfo.gasEIP1559?.gasLimitForDisplay,
-            };
-            originalFeeChanged = true;
-          } else if (gasPrice && customFeeInfo.gas) {
-            customFeeInfo.gas = {
-              ...customFeeInfo.gas,
-              gasPrice: chainValueUtils.convertChainValueToGwei({
-                value: gasPrice,
-                network,
-              }),
-              gasLimit: limit ?? customFeeInfo.gas?.gasLimit,
-              gasLimitForDisplay:
-                limit ?? customFeeInfo.gas?.gasLimitForDisplay,
-            };
-            originalFeeChanged = true;
-          } else if (limit) {
-            if (customFeeInfo.gasEIP1559) {
+
+          if (useFeeInTx) {
+            const {
+              gas,
+              gasLimit,
+              gasPrice,
+              maxFeePerGas,
+              maxPriorityFeePerGas,
+            } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
+
+            const limit = gasLimit || gas;
+            if (
+              maxFeePerGas &&
+              maxPriorityFeePerGas &&
+              customFeeInfo.gasEIP1559
+            ) {
               customFeeInfo.gasEIP1559 = {
                 ...customFeeInfo.gasEIP1559,
-                gasLimit: limit,
-                gasLimitForDisplay: limit,
+                maxFeePerGas: chainValueUtils.convertChainValueToGwei({
+                  value: maxFeePerGas,
+                  network,
+                }),
+                maxPriorityFeePerGas: chainValueUtils.convertChainValueToGwei({
+                  value: maxPriorityFeePerGas,
+                  network,
+                }),
+                gasLimit: limit ?? customFeeInfo.gasEIP1559?.gasLimit,
+                gasLimitForDisplay:
+                  limit ?? customFeeInfo.gasEIP1559?.gasLimitForDisplay,
               };
               originalFeeChanged = true;
-            }
-            if (customFeeInfo.gas) {
+            } else if (gasPrice && customFeeInfo.gas) {
               customFeeInfo.gas = {
                 ...customFeeInfo.gas,
-                gasLimit: limit,
-                gasLimitForDisplay: limit,
+                gasPrice: chainValueUtils.convertChainValueToGwei({
+                  value: gasPrice,
+                  network,
+                }),
+                gasLimit: limit ?? customFeeInfo.gas?.gasLimit,
+                gasLimitForDisplay:
+                  limit ?? customFeeInfo.gas?.gasLimitForDisplay,
               };
               originalFeeChanged = true;
+            } else if (limit) {
+              if (customFeeInfo.gasEIP1559) {
+                customFeeInfo.gasEIP1559 = {
+                  ...customFeeInfo.gasEIP1559,
+                  gasLimit: limit,
+                  gasLimitForDisplay: limit,
+                };
+                originalFeeChanged = true;
+              }
+              if (customFeeInfo.gas) {
+                customFeeInfo.gas = {
+                  ...customFeeInfo.gas,
+                  gasLimit: limit,
+                  gasLimitForDisplay: limit,
+                };
+                originalFeeChanged = true;
+              }
             }
+          } else if (
+            defaultCustomFeeInfo?.enabled &&
+            defaultCustomFeeInfo?.feeInfo
+          ) {
+            customFeeInfo = {
+              ...customFeeInfo,
+              ...defaultCustomFeeInfo.feeInfo,
+
+              // for gas & gasEIP1559, always use latest gasLimit
+              gas: customFeeInfo.gas
+                ? {
+                    ...customFeeInfo.gas,
+                    gasPrice: defaultCustomFeeInfo.feeInfo.gas?.gasPrice ?? '',
+                  }
+                : undefined,
+              gasEIP1559: customFeeInfo.gasEIP1559
+                ? {
+                    ...customFeeInfo.gasEIP1559,
+                    baseFeePerGas:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.baseFeePerGas ??
+                      customFeeInfo.gasEIP1559?.baseFeePerGas ??
+                      '',
+                    maxFeePerGas:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.maxFeePerGas ??
+                      customFeeInfo.gasEIP1559?.maxFeePerGas ??
+                      '',
+                    maxPriorityFeePerGas:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559
+                        ?.maxPriorityFeePerGas ??
+                      customFeeInfo.gasEIP1559?.maxPriorityFeePerGas ??
+                      '',
+                    confidence:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.confidence ??
+                      customFeeInfo.gasEIP1559?.confidence ??
+                      0,
+                    gasPrice:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.gasPrice ??
+                      customFeeInfo.gasEIP1559?.gasPrice ??
+                      '',
+                  }
+                : undefined,
+            };
+
+            originalFeeChanged = true;
           }
 
           if (originalFeeChanged) {
             updateSendSelectedFee({
               feeType: EFeeType.Custom,
               presetIndex: 0,
+              source: useFeeInTx ? 'dapp' : 'wallet',
             });
             updateCustomFee(customFeeInfo);
           }
@@ -606,6 +655,7 @@ function TxFeeInfo(props: IProps) {
             updateSendSelectedFee({
               feeType: EFeeType.Custom,
               presetIndex: 0,
+              source: 'dapp',
             });
 
             updateCustomFee(customFeeInfo);
@@ -636,9 +686,10 @@ function TxFeeInfo(props: IProps) {
     feeInfoEditable,
     isMultiTxs,
     useFeeInTx,
+    network,
     intl,
     isSinglePreset,
-    network,
+    unsignedTxs,
     sendSelectedFee.presetIndex,
     customFee?.gas,
     customFee?.gasEIP1559,
@@ -649,7 +700,8 @@ function TxFeeInfo(props: IProps) {
     customFee?.feeDot,
     customFee?.feeBudget,
     customFee?.feeNeoN3,
-    unsignedTxs,
+    defaultCustomFeeInfo?.enabled,
+    defaultCustomFeeInfo?.feeInfo,
     updateSendSelectedFee,
     updateCustomFee,
   ]);
