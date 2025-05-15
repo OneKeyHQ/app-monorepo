@@ -566,6 +566,7 @@ function TxFeeInfo(props: IProps) {
               ...customFeeInfo,
               ...defaultCustomFeeInfo.feeInfo,
 
+              // for gas & gasEIP1559, always use latest gasLimit
               gas: customFeeInfo.gas
                 ? {
                     ...customFeeInfo.gas,
@@ -587,6 +588,14 @@ function TxFeeInfo(props: IProps) {
                       defaultCustomFeeInfo.feeInfo.gasEIP1559
                         ?.maxPriorityFeePerGas ??
                       customFeeInfo.gasEIP1559?.maxPriorityFeePerGas ??
+                      '',
+                    confidence:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.confidence ??
+                      customFeeInfo.gasEIP1559?.confidence ??
+                      0,
+                    gasPrice:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.gasPrice ??
+                      customFeeInfo.gasEIP1559?.gasPrice ??
                       '',
                   }
                 : undefined,
