@@ -80,6 +80,7 @@ function ListHeader() {
 }
 
 function List({ listData }: { listData: ISectionData[] }) {
+  const intl = useIntl();
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
@@ -158,7 +159,19 @@ function List({ listData }: { listData: ISectionData[] }) {
                       <YStack>
                         <SizableText size="$bodyMd">{item.name}</SizableText>
                         <SizableText size="$bodySm" color="$textSubdued">
-                          {item.action}
+                          <NumberSizeableText
+                            formatter="balance"
+                            size="$bodySm"
+                            color="$textSubdued"
+                            formatterOptions={{
+                              tokenSymbol: item.token.symbol || '',
+                            }}
+                          >
+                            {item.orderTotalAmount}
+                          </NumberSizeableText>
+                          {` ${intl.formatMessage({
+                            id: ETranslations.earn_deposited,
+                          })}`}
                         </SizableText>
                       </YStack>
                       <XStack ai="center">
@@ -184,7 +197,7 @@ function List({ listData }: { listData: ISectionData[] }) {
                           </SizableText>
                           <Currency
                             sourceCurrency="usd"
-                            formatter="balance"
+                            formatter="value"
                             size="$bodyMd"
                           >
                             {item.token.fiatAmount}
@@ -297,7 +310,7 @@ export default function EarnReward() {
           setUndistributedListData(formatSections(data.items, intl));
           setAmount({
             available: '0',
-            pending: data.fiatValue || '0',
+            pending: BigNumber(data.fiatValue).toFixed(2) || '0',
           });
         }
         if (totalResult.status === 'fulfilled') {
