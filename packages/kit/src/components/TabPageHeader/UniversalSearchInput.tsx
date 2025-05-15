@@ -51,6 +51,9 @@ export function UniversalSearchInput({
       <SearchBar
         size={isLarge ? 'small' : 'medium'}
         key="searchInput"
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_universal_search_placeholder,
+        })}
         addOns={[
           {
             label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,

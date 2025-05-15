@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -12,6 +13,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Tab,
   View,
   XStack,
   YStack,
@@ -177,9 +179,11 @@ export function UniversalSearch({
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       return (
-        <SizableText px="$5" pb={0} size="$headingSm" color="$textSubdued">
-          {section.title}
-        </SizableText>
+        <XStack bg="$bgApp" h="$9" ai="center">
+          <SizableText px="$5" size="$headingSm" color="$textSubdued">
+            {section.title}
+          </SizableText>
+        </XStack>
       );
     },
     [],
@@ -299,6 +303,54 @@ export function UniversalSearch({
     ],
   );
 
+  const tabTitles = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_all,
+        }),
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_wallets,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_tokens,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_my_assets,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
+      },
+    ];
+  }, [intl]);
+
+  const [filterType, setFilterType] = useState(tabTitles[0].title);
+  const handleTabSelectedPageIndex = useCallback(
+    (index: number) => {
+      setFilterType(tabTitles[index].title);
+    },
+    [tabTitles],
+  );
+
+  const filterSections = useMemo(() => {
+    if (filterType === tabTitles[0].title) {
+      return sections;
+    }
+    return sections.filter((i) => i.title === filterType);
+  }, [filterType, sections, tabTitles]);
+
   const renderResult = useCallback(() => {
     switch (searchStatus) {
       case ESearchStatus.init:
@@ -324,36 +376,55 @@ export function UniversalSearch({
 
       case ESearchStatus.done:
         return (
-          <SectionList
-            mt="$5"
-            sections={sections}
-            renderSectionHeader={renderSectionHeader}
-            ListEmptyComponent={
-              <Empty
-                icon="SearchOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_results,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.global_search_no_results_desc,
-                })}
+          <>
+            <XStack
+              borderColor="$borderSubdued"
+              borderWidth={0}
+              borderBottomWidth={StyleSheet.hairlineWidth}
+              mb="$3"
+            >
+              <Tab.Header
+                style={{
+                  height: 44,
+                  borderBottomWidth: 0,
+                }}
+                data={tabTitles}
+                onSelectedPageIndex={handleTabSelectedPageIndex}
               />
-            }
-            renderItem={renderItem}
-            estimatedItemSize="$16"
-          />
+            </XStack>
+            <SectionList
+              stickySectionHeadersEnabled
+              sections={filterSections}
+              renderSectionHeader={renderSectionHeader}
+              ListEmptyComponent={
+                <Empty
+                  icon="SearchOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_results,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.global_search_no_results_desc,
+                  })}
+                />
+              }
+              renderItem={renderItem}
+              estimatedItemSize="$16"
+            />
+          </>
         );
       default:
         break;
     }
   }, [
+    filterSections,
     filterTypes,
+    handleTabSelectedPageIndex,
     intl,
     recommendSections,
     renderItem,
     renderSectionHeader,
     searchStatus,
-    sections,
+    tabTitles,
   ]);
 
   return (

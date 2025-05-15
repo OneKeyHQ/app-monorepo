@@ -454,14 +454,11 @@ function Dashboard({
       >
         <YStack onPress={toHardwareSalesRewardPage}>
           <XStack ai="center" jc="space-between">
-            <SizableText size="$headingMd">
-              {hardwareSales.title ||
-                intl.formatMessage({ id: ETranslations.referral_sales_reward })}
-            </SizableText>
+            <SizableText size="$headingMd">{hardwareSales.title}</SizableText>
             <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
           </XStack>
           <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-            {hardwareSales.description || ' '}
+            {hardwareSales.description}
           </SizableText>
         </YStack>
         <YStack pt="$4">
@@ -568,13 +565,11 @@ function Dashboard({
         onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-          </SizableText>
+          <SizableText size="$headingMd">{earn.title}</SizableText>
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
+          {earn.description}
         </SizableText>
         {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
@@ -615,35 +610,6 @@ function Dashboard({
         ) : (
           <NoRewardYet />
         )}
-      </YStack>
-      <YStack
-        px="$5"
-        py="$4"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-      >
-        <XStack ai="center" jc="space-between">
-          <XStack ai="flex-end">
-            <SizableText size="$headingMd">
-              {intl.formatMessage({ id: ETranslations.referral_swap_reward })}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              position="relative"
-              top={-2}
-            >
-              {`  (${intl.formatMessage({
-                id: ETranslations.coming_soon,
-              })})`}
-            </SizableText>
-          </XStack>
-        </XStack>
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_swap_reward_desc })}
-        </SizableText>
-        <NoRewardYet />
       </YStack>
     </YStack>
   );
