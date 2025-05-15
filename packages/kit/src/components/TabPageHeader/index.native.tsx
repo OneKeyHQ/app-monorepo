@@ -32,6 +32,7 @@ export function TabPageHeader({
       </HomeTokenListProviderMirror>
     );
   }, [sceneName, tabRoute, customHeaderRightItems]);
+
   return (
     <>
       <Page.Header headerShown={false} />
@@ -39,8 +40,8 @@ export function TabPageHeader({
         alignItems="center"
         justifyContent="space-between"
         px="$5"
-        pt={top}
-        mt={platformEnv.isNativeAndroid ? '$2' : undefined}
+        h="$11"
+        {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
       >
         <View>
           <HeaderLeft

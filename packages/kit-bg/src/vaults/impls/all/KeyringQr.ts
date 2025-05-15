@@ -10,7 +10,7 @@ import type { INormalizeGetMultiAccountsPathParams } from '../../types';
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase | undefined = undefined;
 
-  override verifySignedTxMatched(...args: any[]): Promise<void> {
+  override verifySignedTxMatched(..._args: any[]): Promise<void> {
     throw new NotImplemented();
   }
 

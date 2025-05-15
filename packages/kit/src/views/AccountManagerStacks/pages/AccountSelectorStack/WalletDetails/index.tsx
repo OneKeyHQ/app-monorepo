@@ -436,6 +436,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                       placeholder={intl.formatMessage({
                         id: ETranslations.global_search_account_selector,
                       })}
+                      containerProps={{
+                        w: '100%',
+                        borderRadius: '$full',
+                        bg: '$bgStrong',
+                        borderColor: '$transparent',
+                      }}
                       defaultValue={searchText}
                       onChangeText={handleSearch}
                     />

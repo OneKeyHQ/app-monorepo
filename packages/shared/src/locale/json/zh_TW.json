@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "流通供應量",
   "global.clear": "清除",
   "global.close": "關閉",
+  "global.close_confirm_description": "您有未儲存的變更。如果現在關閉，這些資訊將會遺失。",
   "global.collect_to_device": "收藏到裝置",
   "global.collect_to_device_canceled": "已在裝置上取消",
   "global.collect_to_device_failed": "收藏失敗，請再試一次",

@@ -25,7 +25,6 @@ import type {
   IBuildPrepareAccountsPrefixedPathParams,
   IExportAccountSecretKeysParams,
   IExportAccountSecretKeysResult,
-  INormalizeGetMultiAccountsPathParams,
   IPrepareAccountsParams,
   IPrepareHdAccountsOptions,
   IPrepareHdAccountsParamsBase,

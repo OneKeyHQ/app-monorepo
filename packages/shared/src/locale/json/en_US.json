@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "Circulating supply",
   "global.clear": "Clear",
   "global.close": "Close",
+  "global.close_confirm_description": "You have unsaved changes. If you close now, this information will be lost.",
   "global.collect_to_device": "Collect to device",
   "global.collect_to_device_canceled": "Canceled on device",
   "global.collect_to_device_failed": "Failed to collect, please try again",

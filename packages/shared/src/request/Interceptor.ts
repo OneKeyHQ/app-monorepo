@@ -9,7 +9,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import appDeviceInfo from '../appDeviceInfo/appDeviceInfo';
-import { IAppDeviceInfoData } from '../appDeviceInfo/types';
 import { defaultColorScheme } from '../config/appConfig';
 
 import { headerPlatform } from './InterceptorConsts';

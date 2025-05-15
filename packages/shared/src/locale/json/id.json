@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "Pasokan beredar",
   "global.clear": "Bersih",
   "global.close": "Tutup",
+  "global.close_confirm_description": "Anda memiliki perubahan yang belum disimpan. Jika Anda menutup sekarang, informasi ini akan hilang.",
   "global.collect_to_device": "Kumpulkan ke perangkat",
   "global.collect_to_device_canceled": "Dibatalkan di perangkat",
   "global.collect_to_device_failed": "Gagal mengumpulkan, silakan coba lagi",

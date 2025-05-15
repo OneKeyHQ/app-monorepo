@@ -565,32 +565,20 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        // onPress={toEarnRewardPage}
+        onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <XStack ai="flex-end">
-            <SizableText size="$headingMd">
-              {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              position="relative"
-              top={-2}
-            >
-              {`  (${intl.formatMessage({
-                id: ETranslations.coming_soon,
-              })})`}
-            </SizableText>
-          </XStack>
-          {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
+          <SizableText size="$headingMd">
+            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
+          </SizableText>
+          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
         {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
-            {earn.available?.map(({ token, fiatValue }, index) => {
+            {earn.available?.map(({ token, fiatValue, amount }, index) => {
               return (
                 <Fragment key={index}>
                   <XStack gap="$2" py={5}>
@@ -602,8 +590,20 @@ function Dashboard({
                         tokenSymbol: token.symbol,
                       }}
                     >
-                      {fiatValue}
+                      {amount}
                     </NumberSizeableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      (
+                      <Currency
+                        formatter="balance"
+                        size="$bodyMd"
+                        sourceCurrency="usd"
+                        color="$textSubdued"
+                      >
+                        {fiatValue}
+                      </Currency>
+                      )
+                    </SizableText>
                   </XStack>
                   {index !== (earn.available?.length || 1) - 1 ? (
                     <Divider bg="$borderSubdued" />

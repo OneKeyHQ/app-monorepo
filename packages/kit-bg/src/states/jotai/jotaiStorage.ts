@@ -12,7 +12,7 @@ import { atomsConfig } from './atomNames';
 import { JOTAI_RESET } from './types';
 import jotaiVerify from './utils/jotaiVerify';
 
-import type { EAtomNames, IAtomNameKeys } from './atomNames';
+import type { IAtomNameKeys } from './atomNames';
 import type {
   AsyncStorage,
   IJotaiSetStateActionWithReset,

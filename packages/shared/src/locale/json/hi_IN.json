@@ -1059,6 +1059,7 @@
   "global.circulating_supply": "संचारण सप्लाई",
   "global.clear": "स्पष्ट",
   "global.close": "बंद करें",
+  "global.close_confirm_description": "आपके पास बिना सहेजे गए परिवर्तन हैं। यदि आप अभी बंद करते हैं, तो यह जानकारी खो जाएगी।",
   "global.collect_to_device": "उपकरण में संग्रहित करें",
   "global.collect_to_device_canceled": "उपकरण पर रद्द किया गया",
   "global.collect_to_device_failed": "संग्रह करने में विफल, कृपया पुनः प्रयास करें",
