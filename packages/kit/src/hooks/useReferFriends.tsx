@@ -1,16 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Share, StyleSheet } from 'react-native';
 
 import {
-  Button,
   Dialog,
   Icon,
   IconButton,
   OTPInput,
   SizableText,
-  Stack,
   XStack,
   YStack,
   rootNavigationRef,
@@ -18,9 +15,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { ONEKEY_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -279,7 +276,7 @@ export const useReferFriends = () => {
           id: ETranslations.global_learn_more,
         }),
         onCancel: () => {
-          openUrlExternal('https://onekey.so');
+          openUrlExternal(ONEKEY_URL);
         },
         cancelButtonProps: {
           iconAfter: 'OpenOutline',
