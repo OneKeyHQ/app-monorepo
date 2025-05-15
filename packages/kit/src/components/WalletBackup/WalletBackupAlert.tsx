@@ -51,10 +51,10 @@ export function WalletBackupAlert() {
           $platform-web={{
             borderWidth: 0,
             outlineWidth: 1,
-            outlineColor: '$borderSubdued',
+            outlineColor: '$neutral3',
             outlineStyle: 'solid',
           }}
-          elevation={10}
+          elevation={5}
         >
           <Icon
             size="$5"
