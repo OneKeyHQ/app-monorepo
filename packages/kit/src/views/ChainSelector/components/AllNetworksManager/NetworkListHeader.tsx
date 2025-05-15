@@ -36,6 +36,7 @@ function NetworkListHeader() {
         <>
           <ListItem
             h="$12"
+            py="$0"
             title={intl.formatMessage({
               id: ETranslations.global_select_all,
             })}

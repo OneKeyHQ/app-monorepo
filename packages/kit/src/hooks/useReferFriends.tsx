@@ -1,16 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Share, StyleSheet } from 'react-native';
 
 import {
-  Button,
   Dialog,
   Icon,
   IconButton,
   OTPInput,
   SizableText,
-  Stack,
   XStack,
   YStack,
   rootNavigationRef,
@@ -18,15 +15,16 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { ONEKEY_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import useAppNavigation from './useAppNavigation';
 import { useLoginOneKeyId } from './useLoginOneKeyId';
@@ -195,7 +193,6 @@ export const useReferFriends = () => {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
         }
       };
-      const sharedUrl = `https://onekey.so/r/${myReferralCode}`;
       const dialog = Dialog.show({
         icon: 'GiftOutline',
         title: intl.formatMessage({ id: ETranslations.earn_referral_title }),
@@ -211,90 +208,6 @@ export const useReferFriends = () => {
         ),
         renderContent: isLogin ? (
           <YStack gap="$5">
-            <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.earn_referral_your_referral_link,
-                })}
-              </SizableText>
-              <Stack
-                ai="center"
-                gap="$2.5"
-                flexDirection="row"
-                $platform-native={{
-                  flexDirection: 'column',
-                  gap: '$6',
-                }}
-              >
-                <XStack
-                  flex={1}
-                  borderColor="rgba(0, 0, 0, 0.13)"
-                  bg="$bgDisabled"
-                  px="$3"
-                  py="$1.5"
-                  $platform-native={{
-                    width: '100%',
-                  }}
-                  borderWidth={StyleSheet.hairlineWidth}
-                  jc="space-between"
-                  ai="center"
-                  borderRadius="$2.5"
-                >
-                  <SizableText size="$bodyLg" flexShrink={1}>
-                    {`onekey.so/r/${myReferralCode}`}
-                  </SizableText>
-                </XStack>
-                <XStack
-                  ai="center"
-                  gap="$2.5"
-                  $platform-native={{
-                    width: '100%',
-                  }}
-                >
-                  <Button
-                    icon="Copy3Outline"
-                    variant={platformEnv.isNative ? undefined : 'primary'}
-                    $md={{
-                      flex: 1,
-                    }}
-                    size={platformEnv.isNative ? 'large' : 'medium'}
-                    onPress={() => {
-                      copyText(sharedUrl);
-                      defaultLogger.referral.page.shareReferralLink('copy');
-                    }}
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_copy })}
-                  </Button>
-                  {platformEnv.isNative ? (
-                    <Button
-                      variant="primary"
-                      icon="ShareOutline"
-                      size={platformEnv.isNative ? 'large' : 'medium'}
-                      $md={{
-                        flex: 1,
-                      }}
-                      onPress={async () => {
-                        await dialog.close();
-                        setTimeout(() => {
-                          void Share.share(
-                            platformEnv.isNativeIOS
-                              ? {
-                                  url: sharedUrl,
-                                }
-                              : {
-                                  message: sharedUrl,
-                                },
-                          );
-                        }, 250);
-                        defaultLogger.referral.page.shareReferralLink('share');
-                      }}
-                    >
-                      {intl.formatMessage({ id: ETranslations.explore_share })}
-                    </Button>
-                  ) : null}
-                </XStack>
-              </Stack>
-            </YStack>
             <YStack gap="$1">
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.referral_your_code })}
@@ -360,10 +273,13 @@ export const useReferFriends = () => {
         ),
         showCancelButton: !isLogin || !isBindInviteCode,
         onCancelText: intl.formatMessage({
-          id: ETranslations.earn_referral_add_invite_code,
+          id: ETranslations.global_learn_more,
         }),
         onCancel: () => {
-          bindInviteCode(onSuccess, onFail);
+          openUrlExternal(ONEKEY_URL);
+        },
+        cancelButtonProps: {
+          iconAfter: 'OpenOutline',
         },
         onConfirmText: intl.formatMessage({
           id: isLogin
@@ -373,7 +289,7 @@ export const useReferFriends = () => {
         onConfirm: handleConfirm,
       });
     },
-    [bindInviteCode, copyText, intl, loginOneKeyId, navigation],
+    [copyText, intl, loginOneKeyId, navigation],
   );
 
   const bindOrChangeInviteCode = useCallback(

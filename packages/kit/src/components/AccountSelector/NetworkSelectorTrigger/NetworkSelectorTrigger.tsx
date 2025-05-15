@@ -86,14 +86,16 @@ export const NetworkSelectorTriggerLegacy = memo(
 function NetworkSelectorTriggerHomeCmp({
   num,
   recordNetworkHistoryEnabled,
+  hideOnNoAccount = false,
   size = 'large',
 }: {
   num: number;
   recordNetworkHistoryEnabled?: boolean;
+  hideOnNoAccount?: boolean;
   size?: 'small' | 'large';
 }) {
   const {
-    activeAccount: { network },
+    activeAccount: { network, account },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
@@ -117,6 +119,11 @@ function NetworkSelectorTriggerHomeCmp({
   }, [intl, network?.isAllNetworks, network?.name]);
 
   const isLarge = size === 'large';
+
+  if (hideOnNoAccount && !account) {
+    return null;
+  }
+
   return (
     <XStack
       testID="account-network-trigger-button"

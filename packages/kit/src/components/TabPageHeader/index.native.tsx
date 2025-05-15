@@ -24,6 +24,7 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
       </HomeTokenListProviderMirror>
     );
   }, [sceneName, tabRoute]);
+
   return (
     <>
       <Page.Header headerShown={false} />
@@ -31,8 +32,8 @@ export function TabPageHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
         alignItems="center"
         justifyContent="space-between"
         px="$5"
-        pt={top}
-        mt={platformEnv.isNativeAndroid ? '$2' : undefined}
+        h="$11"
+        {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
       >
         <View>
           <HeaderLeft sceneName={sceneName} tabRoute={tabRoute} />
