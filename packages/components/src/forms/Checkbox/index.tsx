@@ -5,9 +5,8 @@ import { withStaticProperties } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
-import { SizableText } from '../../primitives';
 import { ListView } from '../../layouts';
-import { Icon, Label, XStack, YStack } from '../../primitives';
+import { Icon, Label, SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
 import type { ILabelProps } from '../../primitives';
