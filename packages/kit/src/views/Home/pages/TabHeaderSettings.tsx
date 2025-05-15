@@ -47,7 +47,7 @@ function TokenListSettings() {
   return manageTokenEnabled ? (
     <IconButton
       title={intl.formatMessage({
-        id: ETranslations.manage_token_custom_token_title,
+        id: ETranslations.manage_token_title,
       })}
       variant="tertiary"
       icon="SliderHorOutline"
@@ -93,7 +93,7 @@ function TxHistorySettings() {
         renderTrigger={
           <IconButton
             title={intl.formatMessage({
-              id: ETranslations.manage_token_custom_token_title,
+              id: ETranslations.global_settings,
             })}
             variant="tertiary"
             icon="SliderHorOutline"
