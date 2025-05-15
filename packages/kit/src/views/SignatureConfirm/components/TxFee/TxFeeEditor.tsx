@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNaN, isNil } from 'lodash';
+import { isNaN, isNil, omit } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -844,11 +844,7 @@ function TxFeeEditor(props: IProps) {
         networkId,
         enabled: defaultCustomFeeInfoEnabled,
         customFeeInfo: defaultCustomFeeInfoEnabled
-          ? {
-              ...customFeeInfo,
-              // @ts-ignore
-              common: undefined,
-            }
+          ? omit(customFeeInfo, 'common')
           : undefined,
       });
     }
