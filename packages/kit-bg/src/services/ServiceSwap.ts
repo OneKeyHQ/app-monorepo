@@ -1995,6 +1995,7 @@ export default class ServiceSwap extends ServiceBase {
       return {
         speedConfig: {
           slippage: 0.5,
+          defaultTokens: [],
         },
         supportSpeedSwap: false,
       };

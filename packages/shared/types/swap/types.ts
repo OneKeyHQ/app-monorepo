@@ -804,6 +804,7 @@ export interface IFetchLimitOrderRes {
 export interface ISpeedSwapConfig {
   speedConfig: {
     slippage: number;
+    defaultTokens: ISwapTokenBase[];
   };
   supportSpeedSwap: boolean;
 }
