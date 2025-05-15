@@ -10,6 +10,7 @@ import {
   Icon,
   NumberSizeableText,
   Page,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -35,7 +36,6 @@ interface ISectionData {
   data: {
     orderTotalAmount: string;
     name: string;
-    action: string;
     token: {
       uri: string;
       symbol: string;
@@ -219,7 +219,7 @@ function List({ listData }: { listData: ISectionData[] }) {
   );
 }
 
-const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
+const formatSections = (data: IEarnRewardItem[]) => {
   const formattedData = data.reduce<Record<string, IEarnRewardItem[]>>(
     (acc: Record<string, IEarnRewardItem[]>, item: IEarnRewardItem) => {
       const address = item.accountAddress;
@@ -252,9 +252,6 @@ const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
           return {
             name: item?.vaultName || '',
             orderTotalAmount,
-            action: `${orderTotalAmount} ${symbol} ${intl.formatMessage({
-              id: ETranslations.earn_deposited,
-            })}`,
             token: {
               uri: item?.token.logoURI || '',
               symbol,
@@ -307,7 +304,7 @@ export default function EarnReward() {
       ([salesResult, totalResult]) => {
         if (salesResult.status === 'fulfilled') {
           const data = salesResult.value;
-          setUndistributedListData(formatSections(data.items, intl));
+          setUndistributedListData(formatSections(data.items));
           setAmount({
             available: '0',
             pending: BigNumber(data.fiatValue).toFixed(2) || '0',
@@ -315,12 +312,12 @@ export default function EarnReward() {
         }
         if (totalResult.status === 'fulfilled') {
           const data = totalResult.value;
-          setTotalListData(formatSections(data.items, intl));
+          setTotalListData(formatSections(data.items));
         }
         setIsLoading(false);
       },
     );
-  }, [fetchSales, fetchTotalList, intl]);
+  }, [fetchSales, fetchTotalList]);
 
   useEffect(() => {
     onRefresh();
@@ -366,41 +363,43 @@ export default function EarnReward() {
             <Spinner size="large" />
           </YStack>
         ) : (
-          <Tab.Page
-            ListHeaderComponent={
-              <YStack>
-                {tourTimes === 0 ? (
-                  <Alert
-                    closable
-                    description={intl.formatMessage({
-                      id: ETranslations.referral_earn_reward_tips,
-                    })}
-                    type="info"
-                    mx="$5"
-                    mb="$2.5"
-                    onClose={tourVisited}
-                  />
-                ) : null}
-                <YStack px="$5" py="$2.5">
-                  <SizableText size="$bodyLg">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_reward_undistributed,
-                    })}
-                  </SizableText>
-                  <NumberSizeableText
-                    size="$heading5xl"
-                    formatter="balance"
-                    formatterOptions={{ currency: currencySymbol }}
-                  >
-                    {amount?.pending || 0}
-                  </NumberSizeableText>
+          <ScrollView>
+            <Tab.Page
+              ListHeaderComponent={
+                <YStack>
+                  {tourTimes === 0 ? (
+                    <Alert
+                      closable
+                      description={intl.formatMessage({
+                        id: ETranslations.referral_earn_reward_tips,
+                      })}
+                      type="info"
+                      mx="$5"
+                      mb="$2.5"
+                      onClose={tourVisited}
+                    />
+                  ) : null}
+                  <YStack px="$5" py="$2.5">
+                    <SizableText size="$bodyLg">
+                      {intl.formatMessage({
+                        id: ETranslations.referral_reward_undistributed,
+                      })}
+                    </SizableText>
+                    <NumberSizeableText
+                      size="$heading5xl"
+                      formatter="balance"
+                      formatterOptions={{ currency: currencySymbol }}
+                    >
+                      {amount?.pending || 0}
+                    </NumberSizeableText>
+                  </YStack>
                 </YStack>
-              </YStack>
-            }
-            data={tabs}
-            initialScrollIndex={0}
-            showsVerticalScrollIndicator={false}
-          />
+              }
+              data={tabs}
+              initialScrollIndex={0}
+              showsVerticalScrollIndicator={false}
+            />
+          </ScrollView>
         )}
       </Page.Body>
     </Page>
