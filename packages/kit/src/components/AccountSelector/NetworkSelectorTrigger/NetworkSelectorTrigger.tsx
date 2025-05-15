@@ -95,7 +95,7 @@ function NetworkSelectorTriggerHomeCmp({
   size?: 'small' | 'large';
 }) {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network, accountName },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
@@ -120,7 +120,7 @@ function NetworkSelectorTriggerHomeCmp({
 
   const isLarge = size === 'large';
 
-  if (hideOnNoAccount && !account) {
+  if (hideOnNoAccount && !accountName) {
     return null;
   }
 
