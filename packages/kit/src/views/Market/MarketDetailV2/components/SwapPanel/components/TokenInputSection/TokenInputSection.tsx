@@ -28,8 +28,6 @@ export function TokenInputSection({
   value,
   onChange,
   selectedToken,
-  selectableTokens,
-  onTokenChange,
   onPressTokenSelector,
 }: ITokenInputSectionProps) {
   return (

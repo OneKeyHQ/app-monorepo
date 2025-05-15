@@ -17,7 +17,6 @@ export function SwapPanel() {
     handleAmountChange,
     handleTradeTypeChange,
     handleAntiMEVToggle,
-    handleQuickAmountSelect,
     selectedTokenForAmountInput,
     selectableTokensForAmountInput,
     handleInputTokenChange,

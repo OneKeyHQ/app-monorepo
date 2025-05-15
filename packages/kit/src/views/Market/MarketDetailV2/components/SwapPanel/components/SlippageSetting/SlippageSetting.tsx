@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -49,14 +49,14 @@ export function SlippageSetting() {
     });
   }, [intl, slippageItem, autoValue, slippageOnSave, isMEV]);
 
-  const displaySlippageText = () => {
+  const displaySlippageText = useMemo(() => {
     if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
       return `${intl.formatMessage({
         id: ETranslations.slippage_tolerance_switch_auto,
       })} (${autoValue}%)`;
     }
     return `${slippageItem.value}%`;
-  };
+  }, [slippageItem, intl, autoValue]);
 
   return (
     <XStack
@@ -75,7 +75,7 @@ export function SlippageSetting() {
 
       <XStack alignItems="center" gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {displaySlippageText()}
+          {displaySlippageText}
         </SizableText>
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
       </XStack>
