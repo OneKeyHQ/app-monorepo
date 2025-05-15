@@ -12,8 +12,10 @@ export function useSpeedSwapInit(networkId: string) {
     [networkId],
     {
       initResult: {
+        provider: '',
         speedConfig: {
           slippage: 0.5,
+          defaultTokens: [],
         },
         supportSpeedSwap: false,
       },
@@ -25,5 +27,6 @@ export function useSpeedSwapInit(networkId: string) {
     isLoading,
     speedConfig: result?.speedConfig,
     supportSpeedSwap: result?.supportSpeedSwap,
+    provider: result?.provider,
   };
 }

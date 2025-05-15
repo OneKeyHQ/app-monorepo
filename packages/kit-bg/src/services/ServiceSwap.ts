@@ -1993,6 +1993,7 @@ export default class ServiceSwap extends ServiceBase {
     } catch (error) {
       console.error(error);
       return {
+        provider: '',
         speedConfig: {
           slippage: 0.5,
           defaultTokens: [],
