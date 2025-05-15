@@ -4,7 +4,7 @@ import type { PropsWithChildren } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IIconButtonProps } from '@onekeyhq/components';
+import type { IIconButtonProps, IStackStyle } from '@onekeyhq/components';
 import {
   Divider,
   HeaderIconButton,
@@ -50,6 +50,8 @@ import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { UpdateReminder } from '../UpdateReminder';
+import { useAppUpdateInfo } from '../UpdateReminder/hooks';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -471,6 +473,7 @@ function MoreActionContentGrid() {
     openAddressBook,
     openNotificationsModal,
     themeVariant,
+    toReferFriendsPage,
   ]);
 
   return (
@@ -487,6 +490,7 @@ function MoreActionContent() {
   return (
     <MoreActionProvider>
       <YStack>
+        <UpdateReminder />
         <MoreActionContentHeader />
         <YStack p="$5" gap="$5">
           <MoreActionContentGrid />
@@ -508,9 +512,59 @@ const useIsShowRedDot = () => {
   return isShowNotificationDot;
 };
 
+function Dot({ color }: { color: IStackStyle['bg'] }) {
+  return (
+    <Stack
+      position="absolute"
+      right="$-2.5"
+      top="$-2"
+      alignItems="flex-end"
+      w="$10"
+      pointerEvents="none"
+    >
+      <Stack
+        bg="$bgApp"
+        borderRadius="$full"
+        borderWidth={2}
+        borderColor="$transparent"
+      >
+        <Stack
+          px="$1"
+          borderRadius="$full"
+          bg="$bgCriticalStrong"
+          bg={color}
+          minWidth="$4"
+          height="$4"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Stack
+            width="$1"
+            height="$1"
+            backgroundColor="white"
+            borderRadius="$full"
+          />
+        </Stack>
+      </Stack>
+    </Stack>
+  );
+}
+
+const useIsShowUpgradeDot = () => {
+  const appUpdateInfo = useAppUpdateInfo(true);
+  return appUpdateInfo.isNeedUpdate;
+};
+
 function MoreActionButtonCmp() {
   const intl = useIntl();
   const isShowRedDot = useIsShowRedDot();
+  const isShowUpgradeDot = useIsShowUpgradeDot();
+  const dot = useMemo(() => {
+    if (isShowUpgradeDot) {
+      return <Dot color="$bgInfoStrong" />;
+    }
+    return isShowRedDot ? <Dot color="$bgCriticalStrong" /> : null;
+  }, [isShowRedDot, isShowUpgradeDot]);
   return (
     <Popover
       title=""
@@ -530,40 +584,7 @@ function MoreActionButtonCmp() {
             icon="DotGridOutline"
             pointerEvents={platformEnv.isNative ? 'none' : undefined}
           />
-          {isShowRedDot ? (
-            <Stack
-              position="absolute"
-              right="$-2.5"
-              top="$-2"
-              alignItems="flex-end"
-              w="$10"
-              pointerEvents="none"
-            >
-              <Stack
-                bg="$bgApp"
-                borderRadius="$full"
-                borderWidth={2}
-                borderColor="$transparent"
-              >
-                <Stack
-                  px="$1"
-                  borderRadius="$full"
-                  bg="$bgCriticalStrong"
-                  minWidth="$4"
-                  height="$4"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Stack
-                    width="$1"
-                    height="$1"
-                    backgroundColor="white"
-                    borderRadius="$full"
-                  />
-                </Stack>
-              </Stack>
-            </Stack>
-          ) : null}
+          {dot}
         </XStack>
       }
       renderContent={MoreActionContent}
