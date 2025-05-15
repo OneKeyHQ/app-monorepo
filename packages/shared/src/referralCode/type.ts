@@ -114,6 +114,10 @@ export interface IEarnRewardResponse {
   total: number;
 }
 
+export interface IEarnPositionsResponse {
+  
+}
+
 export interface IHardwareSalesRecord {
   available: {
     token: {

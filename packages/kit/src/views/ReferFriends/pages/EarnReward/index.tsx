@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -37,12 +38,15 @@ interface ISectionData {
     name: string;
     token: {
       uri: string;
+      networkId: string;
       symbol: string;
       amount: string;
       fiatAmount: string;
     };
   }[];
 }
+
+type IVaultAmount = Record<string, Record<string, string>>;
 
 function EmptyData() {
   const intl = useIntl();
@@ -78,7 +82,13 @@ function ListHeader() {
   );
 }
 
-function List({ listData }: { listData: ISectionData[] }) {
+function List({
+  listData,
+  vaultAmountRef,
+}: {
+  listData: ISectionData[];
+  vaultAmountRef: RefObject<IVaultAmount>;
+}) {
   const intl = useIntl();
   return (
     <YStack px="$5" py="$2">
@@ -166,7 +176,9 @@ function List({ listData }: { listData: ISectionData[] }) {
                               tokenSymbol: item.token.symbol || '',
                             }}
                           >
-                            {item.orderTotalAmount}
+                            {vaultAmountRef.current?.[address]?.[
+                              item.token.networkId
+                            ] || 0}
                           </NumberSizeableText>
                           {` ${intl.formatMessage({
                             id: ETranslations.earn_deposited,
@@ -253,10 +265,11 @@ const formatSections = (data: IEarnRewardItem[]) => {
             name: item?.vaultName || '',
             orderTotalAmount,
             token: {
-              uri: item?.token.logoURI || '',
+              uri: item.token.logoURI || '',
               symbol,
+              networkId: item.token.networkId,
               amount: item.amount || '0',
-              fiatAmount: item?.fiatValue || '0',
+              fiatAmount: item.fiatValue || '0',
             },
           };
         }),
@@ -290,6 +303,8 @@ export default function EarnReward() {
     ESpotlightTour.earnRewardAlert,
   );
 
+  const vaultAmountRef = useRef<IVaultAmount>({} as IVaultAmount);
+
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor, true);
   }, []);
@@ -298,29 +313,66 @@ export default function EarnReward() {
     return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor);
   }, []);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setIsLoading(true);
-    void Promise.allSettled([fetchSales(), fetchTotalList()]).then(
-      ([salesResult, totalResult]) => {
-        if (salesResult.status === 'fulfilled') {
-          const data = salesResult.value;
-          setUndistributedListData(formatSections(data.items));
-          setAmount({
-            available: '0',
-            pending: BigNumber(data.fiatValue).toFixed(2) || '0',
+    const [salesResult, totalResult] = await Promise.allSettled([
+      fetchSales(),
+      fetchTotalList(),
+    ]);
+
+    if (salesResult.status === 'fulfilled') {
+      const data = salesResult.value;
+      setUndistributedListData(formatSections(data.items));
+      setAmount({
+        available: '0',
+        pending: BigNumber(data.fiatValue).toFixed(2) || '0',
+      });
+    }
+    if (totalResult.status === 'fulfilled') {
+      const data = totalResult.value;
+      setTotalListData(formatSections(data.items));
+    }
+    const accounts: { address: string; networkId: string }[] = [];
+    const seenAccounts = new Set<string>();
+    const processItems = (
+      items: Array<{
+        accountAddress: string;
+        token: { networkId: string };
+        // We only care about accountAddress and token.networkId from each item
+        // Other properties may exist but are not relevant for this task.
+      }>,
+    ) => {
+      items.forEach((item) => {
+        // Assuming item, item.accountAddress, item.token, and item.token.networkId are present
+        // as per the expected structure of IEarnRewardItem.
+        // If these fields could be null or undefined, additional checks would be needed.
+        const key = `${item.accountAddress}:${item.token.networkId}`;
+        if (!seenAccounts.has(key)) {
+          seenAccounts.add(key);
+          accounts.push({
+            address: item.accountAddress,
+            networkId: item.token.networkId,
           });
         }
-        if (totalResult.status === 'fulfilled') {
-          const data = totalResult.value;
-          setTotalListData(formatSections(data.items));
-        }
-        setIsLoading(false);
-      },
+      });
+    };
+
+    if (salesResult.status === 'fulfilled' && salesResult.value.items) {
+      processItems(salesResult.value.items);
+    }
+
+    if (totalResult.status === 'fulfilled' && totalResult.value.items) {
+      processItems(totalResult.value.items);
+    }
+    setIsLoading(false);
+    const response = await backgroundApiProxy.serviceReferralCode.getPositions(
+      accounts,
     );
+    console.log('---response', response);
   }, [fetchSales, fetchTotalList]);
 
   useEffect(() => {
-    onRefresh();
+    void onRefresh();
   }, [fetchSales, onRefresh]);
 
   const tabs = useMemo(
@@ -330,14 +382,21 @@ export default function EarnReward() {
           id: ETranslations.earn_referral_undistributed,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => <List listData={undistributedListData} />,
+        page: () => (
+          <List
+            listData={undistributedListData}
+            vaultAmountRef={vaultAmountRef}
+          />
+        ),
       },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_total,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => <List listData={totalListData} />,
+        page: () => (
+          <List listData={totalListData} vaultAmountRef={vaultAmountRef} />
+        ),
       },
     ],
     [intl, totalListData, undistributedListData],
