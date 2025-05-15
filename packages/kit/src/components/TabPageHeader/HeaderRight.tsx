@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -107,11 +107,11 @@ function NotificationsButton() {
   );
 }
 
-function MoreAction() {
+export function MoreAction() {
   return <MoreActionButton key="more-action" />;
 }
 
-function SelectorTrigger() {
+export function SelectorTrigger() {
   return (
     <NetworkSelectorTriggerHome
       num={0}
@@ -137,19 +137,25 @@ function PeopleAction() {
   );
 }
 
-function SearchInput() {
+export function SearchInput() {
   const { gtLg } = useMedia();
   return <UniversalSearchInput size={gtLg ? 'large' : 'small'} />;
 }
 
 export function HeaderRight({
   tabRoute,
+  customHeaderRightItems,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
+  customHeaderRightItems?: ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
   const items = useMemo(() => {
+    if (customHeaderRightItems) {
+      return customHeaderRightItems;
+    }
+
     const fixedItems = (
       <>
         {isHorizontal ? <NotificationsButton /> : null}
@@ -195,7 +201,7 @@ export function HeaderRight({
       default:
         break;
     }
-  }, [isHorizontal, tabRoute]);
+  }, [isHorizontal, tabRoute, customHeaderRightItems]);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
