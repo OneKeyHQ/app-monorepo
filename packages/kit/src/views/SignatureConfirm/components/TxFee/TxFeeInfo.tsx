@@ -560,6 +560,7 @@ function TxFeeInfo(props: IProps) {
             updateSendSelectedFee({
               feeType: EFeeType.Custom,
               presetIndex: 0,
+              source: 'dapp',
             });
             updateCustomFee(customFeeInfo);
           }
@@ -606,6 +607,7 @@ function TxFeeInfo(props: IProps) {
             updateSendSelectedFee({
               feeType: EFeeType.Custom,
               presetIndex: 0,
+              source: 'dapp',
             });
 
             updateCustomFee(customFeeInfo);

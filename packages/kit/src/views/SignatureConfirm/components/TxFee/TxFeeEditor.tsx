@@ -64,6 +64,7 @@ type IProps = {
   sendSelectedFee: {
     feeType: EFeeType;
     presetIndex: number;
+    source?: 'dapp' | 'wallet';
   };
   originalCustomFee: IFeeInfoUnit | undefined;
   selectedFee: ISendSelectedFeeInfo | undefined;
@@ -182,6 +183,10 @@ function TxFeeEditor(props: IProps) {
   } = props;
   const intl = useIntl();
   const dialog = useDialogInstance();
+  const [defaultCustomFeeInfoEnabled, setDefaultCustomFeeInfoEnabled] =
+    useState(false);
+
+  const isDappSuggestedFeeInfo = sendSelectedFee.source === 'dapp';
 
   const isMultiTxs = unsignedTxs.length > 1;
 
@@ -203,15 +208,21 @@ function TxFeeEditor(props: IProps) {
   const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
     customFee?.common ?? {};
 
-  const [vaultSettings, network] =
-    usePromiseResult(
-      () =>
-        Promise.all([
-          backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-          backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        ]),
-      [networkId],
-    ).result ?? [];
+  const { vaultSettings, network, defaultCustomFeeInfo } =
+    usePromiseResult(async () => {
+      const [v, n, d] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        backgroundApiProxy.serviceGas.getCustomFeeInfo({ networkId }),
+      ]);
+      setDefaultCustomFeeInfoEnabled(d?.enabled ?? false);
+
+      return {
+        vaultSettings: v,
+        network: n,
+        defaultCustomFeeInfo: d,
+      };
+    }, [networkId]).result ?? {};
 
   const originalMaxBaseFee = new BigNumber(
     customFee?.gasEIP1559?.maxFeePerGas ?? '0',
@@ -828,13 +839,36 @@ function TxFeeEditor(props: IProps) {
   );
 
   const handleApplyFeeInfo = useCallback(async () => {
+    if (!isDappSuggestedFeeInfo) {
+      void backgroundApiProxy.serviceGas.updateCustomFeeInfo({
+        networkId,
+        enabled: defaultCustomFeeInfoEnabled,
+        customFeeInfo: defaultCustomFeeInfoEnabled
+          ? {
+              ...customFeeInfo,
+              // @ts-ignore
+              common: undefined,
+            }
+          : undefined,
+      });
+    }
+
     onApplyFeeInfo({
       feeType: currentFeeType,
       presetIndex: currentFeeIndex,
       customFeeInfo,
     });
     await dialog?.close();
-  }, [currentFeeIndex, currentFeeType, customFeeInfo, dialog, onApplyFeeInfo]);
+  }, [
+    currentFeeIndex,
+    currentFeeType,
+    customFeeInfo,
+    defaultCustomFeeInfoEnabled,
+    dialog,
+    isDappSuggestedFeeInfo,
+    networkId,
+    onApplyFeeInfo,
+  ]);
 
   const renderFeeTypeSelector = useCallback(() => {
     if (replaceTxMode) return null;
@@ -2007,24 +2041,36 @@ function TxFeeEditor(props: IProps) {
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$80">
         <Stack gap="$5">
           {renderFeeTypeSelector()}
-          <Alert
-            icon="GasOutline"
-            type="info"
-            description={intl.formatMessage({
-              id: ETranslations.network_fee_suggested_by_dapp_description,
-            })}
-          />
+          {isDappSuggestedFeeInfo &&
+          defaultCustomFeeInfo?.enabled &&
+          defaultCustomFeeInfo.feeInfo ? (
+            <Alert
+              icon="GasOutline"
+              type="info"
+              description={intl.formatMessage({
+                id: ETranslations.network_fee_suggested_by_dapp_description,
+              })}
+            />
+          ) : null}
           {renderFeeEditorForm()}
-          <Checkbox
-            description={intl.formatMessage(
-              {
-                id: ETranslations.edit_fee_custom_set_as_default_description,
-              },
-              {
-                network: 'Ethereum',
-              },
-            )}
-          />
+          {isDappSuggestedFeeInfo ||
+          currentFeeType !== EFeeType.Custom ||
+          !customFee ? null : (
+            <Checkbox
+              value={defaultCustomFeeInfoEnabled}
+              onChange={() => {
+                setDefaultCustomFeeInfoEnabled(!defaultCustomFeeInfoEnabled);
+              }}
+              description={intl.formatMessage(
+                {
+                  id: ETranslations.edit_fee_custom_set_as_default_description,
+                },
+                {
+                  network: network?.name,
+                },
+              )}
+            />
+          )}
         </Stack>
       </ScrollView>
       <Stack
