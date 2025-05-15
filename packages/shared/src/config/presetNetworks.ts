@@ -1346,7 +1346,7 @@ const blast: IServerNetwork = {
   'chainId': '81457',
   'id': 'evm--81457',
   'name': 'Blast',
-  'symbol': 'BLAST',
+  'symbol': 'ETH',
   'code': 'blast',
   'shortcode': 'blast',
   'shortname': 'blast',
