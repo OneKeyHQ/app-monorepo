@@ -4,9 +4,6 @@ import type { PropsWithChildren } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
-import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
-
 import type { IIconButtonProps } from '@onekeyhq/components';
 import {
   Divider,
@@ -23,6 +20,8 @@ import {
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
+import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
+import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -45,6 +44,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
+import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
@@ -52,7 +52,6 @@ import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import type { GestureResponderEvent } from 'react-native';
-import { useThemeVariant } from '../../hooks/useThemeVariant';
 
 const pressStyle = {
   bg: '$bgActive',
@@ -481,6 +480,7 @@ function MoreActionContentGrid() {
     intl,
     openAddressBook,
     openNotificationsModal,
+    themeVariant,
   ]);
 
   return (
