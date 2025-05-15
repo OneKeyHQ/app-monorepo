@@ -45,6 +45,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
+import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
@@ -491,6 +493,8 @@ function MoreActionContent() {
     <MoreActionProvider>
       <YStack>
         <UpdateReminder />
+        <HomeFirmwareUpdateReminder />
+        <WalletXfpStatusReminder />
         <MoreActionContentHeader />
         <YStack p="$5" gap="$5">
           <MoreActionContentGrid />
