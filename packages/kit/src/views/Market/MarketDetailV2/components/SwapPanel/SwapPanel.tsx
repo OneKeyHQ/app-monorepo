@@ -1,11 +1,10 @@
 import { YStack } from '@onekeyhq/components';
 
 import { ActionButton } from './components/ActionButton';
-import { AmountInputSection } from './components/AmountInputSection';
 import { AntiMEVToggle } from './components/AntiMEVToggle';
 import { BalanceDisplay } from './components/BalanceDisplay';
-import { QuickAmountSelector } from './components/QuickAmountSelector';
 import { SlippageSetting } from './components/SlippageSetting';
+import { TokenInputSection } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
 import { useSwapPanel } from './useSwapPanel';
@@ -34,17 +33,14 @@ export function SwapPanel() {
       {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={handleTradeTypeChange} />
 
-      {/* Amount input section */}
-      <AmountInputSection
+      {/* Token input section */}
+      <TokenInputSection
         value={amount}
         onChange={handleAmountChange}
         selectedToken={selectedTokenForAmountInput}
         selectableTokens={selectableTokensForAmountInput}
         onTokenChange={handleInputTokenChange}
       />
-
-      {/* Quick amount selector */}
-      <QuickAmountSelector onSelect={handleQuickAmountSelect} />
 
       {/* Balance display */}
       <BalanceDisplay balance={balance} token={balanceToken} />

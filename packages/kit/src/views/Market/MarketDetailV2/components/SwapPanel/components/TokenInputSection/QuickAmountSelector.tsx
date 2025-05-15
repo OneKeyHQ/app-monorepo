@@ -6,7 +6,7 @@ export interface IQuickAmountSelectorProps {
 
 export function QuickAmountSelector({ onSelect }: IQuickAmountSelectorProps) {
   return (
-    <XStack space="$2.5">
+    <XStack gap="$2.5" background="$bgStrong">
       <Button flex={1} size="medium" onPress={() => onSelect('0.1')}>
         0.1
       </Button>
