@@ -196,7 +196,7 @@ function RawPopover({
             resolve();
           },
           // Need to execute the callback after the sheet animation ends on the Native side
-          platformEnv.isNative ? 300 : 0,
+          platformEnv.isNative ? 300 : 50,
         );
       }),
     [closePopover],
