@@ -79,7 +79,6 @@ function MoreActionContentHeader() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { closePopover } = usePopoverContext();
 
-  const { shareReferRewards } = useReferFriends();
   const { loginOneKeyId } = useLoginOneKeyId();
 
   const handleLogin = useCallback(async () => {
@@ -88,11 +87,6 @@ function MoreActionContentHeader() {
       toOneKeyIdPageOnLoginSuccess: true,
     });
   }, [closePopover, loginOneKeyId]);
-
-  const handleShareReferRewards = useCallback(async () => {
-    await closePopover?.();
-    await shareReferRewards();
-  }, [closePopover, shareReferRewards]);
   return (
     <XStack
       px="$5"
@@ -133,14 +127,6 @@ function MoreActionContentHeader() {
             onPress={closePopover}
           />
         ) : null}
-        <IconButton
-          variant="tertiary"
-          title={intl.formatMessage({ id: ETranslations.referral_title })}
-          icon="ColorfulGiftCustom"
-          testID="refer-a-friend"
-          trackID="gift-in-more-action"
-          onPress={handleShareReferRewards}
-        />
       </XStack>
     </XStack>
   );
@@ -423,6 +409,9 @@ function MoreActionContentGrid() {
       screen: EModalNotificationsRoutes.NotificationList,
     });
   }, [navigation]);
+
+  const { toReferFriendsPage } = useReferFriends();
+
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
@@ -448,6 +437,7 @@ function MoreActionContentGrid() {
         lottieSrc:
           themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
         testID: 'referral',
+        onPress: toReferFriendsPage,
       },
       {
         title: intl.formatMessage({
