@@ -1,10 +1,10 @@
 import { Button, XStack } from '@onekeyhq/components';
 
-export function QuickAmountSelector({
-  onSelect,
-}: {
+export interface IQuickAmountSelectorProps {
   onSelect: (value: string) => void;
-}) {
+}
+
+export function QuickAmountSelector({ onSelect }: IQuickAmountSelectorProps) {
   return (
     <XStack space="$2.5">
       <Button flex={1} size="medium" onPress={() => onSelect('0.1')}>

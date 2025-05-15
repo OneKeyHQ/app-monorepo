@@ -6,13 +6,12 @@ interface ITokenInfo {
   price?: number;
 }
 
-export function BalanceDisplay({
-  balance,
-  token,
-}: {
+export interface IBalanceDisplayProps {
   balance?: string;
   token?: ITokenInfo;
-}) {
+}
+
+export function BalanceDisplay({ balance, token }: IBalanceDisplayProps) {
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued">

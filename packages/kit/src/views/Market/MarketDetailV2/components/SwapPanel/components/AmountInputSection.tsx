@@ -6,19 +6,21 @@ interface IToken {
   price?: number; // Optional as it might not be needed for display in select
 }
 
+export interface IAmountInputSectionProps {
+  value: string;
+  onChange: (value: string) => void;
+  selectedToken?: IToken;
+  selectableTokens: IToken[];
+  onTokenChange: (tokenSymbol: string) => void;
+}
+
 export function AmountInputSection({
   value,
   onChange,
   selectedToken,
   selectableTokens,
   onTokenChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  selectedToken?: IToken;
-  selectableTokens: IToken[];
-  onTokenChange: (tokenSymbol: string) => void;
-}) {
+}: IAmountInputSectionProps) {
   return (
     <Input
       placeholder="Total"

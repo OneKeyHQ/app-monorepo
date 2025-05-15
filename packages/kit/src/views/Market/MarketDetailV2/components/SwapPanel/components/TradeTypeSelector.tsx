@@ -22,13 +22,15 @@ const commonButtonStyleProps: IButtonProps = {
   },
 };
 
+export interface ITradeTypeSelectorProps {
+  value: ITradeType;
+  onChange: (value: ITradeType) => void;
+}
+
 export function TradeTypeSelector({
   value,
   onChange,
-}: {
-  value: ITradeType;
-  onChange: (value: ITradeType) => void;
-}) {
+}: ITradeTypeSelectorProps) {
   const intl = useIntl();
   const isBuyActive = value === 'buy';
   const isSellActive = value === 'sell';

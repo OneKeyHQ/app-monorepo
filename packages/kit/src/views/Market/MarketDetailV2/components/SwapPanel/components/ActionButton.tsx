@@ -8,17 +8,19 @@ interface ITokenInfo {
   price?: number;
 }
 
+export interface IActionButtonProps {
+  tradeType: ITradeType;
+  amount: string;
+  token?: ITokenInfo;
+  totalValue: number;
+}
+
 export function ActionButton({
   tradeType,
   amount,
   token,
   totalValue,
-}: {
-  tradeType: ITradeType;
-  amount: string;
-  token?: ITokenInfo;
-  totalValue: number;
-}) {
+}: IActionButtonProps) {
   const actionText = tradeType === 'buy' ? 'Buy' : 'Sell';
   const numericAmount = parseFloat(amount);
   const displayAmount = Number.isNaN(numericAmount) ? '' : amount;

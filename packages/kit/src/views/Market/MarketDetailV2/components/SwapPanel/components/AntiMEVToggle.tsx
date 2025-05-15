@@ -1,12 +1,11 @@
 import { SizableText, Switch, XStack } from '@onekeyhq/components';
 
-export function AntiMEVToggle({
-  value,
-  onToggle,
-}: {
+export interface IAntiMEVToggleProps {
   value: boolean;
   onToggle: () => void;
-}) {
+}
+
+export function AntiMEVToggle({ value, onToggle }: IAntiMEVToggleProps) {
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued">
