@@ -57,13 +57,15 @@ export function Radio({
               borderRadius="$full"
             />
           </RadioGroup.Item>
-          <YStack gap="$1" pl="$2" py="$2" my="$-2" flex={1}>
+          <YStack pl="$2" py="$2" my="$-2" flex={1}>
             <Label htmlFor={v} variant="$bodyLgMedium">
               {label}
             </Label>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {description}
-            </SizableText>
+            {description ? (
+              <SizableText size="$bodyMd" color="$textSubdued" pt="$0.5">
+                {description}
+              </SizableText>
+            ) : null}
           </YStack>
         </XStack>
       ))}
