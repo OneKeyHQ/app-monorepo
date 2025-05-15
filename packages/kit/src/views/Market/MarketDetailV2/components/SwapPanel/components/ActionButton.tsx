@@ -1,9 +1,32 @@
 import { Button } from '@onekeyhq/components';
 
-export function ActionButton() {
+import type { ITradeType } from '../useSwapPanel';
+
+interface ITokenInfo {
+  label: string;
+  value: string;
+  price?: number;
+}
+
+export function ActionButton({
+  tradeType,
+  amount,
+  token,
+  totalValue,
+}: {
+  tradeType: ITradeType;
+  amount: string;
+  token?: ITokenInfo;
+  totalValue: number;
+}) {
+  const actionText = tradeType === 'buy' ? 'Buy' : 'Sell';
+  const numericAmount = parseFloat(amount);
+  const displayAmount = Number.isNaN(numericAmount) ? '' : amount;
+
   return (
     <Button variant="primary" size="large">
-      Buy 1 SOL ($50.49)
+      {actionText} {displayAmount} {token?.label || ''} ($
+      {totalValue.toFixed(2)})
     </Button>
   );
 }
