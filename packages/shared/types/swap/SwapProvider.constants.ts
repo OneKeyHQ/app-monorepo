@@ -477,6 +477,102 @@ export const swapDefaultSetTokens: Record<
         'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     },
   },
+  'evm--146': {
+    fromToken: {
+      'networkId': 'evm--146',
+      'contractAddress': '',
+      'name': 'Sonic',
+      'symbol': 'S',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--146/tokens/native.png',
+      'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sonic.png',
+    },
+    toToken: {
+      'networkId': 'evm--146',
+      'contractAddress': '0x29219dd400f2bf60e5a23d13be72b486d4038894',
+      'name': 'Bridged USDC (Sonic Labs)',
+      'symbol': 'USDC.e',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1747214486048.0.9537815416938153.0.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sonic.png',
+    },
+  },
+  'evm--534352': {
+    fromToken: {
+      'networkId': 'evm--534352',
+      'contractAddress': '',
+      'name': 'Ethereum',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--534352/tokens/native.png',
+      'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/scr.png',
+    },
+    toToken: {
+      'networkId': 'evm--534352',
+      'contractAddress': '0xf55bec9cafdbe8730f096aa55dad6d22d44099df',
+      'name': 'Tether USD',
+      'symbol': 'USDT',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--534352/tokens/0xf55bec9cafdbe8730f096aa55dad6d22d44099df.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/scr.png',
+    },
+  },
+  'evm--5000': {
+    fromToken: {
+      'networkId': 'evm--5000',
+      'contractAddress': '',
+      'name': 'Mantle',
+      'symbol': 'MNT',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--5000/tokens/native.png',
+      'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/mantle.png',
+    },
+    toToken: {
+      'networkId': 'evm--5000',
+      'contractAddress': '0x201eba5cc46d216ce6dc03f6a759e8e766e956ae',
+      'name': 'Tether USD',
+      'symbol': 'USDT',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--5000/tokens/0x201eba5cc46d216ce6dc03f6a759e8e766e956ae.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/mantle.png',
+    },
+  },
+  'evm--81457': {
+    fromToken: {
+      'networkId': 'evm--81457',
+      'contractAddress': '',
+      'name': 'Ethereum',
+      'symbol': 'BLAST',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--81457/tokens/native.png',
+      'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/logo/blast.png',
+    },
+    toToken: {
+      'networkId': 'evm--81457',
+      'contractAddress': '0x4300000000000000000000000000000000000003',
+      'name': 'USDB',
+      'symbol': 'USDB',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--81457/tokens/0x4300000000000000000000000000000000000003.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/logo/blast.png',
+    },
+  },
   'btc--0': {
     fromToken: {
       'networkId': 'btc--0',
