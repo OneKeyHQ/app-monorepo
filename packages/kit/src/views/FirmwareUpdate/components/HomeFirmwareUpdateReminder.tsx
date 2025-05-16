@@ -17,6 +17,7 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 
 import { BootloaderModeUpdateReminder } from './BootloaderModeUpdateReminder';
 import { HomeFirmwareUpdateDetect } from './HomeFirmwareUpdateDetect';
+import { StyleSheet } from 'react-native';
 
 export function FirmwareUpdateReminderAlert({
   message,
@@ -30,14 +31,16 @@ export function FirmwareUpdateReminderAlert({
   const intl = useIntl();
   return (
     <XStack
-      px="$5"
-      py="$2"
-      borderTopWidth="$px"
-      borderBottomWidth="$px"
+      pl="$3"
+      pr="$2"
+      py="$1.5"
+      borderWidth={StyleSheet.hairlineWidth}
       bg="$bgInfoSubdued"
       borderColor="$borderInfoSubdued"
       alignItems="center"
       gap="$2"
+      borderRadius="$2"
+      borderCurve="continuous"
       flex={1}
       {...containerProps}
     >
@@ -50,7 +53,7 @@ export function FirmwareUpdateReminderAlert({
       >
         {message}
       </SizableText>
-      <Button size="small" onPress={onPress}>
+      <Button size="small" onPress={onPress} borderRadius="$1">
         {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>

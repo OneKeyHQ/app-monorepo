@@ -12,6 +12,7 @@ import {
   IconButton,
   LottieView,
   Popover,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -492,16 +493,21 @@ function MoreActionContent() {
   return (
     <MoreActionProvider>
       <YStack>
-        <YStack gap="$1">
-          <UpdateReminder />
-          <HomeFirmwareUpdateReminder />
-          <WalletXfpStatusReminder />
-        </YStack>
         <MoreActionContentHeader />
-        <YStack p="$5" gap="$5">
+        <ScrollView
+          contentContainerStyle={{
+            p: '$5',
+            gap: '$5',
+          }}
+        >
+          <YStack gap="$2">
+            <UpdateReminder />
+            <HomeFirmwareUpdateReminder />
+            <WalletXfpStatusReminder />
+          </YStack>
           <MoreActionContentGrid />
           <MoreActionContentFooter />
-        </YStack>
+        </ScrollView>
       </YStack>
     </MoreActionProvider>
   );
@@ -537,7 +543,6 @@ function Dot({ color }: { color: IStackStyle['bg'] }) {
         <Stack
           px="$1"
           borderRadius="$full"
-          bg="$bgCriticalStrong"
           bg={color}
           minWidth="$4"
           height="$4"
@@ -567,7 +572,7 @@ function MoreActionButtonCmp() {
   const isShowUpgradeDot = useIsShowUpgradeDot();
   const dot = useMemo(() => {
     if (isShowUpgradeDot) {
-      return <Dot color="$bgInfoStrong" />;
+      return <Dot color="$blue8" />;
     }
     return isShowRedDot ? <Dot color="$bgCriticalStrong" /> : null;
   }, [isShowRedDot, isShowUpgradeDot]);
