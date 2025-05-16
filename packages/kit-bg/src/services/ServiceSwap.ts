@@ -2010,35 +2010,42 @@ export default class ServiceSwap extends ServiceBase {
     toToken,
     fromTokenAmount,
     userAddress,
-    toTokenAmount,
     provider,
     receivingAddress,
     slippagePercentage,
-    quoteResultCtx,
     accountId,
     protocol,
     kind,
-    walletType,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
-    toTokenAmount: string;
     fromTokenAmount: string;
     provider: string;
     userAddress: string;
     receivingAddress: string;
     slippagePercentage: number;
     accountId?: string;
-    quoteResultCtx?: any;
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
     walletType?: string;
   }): Promise<IFetchBuildTxResponse | undefined> {
+    let headers = await getRequestHeaders();
+    const walletType =
+      await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
+        accountId,
+      });
+    headers = {
+      ...headers,
+      ...(accountId
+        ? {
+            'X-OneKey-Wallet-Type': walletType,
+          }
+        : {}),
+    };
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
-      toTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
       protocol,
@@ -2046,22 +2053,16 @@ export default class ServiceSwap extends ServiceBase {
       userAddress,
       receivingAddress,
       slippagePercentage,
-      quoteResultCtx,
       kind,
       walletType,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
-        '/swap/v1//build-tx/speed',
+        '/swap/v1/build-tx/speed',
         params,
         {
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
+          headers,
         },
       );
       return data?.data;
@@ -2072,6 +2073,7 @@ export default class ServiceSwap extends ServiceBase {
         title: error?.message,
         message: error?.requestId,
       });
+      return undefined;
     }
   }
 }

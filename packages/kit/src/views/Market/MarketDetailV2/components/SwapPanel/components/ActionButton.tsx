@@ -1,6 +1,6 @@
 import { Button } from '@onekeyhq/components';
 
-import type { ITradeType } from '../useSwapPanel';
+import type { ITradeType } from '../hooks/useSwapPanel';
 
 interface ITokenInfo {
   label: string;
