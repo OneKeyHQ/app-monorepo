@@ -93,6 +93,7 @@ interface IHardwareSalesRecordItem {
 
 export interface IEarnRewardItem {
   amount: string;
+  networkId: string;
   orderTotalAmount: string;
   token: {
     networkId: string;

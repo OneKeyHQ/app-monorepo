@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IIconProps, IStackProps } from '@onekeyhq/components';
 import {
@@ -17,7 +18,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
-import { StyleSheet } from 'react-native';
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const intl = useIntl();

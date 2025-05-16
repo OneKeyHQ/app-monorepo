@@ -36,6 +36,7 @@ interface ISectionData {
   data: {
     orderTotalAmount: string;
     vaultAddress: string;
+    vaultNetworkId: string;
     name: string;
     token: {
       uri: string;
@@ -178,7 +179,7 @@ function List({
                             }}
                           >
                             {vaultAmountRef.current?.[item.vaultAddress]?.[
-                              item.token.networkId
+                              item.vaultNetworkId
                             ] || 0}
                           </NumberSizeableText>
                           {` ${intl.formatMessage({
@@ -266,6 +267,7 @@ const formatSections = (data: IEarnRewardItem[]) => {
             name: item?.vaultName || '',
             orderTotalAmount,
             vaultAddress: item.vaultAddress,
+            vaultNetworkId: item.networkId,
             token: {
               uri: item.token.logoURI || '',
               symbol,
@@ -339,26 +341,17 @@ export default function EarnReward() {
     const processItems = (
       items: Array<{
         accountAddress: string;
+        networkId: string;
         token: { networkId: string };
-        // We only care about accountAddress and token.networkId from each item
-        // Other properties may exist but are not relevant for this task.
       }>,
     ) => {
       items.forEach((item) => {
-        // Assuming item, item.accountAddress, item.token, and item.token.networkId are present
-        // as per the expected structure of IEarnRewardItem.
-        // If these fields could be null or undefined, additional checks would be needed.
-        const key = `${item.accountAddress}:${item.token.networkId}`;
-        console.log(
-          'accountAddress-networkId',
-          item.accountAddress,
-          item.token.networkId,
-        );
+        const key = `${item.accountAddress}:${item.networkId}`;
         if (!seenAccounts.has(key)) {
           seenAccounts.add(key);
           accounts.push({
             accountAddress: item.accountAddress,
-            networkId: 'evm--1',
+            networkId: item.networkId,
           });
         }
       });
