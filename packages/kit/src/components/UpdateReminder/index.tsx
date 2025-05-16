@@ -3,7 +3,13 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IIconProps, IStackProps } from '@onekeyhq/components';
-import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -268,10 +274,16 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
   const { data, onUpdateAction } = appUpdateInfo;
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    onUpdateAction?.();
+  }, [closePopover, onUpdateAction]);
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
   if (!appUpdateInfo.isNeedUpdate || !style) {
     return null;
   }
+
   return (
     <XStack
       px="$5"
@@ -286,7 +298,7 @@ function BasicUpdateReminder() {
       {...style}
     >
       <UpdateStatusText updateInfo={data} />
-      <UpdateAction onUpdateAction={onUpdateAction} />
+      <UpdateAction onUpdateAction={handlePress} />
     </XStack>
   );
 }
