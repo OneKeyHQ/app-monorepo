@@ -489,30 +489,6 @@ function MoreActionContentGrid() {
   );
 }
 
-function MoreActionContent() {
-  return (
-    <MoreActionProvider>
-      <YStack>
-        <MoreActionContentHeader />
-        <ScrollView
-          contentContainerStyle={{
-            p: '$5',
-            gap: '$5',
-          }}
-        >
-          <YStack gap="$2">
-            <UpdateReminder />
-            <HomeFirmwareUpdateReminder />
-            <WalletXfpStatusReminder />
-          </YStack>
-          <MoreActionContentGrid />
-          <MoreActionContentFooter />
-        </ScrollView>
-      </YStack>
-    </MoreActionProvider>
-  );
-}
-
 const useIsShowRedDot = () => {
   const isHorizontal = useIsHorizontalLayout();
   const [{ firstTimeGuideOpened, badge: notificationBadges }] =
@@ -523,6 +499,33 @@ const useIsShowRedDot = () => {
   const isShowNotificationDot = !firstTimeGuideOpened || notificationBadges;
   return isShowNotificationDot;
 };
+
+function MoreActionContent() {
+  const isShowRedDot = useIsShowRedDot();
+  return (
+    <MoreActionProvider>
+      <YStack>
+        <MoreActionContentHeader />
+        <ScrollView
+          contentContainerStyle={{
+            p: '$5',
+            gap: '$5',
+          }}
+        >
+          {isShowRedDot ? (
+            <YStack gap="$2">
+              <UpdateReminder />
+              <HomeFirmwareUpdateReminder />
+              <WalletXfpStatusReminder />
+            </YStack>
+          ) : null}
+          <MoreActionContentGrid />
+          <MoreActionContentFooter />
+        </ScrollView>
+      </YStack>
+    </MoreActionProvider>
+  );
+}
 
 function Dot({ color }: { color: IStackStyle['bg'] }) {
   return (
@@ -563,7 +566,8 @@ function Dot({ color }: { color: IStackStyle['bg'] }) {
 
 const useIsShowUpgradeDot = () => {
   const appUpdateInfo = useAppUpdateInfo(true);
-  return appUpdateInfo.isNeedUpdate;
+  const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
+  return isAppNeedUpdate;
 };
 
 function MoreActionButtonCmp() {
