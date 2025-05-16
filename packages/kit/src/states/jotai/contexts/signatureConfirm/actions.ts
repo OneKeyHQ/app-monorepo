@@ -64,11 +64,16 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     (
       get,
       set,
-      sendSelectedFee: { feeType?: EFeeType; presetIndex?: number },
+      sendSelectedFee: {
+        feeType?: EFeeType;
+        presetIndex?: number;
+        source?: 'dapp' | 'wallet';
+      },
     ) => {
       set(sendSelectedFeeAtom(), {
         ...get(sendSelectedFeeAtom()),
         ...sendSelectedFee,
+        source: sendSelectedFee.source ?? 'wallet',
       });
     },
   );

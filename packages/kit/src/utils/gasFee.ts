@@ -390,12 +390,18 @@ export function getFeeLabel({
   feeType,
   presetIndex,
   isSinglePreset,
+  feeSource,
 }: {
   feeType: EFeeType;
   presetIndex?: number;
   isSinglePreset?: boolean;
+  feeSource?: 'dapp' | 'wallet';
 }) {
   if (feeType === EFeeType.Custom) {
+    if (feeSource === 'dapp') {
+      return ETranslations.network_fee_suggested_by_dapp_label;
+    }
+
     return ETranslations.content__custom;
   }
 
