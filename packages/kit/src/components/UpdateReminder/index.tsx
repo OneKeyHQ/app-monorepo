@@ -1,9 +1,16 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IIconProps, IStackProps } from '@onekeyhq/components';
-import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -186,9 +193,14 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const { iconName, iconColor, renderText } = data || {};
   const Component = renderText;
   return Component ? (
-    <XStack alignItems="center" gap="$2" flexShrink={1}>
+    <XStack alignItems="center" gap="$2" flex={1}>
       <Icon name={iconName} color={iconColor} size="$5" flexShrink={0} />
-      <SizableText size="$bodyMdMedium" color="$text" flexShrink={1}>
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        flex={1}
+        numberOfLines={1}
+      >
         <Component updateInfo={updateInfo} />
       </SizableText>
     </XStack>
@@ -198,11 +210,14 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
 function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
   const intl = useIntl();
   return (
-    <XStack gap="$4" justifyContent="space-between" alignItems="center">
-      <Button size="small" variant="secondary" onPress={onUpdateAction}>
-        {intl.formatMessage({ id: ETranslations.global_view })}
-      </Button>
-    </XStack>
+    <Button
+      size="small"
+      variant="secondary"
+      onPress={onUpdateAction}
+      borderRadius="$1"
+    >
+      {intl.formatMessage({ id: ETranslations.global_view })}
+    </Button>
   );
 }
 
@@ -268,26 +283,31 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
   const { data, onUpdateAction } = appUpdateInfo;
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    onUpdateAction?.();
+  }, [closePopover, onUpdateAction]);
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
-
   if (!appUpdateInfo.isNeedUpdate || !style) {
     return null;
   }
+
   return (
     <XStack
-      px="$5"
-      py="$2"
+      pl="$3"
+      pr="$2"
+      py="$1.5"
+      gap="$3"
       justifyContent="space-between"
       alignItems="center"
-      borderTopWidth="$px"
-      borderBottomWidth="$px"
-      $md={{
-        mt: '$2',
-      }}
+      borderRadius="$2"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderCurve="continuous"
       {...style}
     >
       <UpdateStatusText updateInfo={data} />
-      <UpdateAction onUpdateAction={onUpdateAction} />
+      <UpdateAction onUpdateAction={handlePress} />
     </XStack>
   );
 }

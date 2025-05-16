@@ -2752,7 +2752,7 @@
   "update.troubleshoot_connection_issues_desktop": "To troubleshoot connection issues, follow these steps:\n\n1. Reconnect your device and try again.\n2. Restart the app and your device, then try again.\n3. Use a different cable and port, then try again.\n\nIf this doesn’t help, contact <url>OneKey support</url>.",
   "update.troubleshoot_connection_issues_mobile": "To troubleshoot connection issues:\n\n1. Ensure Bluetooth is enabled.\n2. Reconnect your device and try again.\n3. Restart the App and your device, then try again.\n\nIf this doesn’t help, contact <url>OneKey support</url>.",
   "update.unable_to_connect_to_bridge": "Unable to connect to the bridge. Please check your internet connection and try again.",
-  "update.update_app_available": "Update App to {version} is available",
+  "update.update_app_available": "App {version} update available",
   "update.update_completed": "Update Completed",
   "update.update_history": "Update history",
   "update.update_in_official_web_tool": "Update in official web tool",

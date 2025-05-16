@@ -33,15 +33,12 @@ export function AccountSelectorCreateWalletButton() {
         onPress={() => {
           void toOnBoardingPage();
         }}
-        icon="PlusSmallOutline"
+        icon="PlusLargeOutline"
+        p="$2"
         testID="add-wallet"
+        variant="primary"
       />
-      <SizableText
-        textAlign="center"
-        size="$bodySm"
-        color="$textSubdued"
-        mt="$1"
-      >
+      <SizableText textAlign="center" size="$bodySm" mt="$1">
         {intl.formatMessage({ id: ETranslations.global_add_wallet })}
       </SizableText>
     </Stack>

@@ -27,62 +27,78 @@ export function WalletBackupAlert() {
 
   if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
     return (
-      <XStack
-        px="$5"
-        py="$3.5"
-        gap="$2"
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderBottomWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
+      <YStack
+        testID="wallet_backup_backup_warning"
+        position="absolute"
+        left="$0"
+        bottom="$0"
+        zIndex="$5"
+        w="100%"
+        p="$4"
+        $gtMd={{
+          maxWidth: '$96',
+        }}
       >
-        <Icon size="$5" name="ShieldExclamationSolid" color="$iconCritical" />
-        <YStack
-          flex={1}
+        <XStack
           gap="$2"
-          $gtMd={{
-            flexDirection: 'row',
+          px="$4"
+          py="$3.5"
+          bg="$bgSubdued"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderRadius="$2"
+          borderCurve="continuous"
+          $platform-web={{
+            borderWidth: 0,
+            outlineWidth: 1,
+            outlineColor: '$neutral3',
+            outlineStyle: 'solid',
           }}
+          elevation={5}
         >
-          <SizableText
-            size="$bodyMd"
-            $gtMd={{
-              flex: 1,
-            }}
-          >
-            {
-              // @ts-ignore
-              intl.formatMessage(
-                {
-                  id: ETranslations.wallet_backup_backup_warning,
+          <Icon
+            size="$5"
+            flexShrink={0}
+            name="ShieldExclamationSolid"
+            color="$iconCritical"
+          />
+          <YStack flex={1} gap="$2">
+            <SizableText size="$bodyMd">
+              {
+                // @ts-ignore
+                intl.formatMessage(
+                  {
+                    id: ETranslations.wallet_backup_backup_warning,
+                  },
+                  {
+                    strong: ([string]) => (
+                      <SizableText size="$bodyMdMedium">{string}</SizableText>
+                    ),
+                  },
+                )
+              }
+            </SizableText>
+            <WalletBackupActions
+              wallet={wallet}
+              actionListProps={{
+                offset: {
+                  crossAxis: -10,
                 },
-                {
-                  strong: ([string]) => (
-                    <SizableText size="$bodyMdMedium">{string}</SizableText>
-                  ),
-                },
-              )
-            }
-          </SizableText>
-          <WalletBackupActions
-            wallet={wallet}
-            actionListProps={{
-              offset: {
-                crossAxis: -10,
-              },
-            }}
-          >
-            <Button
-              size="small"
-              variant="tertiary"
-              iconAfter="ArrowRightOutline"
-              onPress={() => {}}
-              alignSelf="flex-start"
+              }}
             >
-              {intl.formatMessage({ id: ETranslations.backup_backup_now })}
-            </Button>
-          </WalletBackupActions>
-        </YStack>
-      </XStack>
+              <Button
+                size="small"
+                variant="tertiary"
+                iconAfter="ArrowRightOutline"
+                onPress={() => {}}
+                alignSelf="flex-start"
+              >
+                {intl.formatMessage({ id: ETranslations.backup_backup_now })}
+              </Button>
+            </WalletBackupActions>
+          </YStack>
+        </XStack>
+      </YStack>
     );
   }
 

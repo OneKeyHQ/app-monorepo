@@ -92,24 +92,9 @@ interface IHardwareSalesRecordItem {
 }
 
 export interface IEarnRewardItem {
-  _id: string;
-  itemUniqueId: string;
   amount: string;
-  effectiveTime: string;
-  info: Array<{
-    networkId: string;
-    accountAddress: string;
-    provider: string;
-    vaultAddress: string;
-    vaultName: string;
-    type: string;
-  }>;
+  networkId: string;
   orderTotalAmount: string;
-  payReceipt: string | null;
-  payTime: string | null;
-  side: string;
-  subject: string;
-  title: string;
   token: {
     networkId: string;
     address: string;
@@ -117,13 +102,11 @@ export interface IEarnRewardItem {
     logoURI: string;
     symbol: string;
   };
-  userId: string;
   accountAddress: string;
   vaultName: string;
   vaultAddress: string;
   fiatValue: string;
   status: string;
-  heading: string;
 }
 
 export interface IEarnRewardResponse {
@@ -132,6 +115,24 @@ export interface IEarnRewardResponse {
   total: number;
 }
 
+export interface IEarnPositionItem {
+  key: string;
+  networkId: string;
+  accountAddress: string;
+  deposited: string;
+}
+
+export interface IEarnProtocol {
+  networkId: string;
+  symbol: string;
+  provider: string;
+  vault: string;
+}
+
+export interface IEarnPositionsResponse {
+  list: IEarnPositionItem[];
+  protocols: Record<string, IEarnProtocol>;
+}
 export interface IHardwareSalesRecord {
   available: {
     token: {
