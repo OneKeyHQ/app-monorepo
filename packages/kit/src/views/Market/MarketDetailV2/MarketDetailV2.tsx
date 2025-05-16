@@ -41,8 +41,7 @@ function MarketDetail({
 
   const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
 
-  const { tokenDetail, isRefreshing, onRefresh } =
-    useMarketDetailData(coinGeckoId);
+  const { tokenDetail } = useMarketDetailData(coinGeckoId);
 
   const tokenDetailHeader = useMemo(() => {
     if (tokenDetail) {

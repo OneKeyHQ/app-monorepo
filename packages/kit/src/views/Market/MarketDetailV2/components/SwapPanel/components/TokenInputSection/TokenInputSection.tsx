@@ -2,12 +2,14 @@ import {
   ButtonFrame,
   Icon,
   Input,
+  Popover,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 
 import { QuickAmountSelector } from './QuickAmountSelector';
+import { TokenList } from './TokenList';
 
 interface IToken {
   label: string;
@@ -28,7 +30,7 @@ export function TokenInputSection({
   value,
   onChange,
   selectedToken,
-  onPressTokenSelector,
+  onTokenChange,
 }: ITokenInputSectionProps) {
   return (
     <YStack gap="$0.5">
@@ -39,35 +41,45 @@ export function TokenInputSection({
         addOns={[
           {
             renderContent: (
-              <XStack>
-                <ButtonFrame
-                  onPress={onPressTokenSelector}
-                  disabled={!onPressTokenSelector}
-                  paddingHorizontal="$2.5"
-                  paddingVertical="$1.5"
-                  flex={1}
-                  borderWidth={0}
-                  background="transparent"
-                  hoverStyle={{ bg: '$bgHover' }}
-                  pressStyle={{ bg: '$bgActive' }}
-                >
-                  <XStack
-                    gap="$2"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    flex={1}
-                  >
-                    <SizableText color="$text" numberOfLines={1}>
-                      {selectedToken?.label || 'Select Token'}
-                    </SizableText>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      size="$5"
-                      color="$iconSubdued"
-                    />
+              <Popover
+                title="Select Token"
+                renderContent={
+                  <TokenList
+                    onTokenPress={(token) => {
+                      onTokenChange(token.id);
+                    }}
+                  />
+                }
+                renderTrigger={
+                  <XStack>
+                    <ButtonFrame
+                      paddingHorizontal="$2.5"
+                      paddingVertical="$1.5"
+                      flex={1}
+                      borderWidth={0}
+                      background="transparent"
+                      hoverStyle={{ bg: '$bgHover' }}
+                      pressStyle={{ bg: '$bgActive' }}
+                    >
+                      <XStack
+                        gap="$2"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        flex={1}
+                      >
+                        <SizableText color="$text" numberOfLines={1}>
+                          {selectedToken?.label || 'Select Token'}
+                        </SizableText>
+                        <Icon
+                          name="ChevronDownSmallOutline"
+                          size="$5"
+                          color="$iconSubdued"
+                        />
+                      </XStack>
+                    </ButtonFrame>
                   </XStack>
-                </ButtonFrame>
-              </XStack>
+                }
+              />
             ),
           },
         ]}
