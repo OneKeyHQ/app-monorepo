@@ -1,15 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance, IInputProps } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Divider,
-  Input,
   SegmentControl,
   SizableText,
   XStack,
@@ -18,7 +17,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   swapSlippageCustomDefaultList,
-  swapSlippageDecimal,
   swapSlippageItems,
   swapSlippageMaxValue,
   swapSlippageWillAheadMinValue,
@@ -30,63 +28,9 @@ import {
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { validateAmountInput } from '../../utils/utils';
+import { SlippageInput } from './SlippageInput';
 
-const BaseSlippageInput = ({
-  swapSlippage,
-  onChangeText,
-  props,
-}: {
-  swapSlippage: ISwapSlippageSegmentItem;
-  onChangeText: (text: string) => void;
-  props?: IInputProps;
-}) => {
-  const [inputValue, setInputValue] = useState('');
-  const isOriginalNumberDot = useRef(false);
-  const handleTextChange = useCallback(
-    (text: string) => {
-      if (validateAmountInput(text, swapSlippageDecimal)) {
-        isOriginalNumberDot.current = /^\d+\.$/.test(text);
-        setInputValue(text);
-        onChangeText(text);
-      }
-    },
-    [onChangeText],
-  );
-
-  const displaySlippage = useMemo(
-    () =>
-      new BigNumber(swapSlippage.value)
-        .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
-        .toFixed(),
-    [swapSlippage.value],
-  );
-
-  useEffect(() => {
-    if (!isOriginalNumberDot.current) {
-      setInputValue(displaySlippage);
-    }
-  }, [displaySlippage]);
-
-  return (
-    <Input
-      size="medium"
-      containerProps={{ flex: 1 }}
-      value={inputValue}
-      autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
-      addOns={[{ label: '%' }]}
-      textAlign="left"
-      disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
-      placeholder={displaySlippage}
-      onChangeText={handleTextChange}
-      {...props}
-    />
-  );
-};
-
-export const SlippageInput = memo(BaseSlippageInput);
-
-const SwapsSlippageContentContainer = ({
+const SlippageSettingDialog = ({
   swapSlippage,
   onSave,
   autoValue,
@@ -157,7 +101,12 @@ const SwapsSlippageContentContainer = ({
         message: '',
       });
     }, 350),
-    [],
+    [
+      intl,
+      swapSlippageMaxValue,
+      swapSlippageWillFailMinValue,
+      swapSlippageWillAheadMinValue,
+    ],
   );
 
   return (
@@ -198,34 +147,38 @@ const SwapsSlippageContentContainer = ({
             onChangeText={handleSlippageChange}
           />
           <XStack>
-            {swapSlippageCustomDefaultList.map((item, index) => (
-              <>
-                <Button
-                  key={item}
-                  variant="secondary"
-                  size="medium"
-                  borderTopRightRadius={index !== 2 ? 0 : '$2'}
-                  borderBottomRightRadius={index !== 2 ? 0 : '$2'}
-                  borderTopLeftRadius={index !== 0 ? 0 : '$2'}
-                  borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
-                  onPress={() => {
-                    setCustomValueState({
-                      status: ESwapSlippageCustomStatus.NORMAL,
-                      message: '',
-                    });
-                    setSwapSlippageStatus({
-                      key: ESwapSlippageSegmentKey.CUSTOM,
-                      value: item,
-                    });
-                  }}
-                >{`${item}${
-                  index === swapSlippageCustomDefaultList.length - 1 ? '  ' : ''
-                }%`}</Button>
-                {index !== swapSlippageCustomDefaultList.length - 1 ? (
-                  <Divider vertical />
-                ) : null}
-              </>
-            ))}
+            {swapSlippageCustomDefaultList.map(
+              (item: number, index: number) => (
+                <>
+                  <Button
+                    key={item}
+                    variant="secondary"
+                    size="medium"
+                    borderTopRightRadius={index !== 2 ? 0 : '$2'}
+                    borderBottomRightRadius={index !== 2 ? 0 : '$2'}
+                    borderTopLeftRadius={index !== 0 ? 0 : '$2'}
+                    borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
+                    onPress={() => {
+                      setCustomValueState({
+                        status: ESwapSlippageCustomStatus.NORMAL,
+                        message: '',
+                      });
+                      setSwapSlippageStatus({
+                        key: ESwapSlippageSegmentKey.CUSTOM,
+                        value: item,
+                      });
+                    }}
+                  >{`${item}${
+                    index === swapSlippageCustomDefaultList.length - 1
+                      ? '  '
+                      : ''
+                  }%`}</Button>
+                  {index !== swapSlippageCustomDefaultList.length - 1 ? (
+                    <Divider vertical />
+                  ) : null}
+                </>
+              ),
+            )}
           </XStack>
         </XStack>
       ) : null}
@@ -286,4 +239,4 @@ const SwapsSlippageContentContainer = ({
   );
 };
 
-export default memo(SwapsSlippageContentContainer);
+export default memo(SlippageSettingDialog);

@@ -12,14 +12,13 @@ import {
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { LimitMarketUpPercentages } from '@onekeyhq/shared/types/swap/types';
-
-import { validateAmountInput } from '../utils/utils';
 
 export const useSwapLimitRate = () => {
   const [limitPriceUseRate, setLimitPriceUseRate] =
