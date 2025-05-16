@@ -281,6 +281,7 @@ const formatSections = (data: IEarnRewardItem[]) => {
             vaultAddress: item.vaultAddress,
             vaultNetworkId: item.networkId,
             symbol: item.symbol,
+            provider: item.provider,
             token: {
               uri: item.token.logoURI || '',
               symbol,
