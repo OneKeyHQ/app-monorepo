@@ -114,10 +114,24 @@ export interface IEarnRewardResponse {
   total: number;
 }
 
-export interface IEarnPositionsResponse {
-  
+export interface IEarnPositionItem {
+  key: string;
+  networkId: string;
+  accountAddress: string;
+  deposited: string;
 }
 
+export interface IEarnProtocol {
+  networkId: string;
+  symbol: string;
+  provider: string;
+  vault: string;
+}
+
+export interface IEarnPositionsResponse {
+  list: IEarnPositionItem[];
+  protocols: Record<string, IEarnProtocol>;
+}
 export interface IHardwareSalesRecord {
   available: {
     token: {
