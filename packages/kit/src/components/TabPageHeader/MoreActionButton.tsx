@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -34,6 +34,7 @@ import { useToMyOneKeyModal } from '@onekeyhq/kit/src/views/DeviceManagement/hoo
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
   useFirmwareUpdatesDetectStatusPersistAtom,
+  useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -504,8 +505,71 @@ const useIsShowRedDot = () => {
   return isShowNotificationDot;
 };
 
+const useIsNeedUpgradeFirmware = () => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const connectId = activeAccount.device?.connectId;
+  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
+  const { result } = usePromiseResult(async () => {
+    if (!connectId) return undefined;
+    const detectResult = detectStatus?.[connectId];
+    const shouldUpdate =
+      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const detectInfo =
+      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
+        {
+          connectId,
+        },
+      );
+    return {
+      shouldUpdate,
+      detectResult,
+    };
+  }, [connectId, detectStatus]);
+
+  return result?.shouldUpdate;
+};
+
+const useIsShowWalletXfpStatus = () => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const walletId = activeAccount?.wallet?.id;
+  const deprecated = activeAccount?.wallet?.deprecated;
+
+  const [hardwareWalletXfpStatus] = useHardwareWalletXfpStatusAtom();
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const navigation = useAppNavigation();
+
+  useEffect(() => {
+    void (async () => {
+      if (!deprecated && walletId) {
+        await backgroundApiProxy.serviceAccount.generateWalletsMissingMetaSilently(
+          {
+            walletId,
+          },
+        );
+      }
+    })();
+  }, [walletId, deprecated]);
+  return (
+    !deprecated && walletId && hardwareWalletXfpStatus?.[walletId]?.xfpMissing
+  );
+};
+
+// TODO: Handle potential duplicate update detection requests
+// This component may trigger multiple update checks simultaneously
+// Consider implementing request deduplication or throttling
+// to prevent unnecessary API calls and improve performance
+const useIsShowUpgradeDot = () => {
+  const appUpdateInfo = useAppUpdateInfo(true);
+  const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
+  const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
+  const isShowWalletXfpStatus = useIsShowWalletXfpStatus();
+  return isAppNeedUpdate || isNeedUpgradeFirmware || isShowWalletXfpStatus;
+};
+
 function MoreActionContent() {
-  const isShowRedDot = useIsShowRedDot();
+  const isShowUpgradeComponents = useIsShowUpgradeDot();
   return (
     <MoreActionProvider>
       <YStack>
@@ -516,7 +580,7 @@ function MoreActionContent() {
             gap: '$5',
           }}
         >
-          {isShowRedDot ? (
+          {isShowUpgradeComponents ? (
             <YStack gap="$2">
               <UpdateReminder />
               <HomeFirmwareUpdateReminder />
@@ -567,38 +631,6 @@ function Dot({ color }: { color: IStackStyle['bg'] }) {
     </Stack>
   );
 }
-
-const useIsNeedUpgradeFirmware = () => {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const connectId = activeAccount.device?.connectId;
-  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
-  const { result } = usePromiseResult(async () => {
-    if (!connectId) return undefined;
-    const detectResult = detectStatus?.[connectId];
-    const shouldUpdate =
-      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const detectInfo =
-      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
-        {
-          connectId,
-        },
-      );
-    return {
-      shouldUpdate,
-      detectResult,
-    };
-  }, [connectId, detectStatus]);
-
-  return result?.shouldUpdate;
-};
-
-const useIsShowUpgradeDot = () => {
-  const appUpdateInfo = useAppUpdateInfo(true);
-  const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
-  const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
-  return isAppNeedUpdate || isNeedUpgradeFirmware;
-};
 
 function MoreActionButtonCmp() {
   const intl = useIntl();
