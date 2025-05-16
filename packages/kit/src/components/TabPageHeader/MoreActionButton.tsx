@@ -32,7 +32,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useToMyOneKeyModal } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useFirmwareUpdatesDetectStatusPersistAtom,
+  useNotificationsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -44,6 +47,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
@@ -564,10 +568,36 @@ function Dot({ color }: { color: IStackStyle['bg'] }) {
   );
 }
 
+const useIsNeedUpgradeFirmware = () => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const connectId = activeAccount.device?.connectId;
+  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
+  const { result } = usePromiseResult(async () => {
+    if (!connectId) return undefined;
+    const detectResult = detectStatus?.[connectId];
+    const shouldUpdate =
+      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const detectInfo =
+      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
+        {
+          connectId,
+        },
+      );
+    return {
+      shouldUpdate,
+      detectResult,
+    };
+  }, [connectId, detectStatus]);
+
+  return result?.shouldUpdate;
+};
+
 const useIsShowUpgradeDot = () => {
   const appUpdateInfo = useAppUpdateInfo(true);
   const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
-  return isAppNeedUpdate;
+  const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
+  return isAppNeedUpdate || isNeedUpgradeFirmware;
 };
 
 function MoreActionButtonCmp() {
