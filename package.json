@@ -250,6 +250,7 @@
     "worker-loader": "^3.0.8"
   },
   "resolutions": {
+    "@solana/web3.js": "1.98.2",
     "typescript": "5.5.4",
     "expo-modules-core": "1.11.13",
     "tronweb@^6.0.0": "6.0.0",
