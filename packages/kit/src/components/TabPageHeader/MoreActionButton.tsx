@@ -492,13 +492,13 @@ function MoreActionContent() {
   return (
     <MoreActionProvider>
       <YStack>
-        <YStack gap="$1">
-          <UpdateReminder />
-          <HomeFirmwareUpdateReminder />
-          <WalletXfpStatusReminder />
-        </YStack>
         <MoreActionContentHeader />
         <YStack p="$5" gap="$5">
+          <YStack gap="$1">
+            <UpdateReminder />
+            <HomeFirmwareUpdateReminder />
+            <WalletXfpStatusReminder />
+          </YStack>
           <MoreActionContentGrid />
           <MoreActionContentFooter />
         </YStack>

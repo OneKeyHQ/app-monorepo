@@ -11,6 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
+import { StyleSheet } from 'react-native';
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const intl = useIntl();
@@ -274,15 +275,13 @@ function BasicUpdateReminder() {
   }
   return (
     <XStack
-      px="$5"
+      px="$3"
       py="$2"
       justifyContent="space-between"
       alignItems="center"
-      borderTopWidth="$px"
-      borderBottomWidth="$px"
-      $md={{
-        mt: '$2',
-      }}
+      borderRadius="$2"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderCurve="continuous"
       {...style}
     >
       <UpdateStatusText updateInfo={data} />
