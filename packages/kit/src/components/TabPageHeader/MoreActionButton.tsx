@@ -568,8 +568,18 @@ const useIsShowUpgradeDot = () => {
   return isAppNeedUpdate || isNeedUpgradeFirmware || isShowWalletXfpStatus;
 };
 
-function MoreActionContent() {
+function UpdateReminders() {
   const isShowUpgradeComponents = useIsShowUpgradeDot();
+  return isShowUpgradeComponents ? (
+    <YStack gap="$2">
+      <UpdateReminder />
+      <HomeFirmwareUpdateReminder />
+      <WalletXfpStatusReminder />
+    </YStack>
+  ) : null;
+}
+
+function MoreActionContent() {
   return (
     <MoreActionProvider>
       <YStack>
@@ -580,13 +590,7 @@ function MoreActionContent() {
             gap: '$5',
           }}
         >
-          {isShowUpgradeComponents ? (
-            <YStack gap="$2">
-              <UpdateReminder />
-              <HomeFirmwareUpdateReminder />
-              <WalletXfpStatusReminder />
-            </YStack>
-          ) : null}
+          <UpdateReminders />
           <MoreActionContentGrid />
           <MoreActionContentFooter />
         </ScrollView>
