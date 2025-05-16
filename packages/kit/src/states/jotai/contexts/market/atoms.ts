@@ -22,31 +22,6 @@ export const { atom: basicMarketWatchListAtom, useContextAtom } =
 export const { atom: marketStorageReadyAtom, use: useMarketStorageReadyAtom } =
   contextAtom<boolean>(false);
 
-// speed swap
-export const {
-  atom: speedSwapSwitchTypeAtom,
-  use: useSpeedSwapSwitchTypeAtom,
-} = contextAtom<ESpeedSwapSwitchType>(ESpeedSwapSwitchType.BUY);
-
-export const { atom: speedSwapFromTokenAtom, use: useSpeedSwapFromTokenAtom } =
-  contextAtom<ISwapToken | undefined>(undefined);
-
-export const { atom: speedSwapToTokenAtom, use: useSpeedSwapToTokenAtom } =
-  contextAtom<ISwapToken | undefined>(undefined);
-
-export const { atom: speedSwapSlippageAtom, use: useSpeedSwapSlippageAtom } =
-  contextAtom<number>(0.5);
-
-export const {
-  atom: speedSwapFromTokenAmountAtom,
-  use: useSpeedSwapFromTokenAmountAtom,
-} = contextAtom<string>('');
-
-export const {
-  atom: speedSwapEnableAntiMEVAtom,
-  use: useSpeedSwapEnableAntiMEVAtom,
-} = contextAtom<boolean>(true);
-
 const INIT = Symbol('INIT');
 export const marketWatchListAtom = memoizee(() =>
   atom(

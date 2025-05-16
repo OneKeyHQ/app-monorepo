@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  IEarnPositionsResponse,
   IEarnRewardResponse,
   IHardwareSalesRecord,
   IInviteHistory,
@@ -103,6 +104,17 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.get<{
       data: IHardwareSalesRecord;
     }>('/rebate/v1/invite/records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPositions(
+    accounts: { networkId: string; accountAddress: string }[],
+  ) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IEarnPositionsResponse;
+    }>('/earn/v1/positions', { accounts });
     return response.data.data;
   }
 

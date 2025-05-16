@@ -7,7 +7,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { ITradeType } from '../useSwapPanel';
+import type { ITradeType } from '../hooks/useSwapPanel';
 
 const commonButtonStyleProps: IButtonProps = {
   flex: 1,
