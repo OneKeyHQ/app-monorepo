@@ -187,9 +187,14 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const { iconName, iconColor, renderText } = data || {};
   const Component = renderText;
   return Component ? (
-    <XStack alignItems="center" gap="$2" flexShrink={1}>
+    <XStack alignItems="center" gap="$2" flex={1}>
       <Icon name={iconName} color={iconColor} size="$5" flexShrink={0} />
-      <SizableText size="$bodyMdMedium" color="$text" flexShrink={1}>
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        flex={1}
+        numberOfLines={1}
+      >
         <Component updateInfo={updateInfo} />
       </SizableText>
     </XStack>
@@ -199,11 +204,14 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
 function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
   const intl = useIntl();
   return (
-    <XStack gap="$4" justifyContent="space-between" alignItems="center">
-      <Button size="small" variant="secondary" onPress={onUpdateAction}>
-        {intl.formatMessage({ id: ETranslations.global_view })}
-      </Button>
-    </XStack>
+    <Button
+      size="small"
+      variant="secondary"
+      onPress={onUpdateAction}
+      borderRadius="$1"
+    >
+      {intl.formatMessage({ id: ETranslations.global_view })}
+    </Button>
   );
 }
 
@@ -275,8 +283,10 @@ function BasicUpdateReminder() {
   }
   return (
     <XStack
-      px="$3"
-      py="$2"
+      pl="$3"
+      pr="$2"
+      py="$1.5"
+      gap="$3"
       justifyContent="space-between"
       alignItems="center"
       borderRadius="$2"
