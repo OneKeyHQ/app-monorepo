@@ -1,9 +1,16 @@
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -17,7 +24,6 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 
 import { BootloaderModeUpdateReminder } from './BootloaderModeUpdateReminder';
 import { HomeFirmwareUpdateDetect } from './HomeFirmwareUpdateDetect';
-import { StyleSheet } from 'react-native';
 
 export function FirmwareUpdateReminderAlert({
   message,
@@ -65,6 +71,7 @@ function HomeFirmwareUpdateReminderCmp() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const connectId = activeAccount.device?.connectId;
   const actions = useFirmwareUpdateActions();
+  const { closePopover } = usePopoverContext();
 
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
 
@@ -111,13 +118,22 @@ function HomeFirmwareUpdateReminderCmp() {
         <FirmwareUpdateReminderAlert
           message={message}
           onPress={async () => {
+            await closePopover?.();
             actions.openChangeLogModal({ connectId });
           }}
         />
       );
     }
     return null;
-  }, [intl, actions, connectId, result]);
+  }, [
+    result?.shouldUpdate,
+    result?.detectResult?.toVersion,
+    result?.detectResult?.toVersionBle,
+    intl,
+    closePopover,
+    actions,
+    connectId,
+  ]);
 
   return (
     <XStack>
