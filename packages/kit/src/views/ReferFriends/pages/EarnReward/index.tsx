@@ -96,7 +96,7 @@ function List({
       <ListHeader />
       <YStack>
         <Accordion type="single" collapsible gap="$2">
-          {listData.map(({ title, amount, data, address, vaultAddress }) => (
+          {listData.map(({ title, amount, data, address }) => (
             <Accordion.Item value={address} key={address}>
               <Accordion.Trigger
                 unstyled
@@ -177,7 +177,7 @@ function List({
                               tokenSymbol: item.token.symbol || '',
                             }}
                           >
-                            {vaultAmountRef.current?.[vaultAddress]?.[
+                            {vaultAmountRef.current?.[item.vaultAddress]?.[
                               item.token.networkId
                             ] || 0}
                           </NumberSizeableText>
