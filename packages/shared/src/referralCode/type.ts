@@ -107,6 +107,7 @@ export interface IEarnRewardItem {
   vaultAddress: string;
   fiatValue: string;
   status: string;
+  symbol: string;
 }
 
 export interface IEarnRewardResponse {
