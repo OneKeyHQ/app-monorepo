@@ -590,7 +590,7 @@ function Dashboard({
                     <SizableText size="$bodyMd" color="$textSubdued">
                       (
                       <Currency
-                        formatter="balance"
+                        formatter="value"
                         size="$bodyMd"
                         sourceCurrency="usd"
                         color="$textSubdued"

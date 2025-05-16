@@ -13,7 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -302,7 +302,7 @@ export function HomePageView({
         <Page.Body>
           <WalletBackupAlert />
           <NetworkAlert />
-          {
+          {/* {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (
               <>
@@ -311,7 +311,7 @@ export function HomePageView({
                 <WalletXfpStatusReminder />
               </>
             ) : null
-          }
+          } */}
           {content}
         </Page.Body>
       </>

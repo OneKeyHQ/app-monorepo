@@ -2752,7 +2752,7 @@
   "update.troubleshoot_connection_issues_desktop": "請依次按以下步驟排查連接問題：\n\n 1. 重新連接您的裝置並重試。\n 2. 重新啟動應用程式和您的設備，然後重試。\n 3. 使用不同的電纜和端口，然後重試。\n\n如果仍有問題，請聯絡<url> OneKey 支援</url> 。",
   "update.troubleshoot_connection_issues_mobile": "排查連接問題：\n\n 1. 確保藍牙已啟用。\n 2. 重新連接您的裝置並重試。\n 3. 重新啟動應用程式和您的設備，然後重試。 \n\n如果這沒有幫助，請聯絡<url> OneKey 支援</url> 。",
   "update.unable_to_connect_to_bridge": "無法連接到 Bridge，請檢查您的網路連接，然後重試。",
-  "update.update_app_available": "App 可更新至 {version} 版本",
+  "update.update_app_available": "App {version} 更新可用",
   "update.update_completed": "更新完成",
   "update.update_history": "更新歷史",
   "update.update_in_official_web_tool": "請在官方網路工具更新",

@@ -201,7 +201,7 @@ export function ImportWalletOptions() {
                     testID="acknowledged"
                   >
                     {intl.formatMessage({
-                      id: ETranslations.global_acknowledged,
+                      id: ETranslations.global_ok,
                     })}
                   </Button>
                   <Button

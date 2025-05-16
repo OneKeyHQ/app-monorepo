@@ -2752,7 +2752,7 @@
   "update.troubleshoot_connection_issues_desktop": "Um Verbindungsprobleme zu beheben, führen Sie diese Schritte aus: \n\n 1. Verbinden Sie Ihr Gerät erneut und versuchen Sie es erneut.\n 2. Starten Sie die App und Ihr Gerät neu und versuchen Sie es dann erneut.\n 3. Verwenden Sie ein anderes Kabel und einen anderen Anschluss und versuchen Sie es erneut.\n\n Wenn dies nicht hilft, wenden Sie sich an den <url> OneKey-Support </url> .",
   "update.troubleshoot_connection_issues_mobile": "So beheben Sie Verbindungsprobleme: \n\n 1. Stellen Sie sicher, dass Bluetooth aktiviert ist.\n 2. Verbinden Sie Ihr Gerät erneut und versuchen Sie es erneut.\n 3. Starten Sie die App und Ihr Gerät neu und versuchen Sie es dann erneut. \n\n Wenn dies nicht hilft, wenden Sie sich an den <url> OneKey-Support </url> .",
   "update.unable_to_connect_to_bridge": "Verbindung zur Brücke konnte nicht hergestellt werden. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
-  "update.update_app_available": "Update der App auf {version} ist verfügbar",
+  "update.update_app_available": "App {version} Update verfügbar",
   "update.update_completed": "Aktualisierung abgeschlossen",
   "update.update_history": "Aktualisierungsverlauf",
   "update.update_in_official_web_tool": "Aktualisierung im offiziellen Web-Tool",

@@ -2752,7 +2752,7 @@
   "update.troubleshoot_connection_issues_desktop": "接続の問題をトラブルシューティングするには、次の手順を実行します：\n\n1. デバイスを再接続して、もう一度試してください。\n2. アプリとデバイスを再起動して、もう一度試してください。\n3. 別のケーブルとポートを使用して、もう一度試してください。\n\nこれが効果がない場合は、<url>OneKeyサポート</url>に連絡してください。",
   "update.troubleshoot_connection_issues_mobile": "接続の問題をトラブルシューティングするには：\n\n1. Bluetoothが有効になっていることを確認します。\n2. デバイスを再接続し、再試行します。\n3. Appとデバイスを再起動し、再試行します。\n\nこれでも解決しない場合は、<url>OneKeyサポート</url>にお問い合わせください。",
   "update.unable_to_connect_to_bridge": "ブリッジに接続できません。インターネット接続を確認して、再度お試しください。",
-  "update.update_app_available": "{version}へのアプリの更新が利用可能です",
+  "update.update_app_available": "App {version} のアップデートが利用可能です",
   "update.update_completed": "更新完了",
   "update.update_history": "更新履歴",
   "update.update_in_official_web_tool": "公式ウェブツールの更新",
