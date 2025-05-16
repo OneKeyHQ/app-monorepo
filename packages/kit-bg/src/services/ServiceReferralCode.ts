@@ -108,7 +108,9 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getPositions(accounts: { networkId: string; address: string }[]) {
+  async getPositions(
+    accounts: { networkId: string; accountAddress: string }[],
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.post<{
       data: IEarnPositionsResponse;
