@@ -4,7 +4,11 @@ import type { PropsWithChildren } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IIconButtonProps, IStackStyle } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  IIconButtonProps,
+  IStackStyle,
+} from '@onekeyhq/components';
 import {
   Divider,
   HeaderIconButton,
@@ -636,7 +640,7 @@ function Dot({ color }: { color: IStackStyle['bg'] }) {
   );
 }
 
-function MoreActionButtonCmp() {
+function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isShowRedDot = useIsShowRedDot();
   const isShowUpgradeDot = useIsShowUpgradeDot();
@@ -647,27 +651,32 @@ function MoreActionButtonCmp() {
     return isShowRedDot ? <Dot color="$bgCriticalStrong" /> : null;
   }, [isShowRedDot, isShowUpgradeDot]);
   return (
+    <XStack>
+      <HeaderIconButton
+        testID="moreActions"
+        onPress={onPress}
+        title={intl.formatMessage({ id: ETranslations.explore_options })}
+        icon="DotGridOutline"
+      />
+      {dot}
+    </XStack>
+  );
+}
+
+function MoreActionButtonCmp() {
+  return (
     <Popover
       title=""
+      showHeader={false}
       offset={{
         mainAxis: 12,
         crossAxis: 20,
       }}
-      showHeader={false}
       placement="bottom-end"
       floatingPanelProps={{
         overflow: 'hidden',
       }}
-      renderTrigger={
-        <XStack key="moreActions" testID="moreActions">
-          <HeaderIconButton
-            title={intl.formatMessage({ id: ETranslations.explore_options })}
-            icon="DotGridOutline"
-            pointerEvents={platformEnv.isNative ? 'none' : undefined}
-          />
-          {dot}
-        </XStack>
-      }
+      renderTrigger={<MoreButtonWithDot />}
       renderContent={MoreActionContent}
     />
   );
