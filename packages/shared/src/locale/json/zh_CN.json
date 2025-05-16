@@ -1710,7 +1710,7 @@
   "network_enable_count": "启用 {count} 个网络",
   "network_enable_more": "启用更多网络",
   "network_enabled_count": "{count} 已启用",
-  "network_fee_suggested_by_dapp_description": "dApp 建议的网络费将覆盖您本次交易的默认设置",
+  "network_fee_suggested_by_dapp_description": "dApp 建议的网络费用将覆盖您本次交易的默认设置",
   "network_fee_suggested_by_dapp_label": "由 dApp 推荐",
   "network_invisible_in_all_network_tooltip_title": "隐藏于「所有网络」视图中",
   "network_none_selected": "未选择网络",
