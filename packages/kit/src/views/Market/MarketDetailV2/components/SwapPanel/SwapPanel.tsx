@@ -36,6 +36,7 @@ export function SwapPanel() {
 
       {/* Token input section */}
       <TokenInputSection
+        tradeType={tradeType}
         value={amount}
         onChange={handleAmountChange}
         selectedToken={selectedTokenForAmountInput}

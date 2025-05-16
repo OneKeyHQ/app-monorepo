@@ -24,6 +24,7 @@ export interface ITokenInputSectionProps {
   selectableTokens: IToken[];
   onTokenChange: (tokenSymbol: string) => void;
   onPressTokenSelector?: () => void;
+  tradeType: 'buy' | 'sell';
 }
 
 export function TokenInputSection({
@@ -31,6 +32,7 @@ export function TokenInputSection({
   onChange,
   selectedToken,
   onTokenChange,
+  tradeType,
 }: ITokenInputSectionProps) {
   return (
     <YStack gap="$0.5">
@@ -84,7 +86,7 @@ export function TokenInputSection({
           },
         ]}
       />
-      <QuickAmountSelector onSelect={onChange} />
+      <QuickAmountSelector onSelect={onChange} tradeType={tradeType} />
     </YStack>
   );
 }
