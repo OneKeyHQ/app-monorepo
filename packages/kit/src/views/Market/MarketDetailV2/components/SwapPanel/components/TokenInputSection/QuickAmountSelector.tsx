@@ -1,48 +1,51 @@
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, Divider, XStack } from '@onekeyhq/components';
 
 export interface IQuickAmountSelectorProps {
   onSelect: (value: string) => void;
   tradeType: 'buy' | 'sell';
 }
 
+const buyAmounts = [
+  { label: '0.1', value: '0.1' },
+  { label: '0.5', value: '0.5' },
+  { label: '1', value: '1' },
+  { label: '10', value: '10' },
+];
+
+const sellPercentages = [
+  { label: '25%', value: '0.25' },
+  { label: '50%', value: '0.5' },
+  { label: '75%', value: '0.75' },
+  { label: '100%', value: '1' },
+];
+
 export function QuickAmountSelector({
   onSelect,
   tradeType,
 }: IQuickAmountSelectorProps) {
-  if (tradeType === 'buy') {
-    return (
-      <XStack gap="$2.5" background="$bgStrong">
-        <Button flex={1} size="medium" onPress={() => onSelect('0.1')}>
-          0.1
-        </Button>
-        <Button flex={1} size="medium" onPress={() => onSelect('0.5')}>
-          0.5
-        </Button>
-        <Button flex={1} size="medium" onPress={() => onSelect('1')}>
-          1
-        </Button>
-        <Button flex={1} size="medium" onPress={() => onSelect('10')}>
-          10
-        </Button>
-      </XStack>
-    );
-  }
+  const amounts = tradeType === 'buy' ? buyAmounts : sellPercentages;
+  const amountsLength = amounts.length;
 
-  // Sell type
   return (
-    <XStack gap="$2.5" background="$bgStrong">
-      <Button flex={1} size="medium" onPress={() => onSelect('0.25')}>
-        25%
-      </Button>
-      <Button flex={1} size="medium" onPress={() => onSelect('0.5')}>
-        50%
-      </Button>
-      <Button flex={1} size="medium" onPress={() => onSelect('0.75')}>
-        75%
-      </Button>
-      <Button flex={1} size="medium" onPress={() => onSelect('1')}>
-        100%
-      </Button>
+    <XStack gap="$0">
+      {amounts.map((amount, index) => (
+        <>
+          <Button
+            key={amount.value}
+            flex={1}
+            size="medium"
+            variant="secondary"
+            borderTopRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
+            borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
+            borderTopLeftRadius={index !== 0 ? 0 : '$2'}
+            borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
+            onPress={() => onSelect(amount.value)}
+          >
+            {amount.label}
+          </Button>
+          {index !== amountsLength - 1 ? <Divider vertical /> : null}
+        </>
+      ))}
     </XStack>
   );
 }
