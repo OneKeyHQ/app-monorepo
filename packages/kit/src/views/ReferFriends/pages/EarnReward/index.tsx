@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RefObject } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -34,9 +34,12 @@ interface ISectionData {
   address: string;
   amount: string;
   data: {
+    key: string;
     orderTotalAmount: string;
     vaultAddress: string;
     vaultNetworkId: string;
+    provider: string;
+    symbol: string;
     name: string;
     token: {
       uri: string;
@@ -48,7 +51,7 @@ interface ISectionData {
   }[];
 }
 
-type IVaultAmount = Record<string, Record<string, string>>;
+type IVaultAmount = Record<string, string>;
 
 function EmptyData() {
   const intl = useIntl();
@@ -86,12 +89,13 @@ function ListHeader() {
 
 function List({
   listData,
-  vaultAmountRef,
+  vaultAmount,
 }: {
   listData: ISectionData[];
-  vaultAmountRef: RefObject<IVaultAmount>;
+  vaultAmount?: IVaultAmount;
 }) {
   const intl = useIntl();
+  console.log('vaultAmount---', vaultAmount, listData);
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
@@ -160,68 +164,68 @@ function List({
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >
-                  {data.map((item, itemIndex) => (
-                    <XStack
-                      ai="center"
-                      jc="space-between"
-                      key={itemIndex}
-                      py="$2"
-                    >
-                      <YStack>
-                        <SizableText size="$bodyMd">{item.name}</SizableText>
-                        <SizableText size="$bodySm" color="$textSubdued">
-                          <NumberSizeableText
-                            formatter="balance"
-                            size="$bodySm"
-                            color="$textSubdued"
-                            formatterOptions={{
-                              tokenSymbol: item.token.symbol || '',
-                            }}
-                          >
-                            {vaultAmountRef.current?.[item.vaultAddress]?.[
-                              item.vaultNetworkId
-                            ] || 0}
-                          </NumberSizeableText>
-                          {` ${intl.formatMessage({
-                            id: ETranslations.earn_deposited,
-                          })}`}
-                        </SizableText>
-                      </YStack>
-                      <XStack ai="center">
-                        <Token
-                          size="xs"
-                          tokenImageUri={item.token.uri}
-                          mr="$2"
-                        />
-                        <XStack mr="$1">
-                          <NumberSizeableText
-                            formatter="balance"
-                            size="$bodyMd"
-                            formatterOptions={{
-                              tokenSymbol: item.token.symbol || '',
-                            }}
-                          >
-                            {item.token.amount}
-                          </NumberSizeableText>
-                        </XStack>
+                  {data.map((item, itemIndex) => {
+                    return (
+                      <XStack
+                        ai="center"
+                        jc="space-between"
+                        key={itemIndex}
+                        py="$2"
+                      >
+                        <YStack>
+                          <SizableText size="$bodyMd">{item.name}</SizableText>
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            <NumberSizeableText
+                              formatter="balance"
+                              size="$bodySm"
+                              color="$textSubdued"
+                              formatterOptions={{
+                                tokenSymbol: item.token.symbol || '',
+                              }}
+                            >
+                              {vaultAmount?.[item.key] || 0}
+                            </NumberSizeableText>
+                            {` ${intl.formatMessage({
+                              id: ETranslations.earn_deposited,
+                            })}`}
+                          </SizableText>
+                        </YStack>
                         <XStack ai="center">
-                          <SizableText size="$bodyMd" color="$textSubdued">
-                            (
-                          </SizableText>
-                          <Currency
-                            sourceCurrency="usd"
-                            formatter="value"
-                            size="$bodyMd"
-                          >
-                            {item.token.fiatAmount}
-                          </Currency>
-                          <SizableText size="$bodyMd" color="$textSubdued">
-                            )
-                          </SizableText>
+                          <Token
+                            size="xs"
+                            tokenImageUri={item.token.uri}
+                            mr="$2"
+                          />
+                          <XStack mr="$1">
+                            <NumberSizeableText
+                              formatter="balance"
+                              size="$bodyMd"
+                              formatterOptions={{
+                                tokenSymbol: item.token.symbol || '',
+                              }}
+                            >
+                              {item.token.amount}
+                            </NumberSizeableText>
+                          </XStack>
+                          <XStack ai="center">
+                            <SizableText size="$bodyMd" color="$textSubdued">
+                              (
+                            </SizableText>
+                            <Currency
+                              sourceCurrency="usd"
+                              formatter="value"
+                              size="$bodyMd"
+                            >
+                              {item.token.fiatAmount}
+                            </Currency>
+                            <SizableText size="$bodyMd" color="$textSubdued">
+                              )
+                            </SizableText>
+                          </XStack>
                         </XStack>
                       </XStack>
-                    </XStack>
-                  ))}
+                    );
+                  })}
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>
@@ -232,6 +236,13 @@ function List({
   );
 }
 
+const buildKey = (item: IEarnRewardItem) =>
+  [
+    item.networkId,
+    item.provider,
+    item.symbol,
+    item.vaultAddress?.toLowerCase() || '',
+  ].join('__');
 const formatSections = (data: IEarnRewardItem[]) => {
   const formattedData = data.reduce<Record<string, IEarnRewardItem[]>>(
     (acc: Record<string, IEarnRewardItem[]>, item: IEarnRewardItem) => {
@@ -264,10 +275,12 @@ const formatSections = (data: IEarnRewardItem[]) => {
           const orderTotalAmount = item?.orderTotalAmount || '0';
           const symbol = item?.token?.symbol || '';
           return {
-            name: item?.vaultName || '',
+            name: item.vaultName || '',
             orderTotalAmount,
+            key: buildKey(item),
             vaultAddress: item.vaultAddress,
             vaultNetworkId: item.networkId,
+            symbol: item.symbol,
             token: {
               uri: item.token.logoURI || '',
               symbol,
@@ -307,7 +320,7 @@ export default function EarnReward() {
     ESpotlightTour.earnRewardAlert,
   );
 
-  const vaultAmountRef = useRef<IVaultAmount>({} as IVaultAmount);
+  const [vaultAmount, setVaultAmount] = useState<IVaultAmount | undefined>();
 
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor, true);
@@ -336,17 +349,14 @@ export default function EarnReward() {
       const data = totalResult.value;
       setTotalListData(formatSections(data.items));
     }
-    const accounts: { accountAddress: string; networkId: string }[] = [];
+    const accounts: {
+      accountAddress: string;
+      networkId: string;
+    }[] = [];
     const seenAccounts = new Set<string>();
-    const processItems = (
-      items: Array<{
-        accountAddress: string;
-        networkId: string;
-        token: { networkId: string };
-      }>,
-    ) => {
+    const processItems = (items: IEarnRewardItem[]) => {
       items.forEach((item) => {
-        const key = `${item.accountAddress}:${item.networkId}`;
+        const key = buildKey(item);
         if (!seenAccounts.has(key)) {
           seenAccounts.add(key);
           accounts.push({
@@ -369,14 +379,13 @@ export default function EarnReward() {
       accounts,
     );
 
+    const newVaultAmount = {} as IVaultAmount;
     for (const item of response.list) {
-      const protocol = response.protocols[item.key];
-      if (protocol) {
-        vaultAmountRef.current[protocol.vault] =
-          vaultAmountRef.current[protocol.vault] || {};
-        vaultAmountRef.current[protocol.vault][item.networkId] = item.deposited;
-      }
+      const keys = item.key.split('__');
+      keys[keys.length - 1] = keys[keys.length - 1].toLowerCase();
+      newVaultAmount[keys.join('__')] = item.deposited;
     }
+    setVaultAmount(newVaultAmount);
   }, [fetchSales, fetchTotalList]);
 
   useEffect(() => {
@@ -391,10 +400,7 @@ export default function EarnReward() {
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
         page: () => (
-          <List
-            listData={undistributedListData}
-            vaultAmountRef={vaultAmountRef}
-          />
+          <List listData={undistributedListData} vaultAmount={vaultAmount} />
         ),
       },
       {
@@ -402,12 +408,10 @@ export default function EarnReward() {
           id: ETranslations.referral_referred_total,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => (
-          <List listData={totalListData} vaultAmountRef={vaultAmountRef} />
-        ),
+        page: () => <List listData={totalListData} vaultAmount={vaultAmount} />,
       },
     ],
-    [intl, totalListData, undistributedListData],
+    [intl, totalListData, undistributedListData, vaultAmount],
   );
 
   return (
