@@ -33,9 +33,9 @@ interface ISectionData {
   title: string;
   address: string;
   amount: string;
-  vaultAddress: string;
   data: {
     orderTotalAmount: string;
+    vaultAddress: string;
     name: string;
     token: {
       uri: string;
