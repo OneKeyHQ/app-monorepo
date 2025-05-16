@@ -3,22 +3,19 @@ import { useMemo, useState } from 'react';
 import { Button, Select, SizableText, Stack } from '@onekeyhq/components';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
-import { useSpeedSwapInit } from '../hooks/useSpeedSwapInit';
+import { useSpeedSwapInit } from '../../hooks/useSpeedSwapInit';
+
+const testNetworks = getPresetNetworks()
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map((network) => ({
+    label: network.name,
+    value: network.id,
+  }));
 
 export function SwapTestPanel() {
-  const testNetworks = useMemo(() => {
-    const allNetworks = getPresetNetworks();
-    return allNetworks
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((network) => ({
-        label: network.name,
-        value: network.id,
-      }));
-  }, []);
-
   const [selectedTestNetworkId, setSelectedTestNetworkId] = useState<
     string | undefined
-  >(() => (testNetworks.length > 0 ? testNetworks[0].value : undefined));
+  >(() => testNetworks?.[0]?.value);
 
   // Only call useSpeedSwapInit if a network is selected
   const speedSwapProps = useSpeedSwapInit(
@@ -39,7 +36,7 @@ export function SwapTestPanel() {
 
   const selectedNetwork = useMemo(
     () => testNetworks.find((n) => n.value === selectedTestNetworkId),
-    [selectedTestNetworkId, testNetworks],
+    [selectedTestNetworkId],
   );
 
   if (testNetworks.length === 0) {
