@@ -95,7 +95,6 @@ function List({
   vaultAmount?: IVaultAmount;
 }) {
   const intl = useIntl();
-  console.log('vaultAmount---', vaultAmount, listData);
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
@@ -236,13 +235,14 @@ function List({
   );
 }
 
+const SEPARATOR = '__';
 const buildKey = (item: IEarnRewardItem) =>
   [
     item.networkId,
     item.provider,
     item.symbol,
     item.vaultAddress?.toLowerCase() || '',
-  ].join('__');
+  ].join(SEPARATOR);
 const formatSections = (data: IEarnRewardItem[]) => {
   const formattedData = data.reduce<Record<string, IEarnRewardItem[]>>(
     (acc: Record<string, IEarnRewardItem[]>, item: IEarnRewardItem) => {
@@ -381,9 +381,12 @@ export default function EarnReward() {
 
     const newVaultAmount = {} as IVaultAmount;
     for (const item of response.list) {
-      const keys = item.key.split('__');
-      keys[keys.length - 1] = keys[keys.length - 1].toLowerCase();
-      newVaultAmount[keys.join('__')] = item.deposited;
+      const keys = item.key.split(SEPARATOR);
+      const lastIndex = keys.length - 1;
+      if (keys[lastIndex].length) {
+        keys[lastIndex] = keys[lastIndex].toLowerCase();
+      }
+      newVaultAmount[keys.join(SEPARATOR)] = item.deposited;
     }
     setVaultAmount(newVaultAmount);
   }, [fetchSales, fetchTotalList]);
