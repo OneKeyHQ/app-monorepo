@@ -2752,7 +2752,7 @@
   "update.troubleshoot_connection_issues_desktop": "Pour résoudre les problèmes de connexion, procédez comme suit : \n\n 1. Reconnectez votre appareil et réessayez.\n 2. Redémarrez l'application et votre appareil, puis réessayez.\n 3. Utilisez un câble et un port différents, puis réessayez.\n\n Si cela ne vous aide pas, contactez l'assistance <url> OneKey </url> .",
   "update.troubleshoot_connection_issues_mobile": "Pour résoudre les problèmes de connexion : \n\n 1. Assurez-vous que Bluetooth est activé.\n 2. Reconnectez votre appareil et réessayez.\n 3. Redémarrez l'application et votre appareil, puis réessayez. \n\n Si cela ne vous aide pas, contactez l'assistance <url> OneKey </url> .",
   "update.unable_to_connect_to_bridge": "Incapable de se connecter au pont. Veuillez vérifier votre connexion internet et réessayer.",
-  "update.update_app_available": "La mise à jour de l'application vers {version} est disponible",
+  "update.update_app_available": "Mise à jour de l'App {version} disponible",
   "update.update_completed": "Mise à jour terminée",
   "update.update_history": "Historique des mises à jour",
   "update.update_in_official_web_tool": "Mise à jour dans l'outil web officiel",

@@ -1,5 +1,5 @@
 import type { IDialogShowProps } from '@onekeyhq/components';
-import { Button, Dialog, Stack } from '@onekeyhq/components';
+import { Button, Dialog, XStack, YStack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -22,18 +22,19 @@ export const showWalletBackupDialog = ({
     icon: 'ErrorOutline',
     tone: 'destructive',
     renderContent: (
-      <Stack gap="$2.5" flexDirection="row">
+      <XStack gap="$2.5">
         <Button
           size="medium"
           variant="secondary"
           onPress={() => dialog.close()}
-          flex={1}
+          flexGrow={1}
+          flexShrink={0}
         >
           {appLocale.intl.formatMessage({
             id: ETranslations.global_cancel,
           })}
         </Button>
-        <Stack flex={1}>
+        <YStack flexGrow={1} flexShrink={0}>
           <WalletBackupActions
             wallet={wallet}
             onSelected={() => dialog.close()}
@@ -44,8 +45,8 @@ export const showWalletBackupDialog = ({
               })}
             </Button>
           </WalletBackupActions>
-        </Stack>
-      </Stack>
+        </YStack>
+      </XStack>
     ),
     showFooter: false,
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -10,6 +11,7 @@ import {
   Icon,
   NumberSizeableText,
   Page,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -27,23 +29,26 @@ import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import type { IntlShape } from 'react-intl';
-
 interface ISectionData {
   title: string;
+  address: string;
   amount: string;
   data: {
     orderTotalAmount: string;
+    vaultAddress: string;
+    vaultNetworkId: string;
     name: string;
-    action: string;
     token: {
       uri: string;
+      networkId: string;
       symbol: string;
       amount: string;
       fiatAmount: string;
     };
   }[];
 }
+
+type IVaultAmount = Record<string, Record<string, string>>;
 
 function EmptyData() {
   const intl = useIntl();
@@ -79,14 +84,21 @@ function ListHeader() {
   );
 }
 
-function List({ listData }: { listData: ISectionData[] }) {
+function List({
+  listData,
+  vaultAmountRef,
+}: {
+  listData: ISectionData[];
+  vaultAmountRef: RefObject<IVaultAmount>;
+}) {
+  const intl = useIntl();
   return (
     <YStack px="$5" py="$2">
       <ListHeader />
-      {listData.map(({ title, amount, data }, index) => (
-        <YStack key={index}>
-          <Accordion type="multiple" gap="$2">
-            <Accordion.Item value={String(index)}>
+      <YStack>
+        <Accordion type="single" collapsible gap="$2">
+          {listData.map(({ title, amount, data, address }) => (
+            <Accordion.Item value={address} key={address}>
               <Accordion.Trigger
                 unstyled
                 flexDirection="row"
@@ -158,7 +170,21 @@ function List({ listData }: { listData: ISectionData[] }) {
                       <YStack>
                         <SizableText size="$bodyMd">{item.name}</SizableText>
                         <SizableText size="$bodySm" color="$textSubdued">
-                          {item.action}
+                          <NumberSizeableText
+                            formatter="balance"
+                            size="$bodySm"
+                            color="$textSubdued"
+                            formatterOptions={{
+                              tokenSymbol: item.token.symbol || '',
+                            }}
+                          >
+                            {vaultAmountRef.current?.[item.vaultAddress]?.[
+                              item.vaultNetworkId
+                            ] || 0}
+                          </NumberSizeableText>
+                          {` ${intl.formatMessage({
+                            id: ETranslations.earn_deposited,
+                          })}`}
                         </SizableText>
                       </YStack>
                       <XStack ai="center">
@@ -184,7 +210,7 @@ function List({ listData }: { listData: ISectionData[] }) {
                           </SizableText>
                           <Currency
                             sourceCurrency="usd"
-                            formatter="balance"
+                            formatter="value"
                             size="$bodyMd"
                           >
                             {item.token.fiatAmount}
@@ -199,14 +225,14 @@ function List({ listData }: { listData: ISectionData[] }) {
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>
-          </Accordion>
-        </YStack>
-      ))}
+          ))}
+        </Accordion>
+      </YStack>
     </YStack>
   );
 }
 
-const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
+const formatSections = (data: IEarnRewardItem[]) => {
   const formattedData = data.reduce<Record<string, IEarnRewardItem[]>>(
     (acc: Record<string, IEarnRewardItem[]>, item: IEarnRewardItem) => {
       const address = item.accountAddress;
@@ -227,6 +253,7 @@ const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
       );
 
       return {
+        address,
         title: accountUtils.shortenAddress({
           address,
           leadingLength: 6,
@@ -239,14 +266,14 @@ const formatSections = (data: IEarnRewardItem[], intl: IntlShape) => {
           return {
             name: item?.vaultName || '',
             orderTotalAmount,
-            action: `${orderTotalAmount} ${symbol} ${intl.formatMessage({
-              id: ETranslations.earn_deposited,
-            })}`,
+            vaultAddress: item.vaultAddress,
+            vaultNetworkId: item.networkId,
             token: {
-              uri: item?.token.logoURI || '',
+              uri: item.token.logoURI || '',
               symbol,
+              networkId: item.token.networkId,
               amount: item.amount || '0',
-              fiatAmount: item?.fiatValue || '0',
+              fiatAmount: item.fiatValue || '0',
             },
           };
         }),
@@ -280,6 +307,8 @@ export default function EarnReward() {
     ESpotlightTour.earnRewardAlert,
   );
 
+  const vaultAmountRef = useRef<IVaultAmount>({} as IVaultAmount);
+
   const fetchSales = useCallback((cursor?: string) => {
     return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor, true);
   }, []);
@@ -288,29 +317,70 @@ export default function EarnReward() {
     return backgroundApiProxy.serviceReferralCode.getEarnReward(cursor);
   }, []);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setIsLoading(true);
-    void Promise.allSettled([fetchSales(), fetchTotalList()]).then(
-      ([salesResult, totalResult]) => {
-        if (salesResult.status === 'fulfilled') {
-          const data = salesResult.value;
-          setUndistributedListData(formatSections(data.items, intl));
-          setAmount({
-            available: '0',
-            pending: data.fiatValue || '0',
+    const [salesResult, totalResult] = await Promise.allSettled([
+      fetchSales(),
+      fetchTotalList(),
+    ]);
+
+    if (salesResult.status === 'fulfilled') {
+      const data = salesResult.value;
+      setUndistributedListData(formatSections(data.items));
+      setAmount({
+        available: '0',
+        pending: BigNumber(data.fiatValue).toFixed(2) || '0',
+      });
+    }
+    if (totalResult.status === 'fulfilled') {
+      const data = totalResult.value;
+      setTotalListData(formatSections(data.items));
+    }
+    const accounts: { accountAddress: string; networkId: string }[] = [];
+    const seenAccounts = new Set<string>();
+    const processItems = (
+      items: Array<{
+        accountAddress: string;
+        networkId: string;
+        token: { networkId: string };
+      }>,
+    ) => {
+      items.forEach((item) => {
+        const key = `${item.accountAddress}:${item.networkId}`;
+        if (!seenAccounts.has(key)) {
+          seenAccounts.add(key);
+          accounts.push({
+            accountAddress: item.accountAddress,
+            networkId: item.networkId,
           });
         }
-        if (totalResult.status === 'fulfilled') {
-          const data = totalResult.value;
-          setTotalListData(formatSections(data.items, intl));
-        }
-        setIsLoading(false);
-      },
+      });
+    };
+
+    if (salesResult.status === 'fulfilled' && salesResult.value.items) {
+      processItems(salesResult.value.items);
+    }
+
+    if (totalResult.status === 'fulfilled' && totalResult.value.items) {
+      processItems(totalResult.value.items);
+    }
+    setIsLoading(false);
+    const response = await backgroundApiProxy.serviceReferralCode.getPositions(
+      accounts,
     );
-  }, [fetchSales, fetchTotalList, intl]);
+
+    for (const item of response.list) {
+      const protocol = response.protocols[item.key];
+      if (protocol) {
+        vaultAmountRef.current[protocol.vault] =
+          vaultAmountRef.current[protocol.vault] || {};
+        vaultAmountRef.current[protocol.vault][item.networkId] = item.deposited;
+      }
+    }
+  }, [fetchSales, fetchTotalList]);
 
   useEffect(() => {
-    onRefresh();
+    void onRefresh();
   }, [fetchSales, onRefresh]);
 
   const tabs = useMemo(
@@ -320,14 +390,21 @@ export default function EarnReward() {
           id: ETranslations.earn_referral_undistributed,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => <List listData={undistributedListData} />,
+        page: () => (
+          <List
+            listData={undistributedListData}
+            vaultAmountRef={vaultAmountRef}
+          />
+        ),
       },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_total,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => <List listData={totalListData} />,
+        page: () => (
+          <List listData={totalListData} vaultAmountRef={vaultAmountRef} />
+        ),
       },
     ],
     [intl, totalListData, undistributedListData],
@@ -353,41 +430,43 @@ export default function EarnReward() {
             <Spinner size="large" />
           </YStack>
         ) : (
-          <Tab.Page
-            ListHeaderComponent={
-              <YStack>
-                {tourTimes === 0 ? (
-                  <Alert
-                    closable
-                    description={intl.formatMessage({
-                      id: ETranslations.referral_earn_reward_tips,
-                    })}
-                    type="info"
-                    mx="$5"
-                    mb="$2.5"
-                    onClose={tourVisited}
-                  />
-                ) : null}
-                <YStack px="$5" py="$2.5">
-                  <SizableText size="$bodyLg">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_reward_undistributed,
-                    })}
-                  </SizableText>
-                  <NumberSizeableText
-                    size="$heading5xl"
-                    formatter="balance"
-                    formatterOptions={{ currency: currencySymbol }}
-                  >
-                    {amount?.pending || 0}
-                  </NumberSizeableText>
+          <ScrollView>
+            <Tab.Page
+              ListHeaderComponent={
+                <YStack>
+                  {tourTimes === 0 ? (
+                    <Alert
+                      closable
+                      description={intl.formatMessage({
+                        id: ETranslations.referral_earn_reward_tips,
+                      })}
+                      type="info"
+                      mx="$5"
+                      mb="$2.5"
+                      onClose={tourVisited}
+                    />
+                  ) : null}
+                  <YStack px="$5" py="$2.5">
+                    <SizableText size="$bodyLg">
+                      {intl.formatMessage({
+                        id: ETranslations.referral_reward_undistributed,
+                      })}
+                    </SizableText>
+                    <NumberSizeableText
+                      size="$heading5xl"
+                      formatter="balance"
+                      formatterOptions={{ currency: currencySymbol }}
+                    >
+                      {amount?.pending || 0}
+                    </NumberSizeableText>
+                  </YStack>
                 </YStack>
-              </YStack>
-            }
-            data={tabs}
-            initialScrollIndex={0}
-            showsVerticalScrollIndicator={false}
-          />
+              }
+              data={tabs}
+              initialScrollIndex={0}
+              showsVerticalScrollIndicator={false}
+            />
+          </ScrollView>
         )}
       </Page.Body>
     </Page>

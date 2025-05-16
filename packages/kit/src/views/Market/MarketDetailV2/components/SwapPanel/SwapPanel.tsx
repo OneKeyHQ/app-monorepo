@@ -9,7 +9,9 @@ import { SwapTestPanel } from './components/SwapTestPanel';
 import { TokenInputSection } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
-import { useSwapPanel } from './useSwapPanel';
+import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
+import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
+import { useSwapPanel } from './hooks/useSwapPanel';
 
 export function SwapPanel() {
   const {
@@ -28,6 +30,19 @@ export function SwapPanel() {
     balanceToken,
     showUnsupportedSwapWarning,
   } = useSwapPanel();
+
+  const { isLoading, speedConfig, supportSpeedSwap, provider } =
+    useSpeedSwapInit('evm--1');
+
+  const {
+    speedSwapBuildTx,
+    speedSwapBuildTxLoading,
+    cancelSpeedSwapBuildTx,
+    handleSpeedSwapBuildTxSuccess,
+  } = useSpeedSwapActions({
+    networkId: 'evm--1',
+    accountId: '',
+  });
 
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">

@@ -2752,7 +2752,7 @@
   "update.troubleshoot_connection_issues_desktop": "Để khắc phục sự cố kết nối, hãy làm theo các bước sau: \n\n 1. Kết nối lại thiết bị và thử lại.\n 2. Khởi động lại ứng dụng và thiết bị của bạn, sau đó thử lại.\n 3. Sử dụng cáp và cổng khác, sau đó thử lại.\n\n Nếu cách này không hiệu quả, hãy liên hệ với <url> bộ phận hỗ trợ OneKey </url> .",
   "update.troubleshoot_connection_issues_mobile": "Để khắc phục sự cố kết nối: \n\n 1. Đảm bảo Bluetooth đã được bật.\n 2. Kết nối lại thiết bị và thử lại.\n 3. Khởi động lại ứng dụng và thiết bị của bạn, sau đó thử lại. \n\n Nếu cách này không hiệu quả, hãy liên hệ với <url> bộ phận hỗ trợ OneKey </url> .",
   "update.unable_to_connect_to_bridge": "Không thể kết nối với cầu. Vui lòng kiểm tra kết nối internet của bạn và thử lại.",
-  "update.update_app_available": "Đã có bản cập nhật ứng dụng lên {version}",
+  "update.update_app_available": "Đã có bản cập nhật App {version}",
   "update.update_completed": "Cập nhật Hoàn tất",
   "update.update_history": "Lịch sử cập nhật",
   "update.update_in_official_web_tool": "Cập nhật trong công cụ web chính thức",

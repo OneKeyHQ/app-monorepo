@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IStackProps } from '@onekeyhq/components';
 import {
@@ -10,6 +11,7 @@ import {
   Icon,
   SizableText,
   XStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -35,14 +37,16 @@ export function WalletXfpReminderAlert({
   const intl = useIntl();
   return (
     <XStack
-      px="$5"
-      py="$2"
-      borderTopWidth="$px"
-      borderBottomWidth="$px"
+      pl="$3"
+      pr="$2"
+      py="$1.5"
+      borderWidth={StyleSheet.hairlineWidth}
       bg="$bgInfoSubdued"
       borderColor="$borderInfoSubdued"
       alignItems="center"
       gap="$2"
+      borderRadius="$2"
+      borderCurve="continuous"
       flex={1}
       {...containerProps}
     >
@@ -108,6 +112,7 @@ function WalletXfpStatusReminderCmp() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const walletId = activeAccount?.wallet?.id;
   const deprecated = activeAccount?.wallet?.deprecated;
+  const { closePopover } = usePopoverContext();
 
   const [hardwareWalletXfpStatus] = useHardwareWalletXfpStatusAtom();
 
@@ -141,13 +146,14 @@ function WalletXfpStatusReminderCmp() {
         <WalletXfpReminderAlert
           message={message}
           onPress={async () => {
+            await closePopover?.();
             await showUpdateHardwareWalletLegacyXfpDialog({ walletId });
           }}
         />
       );
     }
     return null;
-  }, [walletId, hardwareWalletXfpStatus, intl, deprecated]);
+  }, [deprecated, walletId, hardwareWalletXfpStatus, intl, closePopover]);
 
   return <XStack>{updateButton}</XStack>;
 }

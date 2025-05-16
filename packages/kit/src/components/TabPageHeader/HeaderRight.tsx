@@ -185,7 +185,7 @@ export function HeaderRight({
         return (
           <>
             <HistoryIconButton />
-            {isHorizontal ? undefined : (
+            {isHorizontal || !platformEnv.isNative ? undefined : (
               <TabCountButton testID="browser-header-tabs" />
             )}
             {fixedItems}
