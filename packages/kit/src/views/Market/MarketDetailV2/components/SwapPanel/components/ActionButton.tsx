@@ -1,4 +1,5 @@
 import { Button } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 
 import type { ITradeType } from '../useSwapPanel';
 
@@ -8,7 +9,7 @@ interface ITokenInfo {
   price?: number;
 }
 
-export interface IActionButtonProps {
+export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   amount: string;
   token?: ITokenInfo;
@@ -20,13 +21,14 @@ export function ActionButton({
   amount,
   token,
   totalValue,
+  ...props
 }: IActionButtonProps) {
   const actionText = tradeType === 'buy' ? 'Buy' : 'Sell';
   const numericAmount = parseFloat(amount);
   const displayAmount = Number.isNaN(numericAmount) ? '' : amount;
 
   return (
-    <Button variant="primary" size="large">
+    <Button variant="primary" size="large" {...props}>
       {actionText} {displayAmount} {token?.label || ''} ($
       {totalValue.toFixed(2)})
     </Button>
