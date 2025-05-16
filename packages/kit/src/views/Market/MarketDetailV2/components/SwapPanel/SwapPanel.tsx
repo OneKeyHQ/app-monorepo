@@ -1,9 +1,11 @@
 import { YStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActionButton } from './components/ActionButton';
 import { AntiMEVToggle } from './components/AntiMEVToggle';
 import { BalanceDisplay } from './components/BalanceDisplay';
 import { SlippageSetting } from './components/SlippageSetting';
+import { SwapTestPanel } from './components/SwapTestPanel';
 import { TokenInputSection } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
@@ -60,6 +62,9 @@ export function SwapPanel() {
 
       {/* AntiMEV toggle */}
       <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
+
+      {/* Test - Only in Dev Mode */}
+      {platformEnv.isDev ? <SwapTestPanel /> : null}
     </YStack>
   );
 }
