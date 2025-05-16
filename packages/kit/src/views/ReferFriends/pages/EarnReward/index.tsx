@@ -332,7 +332,7 @@ export default function EarnReward() {
       const data = totalResult.value;
       setTotalListData(formatSections(data.items));
     }
-    const accounts: { address: string; networkId: string }[] = [];
+    const accounts: { accountAddress: string; networkId: string }[] = [];
     const seenAccounts = new Set<string>();
     const processItems = (
       items: Array<{
@@ -347,10 +347,15 @@ export default function EarnReward() {
         // as per the expected structure of IEarnRewardItem.
         // If these fields could be null or undefined, additional checks would be needed.
         const key = `${item.accountAddress}:${item.token.networkId}`;
+        console.log(
+          'accountAddress-networkId',
+          item.accountAddress,
+          item.token.networkId,
+        );
         if (!seenAccounts.has(key)) {
           seenAccounts.add(key);
           accounts.push({
-            address: item.accountAddress,
+            accountAddress: item.accountAddress,
             networkId: item.token.networkId,
           });
         }
