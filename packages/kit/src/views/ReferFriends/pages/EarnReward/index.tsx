@@ -33,6 +33,7 @@ interface ISectionData {
   title: string;
   address: string;
   amount: string;
+  vaultAddress: string;
   data: {
     orderTotalAmount: string;
     name: string;
@@ -95,7 +96,7 @@ function List({
       <ListHeader />
       <YStack>
         <Accordion type="single" collapsible gap="$2">
-          {listData.map(({ title, amount, data, address }) => (
+          {listData.map(({ title, amount, data, address, vaultAddress }) => (
             <Accordion.Item value={address} key={address}>
               <Accordion.Trigger
                 unstyled
@@ -176,7 +177,7 @@ function List({
                               tokenSymbol: item.token.symbol || '',
                             }}
                           >
-                            {vaultAmountRef.current?.[address]?.[
+                            {vaultAmountRef.current?.[vaultAddress]?.[
                               item.token.networkId
                             ] || 0}
                           </NumberSizeableText>
@@ -264,6 +265,7 @@ const formatSections = (data: IEarnRewardItem[]) => {
           return {
             name: item?.vaultName || '',
             orderTotalAmount,
+            vaultAddress: item.vaultAddress,
             token: {
               uri: item.token.logoURI || '',
               symbol,
@@ -356,7 +358,7 @@ export default function EarnReward() {
           seenAccounts.add(key);
           accounts.push({
             accountAddress: item.accountAddress,
-            networkId: item.token.networkId,
+            networkId: 'evm--1',
           });
         }
       });
@@ -373,7 +375,15 @@ export default function EarnReward() {
     const response = await backgroundApiProxy.serviceReferralCode.getPositions(
       accounts,
     );
-    console.log('---response', response);
+
+    for (const item of response.list) {
+      const protocol = response.protocols[item.key];
+      if (protocol) {
+        vaultAmountRef.current[protocol.vault] =
+          vaultAmountRef.current[protocol.vault] || {};
+        vaultAmountRef.current[protocol.vault][item.networkId] = item.deposited;
+      }
+    }
   }, [fetchSales, fetchTotalList]);
 
   useEffect(() => {
