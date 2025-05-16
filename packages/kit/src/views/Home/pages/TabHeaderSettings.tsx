@@ -47,7 +47,7 @@ function TokenListSettings() {
   return manageTokenEnabled ? (
     <IconButton
       title={intl.formatMessage({
-        id: ETranslations.manage_token_custom_token_title,
+        id: ETranslations.manage_token_title,
       })}
       variant="tertiary"
       icon="SliderHorOutline"
@@ -89,14 +89,14 @@ function TxHistorySettings() {
   return (
     <Stack>
       <Popover
-        title={intl.formatMessage({ id: ETranslations.global_settings })}
+        title={intl.formatMessage({ id: ETranslations.global_filter })}
         renderTrigger={
           <IconButton
             title={intl.formatMessage({
-              id: ETranslations.manage_token_custom_token_title,
+              id: ETranslations.global_filter,
             })}
             variant="tertiary"
-            icon="SliderHorOutline"
+            icon="Filter1Outline"
           />
         }
         renderContent={

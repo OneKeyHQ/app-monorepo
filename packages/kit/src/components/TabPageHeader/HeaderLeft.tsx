@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,12 +23,22 @@ import {
 } from '../AccountSelector';
 import { useSpotlight } from '../Spotlight';
 
+export function HeaderLeftCloseButton() {
+  return (
+    <Page.Close>
+      <NavBackButton />
+    </Page.Close>
+  );
+}
+
 export function HeaderLeft({
   sceneName,
   tabRoute,
+  customHeaderLeftItems,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
+  customHeaderLeftItems?: ReactNode;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
@@ -49,12 +59,11 @@ export function HeaderLeft({
     [isFocus, tourTimes],
   );
   const items = useMemo(() => {
+    if (customHeaderLeftItems) {
+      return customHeaderLeftItems;
+    }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return (
-        <Page.Close>
-          <NavBackButton />
-        </Page.Close>
-      );
+      return <HeaderLeftCloseButton />;
     }
 
     const accountSelectorTrigger = (
@@ -101,12 +110,20 @@ export function HeaderLeft({
           num={0}
           showAccountAddress={false}
           showCopyButton={tabRoute === ETabRoutes.Home}
-          showCreateAddressButton={tabRoute !== ETabRoutes.Home}
+          showCreateAddressButton={false}
           showNoAddressTip={false}
         />
       </XStack>
     );
-  }, [gtMd, intl, sceneName, spotlightVisible, tabRoute, tourVisited]);
+  }, [
+    gtMd,
+    intl,
+    sceneName,
+    spotlightVisible,
+    tabRoute,
+    tourVisited,
+    customHeaderLeftItems,
+  ]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

@@ -80,6 +80,19 @@ export type IFeeNeoN3 = {
   systemFee: string;
 };
 
+export type INetworkFeeInfo =
+  | IGasLegacy
+  | IGasEIP1559
+  | IFeeUTXO
+  | IFeeTron
+  | IFeeSol
+  | IFeeCkb
+  | IFeeAlgo
+  | IFeeDot
+  | IFeeSui
+  | IFeeFil
+  | IFeeNeoN3;
+
 export type IBatchEstimateFeeParams = {
   accountId: string;
   networkId: string;
