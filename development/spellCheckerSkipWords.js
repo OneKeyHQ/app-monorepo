@@ -647,6 +647,7 @@ module.exports = [
   'Seg',
   'segwit',
   'Segwit',
+  'selectable',
   'semver',
   'sendable',
   'sepolia',

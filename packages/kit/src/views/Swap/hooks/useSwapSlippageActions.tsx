@@ -14,8 +14,8 @@ import {
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SlippageSettingDialog from '../../../components/SlippageSettingDialog';
 import { useSwapSlippageDialogOpeningAtom } from '../../../states/jotai/contexts/swap';
-import SwapSlippageContentContainer from '../pages/components/SwapSlippageContentContainer';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
@@ -58,7 +58,7 @@ export function useSwapSlippageActions() {
     dialogRef.current = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.slippage_tolerance_title }),
       renderContent: (
-        <SwapSlippageContentContainer
+        <SlippageSettingDialog
           swapSlippage={slippageItem}
           autoValue={autoValue}
           onSave={slippageOnSave}

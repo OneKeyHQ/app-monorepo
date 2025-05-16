@@ -8,6 +8,7 @@ import {
   SignedTransaction,
   SimpleTransaction,
 } from '@aptos-labs/ts-sdk';
+import { hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { get, isArray } from 'lodash';
@@ -489,6 +490,38 @@ class ProviderApiAptos extends ProviderApiBase {
     return {
       hash: result.txid,
     };
+  }
+
+  @providerApiMethod()
+  public async signAndSubmitTransactionStandardV1(
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ) {
+    const accounts = await this.getAccountsInfo(request);
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts');
+    }
+    const { account, accountInfo } = accounts[0];
+
+    const rawTx = SimpleTransaction.deserialize(
+      new Deserializer(hexToBytes(params)),
+    );
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: {
+          bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
+          max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
+        },
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+      });
+
+    const tx = await this.getTransaction(request, result.txid);
+
+    return JSON.stringify(tx);
   }
 
   @permissionRequired()
