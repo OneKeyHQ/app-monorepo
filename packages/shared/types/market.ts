@@ -232,3 +232,8 @@ export interface IMarketWatchListItem {
 export interface IMarketWatchListData {
   data: IMarketWatchListItem[];
 }
+
+export enum ESpeedSwapSwitchType {
+  BUY = 'buy',
+  SELL = 'sell',
+}
