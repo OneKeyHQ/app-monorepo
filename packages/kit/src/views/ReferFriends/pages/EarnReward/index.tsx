@@ -133,7 +133,7 @@ function List({
                       <Currency
                         sourceCurrency="usd"
                         color="$textSuccess"
-                        formatter="balance"
+                        formatter="value"
                         size="$bodyLgMedium"
                         formatterOptions={{
                           showPlusMinusSigns: true,
@@ -270,31 +270,39 @@ const formatSections = (data: IEarnRewardItem[]) => {
           leadingLength: 6,
           trailingLength: 4,
         }),
-        amount: totalFiatValue.toFixed(2),
-        data: items.map((item) => {
-          const orderTotalAmount = item?.orderTotalAmount || '0';
-          const symbol = item?.token?.symbol || '';
-          return {
-            name: item.vaultName || '',
-            orderTotalAmount,
-            key: buildKey(item),
-            vaultAddress: item.vaultAddress,
-            vaultNetworkId: item.networkId,
-            symbol: item.symbol,
-            provider: item.provider,
-            token: {
-              uri: item.token.logoURI || '',
-              symbol,
-              networkId: item.token.networkId,
-              amount: item.amount || '0',
-              fiatAmount: item.fiatValue || '0',
-            },
-          };
-        }),
+        amount: totalFiatValue.toFixed(),
+        data: items
+          .map((item) => {
+            const orderTotalAmount = item?.orderTotalAmount || '0';
+            const symbol = item?.token?.symbol || '';
+            return {
+              name: item.vaultName || '',
+              orderTotalAmount,
+              key: buildKey(item),
+              vaultAddress: item.vaultAddress,
+              vaultNetworkId: item.networkId,
+              symbol: item.symbol,
+              provider: item.provider,
+              token: {
+                uri: item.token.logoURI || '',
+                symbol,
+                networkId: item.token.networkId,
+                amount: item.amount || '0',
+                fiatAmount: item.fiatValue || '0',
+              },
+            };
+          })
+          .sort((a, b) =>
+            BigNumber(a.token.fiatAmount).minus(b.token.fiatAmount).isPositive()
+              ? -1
+              : 1,
+          ),
       };
     },
   );
-  return sectionDataArray;
+  return sectionDataArray.sort((a, b) =>
+    BigNumber(a.amount).minus(b.amount).isPositive() ? -1 : 1,
+  );
 };
 
 export default function EarnReward() {
