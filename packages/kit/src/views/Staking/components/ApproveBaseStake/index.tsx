@@ -32,6 +32,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   formatApy,
   formatStakingDistanceToNowStrict,
@@ -50,7 +51,6 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { validateAmountInput } from '../../../Swap/utils/utils';
 import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';

@@ -7,18 +7,6 @@ import {
 
 import type { ColorValue } from 'react-native';
 
-export function validateAmountInput(text: string, decimal?: number) {
-  const regex = new RegExp(
-    `^$|^0(\\.\\d{0,${decimal ?? 6}})?$|^[1-9]\\d*(\\.\\d{0,${
-      decimal ?? 6
-    }})?$|^[1-9]\\d*\\.$|^0\\.$`,
-  );
-  if (!regex.test(text)) {
-    return false;
-  }
-  return true;
-}
-
 export function validateAmountInputInfiniteDecimal(text: string) {
   // 修改后的正则，支持输入过程中的状态：
   const regex = /^$|^0$|^0\.$|^0\.\d*$|^[1-9]\d*$|^[1-9]\d*\.$|^[1-9]\d*\.\d*$/;

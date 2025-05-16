@@ -89,14 +89,14 @@ function TxHistorySettings() {
   return (
     <Stack>
       <Popover
-        title={intl.formatMessage({ id: ETranslations.global_settings })}
+        title={intl.formatMessage({ id: ETranslations.global_filter })}
         renderTrigger={
           <IconButton
             title={intl.formatMessage({
-              id: ETranslations.global_settings,
+              id: ETranslations.global_filter,
             })}
             variant="tertiary"
-            icon="SliderHorOutline"
+            icon="Filter1Outline"
           />
         }
         renderContent={
