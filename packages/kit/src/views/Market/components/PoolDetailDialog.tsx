@@ -80,13 +80,7 @@ export function PoolDetailDialog({
     id: pairAddress,
     baseTokenImageUrl,
     quoteTokenImageUrl,
-    relationships: {
-      baseToken,
-      quoteToken,
-      dex: {
-        data: { id },
-      },
-    },
+    relationships: { baseToken, quoteToken },
   },
 }: {
   item: IMarketDetailPool;
