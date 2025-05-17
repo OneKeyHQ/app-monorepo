@@ -62,9 +62,8 @@ export class KeyringQr extends KeyringQrBase {
     return sdk.btc.normalizeGetMultiAccountsPath(params.path);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override getChildPathTemplates(
-    params: IGetChildPathTemplatesParams,
+    _params: IGetChildPathTemplatesParams,
   ): IGetChildPathTemplatesResult {
     return {
       childPathTemplates: [accountUtils.buildUtxoAddressRelPath()],

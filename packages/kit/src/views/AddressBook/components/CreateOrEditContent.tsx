@@ -25,7 +25,6 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -81,7 +80,6 @@ export function CreateOrEditContent({
   disabledAddressEdit,
 }: ICreateOrEditContentProps) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
 
   const headerRight = useCallback(
     () =>
