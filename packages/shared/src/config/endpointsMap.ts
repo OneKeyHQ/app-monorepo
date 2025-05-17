@@ -1,4 +1,3 @@
-import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
