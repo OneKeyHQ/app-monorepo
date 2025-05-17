@@ -30,15 +30,39 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 
 function useGetReferralCodeWalletInfo() {
-  return useCallback(async (walletId: string | undefined) => {
-    if (!walletId) {
+  return useCallback(async (queryWalletId: string | undefined) => {
+    if (!queryWalletId) {
       return null;
     }
+
+    let walletId = queryWalletId;
+    let wallet: IDBWallet | undefined;
 
     if (
       !accountUtils.isHdWallet({ walletId }) &&
       !accountUtils.isHwWallet({ walletId })
     ) {
+      return null;
+    }
+
+    try {
+      wallet = await backgroundApiProxy.serviceAccount.getWallet({
+        walletId: queryWalletId,
+      });
+      if (
+        accountUtils.isHwHiddenWallet({ wallet }) &&
+        wallet.associatedDevice
+      ) {
+        const parentWalletId = accountUtils.buildHwWalletId({
+          dbDeviceId: wallet.associatedDevice,
+        });
+        wallet = await backgroundApiProxy.serviceAccount.getWallet({
+          walletId: parentWalletId,
+        });
+        // replace walletId with parent walletId when it's a hidden wallet
+        walletId = parentWalletId;
+      }
+    } catch {
       return null;
     }
 
@@ -54,6 +78,7 @@ function useGetReferralCodeWalletInfo() {
         return null;
       }
       return {
+        wallet,
         walletId,
         networkId,
         accountId: firstEvmAccountId,
@@ -189,8 +214,8 @@ function InviteCode({
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          <WalletAvatar wallet={wallet} size="$6" />
-          <SizableText size="$bodyLg">{wallet?.name}</SizableText>
+          <WalletAvatar wallet={walletInfo?.wallet} size="$6" />
+          <SizableText size="$bodyLg">{walletInfo?.wallet?.name}</SizableText>
         </XStack>
       </XStack>
       <Form form={form}>
