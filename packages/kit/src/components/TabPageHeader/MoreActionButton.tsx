@@ -1,16 +1,22 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IIconButtonProps } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  IIconButtonProps,
+  IStackStyle,
+} from '@onekeyhq/components';
 import {
   Divider,
   HeaderIconButton,
   Icon,
   IconButton,
+  LottieView,
   Popover,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -19,6 +25,8 @@ import {
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
+import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
+import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -28,7 +36,11 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useToMyOneKeyModal } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useFirmwareUpdatesDetectStatusPersistAtom,
+  useHardwareWalletXfpStatusAtom,
+  useNotificationsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -40,12 +52,18 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
+import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
+import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { UpdateReminder } from '../UpdateReminder';
+import { useAppUpdateInfo } from '../UpdateReminder/hooks';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -75,7 +93,6 @@ function MoreActionContentHeader() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { closePopover } = usePopoverContext();
 
-  const { shareReferRewards } = useReferFriends();
   const { loginOneKeyId } = useLoginOneKeyId();
 
   const handleLogin = useCallback(async () => {
@@ -84,16 +101,10 @@ function MoreActionContentHeader() {
       toOneKeyIdPageOnLoginSuccess: true,
     });
   }, [closePopover, loginOneKeyId]);
-
-  const handleShareReferRewards = useCallback(async () => {
-    await closePopover?.();
-    await shareReferRewards();
-  }, [closePopover, shareReferRewards]);
   return (
     <XStack
       px="$5"
       py="$4"
-      bg="$bgSubdued"
       ai="center"
       jc="space-between"
       borderBottomWidth={StyleSheet.hairlineWidth}
@@ -110,7 +121,13 @@ function MoreActionContentHeader() {
         pressStyle={pressStyle}
         hoverStyle={hoverStyle}
       >
-        <SizableText size="$bodyMd" userSelect="none">
+        <SizableText
+          size="$bodyLgMedium"
+          $gtMd={{
+            size: '$bodyMdMedium',
+          }}
+          userSelect="none"
+        >
           {user?.displayEmail ||
             intl.formatMessage({ id: ETranslations.prime_signup_login })}
         </SizableText>
@@ -124,14 +141,6 @@ function MoreActionContentHeader() {
             onPress={closePopover}
           />
         ) : null}
-        <IconButton
-          variant="tertiary"
-          title={intl.formatMessage({ id: ETranslations.referral_title })}
-          icon="ColorfulGiftCustom"
-          testID="refer-a-friend"
-          trackID="gift-in-more-action"
-          onPress={handleShareReferRewards}
-        />
       </XStack>
     </XStack>
   );
@@ -259,6 +268,7 @@ interface IMoreActionContentGridItemProps {
   showRedDot?: boolean;
   showBadges?: boolean;
   badges?: number;
+  lottieSrc?: string;
 }
 
 function MoreActionContentGridItem({
@@ -270,6 +280,7 @@ function MoreActionContentGridItem({
   showRedDot,
   showBadges,
   badges = 0,
+  lottieSrc,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
@@ -294,19 +305,24 @@ function MoreActionContentGridItem({
       userSelect="none"
     >
       <YStack
-        p="$3"
+        p={lottieSrc ? '$2' : '$3'}
+        borderWidth={1}
+        borderColor="$borderSubdued"
         borderRadius="$2"
         borderCurve="continuous"
-        bg="$bgStrong"
         $group-hover={{
-          bg: '$neutral4',
+          bg: '$bgHover',
         }}
         $group-press={{
-          bg: '$neutral5',
+          bg: '$bgActive',
         }}
       >
-        <Icon name={icon} />
+        {icon ? <Icon name={icon} /> : null}
+        {lottieSrc ? (
+          <LottieView width={32} height={32} source={lottieSrc} />
+        ) : null}
       </YStack>
+
       <SizableText size="$bodySm" textAlign="center">
         {title}
       </SizableText>
@@ -385,6 +401,7 @@ function MoreActionContentGridRender({
 
 function MoreActionContentGrid() {
   const intl = useIntl();
+  const themeVariant = useThemeVariant();
   const openAddressBook = useShowAddressBook({
     useNewModal: true,
   });
@@ -406,6 +423,9 @@ function MoreActionContentGrid() {
       screen: EModalNotificationsRoutes.NotificationList,
     });
   }, [navigation]);
+
+  const { toReferFriendsPage } = useReferFriends();
+
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
@@ -425,6 +445,13 @@ function MoreActionContentGrid() {
         icon: 'OnekeyDeviceCustom',
         onPress: handleDeviceManagement,
         testID: 'my-onekey',
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.id_refer_a_friend }),
+        lottieSrc:
+          themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
+        testID: 'referral',
+        onPress: toReferFriendsPage,
       },
       {
         title: intl.formatMessage({
@@ -457,6 +484,8 @@ function MoreActionContentGrid() {
     intl,
     openAddressBook,
     openNotificationsModal,
+    themeVariant,
+    toReferFriendsPage,
   ]);
 
   return (
@@ -466,20 +495,6 @@ function MoreActionContentGrid() {
       </XStack>
       <Divider />
     </YStack>
-  );
-}
-
-function MoreActionContent() {
-  return (
-    <MoreActionProvider>
-      <YStack>
-        <MoreActionContentHeader />
-        <YStack p="$5" gap="$5">
-          <MoreActionContentGrid />
-          <MoreActionContentFooter />
-        </YStack>
-      </YStack>
-    </MoreActionProvider>
   );
 }
 
@@ -494,64 +509,174 @@ const useIsShowRedDot = () => {
   return isShowNotificationDot;
 };
 
-function MoreActionButtonCmp() {
+const useIsNeedUpgradeFirmware = () => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const connectId = activeAccount.device?.connectId;
+  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
+  const { result } = usePromiseResult(async () => {
+    if (!connectId) return undefined;
+    const detectResult = detectStatus?.[connectId];
+    const shouldUpdate =
+      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const detectInfo =
+      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
+        {
+          connectId,
+        },
+      );
+    return {
+      shouldUpdate,
+      detectResult,
+    };
+  }, [connectId, detectStatus]);
+
+  return result?.shouldUpdate;
+};
+
+const useIsShowWalletXfpStatus = () => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const walletId = activeAccount?.wallet?.id;
+  const deprecated = activeAccount?.wallet?.deprecated;
+
+  const [hardwareWalletXfpStatus] = useHardwareWalletXfpStatusAtom();
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const navigation = useAppNavigation();
+
+  useEffect(() => {
+    void (async () => {
+      if (!deprecated && walletId) {
+        await backgroundApiProxy.serviceAccount.generateWalletsMissingMetaSilently(
+          {
+            walletId,
+          },
+        );
+      }
+    })();
+  }, [walletId, deprecated]);
+  return (
+    !deprecated && walletId && hardwareWalletXfpStatus?.[walletId]?.xfpMissing
+  );
+};
+
+// TODO: Handle potential duplicate update detection requests
+// This component may trigger multiple update checks simultaneously
+// Consider implementing request deduplication or throttling
+// to prevent unnecessary API calls and improve performance
+const useIsShowUpgradeDot = () => {
+  const appUpdateInfo = useAppUpdateInfo(true);
+  const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
+  const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
+  const isShowWalletXfpStatus = useIsShowWalletXfpStatus();
+  return isAppNeedUpdate || isNeedUpgradeFirmware || isShowWalletXfpStatus;
+};
+
+function UpdateReminders() {
+  const isShowUpgradeComponents = useIsShowUpgradeDot();
+  return isShowUpgradeComponents ? (
+    <YStack gap="$2">
+      <UpdateReminder />
+      <HomeFirmwareUpdateReminder />
+      <WalletXfpStatusReminder />
+    </YStack>
+  ) : null;
+}
+
+function MoreActionContent() {
+  return (
+    <MoreActionProvider>
+      <YStack>
+        <MoreActionContentHeader />
+        <ScrollView
+          contentContainerStyle={{
+            p: '$5',
+            gap: '$5',
+          }}
+        >
+          <UpdateReminders />
+          <MoreActionContentGrid />
+          <MoreActionContentFooter />
+        </ScrollView>
+      </YStack>
+    </MoreActionProvider>
+  );
+}
+
+function Dot({ color }: { color: IStackStyle['bg'] }) {
+  return (
+    <Stack
+      position="absolute"
+      right="$-2.5"
+      top="$-2"
+      alignItems="flex-end"
+      w="$10"
+      pointerEvents="none"
+    >
+      <Stack
+        bg="$bgApp"
+        borderRadius="$full"
+        borderWidth={2}
+        borderColor="$transparent"
+      >
+        <Stack
+          px="$1"
+          borderRadius="$full"
+          bg={color}
+          minWidth="$4"
+          height="$4"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Stack
+            width="$1"
+            height="$1"
+            backgroundColor="white"
+            borderRadius="$full"
+          />
+        </Stack>
+      </Stack>
+    </Stack>
+  );
+}
+
+function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isShowRedDot = useIsShowRedDot();
+  const isShowUpgradeDot = useIsShowUpgradeDot();
+  const dot = useMemo(() => {
+    if (isShowUpgradeDot) {
+      return <Dot color="$blue8" />;
+    }
+    return isShowRedDot ? <Dot color="$bgCriticalStrong" /> : null;
+  }, [isShowRedDot, isShowUpgradeDot]);
+  return (
+    <XStack>
+      <HeaderIconButton
+        testID="moreActions"
+        onPress={onPress}
+        title={intl.formatMessage({ id: ETranslations.explore_options })}
+        icon="DotGridOutline"
+      />
+      {dot}
+    </XStack>
+  );
+}
+
+function MoreActionButtonCmp() {
   return (
     <Popover
       title=""
+      showHeader={false}
       offset={{
         mainAxis: 12,
         crossAxis: 20,
       }}
-      showHeader={false}
       placement="bottom-end"
       floatingPanelProps={{
         overflow: 'hidden',
       }}
-      renderTrigger={
-        <XStack key="moreActions" testID="moreActions">
-          <HeaderIconButton
-            title={intl.formatMessage({ id: ETranslations.explore_options })}
-            icon="DotGridOutline"
-            pointerEvents={platformEnv.isNative ? 'none' : undefined}
-          />
-          {isShowRedDot ? (
-            <Stack
-              position="absolute"
-              right="$-2.5"
-              top="$-2"
-              alignItems="flex-end"
-              w="$10"
-              pointerEvents="none"
-            >
-              <Stack
-                bg="$bgApp"
-                borderRadius="$full"
-                borderWidth={2}
-                borderColor="$transparent"
-              >
-                <Stack
-                  px="$1"
-                  borderRadius="$full"
-                  bg="$bgCriticalStrong"
-                  minWidth="$4"
-                  height="$4"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Stack
-                    width="$1"
-                    height="$1"
-                    backgroundColor="white"
-                    borderRadius="$full"
-                  />
-                </Stack>
-              </Stack>
-            </Stack>
-          ) : null}
-        </XStack>
-      }
+      renderTrigger={<MoreButtonWithDot />}
       renderContent={MoreActionContent}
     />
   );

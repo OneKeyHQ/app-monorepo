@@ -577,7 +577,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
-  toTokenAmount: string;
+  toTokenAmount?: string;
   provider: string;
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
