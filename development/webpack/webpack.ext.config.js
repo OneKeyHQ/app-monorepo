@@ -40,6 +40,11 @@ const chromeExtensionV3ViolationPlugin = new ChromeExtensionV3ViolationPlugin([
     regexToFind: /r\.src=`\${n}\/js\/telegram-login\.js`/g,
     replacement: 'r.src=``',
   },
+  // @privy-io/react-auth
+  {
+    regexToFind: /g\.src=`\${v}\/js\/telegram-login\.js`/g,
+    replacement: 'g.src=``',
+  },
 ]);
 
 module.exports = ({
