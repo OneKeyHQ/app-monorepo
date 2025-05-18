@@ -62,6 +62,7 @@ enum ESearchStatus {
 const AllTypes = [
   EUniversalSearchType.Address,
   EUniversalSearchType.MarketToken,
+  EUniversalSearchType.AccountAssets,
 ];
 
 const SkeletonItem = () => (
@@ -140,6 +141,7 @@ export function UniversalSearch({
         await backgroundApiProxy.serviceUniversalSearch.universalSearch({
           input,
           networkId: activeAccount?.network?.id,
+          accountId: activeAccount?.account?.id,
           searchTypes: AllTypes,
         });
       const searchResultSections: {

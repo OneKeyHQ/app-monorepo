@@ -55,10 +55,12 @@ class ServiceUniversalSearch extends ServiceBase {
   async universalSearch({
     input,
     networkId,
+    accountId,
     searchTypes,
   }: {
     input: string;
     networkId?: string;
+    accountId?: string;
     searchTypes: EUniversalSearchType[];
   }): Promise<IUniversalSearchBatchResult> {
     const result: IUniversalSearchBatchResult = {};
@@ -69,8 +71,17 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
         : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.AccountAssets) &&
+      accountId &&
+      networkId
+        ? this.universalSearchOfAccountAssets({ input, networkId, accountId })
+        : Promise.resolve([]),
     ]);
-    const [addressResultSettled, marketTokenResultSettled] = promiseResults;
+    const [
+      addressResultSettled,
+      marketTokenResultSettled,
+      accountAssetsResultSettled,
+    ] = promiseResults;
 
     if (
       addressResultSettled.status === 'fulfilled' &&
@@ -99,6 +110,25 @@ class ServiceUniversalSearch extends ServiceBase {
 
   async universalSearchOfMarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchToken(query);
+  }
+
+  async universalSearchOfAccountAssets({
+    input,
+    networkId,
+    accountId,
+  }: {
+    input: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const r = await this.backgroundApi.serviceToken.fetchAccountTokens({
+      accountId,
+      networkId,
+      flag: 'universal-search',
+    });
+
+    
+
   }
 
   private getUniversalValidateNetworkIds = memoizee(
