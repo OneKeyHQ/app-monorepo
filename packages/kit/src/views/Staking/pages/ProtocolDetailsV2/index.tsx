@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -100,6 +101,24 @@ function SubscriptionSection({
 }
 
 function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
+  if (alerts && alerts.length) {
+    return (
+      <YStack
+        bg="$bgSubdued"
+        borderColor="$borderSubdued"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderRadius="$3"
+        py="$3.5"
+        px="$4"
+      >
+        {alerts.map((text, index) => (
+          <SizableText key={index} size="$bodyMd" color="$textSubdued">
+            {text}
+          </SizableText>
+        ))}
+      </YStack>
+    );
+  }
   return null;
 }
 
