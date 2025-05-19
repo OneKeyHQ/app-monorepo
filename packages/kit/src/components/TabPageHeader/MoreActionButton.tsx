@@ -447,7 +447,7 @@ function MoreActionContentGrid() {
         testID: 'my-onekey',
       },
       {
-        title: intl.formatMessage({ id: ETranslations.id_refer_a_friend }),
+        title: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
         lottieSrc:
           themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
         testID: 'referral',
@@ -562,7 +562,7 @@ const useIsShowWalletXfpStatus = () => {
 
 // TODO: Handle potential duplicate update detection requests
 // This component may trigger multiple update checks simultaneously
-// Consider implementing request deduplication or throttling
+// Deduplicate or throttle API requests.
 // to prevent unnecessary API calls and improve performance
 const useIsShowUpgradeDot = () => {
   const appUpdateInfo = useAppUpdateInfo(true);

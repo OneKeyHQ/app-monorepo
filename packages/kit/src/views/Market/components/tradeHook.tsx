@@ -73,11 +73,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const contractAddress = useMemo(
-    () => network?.contract_address ?? '',
-    [network],
-  );
-
   const { isNative = false, tokenAddress: realContractAddress = '' } =
     network || {};
 

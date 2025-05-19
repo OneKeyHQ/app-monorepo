@@ -34,7 +34,9 @@ type IPriceLabelProps = {
 
 // function formatDecimalZero(value: number) {
 //   if (value >= 1) return formatMarketValueForFixed(value);
+// eslint-disable-next-line spellcheck/spell-checker
 //   const noRexponentail = parseExponential(value);
+// eslint-disable-next-line spellcheck/spell-checker
 //   const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
 //   const zeroCount = effectIndex - 2;
 //   const fixedValue = formatMarketValueForFixed(value, 3 + zeroCount);

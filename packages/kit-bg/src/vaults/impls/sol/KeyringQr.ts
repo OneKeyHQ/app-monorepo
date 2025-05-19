@@ -28,10 +28,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import {
-  EMessageTypesCommon,
-  EMessageTypesSolana,
-} from '@onekeyhq/shared/types/message';
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
 
 import localDb from '../../../dbs/local/localDb';
 import { UR_DEFAULT_ORIGIN } from '../../../services/ServiceQrWallet/qrWalletConsts';
