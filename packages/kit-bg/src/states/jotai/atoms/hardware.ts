@@ -60,9 +60,12 @@ export type IHardwareUiPayload = {
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;
   };
+  // firmware update progress
   firmwareProgress?: number;
   firmwareProgressType?: 'transferData' | 'installingFirmware';
   rawPayload: any;
+  // request pin type
+  requestPinType?: 'PinEntry' | 'AttachPin';
 };
 export type IHardwareUiState = {
   action: EHardwareUiStateAction;

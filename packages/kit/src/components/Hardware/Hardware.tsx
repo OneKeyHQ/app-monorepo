@@ -410,6 +410,7 @@ export function EnterPhase({
   isSingleInput,
   onConfirm,
   switchOnDevice,
+  switchOnDeviceAttachPin,
 }: {
   isSingleInput?: boolean;
   onConfirm: (p: {
@@ -418,6 +419,11 @@ export function EnterPhase({
     hideImmediately: boolean;
   }) => void;
   switchOnDevice: ({ hideImmediately }: { hideImmediately: boolean }) => void;
+  switchOnDeviceAttachPin: ({
+    hideImmediately,
+  }: {
+    hideImmediately: boolean;
+  }) => void;
 }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -433,17 +439,17 @@ export function EnterPhase({
       },
       onSubmit: async (form: UseFormReturn<IEnterPhaseFormValues>) => {
         const values = form.getValues();
-        if (
-          !isSingleInput &&
-          (values.passphrase || '') !== (values.confirmPassphrase || '')
-        ) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_passphrase_not_matched,
-            }),
-          });
-          return;
-        }
+        // if (
+        //   !isSingleInput &&
+        //   (values.passphrase || '') !== (values.confirmPassphrase || '')
+        // ) {
+        //   Toast.error({
+        //     title: intl.formatMessage({
+        //       id: ETranslations.feedback_passphrase_not_matched,
+        //     }),
+        //   });
+        //   return;
+        // }
         const passphrase = values.passphrase || '';
         onConfirm({
           passphrase,
@@ -452,23 +458,32 @@ export function EnterPhase({
         });
       },
     }),
-    [intl, isSingleInput, onConfirm, settings.hiddenWalletImmediately],
+    [onConfirm, settings.hiddenWalletImmediately],
   );
   const form = useForm<IEnterPhaseFormValues>(formOption);
 
   const handleSwitchOnDevice = useCallback(() => {
     switchOnDevice({ hideImmediately: form.getValues().hideImmediately });
   }, [form, switchOnDevice]);
+
+  const handleSwitchOnDeviceAttachPin = useCallback(() => {
+    switchOnDeviceAttachPin({
+      hideImmediately: form.getValues().hideImmediately,
+    });
+  }, [form, switchOnDeviceAttachPin]);
+
   const media = useMedia();
   const [secureEntry1, setSecureEntry1] = useState(true);
-  const [secureEntry2, setSecureEntry2] = useState(true);
+  // const [secureEntry2, setSecureEntry2] = useState(true);
 
   return (
     <Stack>
       <Stack pb="$5">
         <Alert
           title={intl.formatMessage({
-            id: ETranslations.global_enter_passphrase_alert,
+            id: isSingleInput
+              ? ETranslations.global_enter_passphrase_alert
+              : ETranslations.global_add_hidden_wallet,
           })}
           type="warning"
         />
@@ -520,6 +535,18 @@ export function EnterPhase({
               />
             </XStack>
           }
+          labelAddon={
+            <Button
+              variant="tertiary"
+              size="small"
+              icon="OnekeyDeviceCustom"
+              onPress={handleSwitchOnDevice}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_enter_on_device,
+              })}
+            </Button>
+          }
           rules={{
             maxLength: {
               value: 50,
@@ -564,7 +591,7 @@ export function EnterPhase({
             })}
           />
         </Form.Field>
-        {!isSingleInput ? (
+        {/* {!isSingleInput ? (
           <Form.Field
             name="confirmPassphrase"
             label={intl.formatMessage({
@@ -589,7 +616,7 @@ export function EnterPhase({
               })}
             />
           </Form.Field>
-        ) : null}
+        ) : null} */}
         {!isSingleInput ? (
           <Form.Field
             horizontal
@@ -628,7 +655,7 @@ export function EnterPhase({
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
-      <Button
+      {/* <Button
         m="$0"
         mt="$2.5"
         $md={
@@ -640,6 +667,21 @@ export function EnterPhase({
         onPress={handleSwitchOnDevice}
       >
         {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
+      </Button> */}
+      <Button
+        m="$0"
+        mt="$2.5"
+        $md={
+          {
+            size: 'large',
+          } as any
+        }
+        variant="secondary"
+        onPress={handleSwitchOnDeviceAttachPin}
+      >
+        {intl.formatMessage({
+          id: ETranslations.global_enter_hidden_wallet_pin,
+        })}
       </Button>
     </Stack>
   );

@@ -11,6 +11,7 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -306,6 +307,11 @@ class ServiceHardware extends ServiceBase {
         [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
+        if (originEvent.payload.type === 'ButtonRequest_PinEntry') {
+          newPayload.requestPinType = 'PinEntry';
+        } else if (originEvent.payload.type === 'ButtonRequest_AttachPin') {
+          newPayload.requestPinType = 'AttachPin';
+        }
       } else {
         const { device } = originEvent.payload || {};
         const { features } = device || {};
@@ -390,7 +396,7 @@ class ServiceHardware extends ServiceBase {
           defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
             action: newUiRequestType,
             connectId,
-            payload: newPayload,
+            payload: null,
           });
 
           if (NEW_DIALOG_EVENTS.includes(newUiRequestType)) {
@@ -1192,6 +1198,26 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
     await hardwareSDK.switchTransport(
       transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
+    );
+  }
+
+  @backgroundMethod()
+  async existsStandardWallet({ connectId }: { connectId: string }) {
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
+    const { devices } = await this.backgroundApi.serviceAccount.getAllDevices();
+
+    const device = devices?.find((item) => item.connectId === connectId);
+    if (!device) {
+      return false;
+    }
+    return (
+      wallets.filter(
+        (item) =>
+          item.type === WALLET_TYPE_HW &&
+          (item.passphraseState == null || item.passphraseState.length === 0) &&
+          item.associatedDevice === device.id &&
+          !item.isMocked,
+      ).length > 0
     );
   }
 }

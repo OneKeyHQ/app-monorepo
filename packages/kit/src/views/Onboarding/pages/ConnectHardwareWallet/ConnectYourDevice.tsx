@@ -49,6 +49,7 @@ import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDe
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   FIRMWARE_CONTACT_US_URL,
@@ -96,6 +97,7 @@ import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/u
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
+import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
 
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
@@ -337,6 +339,7 @@ function ConnectByUSBOrBLE() {
   const actions = useAccountSelectorActions();
 
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const { showSelectAddWalletTypeDialog } = useSelectAddWalletTypeDialog();
   const fwUpdateActions = useFirmwareUpdateActions();
   const navigation = useAppNavigation();
 
@@ -626,24 +629,41 @@ function ConnectByUSBOrBLE() {
       device,
       isFirmwareVerified,
       features,
+      createStandardWalletOnly,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
       features: IOneKeyDeviceFeatures;
+      createHiddenWalletOnly?: boolean;
+      createStandardWalletOnly?: boolean;
     }) => {
       try {
-        console.log('ConnectYourDevice -> createHwWallet', device);
-
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
-        await actions.current.createHWWalletWithHidden({
+        const params: IDBCreateHwWalletParamsBase = {
           device,
           // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
           hideCheckingDeviceLoading: true,
           features,
           isFirmwareVerified,
           defaultIsTemp: true,
-        });
+        };
+        if (createStandardWalletOnly) {
+          console.log(
+            'ConnectYourDevice -> createHwWallet only standard wallet',
+            device,
+            params,
+          );
+          await actions.current.createHWWalletWithoutHidden(params);
+        } else {
+          console.log(
+            'ConnectYourDevice -> createHwWallet only hidden wallet',
+            device,
+            params,
+          );
+          await actions.current.createHWWalletWithHidden(params);
+        }
+
         await trackHardwareWalletConnection({
           status: 'success',
           deviceType: device.deviceType,
@@ -677,6 +697,75 @@ function ConnectByUSBOrBLE() {
       }
     },
     [navigation, actions, hardwareTransportType, isSoftwareWalletOnlyUser],
+  );
+
+  const selectAddWalletType = useCallback(
+    async ({
+      device,
+      isFirmwareVerified,
+    }: {
+      device: SearchDevice;
+      isFirmwareVerified?: boolean;
+    }) => {
+      const features =
+        await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+          connectId: device.connectId ?? '',
+        });
+
+      const unlockedAttachPin = features.unlocked_attach_pin;
+      const unlocked = features.unlocked;
+
+      console.log('Current hardware wallet State', {
+        unlockedAttachPin,
+        unlocked,
+      });
+
+      let onlyHiddenWallet: boolean | undefined;
+      let onlyStandardWallet: boolean | undefined;
+
+      // main pin unlocked, show select add wallet type dialog
+      if (!unlockedAttachPin && unlocked) {
+        const existsStandardWallet =
+          await backgroundApiProxy.serviceHardware.existsStandardWallet({
+            connectId: device.connectId ?? '',
+          });
+
+        if (existsStandardWallet) {
+          onlyHiddenWallet = true;
+          onlyStandardWallet = false;
+        } else {
+          const walletType = await showSelectAddWalletTypeDialog();
+          if (walletType === 'Standard') {
+            onlyHiddenWallet = false;
+            onlyStandardWallet = true;
+          } else if (walletType === 'Hidden') {
+            onlyHiddenWallet = true;
+            onlyStandardWallet = false;
+          } else {
+            setIsChecking(false);
+            return;
+          }
+        }
+      } else if (unlockedAttachPin && unlocked) {
+        // only add hidden wallet
+        onlyHiddenWallet = true;
+        onlyStandardWallet = false;
+      } else {
+        // device is locked, only add standard wallet
+        // Unknown whether passphrase is enabled
+        onlyHiddenWallet = false;
+        onlyStandardWallet = true;
+      }
+
+      void createHwWallet({
+        device,
+        isFirmwareVerified,
+        features,
+        createHiddenWalletOnly: onlyHiddenWallet,
+        createStandardWalletOnly: onlyStandardWallet,
+      });
+    },
+    [showSelectAddWalletTypeDialog, createHwWallet],
   );
 
   const handleHwWalletCreateFlow = useCallback(
@@ -787,10 +876,9 @@ function ConnectByUSBOrBLE() {
                 return;
               }
 
-              await createHwWallet({
+              await selectAddWalletType({
                 device,
                 isFirmwareVerified: checked,
-                features,
               });
             },
             onClose: () => {
@@ -805,7 +893,7 @@ function ConnectByUSBOrBLE() {
           return;
         }
 
-        await createHwWallet({ device, features });
+        await selectAddWalletType({ device });
       } catch (error) {
         console.error('handleHwWalletCreateFlow error:', error);
         scanDevice();
@@ -814,7 +902,7 @@ function ConnectByUSBOrBLE() {
     },
     [
       connectDevice,
-      createHwWallet,
+      selectAddWalletType,
       fwUpdateActions,
       handleNotActivatedDevicePress,
       intl,

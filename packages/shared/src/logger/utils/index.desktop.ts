@@ -8,7 +8,7 @@ logger.transports.console.level = false;
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {
     // eslint-disable-next-line no-console
-    console.log(msg);
+    // console.log(msg);
   }
   logger.info(msg);
 };

@@ -161,9 +161,16 @@ function HardwareSingletonDialogCmp(
 
     // EnterPin on Device
     if (action === EHardwareUiStateAction.EnterPinOnDevice) {
-      title = intl.formatMessage({
-        id: ETranslations.enter_pin_enter_on_device,
-      });
+      const requestPinType = state?.payload?.requestPinType;
+      if (requestPinType === 'AttachPin') {
+        title = intl.formatMessage({
+          id: ETranslations.global_enter_hidden_wallet_pin_on_device,
+        });
+      } else {
+        title = intl.formatMessage({
+          id: ETranslations.enter_pin_enter_on_device,
+        });
+      }
       content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
     }
 
@@ -238,6 +245,12 @@ function HardwareSingletonDialogCmp(
               hideImmediately,
             });
             await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
+          }}
+          switchOnDeviceAttachPin={async ({ hideImmediately }) => {
+            await saveCachedHiddenWalletOptions({
+              hideImmediately,
+            });
+            await serviceHardwareUI.showEnterAttachPinOnDeviceDialog();
           }}
         />
       );
