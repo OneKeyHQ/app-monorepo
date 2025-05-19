@@ -1,7 +1,7 @@
 import type { IServerNetwork } from '.';
 import type { IAddressValidation } from './address';
 import type { IMarketToken } from './market';
-import type { IAccountToken } from './token';
+import type { IAccountToken, ITokenFiat } from './token';
 
 export enum EUniversalSearchType {
   Address = 'Address',
@@ -27,7 +27,10 @@ export type IUniversalSearchMarketToken = {
 
 export type IUniversalSearchAccountAssets = {
   type: EUniversalSearchType.AccountAssets;
-  payload: IAccountToken;
+  payload: {
+    token: IAccountToken;
+    tokenFiat: ITokenFiat;
+  };
 };
 
 export type IUniversalSearchResultItem =

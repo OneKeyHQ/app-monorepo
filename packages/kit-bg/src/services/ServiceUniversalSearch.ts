@@ -9,6 +9,7 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -17,6 +18,7 @@ import type {
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
+import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { getVaultSettings } from '../vaults/settings';
 
@@ -75,7 +77,10 @@ class ServiceUniversalSearch extends ServiceBase {
       accountId &&
       networkId
         ? this.universalSearchOfAccountAssets({ input, networkId, accountId })
-        : Promise.resolve([]),
+        : Promise.resolve({
+            tokens: [],
+            tokenMap: {} as Record<string, ITokenFiat>,
+          }),
     ]);
     const [
       addressResultSettled,
@@ -105,6 +110,24 @@ class ServiceUniversalSearch extends ServiceBase {
       };
     }
 
+    if (
+      accountAssetsResultSettled.status === 'fulfilled' &&
+      accountAssetsResultSettled.value &&
+      accountAssetsResultSettled.value.tokens.length > 0 &&
+      accountAssetsResultSettled.value.tokenMap
+    ) {
+      result[EUniversalSearchType.AccountAssets] = {
+        items: accountAssetsResultSettled.value.tokens.map((token) => ({
+          type: EUniversalSearchType.AccountAssets,
+          payload: {
+            token,
+            tokenFiat:
+              accountAssetsResultSettled.value.tokenMap[token.$key || ''],
+          },
+        })),
+      };
+    }
+
     return result;
   }
 
@@ -127,8 +150,18 @@ class ServiceUniversalSearch extends ServiceBase {
       flag: 'universal-search',
     });
 
-    
+    const filteredTokens = getFilteredTokenBySearchKey({
+      tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
+      searchKey: input,
+    });
 
+    return {
+      tokens: filteredTokens,
+      tokenMap: {
+        ...r.tokens.map,
+        ...r.smallBalanceTokens.map,
+      },
+    };
   }
 
   private getUniversalValidateNetworkIds = memoizee(
