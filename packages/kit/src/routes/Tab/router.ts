@@ -123,7 +123,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           ? {
               name: ETabRoutes.ReferFriends,
               tabBarIcon: () => 'GiftOutline',
-              translationId: ETranslations.id_refer_a_friend,
+              translationId: ETranslations.sidebar_refer_a_friend,
               tabbarOnPress: toReferFriendsPage,
               children: null,
               trackId: 'global-referral',

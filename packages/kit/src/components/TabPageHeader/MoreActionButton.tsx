@@ -447,7 +447,7 @@ function MoreActionContentGrid() {
         testID: 'my-onekey',
       },
       {
-        title: intl.formatMessage({ id: ETranslations.id_refer_a_friend }),
+        title: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
         lottieSrc:
           themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
         testID: 'referral',

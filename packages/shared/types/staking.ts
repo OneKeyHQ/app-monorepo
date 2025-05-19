@@ -253,6 +253,92 @@ export type IEarnTokenItem = {
   info: IToken;
 };
 
+export interface IEarnText {
+  text: string;
+  color?: string;
+}
+
+interface IEarnButtonAction {
+  text: IEarnText;
+  actionType: 'deposit' | 'withdraw';
+  disabled: boolean;
+}
+
+interface ISubscriptionValue {
+  title: IEarnText;
+  fiatValue: string;
+  formattedValue: string;
+  balance: string;
+}
+
+interface IPortfolio {
+  token: IToken;
+  fiatValue: string;
+  formattedValue: string;
+  title: IEarnText;
+}
+
+interface IRewardToken {
+  token: IToken;
+  title: IEarnText;
+  description: IEarnText;
+}
+
+interface IRewards {
+  title: IEarnText;
+  tooltip: IEarnText;
+  tokens: IRewardToken[];
+}
+
+interface IIcon {
+  icon: string;
+}
+
+export interface IEarnAction {
+  type: 'popup' | 'link';
+  icon?: IIcon;
+  data: any;
+}
+
+interface IProfitCell {
+  title: IEarnText;
+  description: IEarnText;
+  actionIcon?: IEarnAction;
+  tooltip?: IEarnText;
+}
+
+interface IEarnProfit {
+  title: IEarnText;
+  cells: IProfitCell[];
+}
+
+interface IProviderCell {
+  title: IEarnText;
+  description: IEarnText;
+  actionIcon?: IEarnAction;
+}
+
+interface IEarnProvider {
+  title: IEarnText;
+  cells: IProviderCell[];
+}
+
+export interface IEarnFAQItem {
+  question: IEarnText;
+  answer: IEarnText;
+}
+
+export interface IStakeEarnDetail {
+  actions: IEarnAction[];
+  subscriptionValue: ISubscriptionValue;
+  portfolios: IPortfolio[];
+  rewards: IRewards;
+  profit: IEarnProfit;
+  provider: IEarnProvider;
+  alerts: any[];
+  faqs: IEarnFAQItem[];
+}
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;

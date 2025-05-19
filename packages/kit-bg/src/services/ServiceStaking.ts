@@ -47,6 +47,7 @@ import type {
   IGetPortfolioParams,
   IStakeBaseParams,
   IStakeClaimBaseParams,
+  IStakeEarnDetail,
   IStakeHistoriesResponse,
   IStakeHistoryParams,
   IStakeProtocolDetails,
@@ -472,8 +473,9 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     provider: string;
     vault?: string;
+    isV2?: boolean;
   }) {
-    const { networkId, accountId, indexedAccountId, ...rest } = params;
+    const { networkId, accountId, indexedAccountId, isV2, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       accountAddress?: string;
@@ -496,11 +498,29 @@ class ServiceStaking extends ServiceBase {
       requestParams.publicKey = account?.account?.pub;
     }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
-      '/earn/v1/stake-protocol/detail',
+      isV2
+        ? '/earn/v2/stake-protocol/detail'
+        : '/earn/v1/stake-protocol/detail',
       { params: requestParams },
     );
     const result = resp.data.data;
     return result;
+  }
+
+  @backgroundMethod()
+  async getProtocolDetailsV2(params: {
+    accountId?: string;
+    indexedAccountId?: string;
+    networkId: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+  }) {
+    const result = await this.getProtocolDetails({
+      ...params,
+      isV2: true,
+    });
+    return result as unknown as IStakeEarnDetail;
   }
 
   _getProtocolList = memoizee(
