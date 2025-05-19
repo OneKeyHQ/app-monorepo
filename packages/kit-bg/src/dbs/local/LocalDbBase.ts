@@ -1327,8 +1327,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    const syncManagers = this.backgroundApi?.servicePrimeCloudSync.syncManagers;
-    await syncManagers.indexedAccount.txWithSyncFlowOfDBRecordCreating({
+    const syncManager =
+      this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
+
+    const syncItemsInfo = await syncManager.buildExistingSyncItemsInfo({
       tx,
       targets: indexedAccountsToAdd.map((indexedAccount) => ({
         targetId: indexedAccount.id,
@@ -1359,6 +1361,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             target.indexedAccount.name === accountDefaultName,
         );
       },
+    });
+
+    await syncManager.txWithSyncFlowOfDBRecordCreating({
+      tx,
+      newSyncItems: syncItemsInfo.newSyncItems,
+      existingSyncItems: syncItemsInfo.existingSyncItems,
       runDbTxFn: async () => {
         await this.txAddRecords({
           tx,
@@ -1665,18 +1673,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUploadToServer?: boolean;
     fn?: () => Promise<void>;
   }) {
-    // EIndexedDBBucketNames.cloudSync
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      if (items?.length) {
+    if (items?.length) {
+      // EIndexedDBBucketNames.cloudSync
+      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
         await this.txAddAndUpdateSyncItems({
           tx,
           items,
           skipUpdate,
           skipUploadToServer,
         });
-      }
+
+        await fn?.();
+      });
+    } else {
       await fn?.();
-    });
+    }
   }
 
   async txAddAndUpdateSyncItems({
@@ -1823,15 +1834,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const isUsingDefaultName = () =>
       currentWalletToCreate?.name === defaultWalletName;
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      if (!currentWalletToCreate) {
-        return;
-      }
+    const syncManager =
+      this.backgroundApi.servicePrimeCloudSync.syncManagers.wallet;
 
-      await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
-        tx,
+    const { existingSyncItems, newSyncItems } =
+      await syncManager.buildExistingSyncItemsInfo({
         targets: [
           {
             targetId: currentWalletToCreate.id,
@@ -1868,6 +1876,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const b: boolean = isUsingDefaultName();
           return b;
         },
+      });
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      if (!currentWalletToCreate) {
+        return;
+      }
+
+      await syncManager.txWithSyncFlowOfDBRecordCreating({
+        tx,
+        newSyncItems,
+        existingSyncItems,
         runDbTxFn: async () => {
           console.log('add db wallet');
           // add db wallet
@@ -2226,11 +2245,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return Boolean(walletToAdd.name === deviceName);
     };
 
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const syncManager =
+      this.backgroundApi.servicePrimeCloudSync.syncManagers.wallet;
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
-        tx,
+    const { existingSyncItems, newSyncItems } =
+      await syncManager.buildExistingSyncItemsInfo({
         targets: [
           {
             targetId: walletToAdd.id,
@@ -2262,6 +2281,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const b: boolean = isUsingDefaultName();
           return b;
         },
+      });
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await syncManager.txWithSyncFlowOfDBRecordCreating({
+        tx,
+        newSyncItems,
+        existingSyncItems,
         runDbTxFn: async () => {
           if (existingDevice) {
             await this.txUpdateRecords({
@@ -2579,11 +2605,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           walletToAdd.name === hiddenDefaultWalletName,
       );
 
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const syncManager =
+      this.backgroundApi.servicePrimeCloudSync.syncManagers.wallet;
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
-        tx,
+    const { existingSyncItems, newSyncItems } =
+      await syncManager.buildExistingSyncItemsInfo({
         targets: [
           {
             targetId: walletToAdd.id,
@@ -2615,6 +2641,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const b: boolean = isUsingDefaultName();
           return b;
         },
+      });
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await syncManager.txWithSyncFlowOfDBRecordCreating({
+        tx,
+        newSyncItems,
+        existingSyncItems,
 
         runDbTxFn: async () => {
           // add db device
@@ -3272,15 +3305,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const syncManager0000003 =
+      this.backgroundApi.servicePrimeCloudSync.syncManagers.account;
+    const syncManager00001876368297343726534328374655 = syncManager0000003;
 
-    // db transaction: add accounts to wallet
-    const addResults = await this.withTransaction(
-      EIndexedDBBucketNames.account,
-      async (tx) => {
-        const addResults0 =
-          await syncManagers.account.txWithSyncFlowOfDBRecordCreating({
-            tx,
+    const existingSyncItemsInfoResult000025394378263443374653 =
+      await (async () => {
+        return syncManager00001876368297343726534328374655.buildExistingSyncItemsInfo(
+          {
             targets: accounts.map((account) => ({
               targetId: account.id,
               dataType: EPrimeCloudSyncDataType.Account,
@@ -3303,6 +3335,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   target.account.name === accountDefaultName,
               );
             },
+          },
+        );
+      })();
+
+    // db transaction: add accounts to wallet
+    const addResults = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const addResults0 =
+          await syncManager0000003.txWithSyncFlowOfDBRecordCreating({
+            tx,
+            existingSyncItems:
+              existingSyncItemsInfoResult000025394378263443374653.existingSyncItems,
+            newSyncItems:
+              existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
             runDbTxFn: async () => {
               const firstAccount: IDBAccount | undefined = accounts?.[0];
 

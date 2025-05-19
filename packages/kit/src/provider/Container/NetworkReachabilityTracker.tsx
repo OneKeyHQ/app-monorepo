@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 
 import { configureNetInfo, refreshNetInfo } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   EAppEventBusNames,
@@ -14,7 +15,7 @@ const REACHABILITY_REQUEST_TIMEOUT = 10 * 1000;
 
 const checkNetInfo = async (endpoint: string) => {
   configureNetInfo({
-    reachabilityUrl: `${endpoint}/wallet/v1/health`,
+    reachabilityUrl: `${endpoint}${ONEKEY_HEALTH_CHECK_URL}`,
     reachabilityLongTimeout: REACHABILITY_LONG_TIMEOUT,
     reachabilityShortTimeout: REACHABILITY_SHORT_TIMEOUT,
     reachabilityRequestTimeout: REACHABILITY_REQUEST_TIMEOUT,

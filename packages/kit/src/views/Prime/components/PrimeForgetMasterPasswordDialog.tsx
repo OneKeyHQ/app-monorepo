@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Checkbox,
   Dialog,
@@ -7,6 +9,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -16,6 +19,7 @@ export function PrimeForgetMasterPasswordDialog({
   promiseId: number;
 }) {
   const [isChecked, setIsChecked] = useState(false);
+  const intl = useIntl();
 
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
@@ -41,10 +45,10 @@ export function PrimeForgetMasterPasswordDialog({
   return (
     <Stack>
       {/* <Dialog.Icon icon="EmailOutline" /> */}
-      <Dialog.Title>Forget Master Password</Dialog.Title>
+      {/* <Dialog.Title>Forget Master Password</Dialog.Title> */}
       <Dialog.Description>
         <YStack gap="$2">
-          <Stack>
+          {/* <Stack>
             <SizableText>
               We do not store your password and cannot recover it for you.
             </SizableText>
@@ -62,12 +66,19 @@ export function PrimeForgetMasterPasswordDialog({
               If you need more information, please check the master password
               help documentation.
             </SizableText>
+          </Stack> */}
+
+          <Stack>
+            <SizableText>
+              Resetting the backup password will delete existing backup data in
+              the cloud and build a new backup from this device.
+            </SizableText>
           </Stack>
         </YStack>
       </Dialog.Description>
-      <Stack pt="$4">
+      <Stack pt="$2">
         <Checkbox
-          label="I confirm that I have forgotten my password and want to delete all cloud data."
+          label="I understand this will permanently delete my cloud backup data"
           value={isChecked}
           onChange={() => {
             setIsChecked(!isChecked);
@@ -76,9 +87,12 @@ export function PrimeForgetMasterPasswordDialog({
       </Stack>
       <Dialog.Footer
         showCancelButton
-        onConfirmText="Delete Cloud Data"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_delete,
+        })}
         confirmButtonProps={{
           disabled: !isChecked,
+          variant: 'destructive',
         }}
         onConfirm={async ({ preventClose }) => {
           await submit({ preventClose });

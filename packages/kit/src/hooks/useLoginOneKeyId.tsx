@@ -7,6 +7,7 @@ import {
   Dialog,
   OTPInput,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -30,6 +31,9 @@ const PrimeLoginEmailDialogV2 = LazyLoadPage(
     ),
   0,
   true,
+  <Stack>
+    <Spinner size="large" />
+  </Stack>,
 );
 
 const COUNTDOWN_TIME = 60;

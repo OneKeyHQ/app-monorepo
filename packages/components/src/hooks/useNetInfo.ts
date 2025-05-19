@@ -5,6 +5,7 @@ import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from './useVisibilityChange';
+import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 export interface IReachabilityConfiguration {
   reachabilityUrl: string;
@@ -146,7 +147,7 @@ class NetInfo {
 }
 
 export const globalNetInfo = new NetInfo({
-  reachabilityUrl: '/wallet/v1/health',
+  reachabilityUrl: ONEKEY_HEALTH_CHECK_URL,
 });
 
 export const configureNetInfo = (configuration: IReachabilityConfiguration) => {

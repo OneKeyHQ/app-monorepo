@@ -10,6 +10,7 @@ import {
   IconButton,
   Page,
   SizableText,
+  Spinner,
   Stack,
   Theme,
   YStack,
@@ -90,8 +91,14 @@ function PrimeTerms() {
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const { user, isLoggedIn, isPrimeSubscriptionActive, logout } =
-    usePrimeAuthV2();
+  // const isReady = false;
+  const {
+    isReady,
+    user,
+    isLoggedIn,
+    isPrimeSubscriptionActive,
+    // logout,
+  } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
@@ -169,7 +176,7 @@ export default function PrimeDashboard() {
               {user?.isLoggedIn ? <PrimeUserInfo /> : null}
             </Stack>
 
-            <PrimeBenefitsList />
+            {isReady ? <PrimeBenefitsList /> : <Spinner my="$10" />}
 
             {platformEnv.isDev ? (
               <PrimeDebugPanel
@@ -195,7 +202,7 @@ export default function PrimeDashboard() {
                 flexDirection: 'column',
               }}
             >
-              <PrimeTerms />
+              {shouldShowConfirmButton ? <PrimeTerms /> : null}
 
               <Page.FooterActions
                 p="$0"

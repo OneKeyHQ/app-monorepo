@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Stack } from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeLoginDialogAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -17,6 +20,7 @@ import { PrimeDeviceLogoutAlertDialog } from '../../../views/Prime/components/Pr
 import { PrimeForgetMasterPasswordDialog } from '../../../views/Prime/components/PrimeForgetMasterPasswordDialog';
 import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeLoginPasswordDialog';
 import { PrimeMasterPasswordInvalidDialog } from '../../../views/Prime/components/PrimeMasterPasswordInvalidDialog';
+import { PrimeSetMasterPasswordHintDialog } from '../../../views/Prime/components/PrimeSetMasterPasswordHintDialog';
 
 // TODO rename to PrimeDialogContainer
 export function PrimeLoginContainer() {
@@ -29,19 +33,13 @@ export function PrimeLoginContainer() {
     },
   ] = usePrimeLoginDialogAtom();
   const navigation = useAppNavigation();
-
+  const intl = useIntl();
   const passwordDataRef = useRef<IPrimeLoginDialogAtomPasswordData | undefined>(
     undefined,
   );
   passwordDataRef.current = promptPrimeLoginPasswordDialog;
 
   const emailDialogRef = useRef<IDialogInstance | undefined>(undefined);
-  const passwordDialogRef = useRef<IDialogInstance | undefined>(undefined);
-  const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
-  const forgetMasterPasswordDialogRef = useRef<IDialogInstance | undefined>(
-    undefined,
-  );
-
   useEffect(() => {
     void (async () => {
       if (promptPrimeLoginEmailDialog) {
@@ -64,36 +62,110 @@ export function PrimeLoginContainer() {
     })();
   }, [promptPrimeLoginEmailDialog]);
 
+  const passwordDialogRef = useRef<IDialogInstance | undefined>(undefined);
+  const passwordHintDialogRef = useRef<IDialogInstance | undefined>(undefined);
   useEffect(() => {
     void (async () => {
       if (promptPrimeLoginPasswordDialog?.promiseId) {
         await passwordDialogRef.current?.close();
-        passwordDialogRef.current = Dialog.show({
-          dismissOnOverlayPress: false,
-          renderContent: (
-            <PrimeLoginPasswordDialog
-              data={passwordDataRef.current}
-              promiseId={promptPrimeLoginPasswordDialog?.promiseId}
-            />
-          ),
-          onClose: async () => {
-            await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-              promiseId: promptPrimeLoginPasswordDialog?.promiseId,
-              dialogType: 'promptPrimeLoginPasswordDialog',
+        await passwordHintDialogRef.current?.close();
+        const data = passwordDataRef.current;
+
+        const showPasswordDialog = () => {
+          let title = 'Welcome back';
+          let description = `Manage your OneKey ID <email>${
+            data?.email || ''
+          }</email>`;
+          if (data?.isRegister) {
+            title = intl.formatMessage({
+              id: ETranslations.prime_set_up_backup_password,
             });
-          },
-        });
+            description = '';
+
+            if (data?.isChangeMasterPassword) {
+              title = intl.formatMessage({
+                id: ETranslations.prime_change_backup_password,
+              });
+              description = '';
+            }
+            // description = 'Please enter a password to secure your sync data';
+            // description = `<email>${email}</email> is not registered yet, we will create a new account for you.`;
+          }
+
+          if (data?.isVerifyMasterPassword && !data?.isRegister) {
+            title = intl.formatMessage({
+              id: ETranslations.prime_verify_backup_password,
+            });
+            description = '';
+          }
+
+          passwordDialogRef.current = Dialog.show({
+            dismissOnOverlayPress: !data?.isRegister,
+            title,
+            // description,
+            renderContent: (
+              <PrimeLoginPasswordDialog
+                data={data}
+                promiseId={promptPrimeLoginPasswordDialog?.promiseId}
+                richTextDescription={description}
+              />
+            ),
+            onClose: async () => {
+              await backgroundApiProxy.servicePrime.cancelPrimeLogin({
+                promiseId: promptPrimeLoginPasswordDialog?.promiseId,
+                dialogType: 'promptPrimeLoginPasswordDialog',
+              });
+            },
+          });
+        };
+
+        if (data?.isRegister && !data?.isChangeMasterPassword) {
+          let shouldRejectOnClose = true;
+          passwordHintDialogRef.current = Dialog.show({
+            icon: 'ShieldKeyholeOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_set_up_backup_password,
+            }),
+            renderContent: (
+              <PrimeSetMasterPasswordHintDialog
+                onContinue={() => {
+                  shouldRejectOnClose = false;
+                  showPasswordDialog();
+                }}
+              />
+            ),
+            onClose: async () => {
+              if (!shouldRejectOnClose) {
+                return;
+              }
+              await backgroundApiProxy.servicePrime.cancelPrimeLogin({
+                promiseId: promptPrimeLoginPasswordDialog?.promiseId,
+                dialogType: 'promptPrimeLoginPasswordDialog',
+              });
+            },
+          });
+        } else {
+          showPasswordDialog();
+        }
       } else {
         await passwordDialogRef.current?.close();
+        await passwordHintDialogRef.current?.close();
       }
     })();
-  }, [promptPrimeLoginPasswordDialog?.promiseId]);
+  }, [intl, promptPrimeLoginPasswordDialog?.promiseId]);
 
+  const forgetMasterPasswordDialogRef = useRef<IDialogInstance | undefined>(
+    undefined,
+  );
   useEffect(() => {
     void (async () => {
       if (promptForgetMasterPasswordDialog?.promiseId) {
         await forgetMasterPasswordDialogRef.current?.close();
+
         forgetMasterPasswordDialogRef.current = Dialog.show({
+          icon: 'ErrorOutline',
+          tone: 'destructive',
+          title: 'Reset backup password',
           renderContent: (
             <PrimeForgetMasterPasswordDialog
               promiseId={promptForgetMasterPasswordDialog?.promiseId}
@@ -112,6 +184,7 @@ export function PrimeLoginContainer() {
     })();
   }, [promptForgetMasterPasswordDialog?.promiseId]);
 
+  const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
   useEffect(() => {
     void (async () => {
       if (promptPrimeLoginEmailCodeDialog?.promiseId) {

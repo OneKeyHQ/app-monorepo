@@ -2,6 +2,7 @@ import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecor
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../dbs/local/localDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
@@ -37,6 +38,7 @@ class ServiceBootstrap extends ServiceBase {
     void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
     void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
     void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
+    void systemTimeUtils.startServerTimeInterval();
   }
 
   async saveDevModeToSyncStorage() {

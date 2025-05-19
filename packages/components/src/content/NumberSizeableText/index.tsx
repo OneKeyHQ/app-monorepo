@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { isString } from 'lodash';
+
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -23,13 +25,14 @@ export function NumberSizeableText({
   hideValue,
   ...props
 }: INumberSizeableTextProps) {
-  const result = useMemo(
-    () =>
-      ['string', 'number'].includes(typeof children)
-        ? numberFormat(String(children), { formatter, formatterOptions }, true)
-        : '',
-    [formatter, formatterOptions, children],
-  );
+  const result = useMemo(() => {
+    if (isString(children) && ['--', ' -- ', ' - ', '-'].includes(children)) {
+      return children;
+    }
+    return ['string', 'number'].includes(typeof children)
+      ? numberFormat(String(children), { formatter, formatterOptions }, true)
+      : '';
+  }, [formatter, formatterOptions, children]);
 
   const scriptFontSize = useMemo(
     () =>
