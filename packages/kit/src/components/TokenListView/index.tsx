@@ -2,7 +2,6 @@ import type { ComponentProps, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
-  IListViewProps,
   ListView,
   NestedScrollView,
   SizableText,

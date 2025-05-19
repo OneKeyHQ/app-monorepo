@@ -562,7 +562,7 @@ const useIsShowWalletXfpStatus = () => {
 
 // TODO: Handle potential duplicate update detection requests
 // This component may trigger multiple update checks simultaneously
-// Consider implementing request deduplication or throttling
+// Deduplicate or throttle API requests.
 // to prevent unnecessary API calls and improve performance
 const useIsShowUpgradeDot = () => {
   const appUpdateInfo = useAppUpdateInfo(true);

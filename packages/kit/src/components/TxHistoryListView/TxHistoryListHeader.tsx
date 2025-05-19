@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   ESwitchSize,
   IconButton,
   Popover,

@@ -1,5 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 module.exports = [
+  'Algodv2',
+  'Deduplicate',
   '_j_msgid',
   '020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68',
   '03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1',
@@ -348,6 +350,7 @@ module.exports = [
   'ibc',
   'Ibc',
   'IBip39',
+  'Iish',
   'Icahost',
   'Icloud',
   'ico',

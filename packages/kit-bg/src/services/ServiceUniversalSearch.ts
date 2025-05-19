@@ -12,7 +12,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
-  IUniversalSearchMarketTokenResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
