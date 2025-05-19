@@ -17,6 +17,10 @@ const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
 
+const ProtocolDetailsV2 = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetailsV2'),
+);
+
 const Withdraw = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/Withdraw'),
 );
@@ -62,6 +66,12 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     component: ProtocolDetails,
     exact: true,
     rewrite: '/earn/staking/:symbol/:provider',
+  },
+  {
+    name: EModalStakingRoutes.ProtocolDetailsV2,
+    component: ProtocolDetailsV2,
+    exact: true,
+    rewrite: '/earn/staking/v2/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.Stake,
