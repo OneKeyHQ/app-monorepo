@@ -33,7 +33,7 @@ export function SwapPanel() {
     networkId,
   } = swapPanel;
 
-  const { isLoading, speedConfig, supportSpeedSwap, provider } =
+  const { isLoading, speedConfig, supportSpeedSwap, provider, defaultTokens } =
     useSpeedSwapInit(networkId ?? '');
 
   const {
@@ -57,7 +57,13 @@ export function SwapPanel() {
         value={amount}
         onChange={handleAmountChange}
         selectedToken={selectedTokenForAmountInput}
-        selectableTokens={selectableTokensForAmountInput}
+        selectableTokens={defaultTokens.map((token) => ({
+          label: token.symbol,
+          value: token.symbol,
+          price: 1,
+          decimals: token.decimals,
+          logoURI: token.logoURI,
+        }))}
         onTokenChange={handleInputTokenChange}
       />
 
