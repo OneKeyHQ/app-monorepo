@@ -131,16 +131,9 @@ function PortfolioSection({
           >
             <XStack alignItems="center" gap="$1.5">
               <Token size="sm" tokenImageUri={item.token.logoURI} />
-              <NumberSizeableText
-                size="$bodyLgMedium"
-                formatter="balance"
-                formatterOptions={{ tokenSymbol: item.token.symbol }}
-              >
-                {item.formattedValue}
-              </NumberSizeableText>
-              <XStack gap="$1" ai="center">
-                <SizableText size="$bodyLg">{item.title.text}</SizableText>
-              </XStack>
+              <SizableText size="$bodyLgMedium" color={item.title.color}>
+                {item.title.text}
+              </SizableText>
               {/* {tooltip || renderTooltipContent ? (
                 <Popover
                   placement="top"
@@ -164,11 +157,14 @@ function PortfolioSection({
                   }
                 />
               ) : null} */}
-              {/* {badgeText ? (
-                <Badge badgeType={badgeType}>
-                  <Badge.Text>{badgeText}</Badge.Text>
+              {item.badge ? (
+                <Badge
+                  badgeType={item.badge.badgeType}
+                  badgeSize={item.badge.badgeSize}
+                >
+                  <Badge.Text>{item.badge.text.text}</Badge.Text>
                 </Badge>
-              ) : null} */}
+              ) : null}
             </XStack>
             {/* {buttonText && onPress ? (
               <Button
