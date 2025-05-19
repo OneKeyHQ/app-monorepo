@@ -7,6 +7,8 @@ import {
   Badge,
   Button,
   Divider,
+  Icon,
+  IconButton,
   NumberSizeableText,
   Page,
   Popover,
@@ -31,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
@@ -221,6 +224,57 @@ function ProviderSection({
             tooltip={cell?.tooltip}
           />
         ))}
+      </XStack>
+    </YStack>
+  ) : null;
+}
+
+function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
+  const intl = useIntl();
+  return risk ? (
+    <YStack gap="$6">
+      <SizableText size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.global_risk })}
+      </SizableText>
+      <XStack ai="center" gap="$3">
+        <YStack flex={1} gap="$2">
+          <XStack ai="center" gap="$2">
+            <XStack
+              ai="center"
+              jc="center"
+              w="$6"
+              h="$6"
+              bg="$bgCaution"
+              borderRadius="$1"
+            >
+              <Icon
+                name={risk.icon.icon}
+                size="$4"
+                color={risk.icon.color || '$iconCaution'}
+              />
+            </XStack>
+            <SizableText size="$bodyMdMedium" color={risk.title.color}>
+              {risk.title.text}
+            </SizableText>
+          </XStack>
+          <SizableText
+            size="$bodyMd"
+            color={risk.description.color || '$textSubdued'}
+          >
+            {risk.description.text}
+          </SizableText>
+        </YStack>
+        {risk?.actionButton?.actionType === 'link' ? (
+          <IconButton
+            icon="OpenOutline"
+            color="$iconSubdued"
+            size="small"
+            bg="transparent"
+            onPress={() => {
+              openUrlExternal(risk?.actionButton?.text.text);
+            }}
+          />
+        ) : null}
       </XStack>
     </YStack>
   ) : null;
