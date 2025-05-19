@@ -6,9 +6,16 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  getFilteredTokenBySearchKey,
+  getMergedDeriveTokenData,
+  sortTokensByFiatValue,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -16,6 +23,7 @@ import type {
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { getVaultSettings } from '../vaults/settings';
 
@@ -54,11 +62,19 @@ class ServiceUniversalSearch extends ServiceBase {
   async universalSearch({
     input,
     networkId,
+    accountId,
+    indexedAccountId,
     searchTypes,
+    tokenListCache,
+    tokenListCacheMap,
   }: {
     input: string;
     networkId?: string;
+    accountId?: string;
+    indexedAccountId?: string;
     searchTypes: EUniversalSearchType[];
+    tokenListCache?: IAccountToken[];
+    tokenListCacheMap?: Record<string, ITokenFiat>;
   }): Promise<IUniversalSearchBatchResult> {
     const result: IUniversalSearchBatchResult = {};
     const promiseResults = await Promise.allSettled([
@@ -68,8 +84,28 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
         : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.AccountAssets) &&
+      accountId &&
+      networkId &&
+      indexedAccountId
+        ? this.universalSearchOfAccountAssets({
+            input,
+            networkId,
+            accountId,
+            indexedAccountId,
+            tokenListCache,
+            tokenListCacheMap,
+          })
+        : Promise.resolve({
+            tokens: [],
+            tokenMap: {} as Record<string, ITokenFiat>,
+          }),
     ]);
-    const [addressResultSettled, marketTokenResultSettled] = promiseResults;
+    const [
+      addressResultSettled,
+      marketTokenResultSettled,
+      accountAssetsResultSettled,
+    ] = promiseResults;
 
     if (
       addressResultSettled.status === 'fulfilled' &&
@@ -93,11 +129,185 @@ class ServiceUniversalSearch extends ServiceBase {
       };
     }
 
+    if (
+      accountAssetsResultSettled.status === 'fulfilled' &&
+      accountAssetsResultSettled.value &&
+      accountAssetsResultSettled.value.tokens.length > 0 &&
+      accountAssetsResultSettled.value.tokenMap
+    ) {
+      result[EUniversalSearchType.AccountAssets] = {
+        items: accountAssetsResultSettled.value.tokens.map((token) => ({
+          type: EUniversalSearchType.AccountAssets,
+          payload: {
+            token,
+            tokenFiat:
+              accountAssetsResultSettled.value.tokenMap[token.$key || ''],
+          },
+        })),
+      };
+    }
+
     return result;
   }
 
   async universalSearchOfMarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchToken(query);
+  }
+
+  async universalSearchOfAccountAssets({
+    input,
+    networkId,
+    accountId,
+    indexedAccountId,
+    tokenListCache,
+    tokenListCacheMap,
+  }: {
+    input: string;
+    networkId: string;
+    accountId: string;
+    indexedAccountId: string;
+    tokenListCache?: IAccountToken[];
+    tokenListCacheMap?: Record<string, ITokenFiat>;
+  }) {
+    if (tokenListCache && tokenListCacheMap) {
+      return {
+        tokens: sortTokensByFiatValue({
+          tokens: getFilteredTokenBySearchKey({
+            tokens: tokenListCache,
+            searchKey: input,
+          }),
+          map: tokenListCacheMap,
+        }),
+        tokenMap: tokenListCacheMap,
+      };
+    }
+
+    await this.backgroundApi.serviceToken.abortFetchAccountTokens();
+
+    const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+
+    let tokens: IAccountToken[] = [];
+    let tokenMap: Record<string, ITokenFiat> = {};
+
+    if (isAllNetwork) {
+      const customTokensRawData =
+        (await this.backgroundApi.simpleDb.customTokens.getRawData()) ??
+        undefined;
+      const { accountsInfo } =
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+          accountId,
+          networkId,
+          deriveType: undefined,
+          nftEnabledOnly: false,
+          excludeTestNetwork: true,
+          networksEnabledOnly: !accountUtils.isOthersAccount({
+            accountId,
+          }),
+        });
+
+      const allNetworks = accountsInfo;
+      const requests = allNetworks.map((networkDataString) => {
+        return this.backgroundApi.serviceToken.fetchAccountTokens({
+          dbAccount: networkDataString.dbAccount,
+          networkId: networkDataString.networkId,
+          accountId: networkDataString.accountId,
+          flag: 'universal-search',
+          isAllNetworks: true,
+          isManualRefresh: false,
+          mergeTokens: true,
+          allNetworksAccountId: accountId,
+          allNetworksNetworkId: networkId,
+          saveToLocal: true,
+          customTokensRawData,
+        });
+      });
+
+      try {
+        const resp = (await promiseAllSettledEnhanced(requests)).filter(
+          Boolean,
+        );
+
+        const { allTokenList, allTokenListMap } = getMergedDeriveTokenData({
+          data: resp,
+          mergeDeriveAssetsEnabled: true,
+        });
+
+        tokens = allTokenList.tokens;
+        tokenMap = allTokenListMap;
+      } catch (e) {
+        console.error(e);
+        await this.backgroundApi.serviceToken.abortFetchAccountTokens();
+        return {
+          tokens,
+          tokenMap,
+        };
+      }
+
+      return {
+        tokens: sortTokensByFiatValue({
+          tokens: getFilteredTokenBySearchKey({
+            tokens,
+            searchKey: input,
+          }),
+          map: tokenMap,
+        }),
+        tokenMap,
+      };
+    }
+
+    const vaultSettings = await getVaultSettings({ networkId });
+    if (vaultSettings.mergeDeriveAssetsEnabled) {
+      const { networkAccounts } =
+        await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId,
+            indexedAccountId,
+            excludeEmptyAccount: true,
+          },
+        );
+
+      const resp = await Promise.all(
+        networkAccounts.map((networkAccount) =>
+          this.backgroundApi.serviceToken.fetchAccountTokens({
+            accountId: networkAccount.account?.id ?? '',
+            mergeTokens: true,
+            networkId,
+            flag: 'universal-search',
+            saveToLocal: true,
+          }),
+        ),
+      );
+
+      const { allTokenList, allTokenListMap } = getMergedDeriveTokenData({
+        data: resp,
+        mergeDeriveAssetsEnabled: true,
+      });
+
+      tokens = allTokenList.tokens;
+      tokenMap = allTokenListMap;
+    } else {
+      const r = await this.backgroundApi.serviceToken.fetchAccountTokens({
+        accountId,
+        mergeTokens: true,
+        networkId,
+        flag: 'universal-search',
+        saveToLocal: true,
+      });
+
+      tokens = r.allTokens?.data ?? [];
+      tokenMap = r.allTokens?.map ?? ({} as Record<string, ITokenFiat>);
+    }
+
+    return {
+      tokens: sortTokensByFiatValue({
+        tokens: getFilteredTokenBySearchKey({
+          tokens,
+          searchKey: input,
+        }),
+        map: tokenMap,
+      }),
+      tokenMap,
+    };
   }
 
   private getUniversalValidateNetworkIds = memoizee(

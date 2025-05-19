@@ -345,6 +345,8 @@ function TokenListContainer(_props: ITabPageProps) {
           refreshAllTokenList({
             keys: r.allTokens?.keys,
             tokens: r.allTokens?.data,
+            accountId: account?.id,
+            networkId: network?.id,
           });
           refreshAllTokenListMap({
             tokens: r.allTokens.map,
@@ -577,6 +579,8 @@ function TokenListContainer(_props: ITabPageProps) {
             map: r.allTokens.map,
             merge: true,
             mergeDerive: mergeDeriveAssetsEnabled,
+            accountId: account?.id,
+            networkId: network?.id,
           });
         }
 
@@ -612,6 +616,8 @@ function TokenListContainer(_props: ITabPageProps) {
     refreshAllTokenList({
       tokens: emptyTokens.allTokens.data,
       keys: emptyTokens.allTokens.keys,
+      accountId: account?.id,
+      networkId: network?.id,
     });
     refreshAllTokenListMap({
       tokens: emptyTokens.allTokens.map,
@@ -642,6 +648,8 @@ function TokenListContainer(_props: ITabPageProps) {
       tokens: emptyTokens.riskTokens.map,
     });
   }, [
+    account?.id,
+    network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshRiskyTokenList,
@@ -824,6 +832,8 @@ function TokenListContainer(_props: ITabPageProps) {
         map: tokenListMap,
         merge: true,
         mergeDerive: true,
+        accountId: account?.id,
+        networkId: network?.id,
       });
 
       if (!isEmpty(tokenList) || !isEmpty(riskyTokenList)) {
@@ -856,6 +866,7 @@ function TokenListContainer(_props: ITabPageProps) {
     [
       account?.createAtNetwork,
       account?.id,
+      network?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenList,
@@ -1105,6 +1116,8 @@ function TokenListContainer(_props: ITabPageProps) {
       refreshAllTokenList({
         keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
         tokens: [...tokenList.tokens, ...riskyTokenList.riskyTokens],
+        accountId: account?.id,
+        networkId: network?.id,
       });
       refreshAllTokenListMap({
         tokens: {
@@ -1117,6 +1130,7 @@ function TokenListContainer(_props: ITabPageProps) {
     account?.createAtNetwork,
     account?.id,
     allNetworksResult,
+    network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshRiskyTokenList,
@@ -1307,6 +1321,8 @@ function TokenListContainer(_props: ITabPageProps) {
         refreshAllTokenList({
           keys: `${accountId}_${networkId}_local`,
           tokens: [...tokenList, ...smallBalanceTokenList, ...riskyTokenList],
+          accountId: account?.id,
+          networkId: network?.id,
         });
         refreshAllTokenListMap({
           tokens: tokenListMap,
