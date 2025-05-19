@@ -155,7 +155,7 @@ function AssetProtocolListContent({
         network: item.network.networkId,
         stakeProvider: item.provider.name,
       });
-      appNavigation.navigate(EModalStakingRoutes.ProtocolDetails, {
+      appNavigation.navigate(EModalStakingRoutes.ProtocolDetailsV2, {
         accountId,
         networkId: item.network.networkId,
         indexedAccountId,

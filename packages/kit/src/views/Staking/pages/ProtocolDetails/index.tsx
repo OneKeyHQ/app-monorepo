@@ -45,7 +45,7 @@ import { useHandleClaim } from './useHandleClaim';
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.ProtocolDetails
+    EModalStakingRoutes.ProtocolDetailsV2
   >();
   const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
     route.params;
