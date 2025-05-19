@@ -24,7 +24,7 @@ export function useSpeedSwapInit(networkId: string) {
   );
 
   return {
-    isLoading,
+    isLoading: !!isLoading,
     speedConfig: result?.speedConfig,
     supportSpeedSwap: result?.supportSpeedSwap,
     provider: result?.provider,

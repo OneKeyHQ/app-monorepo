@@ -1,5 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useAtom } from 'jotai';
+
+import { networkIdAtom } from '../atoms/swapPanelAtoms';
+
 export type ITradeType = 'buy' | 'sell';
 
 // Mock data - replace with actual data fetching and state management
@@ -14,11 +18,11 @@ export function useSwapPanel() {
   const [antiMEV, setAntiMEV] = useState(false);
   const [inputTokenSymbol, setInputTokenSymbol] = useState(
     MOCK_TOKENS[0].value,
-  ); // Default to SOL for buying
+  );
   const [outputTokenSymbol, setOutputTokenSymbol] = useState(
     MOCK_TOKENS[1].value,
-  ); // Default to USDC for buying
-  const [showUnsupportedSwapWarning] = useState(true);
+  );
+  const [networkId, setNetworkId] = useAtom(networkIdAtom);
 
   const handleAmountChange = useCallback((newAmount: string) => {
     setAmount(newAmount);
@@ -111,6 +115,8 @@ export function useSwapPanel() {
     amount,
     tradeType,
     antiMEV,
+    networkId,
+    setNetworkId,
     handleAmountChange,
     handleTradeTypeChange,
     handleAntiMEVToggle,
@@ -133,6 +139,5 @@ export function useSwapPanel() {
     inputTokenSymbol,
     outputTokenSymbol,
     mockTokens: MOCK_TOKENS, // exposing for now
-    showUnsupportedSwapWarning,
   };
 }

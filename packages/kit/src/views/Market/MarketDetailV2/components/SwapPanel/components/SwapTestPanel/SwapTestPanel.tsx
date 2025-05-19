@@ -4,6 +4,7 @@ import { Button, Select, SizableText, Stack } from '@onekeyhq/components';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
 import { useSpeedSwapInit } from '../../hooks/useSpeedSwapInit';
+import { useSwapPanel } from '../../hooks/useSwapPanel';
 
 const testNetworks = getPresetNetworks()
   .sort((a, b) => a.name.localeCompare(b.name))
@@ -13,9 +14,10 @@ const testNetworks = getPresetNetworks()
   }));
 
 export function SwapTestPanel() {
-  const [selectedTestNetworkId, setSelectedTestNetworkId] = useState<
-    string | undefined
-  >(() => testNetworks?.[0]?.value);
+  const {
+    networkId: selectedTestNetworkId,
+    setNetworkId: setSelectedTestNetworkId,
+  } = useSwapPanel();
 
   // Only call useSpeedSwapInit if a network is selected
   const speedSwapProps = useSpeedSwapInit(

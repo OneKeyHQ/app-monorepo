@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -28,11 +29,11 @@ export function SwapPanel() {
     totalValue,
     balance,
     balanceToken,
-    showUnsupportedSwapWarning,
+    networkId,
   } = useSwapPanel();
 
   const { isLoading, speedConfig, supportSpeedSwap, provider } =
-    useSpeedSwapInit('evm--1');
+    useSpeedSwapInit(networkId ?? '');
 
   const {
     speedSwapBuildTx,
@@ -40,7 +41,7 @@ export function SwapPanel() {
     cancelSpeedSwapBuildTx,
     handleSpeedSwapBuildTxSuccess,
   } = useSpeedSwapActions({
-    networkId: 'evm--1',
+    networkId: networkId ?? '',
     accountId: '',
   });
 
@@ -63,10 +64,11 @@ export function SwapPanel() {
       <BalanceDisplay balance={balance} token={balanceToken} />
 
       {/* Unsupported swap warning */}
-      {showUnsupportedSwapWarning ? <UnsupportedSwapWarning /> : null}
+      {supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
 
       {/* Buy button */}
       <ActionButton
+        loading={isLoading}
         tradeType={tradeType}
         amount={amount}
         token={currentExecutingToken}
