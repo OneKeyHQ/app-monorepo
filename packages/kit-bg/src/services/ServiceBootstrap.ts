@@ -17,21 +17,33 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await localDb.readyDb;
-    await this.backgroundApi.serviceSetting.initSystemLocale();
-    await Promise.all([
-      this.backgroundApi.serviceSetting.refreshLocaleMessages(),
-      this.backgroundApi.walletConnect.initializeOnStart(),
-      this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
-      this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
-      this.backgroundApi.serviceSetting.fetchReviewControl(),
-      this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
-      this.backgroundApi.serviceNotification.init(),
-      this.backgroundApi.serviceReferralCode.fetchPostConfig(),
-    ]);
+    try {
+      await this.backgroundApi.serviceSetting.initSystemLocale();
+    } catch (error) {
+      console.error(error);
+    }
+    try {
+      await Promise.all([
+        this.backgroundApi.serviceSetting.refreshLocaleMessages(),
+        this.backgroundApi.walletConnect.initializeOnStart(),
+        this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
+        this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
+        this.backgroundApi.serviceSetting.fetchReviewControl(),
+        this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
+        this.backgroundApi.serviceNotification.init(),
+        this.backgroundApi.serviceReferralCode.fetchPostConfig(),
+      ]);
+    } catch (error) {
+      console.error(error);
+    }
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
     if (platformEnv.isExtension) {
-      await this.backgroundApi.serviceDevSetting.initAnalytics();
+      try {
+        await this.backgroundApi.serviceDevSetting.initAnalytics();
+      } catch (error) {
+        console.error(error);
+      }
     }
     void this.saveDevModeToSyncStorage();
     void this.backgroundApi.serviceHardware.init();
