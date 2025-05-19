@@ -123,6 +123,7 @@ export interface ISwapTokenBase {
   decimals: number;
   name?: string;
   logoURI?: string;
+  speedSwapDefaultAmount?: number[];
 }
 
 export interface ISwapToken extends ISwapTokenBase {
