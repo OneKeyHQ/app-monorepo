@@ -93,6 +93,7 @@ function DialogFrame({
   renderContent,
   showFooter = true,
   footerProps,
+  contentContainerProps,
   onConfirm,
   onConfirmText,
   onCancel,
@@ -179,6 +180,7 @@ function DialogFrame({
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
+        {...contentContainerProps}
       >
         {renderContent}
       </Content>
@@ -625,7 +627,7 @@ export function DialogLoadingView({
 }
 
 export type IDialogLoadingProps = {
-  title: string;
+  title?: string;
   showExitButton?: boolean;
 };
 function dialogLoading(props: IDialogLoadingProps) {

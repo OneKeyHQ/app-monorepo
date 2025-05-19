@@ -112,12 +112,10 @@ class ServiceCustomRpc extends ServiceBase {
         isDeleted,
       });
     }
-    if (syncItems?.length) {
-      await this.backgroundApi.localDb.addAndUpdateSyncItems({
-        items: syncItems,
-        fn,
-      });
-    }
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn,
+    });
   }
 
   async withCustomNetworkCloudSync({
@@ -140,12 +138,10 @@ class ServiceCustomRpc extends ServiceBase {
         isDeleted,
       });
     }
-    if (syncItems?.length) {
-      await this.backgroundApi.localDb.addAndUpdateSyncItems({
-        items: syncItems,
-        fn,
-      });
-    }
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn,
+    });
   }
 
   /*= ===============================

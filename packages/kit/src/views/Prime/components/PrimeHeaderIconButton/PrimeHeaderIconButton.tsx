@@ -33,19 +33,13 @@ export function PrimeHeaderIconButton({
     if (onPress) {
       await onPress();
     }
-    if (!isReady) {
-      Toast.message({
-        title: 'Prime not ready.',
-      });
-      return;
-    }
 
     navigation.pushFullModal(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeDashboard,
     });
 
     setIsHover(false);
-  }, [onPress, isReady, navigation]);
+  }, [onPress, navigation]);
 
   return (
     <Stack testID="headerRightPrimeButton">

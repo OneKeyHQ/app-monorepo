@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
+import { useResetApp } from '../../../views/Setting/hooks';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
@@ -287,6 +288,8 @@ const PasswordVerifyContainer = ({
     ],
   );
 
+  const resetApp = useResetApp({ silentReset: true });
+
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
       if (
@@ -344,27 +347,7 @@ const PasswordVerifyContainer = ({
             defaultLogger.setting.page.resetApp({
               reason: 'WrongPasscodeMaxAttempts',
             });
-
-            // reset app
-            try {
-              // disable setInterval on ext popup
-              if (platformEnv.isExtensionUiPopup) {
-                resetUtils.startResetting();
-              }
-              try {
-                await logout();
-              } catch (error) {
-                console.error('failed to logout', error);
-              }
-              await backgroundApiProxy.serviceApp.resetApp();
-            } catch (error) {
-              console.error('failed to reset app with error', error);
-            } finally {
-              // able setInterval on ext popup
-              if (platformEnv.isExtensionUiPopup) {
-                resetUtils.endResetting();
-              }
-            }
+            await resetApp();
           } else if (
             nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
             !skipProtection
@@ -402,11 +385,11 @@ const PasswordVerifyContainer = ({
       enablePasswordErrorProtection,
       intl,
       isLock,
-      logout,
       onVerifyRes,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
+      resetApp,
       resetPasswordErrorAttempts,
       setPasswordAtom,
       setPasswordErrorProtectionTimeMinutesSurplus,

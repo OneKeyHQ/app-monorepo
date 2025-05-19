@@ -11,13 +11,14 @@ const delayImport = (
 const LazyLoad = (
   factory: () => Promise<{ default: any }>,
   delayMs?: number,
+  fallback?: React.ReactNode,
 ) => {
   const LazyLoadComponent = lazy(
     delayMs && delayMs > 0 ? () => delayImport(factory, delayMs) : factory,
   );
   function LazyLoadContainer(props: any) {
     return (
-      <Suspense>
+      <Suspense fallback={fallback}>
         <LazyLoadComponent {...props} />
       </Suspense>
     );

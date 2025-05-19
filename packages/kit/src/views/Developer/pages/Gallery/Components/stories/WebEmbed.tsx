@@ -70,8 +70,19 @@ export function WebEmbedDevConfig() {
           alert(JSON.stringify(result));
         }}
       >
-        Test RPC
+        Test1
       </Button>
+      <Button
+        onPress={async () => {
+          const result = await webembedApiProxy.test.test2();
+          alert(JSON.stringify(result));
+          console.log(result);
+          console.log(JSON.stringify(result));
+        }}
+      >
+        Test2
+      </Button>
+
       <Button
         onPress={() => {
           void webembedApiProxy.test.trackEvent();

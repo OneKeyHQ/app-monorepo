@@ -42,12 +42,48 @@ export const inAppStateLockStyle: {
     zIndex: RESET_OVERLAY_Z_INDEX,
   },
 };
-export function useResetApp(params?: { inAppStateLock: boolean }) {
-  const { inAppStateLock = false } = params || {};
+export function useResetApp(
+  params: {
+    inAppStateLock?: boolean;
+    silentReset?: boolean;
+  } = {},
+) {
+  const { inAppStateLock = false, silentReset = false } = params || {};
   const intl = useIntl();
-  const { logout } = usePrimeAuthV2();
+  const { logout: logoutPrivy } = usePrimeAuthV2();
+
+  const doReset = useCallback(async () => {
+    // reset app
+    try {
+      // disable setInterval on ext popup
+      if (platformEnv.isExtensionUiPopup) {
+        resetUtils.startResetting();
+      }
+      try {
+        void logoutPrivy();
+        await timerUtils.wait(1000);
+      } catch (error) {
+        console.error('failed to logoutPrivy', error);
+      }
+      await backgroundApiProxy.serviceApp.resetApp();
+    } catch (e) {
+      console.error('failed to reset app with error', e);
+    } finally {
+      // able setInterval on ext popup
+      if (platformEnv.isExtensionUiPopup) {
+        resetUtils.endResetting();
+      }
+    }
+  }, [logoutPrivy]);
+
   return useCallback(async () => {
     await timerUtils.wait(50);
+
+    if (silentReset) {
+      await doReset();
+      return;
+    }
+
     if (inAppStateLock) {
       const isLock = await backgroundApiProxy.serviceApp.isAppLocked();
       if (!isLock) {
@@ -95,26 +131,8 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
         defaultLogger.setting.page.resetApp({
           reason: 'ManualResetFromSettings',
         });
-        try {
-          // disable setInterval on ext popup
-          if (platformEnv.isExtensionUiPopup) {
-            resetUtils.startResetting();
-          }
-          try {
-            await logout();
-          } catch (error) {
-            console.error('failed to logout', error);
-          }
-          await backgroundApiProxy.serviceApp.resetApp();
-        } catch (e) {
-          console.error('failed to reset app with error', e);
-        } finally {
-          // able setInterval on ext popup
-          if (platformEnv.isExtensionUiPopup) {
-            resetUtils.endResetting();
-          }
-        }
+        await doReset();
       },
     });
-  }, [inAppStateLock, intl, logout]);
+  }, [doReset, inAppStateLock, intl, silentReset]);
 }

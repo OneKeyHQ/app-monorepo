@@ -8,6 +8,7 @@ import {
   Page,
   Select,
   SizableText as SizableTextBase,
+  Spinner,
   Stack,
   Tab,
   Table,
@@ -20,13 +21,24 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBCloudSyncItem } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
+  useDevSettingsPersistAtom,
+  useNotificationStatusAtom,
   usePrimeCloudSyncPersistAtom,
   usePrimeMasterPasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import dateUtils from '@onekeyhq/shared/src/utils/dateUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { ICloudSyncRawDataJson } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type {
+  ICloudSyncRawDataJson,
+  ICloudSyncServerItemByDownloaded,
+} from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type {
+  IPrimeDeviceInfo,
+  IPrimeServerUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
+
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 type ITabType = 'local' | 'server';
 
@@ -328,38 +340,147 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
 }
 
 function StatusPanel() {
+  const { user } = usePrimeAuthV2();
   const [cloudSyncStatus] = usePrimeCloudSyncPersistAtom();
   const [localMasterPasswordInfo] = usePrimeMasterPasswordPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const [primeMasterPasswordInfo] = usePrimeMasterPasswordPersistAtom();
+  const [loading, setLoading] = useState(false);
+  const [notificationStatus] = useNotificationStatusAtom();
 
   const { result } = usePromiseResult(async () => {
-    const serverUserInfo =
-      await backgroundApiProxy.servicePrime.callApiFetchPrimeUserInfo();
+    setLoading(true);
 
-    const { lock } =
-      await backgroundApiProxy.servicePrimeCloudSync.apiFetchSyncLock();
-    const serverLockItem =
-      await backgroundApiProxy.servicePrimeCloudSync.decodeServerLockItem({
-        lockItem: lock,
-        serverUserInfo,
-      });
+    let lock: ICloudSyncServerItemByDownloaded | undefined;
+    let serverUserInfo: IPrimeServerUserInfo | undefined;
+    let serverLockItem: IDBCloudSyncItem | undefined;
+    let cachePassword: string | undefined;
+    let randomIdInfo: { uuid: string } | undefined;
+
+    try {
+      try {
+        randomIdInfo =
+          await backgroundApiProxy.servicePrime.apiFetchServerRandomIdInfo();
+      } catch (error) {
+        console.error('获取随机ID失败', error);
+      }
+
+      try {
+        serverUserInfo =
+          await backgroundApiProxy.servicePrime.callApiFetchPrimeUserInfo();
+      } catch (error) {
+        console.error('获取用户信息失败', error);
+      }
+
+      try {
+        ({ lock } =
+          await backgroundApiProxy.servicePrimeCloudSync.apiFetchSyncLock());
+      } catch (error) {
+        console.error('获取云端密码失败', error);
+      }
+
+      if (lock && serverUserInfo) {
+        try {
+          serverLockItem =
+            await backgroundApiProxy.servicePrimeCloudSync.decodeServerLockItem(
+              {
+                lockItem: lock,
+                serverUserInfo,
+              },
+            );
+        } catch (error) {
+          console.error('解码云端密码失败', error);
+        }
+      }
+
+      try {
+        cachePassword =
+          await backgroundApiProxy.servicePassword.getCachedPassword();
+      } catch (error) {
+        console.error('获取锁屏密码失败', error);
+      }
+    } finally {
+      setLoading(false);
+    }
+
     return {
+      lock,
+      randomIdInfo,
       serverUserInfo,
       serverLockItem,
+      cachePassword,
     };
   }, []);
 
+  const renderTestItem = useCallback(
+    ({
+      title,
+      checkValue,
+    }: {
+      title: string;
+      checkValue: boolean | undefined | 'TODO';
+    }) => {
+      return (
+        <XStack gap="$2" h="$5">
+          <SizableText>{title}</SizableText>
+          {loading ? (
+            <Spinner size="small" />
+          ) : (
+            <SizableText>
+              {(() => {
+                if (checkValue === 'TODO') return '⚠️';
+                return checkValue ? '✅' : '❌';
+              })()}
+            </SizableText>
+          )}
+        </XStack>
+      );
+    },
+    [loading],
+  );
+
   return (
     <YStack p="$4" gap="$2">
-      <SizableText>网络和梯子正常 ✅</SizableText>
-      <SizableText>服务器测试网络节点已启用 ✅</SizableText>
-      <SizableText>锁屏密码已缓存 ✅</SizableText>
-      <SizableText>OneKeyID 已登录 ✅</SizableText>
-      <SizableText>Prime 已订阅未过期 ✅</SizableText>
-      <SizableText>主密码已缓存 ✅</SizableText>
-      <SizableText>
-        云端同步已开启 {cloudSyncStatus.isCloudSyncEnabled ? '✅' : '❌'}
-      </SizableText>
-      <SizableText>系统时间正常 ✅</SizableText>
+      {renderTestItem({
+        title: '网络和梯子正常',
+        checkValue: !!result?.randomIdInfo?.uuid,
+      })}
+      {renderTestItem({
+        title: '服务器测试网络节点已启用',
+        checkValue:
+          devSettings?.enabled && devSettings?.settings?.enableTestEndpoint,
+      })}
+      {renderTestItem({
+        title: '锁屏密码已缓存',
+        checkValue: !!result?.cachePassword,
+      })}
+      {renderTestItem({
+        title: 'OneKeyID 已登录',
+        checkValue: !!user?.privyUserId,
+      })}
+      {renderTestItem({
+        title: 'Prime 已付费，且订阅未过期',
+        checkValue: !!user?.primeSubscription?.isActive,
+      })}
+      {renderTestItem({
+        title: '主密码(同步密码)已缓存',
+        checkValue: !!(
+          primeMasterPasswordInfo.masterPasswordUUID &&
+          primeMasterPasswordInfo.encryptedSecurityPasswordR1
+        ),
+      })}
+      {renderTestItem({
+        title: '云端同步已开启',
+        checkValue: cloudSyncStatus.isCloudSyncEnabled,
+      })}
+      {renderTestItem({
+        title: '系统时间正常',
+        checkValue: 'TODO',
+      })}
+      {renderTestItem({
+        title: 'WebSocket 已连接',
+        checkValue: notificationStatus?.websocketConnected,
+      })}
       <SizableText>
         localPwdHash: {localMasterPasswordInfo.masterPasswordUUID}
       </SizableText>
@@ -493,6 +614,16 @@ function DebugPanel() {
       >
         清除所有钱包 hash 和 xfp
       </Button>
+      <Button
+        onPress={async () => {
+          await backgroundApiProxy.servicePrimeCloudSync.syncToSceneByAllPendingItems();
+          Toast.success({
+            title: 'success',
+          });
+        }}
+      >
+        写入同步数据到本地
+      </Button>
     </YStack>
   );
 }
@@ -532,7 +663,7 @@ export default function PagePrimeCloudSyncDebug() {
                 page: serverItemsTable,
               },
               {
-                title: '状态信息',
+                title: '状态检查',
                 page: statusPanel,
               },
               {

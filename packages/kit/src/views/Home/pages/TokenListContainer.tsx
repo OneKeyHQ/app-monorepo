@@ -961,11 +961,13 @@ function TokenListContainer(_props: ITabPageProps) {
         let mergeDeriveAssetsEnabled;
 
         try {
-          mergeDeriveAssetsEnabled = (
-            await backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: r.networkId ?? '',
-            })
-          ).mergeDeriveAssetsEnabled;
+          if (r.networkId) {
+            mergeDeriveAssetsEnabled = (
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: r.networkId ?? '',
+              })
+            ).mergeDeriveAssetsEnabled;
+          }
         } catch (e) {
           mergeDeriveAssetsEnabled = false;
         }

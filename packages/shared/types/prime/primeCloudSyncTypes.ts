@@ -45,6 +45,14 @@ export type ICloudSyncServerDiffItem = {
     | undefined;
 };
 
+export type IStartServerSyncFlowParams = {
+  isFlush?: boolean;
+  encryptedSecurityPasswordR1ForServer?: string;
+  setUndefinedTimeToNow?: boolean;
+  throwError?: boolean;
+  callerName?: string;
+};
+
 export type ICloudSyncServerItem = {
   data: string;
   dataTimestamp: number | undefined;
