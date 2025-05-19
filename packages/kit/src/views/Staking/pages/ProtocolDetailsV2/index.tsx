@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IButtonProps, IPageFooterProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -65,9 +66,44 @@ import { FAQSection } from './FAQSection';
 
 function SubscriptionSection({
   subscriptionValue,
+  onConfirmText,
+  confirmButtonProps,
+  onCancelText,
+  cancelButtonProps,
 }: {
   subscriptionValue: IStakeEarnDetail['subscriptionValue'];
+  onConfirmText: IPageFooterProps['onConfirmText'];
+  confirmButtonProps: IPageFooterProps['confirmButtonProps'];
+  onCancelText: IPageFooterProps['onCancelText'];
+  cancelButtonProps: IPageFooterProps['cancelButtonProps'];
 }) {
+  const media = useMedia();
+  const renderActionButtons = useCallback(() => {
+    if (!media.gtMd) {
+      return null;
+    }
+    // if (shouldRegisterBeforeStake) {
+    //   return (
+    //     <XStack gap="$2">
+    //       <Button {...registerButtonProps}>
+    //         {intl.formatMessage({ id: ETranslations.earn_register })}
+    //       </Button>
+    //     </XStack>
+    //   );
+    // }
+    return (
+      <XStack gap="$2">
+        <Button {...confirmButtonProps}>{onCancelText}</Button>
+        <Button {...cancelButtonProps}>{onConfirmText}</Button>
+      </XStack>
+    );
+  }, [
+    cancelButtonProps,
+    confirmButtonProps,
+    media.gtMd,
+    onCancelText,
+    onConfirmText,
+  ]);
   return (
     <YStack gap="$8">
       <YStack>
@@ -85,7 +121,7 @@ function SubscriptionSection({
           >
             {subscriptionValue.fiatValue || 0}
           </NumberSizeableText>
-          {/* {renderActionButtons()} */}
+          {renderActionButtons()}
         </XStack>
         <NumberSizeableText
           size="$bodyLgMedium"
@@ -636,6 +672,59 @@ const ProtocolDetailsPage = () => {
   //   withdrawButtonProps,
   // ]);
 
+  const depositButtonProps = useMemo(() => {
+    const item = result?.actions?.find((i) => i.actionType === 'deposit');
+    return {
+      props: {
+        disabled: !earnAccount?.accountAddress || item?.disabled,
+        variant: 'primary',
+        loading: stakeLoading,
+        display: item ? undefined : 'none',
+      } as IButtonProps,
+      text: item?.text.text,
+    };
+  }, [stakeLoading, earnAccount?.accountAddress, result?.actions]);
+
+  const withdrawButtonProps = useMemo(() => {
+    const item = result?.actions?.find((i) => i.actionType === 'withdraw');
+    return {
+      text: item?.text.text,
+      props: {
+        disabled: !earnAccount?.accountAddress || item?.disabled,
+        display: item ? undefined : 'none',
+      } as IButtonProps,
+    };
+  }, [earnAccount?.accountAddress, result?.actions]);
+
+  const renderPageFooter = useCallback(() => {
+    if (media.gtMd) {
+      return null;
+    }
+    // if (shouldRegisterBeforeStake) {
+    //   return (
+    //     <Page.Footer
+    //       onConfirmText={intl.formatMessage({
+    //         id: ETranslations.earn_register,
+    //       })}
+    //       confirmButtonProps={registerButtonProps}
+    //     />
+    //   );
+    // }
+    return (
+      <Page.Footer
+        onConfirmText={depositButtonProps.text}
+        confirmButtonProps={depositButtonProps.props}
+        onCancelText={withdrawButtonProps.text}
+        cancelButtonProps={withdrawButtonProps.props}
+      />
+    );
+  }, [
+    media.gtMd,
+    depositButtonProps.text,
+    depositButtonProps.props,
+    withdrawButtonProps,
+  ]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -665,6 +754,10 @@ const ProtocolDetailsPage = () => {
               <YStack gap="$8">
                 <SubscriptionSection
                   subscriptionValue={result.subscriptionValue}
+                  onConfirmText={depositButtonProps.text}
+                  confirmButtonProps={depositButtonProps.props}
+                  onCancelText={withdrawButtonProps.text}
+                  cancelButtonProps={withdrawButtonProps.props}
                 />
                 <AlertSection alerts={result.alerts} />
                 <Divider />
@@ -720,7 +813,6 @@ const ProtocolDetailsPage = () => {
                 />
               )}
             </ProtocolDetails>
-            {renderPageFooter()}
             {result ? (
               <StakingTransactionIndicator
                 accountId={earnAccount?.accountId ?? ''}
@@ -730,6 +822,7 @@ const ProtocolDetailsPage = () => {
                 onPress={onHistory}
               />
             ) : null} */}
+            {renderPageFooter()}
           </PageFrame>
         </YStack>
       </Page.Body>

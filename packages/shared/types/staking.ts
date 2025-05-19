@@ -324,6 +324,18 @@ export interface IEarnLinkActionIcon {
   data: string;
 }
 
+export interface IEarnDepositActionIcon {
+  actionType: 'deposit';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnWithdrawActionIcon {
+  actionType: 'withdraw';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon = IEarnPopupActionIcon | IEarnPopupActionIcon;
 interface IEarnCell {
   title: IEarnText;
@@ -358,7 +370,7 @@ interface IEarnRisk {
 }
 
 export interface IStakeEarnDetail {
-  actions: IEarnActionIcon[];
+  actions: (IEarnDepositActionIcon | IEarnWithdrawActionIcon)[];
   subscriptionValue: ISubscriptionValue;
   portfolios: IPortfolio[];
   timeline: {
