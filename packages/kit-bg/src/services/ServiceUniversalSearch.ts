@@ -6,12 +6,15 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   getFilteredTokenBySearchKey,
   getMergedDeriveTokenData,
+  sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IUniversalSearchAddress,
@@ -26,8 +29,6 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -221,9 +222,12 @@ class ServiceUniversalSearch extends ServiceBase {
       }
 
       return {
-        tokens: getFilteredTokenBySearchKey({
-          tokens,
-          searchKey: input,
+        tokens: sortTokensByFiatValue({
+          tokens: getFilteredTokenBySearchKey({
+            tokens,
+            searchKey: input,
+          }),
+          map: tokenMap,
         }),
         tokenMap,
       };
@@ -273,9 +277,12 @@ class ServiceUniversalSearch extends ServiceBase {
     }
 
     return {
-      tokens: getFilteredTokenBySearchKey({
-        tokens,
-        searchKey: input,
+      tokens: sortTokensByFiatValue({
+        tokens: getFilteredTokenBySearchKey({
+          tokens,
+          searchKey: input,
+        }),
+        map: tokenMap,
       }),
       tokenMap,
     };

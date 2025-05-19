@@ -39,6 +39,7 @@ import type {
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
@@ -49,7 +50,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
-import { Token } from '../../../components/Token';
+import { Token, TokenName } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
@@ -372,13 +373,21 @@ export function UniversalSearch({
                 minWidth={96}
                 flexDirection="column"
               >
-                <SizableText
-                  minWidth={0}
-                  numberOfLines={1}
-                  size="$bodyLgMedium"
-                >
-                  {token?.name}
-                </SizableText>
+                <TokenName
+                  name={token?.name}
+                  networkId={token?.networkId}
+                  isNative={token?.isNative}
+                  isAllNetworks={networkUtils.isAllNetwork({
+                    networkId: activeAccount?.network?.id,
+                  })}
+                  withNetwork={networkUtils.isAllNetwork({
+                    networkId: activeAccount?.network?.id,
+                  })}
+                  textProps={{
+                    size: '$bodyLgMedium',
+                    flexShrink: 0,
+                  }}
+                />
                 <NumberSizeableTextWrapper
                   formatter="balance"
                   formatterOptions={{ tokenSymbol: token?.symbol }}
