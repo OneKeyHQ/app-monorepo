@@ -88,11 +88,6 @@ export function GridItem({
   tooltip?: IEarnText;
   actionIcon?: IEarnActionIcon;
 }) {
-  const openLink = useCallback(() => {
-    // if (link) {
-    //   openUrlExternal(link);
-    // }
-  }, []);
   const actionIconButton = useMemo(() => {
     let onPress: undefined | IIconButtonProps['onPress'];
     let icon: IKeyOfIcons | undefined = actionIcon?.icon?.icon;
