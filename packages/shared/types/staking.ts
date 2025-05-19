@@ -258,20 +258,7 @@ export interface IEarnText {
   color?: string;
 }
 
-interface IToken {
-  uniqueKey: string;
-  address: string;
-  decimals: number;
-  isNative: boolean;
-  logoURI: string;
-  name: string;
-  symbol: string;
-  totalSupply: string;
-  riskLevel: number;
-  coingeckoId: string;
-}
-
-interface IAction {
+interface IEarnButtonAction {
   text: IEarnText;
   actionType: 'deposit' | 'withdraw';
   disabled: boolean;

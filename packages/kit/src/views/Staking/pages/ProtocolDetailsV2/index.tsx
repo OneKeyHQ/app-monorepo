@@ -593,30 +593,22 @@ const ProtocolDetailsPage = () => {
   );
 
   const onHistory = useMemo(() => {
-    if (!result?.earnHistoryEnable || !earnAccount?.accountId) {
-      return undefined;
-    }
-    return (params?: { filterType?: string }) => {
-      const { filterType } = params || {};
-      appNavigation.navigate(EModalStakingRoutes.HistoryList, {
-        accountId: earnAccount?.accountId,
-        networkId,
-        symbol,
-        provider,
-        stakeTag: buildLocalTxStatusSyncId(result),
-        morphoVault: vault,
-        filterType,
-      });
-    };
-  }, [
-    appNavigation,
-    earnAccount?.accountId,
-    networkId,
-    symbol,
-    provider,
-    vault,
-    result,
-  ]);
+    // if (!result?.earnHistoryEnable || !earnAccount?.accountId) {
+    //   return undefined;
+    // }
+    // return (params?: { filterType?: string }) => {
+    //   const { filterType } = params || {};
+    //   appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+    //     accountId: earnAccount?.accountId,
+    //     networkId,
+    //     symbol,
+    //     provider,
+    //     stakeTag: buildLocalTxStatusSyncId(result),
+    //     morphoVault: vault,
+    //     filterType,
+    //   });
+    // };
+  }, []);
 
   const intl = useIntl();
   const media = useMedia();
