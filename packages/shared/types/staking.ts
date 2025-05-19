@@ -1,3 +1,5 @@
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+
 import type { IToken } from './token';
 
 export type IAllowanceOverview = {
@@ -299,37 +301,45 @@ interface IRewards {
   tokens: IRewardToken[];
 }
 
-interface IIcon {
-  icon: string;
+export interface IEarnIcon {
+  icon: IKeyOfIcons;
+  color: ColorTokens;
 }
 
-export interface IEarnAction {
-  type: 'popup' | 'link';
-  icon?: IIcon;
-  data: any;
+export interface IEarnPopupActionIcon {
+  type: 'popup';
+  icon?: IEarnIcon;
+  data: {
+    bulletList: IEarnText[];
+    items: {
+      icon: IEarnIcon;
+      title: IEarnText;
+      value: string;
+    }[];
+  };
 }
 
-interface IProfitCell {
+export interface IEarnLinkActionIcon {
+  type: 'link';
+  data: string;
+}
+
+export type IEarnActionIcon = IEarnPopupActionIcon | IEarnPopupActionIcon;
+interface IEarnCell {
   title: IEarnText;
   description: IEarnText;
-  actionIcon?: IEarnAction;
+  actionIcon?: IEarnActionIcon;
   tooltip?: IEarnText;
 }
 
 interface IEarnProfit {
   title: IEarnText;
-  cells: IProfitCell[];
-}
-
-interface IProviderCell {
-  title: IEarnText;
-  description: IEarnText;
-  actionIcon?: IEarnAction;
+  cells: IEarnCell[];
 }
 
 interface IEarnProvider {
   title: IEarnText;
-  cells: IProviderCell[];
+  cells: IEarnCell[];
 }
 
 export interface IEarnFAQItem {
@@ -338,7 +348,7 @@ export interface IEarnFAQItem {
 }
 
 export interface IStakeEarnDetail {
-  actions: IEarnAction[];
+  actions: IEarnActionIcon[];
   subscriptionValue: ISubscriptionValue;
   portfolios: IPortfolio[];
   rewards: IRewards;

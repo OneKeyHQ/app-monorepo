@@ -185,220 +185,45 @@ function PortfolioSection({
 }
 
 function ProfitSection({ profit }: { profit: IStakeEarnDetail['profit'] }) {
-  return (
+  return profit ? (
     <YStack gap="$6">
       <SizableText size="$headingLg">{profit.title.text}</SizableText>
-      {/* {earnPoints ? (
-        <Alert
-          title={intl.formatMessage({ id: ETranslations.earn_earn_points })}
-          description={intl.formatMessage({
-            id: ETranslations.earn_earn_points_desc,
-          })}
-        />
-      ) : (
-        <XStack flexWrap="wrap" m="$-5" p="$2">
-          {!apys && apr && Number(apr) > 0 ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_rewards_percentage,
-              })}
-            >
-              <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${formatApy(apr)}% ${rewardUnit}`}
-                </SizableText>
-              </XStack>
-            </GridItem>
-          ) : null}
-          {(apys?.dailyNetApy && Number(apys.dailyNetApy) > 0) ||
-          (apys?.weeklyNetApy && Number(apys.weeklyNetApy) > 0) ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_rewards_percentage,
-              })}
-            >
-              <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${formatApy(
-                    isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
-                  )}% ${rewardUnit}`}
-                </SizableText>
-                {apys ? (
-                  <Popover
-                    floatingPanelProps={{
-                      w: 320,
-                    }}
-                    title={intl.formatMessage({
-                      id: ETranslations.earn_rewards,
-                    })}
-                    renderTrigger={
-                      <IconButton
-                        icon="CoinsAddOutline"
-                        size="small"
-                        variant="tertiary"
-                      />
-                    }
-                    renderContent={<ProtocolApyRewards details={details} />}
-                    placement="top"
-                  />
-                ) : null}
-              </XStack>
-            </GridItem>
-          ) : null}
-          {earningsIn24h && Number(earningsIn24h) > 0 ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_24h_earnings,
-              })}
-              tooltip={intl.formatMessage({
-                id: ETranslations.earn_24h_earnings_tooltip,
-              })}
-            >
-              <NumberSizeableText
-                formatter="value"
-                color="$textSuccess"
-                size="$bodyLgMedium"
-                formatterOptions={{
-                  currency: symbol,
-                  showPlusMinusSigns: Number(earningsIn24h) >= 0.01,
-                }}
-              >
-                {earningsIn24h}
-              </NumberSizeableText>
-            </GridItem>
-          ) : null}
-          {totalRewardAmount && Number(totalRewardAmount) > 0 ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_referral_total_earned,
-              })}
-            >
-              <NumberSizeableText
-                formatter="balance"
-                color="$textSuccess"
-                size="$bodyLgMedium"
-                formatterOptions={{
-                  tokenSymbol: token.info.symbol,
-                  showPlusMinusSigns: Number(totalRewardAmount) > 0,
-                }}
-              >
-                {totalRewardAmount}
-              </NumberSizeableText>
-            </GridItem>
-          ) : null}
-          {receiptToken || rewardTokens ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_reward_tokens,
-              })}
-            >
-              <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyLgMedium">
-                  {receiptToken || rewardTokens}
-                </SizableText>
-                {isFalconProvider && isEventActive ? (
-                  <Popover
-                    placement="top"
-                    title={intl.formatMessage({
-                      id: ETranslations.earn_reward_tokens,
-                    })}
-                    renderTrigger={
-                      <IconButton
-                        iconColor="$iconSubdued"
-                        size="small"
-                        icon="InfoCircleOutline"
-                        variant="tertiary"
-                      />
-                    }
-                    renderContent={
-                      <XStack p="$5">
-                        <SizableText>
-                          {intl.formatMessage({
-                            id: ETranslations.earn_fixed_yield_info,
-                          })}
-                        </SizableText>
-                      </XStack>
-                    }
-                  />
-                ) : null}
-              </XStack>
-            </GridItem>
-          ) : null}
-          {updateFrequency ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_update_frequency,
-              })}
-            >
-              {updateFrequency}
-            </GridItem>
-          ) : null}
-          {stakingTime &&
-          !earnUtils.isEverstakeProvider({
-            providerName: providerName || '',
-          }) ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_earnings_start,
-              })}
-            >
-              {intl.formatMessage(
-                { id: ETranslations.earn_in_number },
-                {
-                  number: formatStakingDistanceToNowStrict(stakingTime),
-                },
-              )}
-            </GridItem>
-          ) : null}
-          {unstakingPeriod ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_unstaking_period,
-              })}
-              tooltip={intl.formatMessage({
-                id:
-                  rewardToken === 'APT'
-                    ? ETranslations.earn_earn_during_unstaking_tooltip
-                    : ETranslations.earn_unstaking_period_tooltip,
-              })}
-            >
-              {intl.formatMessage(
-                { id: ETranslations.earn_up_to_number_days },
-                { number: unstakingPeriod },
-              )}
-            </GridItem>
-          ) : null}
-          {joinRequirement && Number(joinRequirement) > 0 ? (
-            <GridItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_join_requirement,
-              })}
-            >
-              <NumberSizeableText
-                formatter="balance"
-                color="$text"
-                size="$bodyLgMedium"
-                formatterOptions={{
-                  tokenSymbol: rewardToken,
-                }}
-              >
-                {joinRequirement}
-              </NumberSizeableText>
-            </GridItem>
-          ) : null}
-        </XStack>
-      )} */}
       <XStack flexWrap="wrap" m="$-5" p="$2">
-        {profit.cells.map((cell, index) => (
+        {profit.cells.map((cell) => (
           <GridItem
             key={cell.title.text}
             title={cell.title}
             description={cell.description}
+            actionIcon={cell.actionIcon}
+            tooltip={cell.tooltip}
           />
         ))}
       </XStack>
     </YStack>
-  );
+  ) : null;
+}
+
+function ProviderSection({
+  provider,
+}: {
+  provider: IStakeEarnDetail['provider'];
+}) {
+  return provider ? (
+    <YStack gap="$6">
+      <SizableText size="$headingLg">{provider.title.text}</SizableText>
+      <XStack flexWrap="wrap" m="$-5" p="$2">
+        {provider.cells.map((cell) => (
+          <GridItem
+            key={cell.title.text}
+            title={cell.title}
+            description={cell.description}
+            actionIcon={cell.actionIcon}
+            tooltip={cell?.tooltip}
+          />
+        ))}
+      </XStack>
+    </YStack>
+  ) : null;
 }
 
 const ProtocolDetailsPage = () => {
@@ -772,6 +597,8 @@ const ProtocolDetailsPage = () => {
                 <PortfolioSection portfolios={result.portfolios} />
                 <Divider />
                 <ProfitSection profit={result.profit} />
+                <Divider />
+                <ProviderSection provider={result.provider} />
                 <Divider />
                 <FAQSection faqs={result.faqs} />
               </YStack>
