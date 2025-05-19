@@ -1,5 +1,4 @@
-import { Stack, XStack, useIsHorizontalLayout } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Stack, useIsHorizontalLayout } from '@onekeyhq/components';
 
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';

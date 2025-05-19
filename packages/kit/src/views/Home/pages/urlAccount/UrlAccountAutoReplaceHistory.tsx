@@ -23,7 +23,6 @@ export function UrlAccountAutoReplaceHistory({ num }: { num: number }) {
   accountRef.current = activeAccount?.account;
   const address = activeAccount?.account?.address;
   const networkId = activeAccount?.network?.id;
-  const networkCode = activeAccount?.network?.code;
   const selectedAccountId = `${selectedAccount?.walletId || ''}-${
     selectedAccount?.indexedAccountId || ''
   }-${selectedAccount?.othersWalletAccountId || ''}`;

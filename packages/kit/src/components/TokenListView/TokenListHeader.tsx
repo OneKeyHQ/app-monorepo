@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack, useMedia } from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';

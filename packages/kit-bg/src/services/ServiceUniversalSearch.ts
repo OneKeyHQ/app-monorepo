@@ -19,7 +19,6 @@ import {
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
-  IUniversalSearchMarketTokenResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';

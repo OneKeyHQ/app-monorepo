@@ -620,7 +620,7 @@ export function AddressInputField(
             }
             if (!value.resolved) {
               return enableAllowListValidation
-                ? // Use translationId for error message formatting if available, therwise use direct message
+                ? // Use translationId for error message formatting if available, otherwise use direct message
                   value.validateError?.translationId ||
                     value.validateError?.message ||
                     intl.formatMessage({

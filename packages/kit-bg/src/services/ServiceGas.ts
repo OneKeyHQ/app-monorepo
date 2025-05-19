@@ -12,7 +12,6 @@ import type {
   IBatchEstimateFeeParams,
   IEstimateGasParams,
   IFeeInfoUnit,
-  INetworkFeeInfo,
   IServerBatchEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 

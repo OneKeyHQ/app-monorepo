@@ -62,9 +62,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type {
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
-  IModalSendParamList,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';

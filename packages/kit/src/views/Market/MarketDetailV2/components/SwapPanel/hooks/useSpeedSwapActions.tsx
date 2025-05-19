@@ -25,6 +25,8 @@ export function useSpeedSwapActions({
   accountId?: string;
 }) {
   const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useState(false);
+  const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] =
+    useState(false);
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: accountId ?? '',
     networkId,
@@ -143,10 +145,34 @@ export function useSpeedSwapActions({
       cancelSpeedSwapBuildTx,
     ],
   );
+
+  const checkTokenApproveAllowance = useCallback(
+    async (token: ISwapTokenBase, spenderAddress: string) => {
+      setCheckTokenAllowanceLoading(true);
+      const userAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId: accountId ?? '',
+          networkId: token.networkId,
+        });
+      const allowance =
+        await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
+          networkId: token.networkId,
+          tokenAddress: token.contractAddress,
+          spenderAddress,
+          walletAddress: userAddress,
+        });
+      setCheckTokenAllowanceLoading(false);
+      return allowance;
+    },
+    [accountId],
+  );
+
   return {
     speedSwapBuildTx,
     speedSwapBuildTxLoading,
     cancelSpeedSwapBuildTx,
     handleSpeedSwapBuildTxSuccess,
+    checkTokenApproveAllowance,
+    checkTokenAllowanceLoading,
   };
 }

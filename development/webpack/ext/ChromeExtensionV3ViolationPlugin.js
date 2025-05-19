@@ -10,14 +10,17 @@ class ChromeExtensionV3ViolationPlugin {
         const files = Object.keys(compilation.assets);
         files.forEach((file) => {
           const asset = compilation.assets[file];
-          let content = asset.source().toString();
+          const content = asset.source().toString();
           this.replaceConfigs.forEach((config) => {
             if (config.regexToFind.test(content)) {
-              content = content.replace(config.regexToFind, config.replacement);
+              const newContent = content.replace(
+                config.regexToFind,
+                config.replacement,
+              );
+              const { RawSource } = require('webpack-sources');
+              compilation.assets[file] = new RawSource(newContent);
             }
           });
-          const { RawSource } = require('webpack-sources');
-          compilation.assets[file] = new RawSource(content);
         });
       },
     );

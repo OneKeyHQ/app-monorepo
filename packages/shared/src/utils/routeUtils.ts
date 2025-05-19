@@ -147,6 +147,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.StakingModal}${EModalStakingRoutes.ProtocolDetailsV2}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     // Page: /main/tab-Swap/TabSwap
     // Don't worry, the URL here is virtual, actually /swap.
     // it will automatically find the real route according to the route stacks.
