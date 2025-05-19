@@ -7,7 +7,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { ITradeType } from '../hooks/useSwapPanel';
+import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 const commonButtonStyleProps: IButtonProps = {
   flex: 1,
@@ -37,7 +37,7 @@ export function TradeTypeSelector({
 
   const options = [
     {
-      value: 'buy' as ITradeType,
+      value: ESwapDirection.BUY,
       label: (
         <Button
           {...commonButtonStyleProps}
@@ -49,7 +49,7 @@ export function TradeTypeSelector({
       ),
     },
     {
-      value: 'sell' as ITradeType,
+      value: ESwapDirection.SELL,
       label: (
         <Button
           bg={isSellActive ? '$iconCritical' : '$transparent'}
@@ -64,7 +64,7 @@ export function TradeTypeSelector({
 
   return (
     <SegmentControl
-      value={value}
+      value={value as string}
       onChange={(newValue) => {
         if (newValue === 'buy' || newValue === 'sell') {
           onChange(newValue as ITradeType);
