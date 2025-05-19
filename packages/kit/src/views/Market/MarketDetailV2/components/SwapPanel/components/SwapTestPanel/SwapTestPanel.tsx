@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react';
-
 import { Button, Select, SizableText, Stack } from '@onekeyhq/components';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
 import { useSpeedSwapInit } from '../../hooks/useSpeedSwapInit';
-import { useSwapPanel } from '../../hooks/useSwapPanel';
+
+import type { useSwapPanel } from '../../hooks/useSwapPanel';
 
 const testNetworks = getPresetNetworks()
   .sort((a, b) => a.name.localeCompare(b.name))
@@ -13,16 +12,17 @@ const testNetworks = getPresetNetworks()
     value: network.id,
   }));
 
-export function SwapTestPanel() {
+export function SwapTestPanel({
+  swapPanel,
+}: {
+  swapPanel: ReturnType<typeof useSwapPanel>;
+}) {
   const {
     networkId: selectedTestNetworkId,
     setNetworkId: setSelectedTestNetworkId,
-  } = useSwapPanel();
+  } = swapPanel;
 
-  // Only call useSpeedSwapInit if a network is selected
-  const speedSwapProps = useSpeedSwapInit(
-    selectedTestNetworkId ?? '', // Pass empty string if undefined, hook should handle it or be conditional
-  );
+  const speedSwapProps = useSpeedSwapInit(selectedTestNetworkId ?? '');
 
   const handleTestHook = () => {
     if (!selectedTestNetworkId) {
@@ -36,34 +36,34 @@ export function SwapTestPanel() {
     );
   };
 
-  const selectedNetwork = useMemo(
-    () => testNetworks.find((n) => n.value === selectedTestNetworkId),
-    [selectedTestNetworkId],
-  );
-
   if (testNetworks.length === 0) {
     return <SizableText>No test networks available.</SizableText>;
   }
 
   return (
-    <Stack gap="$2">
+    <Stack gap="$1">
       {selectedTestNetworkId ? (
         <Select
           title="Select Test Network"
           items={testNetworks}
           value={selectedTestNetworkId}
           onChange={setSelectedTestNetworkId}
-          renderTrigger={() => (
-            <Button>{selectedNetwork?.label ?? 'Select Test Network'}</Button>
-          )}
         />
       ) : null}
       <Button
+        size="small"
         onPress={handleTestHook}
         variant="primary"
         disabled={!selectedTestNetworkId}
       >
         Test useSpeedSwapInit
+      </Button>
+      <Button
+        size="small"
+        variant="primary"
+        onPress={() => console.log(swapPanel)}
+      >
+        Print swapPanel
       </Button>
     </Stack>
   );

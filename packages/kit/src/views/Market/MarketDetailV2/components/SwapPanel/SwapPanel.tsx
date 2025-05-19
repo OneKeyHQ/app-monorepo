@@ -15,6 +15,7 @@ import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 
 export function SwapPanel() {
+  const swapPanel = useSwapPanel();
   const {
     amount,
     tradeType,
@@ -30,7 +31,7 @@ export function SwapPanel() {
     balance,
     balanceToken,
     networkId,
-  } = useSwapPanel();
+  } = swapPanel;
 
   const { isLoading, speedConfig, supportSpeedSwap, provider } =
     useSpeedSwapInit(networkId ?? '');
@@ -83,7 +84,7 @@ export function SwapPanel() {
       <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
 
       {/* Test - Only in Dev Mode */}
-      {platformEnv.isDev ? <SwapTestPanel /> : null}
+      {platformEnv.isDev ? <SwapTestPanel swapPanel={swapPanel} /> : null}
     </YStack>
   );
 }

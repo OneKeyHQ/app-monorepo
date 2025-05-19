@@ -11,6 +11,8 @@ import {
 import { QuickAmountSelector } from './QuickAmountSelector';
 import { TokenList } from './TokenList';
 
+import type { ITradeType } from '../../hooks/useTradeType';
+
 interface IToken {
   label: string;
   value: string;
@@ -24,7 +26,7 @@ export interface ITokenInputSectionProps {
   selectableTokens: IToken[];
   onTokenChange: (tokenSymbol: string) => void;
   onPressTokenSelector?: () => void;
-  tradeType: 'buy' | 'sell';
+  tradeType: ITradeType;
 }
 
 export function TokenInputSection({

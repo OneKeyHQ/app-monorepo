@@ -4,7 +4,7 @@ import { useAtom } from 'jotai';
 
 import { networkIdAtom } from '../atoms/swapPanelAtoms';
 
-export type ITradeType = 'buy' | 'sell';
+import { type ITradeType, useTradeType } from './useTradeType';
 
 // Mock data - replace with actual data fetching and state management
 const MOCK_TOKENS = [
@@ -13,8 +13,8 @@ const MOCK_TOKENS = [
 ];
 
 export function useSwapPanel() {
+  const { tradeType, setTradeType } = useTradeType();
   const [amount, setAmount] = useState('1');
-  const [tradeType, setTradeType] = useState<ITradeType>('buy');
   const [antiMEV, setAntiMEV] = useState(false);
   const [inputTokenSymbol, setInputTokenSymbol] = useState(
     MOCK_TOKENS[0].value,
@@ -35,7 +35,7 @@ export function useSwapPanel() {
       setInputTokenSymbol(outputTokenSymbol);
       setOutputTokenSymbol(inputTokenSymbol);
     },
-    [inputTokenSymbol, outputTokenSymbol],
+    [inputTokenSymbol, outputTokenSymbol, setTradeType],
   );
 
   const handleAntiMEVToggle = useCallback(() => {

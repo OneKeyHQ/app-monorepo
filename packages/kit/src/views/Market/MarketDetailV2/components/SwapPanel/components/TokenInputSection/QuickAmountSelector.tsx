@@ -1,8 +1,10 @@
 import { Button, Divider, XStack } from '@onekeyhq/components';
 
+import type { ITradeType } from '../../hooks/useTradeType';
+
 export interface IQuickAmountSelectorProps {
   onSelect: (value: string) => void;
-  tradeType: 'buy' | 'sell';
+  tradeType: ITradeType;
 }
 
 const buyAmounts = [
