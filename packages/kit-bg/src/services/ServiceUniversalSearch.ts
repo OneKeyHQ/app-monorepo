@@ -9,7 +9,10 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  getFilteredTokenBySearchKey,
+  getMergedDeriveTokenData,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -18,11 +21,13 @@ import type {
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
-import type { ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -58,11 +63,13 @@ class ServiceUniversalSearch extends ServiceBase {
     input,
     networkId,
     accountId,
+    indexedAccountId,
     searchTypes,
   }: {
     input: string;
     networkId?: string;
     accountId?: string;
+    indexedAccountId?: string;
     searchTypes: EUniversalSearchType[];
   }): Promise<IUniversalSearchBatchResult> {
     const result: IUniversalSearchBatchResult = {};
@@ -75,8 +82,14 @@ class ServiceUniversalSearch extends ServiceBase {
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.AccountAssets) &&
       accountId &&
-      networkId
-        ? this.universalSearchOfAccountAssets({ input, networkId, accountId })
+      networkId &&
+      indexedAccountId
+        ? this.universalSearchOfAccountAssets({
+            input,
+            networkId,
+            accountId,
+            indexedAccountId,
+          })
         : Promise.resolve({
             tokens: [],
             tokenMap: {} as Record<string, ITokenFiat>,
@@ -139,28 +152,132 @@ class ServiceUniversalSearch extends ServiceBase {
     input,
     networkId,
     accountId,
+    indexedAccountId,
   }: {
     input: string;
     networkId: string;
     accountId: string;
+    indexedAccountId: string;
   }) {
-    const r = await this.backgroundApi.serviceToken.fetchAccountTokens({
-      accountId,
-      networkId,
-      flag: 'universal-search',
-    });
+    await this.backgroundApi.serviceToken.abortFetchAccountTokens();
 
-    const filteredTokens = getFilteredTokenBySearchKey({
-      tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
-      searchKey: input,
-    });
+    const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+
+    let tokens: IAccountToken[] = [];
+    let tokenMap: Record<string, ITokenFiat> = {};
+
+    if (isAllNetwork) {
+      const customTokensRawData =
+        (await this.backgroundApi.simpleDb.customTokens.getRawData()) ??
+        undefined;
+      const { accountsInfo } =
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+          accountId,
+          networkId,
+          deriveType: undefined,
+          nftEnabledOnly: false,
+          excludeTestNetwork: true,
+          networksEnabledOnly: !accountUtils.isOthersAccount({
+            accountId,
+          }),
+        });
+
+      const allNetworks = accountsInfo;
+      const requests = allNetworks.map((networkDataString) => {
+        return this.backgroundApi.serviceToken.fetchAccountTokens({
+          dbAccount: networkDataString.dbAccount,
+          networkId: networkDataString.networkId,
+          accountId: networkDataString.accountId,
+          flag: 'universal-search',
+          isAllNetworks: true,
+          isManualRefresh: false,
+          mergeTokens: true,
+          allNetworksAccountId: accountId,
+          allNetworksNetworkId: networkId,
+          saveToLocal: true,
+          customTokensRawData,
+        });
+      });
+
+      try {
+        const resp = (await promiseAllSettledEnhanced(requests)).filter(
+          Boolean,
+        );
+
+        const { allTokenList, allTokenListMap } = getMergedDeriveTokenData({
+          data: resp,
+          mergeDeriveAssetsEnabled: true,
+        });
+
+        tokens = allTokenList.tokens;
+        tokenMap = allTokenListMap;
+      } catch (e) {
+        console.error(e);
+        await this.backgroundApi.serviceToken.abortFetchAccountTokens();
+        return {
+          tokens,
+          tokenMap,
+        };
+      }
+
+      return {
+        tokens: getFilteredTokenBySearchKey({
+          tokens,
+          searchKey: input,
+        }),
+        tokenMap,
+      };
+    }
+
+    const vaultSettings = await getVaultSettings({ networkId });
+    if (vaultSettings.mergeDeriveAssetsEnabled) {
+      const { networkAccounts } =
+        await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId,
+            indexedAccountId,
+            excludeEmptyAccount: true,
+          },
+        );
+
+      const resp = await Promise.all(
+        networkAccounts.map((networkAccount) =>
+          this.backgroundApi.serviceToken.fetchAccountTokens({
+            accountId: networkAccount.account?.id ?? '',
+            mergeTokens: true,
+            networkId,
+            flag: 'universal-search',
+            saveToLocal: true,
+          }),
+        ),
+      );
+
+      const { allTokenList, allTokenListMap } = getMergedDeriveTokenData({
+        data: resp,
+        mergeDeriveAssetsEnabled: true,
+      });
+
+      tokens = allTokenList.tokens;
+      tokenMap = allTokenListMap;
+    } else {
+      const r = await this.backgroundApi.serviceToken.fetchAccountTokens({
+        accountId,
+        mergeTokens: true,
+        networkId,
+        flag: 'universal-search',
+        saveToLocal: true,
+      });
+
+      tokens = r.allTokens?.data ?? [];
+      tokenMap = r.allTokens?.map ?? ({} as Record<string, ITokenFiat>);
+    }
 
     return {
-      tokens: filteredTokens,
-      tokenMap: {
-        ...r.tokens.map,
-        ...r.smallBalanceTokens.map,
-      },
+      tokens: getFilteredTokenBySearchKey({
+        tokens,
+        searchKey: input,
+      }),
+      tokenMap,
     };
   }
 

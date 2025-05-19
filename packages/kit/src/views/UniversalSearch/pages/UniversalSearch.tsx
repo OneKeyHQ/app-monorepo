@@ -156,6 +156,7 @@ export function UniversalSearch({
           input,
           networkId: activeAccount?.network?.id,
           accountId: activeAccount?.account?.id,
+          indexedAccountId: activeAccount?.indexedAccount?.id,
           searchTypes: AllTypes,
         });
       const searchResultSections: {
