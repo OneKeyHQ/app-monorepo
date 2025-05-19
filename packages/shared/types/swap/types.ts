@@ -577,7 +577,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
-  toTokenAmount: string;
+  toTokenAmount?: string;
   provider: string;
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
@@ -799,6 +799,15 @@ export interface IFetchLimitOrderRes {
     scope: string;
     signedType: EMessageTypesEth;
   };
+}
+
+export interface ISpeedSwapConfig {
+  provider: string;
+  speedConfig: {
+    slippage: number;
+    defaultTokens: ISwapTokenBase[];
+  };
+  supportSpeedSwap: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

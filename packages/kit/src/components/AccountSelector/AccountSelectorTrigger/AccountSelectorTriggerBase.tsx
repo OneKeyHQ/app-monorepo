@@ -87,7 +87,7 @@ export function AccountSelectorTriggerBase({
               }}
               numberOfLines={1}
               flexShrink={1}
-              maxWidth="$40"
+              maxWidth="$36"
             >
               {showWalletName
                 ? `${walletName} / ${displayAccountName}`

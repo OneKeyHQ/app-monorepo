@@ -57,6 +57,7 @@ import type {
   IFetchTokenListParams,
   IFetchTokensParams,
   IOKXTransactionObject,
+  ISpeedSwapConfig,
   ISwapApproveTransaction,
   ISwapCheckSupportResponse,
   ISwapNetwork,
@@ -1975,6 +1976,104 @@ export default class ServiceSwap extends ServiceBase {
         fromTokenPrice: '',
         toTokenPrice: '',
       };
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSpeedSwapConfig(params: { networkId: string }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const res = await client.get<{ data: ISpeedSwapConfig }>(
+        `/swap/v1/speed-config`,
+        {
+          params: { networkId: params.networkId },
+        },
+      );
+      return res.data.data;
+    } catch (error) {
+      console.error(error);
+      return {
+        provider: '',
+        speedConfig: {
+          slippage: 0.5,
+          defaultTokens: [],
+        },
+        supportSpeedSwap: false,
+      };
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async fetchBuildSpeedSwapTx({
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    userAddress,
+    provider,
+    receivingAddress,
+    slippagePercentage,
+    accountId,
+    protocol,
+    kind,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    provider: string;
+    userAddress: string;
+    receivingAddress: string;
+    slippagePercentage: number;
+    accountId?: string;
+    protocol: EProtocolOfExchange;
+    kind: ESwapQuoteKind;
+    walletType?: string;
+  }): Promise<IFetchBuildTxResponse | undefined> {
+    let headers = await getRequestHeaders();
+    const walletType =
+      await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
+        accountId,
+      });
+    headers = {
+      ...headers,
+      ...(accountId
+        ? {
+            'X-OneKey-Wallet-Type': walletType,
+          }
+        : {}),
+    };
+    const params: IFetchBuildTxParams = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      protocol,
+      provider,
+      userAddress,
+      receivingAddress,
+      slippagePercentage,
+      kind,
+      walletType,
+    };
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
+        '/swap/v1/build-tx/speed',
+        params,
+        {
+          headers,
+        },
+      );
+      return data?.data;
+    } catch (e) {
+      const error = e as { code: number; message: string; requestId: string };
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: error?.message,
+        message: error?.requestId,
+      });
+      return undefined;
     }
   }
 }

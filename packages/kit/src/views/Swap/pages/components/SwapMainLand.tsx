@@ -16,6 +16,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -48,7 +49,6 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
-import { validateAmountInput } from '../../utils/utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import LimitInfoContainer from './LimitInfoContainer';
