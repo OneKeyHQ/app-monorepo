@@ -66,12 +66,16 @@ class ServiceUniversalSearch extends ServiceBase {
     accountId,
     indexedAccountId,
     searchTypes,
+    tokenListCache,
+    tokenListCacheMap,
   }: {
     input: string;
     networkId?: string;
     accountId?: string;
     indexedAccountId?: string;
     searchTypes: EUniversalSearchType[];
+    tokenListCache?: IAccountToken[];
+    tokenListCacheMap?: Record<string, ITokenFiat>;
   }): Promise<IUniversalSearchBatchResult> {
     const result: IUniversalSearchBatchResult = {};
     const promiseResults = await Promise.allSettled([
@@ -90,6 +94,8 @@ class ServiceUniversalSearch extends ServiceBase {
             networkId,
             accountId,
             indexedAccountId,
+            tokenListCache,
+            tokenListCacheMap,
           })
         : Promise.resolve({
             tokens: [],
@@ -154,12 +160,29 @@ class ServiceUniversalSearch extends ServiceBase {
     networkId,
     accountId,
     indexedAccountId,
+    tokenListCache,
+    tokenListCacheMap,
   }: {
     input: string;
     networkId: string;
     accountId: string;
     indexedAccountId: string;
+    tokenListCache?: IAccountToken[];
+    tokenListCacheMap?: Record<string, ITokenFiat>;
   }) {
+    if (tokenListCache && tokenListCacheMap) {
+      return {
+        tokens: sortTokensByFiatValue({
+          tokens: getFilteredTokenBySearchKey({
+            tokens: tokenListCache,
+            searchKey: input,
+          }),
+          map: tokenListCacheMap,
+        }),
+        tokenMap: tokenListCacheMap,
+      };
+    }
+
     await this.backgroundApi.serviceToken.abortFetchAccountTokens();
 
     const isAllNetwork = networkUtils.isAllNetwork({ networkId });

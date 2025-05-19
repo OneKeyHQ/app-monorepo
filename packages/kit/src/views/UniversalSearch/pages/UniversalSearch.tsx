@@ -61,6 +61,11 @@ import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProvi
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
+import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '../../../states/jotai/contexts/tokenList';
 
 interface IUniversalSection {
   title: string;
@@ -116,6 +121,8 @@ export function UniversalSearch({
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [settings] = useSettingsPersistAtom();
+  const [allTokenList] = useAllTokenListAtom();
+  const [allTokenListMap] = useAllTokenListMapAtom();
 
   const universalSearchActions = useUniversalSearchActions();
   const [sections, setSections] = useState<IUniversalSection[]>([]);
@@ -125,6 +132,20 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
+
+  const shouldUseTokensCacheData = useMemo(() => {
+    return (
+      allTokenList &&
+      allTokenListMap &&
+      allTokenList.accountId === activeAccount?.account?.id &&
+      allTokenList.networkId === activeAccount?.network?.id
+    );
+  }, [
+    allTokenList,
+    allTokenListMap,
+    activeAccount?.account?.id,
+    activeAccount?.network?.id,
+  ]);
 
   const fetchRecommendList = useCallback(async () => {
     const searchResultSections: {
@@ -159,6 +180,12 @@ export function UniversalSearch({
           accountId: activeAccount?.account?.id,
           indexedAccountId: activeAccount?.indexedAccount?.id,
           searchTypes: AllTypes,
+          tokenListCache: shouldUseTokensCacheData
+            ? allTokenList?.tokens
+            : undefined,
+          tokenListCacheMap: shouldUseTokensCacheData
+            ? allTokenListMap
+            : undefined,
         });
       const searchResultSections: {
         title: string;
@@ -578,12 +605,28 @@ export function UniversalSearch({
   );
 }
 
-const UniversalSearchWithProvider = ({
+const UniversalSearchWithHomeTokenListProvider = ({
   route,
 }: IPageScreenProps<
   IUniversalSearchParamList,
   EUniversalSearchPages.UniversalSearch
->) => (
+>) => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  return (
+    <HomeTokenListProviderMirrorWrapper
+      accountId={activeAccount?.account?.id ?? ''}
+    >
+      <UniversalSearch filterTypes={route?.params?.filterTypes || AllTypes} />
+    </HomeTokenListProviderMirrorWrapper>
+  );
+};
+
+const UniversalSearchWithProvider = (
+  params: IPageScreenProps<
+    IUniversalSearchParamList,
+    EUniversalSearchPages.UniversalSearch
+  >,
+) => (
   <AccountSelectorProviderMirror
     config={{
       sceneName: EAccountSelectorSceneName.home,
@@ -597,7 +640,7 @@ const UniversalSearchWithProvider = ({
       <UniversalSearchProviderMirror
         storeName={EJotaiContextStoreNames.universalSearch}
       >
-        <UniversalSearch filterTypes={route?.params?.filterTypes || AllTypes} />
+        <UniversalSearchWithHomeTokenListProvider {...params} />
       </UniversalSearchProviderMirror>
     </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
