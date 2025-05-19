@@ -64,10 +64,11 @@ export function SwapPanel() {
       <BalanceDisplay balance={balance} token={balanceToken} />
 
       {/* Unsupported swap warning */}
-      {supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
+      {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
 
       {/* Buy button */}
       <ActionButton
+        disabled={!supportSpeedSwap}
         loading={isLoading}
         tradeType={tradeType}
         amount={amount}
