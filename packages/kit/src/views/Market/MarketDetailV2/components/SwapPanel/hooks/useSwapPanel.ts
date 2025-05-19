@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useAtom } from 'jotai';
+
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 
 import { networkIdAtom } from '../atoms/swapPanelAtoms';
 
@@ -8,8 +11,8 @@ import { type ITradeType, useTradeType } from './useTradeType';
 
 // Mock data - replace with actual data fetching and state management
 const MOCK_TOKENS = [
-  { label: 'SOL', value: 'sol', price: 50.49 },
-  { label: 'USDC', value: 'usdc', price: 1.0 },
+  { label: 'SOL', value: 'sol', price: 50.49, decimals: 9 },
+  { label: 'USDC', value: 'usdc', price: 1.0, decimals: 6 },
 ];
 
 export function useSwapPanel() {
@@ -24,9 +27,24 @@ export function useSwapPanel() {
   );
   const [networkId, setNetworkId] = useAtom(networkIdAtom);
 
-  const handleAmountChange = useCallback((newAmount: string) => {
-    setAmount(newAmount);
-  }, []);
+  const currentExecutingToken = useMemo(() => {
+    // If buying, the input token is what we pay with (e.g. USDC), output is what we get (e.g. SOL)
+    // If selling, the input token is what we sell (e.g. SOL), output is what we get (e.g. USDC)
+    // The AmountInputSection shows the token being bought or sold.
+    return tradeType === 'buy'
+      ? MOCK_TOKENS.find((t) => t.value === inputTokenSymbol)
+      : MOCK_TOKENS.find((t) => t.value === inputTokenSymbol);
+  }, [tradeType, inputTokenSymbol]);
+
+  const handleAmountChange = useCallback(
+    (newAmount: string) => {
+      const tokenDecimals = currentExecutingToken?.decimals;
+      if (validateAmountInput(newAmount, tokenDecimals)) {
+        setAmount(newAmount);
+      }
+    },
+    [currentExecutingToken?.decimals],
+  );
 
   const handleTradeTypeChange = useCallback(
     (newTradeType: ITradeType) => {
@@ -42,18 +60,15 @@ export function useSwapPanel() {
     setAntiMEV((prev) => !prev);
   }, []);
 
-  const handleQuickAmountSelect = useCallback((selectedAmount: string) => {
-    setAmount(selectedAmount);
-  }, []);
-
-  const currentExecutingToken = useMemo(() => {
-    // If buying, the input token is what we pay with (e.g. USDC), output is what we get (e.g. SOL)
-    // If selling, the input token is what we sell (e.g. SOL), output is what we get (e.g. USDC)
-    // The AmountInputSection shows the token being bought or sold.
-    return tradeType === 'buy'
-      ? MOCK_TOKENS.find((t) => t.value === inputTokenSymbol)
-      : MOCK_TOKENS.find((t) => t.value === inputTokenSymbol);
-  }, [tradeType, inputTokenSymbol]);
+  const handleQuickAmountSelect = useCallback(
+    (selectedAmount: string) => {
+      const tokenDecimals = currentExecutingToken?.decimals;
+      if (validateAmountInput(selectedAmount, tokenDecimals)) {
+        setAmount(selectedAmount);
+      }
+    },
+    [currentExecutingToken?.decimals],
+  );
 
   const currentPaymentToken = useMemo(() => {
     return tradeType === 'buy'
@@ -99,9 +114,11 @@ export function useSwapPanel() {
   );
 
   const totalValue = useMemo(() => {
-    const numericAmount = parseFloat(amount);
-    if (Number.isNaN(numericAmount) || !currentExecutingToken) return 0;
-    return numericAmount * currentExecutingToken.price;
+    const amountBN = new BigNumber(amount);
+    if (amountBN.isNaN() || !currentExecutingToken?.price)
+      return new BigNumber(0);
+    const priceBN = new BigNumber(currentExecutingToken.price);
+    return amountBN.multipliedBy(priceBN);
   }, [amount, currentExecutingToken]);
 
   // Mock balance
@@ -129,7 +146,7 @@ export function useSwapPanel() {
 
     // For ActionButton
     currentExecutingToken,
-    totalValue,
+    totalValue, // This is now a BigNumber object
 
     // For BalanceDisplay
     balance,

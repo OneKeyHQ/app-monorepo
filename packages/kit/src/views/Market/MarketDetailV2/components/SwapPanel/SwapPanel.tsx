@@ -78,7 +78,7 @@ export function SwapPanel() {
       />
 
       {/* Slippage setting */}
-      <SlippageSetting />
+      <SlippageSetting autoValue={speedConfig?.slippage} isMEV={antiMEV} />
 
       {/* AntiMEV toggle */}
       <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
