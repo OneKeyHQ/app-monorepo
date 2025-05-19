@@ -271,11 +271,20 @@ interface ISubscriptionValue {
   balance: string;
 }
 
+interface IEarnBadge {
+  badgeType: 'success' | 'warning';
+  badgeSize: 'sm' | 'lg';
+  text: {
+    text: string;
+  };
+}
+
 interface IPortfolio {
   token: IToken;
   fiatValue: string;
   formattedValue: string;
   title: IEarnText;
+  badge: IEarnBadge;
 }
 
 interface IRewardToken {
