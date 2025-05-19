@@ -23,7 +23,7 @@ const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
-  privyState: IPrivyState;
+  privyState?: IPrivyState;
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;

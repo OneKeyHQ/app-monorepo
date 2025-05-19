@@ -45,7 +45,7 @@ export function PrimeLoginEmailDialogV2(props: {
   });
   const privyStateRef = useRef<IPrivyState>(state);
   privyStateRef.current = state;
-  console.log('privyStateRef.current', privyStateRef.current);
+  // console.log('privyStateRef.current', privyStateRef.current);
 
   const intl = useIntl();
 
@@ -72,7 +72,7 @@ export function PrimeLoginEmailDialogV2(props: {
         const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
-              privyState={privyStateRef.current}
+              // privyState={privyStateRef.current}
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}

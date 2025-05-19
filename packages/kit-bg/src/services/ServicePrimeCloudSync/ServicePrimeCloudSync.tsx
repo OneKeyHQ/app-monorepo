@@ -1785,7 +1785,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getSystemTimeStatus() {
+  async getLocalSystemTimeStatus() {
     return {
       status: systemTimeUtils.status,
       lastServerTime: systemTimeUtils.lastServerTime,
