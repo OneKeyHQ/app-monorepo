@@ -19,6 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
   useDecodedTxsAtom,
   useNativeTokenInfoAtom,
@@ -104,6 +105,7 @@ function TxConfirmActions(props: IProps) {
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+  const { shouldRejectDappAction } = useShouldRejectDappAction();
 
   const vaultSettings = usePromiseResult(
     () =>
@@ -314,7 +316,9 @@ function TxConfirmActions(props: IProps) {
       // });
       onFail?.(e as Error);
       isSubmitted.current = false;
-      void dappApprove.reject(e);
+      if (shouldRejectDappAction()) {
+        void dappApprove.reject(e);
+      }
       throw e;
     }
   }, [
@@ -342,6 +346,7 @@ function TxConfirmActions(props: IProps) {
     popStack,
     onSuccess,
     navigation,
+    shouldRejectDappAction,
   ]);
 
   const cancelCalledRef = useRef(false);
