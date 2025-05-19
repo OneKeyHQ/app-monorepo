@@ -288,7 +288,7 @@ function FinalizeWalletSetupPage({
       {shouldBondReferralCode ? (
         <Page.Footer
           onConfirmText={intl.formatMessage({
-            id: ETranslations.global_next,
+            id: ETranslations.referral_onboard_bind_code,
           })}
           onConfirm={() => {
             closePage();
