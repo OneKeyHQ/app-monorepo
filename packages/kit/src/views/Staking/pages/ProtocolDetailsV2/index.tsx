@@ -25,6 +25,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { useEarnEventActive } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnEventActive';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -651,6 +652,8 @@ const ProtocolDetailsPage = () => {
                 <PortfolioSection portfolios={result.portfolios} />
                 <Divider />
                 <ProfitSection profit={result.profit} />
+                <Divider />
+                <PeriodSection timeline={result.timeline} />
                 <Divider />
                 <ProviderSection provider={result.provider} />
                 <Divider />

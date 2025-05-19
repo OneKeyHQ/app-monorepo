@@ -361,6 +361,12 @@ export interface IStakeEarnDetail {
   actions: IEarnActionIcon[];
   subscriptionValue: ISubscriptionValue;
   portfolios: IPortfolio[];
+  timeline: {
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
+  };
   rewards: IRewards;
   risk: IEarnRisk;
   profit: IEarnProfit;
