@@ -54,7 +54,22 @@ function NetworkListHeader() {
               }
             }}
           >
-            <Checkbox value={isAllNetworksEnabled} />
+            <Checkbox
+              value={isAllNetworksEnabled}
+              onChange={() => {
+                if (isAllNetworksEnabled) {
+                  setNetworksState({
+                    enabledNetworks: {},
+                    disabledNetworks: toggleAllNetworks,
+                  });
+                } else {
+                  setNetworksState({
+                    enabledNetworks: toggleAllNetworks,
+                    disabledNetworks: {},
+                  });
+                }
+              }}
+            />
           </ListItem>
           <Divider m="$5" />
         </>
