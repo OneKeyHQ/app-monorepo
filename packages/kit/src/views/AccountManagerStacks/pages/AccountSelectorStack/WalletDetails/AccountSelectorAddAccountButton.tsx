@@ -116,6 +116,8 @@ export function AccountSelectorAddAccountButton({
 
       try {
         const focusedWallet = focusedWalletInfo?.wallet;
+        const focusedWalletId = focusedWallet?.id;
+
         await serviceAccount.generateWalletsMissingMetaWithUserInteraction({
           walletId: section.walletId,
         });
@@ -125,7 +127,7 @@ export function AccountSelectorAddAccountButton({
         console.log('addHDNextIndexedAccount>>>', c);
         await actions.current.updateSelectedAccountForHdOrHwAccount({
           num,
-          walletId: focusedWallet?.id,
+          walletId: focusedWalletId,
           indexedAccountId: c.indexedAccountId,
         });
         const indexedAccount = await serviceAccount.getIndexedAccountSafe({
@@ -135,9 +137,9 @@ export function AccountSelectorAddAccountButton({
           const walletIdFromIndexedId = accountUtils.getWalletIdFromAccountId({
             accountId: indexedAccount?.id,
           });
-          if (walletIdFromIndexedId === focusedWallet?.id) {
+          if (walletIdFromIndexedId === focusedWalletId) {
             await indexedAccountAddressCreationStateAtom.set({
-              walletId: focusedWallet?.id,
+              walletId: focusedWalletId,
               indexedAccountId: indexedAccount?.id,
             });
             await timerUtils.wait(1500);
@@ -151,16 +153,19 @@ export function AccountSelectorAddAccountButton({
                 autoHandleExitError: true, // skip create error and continue next network account creation
               });
             const result = await addDefaultNetworkAccounts();
+            const isQrWallet = accountUtils.isQrWallet({
+              walletId: focusedWalletId,
+            });
             if (
-              accountUtils.isQrWallet({ walletId: focusedWallet.id }) &&
-              activeNetworkId !== getNetworkIdsMap().onekeyall
+              isQrWallet &&
+              (activeNetworkId !== getNetworkIdsMap().onekeyall
                 ? result?.failedAccounts?.find(
                     (account) => account.networkId === activeNetworkId,
                   )
-                : result?.failedAccounts?.length
+                : result?.failedAccounts?.length)
             ) {
               await createQrWalletByAccount({
-                walletId: focusedWallet.id,
+                walletId: focusedWalletId,
                 networkId: activeNetworkId || getNetworkIdsMap().onekeyall,
                 indexedAccountId: indexedAccount.id,
               });

@@ -50,8 +50,20 @@ export class IndexedDBObjectStorePromised<
   async get(
     query: IDBKeyRange | StoreKey<DBTypes, StoreName>,
   ): Promise<StoreValue<DBTypes, StoreName> | undefined> {
-    const request = this.store.get(query);
-    return indexedDBPromisedUtils.toPromiseResult({ request });
+    try {
+      const request = this.store.get(query);
+      return await indexedDBPromisedUtils.toPromiseResult({ request });
+    } catch (error) {
+      const e = error as Error | undefined;
+      if (
+        e?.message?.includes(
+          `Failed to execute 'get' on 'IDBObjectStore': The transaction has finished`,
+        )
+      ) {
+        console.log('db transaction finished');
+      }
+      throw error;
+    }
   }
 
   async getAll(

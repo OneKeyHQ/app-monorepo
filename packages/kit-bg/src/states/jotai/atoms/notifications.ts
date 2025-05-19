@@ -35,3 +35,16 @@ export const {
   name: EAtomNames.notificationsReadedAtom,
   initialValue: {},
 });
+
+export type INotificationStatusAtomData = {
+  websocketConnected: boolean;
+};
+export const {
+  target: notificationStatusAtom,
+  use: useNotificationStatusAtom,
+} = globalAtom<INotificationStatusAtomData>({
+  name: EAtomNames.notificationStatusAtom,
+  initialValue: {
+    websocketConnected: false,
+  },
+});

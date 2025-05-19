@@ -4,6 +4,8 @@ import {
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
+import requestHelper from '../request/requestHelper';
+
 import { buildServiceEndpoint } from './appConfig';
 
 // Only OneKey endpoints are allowed here.
@@ -99,3 +101,11 @@ export const getEndpointsMapByDevSettings = (devSettings: {
   }
   return endpointsMap.prod;
 };
+
+export async function getEndpointByServiceName(
+  serviceName: EServiceEndpointEnum,
+) {
+  const devSettings = await requestHelper.getDevSettingsPersistAtom();
+  const map = getEndpointsMapByDevSettings(devSettings);
+  return map[serviceName];
+}
