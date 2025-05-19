@@ -343,7 +343,6 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
       return [];
     }
     if (networkUtils.isAllNetwork({ networkId })) {
-      debugger;
       // allNetwork custom tokens always return empty array, use loop to get all tokens
       return [];
     }

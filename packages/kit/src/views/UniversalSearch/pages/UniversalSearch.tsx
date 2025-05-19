@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -7,6 +8,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
+  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
@@ -19,16 +21,26 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
@@ -37,8 +49,15 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
+import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { Token, TokenName } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '../../../states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
@@ -62,6 +81,7 @@ enum ESearchStatus {
 const AllTypes = [
   EUniversalSearchType.Address,
   EUniversalSearchType.MarketToken,
+  EUniversalSearchType.AccountAssets,
 ];
 
 const SkeletonItem = () => (
@@ -100,6 +120,9 @@ export function UniversalSearch({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [settings] = useSettingsPersistAtom();
+  const [allTokenList] = useAllTokenListAtom();
+  const [allTokenListMap] = useAllTokenListMapAtom();
 
   const universalSearchActions = useUniversalSearchActions();
   const [sections, setSections] = useState<IUniversalSection[]>([]);
@@ -109,6 +132,20 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
+
+  const shouldUseTokensCacheData = useMemo(() => {
+    return (
+      allTokenList &&
+      allTokenListMap &&
+      allTokenList.accountId === activeAccount?.account?.id &&
+      allTokenList.networkId === activeAccount?.network?.id
+    );
+  }, [
+    allTokenList,
+    allTokenListMap,
+    activeAccount?.account?.id,
+    activeAccount?.network?.id,
+  ]);
 
   const fetchRecommendList = useCallback(async () => {
     const searchResultSections: {
@@ -140,7 +177,15 @@ export function UniversalSearch({
         await backgroundApiProxy.serviceUniversalSearch.universalSearch({
           input,
           networkId: activeAccount?.network?.id,
+          accountId: activeAccount?.account?.id,
+          indexedAccountId: activeAccount?.indexedAccount?.id,
           searchTypes: AllTypes,
+          tokenListCache: shouldUseTokensCacheData
+            ? allTokenList?.tokens
+            : undefined,
+          tokenListCacheMap: shouldUseTokensCacheData
+            ? allTokenListMap
+            : undefined,
         });
       const searchResultSections: {
         title: string;
@@ -165,6 +210,17 @@ export function UniversalSearch({
             ?.items as IUniversalSearchResultItem[],
         });
       }
+
+      if (result?.[EUniversalSearchType.AccountAssets]?.items?.length) {
+        searchResultSections.push({
+          title: intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_my_assets,
+          }),
+          data: result?.[EUniversalSearchType.AccountAssets]
+            ?.items as IUniversalSearchResultItem[],
+        });
+      }
+
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
     } else {
@@ -290,6 +346,108 @@ export function UniversalSearch({
             </ListItem>
           );
         }
+        case EUniversalSearchType.AccountAssets: {
+          const { token, tokenFiat } = item.payload;
+          const priceChange = tokenFiat?.price24h ?? 0;
+          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
+            priceChange,
+          });
+          const fiatValue = new BigNumber(tokenFiat?.fiatValue ?? 0);
+          return (
+            <ListItem
+              key={token?.$key || token?.name}
+              userSelect="none"
+              onPress={() => {
+                navigation.pop();
+                setTimeout(async () => {
+                  if (
+                    !activeAccount ||
+                    !activeAccount.account ||
+                    !activeAccount.network ||
+                    !activeAccount.wallet ||
+                    !activeAccount.deriveInfo ||
+                    !activeAccount.deriveType ||
+                    !activeAccount.indexedAccount
+                  )
+                    return;
+
+                  navigation.pushModal(EModalRoutes.MainModal, {
+                    screen: EModalAssetDetailRoutes.TokenDetails,
+                    params: {
+                      accountId:
+                        token.accountId ?? activeAccount.account?.id ?? '',
+                      networkId: token.networkId ?? activeAccount.network?.id,
+                      walletId: activeAccount.wallet?.id,
+                      deriveInfo: activeAccount.deriveInfo,
+                      deriveType: activeAccount.deriveType,
+                      tokenInfo: token,
+                      isAllNetworks: activeAccount.network?.isAllNetworks,
+                      indexedAccountId: activeAccount.indexedAccount?.id ?? '',
+                    },
+                  });
+                }, 80);
+              }}
+            >
+              <Token
+                size="lg"
+                tokenImageUri={token?.logoURI}
+                networkId={token?.networkId}
+                showNetworkIcon
+              />
+              <Stack
+                flexGrow={1}
+                flexBasis={0}
+                minWidth={96}
+                flexDirection="column"
+              >
+                <TokenName
+                  name={token?.name}
+                  networkId={token?.networkId}
+                  isNative={token?.isNative}
+                  isAllNetworks={networkUtils.isAllNetwork({
+                    networkId: activeAccount?.network?.id,
+                  })}
+                  withNetwork={networkUtils.isAllNetwork({
+                    networkId: activeAccount?.network?.id,
+                  })}
+                  textProps={{
+                    size: '$bodyLgMedium',
+                    flexShrink: 0,
+                  }}
+                />
+                <NumberSizeableTextWrapper
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: token?.symbol }}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                >
+                  {tokenFiat?.balanceParsed ?? '0'}
+                </NumberSizeableTextWrapper>
+              </Stack>
+              <Stack
+                flexDirection="column"
+                alignItems="flex-end"
+                flexShrink={1}
+              >
+                <NumberSizeableTextWrapper
+                  formatter="value"
+                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                  size="$bodyLgMedium"
+                >
+                  {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
+                </NumberSizeableTextWrapper>
+                <NumberSizeableText
+                  formatter="priceChange"
+                  formatterOptions={{ showPlusMinusSigns }}
+                  color={changeColor}
+                  size="$bodyMd"
+                >
+                  {priceChange}
+                </NumberSizeableText>
+              </Stack>
+            </ListItem>
+          );
+        }
         default: {
           return null;
         }
@@ -297,9 +455,10 @@ export function UniversalSearch({
     },
     [
       navigation,
-      activeAccount?.network?.id,
-      searchStatus,
+      activeAccount,
       universalSearchActions,
+      searchStatus,
+      settings.currencyInfo.symbol,
     ],
   );
 
@@ -446,12 +605,28 @@ export function UniversalSearch({
   );
 }
 
-const UniversalSearchWithProvider = ({
+const UniversalSearchWithHomeTokenListProvider = ({
   route,
 }: IPageScreenProps<
   IUniversalSearchParamList,
   EUniversalSearchPages.UniversalSearch
->) => (
+>) => {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  return (
+    <HomeTokenListProviderMirrorWrapper
+      accountId={activeAccount?.account?.id ?? ''}
+    >
+      <UniversalSearch filterTypes={route?.params?.filterTypes || AllTypes} />
+    </HomeTokenListProviderMirrorWrapper>
+  );
+};
+
+const UniversalSearchWithProvider = (
+  params: IPageScreenProps<
+    IUniversalSearchParamList,
+    EUniversalSearchPages.UniversalSearch
+  >,
+) => (
   <AccountSelectorProviderMirror
     config={{
       sceneName: EAccountSelectorSceneName.home,
@@ -465,7 +640,7 @@ const UniversalSearchWithProvider = ({
       <UniversalSearchProviderMirror
         storeName={EJotaiContextStoreNames.universalSearch}
       >
-        <UniversalSearch filterTypes={route?.params?.filterTypes || AllTypes} />
+        <UniversalSearchWithHomeTokenListProvider {...params} />
       </UniversalSearchProviderMirror>
     </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
