@@ -105,8 +105,10 @@ export interface IEarnRewardItem {
   accountAddress: string;
   vaultName: string;
   vaultAddress: string;
+  provider: string;
   fiatValue: string;
   status: string;
+  symbol: string;
 }
 
 export interface IEarnRewardResponse {
