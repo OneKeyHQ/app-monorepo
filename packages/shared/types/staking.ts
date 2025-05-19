@@ -371,7 +371,7 @@ export interface IStakeEarnDetail {
   risk: IEarnRisk;
   profit: IEarnProfit;
   provider: IEarnProvider;
-  alerts: any[];
+  alerts: string[];
   faqs: IEarnFAQItem[];
 }
 
