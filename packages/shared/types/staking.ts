@@ -347,11 +347,22 @@ export interface IEarnFAQItem {
   answer: IEarnText;
 }
 
+interface IEarnRisk {
+  title: IEarnText;
+  description: IEarnText;
+  icon: IEarnIcon;
+  actionButton: {
+    actionType: 'link';
+    text: IEarnText;
+  };
+}
+
 export interface IStakeEarnDetail {
   actions: IEarnActionIcon[];
   subscriptionValue: ISubscriptionValue;
   portfolios: IPortfolio[];
   rewards: IRewards;
+  risk: IEarnRisk;
   profit: IEarnProfit;
   provider: IEarnProvider;
   alerts: any[];
