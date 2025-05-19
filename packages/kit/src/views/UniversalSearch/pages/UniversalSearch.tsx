@@ -53,6 +53,11 @@ import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWra
 import { Token, TokenName } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '../../../states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
@@ -61,11 +66,6 @@ import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProvi
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
-import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '../../../states/jotai/contexts/tokenList';
 
 interface IUniversalSection {
   title: string;

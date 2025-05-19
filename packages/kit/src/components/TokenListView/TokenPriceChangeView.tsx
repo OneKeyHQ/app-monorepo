@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { NumberSizeableText } from '@onekeyhq/components';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
-import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 type IProps = {
   $key: string;
