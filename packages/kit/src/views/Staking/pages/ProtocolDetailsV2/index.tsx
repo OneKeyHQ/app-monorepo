@@ -104,7 +104,7 @@ function SubscriptionSection({
     onCancelText,
     onConfirmText,
   ]);
-  return (
+  return subscriptionValue ? (
     <YStack gap="$8">
       <YStack>
         <SizableText size="$headingLg" pt="$2">
@@ -133,7 +133,7 @@ function SubscriptionSection({
         </NumberSizeableText>
       </YStack>
     </YStack>
-  );
+  ) : null;
 }
 
 function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
@@ -164,101 +164,107 @@ function PortfolioSection({
   portfolios: IStakeEarnDetail['portfolios'];
 }) {
   const intl = useIntl();
-  return (
-    <YStack gap="$6">
-      <XStack justifyContent="space-between">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_portfolio })}
-        </SizableText>
-        {/* {onPortfolioDetails !== undefined ? (
-          <Button
-            variant="tertiary"
-            iconAfter="ChevronRightOutline"
-            onPress={onPortfolioDetails}
-          >
-            {intl.formatMessage({ id: ETranslations.global_details })}
-          </Button>
-        ) : null} */}
-      </XStack>
-      <YStack gap="$3">
-        {portfolios.map((item) => (
-          <XStack
-            key={item.title.text}
-            minHeight={30}
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <XStack alignItems="center" gap="$1.5">
-              <Token size="sm" tokenImageUri={item.token.logoURI} />
-              <SizableText size="$bodyLgMedium" color={item.title.color}>
-                {item.title.text}
-              </SizableText>
-              {/* {tooltip || renderTooltipContent ? (
-                <Popover
-                  placement="top"
-                  title={statusText}
-                  renderTrigger={
-                    <IconButton
-                      iconColor="$iconSubdued"
-                      size="small"
-                      icon="InfoCircleOutline"
-                      variant="tertiary"
-                    />
-                  }
-                  renderContent={
-                    tooltip ? (
-                      <Stack p="$5">
-                        <SizableText>{tooltip}</SizableText>
-                      </Stack>
-                    ) : (
-                      renderTooltipContent || null
-                    )
-                  }
-                />
-              ) : null} */}
-              {item.badge ? (
-                <Badge
-                  badgeType={item.badge.badgeType}
-                  badgeSize={item.badge.badgeSize}
-                >
-                  <Badge.Text>{item.badge.text.text}</Badge.Text>
-                </Badge>
-              ) : null}
+  return portfolios ? (
+    <>
+      <YStack gap="$6">
+        <XStack justifyContent="space-between">
+          <SizableText size="$headingLg">
+            {intl.formatMessage({ id: ETranslations.earn_portfolio })}
+          </SizableText>
+          {/* {onPortfolioDetails !== undefined ? (
+       <Button
+         variant="tertiary"
+         iconAfter="ChevronRightOutline"
+         onPress={onPortfolioDetails}
+       >
+         {intl.formatMessage({ id: ETranslations.global_details })}
+       </Button>
+     ) : null} */}
+        </XStack>
+        <YStack gap="$3">
+          {portfolios.map((item) => (
+            <XStack
+              key={item.title.text}
+              minHeight={30}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <XStack alignItems="center" gap="$1.5">
+                <Token size="sm" tokenImageUri={item.token.logoURI} />
+                <SizableText size="$bodyLgMedium" color={item.title.color}>
+                  {item.title.text}
+                </SizableText>
+                {/* {tooltip || renderTooltipContent ? (
+             <Popover
+               placement="top"
+               title={statusText}
+               renderTrigger={
+                 <IconButton
+                   iconColor="$iconSubdued"
+                   size="small"
+                   icon="InfoCircleOutline"
+                   variant="tertiary"
+                 />
+               }
+               renderContent={
+                 tooltip ? (
+                   <Stack p="$5">
+                     <SizableText>{tooltip}</SizableText>
+                   </Stack>
+                 ) : (
+                   renderTooltipContent || null
+                 )
+               }
+             />
+           ) : null} */}
+                {item.badge ? (
+                  <Badge
+                    badgeType={item.badge.badgeType}
+                    badgeSize={item.badge.badgeSize}
+                  >
+                    <Badge.Text>{item.badge.text.text}</Badge.Text>
+                  </Badge>
+                ) : null}
+              </XStack>
+              {/* {buttonText && onPress ? (
+           <Button
+             size="small"
+             disabled={disabled}
+             variant="primary"
+             onPress={handlePress}
+             loading={loading}
+           >
+             {buttonText}
+           </Button>
+         ) : null} */}
             </XStack>
-            {/* {buttonText && onPress ? (
-              <Button
-                size="small"
-                disabled={disabled}
-                variant="primary"
-                onPress={handlePress}
-                loading={loading}
-              >
-                {buttonText}
-              </Button>
-            ) : null} */}
-          </XStack>
-        ))}
+          ))}
+        </YStack>
       </YStack>
-    </YStack>
-  );
+      <Divider />
+    </>
+  ) : null;
 }
 
 function ProfitSection({ profit }: { profit: IStakeEarnDetail['profit'] }) {
   return profit ? (
-    <YStack gap="$6">
-      <SizableText size="$headingLg">{profit.title.text}</SizableText>
-      <XStack flexWrap="wrap" m="$-5" p="$2">
-        {profit.cells.map((cell) => (
-          <GridItem
-            key={cell.title.text}
-            title={cell.title}
-            description={cell.description}
-            actionIcon={cell.actionIcon}
-            tooltip={cell.tooltip}
-          />
-        ))}
-      </XStack>
-    </YStack>
+    <>
+      <YStack gap="$6">
+        <SizableText size="$headingLg">{profit.title.text}</SizableText>
+        <XStack flexWrap="wrap" m="$-5" p="$2">
+          {profit.cells.map((cell) => (
+            <GridItem
+              key={cell.title.text}
+              title={cell.title}
+              description={cell.description}
+              actionIcon={cell.actionIcon}
+              tooltip={cell.tooltip}
+            />
+          ))}
+        </XStack>
+      </YStack>
+      <Divider />
+    </>
   ) : null;
 }
 
@@ -268,71 +274,77 @@ function ProviderSection({
   provider: IStakeEarnDetail['provider'];
 }) {
   return provider ? (
-    <YStack gap="$6">
-      <SizableText size="$headingLg">{provider.title.text}</SizableText>
-      <XStack flexWrap="wrap" m="$-5" p="$2">
-        {provider.cells.map((cell) => (
-          <GridItem
-            key={cell.title.text}
-            title={cell.title}
-            description={cell.description}
-            actionIcon={cell.actionIcon}
-            tooltip={cell?.tooltip}
-          />
-        ))}
-      </XStack>
-    </YStack>
+    <>
+      <YStack gap="$6">
+        <SizableText size="$headingLg">{provider.title.text}</SizableText>
+        <XStack flexWrap="wrap" m="$-5" p="$2">
+          {provider.cells.map((cell) => (
+            <GridItem
+              key={cell.title.text}
+              title={cell.title}
+              description={cell.description}
+              actionIcon={cell.actionIcon}
+              tooltip={cell?.tooltip}
+            />
+          ))}
+        </XStack>
+      </YStack>
+      <Divider />
+    </>
   ) : null;
 }
 
 function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
   const intl = useIntl();
   return risk ? (
-    <YStack gap="$6">
-      <SizableText size="$headingLg">
-        {intl.formatMessage({ id: ETranslations.global_risk })}
-      </SizableText>
-      <XStack ai="center" gap="$3">
-        <YStack flex={1} gap="$2">
-          <XStack ai="center" gap="$2">
-            <XStack
-              ai="center"
-              jc="center"
-              w="$6"
-              h="$6"
-              bg="$bgCaution"
-              borderRadius="$1"
-            >
-              <Icon
-                name={risk.icon.icon}
-                size="$4"
-                color={risk.icon.color || '$iconCaution'}
-              />
+    <>
+      <YStack gap="$6">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.global_risk })}
+        </SizableText>
+        <XStack ai="center" gap="$3">
+          <YStack flex={1} gap="$2">
+            <XStack ai="center" gap="$2">
+              <XStack
+                ai="center"
+                jc="center"
+                w="$6"
+                h="$6"
+                bg="$bgCaution"
+                borderRadius="$1"
+              >
+                <Icon
+                  name={risk.icon.icon}
+                  size="$4"
+                  color={risk.icon.color || '$iconCaution'}
+                />
+              </XStack>
+              <SizableText size="$bodyMdMedium" color={risk.title.color}>
+                {risk.title.text}
+              </SizableText>
             </XStack>
-            <SizableText size="$bodyMdMedium" color={risk.title.color}>
-              {risk.title.text}
+            <SizableText
+              size="$bodyMd"
+              color={risk.description.color || '$textSubdued'}
+            >
+              {risk.description.text}
             </SizableText>
-          </XStack>
-          <SizableText
-            size="$bodyMd"
-            color={risk.description.color || '$textSubdued'}
-          >
-            {risk.description.text}
-          </SizableText>
-        </YStack>
-        {risk?.actionButton?.actionType === 'link' ? (
-          <IconButton
-            icon="OpenOutline"
-            color="$iconSubdued"
-            size="small"
-            bg="transparent"
-            onPress={() => {
-              openUrlExternal(risk?.actionButton?.text.text);
-            }}
-          />
-        ) : null}
-      </XStack>
-    </YStack>
+          </YStack>
+          {risk?.actionButton?.actionType === 'link' ? (
+            <IconButton
+              icon="OpenOutline"
+              color="$iconSubdued"
+              size="small"
+              bg="transparent"
+              onPress={() => {
+                openUrlExternal(risk?.actionButton?.text.text);
+              }}
+            />
+          ) : null}
+        </XStack>
+      </YStack>
+      <Divider />
+    </>
   ) : null;
 }
 
@@ -762,15 +774,10 @@ const ProtocolDetailsPage = () => {
                 <AlertSection alerts={result.alerts} />
                 <Divider />
                 <PortfolioSection portfolios={result.portfolios} />
-                <Divider />
                 <ProfitSection profit={result.profit} />
-                <Divider />
                 <PeriodSection timeline={result.timeline} />
-                <Divider />
                 <ProviderSection provider={result.provider} />
-                <Divider />
                 <RiskSection risk={result.risk} />
-                <Divider />
                 <FAQSection faqs={result.faqs} />
               </YStack>
             ) : null}
