@@ -654,6 +654,8 @@ const ProtocolDetailsPage = () => {
                 <Divider />
                 <ProviderSection provider={result.provider} />
                 <Divider />
+                <RiskSection risk={result.risk} />
+                <Divider />
                 <FAQSection faqs={result.faqs} />
               </YStack>
             ) : null}
