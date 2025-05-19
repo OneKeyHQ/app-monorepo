@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   EStepItemStatus,
   SizableText,
   Stack,
@@ -88,21 +89,24 @@ export function PeriodSection({
     return null;
   }
   return (
-    <YStack gap="$6">
-      <SizableText size="$headingLg">
-        {intl.formatMessage({ id: ETranslations.earn_period })}
-      </SizableText>
-      <YStack>
-        <Stepper stepIndex={timeline.items.length}>
-          {timeline.items.map((i) => (
-            <CustomStepperItem
-              key={i.title.text}
-              title={i.title.text}
-              description={i.description.text}
-            />
-          ))}
-        </Stepper>
+    <>
+      <YStack gap="$6">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_period })}
+        </SizableText>
+        <YStack>
+          <Stepper stepIndex={timeline.items.length}>
+            {timeline.items.map((i) => (
+              <CustomStepperItem
+                key={i.title.text}
+                title={i.title.text}
+                description={i.description.text}
+              />
+            ))}
+          </Stepper>
+        </YStack>
       </YStack>
-    </YStack>
+      <Divider />
+    </>
   );
 }
