@@ -2787,11 +2787,18 @@ class ServiceAccount extends ServiceBase {
         account,
       });
     }
+
+    if (account) {
+      void this.backgroundApi.serviceDBBackup.removeBackupImportedAccount({
+        accountId: account.id,
+      });
+    }
   }
 
   @backgroundMethod()
   async removeWallet({
     walletId,
+    skipBackupWalletRemove,
   }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -2806,6 +2813,11 @@ class ServiceAccount extends ServiceBase {
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
       walletId,
     });
+    if (!skipBackupWalletRemove) {
+      void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
+        walletId,
+      });
+    }
     return result;
   }
 
@@ -4215,7 +4227,7 @@ class ServiceAccount extends ServiceBase {
 
         for (const walletId of walletsToRemove) {
           try {
-            await this.removeWallet({ walletId });
+            await this.removeWallet({ walletId, skipBackupWalletRemove: true });
           } catch (e) {
             console.error(e);
           }

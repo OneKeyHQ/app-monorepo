@@ -199,6 +199,7 @@ export type IDBSetWalletNameAndAvatarParams = {
 };
 export type IDBRemoveWalletParams = {
   walletId: string;
+  skipBackupWalletRemove?: boolean;
 };
 type IDBSetAccountNameParamsBase = {
   shouldCheckDuplicate?: boolean;
