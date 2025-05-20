@@ -245,23 +245,32 @@ function ProtocolRewards({
                       symbol: token.token.symbol,
                       provider: tokenInfo?.provider || '',
                       // claimAmount: claimTokenInfo.amount,
+                      vault: '',
                       claimAmount: '0',
                       claimTokenAddress: tokenInfo?.token.address,
                       isReward: true,
-                      isMorphoClaim:
+                      isMorphoClaim: !!(
                         tokenInfo?.provider &&
                         earnUtils.isMorphoProvider({
                           providerName: tokenInfo?.provider,
-                        }),
-                      details: result,
+                        })
+                      ),
                       stakingInfo: {
                         label: EEarnLabels.Claim,
                         protocol: earnUtils.getEarnProviderName({
-                          providerName: result.provider.name,
+                          providerName: tokenInfo?.provider || '',
                         }),
-                        protocolLogoURI: result.provider.logoURI,
-                        receive: claimTokenInfo,
-                        tags: [buildLocalTxStatusSyncId(result)],
+                        protocolLogoURI: '',
+                        receive: {
+                          token: token.token,
+                          amount: '0',
+                        },
+                        tags: [
+                          buildLocalTxStatusSyncId({
+                            providerName: tokenInfo?.provider || '',
+                            tokenSymbol: token.token.symbol,
+                          }),
+                        ],
                       },
                     });
                   }}
