@@ -44,10 +44,18 @@ export function SwapPanel() {
   const {
     speedSwapBuildTx,
     speedSwapBuildTxLoading,
-    cancelSpeedSwapBuildTx,
-    handleSpeedSwapBuildTxSuccess,
+    checkTokenApproveAllowance,
+    checkTokenAllowanceLoading,
+    speedSwapApproveHandler,
+    speedSwapApproveLoading,
   } = useSpeedSwapActions({
-    networkId: networkId ?? '',
+    token: {
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: '',
+      decimals: 0,
+      logoURI: '',
+    },
     accountId: '',
   });
 

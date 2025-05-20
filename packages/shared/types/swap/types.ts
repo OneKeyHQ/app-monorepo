@@ -246,7 +246,7 @@ export interface ISwapApproveTransaction {
   unSupportReceiveAddressDifferent?: boolean;
   provider: string;
   providerName: string;
-  quoteId: string;
+  quoteId?: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
@@ -506,6 +506,14 @@ export interface ISwapState {
   noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+}
+
+export interface ISwapApproveAllowanceResponse {
+  isApproved: boolean;
+  allowanceTarget: string;
+  shouldApproveAmount: string;
+  approvedAmount: string;
+  shouldResetApprove?: boolean;
 }
 
 export interface ISwapCheckWarningDef {
@@ -806,6 +814,7 @@ export interface ISpeedSwapConfig {
   provider: string;
   speedConfig: {
     slippage: number;
+    spenderAddress: string;
     defaultTokens: ISwapTokenBase[];
   };
   supportSpeedSwap: boolean;
