@@ -2,20 +2,10 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, YStack } from '@onekeyhq/components';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IToken } from '../../types';
-
-// Define the props for each token item
-export interface ITokenListToken {
-  id: string;
-  tokenImageSrc?: string;
-  networkImageSrc?: string;
-  tokenSymbol?: string;
-  tokenName?: string;
-  balance?: string;
-  valueProps?: { value: string; currency?: string };
-}
 
 interface ITokenListProps {
   tokens?: IToken[];
@@ -29,22 +19,26 @@ export function TokenList({ tokens, onTokenPress }: ITokenListProps) {
   return (
     <YStack gap="$1">
       <YStack gap="$1" px="$1" py="$1">
-        {tokens?.map((token) => (
-          <TokenListItem
-            key={token.contractAddress}
-            tokenImageSrc={token.logoURI}
-            // TODO: add network image
-            // networkImageSrc={token.networkId}
-            tokenSymbol={token.symbol}
-            tokenName={token.name}
-            // TODO: add balance
-            // balance={token.balance}
-            // TODO: add value props
-            // valueProps={token.valueProps}
-            onPress={() => onTokenPress?.(token)}
-            margin={0}
-          />
-        ))}
+        {tokens?.map((token) => {
+          const networkConfig = Object.values(presetNetworksMap).find(
+            (n) => n.id === token.networkId,
+          );
+          return (
+            <TokenListItem
+              key={token.contractAddress}
+              tokenImageSrc={token.logoURI}
+              networkImageSrc={networkConfig?.logoURI}
+              tokenSymbol={token.symbol}
+              tokenName={token.name}
+              // TODO: add balance
+              // balance={token.balance}
+              // TODO: add value props
+              // valueProps={token.valueProps}
+              onPress={() => onTokenPress?.(token)}
+              margin={0}
+            />
+          );
+        })}
       </YStack>
 
       <YStack
