@@ -339,13 +339,13 @@ export interface IEarnLinkActionIcon {
 }
 
 export interface IEarnDepositActionIcon {
-  actionType: 'deposit';
+  type: 'deposit';
   disabled: boolean;
   text: IEarnText;
 }
 
 export interface IEarnWithdrawActionIcon {
-  actionType: 'withdraw';
+  type: 'withdraw';
   disabled: boolean;
   text: IEarnText;
 }
