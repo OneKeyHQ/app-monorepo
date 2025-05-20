@@ -137,7 +137,7 @@ function WalletList() {
             <>
               <ListItem
                 drillIn
-                my="$1"
+                py="$3"
                 key={index}
                 title={`Wallet ${index}`}
                 onPress={() => {
