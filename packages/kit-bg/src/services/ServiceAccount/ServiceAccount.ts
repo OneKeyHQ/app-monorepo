@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { debounce, isEmpty, isNil, uniqBy } from 'lodash';
+import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
@@ -2787,11 +2787,18 @@ class ServiceAccount extends ServiceBase {
         account,
       });
     }
+
+    if (account) {
+      void this.backgroundApi.serviceDBBackup.removeBackupImportedAccount({
+        accountId: account.id,
+      });
+    }
   }
 
   @backgroundMethod()
   async removeWallet({
     walletId,
+    skipBackupWalletRemove,
   }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -2806,6 +2813,11 @@ class ServiceAccount extends ServiceBase {
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
       walletId,
     });
+    if (!skipBackupWalletRemove) {
+      void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
+        walletId,
+      });
+    }
     return result;
   }
 
@@ -3505,15 +3517,19 @@ class ServiceAccount extends ServiceBase {
   async generateAllHdAndQrWalletsHashAndXfp({
     password,
     skipLocalSync,
+    skipAppStatusCheck,
   }: {
     password: string;
     skipLocalSync?: boolean;
+    skipAppStatusCheck?: boolean;
   }) {
     await this.generateAllHdAndQrWalletsHashAndXfpMutex.runExclusive(
       async () => {
-        const appStatus = await simpleDb.appStatus.getRawData();
-        if (appStatus?.allHdWalletsHashAndXfpGenerated) {
-          return;
+        if (!skipAppStatusCheck) {
+          const appStatus = await simpleDb.appStatus.getRawData();
+          if (appStatus?.allHdWalletsHashAndXfpGenerated) {
+            return;
+          }
         }
 
         const { wallets } = await this.getAllWallets({
@@ -3947,8 +3963,17 @@ class ServiceAccount extends ServiceBase {
     return false;
   }
 
-  async getLocalSameHDWallets({ password }: { password: string }) {
-    await this.generateAllHdAndQrWalletsHashAndXfp({ password });
+  async getLocalSameHDWallets({
+    password,
+    skipAppStatusCheck,
+  }: {
+    password: string;
+    skipAppStatusCheck?: boolean;
+  }) {
+    await this.generateAllHdAndQrWalletsHashAndXfp({
+      password,
+      skipAppStatusCheck,
+    });
     const { wallets: allWallets } = await this.getAllWallets({
       refillWalletInfo: true,
     });
@@ -3972,14 +3997,25 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async mergeDuplicateHDWallets({ password }: { password: string }) {
-    const appStatus = await simpleDb.appStatus.getRawData();
-    if (appStatus?.allHdDuplicateWalletsMerged) {
-      return;
+  async mergeDuplicateHDWallets({
+    password,
+    skipAppStatusCheck,
+  }: {
+    password: string;
+    skipAppStatusCheck?: boolean;
+  }) {
+    if (!skipAppStatusCheck) {
+      const appStatus = await simpleDb.appStatus.getRawData();
+      if (appStatus?.allHdDuplicateWalletsMerged && !skipAppStatusCheck) {
+        return;
+      }
     }
 
     try {
-      const sameWallets = await this.getLocalSameHDWallets({ password });
+      const sameWallets = await this.getLocalSameHDWallets({
+        password,
+        skipAppStatusCheck,
+      });
 
       if (sameWallets?.length) {
         const walletsToRemove: string[] = [];
@@ -3987,7 +4023,7 @@ class ServiceAccount extends ServiceBase {
         const { accounts: allAccounts } = await this.getAllAccounts();
 
         for (const sameWallet of sameWallets) {
-          let keepWallet: IDBWallet | undefined;
+          let walletToKeep: IDBWallet | undefined;
           const accountsToAddParams: {
             oldIndexedAccountId: string;
             deriveType: IAccountDeriveTypes;
@@ -4004,10 +4040,26 @@ class ServiceAccount extends ServiceBase {
           for (let i = 0; i < sameWallet.wallets.length; i += 1) {
             const wallet = sameWallet.wallets[i];
             if (i === 0) {
-              keepWallet = wallet;
+              walletToKeep = wallet;
             } else {
               walletsToRemove.push(wallet.id);
               walletNames.push(wallet.name);
+              try {
+                const changeHistory =
+                  await this.backgroundApi.simpleDb.changeHistory.getChangeHistory(
+                    {
+                      entityType: EChangeHistoryEntityType.Wallet,
+                      entityId: wallet.id,
+                      contentType: EChangeHistoryContentType.Name,
+                    },
+                  );
+                if (changeHistory?.length) {
+                  walletNames.push(...changeHistory.map((item) => item.value));
+                }
+              } catch (e) {
+                console.error(e);
+              }
+
               await Promise.all(
                 allAccounts
                   .filter(
@@ -4059,10 +4111,10 @@ class ServiceAccount extends ServiceBase {
                           name: indexedAccount?.name,
                         });
 
-                        if (keepWallet?.id && item.pathIndex >= 0) {
+                        if (walletToKeep?.id && item.pathIndex >= 0) {
                           const indexedAccountIdToAdd =
                             accountUtils.buildIndexedAccountId({
-                              walletId: keepWallet?.id,
+                              walletId: walletToKeep?.id,
                               index: item.pathIndex,
                             });
                           if (indexedAccountIdToAdd) {
@@ -4093,10 +4145,10 @@ class ServiceAccount extends ServiceBase {
             }
           }
 
-          if (keepWallet && keepWallet?.id && accountsToAddParams?.length) {
+          if (walletToKeep && walletToKeep?.id && accountsToAddParams?.length) {
             for (const accountToAddParam of accountsToAddParams) {
               const indexedAccountIdToAdd = accountUtils.buildIndexedAccountId({
-                walletId: keepWallet?.id,
+                walletId: walletToKeep?.id,
                 index: accountToAddParam.index,
               });
               const existingIndexedAccount = await this.getIndexedAccountSafe({
@@ -4104,7 +4156,7 @@ class ServiceAccount extends ServiceBase {
               });
               try {
                 await this.addHDOrHWAccounts({
-                  walletId: keepWallet?.id,
+                  walletId: walletToKeep?.id,
                   networkId: accountToAddParam.networkId,
                   deriveType: accountToAddParam.deriveType,
                   indexes: [accountToAddParam.index],
@@ -4147,20 +4199,20 @@ class ServiceAccount extends ServiceBase {
           } catch (e) {
             console.error(e);
           }
-          if (keepWallet) {
+          if (walletToKeep) {
             try {
               await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
                 items: [
                   {
                     entityType: EChangeHistoryEntityType.Wallet,
-                    entityId: keepWallet?.id,
+                    entityId: walletToKeep?.id,
                     contentType: EChangeHistoryContentType.Name,
                     oldValue: '',
-                    value: keepWallet?.name,
+                    value: walletToKeep?.name,
                   },
-                  ...walletNames.map((name) => ({
+                  ...uniq(walletNames).map((name) => ({
                     entityType: EChangeHistoryEntityType.Wallet,
-                    entityId: keepWallet?.id,
+                    entityId: walletToKeep?.id,
                     contentType: EChangeHistoryContentType.Name,
                     oldValue: '',
                     value: name,
@@ -4175,7 +4227,7 @@ class ServiceAccount extends ServiceBase {
 
         for (const walletId of walletsToRemove) {
           try {
-            await this.removeWallet({ walletId });
+            await this.removeWallet({ walletId, skipBackupWalletRemove: true });
           } catch (e) {
             console.error(e);
           }

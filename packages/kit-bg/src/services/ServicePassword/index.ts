@@ -604,16 +604,28 @@ export default class ServicePassword extends ServiceBase {
           console.error(e);
         }
         try {
+          let skipAppStatusCheck = false;
+          if (
+            !this._mergeDuplicateHDWalletsExecuted &&
+            !globalThis?.$indexedDBIsMigratedToBucket?.isMigrated
+          ) {
+            skipAppStatusCheck = true;
+          }
           await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
             password: verifyingPassword,
+            skipAppStatusCheck,
           });
         } catch (e) {
           console.error(e);
+        } finally {
+          this._mergeDuplicateHDWalletsExecuted = true;
         }
       })();
     }
     return verifyingPassword;
   }
+
+  _mergeDuplicateHDWalletsExecuted = false;
 
   // ui ------------------------------
   promptPasswordVerifyMutex = new Semaphore(1);
