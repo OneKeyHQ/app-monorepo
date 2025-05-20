@@ -266,11 +266,33 @@ interface IEarnButtonAction {
   disabled: boolean;
 }
 
+export interface IEarnToken {
+  uniqueKey: string;
+  address: string;
+  decimals: number;
+  isNative: boolean;
+  logoURI: string;
+  name: string;
+  symbol: string;
+  totalSupply: string;
+  riskLevel: number;
+  coingeckoId: string;
+}
+
+export interface IEarnTokenInfo extends IEarnToken {
+  networkId: string;
+  provider: string;
+  vault: string;
+  accountId: string;
+  token: IEarnToken;
+}
+
 interface ISubscriptionValue {
   title: IEarnText;
   fiatValue: string;
   formattedValue: string;
   balance: string;
+  token: IEarnToken;
 }
 
 interface IEarnBadge {
@@ -346,17 +368,17 @@ interface IEarnCell {
 
 interface IEarnProfit {
   title: IEarnText;
-  cells: IEarnCell[];
+  items: IEarnCell[];
 }
 
 interface IEarnProvider {
   title: IEarnText;
-  cells: IEarnCell[];
+  items: IEarnCell[];
 }
 
 export interface IEarnFAQItem {
-  question: IEarnText;
-  answer: IEarnText;
+  title: IEarnText;
+  description: IEarnText;
 }
 
 interface IEarnRisk {
@@ -372,7 +394,15 @@ interface IEarnRisk {
 export interface IStakeEarnDetail {
   actions: (IEarnDepositActionIcon | IEarnWithdrawActionIcon)[];
   subscriptionValue: ISubscriptionValue;
-  portfolios: IPortfolio[];
+  portfolios: {
+    title: IEarnText;
+    items: {
+      token: IEarnTokenInfo;
+      fiatValue: string;
+      formattedValue: string;
+      title: IEarnText;
+    }[];
+  };
   timeline: {
     items: {
       title: IEarnText;
@@ -384,7 +414,10 @@ export interface IStakeEarnDetail {
   profit: IEarnProfit;
   provider: IEarnProvider;
   alerts: string[];
-  faqs: IEarnFAQItem[];
+  faqs: {
+    title: string;
+    items: IEarnFAQItem[];
+  };
 }
 
 export type IStakeProtocolDetails = {

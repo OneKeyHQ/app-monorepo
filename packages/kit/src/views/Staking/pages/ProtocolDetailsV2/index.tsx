@@ -168,9 +168,7 @@ function PortfolioSection({
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <SizableText size="$headingLg">
-            {intl.formatMessage({ id: ETranslations.earn_portfolio })}
-          </SizableText>
+          <SizableText size="$headingLg">{portfolios.title}</SizableText>
           {/* {onPortfolioDetails !== undefined ? (
        <Button
          variant="tertiary"
@@ -182,7 +180,7 @@ function PortfolioSection({
      ) : null} */}
         </XStack>
         <YStack gap="$3">
-          {portfolios.map((item) => (
+          {portfolios.items.map((item) => (
             <XStack
               key={item.title.text}
               minHeight={30}
@@ -252,7 +250,7 @@ function ProfitSection({ profit }: { profit: IStakeEarnDetail['profit'] }) {
       <YStack gap="$6">
         <SizableText size="$headingLg">{profit.title.text}</SizableText>
         <XStack flexWrap="wrap" m="$-5" p="$2">
-          {profit.cells.map((cell) => (
+          {profit.items.map((cell) => (
             <GridItem
               key={cell.title.text}
               title={cell.title}
@@ -278,7 +276,7 @@ function ProviderSection({
       <YStack gap="$6">
         <SizableText size="$headingLg">{provider.title.text}</SizableText>
         <XStack flexWrap="wrap" m="$-5" p="$2">
-          {provider.cells.map((cell) => (
+          {provider.items.map((cell) => (
             <GridItem
               key={cell.title.text}
               title={cell.title}
@@ -380,6 +378,16 @@ const ProtocolDetailsPage = () => {
     [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
+
+  const tokenInfo = useMemo(() => {
+    return {
+      token: result?.subscriptionValue?.token,
+      networkId,
+      provider,
+      vault,
+      accountId,
+    };
+  }, [accountId, networkId, provider, result?.subscriptionValue?.token, vault]);
 
   const { result: unbondingDelegationList } = usePromiseResult(
     () =>
@@ -778,7 +786,7 @@ const ProtocolDetailsPage = () => {
                 <PeriodSection timeline={result.timeline} />
                 <ProviderSection provider={result.provider} />
                 <RiskSection risk={result.risk} />
-                <FAQSection faqs={result.faqs} />
+                <FAQSection faqs={result.faqs} tokenInfo={tokenInfo} />
               </YStack>
             ) : null}
 
