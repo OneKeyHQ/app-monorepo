@@ -38,6 +38,7 @@ export function SwapPanel() {
     checkTokenApproveAllowance,
     checkTokenAllowanceLoading,
     speedSwapApproveHandler,
+    speedSwapApproveLoading,
   } = useSpeedSwapActions({
     token: {
       networkId: 'evm--1',
