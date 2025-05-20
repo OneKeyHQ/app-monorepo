@@ -56,7 +56,10 @@ function BasicStakePage() {
 
   const tokenInfo = token.info;
 
-  const actionTag = buildLocalTxStatusSyncId(details);
+  const actionTag = buildLocalTxStatusSyncId({
+    providerName: provider.name,
+    tokenSymbol: tokenInfo.symbol,
+  });
   const [btcFeeRate, setBtcFeeRate] = useState<string | undefined>();
   const btcFeeRateInit = useRef<boolean>(false);
 

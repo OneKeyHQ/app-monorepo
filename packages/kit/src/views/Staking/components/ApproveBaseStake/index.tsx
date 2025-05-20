@@ -332,7 +332,7 @@ export function ApproveBaseStake({
           countDecimalPlaces(value) > decimals,
       );
       if (isOverflowDecimals) {
-        setAmountValue((oldValue) => oldValue);
+        // setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);

@@ -90,8 +90,12 @@ export function GridItem({
 }) {
   const actionIconButton = useMemo(() => {
     let onPress: undefined | IIconButtonProps['onPress'];
-    let icon: IKeyOfIcons | undefined = actionIcon?.icon?.icon;
+    let icon: IKeyOfIcons | undefined;
     switch (actionIcon?.type) {
+      case 'link':
+        icon = 'OpenOutline';
+        onPress = () => openUrlExternal(actionIcon.data);
+        break;
       case 'popup':
         return actionIcon.icon ? (
           <Popover
@@ -115,10 +119,6 @@ export function GridItem({
             placement="top"
           />
         ) : null;
-      case 'link':
-        icon = 'OpenOutline';
-        onPress = () => openUrlExternal(actionIcon.data);
-        break;
       default:
     }
     return icon ? (
@@ -130,13 +130,7 @@ export function GridItem({
         variant="tertiary"
       />
     ) : null;
-  }, [
-    actionIcon?.data.bulletList,
-    actionIcon?.data.items,
-    actionIcon?.icon,
-    actionIcon?.type,
-    title.text,
-  ]);
+  }, [actionIcon?.data, actionIcon?.icon, actionIcon?.type, title.text]);
   return (
     <YStack
       p="$3"

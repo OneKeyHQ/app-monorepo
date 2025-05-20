@@ -442,53 +442,54 @@ function ProviderSection({
 }
 
 function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
-  const intl = useIntl();
   return risk ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.global_risk })}
+        <SizableText size="$headingLg" color={risk.title.color}>
+          {risk.title.text}
         </SizableText>
-        <XStack ai="center" gap="$3">
-          <YStack flex={1} gap="$2">
-            <XStack ai="center" gap="$2">
-              <XStack
-                ai="center"
-                jc="center"
-                w="$6"
-                h="$6"
-                bg="$bgCaution"
-                borderRadius="$1"
-              >
-                <Icon
-                  name={risk.icon.icon}
-                  size="$4"
-                  color={risk.icon.color || '$iconCaution'}
-                />
+        {risk.items.map((item) => (
+          <XStack ai="center" gap="$3" key={item.title.text}>
+            <YStack flex={1} gap="$2">
+              <XStack ai="center" gap="$2">
+                <XStack
+                  ai="center"
+                  jc="center"
+                  w="$6"
+                  h="$6"
+                  bg="$bgCaution"
+                  borderRadius="$1"
+                >
+                  <Icon
+                    name={item.icon.icon}
+                    size="$4"
+                    color={item.icon.color || '$iconCaution'}
+                  />
+                </XStack>
+                <SizableText size="$bodyMdMedium" color={item.title.color}>
+                  {item.title.text}
+                </SizableText>
               </XStack>
-              <SizableText size="$bodyMdMedium" color={risk.title.color}>
-                {risk.title.text}
+              <SizableText
+                size="$bodyMd"
+                color={item.description.color || '$textSubdued'}
+              >
+                {item.description.text}
               </SizableText>
-            </XStack>
-            <SizableText
-              size="$bodyMd"
-              color={risk.description.color || '$textSubdued'}
-            >
-              {risk.description.text}
-            </SizableText>
-          </YStack>
-          {risk?.actionButton?.actionType === 'link' ? (
-            <IconButton
-              icon="OpenOutline"
-              color="$iconSubdued"
-              size="small"
-              bg="transparent"
-              onPress={() => {
-                openUrlExternal(risk?.actionButton?.text.text);
-              }}
-            />
-          ) : null}
-        </XStack>
+            </YStack>
+            {item?.actionButton?.actionType === 'link' ? (
+              <IconButton
+                icon="OpenOutline"
+                color="$iconSubdued"
+                size="small"
+                bg="transparent"
+                onPress={() => {
+                  openUrlExternal(item?.actionButton?.text.text);
+                }}
+              />
+            ) : null}
+          </XStack>
+        ))}
       </YStack>
       <Divider />
     </>
@@ -896,6 +897,7 @@ const ProtocolDetailsPage = () => {
     withdrawButtonProps,
   ]);
 
+  const now = useMemo(() => Date.now(), []);
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -909,11 +911,19 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
-        {/* {isEventActive ? (
+        {result?.countDownAlert &&
+        result.countDownAlert.startTime &&
+        now > result.countDownAlert.startTime ? (
           <YStack pb="$1">
-            <CountDownCalendarAlert effectiveTimeAt={effectiveTime} />
+            <CountDownCalendarAlert
+              description={result.countDownAlert.description.text}
+              descriptionTextProps={{
+                color: result.countDownAlert.description.color,
+              }}
+              effectiveTimeAt={result.countDownAlert.endTime}
+            />
           </YStack>
-        ) : null} */}
+        ) : null}
         <YStack px="$5" gap="$8">
           <PageFrame
             LoadingSkeleton={OverviewSkeleton}

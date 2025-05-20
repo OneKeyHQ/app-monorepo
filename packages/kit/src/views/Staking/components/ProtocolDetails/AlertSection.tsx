@@ -1,4 +1,4 @@
-
+import { StyleSheet } from 'react-native';
 
 import { SizableText, YStack } from '@onekeyhq/components';
 

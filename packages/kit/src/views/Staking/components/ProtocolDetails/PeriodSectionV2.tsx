@@ -84,15 +84,14 @@ export function PeriodSection({
 }: {
   timeline?: IStakeEarnDetail['timeline'];
 }) {
-  const intl = useIntl();
   if (!timeline) {
     return null;
   }
   return (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_period })}
+        <SizableText size="$headingLg" color={timeline.title.color}>
+          {timeline.title.text}
         </SizableText>
         <YStack>
           <Stepper stepIndex={timeline.items.length}>

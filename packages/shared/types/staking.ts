@@ -350,7 +350,7 @@ export interface IEarnWithdrawActionIcon {
   text: IEarnText;
 }
 
-export type IEarnActionIcon = IEarnPopupActionIcon | IEarnPopupActionIcon;
+export type IEarnActionIcon = IEarnPopupActionIcon | IEarnLinkActionIcon;
 interface IEarnCell {
   title: IEarnText;
   description: IEarnText;
@@ -375,17 +375,25 @@ export interface IEarnFAQItem {
 
 interface IEarnRisk {
   title: IEarnText;
-  description: IEarnText;
-  icon: IEarnIcon;
-  actionButton: {
-    actionType: 'link';
-    text: IEarnText;
-  };
+  items: {
+    title: IEarnText;
+    description: IEarnText;
+    icon: IEarnIcon;
+    actionButton: {
+      actionType: 'link';
+      text: IEarnText;
+    };
+  }[];
 }
 
 export interface IStakeEarnDetail {
   actions: (IEarnDepositActionIcon | IEarnWithdrawActionIcon)[];
   subscriptionValue: ISubscriptionValue;
+  countDownAlert: {
+    description: IEarnText;
+    startTime: number;
+    endTime: number;
+  };
   portfolios: {
     title: IEarnText;
     items: {
@@ -397,6 +405,8 @@ export interface IStakeEarnDetail {
     }[];
   };
   timeline: {
+    title: IEarnText;
+    step: number;
     items: {
       title: IEarnText;
       description: IEarnText;
