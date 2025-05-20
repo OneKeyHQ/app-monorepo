@@ -334,10 +334,10 @@ export const {
     return 0;
   });
   return sortedList.map((p) => {
-    if (p.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
+    if (p?.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
       p.isBest = true;
     }
-    if (p.quoteId === receivedSorted?.[0]?.quoteId && p.toAmount) {
+    if (p?.quoteId === receivedSorted?.[0]?.quoteId && p.toAmount) {
       p.receivedBest = true;
     }
     if (p.quoteId === gasFeeSorted?.[0]?.quoteId && p.toAmount) {

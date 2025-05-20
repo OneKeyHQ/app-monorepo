@@ -14,6 +14,8 @@ export type IInAppNotificationAtom = {
   swapLimitOrders: IFetchLimitOrderRes[];
   swapLimitOrdersLoading: boolean;
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
+  speedSwapApprovingTransaction: ISwapApproveTransaction | undefined;
+  speedSwapApprovingLoading: boolean;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   swapPercentageInputStageShowForNative: boolean;
   swapProviderManager: ISwapProviderManager[];
@@ -29,10 +31,12 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
       swapLimitOrders: [],
       swapLimitOrdersLoading: false,
       swapApprovingTransaction: undefined,
+      speedSwapApprovingTransaction: undefined,
       swapRecentTokenPairs: [],
       swapPercentageInputStageShowForNative: false,
       swapProviderManager: [],
       bridgeProviderManager: [],
       swapApprovingLoading: false,
+      speedSwapApprovingLoading: false,
     },
   });

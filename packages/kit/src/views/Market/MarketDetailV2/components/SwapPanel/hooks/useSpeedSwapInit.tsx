@@ -16,6 +16,7 @@ export function useSpeedSwapInit(networkId: string) {
       initResult: {
         provider: '',
         speedConfig: {
+          spenderAddress: '',
           slippage: 0.5,
           defaultTokens: [],
         },

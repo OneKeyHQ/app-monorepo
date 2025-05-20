@@ -51,6 +51,11 @@ export const swapApprovingStateFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 2,
 });
 
+export const swapSpeedSwapApprovingStateFetchInterval =
+  timerUtils.getTimeDurationMs({
+    seconds: 1,
+  });
+
 export const swapHistoryStateFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 3,
 });
