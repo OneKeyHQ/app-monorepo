@@ -332,20 +332,24 @@ function ReceiveToken() {
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
-          p="$4"
+          p="$5"
+          width={264}
+          height={264}
         >
-          <Stack position="relative">
-            <QRCode
-              value={account.address}
-              size={240}
-              logo={
-                network.isCustomNetwork
-                  ? undefined
-                  : { uri: token?.logoURI || network.logoURI }
-              }
-              logoSize={network.isCustomNetwork ? undefined : 40}
-            />
-          </Stack>
+          {isShowQRCode ? (
+            <Stack position="relative">
+              <QRCode
+                value={account.address}
+                size={214}
+                logo={
+                  network.isCustomNetwork
+                    ? undefined
+                    : { uri: token?.logoURI || network.logoURI }
+                }
+                logoSize={network.isCustomNetwork ? undefined : 40}
+              />
+            </Stack>
+          ) : null}
 
           {!isShowQRCode ? (
             <Stack
@@ -357,25 +361,19 @@ function ReceiveToken() {
               alignItems="center"
               justifyContent="center"
             >
-              <BlurView
-                contentStyle={{
-                  borderRadius: '$3',
-                  width: '100%',
-                  height: '100%',
-                  borderCurve: 'continuous',
-                }}
-                position="absolute"
-                intensity={100}
-                top="$0"
-                left="$0"
-                right="$0"
-                bottom="$0"
-              />
               <Empty
                 icon="EyeOffOutline"
                 description={intl.formatMessage({
                   id: ETranslations.address_verify_address_instruction,
                 })}
+                iconProps={{
+                  size: '$8',
+                  mb: '$5',
+                }}
+                descriptionProps={{
+                  size: '$bodyLgMedium',
+                  color: '$text',
+                }}
               />
             </Stack>
           ) : null}
