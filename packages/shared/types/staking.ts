@@ -303,16 +303,8 @@ interface IEarnBadge {
   };
 }
 
-interface IPortfolio {
-  token: IToken;
-  fiatValue: string;
-  formattedValue: string;
-  title: IEarnText;
-  badge: IEarnBadge;
-}
-
 interface IRewardToken {
-  token: IToken;
+  token: IEarnToken;
   title: IEarnText;
   description: IEarnText;
 }
@@ -401,6 +393,7 @@ export interface IStakeEarnDetail {
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
+      badge: IEarnBadge;
     }[];
   };
   timeline: {

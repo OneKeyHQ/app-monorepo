@@ -15,6 +15,7 @@ import {
   Page,
   Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -39,7 +40,10 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
-import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnTokenInfo,
+  IStakeEarnDetail,
+} from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { BabylonTrackingAlert } from '../../components/BabylonTrackingAlert';
@@ -158,17 +162,148 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
   return null;
 }
 
-function PortfolioSection({
-  portfolios,
+function ProtocolRewards({
+  rewards,
+  tokenInfo,
 }: {
-  portfolios: IStakeEarnDetail['portfolios'];
+  rewards: IStakeEarnDetail['rewards'];
+  tokenInfo?: IEarnTokenInfo;
 }) {
   const intl = useIntl();
+  const handleClaim = useHandleClaim({
+    accountId: tokenInfo?.accountId || '',
+    networkId: tokenInfo?.networkId || '',
+  });
+  return rewards ? (
+    <YStack
+      gap="$2.5"
+      mt="$3"
+      py="$3.5"
+      px="$4"
+      borderRadius="$3"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      bg="$bgSubdued"
+    >
+      <XStack alignItems="center" gap="$1">
+        <SizableText
+          color={rewards.title.color || '$textSubdued'}
+          size="$bodyMd"
+        >
+          {rewards.title.text}
+        </SizableText>
+        <Popover
+          title={rewards.title.text}
+          placement="top"
+          renderTrigger={
+            <IconButton
+              iconColor="$iconSubdued"
+              size="small"
+              icon="InfoCircleOutline"
+              variant="tertiary"
+            />
+          }
+          renderContent={
+            <Stack p="$5">
+              <SizableText
+                color={rewards.tooltip.color || '$text'}
+                size="$bodyLg"
+              >
+                {rewards.tooltip.text}
+              </SizableText>
+            </Stack>
+          }
+        />
+      </XStack>
+      {rewards?.tokens?.map((token, index) => {
+        return (
+          <>
+            <YStack gap="$2.5">
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                flexWrap="wrap"
+                gap="$2"
+              >
+                <XStack alignItems="center" flex={1} flexWrap="wrap">
+                  <Token
+                    mr="$1.5"
+                    size="sm"
+                    tokenImageUri={token.token.logoURI}
+                  />
+                  <XStack flex={1} flexWrap="wrap" alignItems="center">
+                    <SizableText size="$bodyLgMedium" color={token.title.color}>
+                      {token.title.text}
+                    </SizableText>
+                  </XStack>
+                </XStack>
+                <Button
+                  size="small"
+                  variant="primary"
+                  onPress={async () => {
+                    await handleClaim({
+                      symbol: token.token.symbol,
+                      provider: tokenInfo?.provider || '',
+                      // claimAmount: claimTokenInfo.amount,
+                      claimAmount: '0',
+                      claimTokenAddress: tokenInfo?.token.address,
+                      isReward: true,
+                      isMorphoClaim:
+                        tokenInfo?.provider &&
+                        earnUtils.isMorphoProvider({
+                          providerName: tokenInfo?.provider,
+                        }),
+                      details: result,
+                      stakingInfo: {
+                        label: EEarnLabels.Claim,
+                        protocol: earnUtils.getEarnProviderName({
+                          providerName: result.provider.name,
+                        }),
+                        protocolLogoURI: result.provider.logoURI,
+                        receive: claimTokenInfo,
+                        tags: [buildLocalTxStatusSyncId(result)],
+                      },
+                    });
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.earn_claim,
+                  })}
+                </Button>
+              </XStack>
+              <XStack>
+                <SizableText
+                  size="$bodyMd"
+                  color={token.description.color || '$textSubdued'}
+                >
+                  {token.description.text}
+                </SizableText>
+              </XStack>
+            </YStack>
+            {rewards?.tokens.length !== index + 1 ? (
+              <Divider my="$1.5" />
+            ) : null}
+          </>
+        );
+      })}
+    </YStack>
+  ) : null;
+}
+
+function PortfolioSection({
+  portfolios,
+  rewards,
+  tokenInfo,
+}: {
+  portfolios: IStakeEarnDetail['portfolios'];
+  rewards: IStakeEarnDetail['rewards'];
+  tokenInfo?: IEarnTokenInfo;
+}) {
   return portfolios ? (
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <SizableText size={portfolios.title.color || '$headingLg'}>
+          <SizableText size="$headingLg" color={portfolios.title.color}>
             {portfolios.title.text}
           </SizableText>
           {/* {onPortfolioDetails !== undefined ? (
@@ -240,6 +375,7 @@ function PortfolioSection({
             </XStack>
           ))}
         </YStack>
+        <ProtocolRewards rewards={rewards} tokenInfo={tokenInfo} />
       </YStack>
       <Divider />
     </>
@@ -787,7 +923,11 @@ const ProtocolDetailsPage = () => {
                 />
                 <AlertSection alerts={result.alerts} />
                 <Divider />
-                <PortfolioSection portfolios={result.portfolios} />
+                <PortfolioSection
+                  portfolios={result.portfolios}
+                  rewards={result.rewards}
+                  tokenInfo={tokenInfo}
+                />
                 <ProfitSection profit={result.profit} />
                 <PeriodSection timeline={result.timeline} />
                 <ProviderSection provider={result.provider} />

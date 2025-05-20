@@ -1,4 +1,5 @@
 import type { IStakeProtocolDetails } from '../../types/staking';
+import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
@@ -21,6 +22,16 @@ type IBaseRouteParams = {
   indexedAccountId?: string;
 };
 
+interface IClaimOptionsParams extends IBaseRouteParams {
+  accountId: string;
+  networkId: string;
+  token: IToken;
+  provider: {
+    name: string;
+    vault: string;
+    logoURI: string;
+  };
+}
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
   [EModalStakingRoutes.ProtocolDetails]: IBaseRouteParams & {
@@ -57,19 +68,14 @@ export type IModalStakingParamList = {
     amount?: string;
     onSuccess?: () => void;
   };
-  [EModalStakingRoutes.Claim]: IBaseRouteParams & {
-    symbol: string;
-    provider: string;
-    details: IStakeProtocolDetails;
-    identity?: string;
-    amount?: string;
-    onSuccess?: () => void;
-  };
-  [EModalStakingRoutes.ClaimOptions]: IBaseRouteParams & {
-    symbol: string;
-    provider: string;
-    details: IStakeProtocolDetails;
-  };
+  [EModalStakingRoutes.Claim]: IBaseRouteParams &
+    IClaimOptionsParams & {
+      amount?: string;
+      onSuccess?: () => void;
+      identity?: string;
+      claimableAmount?: string;
+    };
+  [EModalStakingRoutes.ClaimOptions]: IBaseRouteParams & IClaimOptionsParams;
   [EModalStakingRoutes.WithdrawOptions]: IBaseRouteParams & {
     symbol: string;
     provider: string;
