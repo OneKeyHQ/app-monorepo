@@ -305,7 +305,8 @@ const formatSections = (data: IEarnRewardItem[]) => {
   );
 };
 
-const buildAccountNetworkKey = (item: IEarnRewardItem) => `${item.accountAddress}-${item.networkId}`
+const buildAccountNetworkKey = (item: IEarnRewardItem) =>
+  `${item.accountAddress}-${item.networkId}`;
 
 export default function EarnReward() {
   const intl = useIntl();
@@ -397,9 +398,10 @@ export default function EarnReward() {
         keys[lastIndex] = keys[lastIndex].toLowerCase();
       }
       if (!newVaultAmount[item.accountAddress]) {
-        newVaultAmount[item.accountAddress] =  {}
+        newVaultAmount[item.accountAddress] = {};
       }
-      newVaultAmount[item.accountAddress][keys.join(SEPARATOR)] = item.deposited;
+      newVaultAmount[item.accountAddress][keys.join(SEPARATOR)] =
+        item.deposited;
     }
     setVaultAmount(newVaultAmount);
   }, [fetchSales, fetchTotalList]);

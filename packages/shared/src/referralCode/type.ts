@@ -64,6 +64,27 @@ export interface IInviteSummary {
   banners: any[];
 }
 
+export interface IEarnWalletHistoryItem {
+  networkId: string;
+  address: string;
+  createdAt: string;
+}
+
+export interface IEarnWalletHistoryNetwork {
+  networkId: string;
+  name: string;
+  logoURI: string;
+}
+
+export interface IEarnWalletHistory {
+  items: {
+    items: IEarnWalletHistoryItem[];
+    total: number;
+  }[];
+  networks: IEarnWalletHistoryNetwork[];
+  total: number;
+}
+
 interface IHardwareSalesRecordItem {
   _id: string;
   itemUniqueId: string;
