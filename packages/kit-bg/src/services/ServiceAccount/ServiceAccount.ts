@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { debounce, isEmpty, isNil, uniqBy } from 'lodash';
+import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
@@ -4011,7 +4011,7 @@ class ServiceAccount extends ServiceBase {
         const { accounts: allAccounts } = await this.getAllAccounts();
 
         for (const sameWallet of sameWallets) {
-          let keepWallet: IDBWallet | undefined;
+          let walletToKeep: IDBWallet | undefined;
           const accountsToAddParams: {
             oldIndexedAccountId: string;
             deriveType: IAccountDeriveTypes;
@@ -4028,10 +4028,26 @@ class ServiceAccount extends ServiceBase {
           for (let i = 0; i < sameWallet.wallets.length; i += 1) {
             const wallet = sameWallet.wallets[i];
             if (i === 0) {
-              keepWallet = wallet;
+              walletToKeep = wallet;
             } else {
               walletsToRemove.push(wallet.id);
               walletNames.push(wallet.name);
+              try {
+                const changeHistory =
+                  await this.backgroundApi.simpleDb.changeHistory.getChangeHistory(
+                    {
+                      entityType: EChangeHistoryEntityType.Wallet,
+                      entityId: wallet.id,
+                      contentType: EChangeHistoryContentType.Name,
+                    },
+                  );
+                if (changeHistory?.length) {
+                  walletNames.push(...changeHistory.map((item) => item.value));
+                }
+              } catch (e) {
+                console.error(e);
+              }
+
               await Promise.all(
                 allAccounts
                   .filter(
@@ -4083,10 +4099,10 @@ class ServiceAccount extends ServiceBase {
                           name: indexedAccount?.name,
                         });
 
-                        if (keepWallet?.id && item.pathIndex >= 0) {
+                        if (walletToKeep?.id && item.pathIndex >= 0) {
                           const indexedAccountIdToAdd =
                             accountUtils.buildIndexedAccountId({
-                              walletId: keepWallet?.id,
+                              walletId: walletToKeep?.id,
                               index: item.pathIndex,
                             });
                           if (indexedAccountIdToAdd) {
@@ -4117,10 +4133,10 @@ class ServiceAccount extends ServiceBase {
             }
           }
 
-          if (keepWallet && keepWallet?.id && accountsToAddParams?.length) {
+          if (walletToKeep && walletToKeep?.id && accountsToAddParams?.length) {
             for (const accountToAddParam of accountsToAddParams) {
               const indexedAccountIdToAdd = accountUtils.buildIndexedAccountId({
-                walletId: keepWallet?.id,
+                walletId: walletToKeep?.id,
                 index: accountToAddParam.index,
               });
               const existingIndexedAccount = await this.getIndexedAccountSafe({
@@ -4128,7 +4144,7 @@ class ServiceAccount extends ServiceBase {
               });
               try {
                 await this.addHDOrHWAccounts({
-                  walletId: keepWallet?.id,
+                  walletId: walletToKeep?.id,
                   networkId: accountToAddParam.networkId,
                   deriveType: accountToAddParam.deriveType,
                   indexes: [accountToAddParam.index],
@@ -4171,20 +4187,20 @@ class ServiceAccount extends ServiceBase {
           } catch (e) {
             console.error(e);
           }
-          if (keepWallet) {
+          if (walletToKeep) {
             try {
               await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
                 items: [
                   {
                     entityType: EChangeHistoryEntityType.Wallet,
-                    entityId: keepWallet?.id,
+                    entityId: walletToKeep?.id,
                     contentType: EChangeHistoryContentType.Name,
                     oldValue: '',
-                    value: keepWallet?.name,
+                    value: walletToKeep?.name,
                   },
-                  ...walletNames.map((name) => ({
+                  ...uniq(walletNames).map((name) => ({
                     entityType: EChangeHistoryEntityType.Wallet,
-                    entityId: keepWallet?.id,
+                    entityId: walletToKeep?.id,
                     contentType: EChangeHistoryContentType.Name,
                     oldValue: '',
                     value: name,
