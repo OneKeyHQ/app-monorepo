@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "Untuk memperbarui alamat email Anda, harap verifikasi Email saat ini terlebih dahulu.",
   "prime.verify_backup_password": "Verifikasi kata sandi OneKey ID",
   "prime.verify_passcode_change_sync_password": "Silakan verifikasi kode sandi (passcode) Anda untuk mengubah kata sandi OneKey ID",
-  "prime.verify_passcode_enable_cloud": "Verifikasi passcode untuk mengaktifkan OneKey Cloud",
+  "prime.verify_passcode_enable_cloud": "Harap verifikasi kode sandi (passcode) untuk mengaktifkan OneKey Cloud",
   "prime.verify_passcode_reset_sync_password": "Silakan verifikasi kode sandi (passcode) Anda untuk mengatur ulang kata sandi OneKey ID",
   "prime.wallet": "Dompet",
   "prime.wallet_diff_cloud": "Awan",

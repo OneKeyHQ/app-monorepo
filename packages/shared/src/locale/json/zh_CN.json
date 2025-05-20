@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "要更新您的邮箱地址，请先验证当前的邮箱。",
   "prime.verify_backup_password": "验证 OneKey ID 密码",
   "prime.verify_passcode_change_sync_password": "请验证密码 (passcode) 以更改 OneKey ID 密码",
-  "prime.verify_passcode_enable_cloud": "请验证 passcode 来启用 OneKey Cloud",
+  "prime.verify_passcode_enable_cloud": "请验证密码 (passcode) 以启用 OneKey Cloud",
   "prime.verify_passcode_reset_sync_password": "请验证密码 (passcode) 以重置 OneKey ID 密码",
   "prime.wallet": "钱包",
   "prime.wallet_diff_cloud": "云端",

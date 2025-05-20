@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "メールアドレスを更新するには、まず現在のメールアドレスを確認してください。",
   "prime.verify_backup_password": "OneKey ID パスワードを確認する",
   "prime.verify_passcode_change_sync_password": "OneKey ID パスワードを変更するには、パスコード (passcode) を確認してください",
-  "prime.verify_passcode_enable_cloud": "OneKey Cloud を有効化するには passcode を確認してください",
+  "prime.verify_passcode_enable_cloud": "OneKey Cloudを有効にするにはパスコード (passcode) を確認してください",
   "prime.verify_passcode_reset_sync_password": "OneKey ID パスワードをリセットするには、パスコード (passcode) を確認してください",
   "prime.wallet": "財布",
   "prime.wallet_diff_cloud": "クラウド",

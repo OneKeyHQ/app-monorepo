@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "Pour mettre à jour votre adresse e-mail, veuillez d'abord vérifier l'e-mail actuel.",
   "prime.verify_backup_password": "Vérifier votre mot de passe OneKey ID",
   "prime.verify_passcode_change_sync_password": "Veuillez vérifier votre code d'accès (passcode) pour modifier le mot de passe OneKey ID",
-  "prime.verify_passcode_enable_cloud": "Vérifiez votre passcode pour activer OneKey Cloud",
+  "prime.verify_passcode_enable_cloud": "Veuillez vérifier le code d'accès (passcode) pour activer OneKey Cloud",
   "prime.verify_passcode_reset_sync_password": "Veuillez vérifier votre code d'accès (passcode) pour réinitialiser le mot de passe OneKey ID",
   "prime.wallet": "Portefeuille",
   "prime.wallet_diff_cloud": "Nuage",

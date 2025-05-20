@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "หากต้องการอัปเดตที่อยู่อีเมลของคุณ โปรดตรวจสอบอีเมลปัจจุบันก่อน",
   "prime.verify_backup_password": "ยืนยันรหัสผ่าน OneKey ID",
   "prime.verify_passcode_change_sync_password": "โปรดยืนยันรหัสผ่าน (passcode) ของคุณเพื่อเปลี่ยนรหัสผ่าน OneKey ID",
-  "prime.verify_passcode_enable_cloud": "ยืนยัน passcode เพื่อเปิดใช้งาน OneKey Cloud",
+  "prime.verify_passcode_enable_cloud": "โปรดยืนยันรหัสผ่าน (passcode) เพื่อเปิดใช้งาน OneKey Cloud",
   "prime.verify_passcode_reset_sync_password": "โปรดยืนยันรหัสผ่าน (passcode) ของคุณเพื่อรีเซ็ตรหัสผ่าน OneKey ID",
   "prime.wallet": "กระเป๋าสตางค์",
   "prime.wallet_diff_cloud": "เมฆ",

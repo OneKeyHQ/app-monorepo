@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "আপনার ইমেল ঠিকানা আপডেট করতে, অনুগ্রহ করে প্রথমে বর্তমান ইমেলটি যাচাই করুন।",
   "prime.verify_backup_password": "OneKey ID পাসওয়ার্ড যাচাই করুন",
   "prime.verify_passcode_change_sync_password": "OneKey ID পাসওয়ার্ড পরিবর্তন করতে পাসকোড (passcode) যাচাই করুন",
-  "prime.verify_passcode_enable_cloud": "OneKey Cloud সক্ষম করতে অনুগ্রহ করে passcode যাচাই করুন",
+  "prime.verify_passcode_enable_cloud": "OneKey Cloud সক্ষম করতে পাসকোড (passcode) যাচাই করুন",
   "prime.verify_passcode_reset_sync_password": "OneKey ID পাসওয়ার্ড রিসেট করতে পাসকোড (passcode) যাচাই করুন",
   "prime.wallet": "ওয়ালেট",
   "prime.wallet_diff_cloud": "মেঘ",

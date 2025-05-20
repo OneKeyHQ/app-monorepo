@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "若要更新您的電子郵件地址，請先驗證目前的電子郵件。",
   "prime.verify_backup_password": "驗證 OneKey ID 密碼",
   "prime.verify_passcode_change_sync_password": "請驗證密碼 (passcode) 以更改 OneKey ID 密碼",
-  "prime.verify_passcode_enable_cloud": "請驗證 passcode 以啟用 OneKey Cloud",
+  "prime.verify_passcode_enable_cloud": "請驗證密碼 (passcode) 以啟用 OneKey Cloud",
   "prime.verify_passcode_reset_sync_password": "請驗證密碼 (passcode) 以重設 OneKey ID 密碼",
   "prime.wallet": "錢包",
   "prime.wallet_diff_cloud": "雲端",

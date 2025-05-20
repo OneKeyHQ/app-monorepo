@@ -37,14 +37,17 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
 
-  const userInfo = (
+  const userInfoView = (
     <Stack px="$2" py="$2.5" gap="$1">
       <XStack alignItems="center" gap="$2">
         <SizableText
           flex={1}
           size="$headingSm"
-          onPress={() => {
-            console.log(user);
+          onPress={async () => {
+            const sdkCustomerInfo = await getCustomerInfo();
+            const serverPrimeUserInfo =
+              await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+            console.log({ user, sdkCustomerInfo, serverPrimeUserInfo });
           }}
         >
           {user?.email}
@@ -78,7 +81,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   );
   return (
     <>
-      {userInfo}
+      {userInfoView}
       {isPrime ? (
         <>
           <ActionList.Item

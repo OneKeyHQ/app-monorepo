@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "Чтобы обновить свой адрес электронной почты, сначала проверьте текущий адрес электронной почты.",
   "prime.verify_backup_password": "Подтвердите пароль OneKey ID",
   "prime.verify_passcode_change_sync_password": "Подтвердите код доступа (passcode) для изменения пароля OneKey ID",
-  "prime.verify_passcode_enable_cloud": "Подтвердите passcode для включения OneKey Cloud",
+  "prime.verify_passcode_enable_cloud": "Подтвердите код доступа (passcode), чтобы включить OneKey Cloud",
   "prime.verify_passcode_reset_sync_password": "Подтвердите код доступа (passcode) для сброса пароля OneKey ID",
   "prime.wallet": "Кошелек",
   "prime.wallet_diff_cloud": "Облако",

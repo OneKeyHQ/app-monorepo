@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "Để cập nhật địa chỉ email của bạn, vui lòng xác minh Email hiện tại trước.",
   "prime.verify_backup_password": "Xác nhận mật khẩu OneKey ID",
   "prime.verify_passcode_change_sync_password": "Vui lòng xác nhận mã truy cập (passcode) để thay đổi mật khẩu OneKey ID",
-  "prime.verify_passcode_enable_cloud": "Xác minh passcode để kích hoạt OneKey Cloud",
+  "prime.verify_passcode_enable_cloud": "Vui lòng xác minh mật khẩu (passcode) để kích hoạt OneKey Cloud",
   "prime.verify_passcode_reset_sync_password": "Vui lòng xác nhận mã truy cập (passcode) để đặt lại mật khẩu OneKey ID",
   "prime.wallet": "Cái ví",
   "prime.wallet_diff_cloud": "Đám mây",

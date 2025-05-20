@@ -81,11 +81,11 @@ export function usePrimePayment(): IUsePrimePayment {
         }
 
         if (!isEqual(prev.primeSubscription, newData.primeSubscription)) {
-          console.log(
-            'primeSubscription is different with server',
-            prev.primeSubscription,
-            newData.primeSubscription,
-          );
+          console.log('primeSubscription is different with server', {
+            prev,
+            newData,
+            customerInfo,
+          });
         }
       }
       return perfUtils.buildNewValueIfChanged(prev, newData);

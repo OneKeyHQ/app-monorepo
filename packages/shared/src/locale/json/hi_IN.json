@@ -1955,7 +1955,7 @@
   "prime.update_email_address_description": "अपना ईमेल पता अपडेट करने के लिए कृपया पहले वर्तमान ईमेल को सत्यापित करें।",
   "prime.verify_backup_password": "OneKey ID पासवर्ड सत्यापित करें",
   "prime.verify_passcode_change_sync_password": "OneKey ID पासवर्ड बदलने के लिए कृपया अपना पासकोड (passcode) सत्यापित करें",
-  "prime.verify_passcode_enable_cloud": "OneKey Cloud सक्षम करने के लिए कृपया passcode सत्यापित करें",
+  "prime.verify_passcode_enable_cloud": "OneKey Cloud सक्षम करने के लिए पासकोड (passcode) सत्यापित करें",
   "prime.verify_passcode_reset_sync_password": "OneKey ID पासवर्ड रीसेट करने के लिए कृपया अपना पासकोड (passcode) सत्यापित करें",
   "prime.wallet": "बटुआ",
   "prime.wallet_diff_cloud": "बादल",
