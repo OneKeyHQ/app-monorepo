@@ -235,13 +235,22 @@ function TxActionCommonFee({
   feeFiatValue,
   feeSymbol,
   currencySymbol,
-}: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
+  tableLayout,
+  hideFeeInfo,
+}: Pick<
+  ITxActionCommonListViewProps,
+  'fee' | 'feeFiatValue' | 'feeSymbol' | 'tableLayout' | 'hideFeeInfo'
+> & {
   currencySymbol: string;
 }) {
   const intl = useIntl();
 
+  if (!tableLayout) {
+    return null;
+  }
+
   return (
-    <Stack flexGrow={1} flexBasis={0}>
+    <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1}>
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.swap_history_detail_network_fee,
@@ -379,14 +388,14 @@ function TxActionCommonListView(
           )}
         </Stack>
         {/* fees */}
-        {tableLayout && !hideFeeInfo ? (
-          <TxActionCommonFee
-            fee={fee}
-            feeFiatValue={feeFiatValue}
-            feeSymbol={feeSymbol}
-            currencySymbol={currencySymbol}
-          />
-        ) : null}
+        <TxActionCommonFee
+          tableLayout={tableLayout}
+          hideFeeInfo={hideFeeInfo}
+          fee={fee}
+          feeFiatValue={feeFiatValue}
+          feeSymbol={feeSymbol}
+          currencySymbol={currencySymbol}
+        />
       </XStack>
     </ListItem>
   );
