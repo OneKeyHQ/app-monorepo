@@ -380,7 +380,7 @@ interface IEarnRisk {
     description: IEarnText;
     icon: IEarnIcon;
     actionButton: {
-      actionType: 'link';
+      type: 'link';
       text: IEarnText;
     };
   }[];

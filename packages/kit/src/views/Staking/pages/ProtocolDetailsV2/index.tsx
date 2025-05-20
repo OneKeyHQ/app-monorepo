@@ -477,7 +477,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                 {item.description.text}
               </SizableText>
             </YStack>
-            {item?.actionButton?.actionType === 'link' ? (
+            {item?.actionButton?.type === 'link' ? (
               <IconButton
                 icon="OpenOutline"
                 color="$iconSubdued"

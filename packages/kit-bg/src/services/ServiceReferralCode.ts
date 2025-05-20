@@ -5,11 +5,11 @@ import {
 import type {
   IEarnPositionsResponse,
   IEarnRewardResponse,
+  IEarnWalletHistory,
   IHardwareSalesRecord,
   IInviteHistory,
   IInvitePostConfig,
   IInviteSummary,
-  IEarnWalletHistory,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
