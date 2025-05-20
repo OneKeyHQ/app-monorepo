@@ -40,6 +40,7 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -66,6 +67,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -74,6 +76,7 @@ import {
   EDeriveAddressActionType,
   EInputAddressChangeType,
 } from '@onekeyhq/shared/types/address';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -175,6 +178,7 @@ function SendDataInputContainer() {
 
   const [isHexTxMessage, setIsHexTxMessage] = useState(false);
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
+  const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
   const { account, network } = useAccountData({
     accountId: currentAccount.accountId,
@@ -335,6 +339,9 @@ function SendDataInputContainer() {
     }),
     [accountId, address, networkId, sendAmount],
   );
+
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
   const form = useForm<IFormValues>(formOptions);
 
   // token amount or fiat amount
@@ -358,16 +365,27 @@ function SendDataInputContainer() {
       };
 
     if (isUseFiat) {
-      const originalAmount = new BigNumber(tokenPrice).isGreaterThan(0)
+      let originalAmount = new BigNumber(tokenPrice).isGreaterThan(0)
         ? amountBN
             .dividedBy(tokenPrice)
             .decimalPlaces(tokenDecimals, BigNumber.ROUND_CEIL)
             .toFixed()
         : '0';
+
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        originalAmount = chainValueUtils.convertSatsToBtc(originalAmount);
+      }
+
       return {
         amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
         originalAmount,
       };
+    }
+
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      amountBN = new BigNumber(
+        chainValueUtils.convertBtcToSats(amountBN.toFixed()),
+      );
     }
 
     const originalAmount = amountBN.times(tokenPrice).toFixed();
@@ -375,7 +393,14 @@ function SendDataInputContainer() {
       originalAmount,
       amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
     };
-  }, [amount, isUseFiat, tokenDetails?.info.decimals, tokenDetails?.price]);
+  }, [
+    amount,
+    isLightningNetwork,
+    isUseFiat,
+    lnUnit,
+    tokenDetails?.info.decimals,
+    tokenDetails?.price,
+  ]);
 
   const {
     result: { displayAmountFormItem } = { displayAmountFormItem: false },
@@ -537,6 +562,10 @@ function SendDataInputContainer() {
             }
           }
 
+          if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+            realAmount = chainValueUtils.convertBtcToSats(realAmount);
+          }
+
           const memoValue = form.getValues('memo');
           const paymentIdValue = form.getValues('paymentId');
           const noteValue = form.getValues('note');
@@ -623,10 +652,12 @@ function SendDataInputContainer() {
       form,
       intl,
       isHexTxMessage,
+      isLightningNetwork,
       isMaxSend,
       isNFT,
       isUseFiat,
       linkedAmount.originalAmount,
+      lnUnit,
       nft?.collectionAddress,
       nft?.itemId,
       nft?.metadata?.name,
@@ -643,7 +674,7 @@ function SendDataInputContainer() {
   );
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
-      const amountBN = new BigNumber(value ?? 0);
+      let amountBN = new BigNumber(value ?? 0);
 
       let isInsufficientBalance = false;
       let isLessThanMinTransferAmount = false;
@@ -668,6 +699,12 @@ function SendDataInputContainer() {
           isLessThanMinTransferAmount = true;
         }
       } else {
+        if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+          amountBN = new BigNumber(
+            chainValueUtils.convertBtcToSats(amountBN.toFixed()),
+          );
+        }
+
         if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
           isInsufficientBalance = true;
         }
@@ -727,6 +764,8 @@ function SendDataInputContainer() {
       return true;
     },
     [
+      isLightningNetwork,
+      lnUnit,
       tokenDetails?.info.isNative,
       tokenDetails?.fiatValue,
       tokenDetails?.price,
@@ -772,9 +811,14 @@ function SendDataInputContainer() {
   ]);
 
   const maxBalance = useMemo(() => {
-    const balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    let balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      balance = new BigNumber(
+        chainValueUtils.convertSatsToBtc(balance.toFixed()),
+      );
+    }
     return balance.isNaN() ? '0' : balance.toFixed();
-  }, [tokenDetails?.balanceParsed]);
+  }, [tokenDetails?.balanceParsed, isLightningNetwork, lnUnit]);
 
   const maxBalanceFiat = useMemo(() => {
     const balanceFiat = new BigNumber(tokenDetails?.fiatValue ?? '0');
@@ -783,8 +827,8 @@ function SendDataInputContainer() {
 
   // Lightning Network only accepts integer values on Token Mode
   const isIntegerAmount = useMemo(
-    () => networkUtils.isLightningNetworkByNetworkId(networkId) && !isUseFiat,
-    [networkId, isUseFiat],
+    () => isLightningNetwork && !isUseFiat && lnUnit === ELightningUnit.SATS,
+    [isLightningNetwork, isUseFiat, lnUnit],
   );
 
   const renderTokenDataInputForm = useCallback(
@@ -817,18 +861,50 @@ function SendDataInputContainer() {
                 return;
               }
 
+              let decimals = tokenDetails?.info.decimals ?? 0;
+              if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+                decimals = chainValueUtils.getLightningAmountDecimals({
+                  lnUnit,
+                  decimals,
+                });
+              }
+
               const dp = valueBN.decimalPlaces();
-              if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
+              if (!isUseFiat && dp && dp > decimals) {
                 form.setValue(
                   'amount',
-                  valueBN.toFixed(
-                    tokenDetails?.info.decimals ?? 0,
-                    BigNumber.ROUND_FLOOR,
-                  ),
+                  valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
                 );
               }
             },
           }}
+          labelAddon={
+            isLightningNetwork && !isUseFiat ? (
+              <LightningUnitSwitch
+                value={lnUnit}
+                onChange={(v) => {
+                  setLnUnit(v as ELightningUnit);
+                  if (!isUseFiat) {
+                    form.setValue(
+                      'amount',
+                      v === ELightningUnit.BTC
+                        ? chainValueUtils.convertSatsToBtc(
+                            form.getValues('amount'),
+                          )
+                        : chainValueUtils.convertBtcToSats(
+                            form.getValues('amount'),
+                          ),
+                    );
+                    if (form.formState.isDirty) {
+                      setTimeout(() => {
+                        void form.trigger('amount');
+                      }, 100);
+                    }
+                  }
+                }}
+              />
+            ) : null
+          }
         >
           <AmountInput
             reversible
@@ -911,11 +987,13 @@ function SendDataInputContainer() {
       hidePercentToolbar,
       intl,
       isIntegerAmount,
+      isLightningNetwork,
       isLoadingAssets,
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
       linkedAmount.originalAmount,
+      lnUnit,
       maxBalance,
       maxBalanceFiat,
       network?.isCustomNetwork,
