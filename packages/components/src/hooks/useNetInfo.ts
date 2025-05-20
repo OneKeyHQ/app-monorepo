@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 
+import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+
 import { buildDeferredPromise } from './useDeferredPromise';
 import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from './useVisibilityChange';
-import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 export interface IReachabilityConfiguration {
   reachabilityUrl: string;
