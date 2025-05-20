@@ -1,14 +1,18 @@
 import { useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import type { IToken } from '../types';
-import type BigNumber from 'bignumber.js';
 
 interface IUseBalanceProps {
   token?: IToken;
 }
 
 export function useBalance({ token }: IUseBalanceProps) {
-  const [balance, setBalance] = useState<BigNumber | undefined>();
+  // TODO: get balance from db
+  const [balance, setBalance] = useState<BigNumber | undefined>(
+    new BigNumber(100.77),
+  );
 
   return { balance, setBalance, balanceToken: token };
 }

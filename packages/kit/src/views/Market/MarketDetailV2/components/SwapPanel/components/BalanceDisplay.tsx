@@ -15,7 +15,7 @@ export function BalanceDisplay({ balance, token }: IBalanceDisplayProps) {
         Balance
       </SizableText>
       <SizableText size="$bodyMdMedium">
-        {balance || '-'} {token?.symbol || ''}
+        {balance?.toFixed() || '-'} {token?.symbol || ''}
       </SizableText>
     </XStack>
   );
