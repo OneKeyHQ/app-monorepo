@@ -243,14 +243,14 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isPrimeLoggedIn() {
+  async isLoggedIn() {
     const { isLoggedIn } = await primePersistAtom.get();
     return Boolean(isLoggedIn);
   }
 
   @backgroundMethod()
   async isPrimeSubscriptionActive() {
-    if (!(await this.isPrimeLoggedIn())) {
+    if (!(await this.isLoggedIn())) {
       return false;
     }
     const { primeSubscription } = await primePersistAtom.get();
@@ -642,12 +642,6 @@ class ServicePrime extends ServiceBase {
       id: promiseId,
       error,
     });
-  }
-
-  @backgroundMethod()
-  async isLoggedIn() {
-    const { isLoggedIn } = await primePersistAtom.get();
-    return isLoggedIn;
   }
 
   @backgroundMethod()

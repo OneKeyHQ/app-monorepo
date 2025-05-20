@@ -821,7 +821,9 @@ class ServiceMasterPassword extends ServiceBase {
       reason: EReasonForNeedPassword.Security,
       dialogProps: {
         title: 'Reset Password',
-        description: 'Please enter your passcode to reset master password',
+        description: appLocale.intl.formatMessage({
+          id: ETranslations.prime_verify_passcode_reset_sync_password,
+        }),
       },
     });
 
@@ -864,8 +866,9 @@ class ServiceMasterPassword extends ServiceBase {
         dialogProps: {
           // custom title not working
           title: 'Change Master Password',
-          // TODO description not working for Set passcode dialog
-          description: 'Please enter your passcode to change master password',
+          description: appLocale.intl.formatMessage({
+            id: ETranslations.prime_verify_passcode_change_sync_password,
+          }),
         },
       });
 
@@ -1088,7 +1091,7 @@ class ServiceMasterPassword extends ServiceBase {
     if (masterPasswordUUID && encryptedSecurityPasswordR1 && passcode) {
       try {
         const isPrimeLoggedIn =
-          await this.backgroundApi.servicePrime.isPrimeLoggedIn();
+          await this.backgroundApi.servicePrime.isLoggedIn();
         if (!isPrimeLoggedIn) {
           throw new Error('Prime is not logged in');
         }
