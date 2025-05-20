@@ -1,8 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import { ELightningUnit } from '../../types/lightning';
+
 import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
-import { ELightningUnit } from '../../types/lightning';
 
 function nilError(message: string): number {
   throw new Error(message);
