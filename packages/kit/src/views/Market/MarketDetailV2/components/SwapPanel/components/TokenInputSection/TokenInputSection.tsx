@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   ButtonFrame,
   Icon,
@@ -7,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 
 import { QuickAmountSelector } from './QuickAmountSelector';
 import { TokenList } from './TokenList';
@@ -14,9 +17,7 @@ import { TokenList } from './TokenList';
 import type { ITradeType } from '../../hooks/useTradeType';
 
 interface IToken {
-  label: string;
-  value: string;
-  price?: number; // Optional as it might not be needed for display in select
+  symbol: string;
 }
 
 export interface ITokenInputSectionProps {
@@ -33,15 +34,27 @@ export function TokenInputSection({
   value,
   onChange,
   selectedToken,
+  selectableTokens,
   onTokenChange,
   tradeType,
 }: ITokenInputSectionProps) {
+  const tokenList = useMemo(() => {
+    return selectableTokens.map((token) => ({
+      ...token,
+      id: token.symbol,
+    }));
+  }, [selectableTokens]);
+
   return (
     <YStack gap="$0.5">
       <Input
         placeholder="Total"
         value={value}
-        onChangeText={onChange}
+        onChangeText={(text) => {
+          if (validateAmountInput(text)) {
+            onChange(text);
+          }
+        }}
         addOns={[
           {
             renderContent: (
@@ -49,6 +62,7 @@ export function TokenInputSection({
                 title="Select Token"
                 renderContent={
                   <TokenList
+                    tokens={tokenList}
                     onTokenPress={(token) => {
                       onTokenChange(token.id);
                     }}
@@ -72,7 +86,7 @@ export function TokenInputSection({
                         flex={1}
                       >
                         <SizableText color="$text" numberOfLines={1}>
-                          {selectedToken?.label || 'Select Token'}
+                          {selectedToken?.symbol || 'Select Token'}
                         </SizableText>
                         <Icon
                           name="ChevronDownSmallOutline"

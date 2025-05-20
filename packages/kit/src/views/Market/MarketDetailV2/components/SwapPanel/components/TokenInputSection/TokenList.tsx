@@ -13,31 +13,7 @@ interface ITokenData {
 }
 
 // Test data based on the provided image and typical token list items
-const testTokenData: ITokenData[] = [
-  {
-    id: 'usdt',
-    tokenImageSrc:
-      'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/usdt.svg',
-    networkImageSrc:
-      'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/sol.svg', // Assuming USDT on Solana network
-    tokenSymbol: 'USDT',
-    tokenName: 'Tether USD',
-    balance: '5,000.00',
-    valueProps: { value: '5,000.00', currency: '$' },
-  },
-  {
-    id: 'usdc',
-    tokenImageSrc:
-      'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/usdc.svg',
-    networkImageSrc:
-      'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/sol.svg', // Assuming USDC on Solana network
-    tokenSymbol: 'USDC',
-    tokenName: 'USD Coin',
-    balance: '10,250.75',
-    valueProps: { value: '10,250.75', currency: '$' },
-  },
-  // Add more test tokens if needed
-];
+const testTokenData: ITokenData[] = [];
 
 interface ITokenListProps {
   tokens?: ITokenData[];
@@ -60,8 +36,6 @@ export function TokenList({
           balance={token.balance}
           valueProps={token.valueProps}
           onPress={() => onTokenPress?.(token)}
-          // Add other props from TokenListItem as needed, e.g., drilling arrow
-          // drillIn
         />
       ))}
     </YStack>

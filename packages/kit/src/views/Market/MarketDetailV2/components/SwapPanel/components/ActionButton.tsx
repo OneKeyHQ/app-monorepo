@@ -2,19 +2,14 @@ import { Button } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 
 import type { ITradeType } from '../hooks/useTradeType';
-import type { BigNumber } from 'bignumber.js';
-
-interface ITokenInfo {
-  label: string;
-  value: string;
-  price?: number;
-}
 
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   amount: string;
-  token?: ITokenInfo;
-  totalValue: BigNumber;
+  token?: {
+    symbol: string;
+  };
+  totalValue: number;
 }
 
 export function ActionButton({
@@ -30,7 +25,7 @@ export function ActionButton({
 
   return (
     <Button variant="primary" size="large" {...props}>
-      {actionText} {displayAmount} {token?.label || ''} ($
+      {actionText} {displayAmount} {token?.symbol || ''} ($
       {totalValue.toFixed(2)})
     </Button>
   );

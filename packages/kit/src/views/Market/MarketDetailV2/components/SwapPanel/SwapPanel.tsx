@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+
 import { YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -18,22 +22,19 @@ import { useSwapPanel } from './hooks/useSwapPanel';
 export function SwapPanel() {
   const swapPanel = useSwapPanel();
   const {
-    amount,
-    tradeType,
     antiMEV,
-    handleAmountChange,
-    handleTradeTypeChange,
-    handleAntiMEVToggle,
-    selectedTokenForAmountInput,
-    selectableTokensForAmountInput,
-    handleInputTokenChange,
-    currentExecutingToken,
-    totalValue,
     balance,
     balanceToken,
-    networkId,
+    handleAntiMEVToggle,
     isApproved,
+    networkId,
+    paymentAmount,
+    paymentToken,
     setIsApproved,
+    setPaymentAmount,
+    setPaymentToken,
+    setTradeType,
+    tradeType,
   } = swapPanel;
 
   const { isLoading, speedConfig, supportSpeedSwap, provider, defaultTokens } =
@@ -49,25 +50,29 @@ export function SwapPanel() {
     accountId: '',
   });
 
+  const selectableTokens = useMemo(() => {
+    return defaultTokens.map((token) => ({
+      symbol: token.symbol,
+    }));
+  }, [defaultTokens]);
+
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">
       {/* Trade type selector */}
-      <TradeTypeSelector value={tradeType} onChange={handleTradeTypeChange} />
+      <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 
       {/* Token input section */}
       <TokenInputSection
         tradeType={tradeType}
-        value={amount}
-        onChange={handleAmountChange}
-        selectedToken={selectedTokenForAmountInput}
-        selectableTokens={defaultTokens.map((token) => ({
-          label: token.symbol,
-          value: token.symbol,
-          price: 1,
-          decimals: token.decimals,
-          logoURI: token.logoURI,
-        }))}
-        onTokenChange={handleInputTokenChange}
+        value={paymentAmount.toFixed()}
+        onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
+        selectedToken={paymentToken}
+        selectableTokens={selectableTokens}
+        onTokenChange={(token) =>
+          setPaymentToken({
+            symbol: token,
+          })
+        }
       />
 
       {/* Balance display */}
@@ -87,9 +92,9 @@ export function SwapPanel() {
           disabled={!supportSpeedSwap}
           loading={isLoading}
           tradeType={tradeType}
-          amount={amount}
-          token={currentExecutingToken}
-          totalValue={totalValue}
+          amount={paymentAmount.toFixed()}
+          token={paymentToken}
+          totalValue={888}
         />
       )}
 

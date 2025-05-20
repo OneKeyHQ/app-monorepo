@@ -23,6 +23,8 @@ export function useSpeedSwapInit(networkId: string) {
     },
   );
 
+  console.log('useSpeedSwapInit result', result);
+
   return {
     defaultTokens: result?.speedConfig.defaultTokens,
     isLoading: !!isLoading,

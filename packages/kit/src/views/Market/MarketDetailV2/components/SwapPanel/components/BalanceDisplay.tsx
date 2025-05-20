@@ -1,14 +1,12 @@
 import { SizableText, XStack } from '@onekeyhq/components';
 
-interface ITokenInfo {
-  label: string;
-  value: string;
-  price?: number;
-}
+import type BigNumber from 'bignumber.js';
 
 export interface IBalanceDisplayProps {
-  balance?: string;
-  token?: ITokenInfo;
+  balance?: BigNumber;
+  token?: {
+    symbol: string;
+  };
 }
 
 export function BalanceDisplay({ balance, token }: IBalanceDisplayProps) {
@@ -18,7 +16,7 @@ export function BalanceDisplay({ balance, token }: IBalanceDisplayProps) {
         Balance
       </SizableText>
       <SizableText size="$bodyMdMedium">
-        {balance || '-'} {token?.label || ''}
+        {balance || '-'} {token?.symbol || ''}
       </SizableText>
     </XStack>
   );
