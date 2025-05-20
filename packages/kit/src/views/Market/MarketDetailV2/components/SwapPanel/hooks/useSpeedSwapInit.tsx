@@ -1,6 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
+import type { IToken } from '../types';
+
 export function useSpeedSwapInit(networkId: string) {
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -23,8 +25,11 @@ export function useSpeedSwapInit(networkId: string) {
     },
   );
 
+  console.log('useSpeedSwapInit result', result);
+
   return {
-    isLoading,
+    defaultTokens: result?.speedConfig.defaultTokens as IToken[],
+    isLoading: !!isLoading,
     speedConfig: result?.speedConfig,
     supportSpeedSwap: result?.supportSpeedSwap,
     provider: result?.provider,
