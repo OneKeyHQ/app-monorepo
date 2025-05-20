@@ -166,12 +166,6 @@ export function GridItem({
             {description.text}
           </SizableText>
         ) : null}
-
-        {/* {link ? (
-          <Stack onPress={openLink} cursor="pointer">
-            <Icon name="OpenOutline" color="$iconSubdued" size="$5" />
-          </Stack>
-        ) : null} */}
         {actionIconButton}
       </XStack>
     </YStack>
