@@ -279,7 +279,7 @@ export interface IEarnToken {
   coingeckoId: string;
 }
 
-export interface IEarnTokenInfo extends IEarnToken {
+export interface IEarnTokenInfo {
   networkId: string;
   provider: string;
   vault: string;
