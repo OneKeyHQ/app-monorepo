@@ -94,7 +94,7 @@ export function PeriodSection({
           {timeline.title.text}
         </SizableText>
         <YStack>
-          <Stepper stepIndex={timeline.step - 1}>
+          <Stepper stepIndex={timeline.step}>
             {timeline.items.map((i) => (
               <CustomStepperItem
                 key={i.title.text}
