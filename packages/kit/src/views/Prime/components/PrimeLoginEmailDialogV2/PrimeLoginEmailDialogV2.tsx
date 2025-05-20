@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -13,6 +13,8 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
+import type { IPrivyState } from '../../hooks/usePrivyUniversalV2/usePrivyUniversalV2Types';
+
 export function PrimeLoginEmailDialogV2(props: {
   onComplete: () => void;
   onLoginSuccess?: () => void | Promise<void>;
@@ -26,8 +28,14 @@ export function PrimeLoginEmailDialogV2(props: {
     EAppSyncStorageKeys.last_onekey_id_login_email,
   );
 
-  const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
-  const { sendCode, loginWithCode } = useLoginWithEmail({
+  // const isReady = false;
+  const {
+    isReady,
+    getAccessToken,
+    useLoginWithEmail,
+    // user
+  } = usePrimeAuthV2();
+  const { sendCode, loginWithCode, state } = useLoginWithEmail({
     onComplete: async () => {
       //
     },
@@ -35,6 +43,10 @@ export function PrimeLoginEmailDialogV2(props: {
       console.error('prime login error', error);
     },
   });
+  const privyStateRef = useRef<IPrivyState>(state);
+  privyStateRef.current = state;
+  // console.log('privyStateRef.current', privyStateRef.current);
+
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
@@ -60,6 +72,7 @@ export function PrimeLoginEmailDialogV2(props: {
         const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
+              // privyState={privyStateRef.current}
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}
@@ -78,17 +91,6 @@ export function PrimeLoginEmailDialogV2(props: {
             />
           ),
         });
-
-        await pRetry(
-          async () => {
-            await sendCode({ email: data.email });
-          },
-          {
-            retries: 2,
-            maxTimeout: 10_000,
-          },
-        );
-
         onComplete?.();
       } catch (error) {
         preventClose?.();
@@ -166,7 +168,7 @@ export function PrimeLoginEmailDialogV2(props: {
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
-          disabled: !form.formState.isValid,
+          disabled: !form.formState.isValid || !isReady,
         }}
         onConfirm={async ({ preventClose }) => {
           await submit({ preventClose });

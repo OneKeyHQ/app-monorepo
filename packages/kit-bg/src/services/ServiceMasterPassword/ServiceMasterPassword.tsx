@@ -21,6 +21,8 @@ import {
 import { IncorrectMasterPassword } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
@@ -355,7 +357,12 @@ class ServiceMasterPassword extends ServiceBase {
     });
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     if (!skipDisableCloudSync) {
-      await this.backgroundApi.servicePrimeCloudSync.setCloudSyncEnabled(false);
+      await this.backgroundApi.servicePrimeCloudSync.setCloudSyncEnabled(
+        false,
+        {
+          skipClearLocalMasterPassword: true,
+        },
+      );
     }
   }
 
@@ -363,12 +370,14 @@ class ServiceMasterPassword extends ServiceBase {
     passcode,
     serverUserInfo,
     isRegister,
+    isChangeMasterPassword,
     masterPasswordUUIDBuilder,
     securityPasswordR1Builder,
   }: {
     passcode?: string;
     serverUserInfo: IPrimeServerUserInfo | undefined;
     isRegister: boolean;
+    isChangeMasterPassword?: boolean;
     masterPasswordUUIDBuilder?: () => string;
     securityPasswordR1Builder?: () => string;
   }) {
@@ -408,12 +417,18 @@ class ServiceMasterPassword extends ServiceBase {
       await this.backgroundApi.servicePrime.promptPrimeLoginPasswordDialog({
         email: serverUserInfo?.emails?.[0] || '',
         isRegister,
+        isVerifyMasterPassword: true,
+        isChangeMasterPassword,
+        serverUserInfo,
       });
     ensureSensitiveTextEncoded(masterPassword);
 
     const result = await this.withDialogLoading(
       {
-        title: 'Preparing password',
+        // title: 'Preparing password',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
       },
       async () => {
         const rawMasterPassword =
@@ -543,7 +558,12 @@ class ServiceMasterPassword extends ServiceBase {
     isServerMasterPasswordSet: boolean;
   }> {
     const { serverUserInfo } = await this.withDialogLoading(
-      { title: 'Checking user info' },
+      {
+        // title: 'Checking User Info',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
+      },
       async () => this.backgroundApi.servicePrime.apiFetchPrimeUserInfo(),
     );
 
@@ -601,6 +621,62 @@ class ServiceMasterPassword extends ServiceBase {
     });
 
     return { ...result, isServerMasterPasswordSet };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async verifyServerMasterPasswordByServerUserInfo({
+    serverUserInfo,
+    masterPassword,
+  }: {
+    serverUserInfo: IPrimeServerUserInfo;
+    masterPassword: string;
+  }) {
+    const serverPasswordUUID = serverUserInfo?.pwdHash;
+    const accountSalt = serverUserInfo?.salt;
+    const primeUserId = serverUserInfo?.userId;
+    if (!serverPasswordUUID) {
+      throw new Error(
+        'verifyServerMasterPassword ERROR: No server password hash',
+      );
+    }
+    if (!accountSalt) {
+      throw new Error('verifyServerMasterPassword ERROR: No salt');
+    }
+    if (!primeUserId) {
+      throw new Error('verifyServerMasterPassword ERROR: No primeUserId');
+    }
+
+    const rawMasterPassword =
+      await this.backgroundApi.servicePassword.decodeSensitiveText({
+        encodedText: masterPassword,
+      });
+    if (!rawMasterPassword) {
+      throw new Error('Invalid master password');
+    }
+
+    const masterPasswordUUID = serverPasswordUUID;
+
+    const masterPasswordHash = await this.hashMasterPassword({
+      rawMasterPassword,
+      accountSalt,
+      primeUserId,
+    });
+
+    const verifyResult = await this.verifyServerMasterPassword({
+      syncCredential: {
+        masterPasswordUUID,
+        securityPasswordR1: 'lock',
+        primeAccountSalt: accountSalt,
+      },
+      masterPassword: rawMasterPassword,
+      masterPasswordUUID,
+      masterPasswordHash,
+      accountSalt,
+      primeUserId,
+    });
+
+    return verifyResult;
   }
 
   async verifyServerMasterPassword({
@@ -699,6 +775,14 @@ class ServiceMasterPassword extends ServiceBase {
     return masterPasswordUUID;
   }
 
+  async getLocalMasterPasswordUUIDSafe() {
+    try {
+      return await this.getLocalMasterPasswordUUID();
+    } catch (error) {
+      return undefined;
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async ensurePrimeLoginValidPassword(password: string) {
@@ -744,7 +828,10 @@ class ServiceMasterPassword extends ServiceBase {
     // reset server data by api
     await this.withDialogLoading(
       {
-        title: 'Resetting password',
+        // title: 'Resetting password',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
       },
       async () => {
         await this.backgroundApi.servicePrimeCloudSync.resetServerData({
@@ -758,7 +845,9 @@ class ServiceMasterPassword extends ServiceBase {
     if (success) {
       await this.showToast({
         method: 'success',
-        title: 'Password reset successfully',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_success,
+        }),
       });
     }
     return { success };
@@ -781,7 +870,12 @@ class ServiceMasterPassword extends ServiceBase {
       });
 
     const { serverUserInfo } = await this.withDialogLoading(
-      { title: 'Checking user info' },
+      {
+        // title: 'Checking User Info',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
+      },
       async () => this.backgroundApi.servicePrime.apiFetchPrimeUserInfo(),
     );
     const serverPasswordUUID = serverUserInfo?.pwdHash;
@@ -800,7 +894,10 @@ class ServiceMasterPassword extends ServiceBase {
 
     await this.withDialogLoading(
       {
-        title: 'Checking password',
+        // title: 'Checking password',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
       },
       async () => {
         await this.verifyServerMasterPassword({
@@ -833,6 +930,7 @@ class ServiceMasterPassword extends ServiceBase {
       passcode: password,
       serverUserInfo,
       isRegister: true,
+      isChangeMasterPassword: true,
       masterPasswordUUIDBuilder: () => {
         return stringUtils.generateUUID();
       },
@@ -868,7 +966,10 @@ class ServiceMasterPassword extends ServiceBase {
     if (shouldFlushAllItems) {
       await this.withDialogLoading(
         {
-          title: 'Encrypting data',
+          // title: 'Encrypting data',
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.global_processing,
+          }),
         },
         async () => {
           const { serverData, pwdHash } =
@@ -912,7 +1013,10 @@ class ServiceMasterPassword extends ServiceBase {
 
     await this.withDialogLoading(
       {
-        title: 'Syncing data',
+        // title: 'Syncing data',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
       },
       async () => {
         const newLockItem =
@@ -970,7 +1074,9 @@ class ServiceMasterPassword extends ServiceBase {
 
     await this.backgroundApi.serviceApp.showToast({
       method: 'success',
-      title: 'Master password changed',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_success,
+      }),
     });
     return true;
   }

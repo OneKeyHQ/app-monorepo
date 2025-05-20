@@ -2,6 +2,7 @@ import { forEach, isNil, isString } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
+import systemTimeUtils from '../utils/systemTimeUtils';
 
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import requestHelper from './requestHelper';
@@ -84,6 +85,12 @@ const newFetch = async function (
       // @ts-ignore
       .call(this, resource, options, ...others)
       .then((res) => {
+        void systemTimeUtils.handleServerResponseDate({
+          source: 'fetch',
+          headerDate: res?.headers?.get?.('date') || '',
+          url: res?.url || '',
+        });
+
         if (isEnableLogNetwork(url)) {
           defaultLogger.app.network.end({
             requestType: 'fetch',

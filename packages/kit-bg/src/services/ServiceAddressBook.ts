@@ -312,12 +312,10 @@ class ServiceAddressBook extends ServiceBase {
         isDeleted,
       });
     }
-    if (syncItems?.length) {
-      await this.backgroundApi.localDb.addAndUpdateSyncItems({
-        items: syncItems,
-        fn,
-      });
-    }
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn,
+    });
   }
 
   async addItemFn(

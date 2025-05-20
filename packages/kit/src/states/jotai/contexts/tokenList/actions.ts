@@ -72,9 +72,12 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         mergeDerive?: boolean;
+        accountId?: string;
+        networkId?: string;
       },
     ) => {
-      const { keys, tokens, merge, mergeDerive } = payload;
+      const { keys, tokens, merge, mergeDerive, accountId, networkId } =
+        payload;
       const allTokenList = get(allTokenListAtom());
 
       if (merge) {
@@ -100,12 +103,16 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           set(allTokenListAtom(), {
             tokens: newTokens,
             keys: `${allTokenList.keys}_${keys}`,
+            accountId,
+            networkId,
           });
         }
       } else if (!isEqual(allTokenList.keys, keys)) {
         set(allTokenListAtom(), {
           tokens: uniqBy(tokens, (item) => item.$key),
           keys,
+          accountId,
+          networkId,
         });
       }
     },

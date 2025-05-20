@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import {
   usePasswordPersistAtom,
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,22 +25,55 @@ import { ListItemSelect } from '../../components/ListItemSelect';
 
 import { useOptions } from './useOptions';
 
-const EnableSystemIdleTimeItem = () => {
+const EnableSystemIdleTimeItem = ({
+  useLocalState,
+  localStateSelectedValue,
+}: {
+  useLocalState?: boolean;
+  localStateSelectedValue?: string;
+}) => {
   const intl = useIntl();
   const [{ enableSystemIdleLock }] = usePasswordPersistAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
+
+  const switchValue = useMemo(() => {
+    if (useLocalState) {
+      if (
+        localStateSelectedValue === ELockDuration.Always ||
+        localStateSelectedValue === ELockDuration.Never
+      ) {
+        return false;
+      }
+      return enableSystemIdleLock;
+    }
+    return supportSystemIdle ? enableSystemIdleLock : false;
+  }, [
+    useLocalState,
+    supportSystemIdle,
+    enableSystemIdleLock,
+    localStateSelectedValue,
+  ]);
+
+  const switchDisabled = useMemo(() => {
+    if (useLocalState) {
+      return true;
+    }
+    return !supportSystemIdle;
+  }, [useLocalState, supportSystemIdle]);
+
   return (
     <YStack>
       <Divider mx="$5" />
       <ListItem
+        disabled={switchDisabled}
         title={intl.formatMessage({
           id: ETranslations.settings_system_idle_lock,
         })}
       >
         <Switch
           size={ESwitchSize.small}
-          disabled={!supportSystemIdle}
-          value={supportSystemIdle ? enableSystemIdleLock : false}
+          disabled={switchDisabled}
+          value={switchValue}
           onChange={async (checked) => {
             await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
               checked,
@@ -85,32 +119,89 @@ const AutoLockDurationDescription = () => {
   );
 };
 
+export function AppAutoLockSettingsView({
+  disableCloudSyncDisallowedOptions,
+  useLocalState,
+  onValueChange,
+}: {
+  disableCloudSyncDisallowedOptions?: boolean;
+  useLocalState?: boolean;
+  onValueChange?: (value: string) => void;
+} = {}) {
+  const [localStateSelectedValue, setLocalStateSelectedValue] =
+    useState<string>('');
+  const [passwordSettings] = usePasswordPersistAtom();
+
+  useEffect(() => {
+    if (
+      useLocalState &&
+      localStateSelectedValue === '' &&
+      passwordSettings.appLockDuration
+    ) {
+      setLocalStateSelectedValue(String(passwordSettings.appLockDuration));
+    }
+  }, [
+    useLocalState,
+    passwordSettings.appLockDuration,
+    localStateSelectedValue,
+    onValueChange,
+  ]);
+
+  useEffect(() => {
+    if (useLocalState && onValueChange) {
+      onValueChange?.(localStateSelectedValue);
+    }
+  }, [useLocalState, localStateSelectedValue, onValueChange]);
+
+  const onChange = useCallback(
+    async (value: string) => {
+      if (useLocalState) {
+        setLocalStateSelectedValue(value);
+        return;
+      }
+      await backgroundApiProxy.servicePassword
+        .setAppLockDuration(Number(value))
+        .catch(() => console.log('failed to set app lock duration'));
+    },
+    [useLocalState],
+  );
+  const options = useOptions({
+    disableCloudSyncDisallowedOptions,
+  });
+  return (
+    <Stack>
+      <Stack py="$2">
+        <ListItemSelect
+          onChange={onChange}
+          value={
+            useLocalState
+              ? localStateSelectedValue
+              : String(passwordSettings.appLockDuration)
+          }
+          options={options}
+        />
+      </Stack>
+      <AutoLockDurationDescription />
+      {platformEnv.isExtension || platformEnv.isDesktop ? (
+        <EnableSystemIdleTimeItem
+          useLocalState={useLocalState}
+          localStateSelectedValue={localStateSelectedValue}
+        />
+      ) : null}
+    </Stack>
+  );
+}
+
 const AppAutoLock = () => {
   const intl = useIntl();
-  const [settings] = usePasswordPersistAtom();
-  const onChange = useCallback(async (value: string) => {
-    await backgroundApiProxy.servicePassword
-      .setAppLockDuration(Number(value))
-      .catch(() => console.log('failed to set app lock duration'));
-  }, []);
-  const options = useOptions();
+
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.settings_auto_lock })}
       />
       <Page.Body>
-        <Stack py="$2">
-          <ListItemSelect
-            onChange={onChange}
-            value={String(settings.appLockDuration)}
-            options={options}
-          />
-        </Stack>
-        <AutoLockDurationDescription />
-        {platformEnv.isExtension || platformEnv.isDesktop ? (
-          <EnableSystemIdleTimeItem />
-        ) : null}
+        <AppAutoLockSettingsView />
       </Page.Body>
     </Page>
   );

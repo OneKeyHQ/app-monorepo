@@ -472,3 +472,24 @@ export function getMergedDeriveTokenData(params: {
     allTokenListMap,
   };
 }
+
+export function getTokenPriceChangeStyle({
+  priceChange,
+}: {
+  priceChange: number;
+}) {
+  let changeColor = '$textSubdued';
+  let showPlusMinusSigns = false;
+  const priceChangeBN = new BigNumber(priceChange);
+  if (priceChangeBN.isGreaterThan(0)) {
+    changeColor = '$textSuccess';
+    showPlusMinusSigns = true;
+  } else if (priceChangeBN.isLessThan(0)) {
+    changeColor = '$textCritical';
+    showPlusMinusSigns = true;
+  }
+  return {
+    changeColor,
+    showPlusMinusSigns,
+  };
+}

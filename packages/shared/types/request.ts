@@ -10,4 +10,5 @@ export type IOneKeyAPIBaseResponse<T = any> = {
   messageId?: string;
   translatedMessage?: string;
   data: T;
+  disableAutoToast?: boolean;
 };

@@ -27,6 +27,13 @@ export type IServiceBaseProps = {
   backgroundApi: any;
 };
 
+// Must use global variables, not class properties, otherwise independent properties will be generated in multiple service instances, causing the judgment to fail
+let hideTimer: Array<ReturnType<typeof setTimeout> | undefined> = [];
+
+const _oneKeyIdAuthClientsMap: Partial<
+  Record<EServiceEndpointEnum, AxiosInstance | undefined>
+> = {};
+
 @backgroundClass()
 export default class ServiceBase {
   constructor({ backgroundApi }: IServiceBaseProps) {
@@ -35,16 +42,6 @@ export default class ServiceBase {
 
   backgroundApi: IBackgroundApi;
 
-  _currentNetworkId: string | undefined;
-
-  _currentAccountId: string | undefined;
-
-  _currentUrlAccountId: string | undefined;
-
-  _currentUrlNetworkId: string | undefined;
-
-  _oneKeyIdAuthClient: AxiosInstance | undefined;
-
   getClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getClient(await getEndpointInfo({ name }));
 
@@ -52,7 +49,7 @@ export default class ServiceBase {
     appApiClient.getRawDataClient(await getEndpointInfo({ name }));
 
   getOneKeyIdClient = async (name: EServiceEndpointEnum) => {
-    if (!this._oneKeyIdAuthClient) {
+    if (!_oneKeyIdAuthClientsMap[name]) {
       const client = await appApiClient.getClient(
         await getEndpointInfo({ name }),
       );
@@ -106,9 +103,9 @@ export default class ServiceBase {
           throw error;
         },
       );
-      this._oneKeyIdAuthClient = client;
+      _oneKeyIdAuthClientsMap[name] = client;
     }
-    return this._oneKeyIdAuthClient;
+    return _oneKeyIdAuthClientsMap[name];
   };
 
   @backgroundMethod()
@@ -122,6 +119,14 @@ export default class ServiceBase {
     // const { networkId, accountId } = await this.getActiveWalletAccount();
     // return this.backgroundApi.engine.getVault({ networkId, accountId });
   }
+
+  _currentUrlNetworkId: string | undefined;
+
+  _currentUrlAccountId: string | undefined;
+
+  _currentNetworkId: string | undefined;
+
+  _currentAccountId: string | undefined;
 
   @backgroundMethod()
   public async updateCurrentAccount({
@@ -144,32 +149,87 @@ export default class ServiceBase {
   async showDialogLoading(
     payload: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
   ) {
+    this.clearHideDialogLoadingTimer();
     appEventBus.emit(EAppEventBusNames.ShowDialogLoading, payload);
   }
 
   @backgroundMethod()
-  async hideDialogLoading() {
+  async hideDialogLoading(
+    _payload?:
+      | IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading]
+      | undefined,
+  ) {
+    this.clearHideDialogLoadingTimer();
     appEventBus.emit(EAppEventBusNames.HideDialogLoading, undefined);
+
+    // console.log('DialogLoading>>hide', payload);
   }
 
-  hideTimer: ReturnType<typeof setTimeout> | undefined;
+  clearHideDialogLoadingTimer(
+    _payload?:
+      | IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading]
+      | undefined,
+  ) {
+    // console.log('DialogLoading>>clear', payload, hideTimer);
+
+    hideTimer.forEach((timer) => {
+      clearTimeout(timer);
+    });
+    hideTimer = [];
+  }
 
   async withDialogLoading<T>(
     payload: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
     fn: () => Promise<T>,
   ) {
     try {
-      clearTimeout(this.hideTimer);
+      this.clearHideDialogLoadingTimer(payload);
       await this.showDialogLoading(payload);
+      await timerUtils.wait(100);
       const r = await fn();
       return r;
     } finally {
-      await timerUtils.wait(600);
-      await this.hideDialogLoading();
-      // this.hideTimer = setTimeout(() => {
-      //   this.hideDialogLoading();
-      // }, 600);
+      this.clearHideDialogLoadingTimer();
+      hideTimer.push(
+        setTimeout(() => {
+          void this.hideDialogLoading(payload);
+        }, 600),
+      );
+      // console.log('DialogLoading>>done', payload, hideTimer);
     }
+  }
+
+  @backgroundMethod()
+  async demoDialogLoadingSample() {
+    await this.withDialogLoading(
+      {
+        title: 'Hello',
+        showExitButton: true,
+      },
+      async () => {
+        await timerUtils.wait(3000);
+      },
+    );
+    await timerUtils.wait(300);
+    await this.withDialogLoading(
+      {
+        title: 'World',
+        showExitButton: true,
+      },
+      async () => {
+        await timerUtils.wait(3000);
+      },
+    );
+    await timerUtils.wait(300);
+    await this.withDialogLoading(
+      {
+        title: 'Javascript',
+        showExitButton: true,
+      },
+      async () => {
+        await timerUtils.wait(3000);
+      },
+    );
   }
 
   @backgroundMethod()

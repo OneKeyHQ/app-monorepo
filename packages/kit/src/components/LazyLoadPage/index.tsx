@@ -8,8 +8,9 @@ export const LazyLoadPage = (
   factory: () => Promise<{ default: any }>,
   delayMs?: number,
   unStyle?: boolean,
+  fallback?: React.ReactNode,
 ) => {
-  const LazyLoadComponent = LazyLoad(factory, delayMs);
+  const LazyLoadComponent = LazyLoad(factory, delayMs, fallback);
   function LazyLoadPageContainer(props: any) {
     if (unStyle) {
       return <LazyLoadComponent {...props} />;

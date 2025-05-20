@@ -1,5 +1,5 @@
 import platformEnv from '../../platformEnv';
-import WebStorage from '../WebStorage';
+import WebStorage, { EWebStorageKeyPrefix } from '../WebStorage';
 import WebStorageLegacy from '../WebStorageLegacy';
 
 const webStorageLegacy = new WebStorageLegacy();
@@ -10,7 +10,7 @@ const webStorage = platformEnv.isJest
       dbName: 'OneKeyAppStorage',
       bucketName: 'app-storage_onekey-bucket',
       tableName: 'keyvaluepairs',
-      legacyKeyPrefix: 'app_storage_v5:',
+      legacyKeyPrefix: EWebStorageKeyPrefix.AppStorage,
     });
 
 const webStorageSimpleDB = platformEnv.isJest
@@ -19,7 +19,7 @@ const webStorageSimpleDB = platformEnv.isJest
       dbName: 'OneKeySimpleDB',
       bucketName: 'simple-db_onekey-bucket',
       tableName: 'keyvaluepairs',
-      legacyKeyPrefix: 'simple_db_v5:',
+      legacyKeyPrefix: EWebStorageKeyPrefix.SimpleDB,
     });
 
 const webStorageGlobalStates = platformEnv.isJest
@@ -28,7 +28,7 @@ const webStorageGlobalStates = platformEnv.isJest
       dbName: 'OneKeyGlobalStates',
       bucketName: 'global-states_onekey-bucket',
       tableName: 'keyvaluepairs',
-      legacyKeyPrefix: 'g_states_v5:',
+      legacyKeyPrefix: EWebStorageKeyPrefix.GlobalStates,
     });
 
 export {

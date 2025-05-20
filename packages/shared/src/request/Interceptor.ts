@@ -1,3 +1,4 @@
+import { isNil } from 'lodash';
 import { Appearance } from 'react-native';
 
 import type {
@@ -95,3 +96,4 @@ export async function getRequestHeaders() {
       platformEnv.buildNumber as string,
   };
 }
+ 
