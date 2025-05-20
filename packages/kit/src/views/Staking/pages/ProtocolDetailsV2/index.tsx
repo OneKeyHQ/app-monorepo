@@ -97,8 +97,8 @@ function SubscriptionSection({
     // }
     return (
       <XStack gap="$2">
-        <Button {...confirmButtonProps}>{onCancelText}</Button>
-        <Button {...cancelButtonProps}>{onConfirmText}</Button>
+        <Button {...cancelButtonProps}>{onCancelText}</Button>
+        <Button {...confirmButtonProps}>{onConfirmText}</Button>
       </XStack>
     );
   }, [
@@ -505,6 +505,21 @@ const ProtocolDetailsPage = () => {
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
+
+  const { result: resultV1, run: runV1 } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getProtocolDetails({
+        accountId,
+        networkId,
+        indexedAccountId,
+        symbol,
+        provider,
+        vault,
+      }),
+    [accountId, networkId, indexedAccountId, symbol, provider, vault],
+    { revalidateOnFocus: true },
+  );
+
   const { result: earnAccount, run: refreshAccount } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceStaking.getEarnAccount({
@@ -558,11 +573,9 @@ const ProtocolDetailsPage = () => {
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     void run();
-  }, [refreshAccount, run]);
+    void runV1();
+  }, [refreshAccount, run, runV1]);
 
-  // const { isEventActive, effectiveTime } = useEarnEventActive(
-  //   result?.provider.eventEndTime,
-  // );
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
@@ -594,91 +607,64 @@ const ProtocolDetailsPage = () => {
 
   const onRefreshTracking = useCallback(async () => {
     void run();
+    void runV1();
     void refreshTracking();
-  }, [run, refreshTracking]);
+  }, [run, runV1, refreshTracking]);
 
   const onStake = useCallback(async () => {
-    // await handleStake({
-    //   details: result,
-    //   accountId: earnAccount?.accountId,
-    //   networkId,
-    //   indexedAccountId,
-    //   symbol,
-    //   provider,
-    //   setStakeLoading,
-    //   onSuccess: async () => {
-    //     if (networkUtils.isBTCNetwork(networkId)) {
-    //       await run();
-    //       await refreshTracking();
-    //     }
-    //   },
-    // });
-  }, []);
+    await handleStake({
+      details: resultV1,
+      accountId: earnAccount?.accountId,
+      networkId,
+      indexedAccountId,
+      symbol,
+      provider,
+      setStakeLoading,
+      onSuccess: async () => {
+        if (networkUtils.isBTCNetwork(networkId)) {
+          await run();
+          void runV1();
+          await refreshTracking();
+        }
+      },
+    });
+  }, [
+    earnAccount?.accountId,
+    handleStake,
+    indexedAccountId,
+    networkId,
+    provider,
+    refreshTracking,
+    resultV1,
+    run,
+    runV1,
+    symbol,
+  ]);
 
   const onWithdraw = useCallback(async () => {
-    // await handleWithdraw({
-    //   details: result,
-    //   accountId: earnAccount?.accountId,
-    //   networkId,
-    //   symbol,
-    //   provider,
-    //   onSuccess: async () => {
-    //     if (networkUtils.isBTCNetwork(networkId)) {
-    //       await run();
-    //     }
-    //   },
-    // });
-  }, []);
-
-  const handleClaim = useHandleClaim({
-    accountId: earnAccount?.accountId,
+    await handleWithdraw({
+      details: resultV1,
+      accountId: earnAccount?.accountId,
+      networkId,
+      symbol,
+      provider,
+      onSuccess: async () => {
+        if (networkUtils.isBTCNetwork(networkId)) {
+          await run();
+          void runV1();
+        }
+      },
+    });
+  }, [
+    earnAccount?.accountId,
+    handleWithdraw,
     networkId,
-    // updateFrequency: result?.updateFrequency,
-  });
-  const onClaim = useCallback(
-    async (params?: {
-      amount: string;
-      claimTokenAddress?: string;
-      isReward?: boolean;
-      isMorphoClaim?: boolean;
-    }) => {
-      // if (!result) {
-      //   return;
-      // }
-      // const { amount, claimTokenAddress, isReward, isMorphoClaim } =
-      //   params ?? {};
-      // let claimTokenInfo = {
-      //   token: result.portfolios.token,
-      //   amount: amount ?? '0',
-      // };
-      // if (claimTokenAddress) {
-      //   const rewardToken = result.rewardAssets?.[claimTokenAddress];
-      //   if (!rewardToken) {
-      //     throw new Error('Reward token not found');
-      //   }
-      //   claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
-      // }
-      // await handleClaim({
-      //   symbol,
-      //   provider,
-      //   claimAmount: claimTokenInfo.amount,
-      //   claimTokenAddress,
-      //   isReward,
-      //   isMorphoClaim,
-      //   details: result,
-      //   stakingInfo: {
-      //     label: EEarnLabels.Claim,
-      //     protocol: earnUtils.getEarnProviderName({
-      //       providerName: result.provider.name,
-      //     }),
-      //     protocolLogoURI: result.provider.logoURI,
-      //     receive: claimTokenInfo,
-      //     tags: [buildLocalTxStatusSyncId(result)],
-      //   },
-      // });
-    },
-    [],
-  );
+    provider,
+    resultV1,
+    run,
+    runV1,
+    symbol,
+  ]);
 
   const onPortfolioDetails = useMemo(
     () =>
@@ -696,62 +682,38 @@ const ProtocolDetailsPage = () => {
   );
 
   const onHistory = useMemo(() => {
-    // if (!result?.earnHistoryEnable || !earnAccount?.accountId) {
-    //   return undefined;
-    // }
-    // return (params?: { filterType?: string }) => {
-    //   const { filterType } = params || {};
-    //   appNavigation.navigate(EModalStakingRoutes.HistoryList, {
-    //     accountId: earnAccount?.accountId,
-    //     networkId,
-    //     symbol,
-    //     provider,
-    //     stakeTag: buildLocalTxStatusSyncId(result),
-    //     morphoVault: vault,
-    //     filterType,
-    //   });
-    // };
-  }, []);
+    if (!resultV1?.earnHistoryEnable || !earnAccount?.accountId) {
+      return undefined;
+    }
+    return (params?: { filterType?: string }) => {
+      const { filterType } = params || {};
+      appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+        accountId: earnAccount?.accountId,
+        networkId,
+        symbol,
+        provider,
+        stakeTag: buildLocalTxStatusSyncId({
+          providerName: tokenInfo?.provider || '',
+          tokenSymbol: tokenInfo?.token.symbol || '',
+        }),
+        morphoVault: vault,
+        filterType,
+      });
+    };
+  }, [
+    appNavigation,
+    earnAccount?.accountId,
+    networkId,
+    provider,
+    resultV1?.earnHistoryEnable,
+    symbol,
+    tokenInfo?.provider,
+    tokenInfo?.token.symbol,
+    vault,
+  ]);
 
   const intl = useIntl();
   const media = useMedia();
-
-  // const disableStakeButton = useMemo(
-  //   () => !(result?.provider.buttonStake ?? true),
-  //   [result?.provider.buttonStake],
-  // );
-
-  // const disableUnstakeButton = useMemo(
-  //   () => !(result?.provider.buttonUnstake ?? true),
-  //   [result?.provider.buttonUnstake],
-  // );
-
-  // const stakeButtonProps = useMemo<ComponentProps<typeof Button>>(
-  //   () => ({
-  //     variant: 'primary',
-  //     loading: stakeLoading,
-  //     onPress: onStake,
-  //     disabled: !earnAccount?.accountAddress || disableStakeButton,
-  //   }),
-  //   [stakeLoading, onStake, earnAccount?.accountAddress, disableStakeButton],
-  // );
-
-  // const withdrawButtonProps = useMemo<ComponentProps<typeof Button>>(
-  //   () => ({
-  //     onPress: onWithdraw,
-  //     disabled:
-  //       !earnAccount?.accountAddress ||
-  //       !(Number(result?.active) > 0 || Number(result?.overflow) > 0) ||
-  //       disableUnstakeButton,
-  //   }),
-  //   [
-  //     onWithdraw,
-  //     earnAccount?.accountAddress,
-  //     result?.active,
-  //     result?.overflow,
-  //     disableUnstakeButton,
-  //   ],
-  // );
 
   const falconUSDfRegister = useFalconUSDfRegister();
   const shouldRegisterBeforeStake = useMemo(() => {
@@ -763,110 +725,31 @@ const ProtocolDetailsPage = () => {
     return false;
   }, []);
 
-  // const registerButtonProps = useMemo<ComponentProps<typeof Button>>(
-  //   () => ({
-  //     variant: 'primary',
-  //     loading: stakeLoading,
-  //     onPress: () => {
-  //       void falconUSDfRegister({
-  //         accountId: earnAccount?.accountId ?? '',
-  //         networkId: earnAccount?.networkId ?? '',
-  //         details: result,
-  //       });
-  //     },
-  //   }),
-  //   [
-  //     stakeLoading,
-  //     earnAccount?.accountId,
-  //     earnAccount?.networkId,
-  //     falconUSDfRegister,
-  //     result,
-  //   ],
-  // );
-  // const { bindInviteCode } = useReferFriends();
-  // const { result: isShowAlert, run: refetchInviteCode } = usePromiseResult(
-  //   async () => {
-  //     const code = await backgroundApiProxy.serviceReferralCode.getInviteCode();
-  //     if (code) {
-  //       return false;
-  //     }
-  //     if (earnAccount?.accountAddress) {
-  //       const inviteCodeOnServer =
-  //         await backgroundApiProxy.serviceStaking.queryInviteCodeByAddress({
-  //           networkId,
-  //           accountAddress: earnAccount?.accountAddress,
-  //         });
-  //       if (inviteCodeOnServer) {
-  //         return false;
-  //       }
-  //     }
-  //     return true;
-  //   },
-  //   [earnAccount?.accountAddress, networkId],
-  //   {
-  //     revalidateOnFocus: true,
-  //     initResult: false,
-  //   },
-  // );
-
-  // const renderPageFooter = useCallback(() => {
-  //   if (media.gtMd) {
-  //     return null;
-  //   }
-  //   if (shouldRegisterBeforeStake) {
-  //     return (
-  //       <Page.Footer
-  //         onConfirmText={intl.formatMessage({
-  //           id: ETranslations.earn_register,
-  //         })}
-  //         confirmButtonProps={registerButtonProps}
-  //       />
-  //     );
-  //   }
-  //   return (
-  //     <Page.Footer
-  //       onConfirmText={intl.formatMessage({
-  //         id: ETranslations.earn_deposit,
-  //       })}
-  //       confirmButtonProps={stakeButtonProps}
-  //       onCancelText={intl.formatMessage({
-  //         id: ETranslations.global_withdraw,
-  //       })}
-  //       cancelButtonProps={withdrawButtonProps}
-  //     />
-  //   );
-  // }, [
-  //   media,
-  //   shouldRegisterBeforeStake,
-  //   intl,
-  //   registerButtonProps,
-  //   stakeButtonProps,
-  //   withdrawButtonProps,
-  // ]);
-
   const depositButtonProps = useMemo(() => {
-    const item = result?.actions?.find((i) => i.actionType === 'deposit');
+    const item = result?.actions?.find((i) => i.type === 'deposit');
     return {
       props: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         variant: 'primary',
         loading: stakeLoading,
         display: item ? undefined : 'none',
+        onPress: onStake,
       } as IButtonProps,
       text: item?.text.text,
     };
-  }, [stakeLoading, earnAccount?.accountAddress, result?.actions]);
+  }, [result?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
 
   const withdrawButtonProps = useMemo(() => {
-    const item = result?.actions?.find((i) => i.actionType === 'withdraw');
+    const item = result?.actions?.find((i) => i.type === 'withdraw');
     return {
       text: item?.text.text,
       props: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         display: item ? undefined : 'none',
+        onPress: onWithdraw,
       } as IButtonProps,
     };
-  }, [earnAccount?.accountAddress, result?.actions]);
+  }, [earnAccount?.accountAddress, onWithdraw, result?.actions]);
 
   const renderPageFooter = useCallback(() => {
     if (media.gtMd) {
@@ -954,55 +837,19 @@ const ProtocolDetailsPage = () => {
                 <FAQSection faqs={result.faqs} tokenInfo={tokenInfo} />
               </YStack>
             ) : null}
-
-            {/* <ProtocolDetails details={result}>
-              {earnAccount?.accountAddress ? (
-                <>
-                  <StakedValueSection
-                    details={result}
-                    shouldRegisterBeforeStake={shouldRegisterBeforeStake}
-                    stakeButtonProps={stakeButtonProps}
-                    withdrawButtonProps={withdrawButtonProps}
-                    registerButtonProps={registerButtonProps}
-                    alerts={result?.provider.alerts}
-                  />
-                  <PortfolioSection
-                    details={result}
-                    onClaim={onClaim}
-                    onWithdraw={onWithdraw}
-                    onPortfolioDetails={onPortfolioDetails}
-                    unbondingDelegationList={unbondingDelegationList}
-                    onHistory={onHistory}
-                  />
-                  {trackingResp.length > 0 ? (
-                    <BabylonTrackingAlert
-                      accountId={earnAccount.accountId}
-                      networkId={networkId}
-                      provider={provider}
-                      symbol={symbol}
-                      onRefresh={onRefreshTracking}
-                    />
-                  ) : null}
-                </>
-              ) : (
-                <NoAddressWarning
-                  accountId={accountId}
-                  networkId={networkId}
-                  indexedAccountId={indexedAccountId}
-                  onCreateAddress={onCreateAddress}
-                />
-              )}
-            </ProtocolDetails>
+            {renderPageFooter()}
             {result ? (
               <StakingTransactionIndicator
                 accountId={earnAccount?.accountId ?? ''}
                 networkId={networkId}
-                stakeTag={buildLocalTxStatusSyncId(result)}
+                stakeTag={buildLocalTxStatusSyncId({
+                  providerName: tokenInfo?.provider || '',
+                  tokenSymbol: tokenInfo?.token.symbol || '',
+                })}
                 onRefresh={run}
                 onPress={onHistory}
               />
-            ) : null} */}
-            {renderPageFooter()}
+            ) : null}
           </PageFrame>
         </YStack>
       </Page.Body>
