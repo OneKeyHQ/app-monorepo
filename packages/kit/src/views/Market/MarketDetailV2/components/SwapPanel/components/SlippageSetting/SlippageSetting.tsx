@@ -9,24 +9,33 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
-export function SlippageSetting() {
+export interface ISlippageSettingProps {
+  autoValue?: number;
+  isMEV?: boolean;
+  onSlippageChange?: (item: ISwapSlippageSegmentItem) => void;
+}
+
+export function SlippageSetting({
+  autoValue = 0.5,
+  isMEV = false,
+  onSlippageChange,
+}: ISlippageSettingProps) {
   const intl = useIntl();
   const [slippageItem, setSlippageItem] = useState<ISwapSlippageSegmentItem>({
     key: ESwapSlippageSegmentKey.AUTO,
-    value: 0.5,
+    value: autoValue,
   });
-  const autoValue = 0.5;
-  const isMEV = false;
 
   const slippageOnSave = useCallback(
     (item: ISwapSlippageSegmentItem, closeFn?: IDialogInstance['close']) => {
       console.log('Slippage saved:', item);
       setSlippageItem(item);
+      onSlippageChange?.(item);
       if (closeFn) {
         void closeFn({ flag: 'save' });
       }
     },
-    [],
+    [onSlippageChange],
   );
 
   const onSlippageHandleClick = useCallback(() => {
