@@ -423,6 +423,13 @@ export interface IStakeEarnDetail {
   };
 }
 
+export interface IEarnProvider {
+  name: string;
+  vault: string;
+  logoURI: string;
+  approveType?: string;
+}
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
