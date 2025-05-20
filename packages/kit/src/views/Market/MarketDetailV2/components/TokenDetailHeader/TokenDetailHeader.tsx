@@ -17,7 +17,7 @@ export function TokenDetailHeader({
   const pageType = usePageType();
 
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet: _wallet },
   } = useActiveAccount({
     num: 0,
   });
