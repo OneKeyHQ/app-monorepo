@@ -41,16 +41,19 @@ function MarketDetail({
 
   const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
 
-  const { tokenDetail, isRefreshing, onRefresh } =
-    useMarketDetailData(coinGeckoId);
+  const { tokenDetail } = useMarketDetailData(coinGeckoId);
 
   const tokenDetailHeader = useMemo(() => {
     if (tokenDetail) {
       return (
-        <LegacyTokenDetailHeader
-          coinGeckoId={coinGeckoId}
-          token={tokenDetail}
-        />
+        <YStack flex={1}>
+          <SwapPanel />
+
+          <LegacyTokenDetailHeader
+            coinGeckoId={coinGeckoId}
+            token={tokenDetail}
+          />
+        </YStack>
       );
     }
     return <TokenDetailHeaderSkeleton gtMd={gtMd} />;
@@ -77,34 +80,22 @@ function MarketDetail({
         gtMd={gtMd}
       />
       <Page.Body>
-        <SwapPanel />
+        <YStack flex={1}>
+          <XStack flex={1} pt="$5">
+            <YStack flex={1}>
+              <TokenDetailTabs
+                defer={defer}
+                token={tokenDetail}
+                coinGeckoId={coinGeckoId}
+                listHeaderComponent={tokenPriceChart}
+              />
+            </YStack>
 
-        {gtMd ? (
-          <YStack flex={1}>
-            <XStack flex={1} pt="$5">
-              <ScrollView minWidth={392} maxWidth={392}>
-                {tokenDetailHeader}
-              </ScrollView>
-              <YStack flex={1}>
-                <TokenDetailTabs
-                  defer={defer}
-                  token={tokenDetail}
-                  coinGeckoId={coinGeckoId}
-                  listHeaderComponent={tokenPriceChart}
-                />
-              </YStack>
-            </XStack>
-          </YStack>
-        ) : (
-          <TokenDetailTabs
-            defer={defer}
-            isRefreshing={isRefreshing}
-            onRefresh={onRefresh}
-            token={tokenDetail}
-            coinGeckoId={coinGeckoId}
-            listHeaderComponent={tokenDetailHeader}
-          />
-        )}
+            <ScrollView minWidth={392} maxWidth={392}>
+              {tokenDetailHeader}
+            </ScrollView>
+          </XStack>
+        </YStack>
       </Page.Body>
     </Page>
   );
