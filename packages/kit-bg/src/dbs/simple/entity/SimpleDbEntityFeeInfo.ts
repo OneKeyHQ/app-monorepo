@@ -43,14 +43,14 @@ export class SimpleDbEntityFeeInfo extends SimpleDbEntityBase<IFeeInfoDb> {
   @backgroundMethod()
   async getPresetIndex({ networkId }: { networkId: string }) {
     const feeInfo = await this.getRawData();
-    return feeInfo?.presetIndex[networkId];
+    return feeInfo?.presetIndex?.[networkId];
   }
 
   @backgroundMethod()
   async getCustomFeeInfo({ networkId }: { networkId: string }) {
     const feeInfo = await this.getRawData();
 
-    return feeInfo?.customFeeInfo[networkId];
+    return feeInfo?.customFeeInfo?.[networkId];
   }
 
   @backgroundMethod()

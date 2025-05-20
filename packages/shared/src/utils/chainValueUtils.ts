@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { ELightningUnit } from '../../types/lightning';
+
 import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
 
@@ -154,6 +156,19 @@ function convertSatsToBtc(sats: string | number): string {
   return new BigNumber(sats).dividedBy(SATS_PER_BTC).toFixed();
 }
 
+function getLightningAmountDecimals({
+  lnUnit,
+  decimals,
+}: {
+  lnUnit: ELightningUnit;
+  decimals: number;
+}): number {
+  if (lnUnit === ELightningUnit.BTC) {
+    return Math.log10(SATS_PER_BTC);
+  }
+  return decimals;
+}
+
 export default {
   convertAmountToChainValue,
   convertChainValueToAmount,
@@ -166,4 +181,5 @@ export default {
   fixNativeTokenMaxSendAmount,
   convertBtcToSats,
   convertSatsToBtc,
+  getLightningAmountDecimals,
 };
