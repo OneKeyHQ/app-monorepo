@@ -81,7 +81,7 @@ function MarketDetail({
       />
       <Page.Body>
         <YStack flex={1}>
-          <XStack backgroundColor="$red2" flex={1} pt="$5">
+          <XStack flex={1} pt="$5">
             <YStack flex={1}>
               <TokenDetailTabs
                 defer={defer}

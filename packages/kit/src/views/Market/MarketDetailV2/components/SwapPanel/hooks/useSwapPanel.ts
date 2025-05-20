@@ -8,9 +8,7 @@ import { networkIdAtom } from '../atoms/swapPanelAtoms';
 import { useBalance } from './useBalance';
 import { useTradeType } from './useTradeType';
 
-interface IPaymentToken {
-  symbol: string;
-}
+import type { IToken } from '../types';
 
 export function useSwapPanel() {
   const { tradeType, setTradeType } = useTradeType();
@@ -19,7 +17,7 @@ export function useSwapPanel() {
     new BigNumber(0),
   );
   const [antiMEV, setAntiMEV] = useState(false);
-  const [paymentToken, setPaymentToken] = useState<IPaymentToken>();
+  const [paymentToken, setPaymentToken] = useState<IToken>();
   const [networkId, setNetworkId] = useAtom(networkIdAtom);
   const { balance, setBalance, balanceToken } = useBalance({
     token: paymentToken,

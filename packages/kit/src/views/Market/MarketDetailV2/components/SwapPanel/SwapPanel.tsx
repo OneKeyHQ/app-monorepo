@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -50,12 +49,6 @@ export function SwapPanel() {
     accountId: '',
   });
 
-  const selectableTokens = useMemo(() => {
-    return defaultTokens.map((token) => ({
-      symbol: token.symbol,
-    }));
-  }, [defaultTokens]);
-
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">
       {/* Trade type selector */}
@@ -67,12 +60,8 @@ export function SwapPanel() {
         value={paymentAmount.toFixed()}
         onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
         selectedToken={paymentToken}
-        selectableTokens={selectableTokens}
-        onTokenChange={(token) =>
-          setPaymentToken({
-            symbol: token,
-          })
-        }
+        selectableTokens={defaultTokens}
+        onTokenChange={(token) => setPaymentToken(token)}
       />
 
       {/* Balance display */}

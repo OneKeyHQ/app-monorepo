@@ -1,8 +1,10 @@
-import { YStack } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 
+import type { IToken } from '../../types';
+
 // Define the props for each token item
-interface ITokenData {
+export interface ITokenListToken {
   id: string;
   tokenImageSrc?: string;
   networkImageSrc?: string;
@@ -12,32 +14,48 @@ interface ITokenData {
   valueProps?: { value: string; currency?: string };
 }
 
-// Test data based on the provided image and typical token list items
-const testTokenData: ITokenData[] = [];
-
 interface ITokenListProps {
-  tokens?: ITokenData[];
-  onTokenPress?: (token: ITokenData) => void;
+  tokens?: IToken[];
+  onTokenPress?: (token: IToken) => void;
 }
 
-export function TokenList({
-  tokens = testTokenData, // Default to test data
-  onTokenPress,
-}: ITokenListProps) {
+export function TokenList({ tokens, onTokenPress }: ITokenListProps) {
+  console.log('TokenList tokens', tokens);
+
   return (
-    <YStack gap="$2">
-      {tokens.map((token) => (
-        <TokenListItem
-          key={token.id}
-          tokenImageSrc={token.tokenImageSrc}
-          networkImageSrc={token.networkImageSrc}
-          tokenSymbol={token.tokenSymbol}
-          tokenName={token.tokenName}
-          balance={token.balance}
-          valueProps={token.valueProps}
-          onPress={() => onTokenPress?.(token)}
-        />
-      ))}
+    <YStack gap="$1">
+      <YStack gap="$1" px="$1" py="$1">
+        {tokens?.map((token) => (
+          <TokenListItem
+            key={token.contractAddress}
+            tokenImageSrc={token.logoURI}
+            // TODO: add network image
+            // networkImageSrc={token.networkId}
+            tokenSymbol={token.symbol}
+            tokenName={token.name}
+            // TODO: add balance
+            // balance={token.balance}
+            // TODO: add value props
+            // valueProps={token.valueProps}
+            onPress={() => onTokenPress?.(token)}
+            margin={0}
+          />
+        ))}
+      </YStack>
+
+      <YStack
+        borderBottomLeftRadius="$3"
+        borderBottomRightRadius="$3"
+        backgroundColor="$bgSubdued"
+        px="$5"
+        py="$2"
+        alignItems="center"
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          If you wish to trade other tokens, switch to{' '}
+          <SizableText fontWeight="bold">Trade</SizableText>
+        </SizableText>
+      </YStack>
     </YStack>
   );
 }

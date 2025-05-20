@@ -1,12 +1,11 @@
 import { SizableText, XStack } from '@onekeyhq/components';
 
+import type { IToken } from '../types';
 import type BigNumber from 'bignumber.js';
 
 export interface IBalanceDisplayProps {
   balance?: BigNumber;
-  token?: {
-    symbol: string;
-  };
+  token?: IToken;
 }
 
 export function BalanceDisplay({ balance, token }: IBalanceDisplayProps) {

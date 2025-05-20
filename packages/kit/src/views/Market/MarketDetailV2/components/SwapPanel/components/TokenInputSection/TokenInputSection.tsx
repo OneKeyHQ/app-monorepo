@@ -15,17 +15,14 @@ import { QuickAmountSelector } from './QuickAmountSelector';
 import { TokenList } from './TokenList';
 
 import type { ITradeType } from '../../hooks/useTradeType';
-
-interface IToken {
-  symbol: string;
-}
+import type { IToken } from '../../types';
 
 export interface ITokenInputSectionProps {
   value: string;
   onChange: (value: string) => void;
   selectedToken?: IToken;
   selectableTokens: IToken[];
-  onTokenChange: (tokenSymbol: string) => void;
+  onTokenChange: (token: IToken) => void;
   onPressTokenSelector?: () => void;
   tradeType: ITradeType;
 }
@@ -38,13 +35,6 @@ export function TokenInputSection({
   onTokenChange,
   tradeType,
 }: ITokenInputSectionProps) {
-  const tokenList = useMemo(() => {
-    return selectableTokens.map((token) => ({
-      ...token,
-      id: token.symbol,
-    }));
-  }, [selectableTokens]);
-
   return (
     <YStack gap="$0.5">
       <Input
@@ -62,9 +52,9 @@ export function TokenInputSection({
                 title="Select Token"
                 renderContent={
                   <TokenList
-                    tokens={tokenList}
+                    tokens={selectableTokens}
                     onTokenPress={(token) => {
-                      onTokenChange(token.id);
+                      onTokenChange(token);
                     }}
                   />
                 }
