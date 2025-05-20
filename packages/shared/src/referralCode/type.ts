@@ -41,7 +41,7 @@ export interface IInviteSummary {
   totalRewards: string;
   levelPercent: string;
   nextRebateLevel: string;
-  Earn: IReward;
+  Onchain: IReward;
   rebateConfig: {
     level: number;
     rebate: number;
