@@ -1,5 +1,3 @@
-import { useIntl } from 'react-intl';
-
 import {
   Divider,
   EStepItemStatus,
@@ -9,8 +7,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IStepItemProps } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
 
 function CustomStepperItem({ title, description, ...props }: IStepItemProps) {
