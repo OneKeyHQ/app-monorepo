@@ -88,7 +88,9 @@ async function checkCurrentDBIsMigrated({
     walletCount > 3 ||
     credentialCount > 0 ||
     accountCount > 0 ||
-    context?.verifyString !== DEFAULT_VERIFY_STRING;
+    context?.verifyString !== DEFAULT_VERIFY_STRING ||
+    Boolean(context?.nextHD && context?.nextHD > 1) ||
+    Boolean(context?.nextWalletNo && context?.nextWalletNo > 1);
 
   return {
     isMigrated: isBucketDBMigrated,
