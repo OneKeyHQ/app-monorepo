@@ -33,7 +33,7 @@ import {
 import { IndexedDBAgent } from './IndexedDBAgent';
 import indexedDBUtils from './indexedDBUtils';
 
-import type { ICheckCurrentDBIsMigratedResult } from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
+import type { ICheckCurrentDBIsMigratedToBucketResult } from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
 import type {
   IDBWalletIdSingleton,
   IIndexedBucketsMap,
@@ -220,7 +220,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     }
 
     try {
-      const checkMigratedResult: ICheckCurrentDBIsMigratedResult =
+      const checkMigratedResult: ICheckCurrentDBIsMigratedToBucketResult =
         await indexedToBucketsMigration.checkCurrentDBIsMigrated({
           buckets,
         });
@@ -247,6 +247,8 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
             checkMigratedResult,
           );
         }
+
+        globalThis.$indexedDBIsMigratedToBucket = checkMigratedResult;
       }
     } catch (error) {
       console.error('checkCurrentDBIsMigrated ERROR: ', error);
