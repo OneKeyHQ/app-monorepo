@@ -282,7 +282,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           {alerts.states.length > 0 &&
           !quoteLoading &&
           !quoteEventFetching &&
-          alerts.quoteId === (quoteResult?.quoteId ?? '') ? (
+          alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
             <SwapAlertContainer alerts={alerts.states} />
           ) : null}
           <SwapRecentTokenPairsGroup

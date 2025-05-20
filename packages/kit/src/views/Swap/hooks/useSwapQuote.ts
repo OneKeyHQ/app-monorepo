@@ -463,7 +463,7 @@ export function useSwapQuote() {
     }) => {
       setSwapManualSelectQuoteProviders({
         protocol: data.approvedSwapInfo.protocol,
-        quoteId: data.approvedSwapInfo.quoteId,
+        quoteId: data.approvedSwapInfo?.quoteId,
         info: {
           provider: data.approvedSwapInfo.provider,
           providerName: data.approvedSwapInfo.providerName,
