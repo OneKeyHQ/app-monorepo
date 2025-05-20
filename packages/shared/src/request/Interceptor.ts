@@ -96,4 +96,3 @@ export async function getRequestHeaders() {
       platformEnv.buildNumber as string,
   };
 }
- 
