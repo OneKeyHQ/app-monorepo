@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   ButtonFrame,
   Icon,
@@ -9,10 +11,11 @@ import {
 } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 
+import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
+
 import { QuickAmountSelector } from './QuickAmountSelector';
 import { TokenList } from './TokenList';
 
-import type { ITradeType } from '../../hooks/useTradeType';
 import type { IToken } from '../../types';
 
 export interface ITokenInputSectionProps {
@@ -33,6 +36,8 @@ export function TokenInputSection({
   onTokenChange,
   tradeType,
 }: ITokenInputSectionProps) {
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
   return (
     <YStack gap="$0.5">
       <Input
@@ -43,16 +48,26 @@ export function TokenInputSection({
             onChange(text);
           }
         }}
+        leftAddOnProps={{
+          label: (
+            <SizableText size="$bodyMd" color="$text">
+              {tradeType === ESwapDirection.BUY ? 'Total' : 'Amount'}
+            </SizableText>
+          ),
+        }}
         addOns={[
           {
             renderContent: (
               <Popover
                 title="Select Token"
+                open={isPopoverOpen}
+                onOpenChange={setIsPopoverOpen}
                 renderContent={
                   <TokenList
                     tokens={selectableTokens}
                     onTokenPress={(token) => {
                       onTokenChange(token);
+                      setIsPopoverOpen(false);
                     }}
                   />
                 }
@@ -66,6 +81,7 @@ export function TokenInputSection({
                       background="transparent"
                       hoverStyle={{ bg: '$bgHover' }}
                       pressStyle={{ bg: '$bgActive' }}
+                      onPress={() => setIsPopoverOpen(true)}
                     >
                       <XStack
                         gap="$2"
@@ -90,7 +106,16 @@ export function TokenInputSection({
           },
         ]}
       />
-      <QuickAmountSelector onSelect={onChange} tradeType={tradeType} />
+      <QuickAmountSelector
+        buyAmounts={
+          selectedToken?.speedSwapDefaultAmount.map((amount) => ({
+            label: amount.toString(),
+            value: amount,
+          })) ?? []
+        }
+        onSelect={onChange}
+        tradeType={tradeType}
+      />
     </YStack>
   );
 }

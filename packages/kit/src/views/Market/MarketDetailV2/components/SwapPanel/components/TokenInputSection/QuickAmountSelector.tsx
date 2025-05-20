@@ -1,18 +1,12 @@
 import { Button, Divider, XStack } from '@onekeyhq/components';
 
-import type { ITradeType } from '../../hooks/useTradeType';
+import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
 export interface IQuickAmountSelectorProps {
   onSelect: (value: string) => void;
   tradeType: ITradeType;
+  buyAmounts: { label: string; value: number }[];
 }
-
-const buyAmounts = [
-  { label: '0.1', value: '0.1' },
-  { label: '0.5', value: '0.5' },
-  { label: '1', value: '1' },
-  { label: '10', value: '10' },
-];
 
 const sellPercentages = [
   { label: '25%', value: '0.25' },
@@ -23,9 +17,11 @@ const sellPercentages = [
 
 export function QuickAmountSelector({
   onSelect,
+  buyAmounts,
   tradeType,
 }: IQuickAmountSelectorProps) {
-  const amounts = tradeType === 'buy' ? buyAmounts : sellPercentages;
+  const amounts =
+    tradeType === ESwapDirection.BUY ? buyAmounts : sellPercentages;
   const amountsLength = amounts.length;
 
   return (
@@ -41,7 +37,7 @@ export function QuickAmountSelector({
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={index !== 0 ? 0 : '$2'}
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
-            onPress={() => onSelect(amount.value)}
+            onPress={() => onSelect(amount.value.toString())}
           >
             {amount.label}
           </Button>
