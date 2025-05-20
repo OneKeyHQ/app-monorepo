@@ -59,6 +59,7 @@ function FinalizeWalletSetupPage({
   const [onboardingError, setOnboardingError] = useState<
     IOneKeyError | undefined
   >(undefined);
+  const closePageCalled = useRef(false);
 
   const {
     shouldBondReferralCode,
@@ -173,6 +174,7 @@ function FinalizeWalletSetupPage({
   };
 
   const closePage = useCallback(() => {
+    closePageCalled.current = true;
     navigation.navigate(ERootRoutes.Main);
   }, [navigation]);
 
@@ -214,7 +216,16 @@ function FinalizeWalletSetupPage({
   }, [shouldBondReferralCode, closePage]);
 
   return (
-    <Page>
+    <Page
+      onClose={() => {
+        if (
+          currentStep === EFinalizeWalletSetupSteps.Ready &&
+          !closePageCalled.current
+        ) {
+          closePage();
+        }
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.onboarding_finalize_wallet_setup,
