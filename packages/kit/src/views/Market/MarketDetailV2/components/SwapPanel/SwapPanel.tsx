@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActionButton } from './components/ActionButton';
 import { AntiMEVToggle } from './components/AntiMEVToggle';
+import { ApproveButton } from './components/ApproveButton';
 import { BalanceDisplay } from './components/BalanceDisplay';
 import { SlippageSetting } from './components/SlippageSetting';
 import { SwapTestPanel } from './components/SwapTestPanel';
@@ -31,6 +32,8 @@ export function SwapPanel() {
     balance,
     balanceToken,
     networkId,
+    isApproved,
+    setIsApproved,
   } = swapPanel;
 
   const { isLoading, speedConfig, supportSpeedSwap, provider, defaultTokens } =
@@ -73,15 +76,22 @@ export function SwapPanel() {
       {/* Unsupported swap warning */}
       {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
 
-      {/* Buy button */}
-      <ActionButton
-        disabled={!supportSpeedSwap}
-        loading={isLoading}
-        tradeType={tradeType}
-        amount={amount}
-        token={currentExecutingToken}
-        totalValue={totalValue}
-      />
+      {!isApproved ? (
+        <ApproveButton
+          onApprove={() => {
+            setIsApproved(true);
+          }}
+        />
+      ) : (
+        <ActionButton
+          disabled={!supportSpeedSwap}
+          loading={isLoading}
+          tradeType={tradeType}
+          amount={amount}
+          token={currentExecutingToken}
+          totalValue={totalValue}
+        />
+      )}
 
       {/* Slippage setting */}
       <SlippageSetting autoValue={speedConfig?.slippage} isMEV={antiMEV} />

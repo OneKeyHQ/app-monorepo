@@ -63,6 +63,7 @@ interface ITokenInfo {
 
 export function useSwapPanel() {
   const { tradeType, setTradeType } = useTradeType();
+  const [isApproved, setIsApproved] = useState(false);
   const [amount, setAmount] = useState('1');
   const [antiMEV, setAntiMEV] = useState(false);
   const [inputTokenSymbol, setInputTokenSymbol] = useState(
@@ -205,6 +206,10 @@ export function useSwapPanel() {
     handleTradeTypeChange,
     handleAntiMEVToggle,
     handleQuickAmountSelect,
+
+    // For ApproveButton
+    isApproved,
+    setIsApproved,
 
     // For AmountInputSection
     selectedTokenForAmountInput,
