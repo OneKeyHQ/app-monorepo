@@ -308,7 +308,7 @@ function PortfolioSection({
   rewards: IStakeEarnDetail['rewards'];
   tokenInfo?: IEarnTokenInfo;
 }) {
-  return portfolios ? (
+  return portfolios?.items?.length ? (
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
@@ -816,20 +816,31 @@ const ProtocolDetailsPage = () => {
           >
             {result ? (
               <YStack gap="$8">
-                <SubscriptionSection
-                  subscriptionValue={result.subscriptionValue}
-                  onConfirmText={depositButtonProps.text}
-                  confirmButtonProps={depositButtonProps.props}
-                  onCancelText={withdrawButtonProps.text}
-                  cancelButtonProps={withdrawButtonProps.props}
-                />
-                <AlertSection alerts={result.alerts} />
-                <Divider />
-                <PortfolioSection
-                  portfolios={result.portfolios}
-                  rewards={result.rewards}
-                  tokenInfo={tokenInfo}
-                />
+                {earnAccount?.accountAddress ? (
+                  <>
+                    <SubscriptionSection
+                      subscriptionValue={result.subscriptionValue}
+                      onConfirmText={depositButtonProps.text}
+                      confirmButtonProps={depositButtonProps.props}
+                      onCancelText={withdrawButtonProps.text}
+                      cancelButtonProps={withdrawButtonProps.props}
+                    />
+                    <AlertSection alerts={result.alerts} />
+                    <Divider />
+                    <PortfolioSection
+                      portfolios={result.portfolios}
+                      rewards={result.rewards}
+                      tokenInfo={tokenInfo}
+                    />
+                  </>
+                ) : (
+                  <NoAddressWarning
+                    accountId={accountId}
+                    networkId={networkId}
+                    indexedAccountId={indexedAccountId}
+                    onCreateAddress={onCreateAddress}
+                  />
+                )}
                 <ProfitSection profit={result.profit} />
                 <PeriodSection timeline={result.timeline} />
                 <ProviderSection provider={result.provider} />
