@@ -78,7 +78,6 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorSceneName,
   EHardwareTransportType,

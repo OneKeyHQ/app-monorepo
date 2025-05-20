@@ -1,8 +1,4 @@
-import type {
-  IAccountToken,
-  IToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -36,9 +32,13 @@ export const { atom: allTokenListAtom, use: useAllTokenListAtom } =
   contextAtom<{
     tokens: IAccountToken[];
     keys: string;
+    accountId?: string;
+    networkId?: string;
   }>({
     tokens: [],
     keys: '',
+    accountId: undefined,
+    networkId: undefined,
   });
 
 export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =

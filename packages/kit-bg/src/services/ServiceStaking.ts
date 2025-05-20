@@ -47,6 +47,7 @@ import type {
   IGetPortfolioParams,
   IStakeBaseParams,
   IStakeClaimBaseParams,
+  IStakeEarnDetail,
   IStakeHistoriesResponse,
   IStakeHistoryParams,
   IStakeProtocolDetails,
@@ -66,6 +67,7 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IAddEarnOrderParams,
   IEarnOrderItem,
@@ -228,9 +230,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new Error('Staking config not found');
     }
-    const resp = await client.post<{
-      data: IStakeTxResponse;
-    }>(`/earn/v2/stake`, {
+    const paramsToSend: Record<string, any> = {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
@@ -246,7 +246,19 @@ class ServiceStaking extends ServiceBase {
       permitSignature:
         approveType === EApproveType.Permit ? permitSignature : undefined,
       ...rest,
-    });
+    };
+
+    const walletReferralCode =
+      await this.backgroundApi.serviceReferralCode.checkAndUpdateReferralCode({
+        accountId,
+      });
+    if (walletReferralCode) {
+      paramsToSend.bindedAccountAddress = walletReferralCode.address;
+      paramsToSend.bindedNetworkId = walletReferralCode.networkId;
+    }
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v2/stake`, paramsToSend);
     return resp.data.data;
   }
 
@@ -461,8 +473,9 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     provider: string;
     vault?: string;
+    isV2?: boolean;
   }) {
-    const { networkId, accountId, indexedAccountId, ...rest } = params;
+    const { networkId, accountId, indexedAccountId, isV2, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       accountAddress?: string;
@@ -485,11 +498,29 @@ class ServiceStaking extends ServiceBase {
       requestParams.publicKey = account?.account?.pub;
     }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
-      '/earn/v1/stake-protocol/detail',
+      isV2
+        ? '/earn/v2/stake-protocol/detail'
+        : '/earn/v1/stake-protocol/detail',
       { params: requestParams },
     );
     const result = resp.data.data;
     return result;
+  }
+
+  @backgroundMethod()
+  async getProtocolDetailsV2(params: {
+    accountId?: string;
+    indexedAccountId?: string;
+    networkId: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+  }) {
+    const result = await this.getProtocolDetails({
+      ...params,
+      isV2: true,
+    });
+    return result as unknown as IStakeEarnDetail;
   }
 
   _getProtocolList = memoizee(
@@ -1334,10 +1365,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async setFalconDepositDoNotShowAgain() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      falconDepositDoNotShowAgain: true,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        falconDepositDoNotShowAgain: true,
+      }),
+    );
   }
 
   @backgroundMethod()

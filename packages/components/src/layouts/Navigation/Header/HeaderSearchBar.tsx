@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useMedia } from 'tamagui';
 
+import { XStack } from '../../../primitives';
 import { SearchBar } from '../../SearchBar';
 
 import type {
@@ -90,31 +91,32 @@ function HeaderSearchBar({
   );
 
   return (
-    <SearchBar
-      containerProps={{
-        alignSelf: 'stretch',
-        mb: '$4',
-        mx: '$5',
-        $gtMd: {
-          ...(!isModalScreen && {
-            width: '$52',
-            alignSelf: 'auto',
-            mb: '$0',
-          }),
-        },
-      }}
-      {...(media.gtMd &&
-        !isModalScreen && {
-          size: 'small',
-        })}
-      autoFocus={autoFocus}
-      onBlur={onBlurCallback}
-      onFocus={onFocusCallback}
-      onSearchTextChange={onSearchTextChange}
-      onChangeText={handleChangeCallback}
-      onSubmitEditing={onSubmitEditingCallback}
-      placeholder={placeholder}
-    />
+    <XStack px="$5" w="100%">
+      <SearchBar
+        containerProps={{
+          alignSelf: 'stretch',
+          mb: '$4',
+          $gtMd: {
+            ...(!isModalScreen && {
+              width: '$52',
+              alignSelf: 'auto',
+              mb: '$0',
+            }),
+          },
+        }}
+        {...(media.gtMd &&
+          !isModalScreen && {
+            size: 'small',
+          })}
+        autoFocus={autoFocus}
+        onBlur={onBlurCallback}
+        onFocus={onFocusCallback}
+        onSearchTextChange={onSearchTextChange}
+        onChangeText={handleChangeCallback}
+        onSubmitEditing={onSubmitEditingCallback}
+        placeholder={placeholder}
+      />
+    </XStack>
   );
 }
 

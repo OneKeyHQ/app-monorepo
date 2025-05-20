@@ -75,6 +75,7 @@ export enum EGalleryRoutes {
   ComponentToken = 'component-Token',
   ComponentTooltip = 'component-Tooltip',
   ComponentTradingViewGallery = 'component-TradingView',
+  ComponentTrigger = 'component-Trigger',
   ComponentTypography = 'component-Typography',
   ComponentUsePromiseResult = 'component-UsePromiseResult',
   ComponentWalletAvatar = 'component-WalletAvatar',
@@ -87,4 +88,5 @@ export enum EGalleryRoutes {
   ComponentStepper = 'component-Stepper',
   CountDownCalendarAlert = 'component-CountDownCalendarAlert',
   FontGallery = 'component-Font',
+  ComponentRestart = 'component-Restart',
 }

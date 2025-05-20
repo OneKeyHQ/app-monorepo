@@ -7,6 +7,11 @@ import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 
 import type { INetworkAccountAddressDetail } from './address';
 
+export enum EGlobalDeriveTypesScopes {
+  global = 'global',
+  swapTo = 'swapTo',
+}
+
 export type INetworkAccount = IDBAccount & {
   addressDetail: INetworkAccountAddressDetail;
 };

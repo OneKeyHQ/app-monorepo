@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 
-import type { IInpageProviderWebViewProps } from './types';
+import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
@@ -23,15 +23,30 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       },
     });
 
-    useImperativeHandle(ref, (): IWebViewWrapperRef => {
+    useImperativeHandle(ref, () => {
       const wrapper = {
         innerRef: iframeWebviewRef.current,
         reload: () => iframeWebviewRef.current?.reload(),
         loadURL: (url: string) => {
           iframeWebviewRef.current?.loadURL(url);
         },
+        sendMessageViaInjectedScript: (message: any) => {
+          if (iframeRef.current?.contentWindow) {
+            try {
+              iframeRef.current.contentWindow.postMessage(
+                JSON.stringify(message),
+                '*',
+              );
+            } catch (error) {
+              console.error(
+                'Failed to send message via injected script:',
+                error,
+              );
+            }
+          }
+        },
       };
-      return wrapper as IWebViewWrapperRef;
+      return wrapper as IWebViewRef;
     });
 
     return (

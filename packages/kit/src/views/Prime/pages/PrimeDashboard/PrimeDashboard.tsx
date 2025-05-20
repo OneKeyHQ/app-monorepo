@@ -9,18 +9,20 @@ import {
   Icon,
   IconButton,
   Page,
-  RichSizeableText,
   SizableText,
+  Spinner,
   Stack,
   Theme,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
@@ -60,29 +62,43 @@ function PrimeBanner() {
 }
 
 function PrimeTerms() {
-  const intl = useIntl();
+  const linkView = useCallback(
+    () => (
+      <SizableText
+        size="$bodyMd"
+        color="$textInteractive"
+        cursor="pointer"
+        onPress={() => {
+          openUrlExternal('https://help.onekey.so/hc/articles/11967482818831');
+        }}
+      >
+        OneKey Prime Terms
+      </SizableText>
+    ),
+    [],
+  );
   return (
-    <RichSizeableText
+    <HyperlinkText
       size="$bodyMd"
-      linkList={{
-        link: {
-          url: 'https://help.onekey.so/hc/articles/11967482818831',
-          color: '$textLink',
-          size: '$bodyMd',
-        },
+      values={{
+        link: linkView,
       }}
-    >
-      {intl.formatMessage({
-        id: ETranslations.prime_agree_to_terms,
-      })}
-    </RichSizeableText>
+      translationId={ETranslations.prime_agree_to_terms}
+      defaultMessage={ETranslations.prime_agree_to_terms}
+    />
   );
 }
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const { user, isLoggedIn, isPrimeSubscriptionActive, logout } =
-    usePrimeAuthV2();
+  // const isReady = false;
+  const {
+    isReady,
+    user,
+    isLoggedIn,
+    isPrimeSubscriptionActive,
+    // logout,
+  } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
@@ -160,12 +176,13 @@ export default function PrimeDashboard() {
               {user?.isLoggedIn ? <PrimeUserInfo /> : null}
             </Stack>
 
+            {isReady ? <PrimeBenefitsList /> : <Spinner my="$10" />}
+
             {platformEnv.isDev ? (
               <PrimeDebugPanel
                 shouldShowConfirmButton={shouldShowConfirmButton}
               />
             ) : null}
-            <PrimeBenefitsList />
           </Page.Body>
 
           <Page.Footer
@@ -185,7 +202,7 @@ export default function PrimeDashboard() {
                 flexDirection: 'column',
               }}
             >
-              <PrimeTerms />
+              {shouldShowConfirmButton ? <PrimeTerms /> : null}
 
               <Page.FooterActions
                 p="$0"

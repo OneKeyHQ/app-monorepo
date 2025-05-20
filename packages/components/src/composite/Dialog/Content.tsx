@@ -1,16 +1,22 @@
 import { YStack } from '../../primitives';
 
 import type { IDialogContentProps } from './type';
+import type { IStackProps } from '../../primitives';
 
 export function Content({
   children,
   estimatedContentHeight,
-}: IDialogContentProps) {
+  isAsync = false,
+  ...others
+}: IDialogContentProps & Omit<IStackProps, 'children'>) {
   if (!children) {
     return null;
   }
+  if (isAsync) {
+    // do nothing, isAsync is only available on Content.native.tsx
+  }
   return (
-    <YStack px="$5" pb="$5" minHeight={estimatedContentHeight}>
+    <YStack px="$5" pb="$5" minHeight={estimatedContentHeight} {...others}>
       {children}
     </YStack>
   );

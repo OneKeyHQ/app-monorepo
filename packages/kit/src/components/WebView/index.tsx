@@ -8,10 +8,13 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 
-import type { IElectronWebViewEvents, IWebViewOnScroll } from './types';
+import type {
+  IElectronWebViewEvents,
+  IWebViewOnScroll,
+  IWebViewRef,
+} from './types';
 import type { ESiteMode } from '../../views/Discovery/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
-import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps as RNWebViewProps } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
@@ -26,7 +29,7 @@ interface IWebViewProps extends IElectronWebViewEvents {
   src?: string;
   onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
-  onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
+  onWebViewRef?: (ref: IWebViewRef | null) => void;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
   onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
   allowpopups?: boolean;
@@ -59,6 +62,15 @@ interface IWebViewProps extends IElectronWebViewEvents {
    * @description A function that is invoked when the webview calls `window.ReactNativeWebView.postMessage`. Setting this property will inject this global into your webview.
    */
   onMessage?: RNWebViewProps['onMessage'];
+  /** @platform android
+   * @description Use GeckoView instead of the default WebView on Android. GeckoView is Mozilla's alternative to Android's WebView with better privacy and security features.
+   */
+  useGeckoView?: boolean;
+  /** @platform native
+   * @description Whether to use the injected native code from cross-inpage-provider-injected/dist/injected/injectedNative.js
+   * @default true
+   */
+  useInjectedNativeCode?: boolean;
 }
 
 const WebView: FC<IWebViewProps> = ({

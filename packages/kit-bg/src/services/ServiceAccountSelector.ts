@@ -149,13 +149,9 @@ class ServiceAccountSelector extends ServiceBase {
     activeAccount: IAccountSelectorActiveAccountInfo;
     nonce?: number;
   }> {
-    const {
-      othersWalletAccountId,
-      indexedAccountId,
-      deriveType,
-      networkId,
-      walletId,
-    } = selectedAccount;
+    const { othersWalletAccountId, indexedAccountId, networkId, walletId } =
+      selectedAccount;
+    const deriveType = selectedAccount.deriveType;
 
     defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
       {
@@ -229,18 +225,20 @@ class ServiceAccountSelector extends ServiceBase {
         console.error(e);
       }
 
-      if ((indexedAccountId && wallet) || othersWalletAccountId) {
-        try {
-          const r = await serviceAccount.getNetworkAccount({
-            indexedAccountId,
-            accountId: othersWalletAccountId,
-            deriveType,
-            networkId,
-          });
-          account = r;
-        } catch (e) {
-          // account may not compatible with network
-          console.error(e);
+      if (deriveType) {
+        if ((indexedAccountId && wallet) || othersWalletAccountId) {
+          try {
+            const r = await serviceAccount.getNetworkAccount({
+              indexedAccountId,
+              accountId: othersWalletAccountId,
+              deriveType,
+              networkId,
+            });
+            account = r;
+          } catch (e) {
+            // account may not compatible with network
+            console.error(e);
+          }
         }
       }
 

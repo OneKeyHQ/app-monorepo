@@ -1,4 +1,4 @@
-import { debounce, isNil, uniqBy } from 'lodash';
+import { debounce, isNil, throttle, uniqBy } from 'lodash';
 
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import {
@@ -14,13 +14,18 @@ import {
 import {
   OneKeyError,
   OneKeyErrorPrimeMasterPasswordInvalid,
+  OneKeyErrorPrimePaidMembershipRequired,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
@@ -33,6 +38,7 @@ import type {
   ICloudSyncServerDiffItem,
   ICloudSyncServerItem,
   ICloudSyncServerItemByDownloaded,
+  IStartServerSyncFlowParams,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -70,6 +76,8 @@ import { CloudSyncFlowManagerLock } from './CloudSyncFlowManager/CloudSyncFlowMa
 import { CloudSyncFlowManagerMarketWatchList } from './CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList';
 import { CloudSyncFlowManagerWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerWallet';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
+
+import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
 
 const nonce = 0;
 
@@ -216,8 +224,10 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   async apiCheckServerStatus({
     localItems,
+    isFullDBChecking,
   }: {
     localItems?: IDBCloudSyncItem[];
+    isFullDBChecking?: boolean;
   } = {}) {
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
     const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
@@ -239,12 +249,14 @@ class ServicePrimeCloudSync extends ServiceBase {
       })),
       nonce,
       pwdHash: masterPasswordUUID,
-      onlyCheckLocalDataType: [
-        EPrimeCloudSyncDataType.Lock,
-        EPrimeCloudSyncDataType.Wallet,
-        EPrimeCloudSyncDataType.Account,
-        EPrimeCloudSyncDataType.IndexedAccount,
-      ],
+      onlyCheckLocalDataType: isFullDBChecking
+        ? [
+            EPrimeCloudSyncDataType.Lock,
+            EPrimeCloudSyncDataType.Wallet,
+            EPrimeCloudSyncDataType.Account,
+            EPrimeCloudSyncDataType.IndexedAccount,
+          ]
+        : Object.values(EPrimeCloudSyncDataType),
     });
     const data = result?.data?.data;
     data.pwdHash = data.pwdHash || masterPasswordUUID;
@@ -398,10 +410,17 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (setUndefinedTimeToNow && isNil(dataTimestamp)) {
         dataTimestamp = now;
       }
-      return this.convertLocalItemToServerItem({
+      const serverItem = this.convertLocalItemToServerItem({
         localItem: item,
         dataTimestamp,
       });
+      if (process.env.NODE_ENV !== 'production') {
+        // @ts-ignore
+        serverItem.$$dataTimestampStr = new Date(
+          serverItem.dataTimestamp || 0,
+        ).toLocaleString();
+      }
+      return serverItem;
     });
     localData = localData.filter(
       (item) =>
@@ -443,6 +462,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       pwdHash,
       lock: lockItemToServer,
     });
+    void this.updateLastSyncTime();
 
     console.log('prime cloud sync apiUploadItems: ', result?.data?.data);
     return result?.data?.data;
@@ -527,6 +547,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
   async syncToSceneByAllPendingItems() {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
@@ -572,9 +593,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async _syncToSceneWithLocalSyncItems({
     items,
     syncCredential,
+    forceSync,
   }: {
     items: IDBCloudSyncItem[];
-    syncCredential: ICloudSyncCredential;
+    syncCredential: ICloudSyncCredential | undefined;
+    forceSync?: boolean;
   }) {
     const walletItems: IDBCloudSyncItem[] = [];
     const accountItems: IDBCloudSyncItem[] = [];
@@ -632,6 +655,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.wallet.syncToScene({
       syncCredential,
       items: walletItems,
+      forceSync,
     });
     if (walletItems?.length) {
       emitEventsStack.push(() => {
@@ -643,10 +667,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.account.syncToScene({
       syncCredential,
       items: accountItems,
+      forceSync,
     });
     await this.syncManagers.indexedAccount.syncToScene({
       syncCredential,
       items: indexedAccountItems,
+      forceSync,
     });
     if (accountItems?.length || indexedAccountItems?.length) {
       emitEventsStack.push(() => {
@@ -658,6 +684,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.browserBookmark.syncToScene({
       syncCredential,
       items: browserBookmarkItems,
+      forceSync,
     });
     if (browserBookmarkItems?.length) {
       emitEventsStack.push(() => {
@@ -669,6 +696,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.marketWatchList.syncToScene({
       syncCredential,
       items: marketWatchListItems,
+      forceSync,
     });
     if (marketWatchListItems?.length) {
       emitEventsStack.push(() => {
@@ -680,6 +708,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customRpc.syncToScene({
       syncCredential,
       items: customRpcItems,
+      forceSync,
     });
     if (customRpcItems?.length) {
       emitEventsStack.push(() => {
@@ -691,6 +720,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customNetwork.syncToScene({
       syncCredential,
       items: customNetworkItems,
+      forceSync,
     });
     if (customNetworkItems?.length) {
       emitEventsStack.push(() => {
@@ -702,6 +732,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.customToken.syncToScene({
       syncCredential,
       items: customTokenItems,
+      forceSync,
     });
     if (customTokenItems?.length) {
       emitEventsStack.push(() => {
@@ -713,6 +744,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.syncManagers.addressBook.syncToScene({
       syncCredential,
       items: addressBookItems,
+      forceSync,
     });
     if (addressBookItems?.length) {
       emitEventsStack.push(async () => {
@@ -839,6 +871,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           keys: deletedItems.map((item) => item.id),
         });
       }
+      void this.updateLastSyncTime();
     }
   }
 
@@ -849,12 +882,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer,
     setUndefinedTimeToNow,
     callerName,
-  }: {
-    isFlush?: boolean;
-    encryptedSecurityPasswordR1ForServer?: string;
-    setUndefinedTimeToNow?: boolean;
-    callerName?: string;
-  } = {}) {
+  }: Omit<IStartServerSyncFlowParams, 'throwError'> = {}) {
     await this.startServerSyncFlowSilently({
       isFlush,
       encryptedSecurityPasswordR1ForServer,
@@ -865,20 +893,35 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
+  async startServerSyncFlowSilentlyThrottled(
+    params: IStartServerSyncFlowParams = {},
+  ) {
+    await this._startServerSyncFlowSilentlyThrottled(params);
+  }
+
+  _startServerSyncFlowSilentlyThrottled = throttle(
+    async (params: IStartServerSyncFlowParams = {}) => {
+      await this.startServerSyncFlowSilently(params);
+    },
+    timerUtils.getTimeDurationMs({ minute: 1 }),
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  @backgroundMethod()
   async startServerSyncFlowSilently({
     isFlush,
     encryptedSecurityPasswordR1ForServer,
     setUndefinedTimeToNow,
     throwError,
     callerName,
-  }: {
-    isFlush?: boolean;
-    encryptedSecurityPasswordR1ForServer?: string;
-    setUndefinedTimeToNow?: boolean;
-    throwError?: boolean;
-    callerName?: string;
-  } = {}) {
+  }: IStartServerSyncFlowParams = {}) {
     try {
+      if (!(await this.isCloudSyncIsAvailable())) {
+        return;
+      }
       await this.ensureCloudSyncIsAvailable({
         callerName,
       });
@@ -888,16 +931,43 @@ class ServicePrimeCloudSync extends ServiceBase {
         skipUploadToServer: true, // will call server sync flow later
       });
 
-      const { items: localItems } = await this.getAllLocalSyncItems();
+      let { items: localItems } = await this.getAllLocalSyncItems();
+      const allLocalItems = localItems;
+      const totalItemsCount = allLocalItems.length;
+
+      const pwdHash =
+        await this.backgroundApi.serviceMasterPassword.getLocalMasterPasswordUUIDSafe();
+      if (pwdHash) {
+        localItems = allLocalItems.filter((item) => item.pwdHash === pwdHash);
+        const availableItemsCount = localItems.length;
+        if (availableItemsCount !== totalItemsCount && totalItemsCount > 0) {
+          if (process.env.NODE_ENV !== 'production') {
+            const invalidItems = allLocalItems.filter(
+              (item) => item.pwdHash !== pwdHash,
+            );
+            console.log('invalidItems', invalidItems);
+          }
+          const removedItems = allLocalItems.filter(
+            (item) => !item.rawData && item.pwdHash && item.pwdHash !== pwdHash,
+          );
+          if (removedItems.length) {
+            void localDb.removeCloudSyncPoolItems({
+              keys: removedItems.map((item) => item.id).filter(Boolean),
+            });
+          }
+        }
+      }
+      // TODO remove pwdHash not matched items
 
       await this.startServerSyncFlowForItems({
         localItems,
         setUndefinedTimeToNow,
         isFlush,
         encryptedSecurityPasswordR1ForServer,
+        isFullDBChecking: true,
       });
     } catch (error) {
-      console.error(error);
+      errorUtils.autoPrintErrorIgnore(error);
       if (throwError) {
         throw error;
       }
@@ -970,18 +1040,25 @@ class ServicePrimeCloudSync extends ServiceBase {
     isFlush,
     setUndefinedTimeToNow,
     encryptedSecurityPasswordR1ForServer,
+    isFullDBChecking,
   }: {
     localItems: IDBCloudSyncItem[];
     isFlush?: boolean;
     setUndefinedTimeToNow?: boolean;
     encryptedSecurityPasswordR1ForServer?: string;
+    isFullDBChecking?: boolean;
   }) {
+    if (!(await this.isCloudSyncIsAvailable())) {
+      return;
+    }
+
     await this.ensureCloudSyncIsAvailable();
 
     // TODO check passcode, syncPassword, accountSalt, isPrime are both available
 
     const serverStatus = await this.apiCheckServerStatus({
       localItems,
+      isFullDBChecking,
     });
 
     const syncCredential = await this.getSyncCredentialSafe();
@@ -1040,7 +1117,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     try {
       return await this.getSyncCredentialWithCache();
     } catch (error) {
-      console.error(error);
+      errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
   }
@@ -1098,11 +1175,33 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setCloudSyncEnabled(enabled: boolean) {
+  async setCloudSyncEnabled(
+    enabled: boolean,
+    {
+      skipClearLocalMasterPassword,
+    }: {
+      skipClearLocalMasterPassword?: boolean;
+    } = {},
+  ) {
+    if (!enabled && !skipClearLocalMasterPassword) {
+      await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword({
+        skipDisableCloudSync: true,
+      });
+    }
     await primeCloudSyncPersistAtom.set((v) => ({
       ...v,
       isCloudSyncEnabled: enabled,
     }));
+  }
+
+  @backgroundMethod()
+  async updateLastSyncTime() {
+    await primeCloudSyncPersistAtom.set(
+      (v): IPrimeCloudSyncPersistAtomData => ({
+        ...v,
+        lastSyncTime: Date.now(),
+      }),
+    );
   }
 
   // TODO use jotai for Extension working
@@ -1239,11 +1338,15 @@ class ServicePrimeCloudSync extends ServiceBase {
         }));
     }
 
-    await this.backgroundApi.serviceAccount.generateAllHDWalletMissingHashAndXfp(
+    await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
       {
         password,
       },
     );
+
+    await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
+      password,
+    });
 
     const { wallets: allWallets, allDevices } =
       await this.backgroundApi.serviceAccount.getAllWallets({
@@ -1466,10 +1569,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     success: boolean;
     isServerMasterPasswordSet?: boolean;
     encryptedSecurityPasswordR1ForServer?: string;
-    localSameWallets?: {
-      walletHash: string;
-      wallets: IDBWallet[];
-    }[];
     serverDiffItems?: ICloudSyncServerDiffItem[];
   }> {
     const isPrimeLoggedIn =
@@ -1480,7 +1579,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const isPrimeSubscriptionActive =
       await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
     if (!isPrimeSubscriptionActive) {
-      throw new OneKeyError('Prime subscription is not active');
+      throw new OneKeyErrorPrimePaidMembershipRequired();
     }
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify({
@@ -1491,70 +1590,51 @@ class ServicePrimeCloudSync extends ServiceBase {
           // custom title not working
           title: 'Enable Cloud Sync',
           // TODO description not working for Set passcode dialog
-          description: 'Please enter your password to enable cloud sync',
+          description: 'Please enter your passcode to enable cloud sync',
         },
       });
-
-    const sameWallets = await this.withDialogLoading(
-      {
-        title: 'Checking status',
-      },
-      async () => {
-        const sameWallets0: {
-          walletHash: string;
-          wallets: IDBWallet[];
-        }[] = await this.backgroundApi.serviceAccount.getLocalSameHDWallets({
-          password,
-        });
-        return sameWallets0;
-      },
-    );
-
-    // should resolve same wallets from UI
-    if (sameWallets.length > 0) {
-      return { success: false, localSameWallets: sameWallets };
-    }
 
     const { isServerMasterPasswordSet, encryptedSecurityPasswordR1ForServer } =
       await this.backgroundApi.serviceMasterPassword.setupMasterPassword({
         passcode: password,
       });
 
-    const syncCredential: ICloudSyncCredential | undefined =
-      await this.withDialogLoading(
-        {
-          title: 'Checking password',
-        },
-        async () => {
-          const credential = await this.getSyncCredentialSafe();
-          // verify local password match with server master password
-          if (isServerMasterPasswordSet) {
-            if (!credential) {
-              throw new OneKeyError('Master password set failed');
-            }
-          }
-          return credential;
-        },
-      );
-
-    if (!syncCredential) {
-      throw new OneKeyError('Master password set failed');
-    }
+    let syncCredential: ICloudSyncCredential | undefined;
 
     const shouldManualResolveDiffItems = false;
 
     const serverStatus = await this.withDialogLoading(
       {
-        title: 'Initializing data',
+        // title: 'Initializing data',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
       },
       async () => {
+        syncCredential = await this.getSyncCredentialSafe();
+        // verify local password match with server master password
+        if (!syncCredential) {
+          throw new OneKeyError('Master password set failed');
+        }
         await this.initLocalSyncItemsDB({ password, syncCredential });
+        let status:
+          | {
+              deleted: string[];
+              diff: ICloudSyncServerItem[];
+              updated: ICloudSyncServerItem[];
+              obsoleted: string[];
+              pwdHash: string;
+            }
+          | undefined;
         if (shouldManualResolveDiffItems) {
           const { items: localItems } = await this.getAllLocalSyncItems();
-          return this.apiCheckServerStatus({
+          status = await this.apiCheckServerStatus({
             localItems,
+            isFullDBChecking: true,
           });
         }
+        await timerUtils.wait(1000);
+        return status;
       },
     );
 
@@ -1702,6 +1782,17 @@ class ServicePrimeCloudSync extends ServiceBase {
   async timeNow(): Promise<number> {
     // TODO Local verification of time accuracy, no need to get from server, otherwise it will interrupt normal business
     return Date.now();
+  }
+
+  @backgroundMethod()
+  async getLocalSystemTimeStatus() {
+    return {
+      status: systemTimeUtils.status,
+      lastServerTime: systemTimeUtils.lastServerTime,
+      lastServerTimeDate: new Date(
+        systemTimeUtils.lastServerTime ?? 0,
+      ).toISOString(),
+    };
   }
 
   @backgroundMethod()

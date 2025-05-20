@@ -231,17 +231,7 @@ function AllNetworksManager() {
 
     navigation.pop();
 
-    if (
-      enabledNetworksWithoutAccountTemp.length > 0 ||
-      !(
-        enabledNetworks.length === originalEnabledNetworks.length &&
-        enabledNetworks.every(
-          (network, index) => network.id === originalEnabledNetworks[index].id,
-        )
-      )
-    ) {
-      void onNetworksChanged?.();
-    }
+    void onNetworksChanged?.();
 
     setIsLoading(false);
   }, [
@@ -253,7 +243,6 @@ function AllNetworksManager() {
     networksState.disabledNetworks,
     networksState.enabledNetworks,
     onNetworksChanged,
-    originalEnabledNetworks,
     walletId,
   ]);
 
@@ -265,24 +254,20 @@ function AllNetworksManager() {
     }
 
     if (enabledNetworks.length > 0) {
-      return intl.formatMessage(
-        {
-          id: ETranslations.network_enable_count,
-        },
-        {
-          count: enabledNetworks.length,
-        },
-      );
+      return `${intl.formatMessage({
+        id: ETranslations.global_done,
+      })} (${enabledNetworks.length}/${networks.mainNetworks.length})`;
     }
 
     return intl.formatMessage({
       id: ETranslations.network_none_selected,
     });
   }, [
-    enabledNetworks.length,
-    enabledNetworksWithoutAccount.length,
-    intl,
     isLoading,
+    enabledNetworksWithoutAccount.length,
+    enabledNetworks.length,
+    intl,
+    networks.mainNetworks.length,
   ]);
 
   return (
@@ -304,7 +289,17 @@ function AllNetworksManager() {
                 if (isLoading) {
                   return true;
                 }
-                return false;
+
+                if (
+                  enabledNetworks.length === originalEnabledNetworks.length &&
+                  enabledNetworks.every((network) =>
+                    originalEnabledNetworks.find(
+                      (item) => item.id === network.id,
+                    ),
+                  )
+                ) {
+                  return true;
+                }
               })(),
             }}
             onConfirm={handleEnableAllNetworks}

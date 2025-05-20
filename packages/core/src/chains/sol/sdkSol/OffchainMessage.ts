@@ -457,6 +457,7 @@ export class OffchainMessage {
     }
     let offset = buffer.writeUInt8(this.version);
     offset = buffer.writeUInt8(this.messageFormat, offset);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     offset = buffer.writeUInt16LE(this.message.length, offset);
     return Buffer.concat([
       Buffer.from([255]),

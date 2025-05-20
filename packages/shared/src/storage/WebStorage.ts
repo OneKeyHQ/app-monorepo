@@ -1,6 +1,8 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
 // import localforage from 'localforage';
 
+import { SystemDiskFullError } from '../errors';
+import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
 
@@ -23,19 +25,25 @@ if (process.env.NODE_ENV !== 'production') {
   // appGlobals.$$localforage = localforage;
 }
 
+export enum EWebStorageKeyPrefix {
+  AppStorage = 'app_storage_v5:',
+  SimpleDB = 'simple_db_v5:',
+  GlobalStates = 'g_states_v5:',
+}
+
 async function migrateFromLegacyStorage({
   indexed,
   legacyKeyPrefix,
   tableName,
 }: {
   indexed: IndexedDBPromised;
-  legacyKeyPrefix: string;
+  legacyKeyPrefix: EWebStorageKeyPrefix;
   tableName: string;
 }) {
   if (!legacyKeyPrefix) {
     return;
   }
-  if (legacyKeyPrefix === 'app_storage_v5:') {
+  if (legacyKeyPrefix === EWebStorageKeyPrefix.AppStorage) {
     return;
   }
   const allKeys = await indexed.getAllKeys(tableName);
@@ -43,6 +51,7 @@ async function migrateFromLegacyStorage({
     console.log(
       `WebStorage==>migrateFromLegacyStorage skip: already migrated - ${indexed?.name}`,
     );
+    errorUtils.logCurrentCallStack();
     return;
   }
   // export default new WebStorage();
@@ -50,7 +59,7 @@ async function migrateFromLegacyStorage({
   const keys = await legacyStorage.getAllKeys(undefined);
   for (const key of keys) {
     if (
-      legacyKeyPrefix === 'simple_db_v5:' &&
+      legacyKeyPrefix === EWebStorageKeyPrefix.SimpleDB &&
       key.startsWith(legacyKeyPrefix)
     ) {
       // debugger;
@@ -61,6 +70,10 @@ async function migrateFromLegacyStorage({
         try {
           await indexed.put(tableName, value, key);
         } catch (error) {
+          console.error(
+            'migrateFromLegacyStorage put ERROR: ',
+            (error as Error | undefined)?.message,
+          );
           try {
             await indexed.add(tableName, value, key);
           } catch (error2) {
@@ -69,13 +82,8 @@ async function migrateFromLegacyStorage({
             // Encountered disk full while committing transaction.
             // QuotaExceededError: Encountered full disk while opening backing store for indexedDB.open.
             console.error(
-              'migrateFromLegacyStorage ERROR: ',
-              [
-                (error as Error | undefined)?.message,
-                (error2 as Error | undefined)?.message,
-              ]
-                .filter(Boolean)
-                .join(','),
+              'migrateFromLegacyStorage add ERROR: ',
+              (error2 as Error | undefined)?.message,
             );
           }
         }
@@ -94,7 +102,7 @@ class WebStorage implements AsyncStorageStatic {
     dbName: string;
     bucketName: string;
     tableName: string;
-    legacyKeyPrefix: string;
+    legacyKeyPrefix: EWebStorageKeyPrefix;
   }) {
     this.tableName = tableName;
     // eslint-disable-next-line no-async-promise-executor
@@ -129,8 +137,7 @@ class WebStorage implements AsyncStorageStatic {
     if (globalThis.$onekeySystemDiskIsFull) {
       appEventBus.emit(EAppEventBusNames.ShowSystemDiskFullWarning, undefined);
       console.error('WebStorage==>checkDiskFull ', payload);
-      // TODO use custom Error
-      throw new Error('System Disk is full');
+      throw new SystemDiskFullError();
     }
   }
 

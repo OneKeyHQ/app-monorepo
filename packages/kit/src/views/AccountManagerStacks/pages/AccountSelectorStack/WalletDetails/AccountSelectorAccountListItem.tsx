@@ -2,11 +2,16 @@ import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
   IDBDevice,
@@ -79,6 +84,11 @@ export function AccountSelectorAccountListItem({
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({
+    num,
+  });
 
   const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
 
@@ -155,6 +165,56 @@ export function AccountSelectorAccountListItem({
   ]);
 
   const subTitleInfo = useMemo(() => buildSubTitleInfo(), [buildSubTitleInfo]);
+
+  const currentNetworkAccount = usePromiseResult(async () => {
+    if (
+      !subTitleInfo.isEmptyAddress &&
+      !subTitleInfo.linkedNetworkId &&
+      !subTitleInfo.address &&
+      network &&
+      network.id &&
+      !networkUtils.isAllNetwork({
+        networkId: network.id,
+      }) &&
+      !networkUtils.isLightningNetworkByNetworkId(network.id) &&
+      indexedAccount?.id
+    ) {
+      const [deriveType, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network.id,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        }),
+      ]);
+
+      const { accounts: currentNetworkAccounts } =
+        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccount?.id],
+          networkId: network.id,
+          deriveType,
+        });
+
+      if (currentNetworkAccounts[0]) {
+        return {
+          address:
+            currentNetworkAccounts[0]?.address &&
+            !vaultSettings.mergeDeriveAssetsEnabled
+              ? accountUtils.shortenAddress({
+                  address: currentNetworkAccounts[0]?.address,
+                })
+              : '',
+          accountId: currentNetworkAccounts[0].id,
+        };
+      }
+    }
+  }, [
+    indexedAccount?.id,
+    network,
+    subTitleInfo.address,
+    subTitleInfo.isEmptyAddress,
+    subTitleInfo.linkedNetworkId,
+  ]).result;
 
   // TODO performance
   const accountValue = useMemo(
@@ -249,7 +309,10 @@ export function AccountSelectorAccountListItem({
   );
 
   const renderAccountValue = useCallback(() => {
-    if (platformEnv.isE2E || (linkNetwork && !subTitleInfo.address))
+    if (
+      platformEnv.isE2E ||
+      (linkNetwork && !currentNetworkAccount?.address && !subTitleInfo.address)
+    )
       return null;
 
     return (
@@ -258,10 +321,14 @@ export function AccountSelectorAccountListItem({
           isOthersUniversal={isOthersUniversal}
           index={index}
           accountValue={accountValue}
-          linkedAccountId={indexedAccount?.associateAccount?.id}
-          linkedNetworkId={avatarNetworkId}
+          linkedAccountId={
+            indexedAccount?.associateAccount?.id ??
+            currentNetworkAccount?.accountId ??
+            item.id
+          }
+          linkedNetworkId={avatarNetworkId ?? network?.id}
         />
-        {subTitleInfo.address ? (
+        {currentNetworkAccount?.address || subTitleInfo.address ? (
           <Stack
             mx="$1.5"
             w="$1"
@@ -274,12 +341,16 @@ export function AccountSelectorAccountListItem({
     );
   }, [
     linkNetwork,
+    currentNetworkAccount?.address,
+    currentNetworkAccount?.accountId,
     subTitleInfo.address,
     isOthersUniversal,
     index,
     accountValue,
     indexedAccount?.associateAccount?.id,
+    item.id,
     avatarNetworkId,
+    network?.id,
   ]);
 
   return (
@@ -309,7 +380,7 @@ export function AccountSelectorAccountListItem({
               <AccountAddress
                 num={num}
                 linkedNetworkId={subTitleInfo.linkedNetworkId}
-                address={subTitleInfo.address}
+                address={currentNetworkAccount?.address || subTitleInfo.address}
                 isEmptyAddress={subTitleInfo.isEmptyAddress}
               />
             </XStack>

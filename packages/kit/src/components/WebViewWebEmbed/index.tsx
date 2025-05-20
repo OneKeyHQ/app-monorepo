@@ -20,6 +20,7 @@ import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEm
 
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { GlobalJotaiReady } from '../GlobalJotaiReady/GlobalJotaiReady';
 import WebView from '../WebView';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -40,7 +41,8 @@ export function WebViewWebEmbed({
   hashRoutePath?: EWebEmbedRoutePath;
   hashRouteQueryParams?: Record<string, string>;
 }) {
-  const [{ instanceId }] = useSettingsPersistAtom();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
+  const { instanceId } = settingsPersistAtom;
 
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
   const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
@@ -78,6 +80,8 @@ export function WebViewWebEmbed({
       return undefined;
     }
     return {
+      $settings: settingsPersistAtom,
+      $devSettings: devSettingsPersistAtom,
       isDev: platformEnv.isDev ?? false,
       enableTestEndpoint:
         (devSettingsPersistAtom.enabled &&
@@ -95,8 +99,8 @@ export function WebViewWebEmbed({
     themeVariant,
     localeVariant,
     revenuecatApiKey,
-    devSettingsPersistAtom.enabled,
-    devSettingsPersistAtom.settings?.enableTestEndpoint,
+    settingsPersistAtom,
+    devSettingsPersistAtom,
     instanceId,
   ]);
 
@@ -192,6 +196,7 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
+        useGeckoView={platformEnv.isNativeAndroid}
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
@@ -201,26 +206,28 @@ export function WebViewWebEmbed({
         onMessage={handleMessage}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
-            window.WEB_EMBED_ONEKEY_APP_SETTINGS = {
-              isDev: "${String(webEmbedAppSettings.isDev)}",
-              enableTestEndpoint: "${String(
-                webEmbedAppSettings.enableTestEndpoint,
-              )}",
-              themeVariant: "${webEmbedAppSettings?.themeVariant}",
-              localeVariant: "${webEmbedAppSettings?.localeVariant}",
-              revenuecatApiKey: "${webEmbedAppSettings?.revenuecatApiKey}",
-              instanceId: "${webEmbedAppSettings?.instanceId}",
-              platform: "${webEmbedAppSettings?.platform}",
-              appBuildNumber: "${webEmbedAppSettings?.appBuildNumber}",
-              appVersion: "${webEmbedAppSettings?.appVersion}",
-            };
+            const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
+              webEmbedAppSettings,
+            )};
+            window.WEB_EMBED_ONEKEY_APP_SETTINGS = WEB_EMBED_ONEKEY_APP_SETTINGS;
+            if (typeof window !== 'undefined' && 'wrappedJSObject' in window) {
+              try {
+                window.wrappedJSObject.WEB_EMBED_ONEKEY_APP_SETTINGS = globalThis.cloneInto(
+                  WEB_EMBED_ONEKEY_APP_SETTINGS,
+                  window,
+                  {
+                    cloneFunctions: true
+                  }
+                );
+              } catch (error) {
+                console.error('cloneInto error', error);
+              }
+            }
           `}
       />
     );
   }, [
     customReceiveHandler,
-    devSettingsPersistAtom.enabled,
-    devSettingsPersistAtom.settings?.disableWebEmbedApi,
     handleMessage,
     hashRoutePath,
     hashRouteQueryParams,
@@ -228,6 +235,7 @@ export function WebViewWebEmbed({
     onWebViewRef,
     remoteUrl,
     webEmbedAppSettings,
+    devSettingsPersistAtom,
   ]);
 
   useEffect(() => {
@@ -315,10 +323,12 @@ function WebViewWebEmbedSingletonView() {
   console.log('WebViewWebEmbedSingletonView render');
   defaultLogger.app.webembed.renderWebviewSingleton();
   return (
-    <WebViewWebEmbed
-      isSingleton
-      hashRoutePath={EWebEmbedRoutePath.webEmbedApi}
-    />
+    <GlobalJotaiReady>
+      <WebViewWebEmbed
+        isSingleton
+        hashRoutePath={EWebEmbedRoutePath.webEmbedApi}
+      />
+    </GlobalJotaiReady>
   );
 }
 

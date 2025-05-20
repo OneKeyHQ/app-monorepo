@@ -16,6 +16,7 @@ export enum EAtomNames {
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
+  hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist
   firmwareUpdateStepInfoAtom = 'firmwareUpdateStepInfoAtom',
@@ -39,6 +40,7 @@ export enum EAtomNames {
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
+  notificationStatusAtom = 'notificationStatusAtom',
   // prime
   primePersistAtom = 'primePersistAtom',
   primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',

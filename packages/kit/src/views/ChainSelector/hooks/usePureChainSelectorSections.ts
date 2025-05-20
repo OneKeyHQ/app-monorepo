@@ -58,7 +58,7 @@ export function usePureChainSelectorSections({
       }
     }
 
-    const data = filterFrequentlyUsedNetworks(networks).reduce(
+    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
       (result, item) => {
         const char = item.name[0].toUpperCase();
         if (!result[char]) {
@@ -88,7 +88,7 @@ export function usePureChainSelectorSections({
         title: intl.formatMessage({
           id: ETranslations.global_testnet,
         }),
-        data: testnetItems,
+        data: filterFrequentlyUsedNetworks(testnetItems),
       });
     }
 

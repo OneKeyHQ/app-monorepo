@@ -1,5 +1,7 @@
 import { isNil, isNumber } from 'lodash';
 
+import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -328,9 +330,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     updater: ILocalDBRecordUpdater<T>;
     tx: ILocalDBTransaction;
   }) {
-    const store = this._getObjectStoreFromTx(tx, name);
-    const newRecord = await updater(oldRecord);
-    return store.put(newRecord as any);
+    if (oldRecord) {
+      const store = this._getObjectStoreFromTx(tx, name);
+      const newRecord = await updater(oldRecord);
+      await store.put(newRecord as any);
+    }
   }
 
   // ----------------------------------------------
@@ -352,10 +356,24 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // await dbTx.done;
       return result;
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
+      const isRecordNotFoundError =
+        error instanceof LocalDBRecordNotFoundError ||
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.LocalDBRecordNotFoundError,
+        });
+      if (process.env.NODE_ENV !== 'production' && !isRecordNotFoundError) {
         console.error(error);
       }
-      dbTx.abort();
+      try {
+        if (!isRecordNotFoundError) {
+          dbTx.abort();
+        }
+        // Cannot set property error of #<IDBTransaction> which has only a getter
+        // dbTx.nativeTx.error = dbTx.nativeTx.error || error;
+      } catch (error2) {
+        //
+      }
       throw error;
     }
   }
@@ -548,7 +566,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       dbPerfMonitor.logLocalDbCall(`txGetRecordById`, name, [id]);
       const record = await store.get(id);
       if (!record) {
-        const error = new Error(`record not found: ${name} ${id}`);
+        const error = new LocalDBRecordNotFoundError(
+          `record not found: ${name} ${id}`,
+        );
         errorUtils.autoPrintErrorIgnore(error);
         throw error;
       }
@@ -561,6 +581,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
     resetUtils.checkNotInResetting();
+
     const { name, tx, updater } = params;
     const pairs = await this.buildRecordPairsFromIds(params);
     dbPerfMonitor.logLocalDbCall(`txUpdateRecords`, name, [
@@ -583,6 +604,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
     resetUtils.checkNotInResetting();
+
     const { name, tx, records, skipIfExists } = params;
     const store = this._getObjectStoreFromTx(tx, name);
     const result: ILocalDBTxAddRecordsResult = {

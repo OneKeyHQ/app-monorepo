@@ -85,3 +85,5 @@ export const initSentry = () => {
     ],
   });
 };
+
+export { Sentry };

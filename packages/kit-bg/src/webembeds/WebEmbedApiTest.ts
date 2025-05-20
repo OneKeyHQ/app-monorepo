@@ -7,6 +7,10 @@ class WebEmbedApiTest {
     );
   }
 
+  test2() {
+    return Promise.resolve(globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS);
+  }
+
   trackEvent() {
     defaultLogger.app.page.testWebEmbed();
   }

@@ -21,6 +21,7 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+import si from 'systeminformation';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -29,6 +30,7 @@ import {
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
+  IDesktopStoreMap,
   IDesktopSubModuleInitParams,
   IMediaType,
 } from '@onekeyhq/shared/types/desktop';
@@ -43,13 +45,15 @@ import * as store from './libs/store';
 import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 import { resourcesPath, staticPath } from './resoucePath';
-import { initSentry } from './sentry';
+import { Sentry, initSentry } from './sentry';
 import {
   checkAvailabilityAsync,
   checkBiometricAuthChanged,
   requestVerificationAsync,
   startServices,
 } from './service';
+
+import type { IDesktopSystemInfo } from './config';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -548,6 +552,20 @@ function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_VERSION, (event) => {
     event.returnValue = app.getVersion();
   });
+  ipcMain.on(ipcMessageKeys.APP_SYSTEM_INFO, async (event) => {
+    const system = await si.system();
+    const cpu = await si.cpu();
+    const os = await si.osInfo();
+    const data = Sentry.getGlobalScope().getScopeData();
+    console.log('Sentry scopeData', data);
+    const result: IDesktopSystemInfo = {
+      sentryContexts: data.contexts,
+      system,
+      cpu,
+      os,
+    };
+    event.returnValue = result;
+  });
   ipcMain.on(ipcMessageKeys.APP_QUIT, () => {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     quitOrMinimizeApp();
@@ -738,6 +756,38 @@ function createMainWindow() {
       event.returnValue = '';
     },
   );
+
+  ipcMain.on(
+    ipcMessageKeys.STORE_GET_ITEM_ASYNC,
+    async (event, { key }: { key: keyof IDesktopStoreMap }) => {
+      const value = store.instance.get(key);
+      event.returnValue = value;
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.STORE_SET_ITEM_ASYNC,
+    async (
+      event,
+      { key, value }: { key: keyof IDesktopStoreMap; value: any },
+    ) => {
+      store.instance.set(key, value);
+      event.returnValue = undefined;
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.STORE_DEL_ITEM_ASYNC,
+    async (event, { key }: { key: keyof IDesktopStoreMap }) => {
+      store.instance.delete(key);
+      event.returnValue = undefined;
+    },
+  );
+
+  ipcMain.on(ipcMessageKeys.STORE_CLEAR, async (event) => {
+    store.instance.clear();
+    event.returnValue = undefined;
+  });
 
   ipcMain.on(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, (event) => {
     logger.debug('reloadBridgeProcess receive');

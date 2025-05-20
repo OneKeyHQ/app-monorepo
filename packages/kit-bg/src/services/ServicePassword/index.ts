@@ -19,7 +19,6 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
-  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
@@ -593,8 +592,40 @@ export default class ServicePassword extends ServiceBase {
       password: verifyingPassword,
       useRnJsCrypto,
     });
+    if (verifyingPassword) {
+      void (async () => {
+        try {
+          await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
+            {
+              password: verifyingPassword,
+            },
+          );
+        } catch (e) {
+          console.error(e);
+        }
+        try {
+          let skipAppStatusCheck = false;
+          if (
+            !this._mergeDuplicateHDWalletsExecuted &&
+            !globalThis?.$indexedDBIsMigratedToBucket?.isMigrated
+          ) {
+            skipAppStatusCheck = true;
+          }
+          await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
+            password: verifyingPassword,
+            skipAppStatusCheck,
+          });
+        } catch (e) {
+          console.error(e);
+        } finally {
+          this._mergeDuplicateHDWalletsExecuted = true;
+        }
+      })();
+    }
     return verifyingPassword;
   }
+
+  _mergeDuplicateHDWalletsExecuted = false;
 
   // ui ------------------------------
   promptPasswordVerifyMutex = new Semaphore(1);
@@ -604,7 +635,7 @@ export default class ServicePassword extends ServiceBase {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
   }): Promise<IPasswordRes> {
-    console.log('promptPasswordVerify call');
+    // console.log('promptPasswordVerify call');
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
       // TODO mutex
       const v4migrationData = await v4migrationAtom.get();

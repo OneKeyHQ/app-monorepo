@@ -1,6 +1,7 @@
 import { sha512Sync } from '@onekeyhq/core/src/secret/hash';
 import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import type {
   ICloudSyncCredential,
@@ -278,42 +279,31 @@ export abstract class CloudSyncFlowManagerBase<
       }
       return syncItem;
     } catch (error) {
-      console.error('getSyncItem error', error);
+      errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
   }
 
-  async txWithSyncFlowOfDBRecordCreating<TResult>({
+  async buildExistingSyncItemsInfo({
     tx,
     targets,
-    onExistingSyncItemsInfo,
     useCreateGenesisTime,
-    runDbTxFn,
-    skipServerSyncFlow,
+    onExistingSyncItemsInfo,
   }: {
-    tx: ILocalDBTransaction;
+    tx?: ILocalDBTransaction;
     targets: Array<ICloudSyncTargetMap[T]>;
-    onExistingSyncItemsInfo: (
-      existingSyncItemsInfo: IExistingSyncItemsInfo<T>,
-    ) => Promise<void>;
     useCreateGenesisTime?: (params: {
       target: ICloudSyncTargetMap[T];
     }) => Promise<boolean>;
-    runDbTxFn: (options: { tx: ILocalDBTransaction }) => Promise<TResult>;
-    skipServerSyncFlow?: boolean;
+    onExistingSyncItemsInfo: (
+      existingSyncItemsInfo: IExistingSyncItemsInfo<T>,
+    ) => Promise<void>;
   }) {
-    // abstract the db sync flow of the create process
-    // - get existing sync item
-    // - build new sync item
-    // - save to db at the end of the transaction
-    // - upload to server
-    // - start cloud sync flow
     const newSyncItems: IDBCloudSyncItem[] = [];
     const existingSyncItems: IDBCloudSyncItem[] = [];
     const existingSyncItemsInfo: IExistingSyncItemsInfo<T> = {};
 
     const syncCredential = await this.getSyncCredential();
-
     const canSyncWithoutServer = cloudSyncUtils.canSyncWithoutServer(
       this.dataType,
     );
@@ -325,13 +315,7 @@ export abstract class CloudSyncFlowManagerBase<
         canSyncWithoutServer ||
         (await this.backgroundApi.servicePrimeCloudSync.isCloudSyncIsAvailable())
       ) {
-        if (IS_DB_BUCKET_SUPPORT) {
-          // TODO TransactionInactiveError: Failed to execute 'get' on 'IDBObjectStore': The transaction has finished.
-          // existingSyncItem = await this.getSyncItem({
-          //   shouldDecrypt: true,
-          //   target,
-          //   syncCredential,
-          // });
+        if (tx) {
           existingSyncItem = await this.txGetSyncItem({
             tx,
             shouldDecrypt: true,
@@ -339,8 +323,8 @@ export abstract class CloudSyncFlowManagerBase<
             syncCredential,
           });
         } else {
-          existingSyncItem = await this.txGetSyncItem({
-            tx,
+          existingSyncItem = await this.getSyncItem({
+            // tx,
             shouldDecrypt: true,
             target,
             syncCredential,
@@ -410,6 +394,33 @@ export abstract class CloudSyncFlowManagerBase<
 
     await onExistingSyncItemsInfo(existingSyncItemsInfo);
 
+    return {
+      existingSyncItemsInfo,
+      existingSyncItems,
+      newSyncItems,
+    };
+  }
+
+  async txWithSyncFlowOfDBRecordCreating<TResult>({
+    tx,
+    runDbTxFn,
+    newSyncItems,
+    existingSyncItems,
+    skipServerSyncFlow,
+  }: {
+    tx: ILocalDBTransaction;
+    runDbTxFn: (options: { tx: ILocalDBTransaction }) => Promise<TResult>;
+    newSyncItems: IDBCloudSyncItem[];
+    existingSyncItems: IDBCloudSyncItem[];
+    skipServerSyncFlow?: boolean;
+  }) {
+    // abstract the db sync flow of the create process
+    // - get existing sync item
+    // - build new sync item
+    // - save to db at the end of the transaction
+    // - upload to server
+    // - start cloud sync flow
+
     if (newSyncItems.length) {
       if (IS_DB_BUCKET_SUPPORT) {
         // void this.backgroundApi.localDb.addAndUpdateSyncItems({
@@ -454,22 +465,28 @@ export abstract class CloudSyncFlowManagerBase<
   async syncToScene({
     syncCredential,
     items,
+    forceSync,
   }: {
-    syncCredential: ICloudSyncCredential;
+    syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
+    forceSync?: boolean;
   }) {
-    if (!syncCredential) {
+    if (!items.length) {
       return;
     }
+    // if (!syncCredential) {
+    //   return;
+    // }
     for (const item of items) {
       try {
-        if (
-          item.dataType === this.dataType &&
-          cloudSyncItemBuilder.canLocalItemSyncToScene({
-            item,
-            syncCredential,
-          })
-        ) {
+        const shouldSync =
+          forceSync ||
+          (syncCredential &&
+            cloudSyncItemBuilder.canLocalItemSyncToScene({
+              item,
+              syncCredential,
+            }));
+        if (item.dataType === this.dataType && shouldSync) {
           // TODO performance issue of decrypting in the loop
           const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
             item,

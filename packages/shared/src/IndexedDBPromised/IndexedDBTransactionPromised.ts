@@ -1,10 +1,11 @@
+import storageChecker from '../storageChecker/storageChecker';
+
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 
 import type { IndexedDBPromised } from './IndexedDBPromised';
 import type {
   DBSchema,
-  IDBPDatabase,
   IDBPObjectStore,
   IDBPTransaction,
   StoreNames,
@@ -42,7 +43,9 @@ export class IndexedDBTransactionPromised<
       };
 
       const error = () => {
-        reject(tx.error || indexedDBPromisedUtils.newAbortError());
+        const err = tx.error || indexedDBPromisedUtils.newAbortError();
+        storageChecker.handleDiskFullError(err);
+        reject(err);
         unListen?.();
       };
 

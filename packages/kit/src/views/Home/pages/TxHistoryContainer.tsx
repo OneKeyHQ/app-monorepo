@@ -36,7 +36,7 @@ import {
   withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
 
-function TxHistoryListContainer(props: ITabPageProps) {
+function TxHistoryListContainer(_props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -385,6 +385,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
       {...(media.gtLg && {
         tableLayout: true,
       })}
+      listViewStyleProps={{
+        contentContainerStyle: {
+          pt: '$3',
+        },
+      }}
     />
   );
 }

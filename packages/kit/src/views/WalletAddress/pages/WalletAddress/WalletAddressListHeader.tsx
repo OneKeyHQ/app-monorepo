@@ -53,16 +53,21 @@ function WalletAddressListHeader() {
       });
     }
 
-    await createAddress({
-      num: 0,
-      account: {
-        walletId,
-        indexedAccountId,
-        networkId: getNetworkIdsMap().onekeyall,
-        deriveType: 'default',
-      },
-      customNetworks: enabledNetworksWithoutAccountTemp,
-    });
+    try {
+      await createAddress({
+        num: 0,
+        account: {
+          walletId,
+          indexedAccountId,
+          networkId: getNetworkIdsMap().onekeyall,
+          deriveType: 'default',
+        },
+        customNetworks: enabledNetworksWithoutAccountTemp,
+      });
+    } catch (error) {
+      setIsCreatingAllAddresses(false);
+      return;
+    }
 
     Toast.success({
       title: intl.formatMessage({

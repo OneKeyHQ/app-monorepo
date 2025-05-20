@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -46,7 +46,6 @@ type IProps = {
   withFooter?: boolean;
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
-  withPresetVerticalPadding?: boolean;
   withNetwork?: boolean;
   withSmallBalanceTokens?: boolean;
   inTabList?: boolean;
@@ -69,6 +68,12 @@ type IProps = {
   };
   emptyAccountView?: ReactNode;
   showActiveAccountTokenList?: boolean;
+  listViewStyleProps?: Pick<
+    ComponentProps<typeof ListView>,
+    | 'ListHeaderComponentStyle'
+    | 'ListFooterComponentStyle'
+    | 'contentContainerStyle'
+  >;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -86,7 +91,6 @@ function TokenListViewCmp(props: IProps) {
     isBuyTokenSupported,
     onManageToken,
     manageTokenEnabled,
-    withPresetVerticalPadding = true,
     isAllNetworks,
     searchAll,
     isTokenSelector,
@@ -97,6 +101,7 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchTokenList = { tokens: [] },
     emptyAccountView,
     showActiveAccountTokenList = false,
+    listViewStyleProps,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -248,7 +253,6 @@ function TokenListViewCmp(props: IProps) {
     <ListView
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
-      // py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
       onLayout={onLayout}
@@ -306,6 +310,7 @@ function TokenListViewCmp(props: IProps) {
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
+      {...listViewStyleProps}
     />
   );
 }

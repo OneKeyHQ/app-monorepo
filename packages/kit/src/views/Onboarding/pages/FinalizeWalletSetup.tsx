@@ -1,18 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useThrottledCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Heading,
   Icon,
+  NavCloseButton,
   Page,
   Spinner,
   Stack,
   Toast,
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
+import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -32,7 +35,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 
 function FinalizeWalletSetupPage({
@@ -53,10 +59,23 @@ function FinalizeWalletSetupPage({
   const [onboardingError, setOnboardingError] = useState<
     IOneKeyError | undefined
   >(undefined);
+  const closePageCalled = useRef(false);
+
+  const {
+    shouldBondReferralCode,
+    getReferralCodeBondStatus,
+    bindWalletInviteCode,
+  } = useWalletBoundReferralCode({
+    entry: 'tab',
+  });
 
   useEffect(() => {
     setOnboardingError(undefined);
   }, []);
+
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({ num: 0 });
 
   const actions = useAccountSelectorActions();
   const steps: Record<EFinalizeWalletSetupSteps, string> = {
@@ -153,6 +172,31 @@ function FinalizeWalletSetupPage({
       await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
     isFirstCreateWallet.current = !isOnboardingDone;
   };
+
+  const closePage = useCallback(() => {
+    closePageCalled.current = true;
+    navigation.navigate(ERootRoutes.Main);
+  }, [navigation]);
+
+  const handleWalletSetupReadyInner = useCallback(async () => {
+    const needBondReferralCode = await getReferralCodeBondStatus(wallet?.id);
+
+    if (!needBondReferralCode) {
+      setTimeout(() => {
+        closePage();
+        if (isFirstCreateWallet.current) {
+          // void useBackupToggleDialog().maybeShow(true);
+        }
+      }, 1000);
+    }
+  }, [getReferralCodeBondStatus, closePage, wallet]);
+
+  const handleWalletSetupReady = useThrottledCallback(
+    handleWalletSetupReadyInner,
+    500,
+    { leading: true, trailing: false },
+  );
+
   useEffect(() => {
     if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
       void readIsFirstCreateWallet();
@@ -161,22 +205,32 @@ function FinalizeWalletSetupPage({
       return;
     }
     if (currentStep === EFinalizeWalletSetupSteps.Ready) {
-      setTimeout(() => {
-        navigation.navigate(ERootRoutes.Main);
-        if (isFirstCreateWallet.current) {
-          // void useBackupToggleDialog().maybeShow(true);
-        }
-      }, 1000);
+      void handleWalletSetupReady();
     }
-  }, [currentStep, navigation, showStep]);
+  }, [currentStep, navigation, showStep, handleWalletSetupReady]);
+
+  const headerLeft = useCallback(() => {
+    if (shouldBondReferralCode) {
+      return <NavCloseButton onPress={closePage} />;
+    }
+  }, [shouldBondReferralCode, closePage]);
 
   return (
-    <Page>
+    <Page
+      onClose={() => {
+        if (
+          currentStep === EFinalizeWalletSetupSteps.Ready &&
+          !closePageCalled.current
+        ) {
+          closePage();
+        }
+      }}
+    >
       <Page.Header
-        disableClose
         title={intl.formatMessage({
           id: ETranslations.onboarding_finalize_wallet_setup,
         })}
+        headerLeft={headerLeft}
       />
       <Page.Body p="$5" justifyContent="center" alignItems="center">
         <Stack
@@ -239,6 +293,19 @@ function FinalizeWalletSetupPage({
           onCancel={() => {
             //
             navigation.pop();
+          }}
+        />
+      ) : null}
+      {shouldBondReferralCode ? (
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.referral_onboard_bind_code,
+          })}
+          onConfirm={() => {
+            closePage();
+            bindWalletInviteCode({
+              wallet,
+            });
           }}
         />
       ) : null}

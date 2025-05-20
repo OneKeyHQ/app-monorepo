@@ -21,10 +21,12 @@ import type {
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import { getEndpointInfo } from '../../../endpoints';
+import { notificationStatusAtom } from '../../../states/jotai/atoms/notifications';
 
 import { PushProviderBase } from './PushProviderBase';
 
 import type { IPushProviderBaseProps } from './PushProviderBase';
+import type { INotificationStatusAtomData } from '../../../states/jotai/atoms/notifications';
 import type { Socket } from 'socket.io-client';
 
 export class PushProviderWebSocket extends PushProviderBase {
@@ -92,6 +94,12 @@ export class PushProviderWebSocket extends PushProviderBase {
         socketId: this.socket?.id,
         socket: this.socket,
       });
+      void notificationStatusAtom.set(
+        (v): INotificationStatusAtomData => ({
+          ...v,
+          websocketConnected: true,
+        }),
+      );
     });
     this.socket.on('connect_error', (error) => {
       defaultLogger.notification.websocket.consoleLog(
@@ -109,6 +117,12 @@ export class PushProviderWebSocket extends PushProviderBase {
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 连接断开',
         reason,
+      );
+      void notificationStatusAtom.set(
+        (v): INotificationStatusAtomData => ({
+          ...v,
+          websocketConnected: false,
+        }),
       );
     });
 

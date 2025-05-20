@@ -21,22 +21,24 @@ import {
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
+import { TabPageHeader } from '../../components/TabPageHeader';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
-import { MarketHomeHeader } from './components/MarketHomeHeader';
-import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
+import { MarketHomeV2 } from './MarketHomeV2';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
@@ -173,19 +175,27 @@ function MarketHome() {
       />
     );
   }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
+
   return (
     <Page>
-      {gtMd && !platformEnv.isNativeIOSPad ? (
-        <MarketHomeHeader />
-      ) : (
-        <MDMarketHomeHeader />
-      )}
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Market}
+      />
       <Page.Body>{renderTabContainer()}</Page.Body>
     </Page>
   );
 }
 
 export default function MarketHomeWithProvider() {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const enableMarketV2 =
+    devSettings.enabled && devSettings.settings?.enableMarketV2;
+
+  if (enableMarketV2) {
+    return <MarketHomeV2 />;
+  }
+
   return (
     <AccountSelectorProviderMirror
       config={{

@@ -8,26 +8,30 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
-export function PrimeHeaderIconButton() {
+export function PrimeHeaderIconButton({
+  onPress,
+}: {
+  onPress?: () => void | Promise<void>;
+}) {
   const { isReady, user } = usePrimeAuthV2();
+  const isPrime = user?.primeSubscription?.isActive;
+
   const navigation = useAppNavigation();
   const [isHover, setIsHover] = useState(false);
   const themeVariant = useThemeVariant();
 
-  const icon = useMemo(
-    () =>
-      themeVariant === 'light'
+  const icon = useMemo(() => {
+    if (isPrime && user?.privyUserId) {
+      return themeVariant === 'light'
         ? 'OnekeyPrimeLightColored'
-        : 'OnekeyPrimeDarkColored',
-    [themeVariant],
-  );
+        : 'OnekeyPrimeDarkColored';
+    }
+    return 'PrimeOutline';
+  }, [isPrime, themeVariant, user?.privyUserId]);
 
-  const onPrimeButtonPressed = useCallback(() => {
-    if (!isReady) {
-      Toast.message({
-        title: 'Prime not ready.',
-      });
-      return;
+  const onPrimeButtonPressed = useCallback(async () => {
+    if (onPress) {
+      await onPress();
     }
 
     navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -35,7 +39,7 @@ export function PrimeHeaderIconButton() {
     });
 
     setIsHover(false);
-  }, [navigation, isReady]);
+  }, [onPress, navigation]);
 
   return (
     <Stack testID="headerRightPrimeButton">
@@ -43,7 +47,7 @@ export function PrimeHeaderIconButton() {
         onPointerEnter={() => setIsHover(true)}
         onPointerLeave={() => setIsHover(false)}
         title="Prime"
-        icon={user?.privyUserId || isHover ? icon : 'PrimeOutline'}
+        icon={icon}
         tooltipProps={{
           open: isHover,
         }}

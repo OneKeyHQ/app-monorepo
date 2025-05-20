@@ -123,6 +123,7 @@ export interface ISwapTokenBase {
   decimals: number;
   name?: string;
   logoURI?: string;
+  speedSwapDefaultAmount?: number[];
 }
 
 export interface ISwapToken extends ISwapTokenBase {
@@ -242,9 +243,10 @@ export interface ISwapApproveTransaction {
   toToken: ISwapToken;
   protocol: EProtocolOfExchange;
   swapType: ESwapTabSwitchType;
+  unSupportReceiveAddressDifferent?: boolean;
   provider: string;
   providerName: string;
-  quoteId: string;
+  quoteId?: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
@@ -506,6 +508,14 @@ export interface ISwapState {
   isRefreshQuote?: boolean;
 }
 
+export interface ISwapApproveAllowanceResponse {
+  isApproved: boolean;
+  allowanceTarget: string;
+  shouldApproveAmount: string;
+  approvedAmount: string;
+  shouldResetApprove?: boolean;
+}
+
 export interface ISwapCheckWarningDef {
   swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>;
   swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>;
@@ -576,7 +586,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
-  toTokenAmount: string;
+  toTokenAmount?: string;
   provider: string;
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
@@ -798,6 +808,16 @@ export interface IFetchLimitOrderRes {
     scope: string;
     signedType: EMessageTypesEth;
   };
+}
+
+export interface ISpeedSwapConfig {
+  provider: string;
+  speedConfig: {
+    slippage: number;
+    spenderAddress: string;
+    defaultTokens: ISwapTokenBase[];
+  };
+  supportSpeedSwap: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

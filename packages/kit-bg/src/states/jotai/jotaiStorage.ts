@@ -61,7 +61,7 @@ export const onekeyJotaiStorage = platformEnv.isExtensionUi
   ? mockStorage // extension real storage is running at bg, the ui is a mock storage
   : new JotaiStorage();
 
-export function buildJotaiStorageKey(name: string) {
+export function buildJotaiStorageKey(name: IAtomNameKeys) {
   const key = `g_states_v5:${name}`;
   return key;
 }

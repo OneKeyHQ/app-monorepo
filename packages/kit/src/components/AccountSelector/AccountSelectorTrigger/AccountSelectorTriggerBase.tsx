@@ -2,13 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  SizableText,
-  View,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
@@ -23,47 +17,38 @@ import type { ISpotlightViewProps } from '../../Spotlight';
 
 export function AccountSelectorTriggerBase({
   num,
-  autoWidthForHome,
   spotlightProps,
+  horizontalLayout,
+  showWalletAvatar,
+  showWalletName = true,
   ...others
 }: {
   num: number;
   autoWidthForHome?: boolean;
   spotlightProps?: ISpotlightViewProps;
+  horizontalLayout?: boolean;
+  showWalletAvatar?: boolean;
+  showWalletName?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, ...others });
   const intl = useIntl();
-  const media = useMedia();
-
-  const maxWidth = useMemo(() => {
-    if (autoWidthForHome) {
-      if (media.gtLg) {
-        return '$80';
-      }
-      if (media.sm) {
-        return '$60';
-      }
-      if (media.md) {
-        return '$48';
-      }
-    }
-    return '$48';
-  }, [autoWidthForHome, media.gtLg, media.md, media.sm]);
-
+  const walletName =
+    wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });
+  const displayAccountName =
+    accountName || intl.formatMessage({ id: ETranslations.no_account });
   const content = useMemo(
     () => (
       <XStack
         testID="AccountSelectorTriggerBase"
         role="button"
         alignItems="center"
-        maxWidth={maxWidth}
         width="$full"
         // width="$80"
         // flex={1}
-        py="$0.5"
+        py="$1"
         px="$1.5"
         mx="$-1.5"
         borderRadius="$2"
@@ -82,50 +67,67 @@ export function AccountSelectorTriggerBase({
           indexedAccount={indexedAccount}
           account={account}
           dbAccount={dbAccount}
+          wallet={showWalletAvatar ? wallet : undefined}
         />
-        <View
-          pl="$2"
-          pr="$1"
-          minWidth={0}
+        <Stack
+          flexDirection={horizontalLayout ? 'row' : 'column'}
+          pl={showWalletAvatar ? '$2.5' : '$2'}
           flexShrink={1}
           flex={platformEnv.isNative ? undefined : 1}
         >
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            numberOfLines={1}
-            flexShrink={0}
-          >
-            {wallet?.name ||
-              intl.formatMessage({ id: ETranslations.global_no_wallet })}
-          </SizableText>
-          <SizableText
-            size="$bodyMdMedium"
-            numberOfLines={1}
-            flexShrink={0}
-            testID="account-name"
-          >
-            {accountName ||
-              intl.formatMessage({ id: ETranslations.no_account })}
-          </SizableText>
-        </View>
-        <Icon
-          flexShrink={0} // Prevents the icon from shrinking when the text is too long
-          name="ChevronGrabberVerOutline"
-          size="$5"
-          color="$iconSubdued"
-        />
+          {horizontalLayout ? (
+            <SizableText
+              size={showWalletName ? '$bodyMdMedium' : '$bodyLgMedium'}
+              $gtMd={{
+                size: '$bodyMdMedium',
+              }}
+              color="$text"
+              $gtXl={{
+                maxWidth: '56',
+              }}
+              numberOfLines={1}
+              flexShrink={1}
+              maxWidth="$36"
+            >
+              {showWalletName
+                ? `${walletName} / ${displayAccountName}`
+                : displayAccountName}
+            </SizableText>
+          ) : (
+            <>
+              <SizableText
+                size="$bodyMd"
+                color="$text"
+                numberOfLines={horizontalLayout ? undefined : 1}
+                flexShrink={1}
+              >
+                {walletName}
+              </SizableText>
+              <SizableText
+                size="$bodyMd"
+                numberOfLines={horizontalLayout ? undefined : 1}
+                flexShrink={1}
+                testID="account-name"
+              >
+                {displayAccountName}
+              </SizableText>
+            </>
+          )}
+        </Stack>
+        <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
       </XStack>
     ),
     [
       account,
-      accountName,
       dbAccount,
+      displayAccountName,
+      horizontalLayout,
       indexedAccount,
-      intl,
-      maxWidth,
       showAccountSelector,
-      wallet?.name,
+      showWalletAvatar,
+      showWalletName,
+      wallet,
+      walletName,
     ],
   );
 

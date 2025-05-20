@@ -3,14 +3,19 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  IEarnPositionsResponse,
+  IEarnRewardResponse,
   IHardwareSalesRecord,
   IInviteHistory,
   IInvitePostConfig,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
+
+import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
 
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
@@ -103,19 +108,34 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnReward(cursor?: string) {
+  async getPositions(
+    accounts: { networkId: string; accountAddress: string }[],
+  ) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IEarnPositionsResponse;
+    }>('/earn/v1/positions', { accounts });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getEarnReward(cursor?: string, available?: boolean) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
       cursor?: string;
+      status?: string;
     } = {
       subject: 'Earn',
     };
     if (cursor) {
       params.cursor = cursor;
     }
+    if (available) {
+      params.status = 'AVAILABLE';
+    }
     const response = await client.get<{
-      data: IHardwareSalesRecord;
+      data: IEarnRewardResponse;
     }>('/rebate/v1/invite/records', { params });
     return response.data.data;
   }
@@ -146,6 +166,32 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkAndUpdateReferralCode({ accountId }: { accountId: string }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const walletReferralCode = await this.getWalletReferralCode({
+      walletId,
+    });
+    if (walletReferralCode) {
+      const alreadyBound = await this.checkWalletIsBoundReferralCode({
+        address: walletReferralCode.address,
+        networkId: walletReferralCode.networkId,
+      });
+      const newWalletReferralCode = {
+        ...walletReferralCode,
+        isBound: alreadyBound,
+      };
+      await this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
+        walletId,
+        referralCodeInfo: newWalletReferralCode,
+      });
+      if (alreadyBound) {
+        return newWalletReferralCode;
+      }
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
   async updateMyReferralCode(code: string) {
     await this.backgroundApi.simpleDb.referralCode.updateCode({
       myReferralCode: code,
@@ -173,6 +219,90 @@ class ServiceReferralCode extends ServiceBase {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
     return postConfig;
+  }
+
+  @backgroundMethod()
+  async checkWalletIsBoundReferralCode({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: { data: boolean };
+    }>('/rebate/v1/wallet/check', {
+      params: { address, networkId },
+    });
+    return response.data.data.data;
+  }
+
+  @backgroundMethod()
+  async getBoundReferralCodeUnsignedMessage({
+    address,
+    networkId,
+    inviteCode,
+  }: {
+    address: string;
+    networkId: string;
+    inviteCode: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: { message: string };
+    }>('/rebate/v1/wallet/message', {
+      address,
+      networkId,
+      inviteCode,
+    });
+    return response.data.data.message;
+  }
+
+  @backgroundMethod()
+  async boundReferralCodeWithSignedMessage({
+    networkId,
+    address,
+    pubkey,
+    referralCode,
+    signature,
+  }: {
+    networkId: string;
+    address: string;
+    pubkey?: string;
+    referralCode: string;
+    signature: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    await client.post('/rebate/v1/wallet/bind', {
+      networkId,
+      address,
+      pubkey,
+      inviteCode: referralCode,
+      signature,
+    });
+    return true;
+  }
+
+  @backgroundMethod()
+  async getWalletReferralCode({ walletId }: { walletId: string }) {
+    return this.backgroundApi.simpleDb.referralCode.getWalletReferralCode({
+      walletId,
+    });
+  }
+
+  @backgroundMethod()
+  async setWalletReferralCode({
+    walletId,
+    referralCodeInfo,
+  }: {
+    walletId: string;
+    referralCodeInfo: IWalletReferralCode;
+  }) {
+    return this.backgroundApi.simpleDb.referralCode.setWalletReferralCode({
+      walletId,
+      referralCodeInfo,
+    });
   }
 }
 

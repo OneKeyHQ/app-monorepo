@@ -10,6 +10,7 @@ import {
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { exitApp } from '@onekeyhq/shared/src/modules3rdParty/react-native-exit';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -32,6 +33,8 @@ import { appIsLocked } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+
 @backgroundClass()
 class ServiceApp extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -40,8 +43,13 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   restartApp() {
+    defaultLogger.setting.page.restartApp();
     if (platformEnv.isNative) {
-      return RNRestart.restart();
+      setTimeout(() => {
+        exitApp();
+      }, 1200);
+      RNRestart.restart();
+      return;
     }
     if (platformEnv.isDesktop) {
       return globalThis.desktopApi?.reload?.();
@@ -99,7 +107,11 @@ class ServiceApp extends ServiceBase {
       const names = await storageBuckets?.keys();
       if (names) {
         for (const name of names) {
-          await storageBuckets?.delete(name);
+          try {
+            await storageBuckets?.delete(name);
+          } catch (error) {
+            console.error('storageBuckets.delete() error', error);
+          }
         }
       }
     } catch {
@@ -108,7 +120,7 @@ class ServiceApp extends ServiceBase {
 
     await timerUtils.wait(100);
 
-    const shouldDeleteAllOtherIndexedDBs = false;
+    const shouldDeleteAllOtherIndexedDBs = true;
 
     try {
       if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
@@ -174,12 +186,63 @@ class ServiceApp extends ServiceBase {
       } catch {
         console.error('window.localStorage.clear() error');
       }
+      try {
+        globalThis.sessionStorage.clear();
+      } catch {
+        console.error('window.sessionStorage.clear() error');
+      }
     }
 
+    if (platformEnv.isExtension) {
+      try {
+        await globalThis.chrome.storage.local.clear();
+      } catch {
+        console.error('chrome.storage.local.clear() error');
+      }
+      // try {
+      //   await globalThis.chrome.storage.sync.clear();
+      // } catch {
+      //   console.error('chrome.storage.sync.clear() error');
+      // }
+      try {
+        await globalThis.chrome.storage.session.clear();
+      } catch {
+        console.error('chrome.storage.session.clear() error');
+      }
+      // try {
+      //   await globalThis.chrome.storage.managed.clear();
+      // } catch {
+      //   console.error('chrome.storage.managed.clear() error');
+      // }
+    }
+
+    if (platformEnv.isDesktop) {
+      try {
+        await globalThis.desktopApi?.storeClear();
+      } catch (error) {
+        console.error('desktopApi.storeClear() error', error);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async resetApp() {
+    // logout privy is called in UI hooks
+    void this.backgroundApi.servicePrime.apiLogout();
+    void this.backgroundApi.serviceNotification.unregisterClient();
+    // logout from Google Drive
+    if (platformEnv.isNativeAndroid && (await isAvailable())) {
+      void logoutFromGoogleDrive(true);
+    }
+    await timerUtils.wait(1000);
+
+    resetUtils.startResetting();
     try {
-      await this.backgroundApi.serviceNotification.unregisterClient();
-    } catch (error) {
-      //
+      await this.resetData();
+    } catch (e) {
+      console.error('resetData error', e);
+    } finally {
+      resetUtils.endResetting();
     }
 
     if (platformEnv.isWeb || platformEnv.isDesktop) {
@@ -196,30 +259,6 @@ class ServiceApp extends ServiceBase {
       }
     }
 
-    // logout from Google Drive
-    if (platformEnv.isNativeAndroid && (await isAvailable())) {
-      try {
-        await logoutFromGoogleDrive(true);
-      } catch {
-        console.error('logoutFromGoogleDrive error');
-      }
-      await timerUtils.wait(1000);
-    }
-  }
-
-  @backgroundMethod()
-  async resetApp() {
-    void this.backgroundApi.servicePrime.apiLogout();
-    await timerUtils.wait(1000);
-
-    resetUtils.startResetting();
-    try {
-      await this.resetData();
-    } catch (e) {
-      console.error('resetData error', e);
-    } finally {
-      resetUtils.endResetting();
-    }
     defaultLogger.setting.page.clearData({ action: 'ResetApp' });
     await timerUtils.wait(600);
 
@@ -238,19 +277,23 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async updateLaunchTimes() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      launchTimes: (v?.launchTimes ?? 0) + 1,
-      launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        launchTimes: (v?.launchTimes ?? 0) + 1,
+        launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
+      }),
+    );
   }
 
   @backgroundMethod()
   async resetLaunchTimesAfterUpdate() {
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      launchTimesLastReset: 0,
-    }));
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        launchTimesLastReset: 0,
+      }),
+    );
   }
 
   @backgroundMethod()

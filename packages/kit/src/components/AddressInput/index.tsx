@@ -172,7 +172,7 @@ type IAddressInputBadgeGroupProps = {
 };
 
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
-  const { loading, result, setResolveAddress, onRefresh, networkId } = props;
+  const { loading, result, setResolveAddress, onRefresh } = props;
   if (loading) {
     return <Spinner />;
   }
@@ -620,7 +620,7 @@ export function AddressInputField(
             }
             if (!value.resolved) {
               return enableAllowListValidation
-                ? // Use translationId for error message formatting if available, therwise use direct message
+                ? // Use translationId for error message formatting if available, otherwise use direct message
                   value.validateError?.translationId ||
                     value.validateError?.message ||
                     intl.formatMessage({

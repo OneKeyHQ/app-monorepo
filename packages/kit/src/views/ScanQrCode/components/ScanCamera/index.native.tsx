@@ -3,14 +3,13 @@ import { useCallback, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { Camera } from 'react-native-camera-kit/src';
 
-import { Button, usePreventRemove } from '@onekeyhq/components';
+import { usePreventRemove } from '@onekeyhq/components';
 
 import type { IScanCameraProps } from './types';
 
 export type { IScanCameraProps };
 
 export function ScanCamera({
-  style,
   children,
   handleScanResult,
   ...rest

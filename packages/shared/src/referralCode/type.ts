@@ -91,6 +91,50 @@ interface IHardwareSalesRecordItem {
   status: string;
 }
 
+export interface IEarnRewardItem {
+  amount: string;
+  networkId: string;
+  orderTotalAmount: string;
+  token: {
+    networkId: string;
+    address: string;
+    name: string;
+    logoURI: string;
+    symbol: string;
+  };
+  accountAddress: string;
+  vaultName: string;
+  vaultAddress: string;
+  provider: string;
+  fiatValue: string;
+  status: string;
+  symbol: string;
+}
+
+export interface IEarnRewardResponse {
+  fiatValue: string;
+  items: IEarnRewardItem[];
+  total: number;
+}
+
+export interface IEarnPositionItem {
+  key: string;
+  networkId: string;
+  accountAddress: string;
+  deposited: string;
+}
+
+export interface IEarnProtocol {
+  networkId: string;
+  symbol: string;
+  provider: string;
+  vault: string;
+}
+
+export interface IEarnPositionsResponse {
+  list: IEarnPositionItem[];
+  protocols: Record<string, IEarnProtocol>;
+}
 export interface IHardwareSalesRecord {
   available: {
     token: {

@@ -179,7 +179,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     params: INotificationShowParams,
   ): Promise<INotificationShowResult> {
     this.fixShowParams(params);
-    const { icon, notificationId, title, description } = params;
+    const { notificationId, title, description } = params;
     const uuid = notificationId || generateUUID();
     const data: IJPushNotificationLocalEvent = {
       messageID: uuid,

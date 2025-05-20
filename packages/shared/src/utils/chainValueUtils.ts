@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { toBigIntHex } from './numberUtils';
+import { ELightningUnit } from '../../types/lightning';
 
 import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
@@ -143,11 +143,30 @@ function fixNativeTokenMaxSendAmount({
 const SATS_PER_BTC = 100_000_000; // 1 BTC = 100,000,000 sats
 
 function convertBtcToSats(btc: string | number): string {
+  if (btc === '' || btc === undefined) {
+    return '';
+  }
   return new BigNumber(btc).times(SATS_PER_BTC).toFixed();
 }
 
 function convertSatsToBtc(sats: string | number): string {
+  if (sats === '' || sats === undefined) {
+    return '';
+  }
   return new BigNumber(sats).dividedBy(SATS_PER_BTC).toFixed();
+}
+
+function getLightningAmountDecimals({
+  lnUnit,
+  decimals,
+}: {
+  lnUnit: ELightningUnit;
+  decimals: number;
+}): number {
+  if (lnUnit === ELightningUnit.BTC) {
+    return Math.log10(SATS_PER_BTC);
+  }
+  return decimals;
 }
 
 export default {
@@ -162,4 +181,5 @@ export default {
   fixNativeTokenMaxSendAmount,
   convertBtcToSats,
   convertSatsToBtc,
+  getLightningAmountDecimals,
 };

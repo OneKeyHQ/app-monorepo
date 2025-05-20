@@ -18,6 +18,9 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
   const {
     activeAccount: { deriveInfo, network, isOthersWallet },
   } = useActiveAccount({ num });
+  if (deriveInfo) {
+    // console.log('useAutoSelectDeriveType deriveInfo: ', deriveInfo);
+  }
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { serviceNetwork, serviceAccountSelector } = backgroundApiProxy;
@@ -45,23 +48,33 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
         return;
       }
       let newDeriveType: IAccountDeriveTypes | undefined;
-      const deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      });
 
-      if (!deriveInfo && deriveInfoItems.length > 0) {
-        const selectedAccount = actions.current.getSelectedAccount({
-          num,
-        });
-        const globalDeriveType =
-          await serviceAccountSelector.getGlobalDeriveType({
-            selectedAccount,
-            sceneName,
+      if (!deriveInfo) {
+        const deriveInfoItems =
+          await serviceNetwork.getDeriveInfoItemsOfNetwork({
+            networkId,
           });
-        newDeriveType =
-          globalDeriveType ||
-          (deriveInfoItems?.[0]?.value as IAccountDeriveTypes) ||
-          'default';
+        if (deriveInfoItems.length > 0) {
+          const selectedAccount = actions.current.getSelectedAccount({
+            num,
+          });
+          let globalDeriveType =
+            await serviceAccountSelector.getGlobalDeriveType({
+              selectedAccount,
+              sceneName,
+            });
+          if (!globalDeriveType && selectedAccount.networkId) {
+            globalDeriveType =
+              await serviceNetwork.getDeriveTypeOrFallbackToGlobal({
+                deriveType: globalDeriveType,
+                networkId: selectedAccount.networkId,
+              });
+          }
+          newDeriveType =
+            globalDeriveType ||
+            (deriveInfoItems?.[0]?.value as IAccountDeriveTypes) ||
+            'default';
+        }
       }
 
       if (newDeriveType) {

@@ -80,6 +80,7 @@ export type IModalSignatureConfirmParamList = {
     networkId: string;
     unsignedMessage: IUnsignedMessage;
     walletInternalSign?: boolean;
+    skipBackupCheck?: boolean; // used for bind referral code
     sourceInfo?: IDappSourceInfo;
     swapInfo?: ISwapTxInfo | undefined;
     onSuccess?: (result: string) => void;

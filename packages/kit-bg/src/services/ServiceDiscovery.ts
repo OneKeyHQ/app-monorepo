@@ -40,10 +40,7 @@ import {
 } from '@onekeyhq/shared/types/discovery';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-import {
-  EIndexedDBBucketNames,
-  type IDBCloudSyncItem,
-} from '../dbs/local/types';
+import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';

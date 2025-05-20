@@ -12,6 +12,7 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { webviewRefs } from '../utils/explorerUtils';
@@ -119,6 +120,11 @@ export const useDiscoveryShortcuts = () => {
         case EShortcutEvents.ViewBookmark:
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.BookmarkListModal,
+          });
+          break;
+        case EShortcutEvents.UniversalSearch:
+          navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+            screen: EUniversalSearchPages.UniversalSearch,
           });
           break;
         default:

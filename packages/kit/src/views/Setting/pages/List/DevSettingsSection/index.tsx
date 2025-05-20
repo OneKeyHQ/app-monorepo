@@ -24,6 +24,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -57,6 +58,7 @@ import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
+import { HapticsPanel } from './HapticsPanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -226,6 +228,15 @@ export const DevSettingsSection = () => {
             backgroundApiProxy.serviceApp.restartApp();
           }, 300);
         }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="enableAnalyticsRequest"
+        title="测试环境下发送 Analytics 请求"
+        subtitle={
+          devSettings.settings?.enableAnalyticsRequest ? '开启' : '关闭'
+        }
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -447,7 +458,7 @@ export const DevSettingsSection = () => {
       <SectionPressItem
         title="NotificationDevSettings"
         onPress={() => {
-          const dialog = Dialog.cancel({
+          Dialog.cancel({
             title: 'NotificationDevSettings',
             renderContent: <NotificationDevSettings />,
           });
@@ -617,7 +628,15 @@ export const DevSettingsSection = () => {
           });
         }}
       />
-
+      <SectionPressItem
+        title="Haptics"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Haptics',
+            renderContent: <HapticsPanel />,
+          });
+        }}
+      />
       <SectionPressItem
         title="Add ServerNetwork Test Data"
         subtitle="添加 ServerNetwork 测试数据"
@@ -644,6 +663,17 @@ export const DevSettingsSection = () => {
         subtitle="清除所有钱包 hash 和 xfp"
         onPress={async () => {
           await backgroundApiProxy.serviceAccount.clearAllWalletHashAndXfp();
+          Toast.success({
+            title: 'success',
+          });
+        }}
+      />
+
+      <SectionPressItem
+        title="Clear Last DB Backup Timestamp"
+        subtitle="清除最后一次 DB 备份时间戳"
+        onPress={async () => {
+          await backgroundApiProxy.simpleDb.appStatus.clearLastDBBackupTimestamp();
           Toast.success({
             title: 'success',
           });
@@ -746,6 +776,24 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+
+      <SectionFieldItem
+        name="enableMarketV2"
+        title="Enable Market V2"
+        subtitle="启用新版市场"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
+      <SectionPressItem
+        title="Device Info"
+        subtitle="设备信息"
+        onPress={async () => {
+          Dialog.debugMessage({
+            debugMessage: await appDeviceInfo.getDeviceInfo(),
+          });
+        }}
+      />
     </Section>
   );
 };

@@ -11,6 +11,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,
   IEstimateGasParams,
+  IFeeInfoUnit,
   IServerBatchEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 
@@ -228,6 +229,30 @@ class ServiceGas extends ServiceBase {
     });
 
     return encodedTxWithFee;
+  }
+
+  @backgroundMethod()
+  async getCustomFeeInfo({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.feeInfo.getCustomFeeInfo({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  async updateCustomFeeInfo({
+    networkId,
+    enabled,
+    customFeeInfo,
+  }: {
+    networkId: string;
+    enabled: boolean;
+    customFeeInfo?: Omit<IFeeInfoUnit, 'common'>;
+  }) {
+    return this.backgroundApi.simpleDb.feeInfo.updateCustomFeeInfo({
+      networkId,
+      customFeeInfo,
+      enabled,
+    });
   }
 }
 

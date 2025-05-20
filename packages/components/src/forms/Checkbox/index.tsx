@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';
-import { Icon, Label, XStack, YStack } from '../../primitives';
+import { Icon, Label, SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
 import type { ILabelProps } from '../../primitives';
@@ -24,6 +24,7 @@ export type ICheckboxProps = IFormFieldProps<
   ICheckedState,
   Omit<TMCheckboxProps, 'size' | 'onCheckedChange' | 'checked' | 'value'> & {
     label?: string;
+    description?: string;
     labelProps?: ILabelProps;
     containerProps?: StackProps;
   }
@@ -33,6 +34,7 @@ export type ICheckboxProps = IFormFieldProps<
 
 function RawCheckbox({
   label,
+  description,
   labelProps,
   onChange,
   value,
@@ -87,19 +89,26 @@ function RawCheckbox({
           size="$4"
         />
       </YStack>
-      {label ? (
-        <Label
-          pointerEvents="none"
-          variant="$bodyLgMedium"
-          pl="$2"
-          py="$2"
-          my="$-2"
-          onPress={platformEnv.isNativeAndroid ? onPress : undefined}
-          userSelect="none"
-          {...labelProps}
-        >
-          {label}
-        </Label>
+
+      {label || description ? (
+        <YStack pl="$2" py="$2" my="$-2" flex={1}>
+          {label ? (
+            <Label
+              pointerEvents="none"
+              variant="$bodyLgMedium"
+              onPress={platformEnv.isNativeAndroid ? onPress : undefined}
+              userSelect="none"
+              {...labelProps}
+            >
+              {label}
+            </Label>
+          ) : null}
+          {description ? (
+            <SizableText size="$bodyMd" color="$textSubdued" pt="$0.5">
+              {description}
+            </SizableText>
+          ) : null}
+        </YStack>
       ) : null}
     </XStack>
   );

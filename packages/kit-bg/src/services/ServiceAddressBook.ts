@@ -27,10 +27,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
-import {
-  EIndexedDBBucketNames,
-  type IDBCloudSyncItem,
-} from '../dbs/local/types';
+import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
@@ -301,7 +298,6 @@ class ServiceAddressBook extends ServiceBase {
     items,
     isDeleted,
     skipSaveLocalSyncItem,
-    skipEventEmit,
   }: {
     fn: () => Promise<void>;
     items: IAddressItem[];
@@ -316,12 +312,10 @@ class ServiceAddressBook extends ServiceBase {
         isDeleted,
       });
     }
-    if (syncItems?.length) {
-      await this.backgroundApi.localDb.addAndUpdateSyncItems({
-        items: syncItems,
-        fn,
-      });
-    }
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn,
+    });
   }
 
   async addItemFn(

@@ -12,6 +12,7 @@ import {
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { IncorrectMasterPassword } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   ICloudSyncCredential,
@@ -244,6 +245,19 @@ class CloudSyncItemBuilder {
       item.rawDataJson = rawDataJson;
       item.rawData = decryptedData || '';
       item.rawKey = rawDataJson?.rawKey || item.rawKey || '';
+    } else if (
+      !item.rawDataJson &&
+      !item.data &&
+      item.rawData &&
+      cloudSyncUtils.canSyncWithoutServer(item.dataType)
+    ) {
+      try {
+        rawDataJson = JSON.parse(item.rawData) as ICloudSyncRawDataJson;
+        item.rawDataJson = rawDataJson;
+        item.rawKey = rawDataJson?.rawKey || item.rawKey || '';
+      } catch (error) {
+        console.error('decryptSyncItem jsonParse error', error, item);
+      }
     }
 
     return {

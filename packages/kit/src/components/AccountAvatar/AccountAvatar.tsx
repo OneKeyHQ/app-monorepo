@@ -21,12 +21,14 @@ import type {
   IDBAccount,
   IDBExternalAccount,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { NetworkAvatar } from '../NetworkAvatar';
+import { WalletAvatar } from '../WalletAvatar';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -60,6 +62,7 @@ export interface IAccountAvatarProps extends IImageProps {
   loadingProps?: IImageLoadingProps;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
+  wallet?: IDBWallet;
 }
 
 function HashImageSource({ id }: { id: string }) {
@@ -116,6 +119,7 @@ function BasicAccountAvatar({
   fallback,
   fallbackProps,
   networkId,
+  wallet,
   ...restProps
 }: IAccountAvatarProps) {
   const isValidSize = !!VARIANT_SIZE[size as IKeyOfVariantSize];
@@ -270,6 +274,31 @@ function BasicAccountAvatar({
         {renderLoading}
       </Image>
 
+      {wallet ? (
+        <Stack
+          position="absolute"
+          justifyContent="center"
+          alignItems="center"
+          height="$5"
+          width="$5"
+          bottom="$-1.5"
+          right="$-1.5"
+          zIndex="$1"
+        >
+          <Stack
+            position="absolute"
+            top="$0"
+            bottom="$0"
+            borderCurve="continuous"
+            bg="$bgApp"
+            {...(wallet.type === 'hw' &&
+            !accountUtils.isHwHiddenWallet({ wallet })
+              ? { right: '$0.5', left: '$0.5', borderRadius: 2 }
+              : { right: '$0', left: '$0', borderRadius: '$1' })}
+          />
+          <WalletAvatar wallet={wallet} size="$5" />
+        </Stack>
+      ) : null}
       {networkId ? (
         <Stack
           position="absolute"

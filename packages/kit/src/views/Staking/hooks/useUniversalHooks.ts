@@ -106,7 +106,6 @@ export function useUniversalStake({
           morphoVault,
           approveType,
           permitSignature,
-          // inviteCode,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -146,7 +145,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToTxConfirm, accountId, networkId],
+    [accountId, networkId, navigationToTxConfirm],
   );
 }
 

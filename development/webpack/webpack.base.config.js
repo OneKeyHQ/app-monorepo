@@ -37,7 +37,7 @@ class BuildDoneNotifyPlugin {
   }
 }
 
-const baseResolve = ({ platform, configName }) => ({
+const baseResolve = ({ platform, configName, basePath }) => ({
   mainFields: ['browser', 'module', 'main'],
   aliasFields: ['browser', 'module', 'main'],
   extensions: createResolveExtensions({ platform, configName }),
@@ -54,6 +54,22 @@ const baseResolve = ({ platform, configName }) => ({
       'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
     'react-native/Libraries/EventEmitter/NativeEventEmitter$':
       'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+    '@react-aria/focus': path.join(
+      basePath,
+      '../../node_modules/@react-aria/focus/src/index.ts',
+    ),
+    '@react-aria/interactions': path.join(
+      basePath,
+      '../../node_modules/@react-aria/interactions/src/index.ts',
+    ),
+    '@react-aria/ssr': path.join(
+      basePath,
+      '../../node_modules/@react-aria/ssr/src/index.ts',
+    ),
+    '@react-aria/utils': path.join(
+      basePath,
+      '../../node_modules/@react-aria/utils/src/index.ts',
+    ),
   },
   fallback: {
     'crypto': require.resolve(
@@ -293,6 +309,8 @@ module.exports = ({ platform, basePath, configName }) => {
                 /* web-embed on  */
                 /react-router/,
                 /turbo-stream/,
+                // @react-aria packages
+                /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
               ],
               exclude: [/react-native-logs/, /react-native-modalize/],
               use: useBabelLoader,
@@ -353,9 +371,27 @@ module.exports = ({ platform, basePath, configName }) => {
         },
       ],
     },
-    resolve: baseResolve({ platform, configName }),
+    resolve: baseResolve({ platform, configName, basePath }),
     experiments: baseExperiments,
     performance: basePerformance,
+    optimization: {
+      splitChunks: {
+        cacheGroups: {
+          icons: {
+            test: (module) => {
+              const iconTestRegex =
+                /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
+              return module.resource && iconTestRegex.test(module.resource);
+            },
+            name: 'icons',
+            chunks: 'async',
+            enforce: true,
+            priority: 30,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    },
   };
 };
 

@@ -38,7 +38,7 @@ export default class NotificationProviderWeb extends NotificationProviderBase {
   }
 
   override removeNotification(
-    params: INotificationRemoveParams,
+    _params: INotificationRemoveParams,
   ): Promise<void> {
     throw new NotImplemented();
   }
@@ -47,7 +47,7 @@ export default class NotificationProviderWeb extends NotificationProviderBase {
     throw new NotImplemented();
   }
 
-  override async setBadge(params: INotificationSetBadgeParams): Promise<void> {
+  override async setBadge(_params: INotificationSetBadgeParams): Promise<void> {
     console.log('Web -- setBadge');
   }
 

@@ -1,3 +1,4 @@
+import { isNil } from 'lodash';
 import { Appearance } from 'react-native';
 
 import type {
@@ -8,6 +9,7 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import appDeviceInfo from '../appDeviceInfo/appDeviceInfo';
 import { defaultColorScheme } from '../config/appConfig';
 
 import { headerPlatform } from './InterceptorConsts';
@@ -56,6 +58,7 @@ export async function checkRequestIsOneKeyDomain({
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
 export async function getRequestHeaders() {
+  const appDeviceInfoData = await appDeviceInfo.getDeviceInfo();
   const settings: ISettingsPersistAtom =
     await requestHelper.getSettingsPersistAtom();
   const valueSettings: ISettingsValuePersistAtom =
@@ -80,6 +83,8 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale.toLowerCase(),
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
+    [normalizeHeaderKey('X-Onekey-Request-Platform-Name')]:
+      appDeviceInfoData.displayName || 'Unknown',
     [normalizeHeaderKey('X-Onekey-Request-Device-Name')]:
       platformEnv.appFullName,
     [normalizeHeaderKey('X-Onekey-Request-Version')]:

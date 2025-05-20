@@ -4,6 +4,7 @@ import {
   cloneElement,
   isValidElement,
   useCallback,
+  useEffect,
   useMemo,
 } from 'react';
 
@@ -25,6 +26,8 @@ import {
 } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
+
+import { addFormInstance, removeFormInstance } from './formInstances';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
@@ -53,6 +56,14 @@ function HiddenSubmit() {
 }
 
 export function FormWrapper({ form: formContext, children }: IFormProps) {
+  useEffect(() => {
+    addFormInstance(formContext);
+
+    return () => {
+      removeFormInstance(formContext);
+    };
+  }, [formContext]);
+
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={formContext.submit} position="relative">
@@ -270,3 +281,5 @@ export const Form = withStaticProperties(FormWrapper, {
   Field,
   FieldDescription,
 });
+
+export * from './formInstances';

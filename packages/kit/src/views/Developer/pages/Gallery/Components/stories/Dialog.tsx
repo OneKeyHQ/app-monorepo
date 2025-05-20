@@ -4,9 +4,9 @@ import { forwardRef, useCallback, useEffect, useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
+  Dialog as BaseDialog,
   Button,
   Checkbox,
-  Dialog,
   DialogContainer,
   Form,
   Input,
@@ -19,11 +19,13 @@ import {
   YStack,
   useDialogInstance,
   useForm,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import type {
   IDialogContainerProps,
   IDialogInstance,
 } from '@onekeyhq/components/src/composite/Dialog/type';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EGalleryRoutes,
@@ -35,6 +37,24 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
+
+const TRACK_ID = 'demo-dialog';
+
+// Wrap BaseDialog to automatically inject trackId into every call
+type IDialogShowPropsWithTrack = Parameters<typeof BaseDialog.show>[0];
+type IDialogConfirmPropsWithTrack = Parameters<typeof BaseDialog.confirm>[0];
+type IDialogCancelPropsWithTrack = Parameters<typeof BaseDialog.cancel>[0];
+
+const Dialog = {
+  ...BaseDialog,
+  show: (props: IDialogShowPropsWithTrack) =>
+    BaseDialog.show({ trackID: TRACK_ID, ...props }),
+  confirm: (props: IDialogConfirmPropsWithTrack) =>
+    BaseDialog.confirm({ trackID: TRACK_ID, ...props }),
+  cancel: (props: IDialogCancelPropsWithTrack) =>
+    BaseDialog.cancel({ trackID: TRACK_ID, ...props }),
+  loading: BaseDialog.loading,
+};
 
 const CustomFooter = ({
   index,
@@ -363,11 +383,9 @@ const DialogGallery = () => (
               Dialog.cancel
             </Button>
             <Button
-              onPress={() =>
-                Dialog.loading({
-                  title: 'confirm',
-                })
-              }
+              onPress={async () => {
+                await backgroundApiProxy.serviceApp.demoDialogLoadingSample();
+              }}
             >
               Dialog.loading
             </Button>
@@ -970,6 +988,92 @@ const DialogGallery = () => (
               }}
             >
               ShowAndClose
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'in Page Dialog',
+        element: () => {
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          const dialog = useInTabDialog();
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          const navigation = useAppNavigation<any>();
+          return (
+            <YStack gap="$4">
+              <Button
+                onPress={async () => {
+                  dialog.show({
+                    title: 'Lorem ipsum',
+                    icon: 'PlaceholderOutline',
+                    description:
+                      'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                    tone: 'default',
+                    onConfirmText: 'push EGalleryRoutes.Components',
+                    onConfirm: ({ preventClose }) => {
+                      preventClose();
+                      navigation.pushModal(EModalRoutes.TestModal, {
+                        screen: ETestModalPages.TestSimpleModal,
+                      });
+                    },
+                  });
+                }}
+              >
+                in tabs Dialog
+              </Button>
+              <Button
+                onPress={async () => {
+                  dialog.show({
+                    title: 'Lorem ipsum',
+                    icon: 'PlaceholderOutline',
+                    description:
+                      'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                    tone: 'default',
+                    onConfirmText: 'push EGalleryRoutes.Components',
+                    onConfirm: ({ preventClose }) => {
+                      preventClose();
+                      navigation.pushModal(EModalRoutes.TestModal, {
+                        screen: ETestModalPages.TestSimpleModal,
+                      });
+                    },
+                  });
+                }}
+              >
+                in modal Dialog
+              </Button>
+            </YStack>
+          );
+        },
+      },
+      {
+        title: 'with icons',
+        element: (
+          <YStack gap="$4">
+            <Button
+              icon="ErrorOutline"
+              onPress={() => {
+                Dialog.show({
+                  icon: 'ErrorOutline',
+                  tone: 'warning',
+                  title: 'Error',
+                  description: 'This is an error dialog',
+                });
+              }}
+            >
+              ErrorOutline(warning)
+            </Button>
+            <Button
+              icon="ErrorOutline"
+              onPress={() => {
+                Dialog.show({
+                  icon: 'ErrorOutline',
+                  tone: 'destructive',
+                  title: 'Error',
+                  description: 'This is an error dialog',
+                });
+              }}
+            >
+              ErrorOutline(destructive)
             </Button>
           </YStack>
         ),

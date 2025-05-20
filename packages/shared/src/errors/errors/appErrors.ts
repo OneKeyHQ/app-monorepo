@@ -50,6 +50,7 @@ export class IncorrectMasterPassword extends OneKeyAppError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyError: IncorrectMasterPassword',
+        defaultKey: ETranslations.prime_incorrect_password,
       }),
     );
   }
@@ -57,6 +58,28 @@ export class IncorrectMasterPassword extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.IncorrectMasterPassword;
 }
 
+export class LocalDBRecordNotFoundError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalDBRecordNotFoundError',
+        // defaultKey: ETranslations.local_db_record_not_found,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
+}
+
+export class SystemDiskFullError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'System Disk is full',
+      }),
+    );
+  }
+}
 export class NotImplemented extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -182,6 +205,7 @@ export class OneKeyErrorPrimePaidMembershipRequired extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
+        // Prime subscription is not active
         defaultMessage: 'Prime Paid membership required',
         defaultAutoToast: true,
       }),

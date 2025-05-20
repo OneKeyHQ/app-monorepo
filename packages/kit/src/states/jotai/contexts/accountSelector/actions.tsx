@@ -60,6 +60,7 @@ import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
+import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -77,6 +78,7 @@ import {
 
 import type {
   IAccountSelectorActiveAccountInfo,
+  IAccountSelectorAvailableNetworks,
   IAccountSelectorRouteParams,
   IAccountSelectorUpdateMeta,
   ISelectedAccountsAtomMap,
@@ -92,6 +94,7 @@ export type IAccountSelectorSyncFromSceneParams = {
   };
   num: number;
   withNetworkSync?: boolean;
+  availableNetworks?: IAccountSelectorAvailableNetworks;
 };
 
 export type IFinalizeWalletSetupCreateWalletResult = {
@@ -334,6 +337,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       ) {
         // debugger;
       }
+      // if (
+      //   sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
+      //   sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
+      //   newSelectedAccount?.deriveType === 'default'
+      // ) {
+      //   console.log('updateSelectedAccount deriveType: ', newSelectedAccount);
+      // }
 
       const newNetworkId = newSelectedAccount?.networkId;
       const oldNetworkId = oldSelectedAccount?.networkId;
@@ -373,7 +383,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 sceneName: sceneInfo?.sceneName,
               },
             );
-          if (!shouldUseGlobalDeriveType && newSelectedAccount?.networkId) {
+          if (
+            !shouldUseGlobalDeriveType &&
+            newSelectedAccount?.networkId &&
+            newSelectedAccount?.deriveType
+          ) {
             const isNewDeriveTypeAvailable =
               await backgroundApiProxy.serviceNetwork.isDeriveTypeAvailableForNetwork(
                 {
@@ -1495,7 +1509,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (
       get,
       set,
-      { from, num, withNetworkSync }: IAccountSelectorSyncFromSceneParams,
+      {
+        from,
+        num,
+        withNetworkSync,
+        availableNetworks,
+      }: IAccountSelectorSyncFromSceneParams,
     ) => {
       const sceneInfo = await this.getCurrentSceneInfo.call(set);
       const { sceneName, sceneUrl, sceneNum } = from;
@@ -1507,13 +1526,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num: sceneNum,
         });
 
+      const globalDeriveTypesMap = (
+        await backgroundApiProxy.simpleDb.accountSelector.getRawData()
+      )?.globalDeriveTypesMap?.[EGlobalDeriveTypesScopes.global];
+
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => {
+          const oldNetworkId = v?.networkId;
+          const oldDeriveType = v?.deriveType;
+
           if (selectedAccount) {
             // networkId won't be synced in default
             if (!withNetworkSync) {
-              selectedAccount.networkId = v?.networkId;
+              selectedAccount.networkId = oldNetworkId;
+              selectedAccount.deriveType = oldDeriveType;
             }
             if (
               sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
@@ -1521,8 +1548,35 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 networkId: selectedAccount.networkId,
               })
             ) {
-              selectedAccount.networkId = v?.networkId;
+              selectedAccount.networkId = oldNetworkId;
+              selectedAccount.deriveType = oldDeriveType;
             }
+
+            if (
+              selectedAccount.networkId &&
+              availableNetworks?.networkIds?.length
+            ) {
+              if (
+                !availableNetworks.networkIds.includes(
+                  selectedAccount.networkId,
+                )
+              ) {
+                selectedAccount.networkId =
+                  oldNetworkId || availableNetworks.defaultNetworkId;
+                selectedAccount.deriveType = oldDeriveType;
+              }
+            }
+
+            if (selectedAccount.networkId && !selectedAccount.deriveType) {
+              const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+                networkId: selectedAccount.networkId,
+              });
+              const deriveType = globalDeriveTypesMap?.[key];
+              if (deriveType) {
+                selectedAccount.deriveType = deriveType;
+              }
+            }
+
             return selectedAccount;
           }
           return v;
