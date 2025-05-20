@@ -13,6 +13,7 @@ import {
   Empty,
   Heading,
   Icon,
+  IconButton,
   Page,
   QRCode,
   SizableText,
@@ -214,110 +215,131 @@ function ReceiveToken() {
   }, [isHardwareWallet, wallet?.type]);
 
   const renderCopyAddressButton = useCallback(() => {
-    if (isHardwareWallet) {
-      if (
-        addressState === EAddressState.Verified ||
-        addressState === EAddressState.ForceShow ||
-        isVerifying
-      ) {
-        return (
-          <Button
-            mt="$5"
-            icon="Copy3Outline"
-            disabled={isVerifying}
-            loading={isVerifying}
-            onPress={() => {
-              copyText(account?.address ?? '');
-            }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_copy_address,
-            })}
-          </Button>
-        );
-      }
-
-      return (
-        <YStack gap="$5" alignItems="center">
-          <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
-            {intl.formatMessage({
-              id: ETranslations.global_verify_on_device,
-            })}
-          </Button>
-          <Button
-            size="medium"
-            variant="tertiary"
-            onPress={() => {
-              Dialog.confirm({
-                icon: 'ErrorOutline',
-                tone: 'warning',
-                title: intl.formatMessage({
-                  id: ETranslations.global_receive_address_confirmation,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.global_receive_address_confirmation_desc,
-                }),
-                onConfirmText: intl.formatMessage({
-                  id: ETranslations.global_receive_address_confirmation_button,
-                }),
-                onConfirm: () => {
-                  setAddressState(EAddressState.ForceShow);
-                },
-                confirmButtonProps: {
-                  variant: 'secondary',
-                },
-              });
-            }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.skip_verify_text,
-            })}
-          </Button>
-        </YStack>
-      );
+    if (
+      isHardwareWallet &&
+      addressState !== EAddressState.Verified &&
+      addressState !== EAddressState.ForceShow
+    ) {
+      return null;
     }
 
     return (
-      <Button
-        mt="$5"
+      <IconButton
+        size="medium"
         icon="Copy3Outline"
         onPress={() => copyText(account?.address ?? '')}
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_copy_address,
-        })}
-      </Button>
+      />
     );
-  }, [
-    account?.address,
-    addressState,
-    copyText,
-    handleVerifyOnDevicePress,
-    intl,
-    isHardwareWallet,
-    isVerifying,
-  ]);
+  }, [account?.address, addressState, copyText, isHardwareWallet]);
 
-  const renderReceiveToken = useCallback(() => {
+  const renderVerifyAddressButton = useCallback(() => {
+    if (!isHardwareWallet) return null;
+
+    if (
+      addressState === EAddressState.Verified ||
+      addressState === EAddressState.ForceShow
+    )
+      return null;
+
+    return (
+      <YStack
+        mt="$5"
+        alignItems="center"
+        justifyContent="space-between"
+        flexDirection="row-reverse"
+        $md={{
+          flexDirection: 'column',
+          gap: '$5',
+          justifyContent: 'center',
+        }}
+      >
+        <Button variant="primary" onPress={handleVerifyOnDevicePress}>
+          {intl.formatMessage({
+            id: ETranslations.global_verify_on_device,
+          })}
+        </Button>
+        <Button
+          size="medium"
+          variant="tertiary"
+          onPress={() => {
+            Dialog.confirm({
+              icon: 'ErrorOutline',
+              tone: 'warning',
+              title: intl.formatMessage({
+                id: ETranslations.global_receive_address_confirmation,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.global_receive_address_confirmation_desc,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_receive_address_confirmation_button,
+              }),
+              onConfirm: () => {
+                setAddressState(EAddressState.ForceShow);
+              },
+              confirmButtonProps: {
+                variant: 'secondary',
+              },
+            });
+          }}
+        >
+          {intl.formatMessage({
+            id: ETranslations.skip_verify_text,
+          })}
+        </Button>
+      </YStack>
+    );
+  }, [addressState, handleVerifyOnDevicePress, intl, isHardwareWallet]);
+
+  const renderAddress = useCallback(() => {
+    if (!account || !network || !wallet) return null;
+
+    if (shouldShowAddress) {
+      return <SizableText size="$bodyMd">{account.address}</SizableText>;
+    }
+
+    return Array.from({ length: 11 }).map((_, index) => (
+      <SizableText key={index}>****</SizableText>
+    ));
+  }, [account, network, shouldShowAddress, wallet]);
+
+  const renderReceiveFooter = useCallback(() => {
     if (!account || !network || !wallet) return null;
 
     return (
-      <>
-        <Stack mb="$5">
-          <XStack gap="$2" alignItems="center" justifyContent="center">
-            <Heading size="$headingMd">
+      <YStack
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        backgroundColor="$bgSubdued"
+        padding="$5"
+        gap="$5"
+      >
+        <YStack gap="$2">
+          <XStack gap="$2" alignItems="center">
+            <SizableText size="$bodyMd">
               {token?.symbol ?? network.symbol}
-            </Heading>
+            </SizableText>
             {vaultSettings?.showAddressType && addressType ? (
               <Badge>{addressType}</Badge>
+            ) : (
+              <Badge>{network.name}</Badge>
+            )}
+            {shouldShowAddress && addressState === EAddressState.ForceShow ? (
+              <Badge badgeType="critical">
+                {intl.formatMessage({
+                  id: ETranslations.receive_address_unconfimed_alert_message,
+                })}
+              </Badge>
             ) : null}
           </XStack>
-          <SizableText
-            mt="$1"
-            size="$bodyMd"
-            color="$textSubdued"
-            textAlign="center"
-          >
+          <XStack gap="$2" alignItems="center" justifyContent="space-between">
+            {renderAddress()}
+            {renderCopyAddressButton()}
+          </XStack>
+        </YStack>
+        {renderVerifyAddressButton()}
+        {shouldShowAddress ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage(
               {
                 id: ETranslations.receive_send_asset_warning_message,
@@ -327,108 +349,83 @@ function ReceiveToken() {
               },
             )}
           </SizableText>
-        </Stack>
-        <Stack
-          borderRadius="$3"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          p="$5"
-          width={264}
-          height={264}
-        >
-          {isShowQRCode ? (
-            <Stack position="relative">
-              <QRCode
-                value={account.address}
-                size={214}
-                logo={
-                  network.isCustomNetwork
-                    ? undefined
-                    : { uri: token?.logoURI || network.logoURI }
-                }
-                logoSize={network.isCustomNetwork ? undefined : 40}
-              />
-            </Stack>
-          ) : null}
-
-          {!isShowQRCode ? (
-            <Stack
-              position="absolute"
-              top="$0"
-              left="$0"
-              right="$0"
-              bottom="$0"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Empty
-                icon="EyeOffOutline"
-                description={intl.formatMessage({
-                  id: ETranslations.address_verify_address_instruction,
-                })}
-                iconProps={{
-                  size: '$8',
-                  mb: '$5',
-                }}
-                descriptionProps={{
-                  size: '$bodyLgMedium',
-                  color: '$text',
-                }}
-              />
-            </Stack>
-          ) : null}
-        </Stack>
-        <ConfirmHighlighter
-          maxWidth="$96"
-          highlight={shouldHighLightAddress}
-          mt="$5"
-          px="$3"
-          borderRadius="$3"
-          borderCurve="continuous"
-        >
-          <SizableText
-            textAlign="center"
-            size="$bodyMd"
-            style={{
-              wordBreak: 'break-all',
-            }}
-          >
-            {!shouldShowAddress
-              ? accountUtils.shortenAddress({ address: account.address })
-              : account.address}
-          </SizableText>
-        </ConfirmHighlighter>
-        {shouldShowAddress && addressState === EAddressState.ForceShow ? (
-          <XStack mt="$1" justifyContent="center" alignItems="center">
-            <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-            <SizableText size="$bodyMd" color="$textCritical" pl="$1.5">
-              {intl.formatMessage({
-                id: ETranslations.receive_address_unconfimed_alert_message,
-              })}
-            </SizableText>
-          </XStack>
         ) : null}
-        {renderCopyAddressButton()}
-      </>
+      </YStack>
     );
   }, [
     account,
-    network,
-    wallet,
-    vaultSettings?.showAddressType,
+    addressState,
     addressType,
     intl,
-    token?.logoURI,
-    isShowQRCode,
-    shouldHighLightAddress,
-    shouldShowAddress,
-    addressState,
+    network,
+    renderAddress,
     renderCopyAddressButton,
+    renderVerifyAddressButton,
+    shouldShowAddress,
     token?.symbol,
+    vaultSettings?.showAddressType,
+    wallet,
   ]);
 
+  const renderReceiveQrCode = useCallback(() => {
+    if (!account || !network || !wallet) return null;
+
+    return (
+      <Stack
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        p="$5"
+        width={264}
+        height={264}
+      >
+        {isShowQRCode ? (
+          <Stack position="relative">
+            <QRCode
+              value={account.address}
+              size={214}
+              logo={
+                network.isCustomNetwork
+                  ? undefined
+                  : { uri: token?.logoURI || network.logoURI }
+              }
+              logoSize={network.isCustomNetwork ? undefined : 40}
+            />
+          </Stack>
+        ) : null}
+
+        {!isShowQRCode ? (
+          <Stack
+            position="absolute"
+            top="$0"
+            left="$0"
+            right="$0"
+            bottom="$0"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Empty
+              icon="EyeOffOutline"
+              description={intl.formatMessage({
+                id: ETranslations.address_verify_address_instruction,
+              })}
+              iconProps={{
+                size: '$8',
+                mb: '$5',
+              }}
+              descriptionProps={{
+                size: '$bodyLgMedium',
+                color: '$text',
+              }}
+            />
+          </Stack>
+        ) : null}
+      </Stack>
+    );
+  }, [account, network, wallet, intl, token?.logoURI, isShowQRCode]);
+
   return (
-    <Page>
+    <Page safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
@@ -439,8 +436,9 @@ function ReceiveToken() {
         px="$5"
         pb="$5"
       >
-        {renderReceiveToken()}
+        {renderReceiveQrCode()}
       </Page.Body>
+      <Page.Footer>{renderReceiveFooter()}</Page.Footer>
     </Page>
   );
 }
