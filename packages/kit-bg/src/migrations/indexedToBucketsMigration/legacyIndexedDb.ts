@@ -65,6 +65,15 @@ class LegacyIndexedDb {
     }
   }
 
+  async delete(name: ELocalDBStoreNames, id: string) {
+    try {
+      const legacyDb = await this.open();
+      await legacyDb.delete(name, id);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   private _getObjectStoreAtVersionChange<T extends ELocalDBStoreNames>(
     tx: IDBPTransaction<
       IIndexedDBSchemaMap,
