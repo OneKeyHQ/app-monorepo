@@ -1,13 +1,17 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export interface IApproveButtonProps extends IButtonProps {
   onApprove: () => void;
 }
 
 export function ApproveButton({ onApprove, ...props }: IApproveButtonProps) {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const handleApprove = useCallback(() => {
     setLoading(true);
@@ -25,7 +29,7 @@ export function ApproveButton({ onApprove, ...props }: IApproveButtonProps) {
       {...props}
       onPress={handleApprove}
     >
-      Approve
+      {intl.formatMessage({ id: ETranslations.global_approve })}
     </Button>
   );
 }

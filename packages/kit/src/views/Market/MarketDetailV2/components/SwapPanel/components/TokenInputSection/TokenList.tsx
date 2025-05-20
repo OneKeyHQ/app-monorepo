@@ -1,5 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import { SizableText, YStack } from '@onekeyhq/components';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IToken } from '../../types';
 
@@ -20,6 +23,7 @@ interface ITokenListProps {
 }
 
 export function TokenList({ tokens, onTokenPress }: ITokenListProps) {
+  const intl = useIntl();
   console.log('TokenList tokens', tokens);
 
   return (
@@ -53,7 +57,9 @@ export function TokenList({ tokens, onTokenPress }: ITokenListProps) {
       >
         <SizableText size="$bodyMd" color="$textSubdued">
           If you wish to trade other tokens, switch to{' '}
-          <SizableText fontWeight="bold">Trade</SizableText>
+          <SizableText fontWeight="bold">
+            {intl.formatMessage({ id: ETranslations.global_trade })}
+          </SizableText>
         </SizableText>
       </YStack>
     </YStack>
