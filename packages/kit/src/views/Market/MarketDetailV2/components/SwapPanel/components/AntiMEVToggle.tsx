@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { SizableText, Switch, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export interface IAntiMEVToggleProps {
   value: boolean;
@@ -6,12 +9,13 @@ export interface IAntiMEVToggleProps {
 }
 
 export function AntiMEVToggle({ value, onToggle }: IAntiMEVToggleProps) {
+  const intl = useIntl();
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued">
-        Anti-MEV
+        {intl.formatMessage({ id: ETranslations.mev_protection_label })}
       </SizableText>
-      <Switch size="large" value={value} onChange={onToggle} />
+      <Switch size="small" value={value} onChange={onToggle} />
     </XStack>
   );
 }
