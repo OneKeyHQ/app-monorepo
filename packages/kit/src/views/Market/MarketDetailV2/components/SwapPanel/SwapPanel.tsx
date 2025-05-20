@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { useEffect } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
@@ -48,6 +50,12 @@ export function SwapPanel() {
     networkId: networkId ?? '',
     accountId: '',
   });
+
+  useEffect(() => {
+    if (defaultTokens.length > 0) {
+      setPaymentToken(defaultTokens[0]);
+    }
+  }, [defaultTokens, setPaymentToken]);
 
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">

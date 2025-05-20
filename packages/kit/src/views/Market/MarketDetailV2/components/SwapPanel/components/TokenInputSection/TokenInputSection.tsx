@@ -57,52 +57,64 @@ export function TokenInputSection({
         }}
         addOns={[
           {
-            renderContent: (
-              <Popover
-                title="Select Token"
-                open={isPopoverOpen}
-                onOpenChange={setIsPopoverOpen}
-                renderContent={
-                  <TokenList
-                    tokens={selectableTokens}
-                    onTokenPress={(token) => {
-                      onTokenChange(token);
-                      setIsPopoverOpen(false);
-                    }}
-                  />
-                }
-                renderTrigger={
-                  <XStack>
-                    <ButtonFrame
-                      paddingHorizontal="$2.5"
-                      paddingVertical="$1.5"
-                      flex={1}
-                      borderWidth={0}
-                      background="transparent"
-                      hoverStyle={{ bg: '$bgHover' }}
-                      pressStyle={{ bg: '$bgActive' }}
-                      onPress={() => setIsPopoverOpen(true)}
-                    >
-                      <XStack
-                        gap="$2"
-                        alignItems="center"
-                        justifyContent="space-between"
+            renderContent:
+              tradeType === ESwapDirection.BUY ? (
+                <Popover
+                  title="Select Token"
+                  open={isPopoverOpen}
+                  onOpenChange={setIsPopoverOpen}
+                  renderContent={
+                    <TokenList
+                      tokens={selectableTokens}
+                      onTokenPress={(token) => {
+                        onTokenChange(token);
+                        setIsPopoverOpen(false);
+                      }}
+                    />
+                  }
+                  renderTrigger={
+                    <XStack>
+                      <ButtonFrame
+                        paddingHorizontal="$2.5"
+                        paddingVertical="$1.5"
                         flex={1}
+                        borderWidth={0}
+                        background="transparent"
+                        hoverStyle={{ bg: '$bgHover' }}
+                        pressStyle={{ bg: '$bgActive' }}
+                        onPress={() => setIsPopoverOpen(true)}
                       >
-                        <SizableText color="$text" numberOfLines={1}>
-                          {selectedToken?.symbol || 'Select Token'}
-                        </SizableText>
-                        <Icon
-                          name="ChevronDownSmallOutline"
-                          size="$5"
-                          color="$iconSubdued"
-                        />
-                      </XStack>
-                    </ButtonFrame>
-                  </XStack>
-                }
-              />
-            ),
+                        <XStack
+                          gap="$2"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          flex={1}
+                        >
+                          <SizableText color="$textSubdued">
+                            {selectedToken?.symbol || 'Select Token'}
+                          </SizableText>
+                          <Icon
+                            name="ChevronDownSmallOutline"
+                            size="$5"
+                            color="$iconSubdued"
+                          />
+                        </XStack>
+                      </ButtonFrame>
+                    </XStack>
+                  }
+                />
+              ) : (
+                <XStack
+                  paddingHorizontal="$2.5"
+                  paddingVertical="$1.5"
+                  alignItems="center"
+                  flex={1}
+                >
+                  <SizableText color="$textSubdued">
+                    {selectedToken?.symbol}
+                  </SizableText>
+                </XStack>
+              ),
           },
         ]}
       />
