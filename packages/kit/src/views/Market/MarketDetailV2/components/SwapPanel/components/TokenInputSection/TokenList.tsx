@@ -25,7 +25,7 @@ export function TokenList({
   onTokenPress,
 }: ITokenListProps) {
   return (
-    <YStack gap="$2" px="$4" py="$2">
+    <YStack gap="$2">
       {tokens.map((token) => (
         <TokenListItem
           key={token.id}
