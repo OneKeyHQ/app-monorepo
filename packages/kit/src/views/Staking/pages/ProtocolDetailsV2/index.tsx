@@ -168,7 +168,9 @@ function PortfolioSection({
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <SizableText size="$headingLg">{portfolios.title}</SizableText>
+          <SizableText size={portfolios.title.color || '$headingLg'}>
+            {portfolios.title.text}
+          </SizableText>
           {/* {onPortfolioDetails !== undefined ? (
        <Button
          variant="tertiary"
@@ -215,7 +217,7 @@ function PortfolioSection({
                }
              />
            ) : null} */}
-                {item.badge ? (
+                {item?.badge ? (
                   <Badge
                     badgeType={item.badge.badgeType}
                     badgeSize={item.badge.badgeSize}
@@ -274,7 +276,9 @@ function ProviderSection({
   return provider ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg">{provider.title.text}</SizableText>
+        <SizableText size="$headingLg" color={provider.title.color}>
+          {provider.title.text}
+        </SizableText>
         <XStack flexWrap="wrap" m="$-5" p="$2">
           {provider.items.map((cell) => (
             <GridItem
@@ -380,13 +384,15 @@ const ProtocolDetailsPage = () => {
   );
 
   const tokenInfo = useMemo(() => {
-    return {
-      token: result?.subscriptionValue?.token,
-      networkId,
-      provider,
-      vault,
-      accountId,
-    };
+    return result?.subscriptionValue?.token
+      ? {
+          token: result?.subscriptionValue?.token,
+          networkId,
+          provider,
+          vault,
+          accountId,
+        }
+      : undefined;
   }, [accountId, networkId, provider, result?.subscriptionValue?.token, vault]);
 
   const { result: unbondingDelegationList } = usePromiseResult(

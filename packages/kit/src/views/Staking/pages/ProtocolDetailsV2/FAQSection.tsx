@@ -31,14 +31,14 @@ export function FAQSection({
   tokenInfo,
 }: {
   faqs: IStakeEarnDetail['faqs'];
-  tokenInfo: IEarnTokenInfo;
+  tokenInfo?: IEarnTokenInfo;
 }) {
   const navigation = useAppNavigation();
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const networkId = tokenInfo.networkId ?? '';
+  const networkId = tokenInfo?.networkId ?? '';
 
   const handleAction = useCallback(
     async (actionId: string) => {
@@ -54,7 +54,7 @@ export function FAQSection({
         const { importFromToken, swapTabSwitchType } = getImportFromToken({
           networkId,
           isSupportSwap,
-          tokenAddress: tokenInfo?.address ?? '',
+          tokenAddress: tokenInfo?.token?.address ?? '',
         });
         defaultLogger.wallet.walletActions.actionTrade({
           walletType: wallet?.type ?? '',
@@ -85,14 +85,15 @@ export function FAQSection({
       isSoftwareWalletOnlyUser,
       navigation,
       networkId,
-      tokenInfo?.address,
       tokenInfo?.token,
       wallet?.type,
     ],
   );
   return faqs?.items?.length ? (
     <YStack gap="$6">
-      <SizableText size="$headingLg">{faqs.title}</SizableText>
+      <SizableText size="$headingLg" color={faqs.title.color}>
+        {faqs.title.text}
+      </SizableText>
       <YStack>
         <Accordion type="multiple" gap="$2">
           {faqs.items.map(({ title, description }, index) => (

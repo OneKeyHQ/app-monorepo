@@ -282,7 +282,7 @@ export interface IEarnToken {
 export interface IEarnTokenInfo {
   networkId: string;
   provider: string;
-  vault: string;
+  vault: string | undefined;
   accountId: string;
   token: IEarnToken;
 }
@@ -397,7 +397,7 @@ export interface IStakeEarnDetail {
   portfolios: {
     title: IEarnText;
     items: {
-      token: IEarnTokenInfo;
+      token: IEarnToken;
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
@@ -415,7 +415,7 @@ export interface IStakeEarnDetail {
   provider: IEarnProvider;
   alerts: string[];
   faqs: {
-    title: string;
+    title: IEarnText;
     items: IEarnFAQItem[];
   };
 }
