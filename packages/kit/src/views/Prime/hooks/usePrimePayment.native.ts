@@ -10,6 +10,7 @@ import {
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
@@ -54,11 +55,12 @@ export function usePrimePayment(): IUsePrimePayment {
     }
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
 
-    setPrimePersistAtom((prev) =>
-      perfUtils.buildNewValueIfChanged(prev, {
-        ...prev,
-        subscriptionManageUrl: customerInfo.managementURL || '',
-      }),
+    setPrimePersistAtom(
+      (prev): IPrimeUserInfo =>
+        perfUtils.buildNewValueIfChanged(prev, {
+          ...prev,
+          subscriptionManageUrl: customerInfo.managementURL || '',
+        }),
     );
 
     return customerInfo;

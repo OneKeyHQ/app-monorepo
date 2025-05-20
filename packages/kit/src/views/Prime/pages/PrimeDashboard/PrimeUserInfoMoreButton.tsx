@@ -40,7 +40,13 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const userInfo = (
     <Stack px="$2" py="$2.5" gap="$1">
       <XStack alignItems="center" gap="$2">
-        <SizableText flex={1} size="$headingSm">
+        <SizableText
+          flex={1}
+          size="$headingSm"
+          onPress={() => {
+            console.log(user);
+          }}
+        >
           {user?.email}
         </SizableText>
         {/* {isPrime ? (
@@ -57,7 +63,15 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       </XStack>
       {primeExpiredAt && isPrime ? (
         <SizableText size="$bodyMd" color="$textSubdued">
-          Ends on {formatDateFns(new Date(primeExpiredAt))}
+          {intl.formatMessage(
+            {
+              id: ETranslations.prime_end_date,
+            },
+            {
+              // "prime.end_date": "Ends on {data}",
+              data: formatDateFns(new Date(primeExpiredAt)),
+            },
+          )}
         </SizableText>
       ) : null}
     </Stack>
