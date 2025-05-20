@@ -143,6 +143,7 @@ export default function PageResolveSameWallets({
             onConfirm: async () => {
               try {
                 setIsRemoving(true);
+                // TODO remove this component
                 await backgroundApiProxy.serviceAccount.mergeDuplicateHDWallets(
                   { password: '' },
                 );

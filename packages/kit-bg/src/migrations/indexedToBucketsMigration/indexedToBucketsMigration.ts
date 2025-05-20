@@ -44,7 +44,7 @@ async function legacyDbExists(): Promise<boolean> {
   }
 }
 
-export type ICheckCurrentDBIsMigratedResult = {
+export type ICheckCurrentDBIsMigratedToBucketResult = {
   isMigrated: boolean;
 
   buckets: IIndexedBucketsMap;
@@ -64,7 +64,7 @@ async function checkCurrentDBIsMigrated({
   buckets,
 }: {
   buckets: IIndexedBucketsMap;
-}): Promise<ICheckCurrentDBIsMigratedResult> {
+}): Promise<ICheckCurrentDBIsMigratedToBucketResult> {
   // const cloudSyncBucket = buckets[EIndexedDBBucketNames.cloudSync];
   const accountBucket = buckets[EIndexedDBBucketNames.account];
   const backupAccountBucket = buckets[EIndexedDBBucketNames.backupAccount];
@@ -108,7 +108,7 @@ async function migrateBackupedDataToBucket({
   isMigrated,
   accountBucket,
   backupAccountBucket,
-}: ICheckCurrentDBIsMigratedResult) {
+}: ICheckCurrentDBIsMigratedToBucketResult) {
   if (isMigrated) {
     console.log(
       'migrateBackupedDataToBucket skipped:  bucketDB is migrated already',
@@ -174,7 +174,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
   walletCount,
   contextCount,
   context,
-}: ICheckCurrentDBIsMigratedResult) {
+}: ICheckCurrentDBIsMigratedToBucketResult) {
   if (isMigrated) {
     console.log(
       'migrateOneKeyV5LegacyDBToBucket skipped:  bucketDB is migrated already',

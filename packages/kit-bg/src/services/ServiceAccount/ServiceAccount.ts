@@ -3505,15 +3505,19 @@ class ServiceAccount extends ServiceBase {
   async generateAllHdAndQrWalletsHashAndXfp({
     password,
     skipLocalSync,
+    skipAppStatusCheck,
   }: {
     password: string;
     skipLocalSync?: boolean;
+    skipAppStatusCheck?: boolean;
   }) {
     await this.generateAllHdAndQrWalletsHashAndXfpMutex.runExclusive(
       async () => {
-        const appStatus = await simpleDb.appStatus.getRawData();
-        if (appStatus?.allHdWalletsHashAndXfpGenerated) {
-          return;
+        if (!skipAppStatusCheck) {
+          const appStatus = await simpleDb.appStatus.getRawData();
+          if (appStatus?.allHdWalletsHashAndXfpGenerated) {
+            return;
+          }
         }
 
         const { wallets } = await this.getAllWallets({
@@ -3947,8 +3951,17 @@ class ServiceAccount extends ServiceBase {
     return false;
   }
 
-  async getLocalSameHDWallets({ password }: { password: string }) {
-    await this.generateAllHdAndQrWalletsHashAndXfp({ password });
+  async getLocalSameHDWallets({
+    password,
+    skipAppStatusCheck,
+  }: {
+    password: string;
+    skipAppStatusCheck?: boolean;
+  }) {
+    await this.generateAllHdAndQrWalletsHashAndXfp({
+      password,
+      skipAppStatusCheck,
+    });
     const { wallets: allWallets } = await this.getAllWallets({
       refillWalletInfo: true,
     });
@@ -3972,14 +3985,25 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async mergeDuplicateHDWallets({ password }: { password: string }) {
-    const appStatus = await simpleDb.appStatus.getRawData();
-    if (appStatus?.allHdDuplicateWalletsMerged) {
-      return;
+  async mergeDuplicateHDWallets({
+    password,
+    skipAppStatusCheck,
+  }: {
+    password: string;
+    skipAppStatusCheck?: boolean;
+  }) {
+    if (!skipAppStatusCheck) {
+      const appStatus = await simpleDb.appStatus.getRawData();
+      if (appStatus?.allHdDuplicateWalletsMerged && !skipAppStatusCheck) {
+        return;
+      }
     }
 
     try {
-      const sameWallets = await this.getLocalSameHDWallets({ password });
+      const sameWallets = await this.getLocalSameHDWallets({
+        password,
+        skipAppStatusCheck,
+      });
 
       if (sameWallets?.length) {
         const walletsToRemove: string[] = [];
