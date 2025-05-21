@@ -30,14 +30,17 @@ const ClaimPage = () => {
   const {
     accountId,
     networkId,
-    details,
     amount: initialAmount,
+    claimableAmount,
     identity,
+    provider,
+    token,
     onSuccess,
   } = route.params;
-  const { token, provider } = details;
-  const { price, info: tokenInfo } = token;
-  const actionTag = buildLocalTxStatusSyncId(details);
+  const actionTag = buildLocalTxStatusSyncId({
+    providerName: provider.name,
+    tokenSymbol: token.symbol,
+  });
   const appNavigation = useAppNavigation();
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
@@ -46,7 +49,7 @@ const ClaimPage = () => {
         amount,
         identity,
         vault: provider.vault || '',
-        symbol: tokenInfo.symbol,
+        symbol: token.symbol,
         provider: provider.name,
         morphoVault: provider.vault,
         stakingInfo: {
@@ -55,13 +58,13 @@ const ClaimPage = () => {
             providerName: provider.name,
           }),
           protocolLogoURI: provider.logoURI,
-          receive: { token: tokenInfo, amount },
+          receive: { token, amount },
           tags: [actionTag],
         },
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
-            token: tokenInfo,
+            token,
             stakingProtocol: provider.name,
           });
           onSuccess?.();
@@ -70,11 +73,13 @@ const ClaimPage = () => {
     },
     [
       handleClaim,
-      tokenInfo,
-      appNavigation,
-      provider,
-      actionTag,
       identity,
+      provider.vault,
+      provider.name,
+      provider.logoURI,
+      token,
+      actionTag,
+      appNavigation,
       onSuccess,
     ],
   );
@@ -89,7 +94,7 @@ const ClaimPage = () => {
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
-      symbol: tokenInfo.symbol,
+      symbol: token.symbol,
       action: 'claim',
       amount: '1',
       morphoVault: provider.vault,
@@ -102,7 +107,7 @@ const ClaimPage = () => {
     networkId,
     provider.name,
     provider.vault,
-    tokenInfo.symbol,
+    token.symbol,
     identity,
   ]);
 
@@ -111,18 +116,19 @@ const ClaimPage = () => {
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_claim_token },
-          { token: token.info.symbol },
+          { token: token.symbol },
         )}
       />
       <Page.Body>
         <UniversalClaim
           networkId={networkId}
-          price={price}
-          decimals={details.token.info.decimals}
+          // price={token.price}
+          price="0"
+          decimals={token.decimals}
           initialAmount={initialAmount}
-          balance={details.claimable ?? '0'}
-          tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI}
+          balance={claimableAmount ?? '0'}
+          tokenSymbol={token.symbol}
+          tokenImageUri={token.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
           providerLabel={providerLabel}

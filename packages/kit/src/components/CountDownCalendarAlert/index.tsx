@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { Alert, Badge, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 export interface ICountDownCalendarAlertProps {
   effectiveTimeAt: number;
+  description?: string;
+  descriptionTextProps?: ISizableTextProps;
 }
 
 const calculateTimeLeft = (effectiveTimeAt: number) => {
@@ -60,6 +63,8 @@ function TimeItem({
 
 export function CountDownCalendarAlert({
   effectiveTimeAt,
+  description,
+  descriptionTextProps,
 }: ICountDownCalendarAlertProps) {
   const intl = useIntl();
   const [timeLeft, setTimeLeft] = useState<{
@@ -86,8 +91,9 @@ export function CountDownCalendarAlert({
   return (
     <Alert fullBleed type="info" icon="Calendar3HistoryOutline">
       <XStack gap="$2" flex={1} ai="center">
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({ id: ETranslations.earn_event_ends_in })}
+        <SizableText size="$bodyMdMedium" {...descriptionTextProps}>
+          {description ||
+            intl.formatMessage({ id: ETranslations.earn_event_ends_in })}
         </SizableText>
         <XStack flex={1} ai="center" gap="$1.5">
           {shouldShowDays ? (

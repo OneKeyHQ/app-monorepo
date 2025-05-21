@@ -51,7 +51,7 @@ interface ISectionData {
   }[];
 }
 
-type IVaultAmount = Record<string, string>;
+type IVaultAmount = Record<string, Record<string, string>>;
 
 function EmptyData() {
   const intl = useIntl();
@@ -182,7 +182,7 @@ function List({
                                 tokenSymbol: item.token.symbol || '',
                               }}
                             >
-                              {vaultAmount?.[item.key] || 0}
+                              {vaultAmount?.[address]?.[item.key] || 0}
                             </NumberSizeableText>
                             {` ${intl.formatMessage({
                               id: ETranslations.earn_deposited,
@@ -305,6 +305,9 @@ const formatSections = (data: IEarnRewardItem[]) => {
   );
 };
 
+const buildAccountNetworkKey = (item: IEarnRewardItem) =>
+  `${item.accountAddress}-${item.networkId}`;
+
 export default function EarnReward() {
   const intl = useIntl();
 
@@ -345,7 +348,6 @@ export default function EarnReward() {
       fetchSales(),
       fetchTotalList(),
     ]);
-
     if (salesResult.status === 'fulfilled') {
       const data = salesResult.value;
       setUndistributedListData(formatSections(data.items));
@@ -365,7 +367,7 @@ export default function EarnReward() {
     const seenAccounts = new Set<string>();
     const processItems = (items: IEarnRewardItem[]) => {
       items.forEach((item) => {
-        const key = buildKey(item);
+        const key = buildAccountNetworkKey(item);
         if (!seenAccounts.has(key)) {
           seenAccounts.add(key);
           accounts.push({
@@ -395,7 +397,11 @@ export default function EarnReward() {
       if (keys[lastIndex].length) {
         keys[lastIndex] = keys[lastIndex].toLowerCase();
       }
-      newVaultAmount[keys.join(SEPARATOR)] = item.deposited;
+      if (!newVaultAmount[item.accountAddress]) {
+        newVaultAmount[item.accountAddress] = {};
+      }
+      newVaultAmount[item.accountAddress][keys.join(SEPARATOR)] =
+        item.deposited;
     }
     setVaultAmount(newVaultAmount);
   }, [fetchSales, fetchTotalList]);
