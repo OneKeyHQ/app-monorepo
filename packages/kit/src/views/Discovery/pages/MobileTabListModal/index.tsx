@@ -138,10 +138,19 @@ function MobileTabListModal() {
     triggerCloseTab.current = false;
   }, [tabs, setDisplayHomePage, navigation]);
 
-  const tabInitialScrollIndex = useMemo(
-    () => data.findIndex((t) => t.id === activeTabId),
-    [data, activeTabId],
-  );
+  const initialScrollIndex = useMemo(() => {
+    const index = data.findIndex((t) => t.id === activeTabId);
+
+    if (index === -1) {
+      return data.length - 1;
+    }
+
+    if (index < 6) {
+      return 0;
+    }
+
+    return index - 4;
+  }, [data, activeTabId]);
   const pinInitialScrollIndex = useMemo(
     () => pinnedData.findIndex((t) => t.id === activeTabId),
     [pinnedData, activeTabId],
@@ -424,9 +433,9 @@ function MobileTabListModal() {
       />
       <Page.Body>
         <ListView
-          initialScrollIndex={tabInitialScrollIndex}
+          initialScrollIndex={initialScrollIndex}
           // estimated item min size
-          estimatedItemSize={223}
+          estimatedItemSize={235}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
