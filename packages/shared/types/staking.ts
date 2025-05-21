@@ -398,12 +398,31 @@ export interface IEarnHistoryActionIcon {
   text: IEarnText;
 }
 
-export interface IEarnTooltip {
+export interface IEarnTextTooltip {
   type: 'text';
   data: IEarnText;
 }
 
-export type IEarnActionIcon = IEarnPopupActionIcon | IEarnLinkActionIcon;
+export interface IEarnRebateTooltip {
+  type: 'rebate';
+  data: {
+    title: IEarnText;
+    description: IEarnText;
+    text: IEarnText;
+    items: {
+      title: IEarnText;
+      button?: IEarnActionIcon;
+    }[];
+  };
+}
+
+export type IEarnTooltip = IEarnTextTooltip | IEarnRebateTooltip;
+
+export type IEarnActionIcon =
+  | IEarnPopupActionIcon
+  | IEarnLinkActionIcon
+  | IEarnHistoryActionIcon;
+
 interface IEarnCell {
   title: IEarnText;
   description: IEarnText;

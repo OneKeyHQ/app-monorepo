@@ -64,6 +64,7 @@ import {
 import { useHandleClaim } from '../ProtocolDetails/useHandleClaim';
 
 import { FAQSection } from './FAQSection';
+import { ShareEventsContext } from './ShareEventsProvider';
 
 function SubscriptionSection({
   subscriptionValue,
@@ -824,6 +825,12 @@ const ProtocolDetailsPage = () => {
   ]);
 
   const now = useMemo(() => Date.now(), []);
+  const contextValue = useMemo(
+    () => ({
+      onHistory,
+    }),
+    [onHistory],
+  );
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -852,61 +859,63 @@ const ProtocolDetailsPage = () => {
           </YStack>
         ) : null}
         <YStack px="$5" gap="$8">
-          <PageFrame
-            LoadingSkeleton={OverviewSkeleton}
-            loading={isLoadingState({ result: detailInfo, isLoading })}
-            error={isErrorState({ result: detailInfo, isLoading })}
-            onRefresh={run}
-          >
-            {detailInfo ? (
-              <YStack gap="$8">
-                {earnAccount?.accountAddress ? (
-                  <>
-                    <SubscriptionSection
-                      subscriptionValue={detailInfo.subscriptionValue}
-                      onConfirmText={depositButtonProps.text}
-                      confirmButtonProps={depositButtonProps.props}
-                      onCancelText={withdrawButtonProps.text}
-                      cancelButtonProps={withdrawButtonProps.props}
+          <ShareEventsContext.Provider value={contextValue}>
+            <PageFrame
+              LoadingSkeleton={OverviewSkeleton}
+              loading={isLoadingState({ result: detailInfo, isLoading })}
+              error={isErrorState({ result: detailInfo, isLoading })}
+              onRefresh={run}
+            >
+              {detailInfo ? (
+                <YStack gap="$8">
+                  {earnAccount?.accountAddress ? (
+                    <>
+                      <SubscriptionSection
+                        subscriptionValue={detailInfo.subscriptionValue}
+                        onConfirmText={depositButtonProps.text}
+                        confirmButtonProps={depositButtonProps.props}
+                        onCancelText={withdrawButtonProps.text}
+                        cancelButtonProps={withdrawButtonProps.props}
+                      />
+                      <AlertSection alerts={detailInfo.alerts} />
+                      <Divider />
+                      <PortfolioSection
+                        portfolios={detailInfo.portfolios}
+                        rewards={detailInfo.rewards}
+                        tokenInfo={tokenInfo}
+                      />
+                    </>
+                  ) : (
+                    <NoAddressWarning
+                      accountId={accountId}
+                      networkId={networkId}
+                      indexedAccountId={indexedAccountId}
+                      onCreateAddress={onCreateAddress}
                     />
-                    <AlertSection alerts={detailInfo.alerts} />
-                    <Divider />
-                    <PortfolioSection
-                      portfolios={detailInfo.portfolios}
-                      rewards={detailInfo.rewards}
-                      tokenInfo={tokenInfo}
-                    />
-                  </>
-                ) : (
-                  <NoAddressWarning
-                    accountId={accountId}
-                    networkId={networkId}
-                    indexedAccountId={indexedAccountId}
-                    onCreateAddress={onCreateAddress}
-                  />
-                )}
-                <ProfitSection profit={detailInfo.profit} />
-                <PeriodSection timeline={detailInfo.timeline} />
-                <ProtectionSection protection={detailInfo.protection} />
-                <ProviderSection provider={detailInfo.provider} />
-                <RiskSection risk={detailInfo.risk} />
-                <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
-              </YStack>
-            ) : null}
-            {renderPageFooter()}
-            {detailInfo ? (
-              <StakingTransactionIndicator
-                accountId={earnAccount?.accountId ?? ''}
-                networkId={networkId}
-                stakeTag={buildLocalTxStatusSyncId({
-                  providerName: tokenInfo?.provider || '',
-                  tokenSymbol: tokenInfo?.token.symbol || '',
-                })}
-                onRefresh={run}
-                onPress={onHistory}
-              />
-            ) : null}
-          </PageFrame>
+                  )}
+                  <ProfitSection profit={detailInfo.profit} />
+                  <PeriodSection timeline={detailInfo.timeline} />
+                  <ProtectionSection protection={detailInfo.protection} />
+                  <ProviderSection provider={detailInfo.provider} />
+                  <RiskSection risk={detailInfo.risk} />
+                  <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
+                </YStack>
+              ) : null}
+              {renderPageFooter()}
+              {detailInfo ? (
+                <StakingTransactionIndicator
+                  accountId={earnAccount?.accountId ?? ''}
+                  networkId={networkId}
+                  stakeTag={buildLocalTxStatusSyncId({
+                    providerName: tokenInfo?.provider || '',
+                    tokenSymbol: tokenInfo?.token.symbol || '',
+                  })}
+                  onRefresh={run}
+                  onPress={onHistory}
+                />
+              ) : null}
+            </PageFrame>
+          </ShareEventsContext.Provider>
         </YStack>
       </Page.Body>
     </Page>

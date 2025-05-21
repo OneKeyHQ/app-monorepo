@@ -38,6 +38,7 @@ import { StakingTransactionIndicator } from '../../components/StakingActivityInd
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
+import { ShareEventsContext } from '../ProtocolDetailsV2/ShareEventsProvider';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
 import { useHandleClaim } from './useHandleClaim';
@@ -394,6 +395,13 @@ const ProtocolDetailsPage = () => {
     withdrawButtonProps,
   ]);
 
+  const contextValue = useMemo(
+    () => ({
+      onHistory,
+    }),
+    [onHistory],
+  );
+  console.log('contextValue---', contextValue);
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -436,66 +444,68 @@ const ProtocolDetailsPage = () => {
             <CountDownCalendarAlert effectiveTimeAt={effectiveTime} />
           </YStack>
         ) : null}
-        <YStack px="$5" gap="$8">
-          <PageFrame
-            LoadingSkeleton={OverviewSkeleton}
-            loading={isLoadingState({ result, isLoading })}
-            error={isErrorState({ result, isLoading })}
-            onRefresh={run}
-          >
-            <ProtocolDetails details={result}>
-              {earnAccount?.accountAddress ? (
-                <>
-                  <StakedValueSection
-                    details={result}
-                    shouldRegisterBeforeStake={shouldRegisterBeforeStake}
-                    stakeButtonProps={stakeButtonProps}
-                    withdrawButtonProps={withdrawButtonProps}
-                    registerButtonProps={registerButtonProps}
-                    alerts={result?.provider.alerts}
-                  />
-                  <PortfolioSection
-                    details={result}
-                    onClaim={onClaim}
-                    onWithdraw={onWithdraw}
-                    onPortfolioDetails={onPortfolioDetails}
-                    unbondingDelegationList={unbondingDelegationList}
-                    onHistory={onHistory}
-                  />
-                  {trackingResp.length > 0 ? (
-                    <BabylonTrackingAlert
-                      accountId={earnAccount.accountId}
-                      networkId={networkId}
-                      provider={provider}
-                      symbol={symbol}
-                      onRefresh={onRefreshTracking}
+        <ShareEventsContext.Provider value={contextValue}>
+          <YStack px="$5" gap="$8">
+            <PageFrame
+              LoadingSkeleton={OverviewSkeleton}
+              loading={isLoadingState({ result, isLoading })}
+              error={isErrorState({ result, isLoading })}
+              onRefresh={run}
+            >
+              <ProtocolDetails details={result}>
+                {earnAccount?.accountAddress ? (
+                  <>
+                    <StakedValueSection
+                      details={result}
+                      shouldRegisterBeforeStake={shouldRegisterBeforeStake}
+                      stakeButtonProps={stakeButtonProps}
+                      withdrawButtonProps={withdrawButtonProps}
+                      registerButtonProps={registerButtonProps}
+                      alerts={result?.provider.alerts}
                     />
-                  ) : null}
-                </>
-              ) : (
-                <NoAddressWarning
-                  accountId={accountId}
+                    <PortfolioSection
+                      details={result}
+                      onClaim={onClaim}
+                      onWithdraw={onWithdraw}
+                      onPortfolioDetails={onPortfolioDetails}
+                      unbondingDelegationList={unbondingDelegationList}
+                      onHistory={onHistory}
+                    />
+                    {trackingResp.length > 0 ? (
+                      <BabylonTrackingAlert
+                        accountId={earnAccount.accountId}
+                        networkId={networkId}
+                        provider={provider}
+                        symbol={symbol}
+                        onRefresh={onRefreshTracking}
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  <NoAddressWarning
+                    accountId={accountId}
+                    networkId={networkId}
+                    indexedAccountId={indexedAccountId}
+                    onCreateAddress={onCreateAddress}
+                  />
+                )}
+              </ProtocolDetails>
+              {renderPageFooter()}
+              {result ? (
+                <StakingTransactionIndicator
+                  accountId={earnAccount?.accountId ?? ''}
                   networkId={networkId}
-                  indexedAccountId={indexedAccountId}
-                  onCreateAddress={onCreateAddress}
+                  stakeTag={buildLocalTxStatusSyncId({
+                    providerName: result.provider.name,
+                    tokenSymbol: result.token.info.symbol,
+                  })}
+                  onRefresh={run}
+                  onPress={onHistory}
                 />
-              )}
-            </ProtocolDetails>
-            {renderPageFooter()}
-            {result ? (
-              <StakingTransactionIndicator
-                accountId={earnAccount?.accountId ?? ''}
-                networkId={networkId}
-                stakeTag={buildLocalTxStatusSyncId({
-                  providerName: result.provider.name,
-                  tokenSymbol: result.token.info.symbol,
-                })}
-                onRefresh={run}
-                onPress={onHistory}
-              />
-            ) : null}
-          </PageFrame>
-        </YStack>
+              ) : null}
+            </PageFrame>
+          </YStack>
+        </ShareEventsContext.Provider>
       </Page.Body>
     </Page>
   );

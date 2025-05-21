@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -11,17 +11,23 @@ import {
   Stack,
   XStack,
   YStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
+  IEarnHistoryActionIcon,
   IEarnIcon,
   IEarnPopupActionIcon,
+  IEarnRebateTooltip,
   IEarnText,
   IEarnToken,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
+
+import { useShareEvents } from '../../pages/ProtocolDetailsV2/ShareEventsProvider';
 
 function PopupItemLine({
   icon,
@@ -126,6 +132,67 @@ function PopupContent({
   );
 }
 
+function RewardAmountPopoverContent({
+  tooltip,
+  onHistory,
+}: {
+  tooltip?: IEarnRebateTooltip;
+  onHistory?: (params?: { filterType?: string }) => void;
+}) {
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    setTimeout(() => {
+      onHistory?.({ filterType: 'rebate' });
+    }, 50);
+  }, [closePopover, onHistory]);
+  return (
+    <YStack p="$5">
+      <XStack>
+        <SizableText size="$bodyLgMedium" color={tooltip?.data.title.color}>
+          {tooltip?.data.description.text}
+        </SizableText>
+      </XStack>
+      <XStack pt="$2">
+        <SizableText
+          size="$bodySm"
+          color={tooltip?.data.text.color || '$textSubdued'}
+        >
+          {tooltip?.data.text.text}
+        </SizableText>
+      </XStack>
+      {tooltip?.data.items.map((item, index) => {
+        const button = item.button as IEarnHistoryActionIcon;
+        const isHistoryButton = button?.type === 'history' && !button?.disabled;
+        return (
+          <XStack
+            key={index}
+            jc="space-between"
+            pt="$4"
+            onPress={isHistoryButton ? handlePress : undefined}
+          >
+            <SizableText size="$bodyMdMedium" color={item?.title?.color}>
+              {item?.title?.text}
+            </SizableText>
+            {isHistoryButton ? (
+              <XStack gap="$0.5" cursor="pointer">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {button?.text.text}
+                </SizableText>
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  color="$iconSubdued"
+                  size="$5"
+                />
+              </XStack>
+            ) : null}
+          </XStack>
+        );
+      })}
+    </YStack>
+  );
+}
+
 export function GridItem({
   title,
   description,
@@ -137,6 +204,7 @@ export function GridItem({
   tooltip?: IEarnTooltip;
   actionIcon?: IEarnActionIcon;
 }) {
+  const { onHistory } = useShareEvents();
   const actionIconButton = useMemo(() => {
     let onPress: undefined | IIconButtonProps['onPress'];
     let icon: IKeyOfIcons | undefined;
@@ -180,11 +248,32 @@ export function GridItem({
         variant="tertiary"
       />
     ) : null;
-  }, [actionIcon?.data, actionIcon?.type, title.text]);
+  }, [actionIcon, title.text]);
 
   const tooltipElement = useMemo(() => {
     if (tooltip) {
       switch (tooltip.type) {
+        case 'rebate':
+          return (
+            <Popover
+              placement="top"
+              title={title.text}
+              renderTrigger={
+                <IconButton
+                  iconColor="$iconSubdued"
+                  size="small"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                />
+              }
+              renderContent={
+                <RewardAmountPopoverContent
+                  tooltip={tooltip}
+                  onHistory={onHistory}
+                />
+              }
+            />
+          );
         case 'text':
         default:
           return (
@@ -211,7 +300,7 @@ export function GridItem({
       }
     }
     return null;
-  }, [title.text, tooltip]);
+  }, [onHistory, title.text, tooltip]);
 
   return (
     <YStack
