@@ -169,8 +169,9 @@ export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Prime login invalid, please login again',
+        defaultMessage: 'OneKeyID login invalid, please login again',
         defaultAutoToast: true,
+        defaultKey: ETranslations.id_login_expired_description,
       }),
     );
   }

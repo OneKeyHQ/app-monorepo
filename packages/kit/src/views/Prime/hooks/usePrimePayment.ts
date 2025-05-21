@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
+import { isEqual } from 'lodash';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -57,7 +58,7 @@ export function usePrimePayment(): IUsePrimePayment {
       throw new Error('AppUserId not match');
     }
 
-    setPrimePersistAtom((prev) => {
+    setPrimePersistAtom((prev): IPrimeUserInfo => {
       const newData: IPrimeUserInfo = {
         ...prev,
         subscriptionManageUrl: customerInfo.managementURL || '',
@@ -77,6 +78,14 @@ export function usePrimePayment(): IUsePrimePayment {
           };
         } else {
           newData.primeSubscription = undefined;
+        }
+
+        if (!isEqual(prev.primeSubscription, newData.primeSubscription)) {
+          console.log('primeSubscription is different with server', {
+            prev,
+            newData,
+            customerInfo,
+          });
         }
       }
       return perfUtils.buildNewValueIfChanged(prev, newData);
