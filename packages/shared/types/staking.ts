@@ -322,9 +322,9 @@ export interface IEarnIcon {
 
 export interface IEarnPopupActionIcon {
   type: 'popup';
-  icon?: IEarnIcon;
   data: {
     bulletList: IEarnText[];
+    icon?: IEarnIcon;
     items: {
       icon: IEarnIcon;
       title: IEarnText;
@@ -354,7 +354,7 @@ export type IEarnActionIcon = IEarnPopupActionIcon | IEarnLinkActionIcon;
 interface IEarnCell {
   title: IEarnText;
   description: IEarnText;
-  actionIcon?: IEarnActionIcon;
+  button?: IEarnActionIcon;
   tooltip?: IEarnText;
 }
 

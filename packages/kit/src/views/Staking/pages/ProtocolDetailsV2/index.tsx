@@ -402,7 +402,7 @@ function ProfitSection({ profit }: { profit: IStakeEarnDetail['profit'] }) {
               key={cell.title.text}
               title={cell.title}
               description={cell.description}
-              actionIcon={cell.actionIcon}
+              actionIcon={cell.button}
               tooltip={cell.tooltip}
             />
           ))}
@@ -430,7 +430,7 @@ function ProviderSection({
               key={cell.title.text}
               title={cell.title}
               description={cell.description}
-              actionIcon={cell.actionIcon}
+              actionIcon={cell.button}
               tooltip={cell?.tooltip}
             />
           ))}

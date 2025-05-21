@@ -66,8 +66,9 @@ function PopupContent({
             <XStack key={index} gap="$2" ai="center">
               <XStack
                 h="$1"
-                w="1"
-                m="$1.5"
+                w="$1"
+                my="$1.5"
+                mx="$2"
                 borderRadius="$full"
                 bg="$iconSubdued"
               />
@@ -93,24 +94,27 @@ export function GridItem({
   tooltip?: IEarnText;
   actionIcon?: IEarnActionIcon;
 }) {
-  const iconInfo = (actionIcon as IEarnPopupActionIcon)?.icon;
   const actionIconButton = useMemo(() => {
     let onPress: undefined | IIconButtonProps['onPress'];
-    let icon: IKeyOfIcons | undefined = iconInfo?.icon;
+    let icon: IKeyOfIcons | undefined;
     switch (actionIcon?.type) {
       case 'link':
         icon = 'OpenOutline';
         onPress = () => openUrlExternal(actionIcon.data);
         break;
       case 'popup':
-        return icon ? (
+        return actionIcon.data.icon ? (
           <Popover
             floatingPanelProps={{
               w: 320,
             }}
             title={title.text}
             renderTrigger={
-              <IconButton icon={icon} size="small" variant="tertiary" />
+              <IconButton
+                icon={actionIcon.data.icon.icon}
+                size="small"
+                variant="tertiary"
+              />
             }
             renderContent={
               <PopupContent
@@ -126,13 +130,13 @@ export function GridItem({
     return icon ? (
       <IconButton
         size="small"
-        onPress={onPress}
         icon={icon}
+        onPress={onPress}
         color="$iconSubdued"
         variant="tertiary"
       />
     ) : null;
-  }, [actionIcon?.data, actionIcon?.type, iconInfo?.icon, title.text]);
+  }, [actionIcon?.data, actionIcon?.type, title.text]);
   return (
     <YStack
       p="$3"
