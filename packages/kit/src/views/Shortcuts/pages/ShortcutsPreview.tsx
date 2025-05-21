@@ -17,6 +17,10 @@ const sections = [
     titleId: ETranslations.global_general,
     items: [
       {
+        titleId: ETranslations.global_search,
+        shortcutKey: EShortcutEvents.UniversalSearch,
+      },
+      {
         titleId: ETranslations.shortcuts_account_selector,
         shortcutKey: EShortcutEvents.AccountSelector,
       },
