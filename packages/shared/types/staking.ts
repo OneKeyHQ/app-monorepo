@@ -341,7 +341,9 @@ export interface IEarnPopupActionIcon {
 
 export interface IEarnLinkActionIcon {
   type: 'link';
-  data: string;
+  data: {
+    link: string;
+  };
 }
 
 export interface IEarnDepositActionIcon {
@@ -387,7 +389,9 @@ interface IEarnRisk {
     icon: IEarnIcon;
     actionButton: {
       type: 'link';
-      text: IEarnText;
+      data: {
+        link: string;
+      };
     };
   }[];
 }

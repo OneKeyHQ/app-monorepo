@@ -474,7 +474,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                 size="small"
                 bg="transparent"
                 onPress={() => {
-                  openUrlExternal(item?.actionButton?.text.text);
+                  openUrlExternal(item?.actionButton?.data?.link);
                 }}
               />
             ) : null}

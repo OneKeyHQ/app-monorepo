@@ -143,7 +143,7 @@ export function GridItem({
     switch (actionIcon?.type) {
       case 'link':
         icon = 'OpenOutline';
-        onPress = () => openUrlExternal(actionIcon.data);
+        onPress = () => openUrlExternal(actionIcon.data.link);
         break;
       case 'popup':
         return actionIcon.data.icon ? (
