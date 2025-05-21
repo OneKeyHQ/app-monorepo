@@ -136,7 +136,9 @@ const BasicApproveBaseStakePage = () => {
 
   const providerLabel = useProviderLabel(providerName);
   const tokenSymbol = tokenInfo?.token.symbol || '';
-  const price = String(tokenInfo?.nativeToken?.price) || '0';
+  const price = tokenInfo?.nativeToken?.price
+    ? String(tokenInfo?.nativeToken?.price)
+    : '0';
   const balanceParsed = tokenInfo?.balanceParsed || '';
   const minAmount = protocolInfo?.minStakeAmount || '';
   const apr =

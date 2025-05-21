@@ -163,9 +163,11 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
 function ProtocolRewards({
   rewards,
   tokenInfo,
+  protocolInfo,
 }: {
   rewards: IStakeEarnDetail['rewards'];
   tokenInfo?: IEarnTokenInfo;
+  protocolInfo?: IProtocolInfo;
 }) {
   const intl = useIntl();
   const handleClaim = useHandleClaim({
@@ -251,14 +253,18 @@ function ProtocolRewards({
                   size="small"
                   variant="primary"
                   onPress={async () => {
+                    const claimAmount = protocolInfo?.claimable || '0';
                     await handleClaim({
                       symbol: token.token.symbol,
-                      provider: tokenInfo?.provider || '',
-                      // claimAmount: claimTokenInfo.amount,
-                      vault: '',
-                      claimAmount: '0',
+                      protocolInfo,
+                      tokenInfo: tokenInfo
+                        ? {
+                            ...tokenInfo,
+                            token: token.token,
+                          }
+                        : undefined,
+                      claimAmount,
                       claimTokenAddress: tokenInfo?.token.address,
-                      isReward: true,
                       isMorphoClaim: !!(
                         tokenInfo?.provider &&
                         earnUtils.isMorphoProvider({
@@ -270,10 +276,10 @@ function ProtocolRewards({
                         protocol: earnUtils.getEarnProviderName({
                           providerName: tokenInfo?.provider || '',
                         }),
-                        protocolLogoURI: '',
+                        protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
                           token: token.token,
-                          amount: '0',
+                          amount: claimAmount,
                         },
                         tags: [
                           buildLocalTxStatusSyncId({
@@ -313,10 +319,12 @@ function PortfolioSection({
   portfolios,
   rewards,
   tokenInfo,
+  protocolInfo,
 }: {
   portfolios: IStakeEarnDetail['portfolios'];
   rewards: IStakeEarnDetail['rewards'];
   tokenInfo?: IEarnTokenInfo;
+  protocolInfo?: IProtocolInfo;
 }) {
   const renderItem = useCallback(
     (item: IStakeEarnDetail['portfolios']['items'][0]) => {
@@ -374,7 +382,11 @@ function PortfolioSection({
      ) : null} */}
         </XStack>
         <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
-        <ProtocolRewards rewards={rewards} tokenInfo={tokenInfo} />
+        <ProtocolRewards
+          rewards={rewards}
+          tokenInfo={tokenInfo}
+          protocolInfo={protocolInfo}
+        />
       </YStack>
       <Divider />
     </>
@@ -654,6 +666,8 @@ const ProtocolDetailsPage = () => {
           unstakingPeriod: resultV1.unstakingPeriod,
           maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
           minUnstakeAmount: resultV1.provider.minUnstakeAmount,
+          // --- claim
+          claimable: resultV1.claimable,
         }
       : undefined;
   }, [detailInfo?.protocol, resultV1]);
@@ -883,6 +897,7 @@ const ProtocolDetailsPage = () => {
                         portfolios={detailInfo.portfolios}
                         rewards={detailInfo.rewards}
                         tokenInfo={tokenInfo}
+                        protocolInfo={protocolInfo}
                       />
                     </>
                   ) : (

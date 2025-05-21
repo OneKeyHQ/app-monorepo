@@ -212,7 +212,9 @@ function BasicStakePage() {
   }, [estimateFeeUTXO]);
   const providerLabel = useProviderLabel(providerName);
   const tokenSymbol = tokenInfo?.token.symbol || '';
-  const price = String(tokenInfo?.nativeToken?.price) || '0';
+  const price = tokenInfo?.nativeToken?.price
+    ? String(tokenInfo?.nativeToken?.price)
+    : '0';
   const balanceParsed = tokenInfo?.balanceParsed || '';
   const apr =
     protocolInfo?.aprWithoutFee && Number(protocolInfo.aprWithoutFee) > 0

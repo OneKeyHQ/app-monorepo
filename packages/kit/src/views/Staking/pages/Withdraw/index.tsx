@@ -43,7 +43,9 @@ const WithdrawPage = () => {
   const providerName = protocolInfo?.provider || '';
   const active = protocolInfo?.activeBalance;
   const overflow = protocolInfo?.overflowBalance;
-  const price = String(tokenInfo?.nativeToken?.price) || '0';
+  const price = tokenInfo?.nativeToken?.price
+    ? String(tokenInfo?.nativeToken?.price)
+    : '0';
   const vault = protocolInfo?.approve?.approveTarget || '';
   const actionTag = buildLocalTxStatusSyncId({
     providerName,

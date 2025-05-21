@@ -296,6 +296,8 @@ export type IProtocolInfo = {
   unstakingPeriod?: number;
   maxUnstakeAmount?: string;
   minUnstakeAmount?: number;
+
+  claimable?: string;
 };
 
 export interface IEarnToken {
