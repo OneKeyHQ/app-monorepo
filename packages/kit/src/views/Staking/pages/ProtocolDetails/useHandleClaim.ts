@@ -58,7 +58,7 @@ export const useHandleClaim = ({
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
-          symbol: 'USDC',
+          symbol,
           provider,
         });
       if (!stakingConfig) {

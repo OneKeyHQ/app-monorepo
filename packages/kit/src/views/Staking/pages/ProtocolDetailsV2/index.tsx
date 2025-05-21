@@ -326,6 +326,10 @@ function PortfolioSection({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
+  const handleClaim = useHandleClaim({
+    accountId: tokenInfo?.accountId || '',
+    networkId: tokenInfo?.networkId || '',
+  });
   const renderItem = useCallback(
     (item: IStakeEarnDetail['portfolios']['items'][0]) => {
       switch (item.type) {
@@ -358,11 +362,58 @@ function PortfolioSection({
                   </Badge>
                 ) : null}
               </XStack>
+              {item?.buttons?.[0]?.type === 'claim' ? (
+                <Button
+                  size="small"
+                  disabled={item?.buttons?.[0]?.disabled}
+                  variant="primary"
+                  onPress={async () => {
+                    const claimAmount = protocolInfo?.claimable || '0';
+                    await handleClaim({
+                      symbol: item.token.symbol,
+                      protocolInfo,
+                      tokenInfo: tokenInfo
+                        ? {
+                            ...tokenInfo,
+                            token: item.token,
+                          }
+                        : undefined,
+                      claimAmount,
+                      claimTokenAddress: tokenInfo?.token.address,
+                      isMorphoClaim: !!(
+                        tokenInfo?.provider &&
+                        earnUtils.isMorphoProvider({
+                          providerName: tokenInfo?.provider,
+                        })
+                      ),
+                      stakingInfo: {
+                        label: EEarnLabels.Claim,
+                        protocol: earnUtils.getEarnProviderName({
+                          providerName: tokenInfo?.provider || '',
+                        }),
+                        protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+                        receive: {
+                          token: item.token,
+                          amount: claimAmount,
+                        },
+                        tags: [
+                          buildLocalTxStatusSyncId({
+                            providerName: tokenInfo?.provider || '',
+                            tokenSymbol: item.token.symbol,
+                          }),
+                        ],
+                      },
+                    });
+                  }}
+                >
+                  {item?.buttons?.[0]?.text.text}
+                </Button>
+              ) : null}
             </XStack>
           );
       }
     },
-    [],
+    [handleClaim, protocolInfo, tokenInfo],
   );
   return portfolios?.items?.length ? (
     <>

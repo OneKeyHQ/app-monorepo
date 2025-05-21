@@ -420,9 +420,17 @@ export interface IEarnRebateTooltip {
 
 export type IEarnTooltip = IEarnTextTooltip | IEarnRebateTooltip;
 
+
+export interface IEarnClaimActionIcon {
+  type: 'claim';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
+  | IEarnClaimActionIcon
   | IEarnHistoryActionIcon;
 
 interface IEarnCell {
@@ -488,6 +496,7 @@ export interface IStakeEarnDetail {
       title: IEarnText;
       description: IEarnText;
       badge: IEarnBadge;
+      buttons?: IEarnActionIcon[];
     }[];
   };
   timeline: {
