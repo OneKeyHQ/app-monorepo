@@ -25,6 +25,7 @@ import type {
   IDialogContainerProps,
   IDialogInstance,
 } from '@onekeyhq/components/src/composite/Dialog/type';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EGalleryRoutes,
@@ -382,11 +383,9 @@ const DialogGallery = () => (
               Dialog.cancel
             </Button>
             <Button
-              onPress={() =>
-                Dialog.loading({
-                  title: 'confirm',
-                })
-              }
+              onPress={async () => {
+                await backgroundApiProxy.serviceApp.demoDialogLoadingSample();
+              }}
             >
               Dialog.loading
             </Button>
@@ -1045,6 +1044,39 @@ const DialogGallery = () => (
             </YStack>
           );
         },
+      },
+      {
+        title: 'with icons',
+        element: (
+          <YStack gap="$4">
+            <Button
+              icon="ErrorOutline"
+              onPress={() => {
+                Dialog.show({
+                  icon: 'ErrorOutline',
+                  tone: 'warning',
+                  title: 'Error',
+                  description: 'This is an error dialog',
+                });
+              }}
+            >
+              ErrorOutline(warning)
+            </Button>
+            <Button
+              icon="ErrorOutline"
+              onPress={() => {
+                Dialog.show({
+                  icon: 'ErrorOutline',
+                  tone: 'destructive',
+                  title: 'Error',
+                  description: 'This is an error dialog',
+                });
+              }}
+            >
+              ErrorOutline(destructive)
+            </Button>
+          </YStack>
+        ),
       },
     ]}
   />

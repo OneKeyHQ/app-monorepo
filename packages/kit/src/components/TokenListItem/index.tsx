@@ -4,6 +4,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -23,7 +24,8 @@ export type ITokenListItemProps = {
   disabled?: boolean;
   titleMatchStr?: IFuseResultMatch;
   moreComponent?: React.ReactNode;
-} & IListItemProps;
+} & IListItemProps &
+  IStackProps;
 
 export function TokenListItem({
   tokenImageSrc,

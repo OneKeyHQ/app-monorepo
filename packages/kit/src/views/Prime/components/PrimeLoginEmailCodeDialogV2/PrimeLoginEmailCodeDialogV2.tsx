@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,10 +15,15 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+
+import type { IPrivyState } from '../../hooks/usePrivyUniversalV2/usePrivyUniversalV2Types';
+
 const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
+  privyState?: IPrivyState;
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
@@ -29,14 +34,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
+  const isResendingRef = useRef(isResending);
+  isResendingRef.current = isResending;
   const [verificationCode, setVerificationCode] = useState('');
   const [state, setState] = useState<{ status: 'initial' | 'error' | 'done' }>({
     status: 'initial',
   });
   const intl = useIntl();
+  const { isReady } = usePrimeAuthV2();
+  // https://auth.privy.io/api/v1/passwordless/init
+  const [isApiReady, setIsApiReady] = useState(false);
 
   const sendEmailVerificationCode = useCallback(async () => {
-    if (isResending) {
+    if (isResendingRef.current) {
       return;
     }
     setIsResending(true);
@@ -44,16 +54,33 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     setVerificationCode('');
     try {
       await sendCode({ email });
+      setIsApiReady(true);
       setCountdown(COUNTDOWN_TIME);
     } finally {
       setIsResending(false);
     }
     defaultLogger.referral.page.signupOneKeyID();
-  }, [email, isResending, sendCode]);
+  }, [email, sendCode]);
+
+  useEffect(() => {
+    if (isReady) {
+      void sendEmailVerificationCode();
+    }
+
+    // await pRetry(
+    //   async () => {
+    //     await sendCode({ email: data.email });
+    //   },
+    //   {
+    //     retries: 2,
+    //     maxTimeout: 10_000,
+    //   },
+    // );
+  }, [isReady, sendEmailVerificationCode]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
-    if (countdown > 0) {
+    if (countdown > 0 && isApiReady) {
       timer = setTimeout(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
@@ -63,16 +90,23 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         clearTimeout(timer);
       }
     };
-  }, [countdown]);
+  }, [countdown, isApiReady]);
 
   const buttonText = useMemo(() => {
-    if (countdown > 0)
+    if (!isApiReady) {
+      return intl.formatMessage({
+        id: ETranslations.global_processing,
+      });
+    }
+
+    if (countdown > 0) {
       return `${intl.formatMessage({
         id: ETranslations.prime_code_resend,
       })} (${countdown}s)`;
+    }
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
-  }, [intl, countdown]);
+  }, [intl, countdown, isApiReady]);
 
   const handleConfirm = useCallback(async () => {
     if (onConfirm) {
@@ -103,12 +137,27 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       defaultLogger.referral.page.signupOneKeyIDResult(true);
     } catch (error) {
       console.error('prime login error', error);
-      setState({ status: 'error' });
+      const e = error as Error | undefined;
+      if (
+        e?.message &&
+        [
+          'Too many requests. Please wait to try again.',
+          'Must initialize a passwordless code flow first',
+        ].includes(e?.message)
+      ) {
+        Toast.error({
+          title: e?.message,
+        });
+        void sendEmailVerificationCode();
+      } else {
+        setState({ status: 'error' });
+      }
       defaultLogger.referral.page.signupOneKeyIDResult(false);
     } finally {
       setIsSubmittingVerificationCode(false);
     }
   }, [
+    sendEmailVerificationCode,
     onConfirm,
     isSubmittingVerificationCode,
     verificationCode,
@@ -144,7 +193,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             width="auto"
             size="small"
             variant="tertiary"
-            disabled={countdown > 0 || isResending}
+            disabled={countdown > 0 || isResending || !isApiReady}
             onPress={sendEmailVerificationCode}
           >
             {buttonText}
@@ -174,7 +223,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         showCancelButton={false}
         confirmButtonProps={{
           loading: isSubmittingVerificationCode,
-          disabled: verificationCode.length !== 6,
+          disabled: verificationCode.length !== 6 || !isReady || !isApiReady,
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_next,

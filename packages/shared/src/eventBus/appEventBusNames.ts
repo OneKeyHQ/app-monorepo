@@ -64,6 +64,7 @@ export enum EAppEventBusNames {
   ShowSystemDiskFullWarning = 'ShowSystemDiskFullWarning',
   SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
   SwapApprovingSuccess = 'SwapApprovingSuccess',
+  SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',

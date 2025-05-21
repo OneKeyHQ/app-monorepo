@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import zxcvbn from 'zxcvbn';
 
 import {
@@ -17,20 +18,46 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function PasswordStrengthBar({ score }: { score: number }) {
+  const intl = useIntl();
   const getStrengthConfig = () => {
     switch (score) {
       case 2:
-        return { width: '40%', color: '$bgCriticalStrong', text: 'Weak' };
+        return {
+          width: '40%',
+          color: '$bgCriticalStrong',
+          text: intl.formatMessage({
+            id: ETranslations.prime_password_level_weak,
+          }),
+        };
       case 3:
-        return { width: '70%', color: '$bgInfoStrong', text: 'Good' };
+        return {
+          width: '70%',
+          color: '$bgInfoStrong',
+          text: intl.formatMessage({
+            id: ETranslations.prime_password_level_good,
+          }),
+        };
       case 4:
-        return { width: '100%', color: '$bgSuccessStrong', text: 'Strong' };
+        return {
+          width: '100%',
+          color: '$bgSuccessStrong',
+          text: intl.formatMessage({
+            id: ETranslations.prime_password_level_strong,
+          }),
+        };
       case 0:
       case 1:
       default:
-        return { width: '20%', color: '$bgCriticalStrong', text: 'Weak' };
+        return {
+          width: '20%',
+          color: '$bgCriticalStrong',
+          text: intl.formatMessage({
+            id: ETranslations.prime_password_level_weak,
+          }),
+        };
     }
   };
 
@@ -57,11 +84,15 @@ function PasswordStrengthBar({ score }: { score: number }) {
 export function PrimeLoginPasswordDialog({
   data,
   promiseId,
+  richTextDescription,
 }: {
   data: IPrimeLoginDialogAtomPasswordData | undefined;
   promiseId: number;
+  richTextDescription?: string;
 }) {
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const intl = useIntl();
 
   const isRegister = data?.isRegister;
   const email = data?.email || '';
@@ -150,6 +181,20 @@ export function PrimeLoginPasswordDialog({
         await backgroundApiProxy.serviceMasterPassword.ensurePrimeLoginValidPassword(
           encodedPassword,
         );
+
+        if (
+          data?.isVerifyMasterPassword &&
+          data?.serverUserInfo &&
+          !data?.isRegister
+        ) {
+          await backgroundApiProxy.serviceMasterPassword.verifyServerMasterPasswordByServerUserInfo(
+            {
+              serverUserInfo: data.serverUserInfo,
+              masterPassword: encodedPassword,
+            },
+          );
+        }
+
         await backgroundApiProxy.servicePrime.resolvePrimeLoginPasswordDialog({
           promiseId,
           password: encodedPassword,
@@ -159,45 +204,55 @@ export function PrimeLoginPasswordDialog({
         throw error;
       }
     },
-    [form, promiseId],
+    [
+      form,
+      data?.isVerifyMasterPassword,
+      data?.serverUserInfo,
+      data?.isRegister,
+      promiseId,
+    ],
   );
-
-  const states = useMemo(() => {
-    let title = 'Welcome back';
-    let description = `Manage your OneKey ID <email>${email}</email>`;
-    if (isRegister) {
-      title = 'Setup OneKey ID Master Password';
-      description = 'Please enter a password to secure your sync data';
-      // description = `<email>${email}</email> is not registered yet, we will create a new account for you.`;
-    }
-    return {
-      title,
-      description,
-    };
-  }, [email, isRegister]);
 
   return (
     <Stack>
-      <Dialog.Title>{states.title}</Dialog.Title>
-      <RichSizeableText
-        size="$bodyLg"
-        mt="$1.5"
-        linkList={{
-          email: {
-            url: undefined,
-            textDecorationLine: 'underline',
-            color: '$textDefault',
-          },
-        }}
-      >
-        {states.description}
-      </RichSizeableText>
-      <Stack pt="$4">
+      {richTextDescription ? (
+        <RichSizeableText
+          size="$bodyLg"
+          mt="$1.5"
+          pb="$4"
+          linkList={{
+            email: {
+              url: undefined,
+              textDecorationLine: 'underline',
+              color: '$textDefault',
+            },
+          }}
+        >
+          {richTextDescription}
+        </RichSizeableText>
+      ) : null}
+      <Stack>
         <YStack gap="$4">
           <Form form={form}>
+            {data?.isChangeMasterPassword && data?.email ? (
+              <SizableText color="$textSubdued" size="$bodyMd">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.prime_new_password_description,
+                  },
+                  {
+                    email: data?.email,
+                  },
+                )}
+              </SizableText>
+            ) : null}
             <Form.Field
               name="password"
-              label="Password"
+              label={intl.formatMessage({
+                id: data?.isChangeMasterPassword
+                  ? ETranslations.prime_new_password
+                  : ETranslations.prime_password,
+              })}
               labelAddon={
                 !isRegister ? (
                   <XStack>
@@ -213,7 +268,9 @@ export function PrimeLoginPasswordDialog({
                         );
                       }}
                     >
-                      Forget password?
+                      {intl.formatMessage({
+                        id: ETranslations.prime_forget_password,
+                      })}
                     </Button>
                   </XStack>
                 ) : null
@@ -240,7 +297,11 @@ export function PrimeLoginPasswordDialog({
               <Input
                 autoFocus
                 allowSecureTextEye
-                placeholder="Password"
+                placeholder={intl.formatMessage({
+                  id: data?.isRegister
+                    ? ETranslations.prime_strong_password
+                    : ETranslations.prime_password,
+                })}
                 onSubmitEditing={() => {
                   void submit();
                 }}
@@ -249,12 +310,16 @@ export function PrimeLoginPasswordDialog({
             {isRegister ? (
               <Form.Field
                 name="confirmPassword"
-                label="Confirm Password"
+                label={intl.formatMessage({
+                  id: ETranslations.auth_confirm_password_form_label,
+                })}
                 rules={{
                   validate: isRegister
                     ? async (value) => {
                         if (form.getValues().password !== value) {
-                          return 'Password does not match';
+                          return intl.formatMessage({
+                            id: ETranslations.prime_error_passcode_not_match,
+                          });
                         }
                         return true;
                       }
@@ -271,7 +336,9 @@ export function PrimeLoginPasswordDialog({
               >
                 <Input
                   allowSecureTextEye
-                  placeholder="Confirm Password"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.auth_confirm_password_form_placeholder,
+                  })}
                   onSubmitEditing={() => {
                     void submit();
                   }}
@@ -279,33 +346,55 @@ export function PrimeLoginPasswordDialog({
               </Form.Field>
             ) : null}
 
-            {isRegister ? (
-              <Stack>
-                <Checkbox
-                  label="At least 12 characters"
-                  value={passwordVerifyState.minLength}
-                />
-                <Checkbox
-                  label="At least 1 number"
-                  value={passwordVerifyState.minNumberCharacter}
-                />
-                <Checkbox
-                  label="At least 1 letter"
-                  value={passwordVerifyState.minLetterCharacter}
-                />
-                <Checkbox
-                  label="At least 1 special character"
-                  value={passwordVerifyState.minSpecialCharacter}
-                />
-                <PasswordStrengthBar score={passwordVerifyState.score} />
-              </Stack>
-            ) : null}
+            {isRegister
+              ? (() => {
+                  const labelProps = {
+                    variant: '$bodyMd',
+                  };
+                  const containerProps = {
+                    py: '$1',
+                  };
+                  return (
+                    <Stack>
+                      <Checkbox
+                        label={intl.formatMessage({
+                          id: ETranslations.prime_strong_password_desc,
+                        })}
+                        labelProps={labelProps}
+                        containerProps={containerProps}
+                        value={passwordVerifyState.minLength}
+                      />
+                      <Checkbox
+                        label="At least 1 number"
+                        labelProps={labelProps}
+                        containerProps={containerProps}
+                        value={passwordVerifyState.minNumberCharacter}
+                      />
+                      <Checkbox
+                        label="At least 1 letter"
+                        labelProps={labelProps}
+                        containerProps={containerProps}
+                        value={passwordVerifyState.minLetterCharacter}
+                      />
+                      <Checkbox
+                        label="At least 1 special character"
+                        labelProps={labelProps}
+                        containerProps={containerProps}
+                        value={passwordVerifyState.minSpecialCharacter}
+                      />
+                      <PasswordStrengthBar score={passwordVerifyState.score} />
+                    </Stack>
+                  );
+                })()
+              : null}
           </Form>
         </YStack>
       </Stack>
       <Dialog.Footer
         showCancelButton={false}
-        onConfirmText="Continue"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
         confirmButtonProps={{
           disabled: !form.formState.isValid,
         }}

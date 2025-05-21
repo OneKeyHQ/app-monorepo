@@ -1,9 +1,10 @@
-import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
+
+import requestHelper from '../request/requestHelper';
 
 import { buildServiceEndpoint } from './appConfig';
 
@@ -100,3 +101,11 @@ export const getEndpointsMapByDevSettings = (devSettings: {
   }
   return endpointsMap.prod;
 };
+
+export async function getEndpointByServiceName(
+  serviceName: EServiceEndpointEnum,
+) {
+  const devSettings = await requestHelper.getDevSettingsPersistAtom();
+  const map = getEndpointsMapByDevSettings(devSettings);
+  return map[serviceName];
+}

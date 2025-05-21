@@ -34,7 +34,7 @@ import { NFTListView } from '../components/NFTListView';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function NFTListContainer(props: ITabPageProps) {
+function NFTListContainer(_props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   const { updateAllNetworksState } = useAccountOverviewActions().current;

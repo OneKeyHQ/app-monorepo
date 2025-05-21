@@ -1,5 +1,6 @@
 /* eslint-disable no-var,vars-on-top */
 
+import type { ICheckCurrentDBIsMigratedToBucketResult } from '@onekeyhq/kit-bg/src/migrations/indexedToBucketsMigration/indexedToBucketsMigration';
 import type {
   ETranslations,
   ETranslationsMock,
@@ -28,6 +29,9 @@ type IOneKeyPerfTrace = {
 declare global {
   var $$appGlobals: IAppGlobals;
   var $onekeySystemDiskIsFull: boolean | undefined;
+  var $indexedDBIsMigratedToBucket:
+    | ICheckCurrentDBIsMigratedToBucketResult
+    | undefined;
 
   // eslint-disable-next-line
   // var onekey: WindowOneKey;

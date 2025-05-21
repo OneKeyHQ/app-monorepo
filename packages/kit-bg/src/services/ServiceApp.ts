@@ -107,7 +107,11 @@ class ServiceApp extends ServiceBase {
       const names = await storageBuckets?.keys();
       if (names) {
         for (const name of names) {
-          await storageBuckets?.delete(name);
+          try {
+            await storageBuckets?.delete(name);
+          } catch (error) {
+            console.error('storageBuckets.delete() error', error);
+          }
         }
       }
     } catch {
@@ -116,7 +120,7 @@ class ServiceApp extends ServiceBase {
 
     await timerUtils.wait(100);
 
-    const shouldDeleteAllOtherIndexedDBs = platformEnv.isProduction;
+    const shouldDeleteAllOtherIndexedDBs = true;
 
     try {
       if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
@@ -219,11 +223,26 @@ class ServiceApp extends ServiceBase {
         console.error('desktopApi.storeClear() error', error);
       }
     }
+  }
 
+  @backgroundMethod()
+  async resetApp() {
+    // logout privy is called in UI hooks
+    void this.backgroundApi.servicePrime.apiLogout();
+    void this.backgroundApi.serviceNotification.unregisterClient();
+    // logout from Google Drive
+    if (platformEnv.isNativeAndroid && (await isAvailable())) {
+      void logoutFromGoogleDrive(true);
+    }
+    await timerUtils.wait(1000);
+
+    resetUtils.startResetting();
     try {
-      await this.backgroundApi.serviceNotification.unregisterClient();
-    } catch (error) {
-      //
+      await this.resetData();
+    } catch (e) {
+      console.error('resetData error', e);
+    } finally {
+      resetUtils.endResetting();
     }
 
     if (platformEnv.isWeb || platformEnv.isDesktop) {
@@ -240,30 +259,6 @@ class ServiceApp extends ServiceBase {
       }
     }
 
-    // logout from Google Drive
-    if (platformEnv.isNativeAndroid && (await isAvailable())) {
-      try {
-        await logoutFromGoogleDrive(true);
-      } catch {
-        console.error('logoutFromGoogleDrive error');
-      }
-      await timerUtils.wait(1000);
-    }
-  }
-
-  @backgroundMethod()
-  async resetApp() {
-    void this.backgroundApi.servicePrime.apiLogout();
-    await timerUtils.wait(1000);
-
-    resetUtils.startResetting();
-    try {
-      await this.resetData();
-    } catch (e) {
-      console.error('resetData error', e);
-    } finally {
-      resetUtils.endResetting();
-    }
     defaultLogger.setting.page.clearData({ action: 'ResetApp' });
     await timerUtils.wait(600);
 

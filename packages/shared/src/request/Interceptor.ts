@@ -1,3 +1,4 @@
+import { isNil } from 'lodash';
 import { Appearance } from 'react-native';
 
 import type {

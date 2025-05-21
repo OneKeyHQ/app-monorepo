@@ -25,19 +25,25 @@ if (process.env.NODE_ENV !== 'production') {
   // appGlobals.$$localforage = localforage;
 }
 
+export enum EWebStorageKeyPrefix {
+  AppStorage = 'app_storage_v5:',
+  SimpleDB = 'simple_db_v5:',
+  GlobalStates = 'g_states_v5:',
+}
+
 async function migrateFromLegacyStorage({
   indexed,
   legacyKeyPrefix,
   tableName,
 }: {
   indexed: IndexedDBPromised;
-  legacyKeyPrefix: string;
+  legacyKeyPrefix: EWebStorageKeyPrefix;
   tableName: string;
 }) {
   if (!legacyKeyPrefix) {
     return;
   }
-  if (legacyKeyPrefix === 'app_storage_v5:') {
+  if (legacyKeyPrefix === EWebStorageKeyPrefix.AppStorage) {
     return;
   }
   const allKeys = await indexed.getAllKeys(tableName);
@@ -53,7 +59,7 @@ async function migrateFromLegacyStorage({
   const keys = await legacyStorage.getAllKeys(undefined);
   for (const key of keys) {
     if (
-      legacyKeyPrefix === 'simple_db_v5:' &&
+      legacyKeyPrefix === EWebStorageKeyPrefix.SimpleDB &&
       key.startsWith(legacyKeyPrefix)
     ) {
       // debugger;
@@ -96,7 +102,7 @@ class WebStorage implements AsyncStorageStatic {
     dbName: string;
     bucketName: string;
     tableName: string;
-    legacyKeyPrefix: string;
+    legacyKeyPrefix: EWebStorageKeyPrefix;
   }) {
     this.tableName = tableName;
     // eslint-disable-next-line no-async-promise-executor

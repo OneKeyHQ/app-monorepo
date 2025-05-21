@@ -32,13 +32,27 @@ import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigatio
 
 const InAppNotification = () => {
   const [
-    { swapHistoryPendingList, swapApprovingTransaction },
+    {
+      swapHistoryPendingList,
+      swapApprovingTransaction,
+      speedSwapApprovingTransaction,
+    },
     setInAppNotificationAtom,
   ] = useInAppNotificationAtom();
   const swapApprovingTransactionRef = useRef(swapApprovingTransaction);
   if (swapApprovingTransactionRef.current !== swapApprovingTransaction) {
     swapApprovingTransactionRef.current = swapApprovingTransaction;
   }
+
+  const speedSwapApprovingTransactionRef = useRef(
+    speedSwapApprovingTransaction,
+  );
+  if (
+    speedSwapApprovingTransactionRef.current !== speedSwapApprovingTransaction
+  ) {
+    speedSwapApprovingTransactionRef.current = speedSwapApprovingTransaction;
+  }
+
   const intl = useIntl();
   const navigation = useAppNavigation();
   useEffect(() => {
@@ -278,6 +292,75 @@ const InAppNotification = () => {
     swapApprovingTransaction?.status,
     approvingSuccessAction,
   ]);
+
+  // speed swap approving state
+  useEffect(() => {
+    if (
+      speedSwapApprovingTransaction?.txId &&
+      speedSwapApprovingTransaction?.status ===
+        ESwapApproveTransactionStatus.PENDING
+    ) {
+      void backgroundApiProxy.serviceSwap.speedSwapApprovingStateAction();
+    } else {
+      void backgroundApiProxy.serviceSwap.cleanSpeedSwapApprovingInterval();
+    }
+  }, [
+    speedSwapApprovingTransaction?.txId,
+    speedSwapApprovingTransaction?.status,
+  ]);
+
+  useEffect(() => {
+    if (
+      speedSwapApprovingTransaction?.status ===
+      ESwapApproveTransactionStatus.FAILED
+    ) {
+      setInAppNotificationAtom((prev) => ({
+        ...prev,
+        speedSwapApprovingLoading: false,
+        speedSwapApprovingTransaction: undefined,
+      }));
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_failed,
+        }),
+      });
+    } else if (
+      speedSwapApprovingTransaction?.status ===
+      ESwapApproveTransactionStatus.CANCEL
+    ) {
+      setInAppNotificationAtom((prev) => ({
+        ...prev,
+        speedSwapApprovingLoading: false,
+        speedSwapApprovingTransaction: undefined,
+      }));
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_canceled,
+        }),
+      });
+    } else if (
+      speedSwapApprovingTransaction?.status ===
+      ESwapApproveTransactionStatus.SUCCESS
+    ) {
+      if (
+        !(
+          speedSwapApprovingTransactionRef.current?.resetApproveValue &&
+          Number(speedSwapApprovingTransactionRef.current?.resetApproveValue) >
+            0
+        )
+      ) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_approve_successful,
+          }),
+        });
+      } else {
+        appEventBus.emit(EAppEventBusNames.SwapSpeedApprovingReset, {
+          approvedSwapInfo: speedSwapApprovingTransactionRef.current,
+        });
+      }
+    }
+  }, [intl, setInAppNotificationAtom, speedSwapApprovingTransaction?.status]);
 
   return null;
 };

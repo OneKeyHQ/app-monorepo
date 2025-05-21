@@ -68,7 +68,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       {isPrime ? (
         <>
           <ActionList.Item
-            label="Manage subscription"
+            label={intl.formatMessage({
+              id: ETranslations.prime_manage_subscription,
+            })}
             icon="CreditCardOutline"
             onClose={handleActionListClose}
             onPress={async () => {

@@ -177,8 +177,10 @@ export function mergeDeriveTokenListMap({
         mergedToken.balance = new BigNumber(mergedToken.balance)
           .plus(value.balance)
           .toFixed();
-        mergedToken.balanceParsed = new BigNumber(mergedToken.balanceParsed)
-          .plus(value.balanceParsed)
+        mergedToken.balanceParsed = new BigNumber(
+          mergedToken.balanceParsed ?? 0,
+        )
+          .plus(value.balanceParsed ?? 0)
           .toFixed();
         mergedToken.frozenBalance = new BigNumber(
           mergedToken.frozenBalance ?? 0,
@@ -470,5 +472,26 @@ export function getMergedDeriveTokenData(params: {
     riskyTokenListMap,
     allTokenList,
     allTokenListMap,
+  };
+}
+
+export function getTokenPriceChangeStyle({
+  priceChange,
+}: {
+  priceChange: number;
+}) {
+  let changeColor = '$textSubdued';
+  let showPlusMinusSigns = false;
+  const priceChangeBN = new BigNumber(priceChange);
+  if (priceChangeBN.isGreaterThan(0)) {
+    changeColor = '$textSuccess';
+    showPlusMinusSigns = true;
+  } else if (priceChangeBN.isLessThan(0)) {
+    changeColor = '$textCritical';
+    showPlusMinusSigns = true;
+  }
+  return {
+    changeColor,
+    showPlusMinusSigns,
   };
 }

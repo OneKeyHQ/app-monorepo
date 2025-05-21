@@ -21,7 +21,7 @@ function CustomStepperItem({ title, description, ...props }: IStepItemProps) {
           flexDirection: 'row',
         },
       }}
-      renderTitle={({ status }) => {
+      renderTitle={() => {
         return (
           <SizableText size="$bodyMd" color="$textSubdued">
             {title}

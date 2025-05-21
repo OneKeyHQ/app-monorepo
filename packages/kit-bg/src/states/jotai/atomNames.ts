@@ -40,6 +40,7 @@ export enum EAtomNames {
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
+  notificationStatusAtom = 'notificationStatusAtom',
   // prime
   primePersistAtom = 'primePersistAtom',
   primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',

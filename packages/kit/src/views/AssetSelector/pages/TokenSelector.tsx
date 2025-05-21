@@ -18,7 +18,6 @@ import type {
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 

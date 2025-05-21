@@ -64,7 +64,6 @@ const EditableAccountChainSelector = ({
   onPressItem,
   onAddCustomNetwork,
   onEditCustomNetwork,
-  sceneName,
 }: IAccountChainSelectorProps) => {
   const {
     activeAccount: { network, account, wallet, indexedAccount },
