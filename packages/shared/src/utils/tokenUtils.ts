@@ -177,8 +177,10 @@ export function mergeDeriveTokenListMap({
         mergedToken.balance = new BigNumber(mergedToken.balance)
           .plus(value.balance)
           .toFixed();
-        mergedToken.balanceParsed = new BigNumber(mergedToken.balanceParsed)
-          .plus(value.balanceParsed)
+        mergedToken.balanceParsed = new BigNumber(
+          mergedToken.balanceParsed ?? 0,
+        )
+          .plus(value.balanceParsed ?? 0)
           .toFixed();
         mergedToken.frozenBalance = new BigNumber(
           mergedToken.frozenBalance ?? 0,
