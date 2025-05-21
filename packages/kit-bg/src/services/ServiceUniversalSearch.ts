@@ -6,6 +6,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -19,6 +21,7 @@ import {
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
+  IUniversalSearchDappResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
@@ -100,11 +103,15 @@ class ServiceUniversalSearch extends ServiceBase {
             tokens: [],
             tokenMap: {} as Record<string, ITokenFiat>,
           }),
+      searchTypes.includes(EUniversalSearchType.Dapp)
+        ? this.universalSearchOfDapp({ input })
+        : Promise.resolve({ items: [] }),
     ]);
     const [
       addressResultSettled,
       marketTokenResultSettled,
       accountAssetsResultSettled,
+      dappResultSettled,
     ] = promiseResults;
 
     if (
@@ -145,6 +152,14 @@ class ServiceUniversalSearch extends ServiceBase {
           },
         })),
       };
+    }
+
+    if (
+      dappResultSettled.status === 'fulfilled' &&
+      dappResultSettled.value &&
+      dappResultSettled.value.items.length > 0
+    ) {
+      result[EUniversalSearchType.Dapp] = dappResultSettled.value;
     }
 
     return result;
@@ -420,6 +435,51 @@ class ServiceUniversalSearch extends ServiceBase {
     return {
       items,
     } as IUniversalSearchSingleResult;
+  }
+
+  async universalSearchOfDapp({
+    input,
+  }: {
+    input: string;
+  }): Promise<IUniversalSearchDappResult> {
+    const { serviceDiscovery } = this.backgroundApi;
+    const searchResult = await serviceDiscovery.searchDApp(input);
+
+    // Filter and process results similar to Discovery search
+    const exactUrlResults =
+      searchResult?.filter((item) => item.isExactUrl) || [];
+    const otherResults = searchResult?.filter((item) => !item.isExactUrl) || [];
+
+    // Add Google search item if there is input
+    const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
+    const GOOGLE_LOGO_URL =
+      'https://uni.onekey-asset.com/static/logo/google.png';
+    const googleSearchDapp = input.trim()
+      ? {
+          dappId: SEARCH_ITEM_ID,
+          name: `${appLocale.intl.formatMessage({
+            id: ETranslations.explore_search_placeholder,
+          })} "${input}"`,
+          url: '',
+          logo: GOOGLE_LOGO_URL,
+          description: '',
+          networkIds: [],
+          tags: [],
+        }
+      : null;
+
+    // Format results into universal search format
+    const allDapps = [
+      ...exactUrlResults,
+      ...(googleSearchDapp ? [googleSearchDapp] : []),
+      ...otherResults,
+    ];
+    const items = allDapps.map((dapp) => ({
+      type: EUniversalSearchType.Dapp as const,
+      payload: dapp,
+    }));
+
+    return { items };
   }
 }
 
