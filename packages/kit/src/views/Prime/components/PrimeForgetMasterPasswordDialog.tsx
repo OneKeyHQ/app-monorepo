@@ -70,15 +70,18 @@ export function PrimeForgetMasterPasswordDialog({
 
           <Stack>
             <SizableText>
-              Resetting the backup password will delete existing backup data in
-              the cloud and build a new backup from this device.
+              {intl.formatMessage({
+                id: ETranslations.prime_reset_backup_password_description,
+              })}
             </SizableText>
           </Stack>
         </YStack>
       </Dialog.Description>
       <Stack pt="$2">
         <Checkbox
-          label="I understand this will permanently delete my cloud backup data"
+          label={intl.formatMessage({
+            id: ETranslations.prime_reset_backup_password_checkbox_label,
+          })}
           value={isChecked}
           onChange={() => {
             setIsChecked(!isChecked);

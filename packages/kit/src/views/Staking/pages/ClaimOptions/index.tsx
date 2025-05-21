@@ -34,17 +34,17 @@ const ClaimOptions = () => {
     EModalStakingRoutes.ClaimOptions
   >();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, symbol, provider, details } = appRoute.params;
+  const { accountId, networkId, provider, token } = appRoute.params;
 
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getClaimableList({
         networkId,
         accountId,
-        symbol,
-        provider,
+        symbol: token.symbol,
+        provider: provider.name,
       }),
-    [accountId, networkId, symbol, provider],
+    [networkId, accountId, token.symbol, provider.name],
     { watchLoading: true },
   );
 
@@ -55,18 +55,23 @@ const ClaimOptions = () => {
       await handleClaim({
         identity: item.id,
         amount: item.amount,
-        symbol: details.token.info.symbol,
-        provider,
-        morphoVault: details.provider.vault,
-        vault: details.provider.vault || '',
+        symbol: token.symbol,
+        provider: provider.name,
+        morphoVault: provider.vault,
+        vault: provider.vault || '',
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider,
+            providerName: provider.name,
           }),
-          protocolLogoURI: details.provider.logoURI,
-          receive: { token: details.token.info, amount: item.amount },
-          tags: [buildLocalTxStatusSyncId(details)],
+          protocolLogoURI: provider.logoURI,
+          receive: { token, amount: item.amount },
+          tags: [
+            buildLocalTxStatusSyncId({
+              providerName: provider.name,
+              tokenSymbol: token.symbol,
+            }),
+          ],
         },
         onSuccess: async (txs) => {
           const tx = txs[0];
@@ -81,16 +86,16 @@ const ClaimOptions = () => {
             });
           }
           appNavigation.pop();
-          defaultLogger.staking.page.unstaking({
-            token: details.token.info,
-            stakingProtocol: provider,
+          defaultLogger.staking.page.staking({
+            token,
+            stakingProtocol: provider.name,
           });
-          if (provider === 'babylon') {
+          if (provider.name === 'babylon') {
             void backgroundApiProxy.serviceStaking.babylonClaimRecord({
               accountId,
               networkId,
-              provider,
-              symbol,
+              provider: provider.name,
+              symbol: token.symbol,
               identity: item.id,
             });
           }
@@ -98,13 +103,14 @@ const ClaimOptions = () => {
       });
     },
     [
-      appNavigation,
-      details,
       handleClaim,
-      provider,
+      token,
+      provider.name,
+      provider.vault,
+      provider.logoURI,
+      appNavigation,
       accountId,
       networkId,
-      symbol,
     ],
   );
 

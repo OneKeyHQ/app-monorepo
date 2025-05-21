@@ -26,6 +26,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
@@ -103,7 +104,7 @@ export default function PrimeDashboard() {
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
   const mobileTopValue = isMobile ? top + 25 : '$10';
-  const { loginOneKeyId } = useLoginOneKeyId();
+  const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -135,21 +136,10 @@ export default function PrimeDashboard() {
   }, [isLoggedIn, isPrimeSubscriptionActive]);
 
   const subscribe = useCallback(async () => {
-    if (!isLoggedIn) {
-      await loginOneKeyId();
-      return;
-    }
-
-    const purchaseDialog = Dialog.show({
-      renderContent: (
-        <PrimePurchaseDialog
-          onPurchase={() => {
-            void purchaseDialog.close();
-          }}
-        />
-      ),
+    await ensurePrimeSubscriptionActive({
+      skipDialogConfirm: true,
     });
-  }, [isLoggedIn, loginOneKeyId]);
+  }, [ensurePrimeSubscriptionActive]);
 
   return (
     <>

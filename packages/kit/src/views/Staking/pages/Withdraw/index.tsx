@@ -40,7 +40,10 @@ const WithdrawPage = () => {
 
   const { token, provider, active, overflow } = details;
   const { price, info: tokenInfo } = token;
-  const actionTag = buildLocalTxStatusSyncId(details);
+  const actionTag = buildLocalTxStatusSyncId({
+    providerName: provider.name,
+    tokenSymbol: tokenInfo.symbol,
+  });
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(

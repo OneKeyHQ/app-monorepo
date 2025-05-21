@@ -1,3 +1,5 @@
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+
 import type { IToken } from './token';
 
 export type IAllowanceOverview = {
@@ -264,22 +266,45 @@ interface IEarnButtonAction {
   disabled: boolean;
 }
 
+export interface IEarnToken {
+  uniqueKey: string;
+  address: string;
+  decimals: number;
+  isNative: boolean;
+  logoURI: string;
+  name: string;
+  symbol: string;
+  totalSupply: string;
+  riskLevel: number;
+  coingeckoId: string;
+}
+
+export interface IEarnTokenInfo {
+  networkId: string;
+  provider: string;
+  vault: string | undefined;
+  accountId: string;
+  token: IEarnToken;
+}
+
 interface ISubscriptionValue {
   title: IEarnText;
   fiatValue: string;
   formattedValue: string;
   balance: string;
+  token: IEarnToken;
 }
 
-interface IPortfolio {
-  token: IToken;
-  fiatValue: string;
-  formattedValue: string;
-  title: IEarnText;
+interface IEarnBadge {
+  badgeType: 'success' | 'warning';
+  badgeSize: 'sm' | 'lg';
+  text: {
+    text: string;
+  };
 }
 
 interface IRewardToken {
-  token: IToken;
+  token: IEarnToken;
   title: IEarnText;
   description: IEarnText;
 }
@@ -290,53 +315,123 @@ interface IRewards {
   tokens: IRewardToken[];
 }
 
-interface IIcon {
-  icon: string;
+export interface IEarnIcon {
+  icon: IKeyOfIcons;
+  color: ColorTokens;
 }
 
-export interface IEarnAction {
-  type: 'popup' | 'link';
-  icon?: IIcon;
-  data: any;
+export interface IEarnPopupActionIcon {
+  type: 'popup';
+  data: {
+    bulletList?: IEarnText[];
+    icon?: IEarnIcon;
+    description?: IEarnText;
+    panel?: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
+    items?: {
+      icon?: IEarnIcon;
+      token?: IEarnToken;
+      title: IEarnText;
+      value: string;
+    }[];
+  };
 }
 
-interface IProfitCell {
+export interface IEarnLinkActionIcon {
+  type: 'link';
+  data: string;
+}
+
+export interface IEarnDepositActionIcon {
+  type: 'deposit';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnWithdrawActionIcon {
+  type: 'withdraw';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export type IEarnActionIcon = IEarnPopupActionIcon | IEarnLinkActionIcon;
+interface IEarnCell {
   title: IEarnText;
   description: IEarnText;
-  actionIcon?: IEarnAction;
+  button?: IEarnActionIcon;
   tooltip?: IEarnText;
 }
 
 interface IEarnProfit {
   title: IEarnText;
-  cells: IProfitCell[];
-}
-
-interface IProviderCell {
-  title: IEarnText;
-  description: IEarnText;
-  actionIcon?: IEarnAction;
-}
-
-interface IEarnProvider {
-  title: IEarnText;
-  cells: IProviderCell[];
+  items: IEarnCell[];
 }
 
 export interface IEarnFAQItem {
-  question: IEarnText;
-  answer: IEarnText;
+  title: IEarnText;
+  description: IEarnText;
+}
+
+interface IEarnRisk {
+  title: IEarnText;
+  items: {
+    title: IEarnText;
+    description: IEarnText;
+    icon: IEarnIcon;
+    actionButton: {
+      type: 'link';
+      text: IEarnText;
+    };
+  }[];
 }
 
 export interface IStakeEarnDetail {
-  actions: IEarnAction[];
+  actions: (IEarnDepositActionIcon | IEarnWithdrawActionIcon)[];
   subscriptionValue: ISubscriptionValue;
-  portfolios: IPortfolio[];
+  countDownAlert: {
+    description: IEarnText;
+    startTime: number;
+    endTime: number;
+  };
+  portfolios: {
+    title: IEarnText;
+    items: {
+      token: IEarnToken;
+      fiatValue: string;
+      formattedValue: string;
+      title: IEarnText;
+      badge: IEarnBadge;
+    }[];
+  };
+  timeline: {
+    title: IEarnText;
+    step: number;
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
+  };
   rewards: IRewards;
+  risk: IEarnRisk;
   profit: IEarnProfit;
-  provider: IEarnProvider;
-  alerts: any[];
-  faqs: IEarnFAQItem[];
+  provider: {
+    title: IEarnText;
+    items: IEarnCell[];
+  };
+  alerts: string[];
+  faqs: {
+    title: IEarnText;
+    items: IEarnFAQItem[];
+  };
+}
+
+export interface IEarnProvider {
+  name: string;
+  vault: string;
+  logoURI: string;
+  approveType?: string;
 }
 
 export type IStakeProtocolDetails = {
