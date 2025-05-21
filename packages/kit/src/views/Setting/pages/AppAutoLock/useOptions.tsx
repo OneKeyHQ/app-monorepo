@@ -51,7 +51,9 @@ export function useOptions({
         value: ELockDuration.Hour,
       },
       {
-        title: 'If away for 2 hr',
+        title: intl.formatMessage({
+          id: ETranslations.settings_if_away_for_2_hrs,
+        }),
         value: ELockDuration.Hour2,
       },
       {
@@ -59,7 +61,9 @@ export function useOptions({
           id: ETranslations.settings_if_away_for_4_hrs,
         }),
         subtitle: shouldDisableCloudSyncDisallowedOptions
-          ? 'not available if cloud sync is enabled'
+          ? intl.formatMessage({
+              id: ETranslations.prime_auto_lock_description,
+            })
           : undefined,
         value: ELockDuration.Hour4,
         disabled: shouldDisableCloudSyncDisallowedOptions,
@@ -67,7 +71,9 @@ export function useOptions({
       {
         title: intl.formatMessage({ id: ETranslations.global_never }),
         subtitle: shouldDisableCloudSyncDisallowedOptions
-          ? 'not available if cloud sync is enabled'
+          ? intl.formatMessage({
+              id: ETranslations.prime_auto_lock_description,
+            })
           : undefined,
         value: ELockDuration.Never,
         disabled: shouldDisableCloudSyncDisallowedOptions,

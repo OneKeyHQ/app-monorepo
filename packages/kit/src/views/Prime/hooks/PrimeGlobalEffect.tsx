@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady/GlobalJotaiReady';
@@ -63,12 +64,14 @@ function PrimeGlobalEffectView() {
       // Do not save accessToken here, apiLogin() will save it
 
       if (accessToken) {
-        setPrimePersistAtom((v) => ({
-          ...v,
-          isLoggedIn: true,
-          email: privyUser?.email,
-          privyUserId: privyUser?.id,
-        }));
+        setPrimePersistAtom(
+          (v): IPrimeUserInfo => ({
+            ...v,
+            isLoggedIn: true,
+            email: privyUser?.email,
+            privyUserId: privyUser?.id,
+          }),
+        );
       } else {
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
       }
