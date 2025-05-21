@@ -435,7 +435,7 @@ function MobileTabListModal() {
         <ListView
           initialScrollIndex={initialScrollIndex}
           // estimated item min size
-          estimatedItemSize={235}
+          estimatedItemSize={233}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
