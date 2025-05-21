@@ -69,10 +69,12 @@ axios.interceptors.request.use(async (config) => {
 axios.interceptors.response.use(
   async (response) => {
     const { config } = response;
+    const url =
+      response?.request?.responseURL || config?.baseURL || config?.url || '';
     void systemTimeUtils.handleServerResponseDate({
       source: 'axios',
       headerDate: response?.headers?.date || '',
-      url: config?.url || config?.baseURL || '',
+      url,
     });
 
     try {

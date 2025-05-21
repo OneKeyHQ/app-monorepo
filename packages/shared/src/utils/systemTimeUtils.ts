@@ -4,6 +4,7 @@ import { isNaN, isNil, throttle } from 'lodash';
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
 import { getEndpointByServiceName } from '../config/endpointsMap';
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import requestHelper from '../request/requestHelper';
 
 import timerUtils from './timerUtils';
@@ -13,6 +14,9 @@ export enum ELocalSystemTimeStatus {
   INVALID = 'INVALID',
   UNKNOWN = 'UNKNOWN',
 }
+
+// const mockServerTime: number | undefined = 1_947_829_622_691;
+const mockServerTime: number | undefined = undefined;
 
 const intervalTimeout = timerUtils.getTimeDurationMs({
   // seconds: 5,
@@ -158,6 +162,9 @@ class SystemTimeUtils {
       // headerDate = 'gggg1111';
       let serverDate: Date | undefined = new Date(headerDate);
       let serverTimestamp: number | undefined = serverDate?.getTime();
+      if (mockServerTime) {
+        serverTimestamp = mockServerTime;
+      }
       if (
         isNaN(serverTimestamp) ||
         isNil(serverTimestamp) ||
@@ -189,6 +196,10 @@ class SystemTimeUtils {
       this.lastServerTime = serverTimestamp;
       if (localTimeValid) {
         this.lastLocalTime = localTimestamp;
+      }
+
+      if (!localTimeValid) {
+        appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
       }
     },
     1000,

@@ -25,7 +25,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import systemTimeUtils, {
+  ELocalSystemTimeStatus,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
@@ -1626,6 +1628,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer?: string;
     serverDiffItems?: ICloudSyncServerDiffItem[];
   }> {
+    if (systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
+      throw new OneKeyError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_time_error_description,
+        }),
+      );
+    }
+
     const isPrimeLoggedIn = await this.backgroundApi.servicePrime.isLoggedIn();
     if (!isPrimeLoggedIn) {
       throw new OneKeyError('Prime is not logged in');

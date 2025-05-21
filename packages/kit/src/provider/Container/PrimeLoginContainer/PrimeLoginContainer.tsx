@@ -1,11 +1,15 @@
 import { useEffect, useRef } from 'react';
 
+import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePrimeLoginDialogAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePrimeCloudSyncPersistAtom,
+  usePrimeLoginDialogAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -13,6 +17,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -22,8 +27,33 @@ import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeL
 import { PrimeMasterPasswordInvalidDialog } from '../../../views/Prime/components/PrimeMasterPasswordInvalidDialog';
 import { PrimeSetMasterPasswordHintDialog } from '../../../views/Prime/components/PrimeSetMasterPasswordHintDialog';
 
+const showTimeErrorDialog = throttle(
+  (intl: ReturnType<typeof useIntl>) => {
+    Dialog.confirm({
+      title: intl.formatMessage({
+        id: ETranslations.prime_time_error_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.prime_time_error_description,
+      }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_got_it,
+      }),
+      dismissOnOverlayPress: false,
+    });
+  },
+  timerUtils.getTimeDurationMs({
+    minute: 5,
+  }),
+  {
+    leading: true,
+    trailing: false,
+  },
+);
+
 // TODO rename to PrimeDialogContainer
 export function PrimeLoginContainer() {
+  const [cloudSyncPersistAtom] = usePrimeCloudSyncPersistAtom();
   const [
     {
       promptPrimeLoginEmailDialog,
@@ -251,6 +281,18 @@ export function PrimeLoginContainer() {
       appEventBus.off(EAppEventBusNames.PrimeMasterPasswordInvalid, fn);
     };
   }, []);
+
+  useEffect(() => {
+    const fn = () => {
+      if (cloudSyncPersistAtom?.isCloudSyncEnabled) {
+        showTimeErrorDialog(intl);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.LocalSystemTimeInvalid, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LocalSystemTimeInvalid, fn);
+    };
+  }, [cloudSyncPersistAtom?.isCloudSyncEnabled, intl]);
 
   return null;
 }
