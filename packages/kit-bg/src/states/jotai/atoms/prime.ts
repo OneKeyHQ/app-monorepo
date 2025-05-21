@@ -17,6 +17,7 @@ export const {
   initialValue: {
     isLoggedIn: false,
     isLoggedInOnServer: false,
+    primeAvailable: undefined,
     email: undefined,
     displayEmail: undefined,
     privyUserId: undefined,

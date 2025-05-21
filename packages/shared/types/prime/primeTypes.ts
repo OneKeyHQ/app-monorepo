@@ -5,6 +5,7 @@ export type IPrimeSubscriptionInfo = {
 export type IPrimeUserInfo = {
   isLoggedIn: boolean; // privy login status
   isLoggedInOnServer: boolean; // server login status
+  primeAvailable: boolean | undefined;
   email: string | undefined;
   displayEmail: string | undefined;
   privyUserId: string | undefined;
@@ -25,6 +26,7 @@ export type IPrimeServerUserInfo = {
   createdAt: string;
   updatedAt: string;
 
+  primeAvailable: boolean | undefined;
   isPrime: boolean;
   primeExpiredAt: number;
   level: 'PRIME' | 'NORMAL';
