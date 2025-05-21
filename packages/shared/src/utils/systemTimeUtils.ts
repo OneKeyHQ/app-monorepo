@@ -18,6 +18,12 @@ export enum ELocalSystemTimeStatus {
 // const mockServerTime: number | undefined = 1_947_829_622_691;
 const mockServerTime: number | undefined = undefined;
 
+// const mockLocalTimeOffset: number | undefined = 1000 * 60 * 60 * 24 * 30;
+const mockLocalTimeOffset: number | undefined = undefined;
+
+// TODO use webpack build time
+const appBuildTime = 1_747_527_766_656;
+
 const intervalTimeout = timerUtils.getTimeDurationMs({
   // seconds: 5,
   minute: 5,
@@ -79,7 +85,7 @@ class SystemTimeUtils {
   }
 
   isTimeValid({ time }: { time: number | undefined }): boolean {
-    if (isNil(time) || isNaN(time) || time < 1_747_527_766_656) {
+    if (isNil(time) || isNaN(time) || time < appBuildTime) {
       return false;
     }
     return true;
@@ -144,7 +150,31 @@ class SystemTimeUtils {
     return defaultTimeNow;
   }
 
-  handleServerResponseDate = throttle(
+  async handleServerResponseDate({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    source,
+    headerDate,
+    url,
+  }: {
+    source: 'axios' | 'fetch';
+    headerDate: string;
+    url: string;
+  }) {
+    if (!headerDate || !url) {
+      return;
+    }
+    try {
+      await this._handleServerResponseDate({
+        source,
+        headerDate,
+        url,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  _handleServerResponseDate = throttle(
     async ({
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       source,
@@ -158,7 +188,7 @@ class SystemTimeUtils {
       if (!headerDate || !url) {
         return;
       }
-      // TODO try catch
+
       // headerDate = 'gggg1111';
       let serverDate: Date | undefined = new Date(headerDate);
       let serverTimestamp: number | undefined = serverDate?.getTime();
@@ -181,7 +211,10 @@ class SystemTimeUtils {
       if (!isOneKeyDomain) {
         return;
       }
-      const localTimestamp: number = Date.now();
+      let localTimestamp: number = Date.now();
+      if (mockLocalTimeOffset) {
+        localTimestamp += mockLocalTimeOffset;
+      }
       const timeDiff: number = localTimestamp - (serverTimestamp ?? 0);
       if (isNaN(timeDiff) || isNil(timeDiff)) {
         return;
@@ -192,7 +225,7 @@ class SystemTimeUtils {
       });
       this.systemTimeStatus = localTimeValid
         ? ELocalSystemTimeStatus.VALID
-        : ELocalSystemTimeStatus.INVALID; // TODO show system time invalid Dialog
+        : ELocalSystemTimeStatus.INVALID;
       this.lastServerTime = serverTimestamp;
       if (localTimeValid) {
         this.lastLocalTime = localTimestamp;

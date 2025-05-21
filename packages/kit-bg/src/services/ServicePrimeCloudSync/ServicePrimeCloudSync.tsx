@@ -283,28 +283,28 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
     // fix localItems dataTime which is greater than server time
     if (responseData.serverTime) {
-      const wrongTimeItems = localItems?.filter(
-        (item) =>
-          responseData.serverTime &&
-          item.dataTime &&
-          item.dataTime > responseData.serverTime,
-      );
-      if (wrongTimeItems?.length) {
-        const fixItemTime = (
-          item: IDBCloudSyncItem | RealmSchemaCloudSyncItem,
-        ) => {
-          if (
+      try {
+        const wrongTimeItems = localItems?.filter(
+          (item) =>
             responseData.serverTime &&
             item.dataTime &&
-            item.dataTime > responseData.serverTime
-          ) {
-            item.dataTime = responseData.serverTime;
-          }
-        };
-        wrongTimeItems.forEach((item) => {
-          fixItemTime(item);
-        });
-        try {
+            item.dataTime > responseData.serverTime,
+        );
+        if (wrongTimeItems?.length) {
+          const fixItemTime = (
+            item: IDBCloudSyncItem | RealmSchemaCloudSyncItem,
+          ) => {
+            if (
+              responseData.serverTime &&
+              item.dataTime &&
+              item.dataTime > responseData.serverTime
+            ) {
+              item.dataTime = responseData.serverTime;
+            }
+          };
+          wrongTimeItems.forEach((item) => {
+            fixItemTime(item);
+          });
           await localDb.updateSyncItem({
             ids: wrongTimeItems.map((item) => item.id),
             updater: (item) => {
@@ -312,9 +312,9 @@ class ServicePrimeCloudSync extends ServiceBase {
               return item;
             },
           });
-        } catch (error) {
-          console.error('prime cloud sync apiCheck: ', error);
         }
+      } catch (error) {
+        console.error('prime cloud sync apiCheck: ', error);
       }
     }
 

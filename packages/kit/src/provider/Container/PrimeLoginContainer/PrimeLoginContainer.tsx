@@ -7,6 +7,7 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  usePasswordAtom,
   usePrimeCloudSyncPersistAtom,
   usePrimeLoginDialogAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -53,6 +54,7 @@ const showTimeErrorDialog = throttle(
 
 // TODO rename to PrimeDialogContainer
 export function PrimeLoginContainer() {
+  const [passwordAtom] = usePasswordAtom();
   const [cloudSyncPersistAtom] = usePrimeCloudSyncPersistAtom();
   const [
     {
@@ -284,7 +286,7 @@ export function PrimeLoginContainer() {
 
   useEffect(() => {
     const fn = () => {
-      if (cloudSyncPersistAtom?.isCloudSyncEnabled) {
+      if (cloudSyncPersistAtom?.isCloudSyncEnabled && passwordAtom.unLock) {
         showTimeErrorDialog(intl);
       }
     };
@@ -292,7 +294,7 @@ export function PrimeLoginContainer() {
     return () => {
       appEventBus.off(EAppEventBusNames.LocalSystemTimeInvalid, fn);
     };
-  }, [cloudSyncPersistAtom?.isCloudSyncEnabled, intl]);
+  }, [cloudSyncPersistAtom?.isCloudSyncEnabled, intl, passwordAtom.unLock]);
 
   return null;
 }
