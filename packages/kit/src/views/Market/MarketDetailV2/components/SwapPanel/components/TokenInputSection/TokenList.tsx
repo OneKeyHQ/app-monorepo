@@ -19,7 +19,8 @@ interface ITokenListProps {
 type IListToken = IToken & {
   balance?: string;
   price?: string;
-  fiatValue?: string;
+  networkImageSrc?: string;
+  valueProps?: { value: string; currency: string };
 };
 
 const LOG_PREFIX = '[TokenList]';
@@ -33,27 +34,40 @@ export function TokenList({
   onTokenPress,
 }: ITokenListProps) {
   log('component rendered', { initialTokens });
-  const [enrichedTokens, setEnrichedTokens] = useState<IToken[]>([]);
+  const [detailedTokens, setDetailedTokens] = useState<IListToken[]>([]);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const currencySymbol = settingsPersistAtom.currencyInfo.symbol;
+  const innerTokens: IListToken[] = useMemo(() => {
+    return (
+      initialTokens?.map((token) => {
+        return {
+          ...token,
+          price: undefined,
+          balance: undefined,
+          networkImageSrc: undefined,
+          valueProps: undefined,
+        };
+      }) ?? []
+    );
+  }, [initialTokens]);
 
   useEffect(() => {
-    log('useEffect triggered', {
-      initialTokens,
-      activeAccount: activeAccount.account,
+    log('useEffect triggered for fetchTokenDetails', {
+      innerTokensLength: innerTokens.length,
+      activeAccountId: activeAccount.account?.id,
     });
     const fetchTokenDetails = async () => {
       log('fetchTokenDetails called');
       if (
-        !initialTokens ||
-        initialTokens.length === 0 ||
+        !innerTokens ||
+        innerTokens.length === 0 ||
         !activeAccount.account?.id
       ) {
         log(
-          'fetchTokenDetails - no initialTokens or active account, setting enrichedTokens to initialTokens',
+          'fetchTokenDetails - no innerTokens or active account, setting detailedTokens to innerTokens structure or empty array',
         );
-        setEnrichedTokens(initialTokens || []);
+        setDetailedTokens(innerTokens || []);
         return;
       }
 
@@ -64,7 +78,7 @@ export function TokenList({
         accountAddress,
       });
 
-      const promises = initialTokens.map(async (token) => {
+      const promises = innerTokens.map(async (token) => {
         try {
           const fetchTokenDetailsParams = {
             networkId: token.networkId,
@@ -93,8 +107,7 @@ export function TokenList({
             ...token,
             balance: swapTokenDetail?.balanceParsed,
             price: swapTokenDetail?.price,
-            fiatValue: swapTokenDetail?.fiatValue,
-          };
+          } as IListToken;
         } catch (e) {
           console.error(
             LOG_PREFIX,
@@ -104,86 +117,64 @@ export function TokenList({
           return token;
         }
       });
-      const newEnrichedTokens = await Promise.all(promises);
+      const newDetailedTokens = await Promise.all(promises);
 
       log(
-        'fetchTokenDetails - all promises resolved, newEnrichedTokens:',
-        newEnrichedTokens,
+        'fetchTokenDetails - all promises resolved, newDetailedTokens count:',
+        newDetailedTokens.length,
       );
-      setEnrichedTokens(newEnrichedTokens);
+      setDetailedTokens(newDetailedTokens);
     };
 
     void fetchTokenDetails();
-  }, [initialTokens, activeAccount.account]);
+  }, [innerTokens, activeAccount.account]);
 
-  const displayTokens: (IListToken & {
-    networkImageSrc?: string;
-    valueProps?: { value: string; currency: string };
-  })[] = useMemo(() => {
+  const displayTokens: IListToken[] = useMemo(() => {
     log('useMemo displayTokens triggered', {
-      initialTokens,
-      enrichedTokens,
+      innerTokensLength: innerTokens.length,
+      detailedTokensLength: detailedTokens.length,
+      currencySymbol,
     });
 
-    if (!initialTokens || initialTokens.length === 0) {
-      log('useMemo displayTokens - no initialTokens, returning initialTokens');
-      return initialTokens || [];
+    if (detailedTokens.length === 0) {
+      return innerTokens;
     }
 
-    if (enrichedTokens.length === 0 && initialTokens.length > 0) {
-      log(
-        'useMemo displayTokens - no enrichedTokens but initialTokens exist, returning initialTokens',
+    return innerTokens.map((iToken) => {
+      const dToken = detailedTokens.find(
+        (dt) =>
+          dt.networkId === iToken.networkId &&
+          dt.contractAddress === iToken.contractAddress,
       );
-      return initialTokens.map((token) => {
-        const networkConfig = Object.values(presetNetworksMap).find(
-          (n) => n.id === token.networkId,
-        );
-        const tokenAsListToken = token as IListToken;
-        const valueProps =
-          tokenAsListToken.fiatValue &&
-          parseFloat(tokenAsListToken.fiatValue) > 0
-            ? {
-                value: tokenAsListToken.fiatValue,
-                currency: currencySymbol,
-              }
-            : undefined;
-        return {
-          ...token,
-          networkImageSrc: networkConfig?.logoURI,
-          valueProps,
-        };
-      });
-    }
 
-    const result = initialTokens.map((initialToken) => {
-      const foundEnrichedToken = enrichedTokens.find(
-        (et) =>
-          et.networkId === initialToken.networkId &&
-          et.contractAddress === initialToken.contractAddress,
-      );
-      const tokenToProcess = (foundEnrichedToken || initialToken) as IListToken;
+      const priceToUse = dToken?.price;
+      const balanceToUse = dToken?.balance;
+
       const networkConfig = Object.values(presetNetworksMap).find(
-        (n) => n.id === tokenToProcess.networkId,
+        (n) => n.id === iToken.networkId,
       );
+
       const valueProps =
-        tokenToProcess.fiatValue && parseFloat(tokenToProcess.fiatValue) > 0
+        priceToUse && parseFloat(priceToUse) > 0
           ? {
-              value: tokenToProcess.fiatValue,
+              value: priceToUse,
               currency: currencySymbol,
             }
           : undefined;
-      return {
-        ...tokenToProcess,
+
+      const displayTokenItem: IListToken = {
+        ...iToken,
+        balance: balanceToUse ?? iToken.balance,
+        price: priceToUse ?? iToken.price,
         networkImageSrc: networkConfig?.logoURI,
         valueProps,
       };
+      // log('useMemo displayTokens - prepared token for display', displayTokenItem);
+      return displayTokenItem;
     });
+  }, [innerTokens, detailedTokens, currencySymbol]);
 
-    log('useMemo displayTokens - calculated result:', result);
-    return result;
-  }, [initialTokens, enrichedTokens, currencySymbol]);
-
-  log('TokenList displayTokens', displayTokens);
+  log('TokenList displayTokens count:', displayTokens.length);
 
   return (
     <YStack gap="$1">
