@@ -171,6 +171,7 @@ export function UniversalSearch({
   }, [fetchRecommendList]);
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
+    console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
       const result =
@@ -229,6 +230,7 @@ export function UniversalSearch({
   }, 1200);
 
   const handleChangeText = useCallback(() => {
+    console.log('[universalSearch] handleChangeText');
     setSearchStatus(ESearchStatus.loading);
   }, []);
 
@@ -521,6 +523,7 @@ export function UniversalSearch({
             ListHeaderComponent={<RecentSearched filterTypes={filterTypes} />}
             ListEmptyComponent={<ListEmptyComponent />}
             estimatedItemSize="$16"
+            ListFooterComponent={<Stack h="$16" />}
           />
         );
 
@@ -568,6 +571,7 @@ export function UniversalSearch({
               }
               renderItem={renderItem}
               estimatedItemSize="$16"
+              ListFooterComponent={<Stack h="$16" />}
             />
           </>
         );
