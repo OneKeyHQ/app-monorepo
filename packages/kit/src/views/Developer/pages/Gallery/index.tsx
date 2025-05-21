@@ -569,6 +569,13 @@ const RestartGallery = LazyLoadPage(
     ),
 );
 
+const FontGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Font'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -830,5 +837,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentRestart,
     component: RestartGallery,
+  },
+  {
+    name: EGalleryRoutes.FontGallery,
+    component: FontGallery,
   },
 ];
