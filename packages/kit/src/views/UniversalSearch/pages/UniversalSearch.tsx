@@ -184,7 +184,6 @@ export function UniversalSearch({
   const searchInputRef = useRef<string>('');
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
-    console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
       searchInputRef.current = input;
@@ -267,7 +266,6 @@ export function UniversalSearch({
   }, 1200);
 
   const handleChangeText = useCallback(() => {
-    console.log('[universalSearch] handleChangeText');
     setSearchStatus(ESearchStatus.loading);
   }, []);
 
@@ -286,31 +284,9 @@ export function UniversalSearch({
 
   const renderSectionFooter = useCallback(
     ({ section }: { section: IUniversalSection }) => {
-      if (section.showMore) {
-        return (
-          <ListItem
-            onPress={() => {
-              console.log('[universalSearch] renderSectionFooter: ', section);
-            }}
-          >
-            <XStack ai="center" gap="$2">
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.global_show_more,
-                })}
-              </SizableText>
-              <Icon
-                name="ChevronRightSmallOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-            </XStack>
-          </ListItem>
-        );
-      }
       return null;
     },
-    [intl],
+    [],
   );
 
   const renderItem = useCallback(
@@ -521,7 +497,6 @@ export function UniversalSearch({
           return (
             <ListItem
               onPress={() => {
-                console.log('[universalSearch] renderItem: ', item);
                 const isGoogle = isGoogleSearchItem(dappId);
                 handleWebSite({
                   dApp: isGoogle ? undefined : item.payload,
