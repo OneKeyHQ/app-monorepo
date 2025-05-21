@@ -468,6 +468,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceMarketV2() {
+    const ServiceMarketV2 =
+      require('../services/ServiceMarketV2') as typeof import('../services/ServiceMarketV2');
+    const value = new ServiceMarketV2.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceMarketV2', { value });
+    return value;
+  }
+
   get serviceE2E() {
     const Service =
       require('../services/ServiceE2E') as typeof import('../services/ServiceE2E');
