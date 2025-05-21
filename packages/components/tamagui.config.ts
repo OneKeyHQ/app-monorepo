@@ -144,6 +144,11 @@ const monoRegularFont = createFont({
   ...basicFontVariants,
 });
 
+const monoMediumFont = createFont({
+  family: 'GeistMono-Medium',
+  ...basicFontVariants,
+});
+
 // https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
 const animations = createAnimations({
   '0ms': {
@@ -542,6 +547,7 @@ const config = createTamagui({
     body: font,
     heading: font,
     monoRegular: monoRegularFont,
+    monoMedium: monoMediumFont,
   },
 
   themes: {
