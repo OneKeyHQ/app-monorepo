@@ -142,7 +142,7 @@ function BasicInvestmentDetails() {
             activeAccount: { account, indexedAccount },
           } = accountInfo;
           if (account && tokenInfo) {
-            navigation.push(EModalStakingRoutes.ProtocolDetails, {
+            navigation.push(EModalStakingRoutes.ProtocolDetailsV2, {
               indexedAccountId: indexedAccount?.id,
               accountId: account?.id ?? '',
               networkId: tokenInfo.networkId,

@@ -41,7 +41,7 @@ export interface IInviteSummary {
   totalRewards: string;
   levelPercent: string;
   nextRebateLevel: string;
-  Earn: IReward;
+  Onchain: IReward;
   rebateConfig: {
     level: number;
     rebate: number;
@@ -62,6 +62,27 @@ export interface IInviteSummary {
   }[];
   HardwareSales: IReward;
   banners: any[];
+}
+
+export interface IEarnWalletHistoryItem {
+  networkId: string;
+  address: string;
+  createdAt: string;
+}
+
+export interface IEarnWalletHistoryNetwork {
+  networkId: string;
+  name: string;
+  logoURI: string;
+}
+
+export interface IEarnWalletHistory {
+  items: {
+    items: IEarnWalletHistoryItem[];
+    total: number;
+  }[];
+  networks: IEarnWalletHistoryNetwork[];
+  total: number;
 }
 
 interface IHardwareSalesRecordItem {

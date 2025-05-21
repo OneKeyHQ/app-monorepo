@@ -20,7 +20,7 @@ export const EarnNavigation = {
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ProtocolDetails,
+      screen: EModalStakingRoutes.ProtocolDetailsV2,
       params: {
         accountId: accountId ?? '',
         networkId,

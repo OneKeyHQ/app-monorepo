@@ -5,6 +5,7 @@ import {
 import type {
   IEarnPositionsResponse,
   IEarnRewardResponse,
+  IEarnWalletHistory,
   IHardwareSalesRecord,
   IInviteHistory,
   IInvitePostConfig,
@@ -66,6 +67,26 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.get<{
       data: IInviteHistory;
     }>('/rebate/v1/invite/history', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getEarnWalletHistory(cursor?: string) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      subject: string;
+      limit: number;
+      cursor?: string;
+    } = {
+      subject: 'Earn',
+      limit: 100,
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await client.get<{
+      data: IEarnWalletHistory;
+    }>('/rebate/v1/wallet/invite-history', { params });
     return response.data.data;
   }
 

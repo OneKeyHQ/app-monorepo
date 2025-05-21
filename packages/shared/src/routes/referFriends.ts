@@ -1,6 +1,12 @@
+import type {
+  IEarnWalletHistoryItem,
+  IEarnWalletHistoryNetwork,
+} from '../referralCode/type';
+
 export enum EModalReferFriendsRoutes {
   ReferAFriend = 'ReferAFriend',
   YourReferred = 'YourReferred',
+  YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
   OneKeyId = 'OneKeyId',
   InviteReward = 'InviteReward',
@@ -14,6 +20,10 @@ export type IModalReferFriendsParamList = {
     code?: string;
   };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
+  [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {
+    networks: IEarnWalletHistoryNetwork[];
+    items: IEarnWalletHistoryItem[];
+  };
   [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;
   [EModalReferFriendsRoutes.OneKeyId]: undefined;
   [EModalReferFriendsRoutes.InviteReward]: undefined;

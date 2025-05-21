@@ -36,66 +36,54 @@ const BasicApproveBaseStakePage = () => {
   const { token, provider } = details;
   const { balanceParsed, price } = token;
   const appNavigation = useAppNavigation();
-  const actionTag = buildLocalTxStatusSyncId(details);
+  // const actionTag = buildLocalTxStatusSyncId(details);
   const { removePermitCache } = useEarnActions().current;
 
   const handleStake = useUniversalStake({ accountId, networkId });
-  const onConfirm = useCallback(
-    async (params: IApproveConfirmFnParams) => {
-      const inviteCode =
-        await backgroundApiProxy.serviceReferralCode.getInviteCode();
-      await handleStake({
-        amount: params.amount,
-        inviteCode,
-        stakingInfo: {
-          label: EEarnLabels.Stake,
-          protocol: earnUtils.getEarnProviderName({
-            providerName: provider.name,
-          }),
-          protocolLogoURI: provider.logoURI,
-          send: { token: token.info, amount: params.amount },
-          tags: [actionTag],
-        },
-        symbol: token.info.symbol,
-        provider: provider.name,
-        morphoVault: earnUtils.isMorphoProvider({
-          providerName: provider.name,
-        })
-          ? provider.vault
-          : undefined,
-        approveType: params.approveType,
-        permitSignature: params.permitSignature,
-        onSuccess: () => {
-          if (
-            params.approveType === EApproveType.Permit &&
-            params.permitSignature
-          ) {
-            removePermitCache({
-              accountId,
-              networkId,
-              tokenAddress: token.info.address,
-              amount: params.amount,
-            });
-          }
-          appNavigation.pop();
-          defaultLogger.staking.page.staking({
-            token: token.info,
-            stakingProtocol: provider.name,
-          });
-        },
-      });
-    },
-    [
-      token,
-      appNavigation,
-      handleStake,
-      provider,
-      actionTag,
-      accountId,
-      networkId,
-      removePermitCache,
-    ],
-  );
+  const onConfirm = useCallback(async (params: IApproveConfirmFnParams) => {
+    // const inviteCode =
+    //   await backgroundApiProxy.serviceReferralCode.getInviteCode();
+    // await handleStake({
+    //   amount: params.amount,
+    //   inviteCode,
+    //   stakingInfo: {
+    //     label: EEarnLabels.Stake,
+    //     protocol: earnUtils.getEarnProviderName({
+    //       providerName: provider.name,
+    //     }),
+    //     protocolLogoURI: provider.logoURI,
+    //     send: { token: token.info, amount: params.amount },
+    //     tags: [actionTag],
+    //   },
+    //   symbol: token.info.symbol,
+    //   provider: provider.name,
+    //   morphoVault: earnUtils.isMorphoProvider({
+    //     providerName: provider.name,
+    //   })
+    //     ? provider.vault
+    //     : undefined,
+    //   approveType: params.approveType,
+    //   permitSignature: params.permitSignature,
+    //   onSuccess: () => {
+    //     if (
+    //       params.approveType === EApproveType.Permit &&
+    //       params.permitSignature
+    //     ) {
+    //       removePermitCache({
+    //         accountId,
+    //         networkId,
+    //         tokenAddress: token.info.address,
+    //         amount: params.amount,
+    //       });
+    //     }
+    //     appNavigation.pop();
+    //     defaultLogger.staking.page.staking({
+    //       token: token.info,
+    //       stakingProtocol: provider.name,
+    //     });
+    //   },
+    // });
+  }, []);
   const intl = useIntl();
 
   const showEstReceive = useMemo<boolean>(
