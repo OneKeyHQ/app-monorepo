@@ -1,12 +1,12 @@
 import BigNumber from 'bignumber.js';
 
 export const buildLocalTxStatusSyncId = ({
-  providerName,
-  tokenSymbol,
+  providerName = '',
+  tokenSymbol = '',
 }: {
-  providerName: string;
-  tokenSymbol: string;
-}) => `${providerName.toLowerCase()}-${tokenSymbol.toLowerCase()}`;
+  providerName?: string;
+  tokenSymbol?: string;
+}) => `${providerName?.toLowerCase()}-${tokenSymbol?.toLowerCase()}`;
 
 export function capitalizeString(str: string): string {
   if (!str) return str; // Return if the string is empty or undefined

@@ -37,9 +37,11 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnTokenInfo,
+  IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -521,30 +523,56 @@ const ProtocolDetailsPage = () => {
     [accountId, indexedAccountId, networkId],
   );
   const { result, isLoading, run } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
-        accountId,
-        networkId,
-        indexedAccountId,
-        symbol,
-        provider,
-        vault,
-      }),
+    async () => {
+      const response =
+        await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
+          accountId,
+          networkId,
+          indexedAccountId,
+          symbol,
+          provider,
+          vault,
+        });
+
+      const tokens = response?.subscriptionValue?.token.address
+        ? await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+            networkId,
+            contractList: [response.subscriptionValue.token.address],
+          })
+        : undefined;
+      return {
+        detailInfo: response,
+        nativeToken: tokens?.[0],
+      };
+    },
     [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
 
-  const tokenInfo = useMemo(() => {
-    return result?.subscriptionValue?.token
+  const { detailInfo, nativeToken } = result || {};
+
+  const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
+    return detailInfo?.subscriptionValue?.token &&
+      detailInfo?.subscriptionValue?.balance
       ? {
-          token: result?.subscriptionValue?.token,
+          nativeToken,
+          balanceParsed: detailInfo.subscriptionValue.balance,
+          token: detailInfo.subscriptionValue.token,
           networkId,
           provider,
           vault,
           accountId,
         }
       : undefined;
-  }, [accountId, networkId, provider, result?.subscriptionValue?.token, vault]);
+  }, [
+    detailInfo?.subscriptionValue?.token,
+    detailInfo?.subscriptionValue.balance,
+    nativeToken,
+    networkId,
+    provider,
+    vault,
+    accountId,
+  ]);
 
   const { result: unbondingDelegationList } = usePromiseResult(
     () =>
@@ -563,8 +591,7 @@ const ProtocolDetailsPage = () => {
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     void run();
-    void runV1();
-  }, [refreshAccount, run, runV1]);
+  }, [refreshAccount, run]);
 
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
@@ -601,34 +628,48 @@ const ProtocolDetailsPage = () => {
     void refreshTracking();
   }, [run, runV1, refreshTracking]);
 
+  const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
+    return detailInfo?.protocol && resultV1
+      ? {
+          ...detailInfo.protocol,
+          apys: resultV1.provider.apys,
+          activeBalance: resultV1.active,
+          joinRequirement: resultV1.provider.joinRequirement,
+          rewardAssets: resultV1.rewardAssets,
+          poolFee: resultV1.provider.poolFee,
+          aprWithoutFee: resultV1.provider.aprWithoutFee,
+          minStakeAmount: resultV1.provider.minStakeAmount,
+          lidoStTokenRate: resultV1.provider.lidoStTokenRate,
+          morphoTokenRate: resultV1.provider.morphoTokenRate,
+          eventEndTime: resultV1.provider.eventEndTime,
+        }
+      : undefined;
+  }, [detailInfo?.protocol, resultV1]);
+
   const onStake = useCallback(async () => {
     await handleStake({
-      details: resultV1,
+      protocolInfo,
+      tokenInfo,
       accountId: earnAccount?.accountId,
       networkId,
       indexedAccountId,
-      symbol,
-      provider,
       setStakeLoading,
       onSuccess: async () => {
         if (networkUtils.isBTCNetwork(networkId)) {
           await run();
-          void runV1();
           await refreshTracking();
         }
       },
     });
   }, [
-    earnAccount?.accountId,
     handleStake,
-    indexedAccountId,
+    protocolInfo,
+    tokenInfo,
+    earnAccount?.accountId,
     networkId,
-    provider,
-    refreshTracking,
-    resultV1,
+    indexedAccountId,
     run,
-    runV1,
-    symbol,
+    refreshTracking,
   ]);
 
   const onWithdraw = useCallback(async () => {
@@ -708,15 +749,15 @@ const ProtocolDetailsPage = () => {
   const falconUSDfRegister = useFalconUSDfRegister();
   const shouldRegisterBeforeStake = useMemo(() => {
     // if (
-    //   earnUtils.isFalconProvider({ providerName: result?.provider.name ?? '' })
+    //   earnUtils.isFalconProvider({ providerName: detailInfo?.provider.name ?? '' })
     // ) {
-    //   return !result?.hasRegister;
+    //   return !detailInfo?.hasRegister;
     // }
     return false;
   }, []);
 
   const depositButtonProps = useMemo(() => {
-    const item = result?.actions?.find((i) => i.type === 'deposit');
+    const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
     return {
       props: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
@@ -727,10 +768,10 @@ const ProtocolDetailsPage = () => {
       } as IButtonProps,
       text: item?.text.text,
     };
-  }, [result?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
+  }, [detailInfo?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
 
   const withdrawButtonProps = useMemo(() => {
-    const item = result?.actions?.find((i) => i.type === 'withdraw');
+    const item = detailInfo?.actions?.find((i) => i.type === 'withdraw');
     return {
       text: item?.text.text,
       props: {
@@ -739,7 +780,7 @@ const ProtocolDetailsPage = () => {
         onPress: onWithdraw,
       } as IButtonProps,
     };
-  }, [earnAccount?.accountAddress, onWithdraw, result?.actions]);
+  }, [earnAccount?.accountAddress, onWithdraw, detailInfo?.actions]);
 
   const renderPageFooter = useCallback(() => {
     if (media.gtMd) {
@@ -784,43 +825,43 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
-        {result?.countDownAlert?.startTime &&
-        result?.countDownAlert?.endTime &&
-        now > result.countDownAlert.startTime &&
-        result.countDownAlert.endTime < now ? (
+        {detailInfo?.countDownAlert?.startTime &&
+        detailInfo?.countDownAlert?.endTime &&
+        now > detailInfo.countDownAlert.startTime &&
+        detailInfo.countDownAlert.endTime < now ? (
           <YStack pb="$1">
             <CountDownCalendarAlert
-              description={result.countDownAlert.description.text}
+              description={detailInfo.countDownAlert.description.text}
               descriptionTextProps={{
-                color: result.countDownAlert.description.color,
+                color: detailInfo.countDownAlert.description.color,
               }}
-              effectiveTimeAt={result.countDownAlert.endTime}
+              effectiveTimeAt={detailInfo.countDownAlert.endTime}
             />
           </YStack>
         ) : null}
         <YStack px="$5" gap="$8">
           <PageFrame
             LoadingSkeleton={OverviewSkeleton}
-            loading={isLoadingState({ result, isLoading })}
-            error={isErrorState({ result, isLoading })}
+            loading={isLoadingState({ result: detailInfo, isLoading })}
+            error={isErrorState({ result: detailInfo, isLoading })}
             onRefresh={run}
           >
-            {result ? (
+            {detailInfo ? (
               <YStack gap="$8">
                 {earnAccount?.accountAddress ? (
                   <>
                     <SubscriptionSection
-                      subscriptionValue={result.subscriptionValue}
+                      subscriptionValue={detailInfo.subscriptionValue}
                       onConfirmText={depositButtonProps.text}
                       confirmButtonProps={depositButtonProps.props}
                       onCancelText={withdrawButtonProps.text}
                       cancelButtonProps={withdrawButtonProps.props}
                     />
-                    <AlertSection alerts={result.alerts} />
+                    <AlertSection alerts={detailInfo.alerts} />
                     <Divider />
                     <PortfolioSection
-                      portfolios={result.portfolios}
-                      rewards={result.rewards}
+                      portfolios={detailInfo.portfolios}
+                      rewards={detailInfo.rewards}
                       tokenInfo={tokenInfo}
                     />
                   </>
@@ -832,15 +873,15 @@ const ProtocolDetailsPage = () => {
                     onCreateAddress={onCreateAddress}
                   />
                 )}
-                <ProfitSection profit={result.profit} />
-                <PeriodSection timeline={result.timeline} />
-                <ProviderSection provider={result.provider} />
-                <RiskSection risk={result.risk} />
-                <FAQSection faqs={result.faqs} tokenInfo={tokenInfo} />
+                <ProfitSection profit={detailInfo.profit} />
+                <PeriodSection timeline={detailInfo.timeline} />
+                <ProviderSection provider={detailInfo.provider} />
+                <RiskSection risk={detailInfo.risk} />
+                <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
               </YStack>
             ) : null}
             {renderPageFooter()}
-            {result ? (
+            {detailInfo ? (
               <StakingTransactionIndicator
                 accountId={earnAccount?.accountId ?? ''}
                 networkId={networkId}

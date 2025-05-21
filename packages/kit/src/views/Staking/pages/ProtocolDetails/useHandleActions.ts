@@ -5,9 +5,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  EApproveType,
-  type IStakeProtocolDetails,
+import { EApproveType } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnTokenInfo,
+  IProtocolInfo,
+  IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
 export const useHandleWithdraw = () => {
@@ -63,23 +65,23 @@ export const useHandleStake = () => {
   const appNavigation = useAppNavigation();
   return useCallback(
     async ({
-      details,
       accountId,
       networkId,
       setStakeLoading,
       onSuccess,
       indexedAccountId,
+      tokenInfo,
+      protocolInfo,
     }: {
-      details?: IStakeProtocolDetails;
+      protocolInfo?: IProtocolInfo;
+      tokenInfo?: IEarnTokenInfo;
       accountId?: string;
       networkId: string;
-      symbol: string;
-      provider: string;
       indexedAccountId?: string;
       setStakeLoading?: (value: boolean) => void;
       onSuccess?: () => void;
     }) => {
-      if (!details || !accountId) return;
+      if (!accountId) return;
 
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId,
@@ -93,7 +95,7 @@ export const useHandleStake = () => {
         return;
       }
 
-      if (details.approveTarget) {
+      if (protocolInfo?.approve?.approveTarget) {
         setStakeLoading?.(true);
         try {
           const { allowanceParsed } =
@@ -101,15 +103,16 @@ export const useHandleStake = () => {
               accountId,
               networkId,
               spenderAddress:
-                details.provider.approveType === EApproveType.Permit
+                protocolInfo.approve?.approveType === EApproveType.Permit
                   ? MorphoBundlerContract
-                  : details.approveTarget,
-              tokenAddress: details.token.info.address,
+                  : protocolInfo.approve.approveTarget,
+              tokenAddress: tokenInfo?.token.address || '',
             });
           appNavigation.push(EModalStakingRoutes.ApproveBaseStake, {
             accountId,
             networkId,
-            details,
+            protocolInfo,
+            tokenInfo,
             currentAllowance: allowanceParsed,
           });
         } finally {
@@ -121,7 +124,8 @@ export const useHandleStake = () => {
         accountId,
         networkId,
         indexedAccountId,
-        details,
+        protocolInfo,
+        tokenInfo,
         onSuccess,
       });
     },
