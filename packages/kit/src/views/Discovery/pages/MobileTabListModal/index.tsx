@@ -406,7 +406,7 @@ function MobileTabListModal() {
             px: '$2.5',
           }}
           horizontal
-          data={[...pinnedData]}
+          data={pinnedData}
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
           estimatedItemSize={128}
