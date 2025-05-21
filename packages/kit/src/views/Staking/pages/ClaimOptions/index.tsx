@@ -86,7 +86,7 @@ const ClaimOptions = () => {
             });
           }
           appNavigation.pop();
-          defaultLogger.staking.page.unstaking({
+          defaultLogger.staking.page.staking({
             token,
             stakingProtocol: provider.name,
           });
