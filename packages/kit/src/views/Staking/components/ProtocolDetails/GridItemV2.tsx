@@ -306,13 +306,22 @@ export function GridItem({
   }, [onHistory, title.text, tooltip]);
 
   if (type === 'info') {
-    return <Alert title={title.text} description={description?.text} />;
+    return (
+      <Alert
+        m="$3"
+        flex={1}
+        title={title.text}
+        description={description?.text}
+      />
+    );
   }
 
   if (type === 'alert') {
     return (
       <Alert
         type="critical"
+        m="$3"
+        flex={1}
         title={title.text}
         description={description?.text}
       />
