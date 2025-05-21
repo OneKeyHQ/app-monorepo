@@ -331,8 +331,8 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
       <SectionFieldItem
         name="usePrimeSandboxPayment"
-        title="Prime Sandbox 支付"
-        subtitle=""
+        title="开启 Prime Sandbox 付款"
+        subtitle="需同时在服务器添加到 Sandbox 白名单后支付生效"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
