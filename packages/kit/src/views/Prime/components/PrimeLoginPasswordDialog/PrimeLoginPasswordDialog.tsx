@@ -365,19 +365,25 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minLength}
                       />
                       <Checkbox
-                        label="At least 1 number"
+                        label={intl.formatMessage({
+                          id: ETranslations.prime_password_number,
+                        })}
                         labelProps={labelProps}
                         containerProps={containerProps}
                         value={passwordVerifyState.minNumberCharacter}
                       />
                       <Checkbox
-                        label="At least 1 letter"
+                        label={intl.formatMessage({
+                          id: ETranslations.prime_password_letter,
+                        })}
                         labelProps={labelProps}
                         containerProps={containerProps}
                         value={passwordVerifyState.minLetterCharacter}
                       />
                       <Checkbox
-                        label="At least 1 special character"
+                        label={intl.formatMessage({
+                          id: ETranslations.prime_password_special_characters,
+                        })}
                         labelProps={labelProps}
                         containerProps={containerProps}
                         value={passwordVerifyState.minSpecialCharacter}
