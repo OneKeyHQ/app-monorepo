@@ -634,6 +634,7 @@ const ProtocolDetailsPage = () => {
           ...detailInfo.protocol,
           apys: resultV1.provider.apys,
           activeBalance: resultV1.active,
+          overflowBalance: resultV1.overflow,
           joinRequirement: resultV1.provider.joinRequirement,
           rewardAssets: resultV1.rewardAssets,
           poolFee: resultV1.provider.poolFee,
@@ -651,6 +652,10 @@ const ProtocolDetailsPage = () => {
           minStakeBlocks: resultV1.provider.minStakeBlocks,
           updateFrequency: resultV1.updateFrequency,
           minTransactionFee: resultV1.provider.minTransactionFee,
+          unstakingTime: resultV1.provider.unstakingTime,
+          unstakingPeriod: resultV1.unstakingPeriod,
+          maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
+          minUnstakeAmount: resultV1.provider.minUnstakeAmount,
         }
       : undefined;
   }, [detailInfo?.protocol, resultV1]);

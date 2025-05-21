@@ -45,7 +45,8 @@ export const useHandleWithdraw = () => {
         appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
           accountId,
           networkId,
-          details,
+          protocolInfo,
+          tokenInfo,
           symbol,
           provider,
         });
@@ -54,7 +55,8 @@ export const useHandleWithdraw = () => {
       appNavigation.push(EModalStakingRoutes.Withdraw, {
         accountId,
         networkId,
-        details,
+        protocolInfo,
+        tokenInfo,
         onSuccess,
       });
     },

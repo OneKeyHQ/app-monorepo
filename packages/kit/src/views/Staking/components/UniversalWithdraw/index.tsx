@@ -47,8 +47,6 @@ type IUniversalWithdrawProps = {
   providerLogo?: string;
   providerName?: string;
 
-  providerLabel?: string;
-
   decimals?: number;
 
   initialAmount?: string;
@@ -58,12 +56,6 @@ type IUniversalWithdrawProps = {
   minAmount?: string;
   showDetailWithdrawalRequested: boolean;
   unstakingPeriod?: number;
-
-  showPayWith?: boolean;
-  payWithToken?: string;
-  payWithTokenRate?: string;
-
-  hideReceived?: boolean;
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
@@ -96,15 +88,8 @@ export const UniversalWithdraw = ({
   minAmount = '0',
   showDetailWithdrawalRequested,
   unstakingPeriod,
-  providerLabel,
   decimals,
   morphoVault,
-  // pay with
-  showPayWith,
-  payWithToken,
-  payWithTokenRate = '1',
-
-  hideReceived,
   estimateFeeResp,
 
   onConfirm,

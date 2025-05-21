@@ -26,12 +26,12 @@ export class PageScene extends BaseScene {
     token,
     stakingProtocol,
   }: {
-    token: IToken;
+    token?: IToken;
     stakingProtocol: string;
   }) {
     return {
-      tokenSymbol: token.symbol,
-      tokenAddress: token.address,
+      tokenSymbol: token?.symbol,
+      tokenAddress: token?.address,
       stakingProtocol,
     };
   }
