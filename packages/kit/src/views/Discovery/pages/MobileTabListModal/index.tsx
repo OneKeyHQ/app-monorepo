@@ -5,7 +5,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
-  BlurView,
   Button,
   IconButton,
   ListView,
@@ -146,11 +145,11 @@ function MobileTabListModal() {
       return data.length - 1;
     }
 
-    if (index < 6) {
+    if (index < 4) {
       return 0;
     }
 
-    return index - 4;
+    return index;
   }, [data, activeTabId]);
   const pinInitialScrollIndex = useMemo(() => {
     const index = pinnedData.findIndex((t) => t.id === activeTabId) - 2;
@@ -430,7 +429,7 @@ function MobileTabListModal() {
         <ListView
           initialScrollIndex={initialScrollIndex}
           // estimated item min size
-          estimatedItemSize={233}
+          estimatedItemSize={232}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
