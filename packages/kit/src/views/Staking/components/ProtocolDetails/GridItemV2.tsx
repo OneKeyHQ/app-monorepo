@@ -61,15 +61,20 @@ function PopupContent({
         ))}
       </YStack>
       {bulletList ? (
-        <YStack pt="$4" gap="$2">
+        <YStack pt="$1.5" gap="$2">
           {bulletList.map((text, index) => (
-            <SizableText
-              key={index}
-              size="$bodySm"
-              color={text.color || '$textSubdued'}
-            >
-              {text.text}
-            </SizableText>
+            <XStack key={index} gap="$2" ai="center">
+              <XStack
+                h="$1"
+                w="1"
+                m="$1.5"
+                borderRadius="$full"
+                bg="$iconSubdued"
+              />
+              <SizableText size="$bodySm" color={text.color || '$textSubdued'}>
+                {text.text}
+              </SizableText>
+            </XStack>
           ))}
         </YStack>
       ) : null}
