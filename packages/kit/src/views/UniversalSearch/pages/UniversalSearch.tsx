@@ -184,6 +184,7 @@ export function UniversalSearch({
   const searchInputRef = useRef<string>('');
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
+    console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
       searchInputRef.current = input;
@@ -266,6 +267,7 @@ export function UniversalSearch({
   }, 1200);
 
   const handleChangeText = useCallback(() => {
+    console.log('[universalSearch] handleChangeText');
     setSearchStatus(ESearchStatus.loading);
   }, []);
 
