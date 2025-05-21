@@ -8,6 +8,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
+  Icon,
   NumberSizeableText,
   Page,
   SearchBar,
@@ -70,6 +71,8 @@ import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 interface IUniversalSection {
   title: string;
   data: IUniversalSearchResultItem[];
+  sliceData?: IUniversalSearchResultItem[];
+  showMore?: boolean;
 }
 
 enum ESearchStatus {
@@ -188,37 +191,49 @@ export function UniversalSearch({
             ? allTokenListMap
             : undefined,
         });
+      const generateDataFn = (data: IUniversalSearchResultItem[]) => {
+        return {
+          data,
+          sliceData: data.slice(0, 5),
+          showMore: data.length > 5,
+        };
+      };
       const searchResultSections: {
         title: string;
         data: IUniversalSearchResultItem[];
+        sliceData?: IUniversalSearchResultItem[];
+        showMore?: boolean;
       }[] = [];
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
+        const data = result?.[EUniversalSearchType.Address]
+          ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           title: intl.formatMessage({
             id: ETranslations.global_wallets,
           }),
-          data: result?.[EUniversalSearchType.Address]
-            ?.items as IUniversalSearchResultItem[],
+          ...generateDataFn(data),
         });
       }
 
       if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
+        const data = result?.[EUniversalSearchType.MarketToken]
+          ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_tokens,
           }),
-          data: result?.[EUniversalSearchType.MarketToken]
-            ?.items as IUniversalSearchResultItem[],
+          ...generateDataFn(data),
         });
       }
 
       if (result?.[EUniversalSearchType.AccountAssets]?.items?.length) {
+        const data = result?.[EUniversalSearchType.AccountAssets]
+          ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
-          data: result?.[EUniversalSearchType.AccountAssets]
-            ?.items as IUniversalSearchResultItem[],
+          ...generateDataFn(data),
         });
       }
 
@@ -245,6 +260,35 @@ export function UniversalSearch({
       );
     },
     [],
+  );
+
+  const renderSectionFooter = useCallback(
+    ({ section }: { section: IUniversalSection }) => {
+      if (section.showMore) {
+        return (
+          <ListItem
+            onPress={() => {
+              console.log('[universalSearch] renderSectionFooter: ', section);
+            }}
+          >
+            <XStack ai="center" gap="$2">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.global_show_more,
+                })}
+              </SizableText>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+          </ListItem>
+        );
+      }
+      return null;
+    },
+    [intl],
   );
 
   const renderItem = useCallback(
@@ -507,7 +551,10 @@ export function UniversalSearch({
 
   const filterSections = useMemo(() => {
     if (filterType === tabTitles[0].title) {
-      return sections;
+      return sections.map((i) => ({
+        ...i,
+        data: i.sliceData,
+      }));
     }
     return sections.filter((i) => i.title === filterType);
   }, [filterType, sections, tabTitles]);
@@ -558,6 +605,7 @@ export function UniversalSearch({
               stickySectionHeadersEnabled
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
+              renderSectionFooter={renderSectionFooter}
               ListEmptyComponent={
                 <Empty
                   icon="SearchOutline"
@@ -586,6 +634,7 @@ export function UniversalSearch({
     recommendSections,
     renderItem,
     renderSectionHeader,
+    renderSectionFooter,
     searchStatus,
     tabTitles,
   ]);
