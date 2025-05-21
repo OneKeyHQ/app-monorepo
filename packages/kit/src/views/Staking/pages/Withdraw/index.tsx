@@ -147,7 +147,11 @@ const WithdrawPage = () => {
         providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
-      morphoVault: vault,
+      morphoVault: earnUtils.isMorphoProvider({
+        providerName,
+      })
+        ? vault
+        : undefined,
       identity,
       accountAddress: account.address,
     });
