@@ -28,6 +28,7 @@ import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
+import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 function isAutoLockValueNotAllowed(value: number) {
   return (
@@ -98,6 +99,7 @@ function EnableOneKeyCloudSwitchListItem() {
     }
     return ' - ';
   }, [config.lastSyncTime]);
+  const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
 
   const [passwordSettings] = usePasswordPersistAtom();
   const shouldChangePasswordAutoLock = useMemo(() => {
@@ -119,6 +121,8 @@ function EnableOneKeyCloudSwitchListItem() {
         disabled={false}
         size={ESwitchSize.small}
         onChange={async (value) => {
+          await ensurePrimeSubscriptionActive();
+
           if (isSubmittingRef.current) {
             return;
           }

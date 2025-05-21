@@ -33,10 +33,8 @@ import {
 import type { Variable } from '@tamagui/web/types/createVariable';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
-const font = createFont({
-  family: isTamaguiNative
-    ? 'System'
-    : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+
+const basicFontVariants = {
   size: {
     bodySm: 12,
     bodySmMedium: 12,
@@ -132,6 +130,23 @@ const font = createFont({
     heading4xl: 0,
     heading5xl: 0,
   },
+} as const;
+
+const font = createFont({
+  family: isTamaguiNative
+    ? 'System'
+    : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+  ...basicFontVariants,
+});
+
+const monoRegularFont = createFont({
+  family: 'GeistMono-Regular',
+  ...basicFontVariants,
+});
+
+const monoMediumFont = createFont({
+  family: 'GeistMono-Medium',
+  ...basicFontVariants,
 });
 
 // https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
@@ -531,6 +546,8 @@ const config = createTamagui({
   fonts: {
     body: font,
     heading: font,
+    monoRegular: monoRegularFont,
+    monoMedium: monoMediumFont,
   },
 
   themes: {

@@ -165,7 +165,9 @@ export function PrimeLoginContainer() {
         forgetMasterPasswordDialogRef.current = Dialog.show({
           icon: 'ErrorOutline',
           tone: 'destructive',
-          title: 'Reset backup password',
+          title: intl.formatMessage({
+            id: ETranslations.prime_reset_backup_password_title,
+          }),
           renderContent: (
             <PrimeForgetMasterPasswordDialog
               promiseId={promptForgetMasterPasswordDialog?.promiseId}
@@ -182,7 +184,7 @@ export function PrimeLoginContainer() {
         await forgetMasterPasswordDialogRef.current?.close();
       }
     })();
-  }, [promptForgetMasterPasswordDialog?.promiseId]);
+  }, [intl, promptForgetMasterPasswordDialog?.promiseId]);
 
   const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
   useEffect(() => {

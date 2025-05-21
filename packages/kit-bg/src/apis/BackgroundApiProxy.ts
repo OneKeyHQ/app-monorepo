@@ -39,6 +39,7 @@ import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
+import type ServiceMarketV2 from '../services/ServiceMarketV2';
 import type ServiceMasterPassword from '../services/ServiceMasterPassword';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
@@ -238,6 +239,10 @@ class BackgroundApiProxy
   ) as ServiceSpotlight;
 
   serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
+
+  serviceMarketV2 = this._createProxyService(
+    'serviceMarketV2',
+  ) as ServiceMarketV2;
 
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
 

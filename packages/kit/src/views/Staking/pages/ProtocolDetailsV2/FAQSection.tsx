@@ -1,4 +1,4 @@
-import { useIntl } from 'react-intl';
+import { useCallback } from 'react';
 
 import {
   Accordion,
@@ -7,20 +7,96 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type {
+  IEarnTokenInfo,
+  IStakeEarnDetail,
+} from '@onekeyhq/shared/types/staking';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
-export function FAQSection({ faqs }: { faqs: IStakeEarnDetail['faqs'] }) {
-  const intl = useIntl();
-  return (
+export function FAQSection({
+  faqs,
+  tokenInfo,
+}: {
+  faqs: IStakeEarnDetail['faqs'];
+  tokenInfo?: IEarnTokenInfo;
+}) {
+  const navigation = useAppNavigation();
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({ num: 0 });
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const networkId = tokenInfo?.networkId ?? '';
+
+  const handleAction = useCallback(
+    async (actionId: string) => {
+      const id = actionId.trim();
+      if (id === 'trade_usdf') {
+        const { isSupportSwap } =
+          await backgroundApiProxy.serviceSwap.checkSupportSwap({
+            networkId,
+          });
+        const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+          networkId,
+        });
+        const { importFromToken, swapTabSwitchType } = getImportFromToken({
+          networkId,
+          isSupportSwap,
+          tokenAddress: tokenInfo?.token?.address ?? '',
+        });
+        defaultLogger.wallet.walletActions.actionTrade({
+          walletType: wallet?.type ?? '',
+          networkId,
+          source: 'earn',
+          tradeType: ESwapTabSwitchType.SWAP,
+          isSoftwareWalletOnlyUser,
+        });
+        navigation.pushModal(EModalRoutes.SwapModal, {
+          screen: EModalSwapRoutes.SwapMainLand,
+          params: {
+            importToToken: {
+              ...(tokenInfo?.token ?? {}),
+              contractAddress: tokenInfo?.token?.address ?? '',
+              networkId,
+              networkLogoURI: network.logoURI,
+              decimals: tokenInfo?.token?.decimals ?? 0,
+              symbol: tokenInfo?.token?.symbol ?? '',
+            },
+            importFromToken,
+            swapTabSwitchType,
+            swapSource: ESwapSource.EARN,
+          },
+        });
+      }
+    },
+    [
+      isSoftwareWalletOnlyUser,
+      navigation,
+      networkId,
+      tokenInfo?.token,
+      wallet?.type,
+    ],
+  );
+  return faqs?.items?.length ? (
     <YStack gap="$6">
-      <SizableText size="$headingLg">
-        {intl.formatMessage({ id: ETranslations.global_faqs })}
+      <SizableText size="$headingLg" color={faqs.title.color}>
+        {faqs.title.text}
       </SizableText>
       <YStack>
         <Accordion type="multiple" gap="$2">
-          {faqs.map(({ question, answer }, index) => (
+          {faqs.items.map(({ title, description }, index) => (
             <Accordion.Item value={String(index)} key={String(index)}>
               <Accordion.Trigger
                 unstyled
@@ -48,7 +124,7 @@ export function FAQSection({ faqs }: { faqs: IStakeEarnDetail['faqs'] }) {
                       size="$bodyLgMedium"
                       color={open ? '$text' : '$textSubdued'}
                     >
-                      {question.text}
+                      {title.text}
                     </SizableText>
                     <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
                       <Icon
@@ -71,10 +147,10 @@ export function FAQSection({ faqs }: { faqs: IStakeEarnDetail['faqs'] }) {
                 >
                   <HyperlinkText
                     size="$bodyMd"
-                    color={answer.color}
-                    translationId={answer.text as ETranslations}
-                    defaultMessage={answer.text}
-                    // onAction={handleAction}
+                    color={description.color}
+                    translationId={description.text as ETranslations}
+                    defaultMessage={description.text}
+                    onAction={handleAction}
                     underlineTextProps={{
                       color: '$textInfo',
                     }}
@@ -86,5 +162,5 @@ export function FAQSection({ faqs }: { faqs: IStakeEarnDetail['faqs'] }) {
         </Accordion>
       </YStack>
     </YStack>
-  );
+  ) : null;
 }

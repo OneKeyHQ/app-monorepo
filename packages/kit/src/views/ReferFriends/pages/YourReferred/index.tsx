@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Empty,
   Page,
   SizableText,
@@ -11,8 +12,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 function EmptyData() {
@@ -69,8 +73,11 @@ function HardwareSales() {
         <EmptyData />
       ) : (
         <YStack px="$5" pt="$5">
+          <SizableText size="$headingSm" color="$textSubdued" py="$2">
+            {intl.formatMessage({ id: ETranslations.referral_order_info })}
+          </SizableText>
           {items.map((item, key) => (
-            <YStack key={key} py="$2">
+            <YStack key={key} py="$3">
               <SizableText size="$bodyLgMedium" numberOfLines={1}>
                 {item.title}
               </SizableText>
@@ -85,16 +92,18 @@ function HardwareSales() {
   );
 }
 
-function EarnList() {
+function WalletList() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { result, isLoading } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getEarnRewardHistory(),
+    () => backgroundApiProxy.serviceReferralCode.getEarnWalletHistory(),
     [],
     {
       watchLoading: true,
       initResult: {
         total: 0,
         items: [],
+        networks: [],
       },
     },
   );
@@ -107,29 +116,53 @@ function EarnList() {
     );
   }
 
-  const { total = 0, items } = result;
+  const { total = 0, items, networks } = result;
 
   return (
     <YStack pt="$5">
       <YStack px="$5">
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.referral_referred_total_addresses,
-          })}
-        </SizableText>
+        <SizableText size="$bodyLg">Total Wallets</SizableText>
         <SizableText size="$heading5xl">{total}</SizableText>
       </YStack>
       {total === 0 && !isLoading ? (
         <EmptyData />
       ) : (
-        <YStack px="$5" pt="$5">
-          {items.map((item, key) => (
-            <YStack key={key} py="$2">
-              <SizableText size="$bodyLgMedium">{item.title}</SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {item.effectiveTime ? formatDate(item.effectiveTime) : ''}
-              </SizableText>
-            </YStack>
+        <YStack pt="$5">
+          <SizableText size="$headingSm" color="$textSubdued" px="$5" py="$2">
+            {intl.formatMessage({
+              id: ETranslations.referral_your_referred_wallets_details,
+            })}
+          </SizableText>
+          {items.map((item, index) => (
+            <>
+              <ListItem
+                drillIn
+                py="$3"
+                key={index}
+                title={`Wallet ${index}`}
+                onPress={() => {
+                  navigation.push(
+                    EModalReferFriendsRoutes.YourReferredWalletAddresses,
+                    {
+                      items: item.items,
+                      networks,
+                    },
+                  );
+                }}
+              >
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.referral_your_referred_wallets_more_address,
+                    },
+                    {
+                      amount: item.total > 999 ? '999+' : item.total,
+                    },
+                  )}
+                </SizableText>
+              </ListItem>
+              <Divider mx="$5" />
+            </>
           ))}
         </YStack>
       )}
@@ -141,16 +174,12 @@ export default function YourReferred() {
   const intl = useIntl();
   const tabs = useMemo(
     () => [
-      // {
-      //   title: 'OneKey ID',
-      //   page: HardwareSales,
-      // },
-      // {
-      //   title: intl.formatMessage({
-      //     id: ETranslations.referral_referred_type_2,
-      //   }),
-      //   page: EarnList,
-      // },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_wallet,
+        }),
+        page: WalletList,
+      },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_type_3,

@@ -1,9 +1,12 @@
 import BigNumber from 'bignumber.js';
 
-import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
-
-export const buildLocalTxStatusSyncId = (details: IStakeProtocolDetails) =>
-  `${details.provider.name.toLowerCase()}-${details.token.info.symbol.toLowerCase()}`;
+export const buildLocalTxStatusSyncId = ({
+  providerName,
+  tokenSymbol,
+}: {
+  providerName: string;
+  tokenSymbol: string;
+}) => `${providerName.toLowerCase()}-${tokenSymbol.toLowerCase()}`;
 
 export function capitalizeString(str: string): string {
   if (!str) return str; // Return if the string is empty or undefined

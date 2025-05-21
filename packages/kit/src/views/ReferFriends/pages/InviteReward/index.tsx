@@ -292,7 +292,7 @@ function Dashboard({
   totalRewards,
   enabledNetworks,
   hardwareSales,
-  earn,
+  onChain,
   levelPercent,
   rebateLevels,
   rebateConfig,
@@ -302,7 +302,7 @@ function Dashboard({
 }: {
   totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
-  earn: IInviteSummary['Earn'];
+  onChain: IInviteSummary['Onchain'];
   hardwareSales: IInviteSummary['HardwareSales'];
   withdrawAddresses: IInviteSummary['withdrawAddresses'];
   levelPercent: number;
@@ -354,7 +354,7 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
-  const showEarnSalesAvailableFiat = (earn.available?.length || 0) > 0;
+  const showEarnSalesAvailableFiat = (onChain.available?.length || 0) > 0;
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
@@ -565,15 +565,15 @@ function Dashboard({
         onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">{earn.title}</SizableText>
+          <SizableText size="$headingMd">{onChain.title}</SizableText>
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
         <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {earn.description}
+          {onChain.description}
         </SizableText>
         {showEarnSalesAvailableFiat ? (
           <YStack gap="$2" pt="$4">
-            {earn.available?.map(({ token, fiatValue, amount }, index) => {
+            {onChain.available?.map(({ token, fiatValue, amount }, index) => {
               return (
                 <Fragment key={index}>
                   <XStack gap="$2" py={5}>
@@ -600,7 +600,7 @@ function Dashboard({
                       )
                     </SizableText>
                   </XStack>
-                  {index !== (earn.available?.length || 1) - 1 ? (
+                  {index !== (onChain.available?.length || 1) - 1 ? (
                     <Divider bg="$borderSubdued" />
                   ) : null}
                 </Fragment>
@@ -715,7 +715,7 @@ function InviteRewardContent({
     inviteCode,
     totalRewards,
     enabledNetworks,
-    Earn,
+    Onchain,
     HardwareSales,
     levelPercent,
     rebateLevels,
@@ -735,7 +735,7 @@ function InviteRewardContent({
         <Dashboard
           totalRewards={totalRewards}
           enabledNetworks={enabledNetworks}
-          earn={Earn}
+          onChain={Onchain}
           hardwareSales={HardwareSales}
           levelPercent={Number(levelPercent)}
           rebateLevels={rebateLevels}
