@@ -713,7 +713,8 @@ const ProtocolDetailsPage = () => {
   );
 
   const onHistory = useMemo(() => {
-    if (!resultV1?.earnHistoryEnable || !earnAccount?.accountId) {
+    const historyAction = detailInfo?.actions.find((i) => i.type === 'history');
+    if (historyAction?.disabled || !earnAccount?.accountId) {
       return undefined;
     }
     return (params?: { filterType?: string }) => {
@@ -733,10 +734,10 @@ const ProtocolDetailsPage = () => {
     };
   }, [
     appNavigation,
+    detailInfo?.actions,
     earnAccount?.accountId,
     networkId,
     provider,
-    resultV1?.earnHistoryEnable,
     symbol,
     tokenInfo?.provider,
     tokenInfo?.token.symbol,
