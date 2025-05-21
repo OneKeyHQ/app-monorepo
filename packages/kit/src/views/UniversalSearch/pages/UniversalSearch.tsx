@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -23,12 +23,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
   EModalAssetDetailRoutes,
@@ -59,6 +62,7 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
+import { useWebSiteHandler } from '../../Discovery/hooks/useWebSiteHandler';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
@@ -138,6 +142,8 @@ export function UniversalSearch({
     IUniversalSection[]
   >([]);
 
+  const handleWebSite = useWebSiteHandler();
+
   const shouldUseTokensCacheData = useMemo(() => {
     return (
       allTokenList &&
@@ -175,10 +181,13 @@ export function UniversalSearch({
     void fetchRecommendList();
   }, [fetchRecommendList]);
 
+  const searchInputRef = useRef<string>('');
+
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
+      searchInputRef.current = input;
       const result =
         await backgroundApiProxy.serviceUniversalSearch.universalSearch({
           input,
@@ -513,11 +522,23 @@ export function UniversalSearch({
             <ListItem
               onPress={() => {
                 console.log('[universalSearch] renderItem: ', item);
+                const isGoogle = isGoogleSearchItem(dappId);
+                handleWebSite({
+                  dApp: isGoogle ? undefined : item.payload,
+                  // @ts-expect-error
+                  webSite: isGoogle
+                    ? {
+                        title: 'Google',
+                        url: searchInputRef.current,
+                      }
+                    : undefined,
+                  enterMethod: EEnterMethod.search,
+                });
               }}
               renderAvatar={<Image source={{ uri: logo }} size="$10" />}
               title={name}
               titleProps={{
-                color: dappId === 'SEARCH_ITEM_ID' ? '$textSubdued' : '$text',
+                color: isGoogleSearchItem(dappId) ? '$textSubdued' : '$text',
               }}
             />
           );
@@ -533,6 +554,7 @@ export function UniversalSearch({
       universalSearchActions,
       searchStatus,
       settings.currencyInfo.symbol,
+      handleWebSite,
     ],
   );
 
@@ -718,11 +740,13 @@ const UniversalSearchWithProvider = (
     <MarketWatchListProviderMirror
       storeName={EJotaiContextStoreNames.marketWatchList}
     >
-      <UniversalSearchProviderMirror
-        storeName={EJotaiContextStoreNames.universalSearch}
-      >
-        <UniversalSearchWithHomeTokenListProvider {...params} />
-      </UniversalSearchProviderMirror>
+      <DiscoveryBrowserProviderMirror>
+        <UniversalSearchProviderMirror
+          storeName={EJotaiContextStoreNames.universalSearch}
+        >
+          <UniversalSearchWithHomeTokenListProvider {...params} />
+        </UniversalSearchProviderMirror>
+      </DiscoveryBrowserProviderMirror>
     </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
 );
