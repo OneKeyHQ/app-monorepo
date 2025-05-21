@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,7 +9,6 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
   Icon,
-  Image,
   NumberSizeableText,
   Page,
   SearchBar,
@@ -23,15 +22,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
   EModalAssetDetailRoutes,
@@ -62,7 +58,6 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
-import { useWebSiteHandler } from '../../Discovery/hooks/useWebSiteHandler';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
@@ -90,7 +85,6 @@ const AllTypes = [
   EUniversalSearchType.Address,
   EUniversalSearchType.MarketToken,
   EUniversalSearchType.AccountAssets,
-  EUniversalSearchType.Dapp,
 ];
 
 const SkeletonItem = () => (
@@ -142,8 +136,6 @@ export function UniversalSearch({
     IUniversalSection[]
   >([]);
 
-  const handleWebSite = useWebSiteHandler();
-
   const shouldUseTokensCacheData = useMemo(() => {
     return (
       allTokenList &&
@@ -181,13 +173,10 @@ export function UniversalSearch({
     void fetchRecommendList();
   }, [fetchRecommendList]);
 
-  const searchInputRef = useRef<string>('');
-
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
-      searchInputRef.current = input;
       const result =
         await backgroundApiProxy.serviceUniversalSearch.universalSearch({
           input,
@@ -248,17 +237,6 @@ export function UniversalSearch({
         });
       }
 
-      if (result?.[EUniversalSearchType.Dapp]?.items?.length) {
-        const data = result?.[EUniversalSearchType.Dapp]
-          ?.items as IUniversalSearchResultItem[];
-        searchResultSections.push({
-          title: intl.formatMessage({
-            id: ETranslations.global_universal_search_tabs_dapps,
-          }),
-          ...generateDataFn(data),
-        });
-      }
-
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
     } else {
@@ -286,9 +264,31 @@ export function UniversalSearch({
 
   const renderSectionFooter = useCallback(
     ({ section }: { section: IUniversalSection }) => {
+      if (section.showMore) {
+        return (
+          <ListItem
+            onPress={() => {
+              console.log('[universalSearch] renderSectionFooter: ', section);
+            }}
+          >
+            <XStack ai="center" gap="$2">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.global_show_more,
+                })}
+              </SizableText>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+          </ListItem>
+        );
+      }
       return null;
     },
-    [],
+    [intl],
   );
 
   const renderItem = useCallback(
@@ -494,32 +494,6 @@ export function UniversalSearch({
             </ListItem>
           );
         }
-        case EUniversalSearchType.Dapp: {
-          const { name, dappId, logo } = item.payload;
-          return (
-            <ListItem
-              onPress={() => {
-                const isGoogle = isGoogleSearchItem(dappId);
-                handleWebSite({
-                  dApp: isGoogle ? undefined : item.payload,
-                  // @ts-expect-error
-                  webSite: isGoogle
-                    ? {
-                        title: 'Google',
-                        url: searchInputRef.current,
-                      }
-                    : undefined,
-                  enterMethod: EEnterMethod.search,
-                });
-              }}
-              renderAvatar={<Image source={{ uri: logo }} size="$10" />}
-              title={name}
-              titleProps={{
-                color: isGoogleSearchItem(dappId) ? '$textSubdued' : '$text',
-              }}
-            />
-          );
-        }
         default: {
           return null;
         }
@@ -531,7 +505,6 @@ export function UniversalSearch({
       universalSearchActions,
       searchStatus,
       settings.currencyInfo.symbol,
-      handleWebSite,
     ],
   );
 
@@ -717,13 +690,11 @@ const UniversalSearchWithProvider = (
     <MarketWatchListProviderMirror
       storeName={EJotaiContextStoreNames.marketWatchList}
     >
-      <DiscoveryBrowserProviderMirror>
-        <UniversalSearchProviderMirror
-          storeName={EJotaiContextStoreNames.universalSearch}
-        >
-          <UniversalSearchWithHomeTokenListProvider {...params} />
-        </UniversalSearchProviderMirror>
-      </DiscoveryBrowserProviderMirror>
+      <UniversalSearchProviderMirror
+        storeName={EJotaiContextStoreNames.universalSearch}
+      >
+        <UniversalSearchWithHomeTokenListProvider {...params} />
+      </UniversalSearchProviderMirror>
     </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
 );
