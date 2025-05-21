@@ -301,28 +301,20 @@ function ReceiveToken() {
   const renderAddress = useCallback(() => {
     if (!account || !network || !wallet) return null;
 
+    let addressContent = '';
+
     if (shouldShowAddress) {
-      const formattedAddress =
+      addressContent =
         account.address.match(/.{1,4}/g)?.join(' ') || account.address;
-      return (
-        <XStack maxWidth={288} flexWrap="wrap">
-          <SizableText fontFamily="$monoRegular">
-            {formattedAddress}
-          </SizableText>
-        </XStack>
-      );
+    } else {
+      addressContent = Array.from({ length: 11 })
+        .map(() => '****')
+        .join(' ');
     }
 
     return (
-      <XStack alignItems="center" maxWidth={288} flexWrap="wrap">
-        {Array.from({ length: 11 }).map((_, index) => {
-          const content = '**** ';
-          return (
-            <SizableText key={index} fontFamily="$monoRegular">
-              {content}
-            </SizableText>
-          );
-        })}
+      <XStack maxWidth={288} flexWrap="wrap">
+        <SizableText fontFamily="$monoRegular">{addressContent}</SizableText>
       </XStack>
     );
   }, [account, network, shouldShowAddress, wallet]);
