@@ -14,6 +14,7 @@ import type { IToken } from '../../types';
 interface ITokenListProps {
   tokens?: IToken[];
   onTokenPress?: (token: IToken) => void;
+  onTradePress: () => void;
 }
 
 type IListToken = IToken & {
@@ -32,6 +33,7 @@ function log(...args: any[]) {
 export function TokenList({
   tokens: initialTokens,
   onTokenPress,
+  onTradePress,
 }: ITokenListProps) {
   log('component rendered', { initialTokens });
   const [detailedTokens, setDetailedTokens] = useState<IListToken[]>([]);
@@ -169,7 +171,6 @@ export function TokenList({
         networkImageSrc: networkConfig?.logoURI,
         valueProps,
       };
-      // log('useMemo displayTokens - prepared token for display', displayTokenItem);
       return displayTokenItem;
     });
   }, [innerTokens, detailedTokens, currencySymbol]);
@@ -194,7 +195,7 @@ export function TokenList({
         ))}
       </YStack>
 
-      <SwitchToTradePrompt />
+      <SwitchToTradePrompt onTradePress={onTradePress} />
     </YStack>
   );
 }
