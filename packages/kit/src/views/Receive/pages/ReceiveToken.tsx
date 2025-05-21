@@ -39,10 +39,10 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { useHelpLink } from '../../../hooks/useHelpLink';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
-import { useHelpLink } from '../../../hooks/useHelpLink';
 
 function ReceiveToken() {
   useDebugComponentRemountLog({
@@ -290,7 +290,13 @@ function ReceiveToken() {
         </Button>
       </YStack>
     );
-  }, [handleVerifyOnDevicePress, intl, isHardwareWallet, shouldShowAddress]);
+  }, [
+    handleVerifyOnDevicePress,
+    intl,
+    isHardwareWallet,
+    media.gtMd,
+    shouldShowAddress,
+  ]);
 
   const renderAddress = useCallback(() => {
     if (!account || !network || !wallet) return null;
