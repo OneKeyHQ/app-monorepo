@@ -205,7 +205,7 @@ function logResult({ autoReset, isWarning, muteLog }: ILogResultParams = {}) {
         logData,
       );
 
-      console.groupCollapsed('\t', logName, 'Details');
+      console.groupCollapsed('\t', logName, 'Details ⬇️⬇️⬇️⬇️');
       console.log({
         globalStats: logDataAll,
         globalRecentCalls,

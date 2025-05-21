@@ -497,8 +497,9 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
 
       const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
 
+      const mainnetItems = compatibleNetworks.mainnetItems;
       if (filterNetworksWithoutAccount && indexedAccountId) {
-        for (const network of compatibleNetworks.mainnetItems) {
+        for (const network of mainnetItems) {
           const [{ networkAccounts }, vaultSettings] = await Promise.all([
             backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
@@ -537,7 +538,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       }
 
       return {
-        compatibleNetworks: compatibleNetworks.mainnetItems,
+        compatibleNetworks: mainnetItems,
         compatibleNetworksWithoutAccount,
       };
     },
