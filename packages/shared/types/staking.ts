@@ -363,11 +363,6 @@ interface IEarnProfit {
   items: IEarnCell[];
 }
 
-interface IEarnProvider {
-  title: IEarnText;
-  items: IEarnCell[];
-}
-
 export interface IEarnFAQItem {
   title: IEarnText;
   description: IEarnText;
@@ -415,7 +410,10 @@ export interface IStakeEarnDetail {
   rewards: IRewards;
   risk: IEarnRisk;
   profit: IEarnProfit;
-  provider: IEarnProvider;
+  provider: {
+    title: IEarnText;
+    items: IEarnCell[];
+  };
   alerts: string[];
   faqs: {
     title: IEarnText;
