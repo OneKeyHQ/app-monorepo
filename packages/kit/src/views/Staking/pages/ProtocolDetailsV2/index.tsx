@@ -795,7 +795,7 @@ const ProtocolDetailsPage = () => {
       />
       <Page.Body pb="$5">
         {result?.countDownAlert?.startTime &&
-        result?.countDownAlert?.endTime && 
+        result?.countDownAlert?.endTime &&
         now > result.countDownAlert.startTime &&
         result.countDownAlert.endTime < now ? (
           <YStack pb="$1">
