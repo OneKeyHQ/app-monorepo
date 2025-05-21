@@ -2,26 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 
 import {
   Badge,
-  BlurView,
   Button,
-  ConfirmHighlighter,
   Dialog,
   Empty,
-  Heading,
-  Icon,
   IconButton,
   Page,
   QRCode,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   EHardwareUiStateAction,
@@ -46,11 +42,13 @@ import { useAccountData } from '../../../hooks/useAccountData';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
+import { useHelpLink } from '../../../hooks/useHelpLink';
 
 function ReceiveToken() {
   useDebugComponentRemountLog({
     name: 'ReceiveToken9971',
   });
+  const media = useMedia();
   const intl = useIntl();
   const route =
     useRoute<
@@ -73,6 +71,8 @@ function ReceiveToken() {
   const [hardwareUiState] = useHardwareUiStateAtom();
 
   const { copyText } = useClipboard();
+
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const isHardwareWallet =
     accountUtils.isQrWallet({
@@ -104,16 +104,7 @@ function ReceiveToken() {
     return false;
   }, [addressState, hardwareUiState?.action, isHardwareWallet]);
 
-  const shouldHighLightAddress = useMemo(() => {
-    if (
-      addressState === EAddressState.Verifying &&
-      hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON
-    ) {
-      return true;
-    }
-  }, [addressState, hardwareUiState?.action]);
-
-  const isShowQRCode = useMemo(() => {
+  const shouldShowQRCode = useMemo(() => {
     if (!isHardwareWallet) {
       return true;
     }
@@ -127,8 +118,6 @@ function ReceiveToken() {
 
     return false;
   }, [addressState, isHardwareWallet]);
-
-  const isVerifying = addressState === EAddressState.Verifying;
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
@@ -158,13 +147,22 @@ function ReceiveToken() {
       });
 
       if (!isSameAddress) {
-        Toast.error({
+        Dialog.confirm({
+          icon: 'ErrorOutline',
+          tone: 'destructive',
           title: intl.formatMessage({
             id: ETranslations.feedback_address_mismatch,
           }),
-          message: intl.formatMessage({
+          description: intl.formatMessage({
             id: ETranslations.feedback_address_mismatch_desc,
           }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_contact_us,
+          }),
+          onConfirm: () => Linking.openURL(requestsUrl),
+          confirmButtonProps: {
+            variant: 'primary',
+          },
         });
       }
       setAddressState(
@@ -186,6 +184,7 @@ function ReceiveToken() {
     deriveType,
     intl,
     networkId,
+    requestsUrl,
     wallet?.type,
     walletId,
   ]);
@@ -228,18 +227,13 @@ function ReceiveToken() {
         size="medium"
         icon="Copy3Outline"
         onPress={() => copyText(account?.address ?? '')}
+        variant="primary"
       />
     );
   }, [account?.address, addressState, copyText, isHardwareWallet]);
 
   const renderVerifyAddressButton = useCallback(() => {
-    if (!isHardwareWallet) return null;
-
-    if (
-      addressState === EAddressState.Verified ||
-      addressState === EAddressState.ForceShow
-    )
-      return null;
+    if (!isHardwareWallet || shouldShowAddress) return null;
 
     return (
       <YStack
@@ -253,7 +247,14 @@ function ReceiveToken() {
           justifyContent: 'center',
         }}
       >
-        <Button variant="primary" onPress={handleVerifyOnDevicePress}>
+        <Button
+          variant="primary"
+          size={media.gtMd ? 'medium' : 'large'}
+          onPress={handleVerifyOnDevicePress}
+          $md={{
+            width: '100%',
+          }}
+        >
           {intl.formatMessage({
             id: ETranslations.global_verify_on_device,
           })}
@@ -289,18 +290,35 @@ function ReceiveToken() {
         </Button>
       </YStack>
     );
-  }, [addressState, handleVerifyOnDevicePress, intl, isHardwareWallet]);
+  }, [handleVerifyOnDevicePress, intl, isHardwareWallet, shouldShowAddress]);
 
   const renderAddress = useCallback(() => {
     if (!account || !network || !wallet) return null;
 
     if (shouldShowAddress) {
-      return <SizableText size="$bodyMd">{account.address}</SizableText>;
+      const formattedAddress =
+        account.address.match(/.{1,4}/g)?.join(' ') || account.address;
+      return (
+        <XStack maxWidth={288} flexWrap="wrap">
+          <SizableText fontFamily="$monoRegular">
+            {formattedAddress}
+          </SizableText>
+        </XStack>
+      );
     }
 
-    return Array.from({ length: 11 }).map((_, index) => (
-      <SizableText key={index}>****</SizableText>
-    ));
+    return (
+      <XStack alignItems="center" maxWidth={288} flexWrap="wrap">
+        {Array.from({ length: 11 }).map((_, index) => {
+          const content = '**** ';
+          return (
+            <SizableText key={index} fontFamily="$monoRegular">
+              {content}
+            </SizableText>
+          );
+        })}
+      </XStack>
+    );
   }, [account, network, shouldShowAddress, wallet]);
 
   const renderReceiveFooter = useCallback(() => {
@@ -379,7 +397,7 @@ function ReceiveToken() {
         width={264}
         height={264}
       >
-        {isShowQRCode ? (
+        {shouldShowQRCode ? (
           <Stack position="relative">
             <QRCode
               value={account.address}
@@ -394,7 +412,7 @@ function ReceiveToken() {
           </Stack>
         ) : null}
 
-        {!isShowQRCode ? (
+        {!shouldShowQRCode ? (
           <Stack
             position="absolute"
             top="$0"
@@ -422,7 +440,7 @@ function ReceiveToken() {
         ) : null}
       </Stack>
     );
-  }, [account, network, wallet, intl, token?.logoURI, isShowQRCode]);
+  }, [account, network, wallet, intl, token?.logoURI, shouldShowQRCode]);
 
   return (
     <Page safeAreaEnabled>
