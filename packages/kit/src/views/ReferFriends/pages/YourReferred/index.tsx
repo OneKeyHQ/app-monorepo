@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { reverse } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -137,13 +138,13 @@ function WalletList() {
               id: ETranslations.referral_your_referred_wallets_details,
             })}
           </SizableText>
-          {items.map((item, index) => (
+          {reverse(items).map((item, index) => (
             <>
               <ListItem
                 drillIn
                 py="$3"
                 key={index}
-                title={`Wallet ${index}`}
+                title={`Wallet ${items.length - index}`}
                 onPress={() => {
                   navigation.push(
                     EModalReferFriendsRoutes.YourReferredWalletAddresses,
