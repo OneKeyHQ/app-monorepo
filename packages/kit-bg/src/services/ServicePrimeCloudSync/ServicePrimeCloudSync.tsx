@@ -991,8 +991,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       return false;
     }
 
-    const isPrimeLoggedIn =
-      await this.backgroundApi.servicePrime.isPrimeLoggedIn();
+    const isPrimeLoggedIn = await this.backgroundApi.servicePrime.isLoggedIn();
     if (!isPrimeLoggedIn) {
       return false;
     }
@@ -1021,8 +1020,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       throw new OneKeyError(`Cloud sync is not enabled: ${callerName}`);
     }
 
-    const isPrimeLoggedIn =
-      await this.backgroundApi.servicePrime.isPrimeLoggedIn();
+    const isPrimeLoggedIn = await this.backgroundApi.servicePrime.isLoggedIn();
     if (!isPrimeLoggedIn) {
       throw new OneKeyError(`Prime is not logged in: ${callerName}`);
     }
@@ -1215,7 +1213,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
     if (isCloudSyncEnabled) {
       const isPrimeLoggedIn =
-        await this.backgroundApi.servicePrime.isPrimeLoggedIn();
+        await this.backgroundApi.servicePrime.isLoggedIn();
       // const isPrimeSubscriptionActive =
       // await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
       if (isPrimeLoggedIn) {
@@ -1571,8 +1569,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer?: string;
     serverDiffItems?: ICloudSyncServerDiffItem[];
   }> {
-    const isPrimeLoggedIn =
-      await this.backgroundApi.servicePrime.isPrimeLoggedIn();
+    const isPrimeLoggedIn = await this.backgroundApi.servicePrime.isLoggedIn();
     if (!isPrimeLoggedIn) {
       throw new OneKeyError('Prime is not logged in');
     }
@@ -1588,9 +1585,10 @@ class ServicePrimeCloudSync extends ServiceBase {
           : undefined,
         dialogProps: {
           // custom title not working
-          title: 'Enable Cloud Sync',
-          // TODO description not working for Set passcode dialog
-          description: 'Please enter your passcode to enable cloud sync',
+          title: 'Enable OneKey Cloud',
+          description: appLocale.intl.formatMessage({
+            id: ETranslations.prime_verify_passcode_enable_cloud,
+          }),
         },
       });
 
