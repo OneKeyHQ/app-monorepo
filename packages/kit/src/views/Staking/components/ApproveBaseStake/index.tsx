@@ -78,7 +78,7 @@ type IApproveBaseStakeProps = {
     spenderAddress: string;
     token: IToken;
   };
-  joinRequirement?: number;
+  joinRequirement?: string;
 
   providerLabel?: string;
 
