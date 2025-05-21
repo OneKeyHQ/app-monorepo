@@ -45,7 +45,7 @@ import { useHandleClaim } from './useHandleClaim';
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.ProtocolDetails
+    EModalStakingRoutes.ProtocolDetailsV2
   >();
   const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
     route.params;
@@ -186,37 +186,37 @@ const ProtocolDetailsPage = () => {
       isReward?: boolean;
       isMorphoClaim?: boolean;
     }) => {
-      if (!result) return;
-      const { amount, claimTokenAddress, isReward, isMorphoClaim } =
-        params ?? {};
-      let claimTokenInfo = { token: result.token.info, amount: amount ?? '0' };
-      if (claimTokenAddress) {
-        const rewardToken = result.rewardAssets?.[claimTokenAddress];
-        if (!rewardToken) {
-          throw new Error('Reward token not found');
-        }
-        claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
-      }
-      await handleClaim({
-        symbol,
-        provider,
-        claimAmount: claimTokenInfo.amount,
-        claimTokenAddress,
-        isReward,
-        isMorphoClaim,
-        details: result,
-        stakingInfo: {
-          label: EEarnLabels.Claim,
-          protocol: earnUtils.getEarnProviderName({
-            providerName: result.provider.name,
-          }),
-          protocolLogoURI: result.provider.logoURI,
-          receive: claimTokenInfo,
-          tags: [buildLocalTxStatusSyncId(result)],
-        },
-      });
+      // if (!result) return;
+      // const { amount, claimTokenAddress, isReward, isMorphoClaim } =
+      //   params ?? {};
+      // let claimTokenInfo = { token: result.token.info, amount: amount ?? '0' };
+      // if (claimTokenAddress) {
+      //   const rewardToken = result.rewardAssets?.[claimTokenAddress];
+      //   if (!rewardToken) {
+      //     throw new Error('Reward token not found');
+      //   }
+      //   claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
+      // }
+      // await handleClaim({
+      //   symbol,
+      //   provider,
+      //   claimAmount: claimTokenInfo.amount,
+      //   claimTokenAddress,
+      //   isReward,
+      //   isMorphoClaim,
+      //   details: result,
+      //   stakingInfo: {
+      //     label: EEarnLabels.Claim,
+      //     protocol: earnUtils.getEarnProviderName({
+      //       providerName: result.provider.name,
+      //     }),
+      //     protocolLogoURI: result.provider.logoURI,
+      //     receive: claimTokenInfo,
+      //     tags: [buildLocalTxStatusSyncId(result)],
+      //   },
+      // });
     },
-    [handleClaim, result, symbol, provider],
+    [],
   );
 
   const onPortfolioDetails = useMemo(
@@ -245,7 +245,10 @@ const ProtocolDetailsPage = () => {
         networkId,
         symbol,
         provider,
-        stakeTag: buildLocalTxStatusSyncId(result),
+        stakeTag: buildLocalTxStatusSyncId({
+          providerName: result.provider.name,
+          tokenSymbol: result.token.info.symbol,
+        }),
         morphoVault: vault,
         filterType,
       });
@@ -483,7 +486,10 @@ const ProtocolDetailsPage = () => {
               <StakingTransactionIndicator
                 accountId={earnAccount?.accountId ?? ''}
                 networkId={networkId}
-                stakeTag={buildLocalTxStatusSyncId(result)}
+                stakeTag={buildLocalTxStatusSyncId({
+                  providerName: result.provider.name,
+                  tokenSymbol: result.token.info.symbol,
+                })}
                 onRefresh={run}
                 onPress={onHistory}
               />

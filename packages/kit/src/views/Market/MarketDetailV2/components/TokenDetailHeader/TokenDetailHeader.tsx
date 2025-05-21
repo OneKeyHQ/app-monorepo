@@ -3,53 +3,33 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
   usePageType,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { MarketDetailOverview } from '@onekeyhq/kit/src/views/Market/components/MarketDetailOverview';
-import { MarketStar } from '@onekeyhq/kit/src/views/Market/components/MarketStar';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
-import { MarketTradeButton } from '@onekeyhq/kit/src/views/Market/components/MarketTradeButton';
-import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 export function TokenDetailHeader({
-  coinGeckoId,
-  token: responseToken,
+  tokenDetail,
 }: {
-  coinGeckoId: string;
-  token: IMarketTokenDetail;
+  tokenDetail?: IMarketTokenDetail;
 }) {
-  const { gtMd: gtMdMedia } = useMedia();
-
   const pageType = usePageType();
 
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet: _wallet },
   } = useActiveAccount({
     num: 0,
   });
 
-  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
-
-  const { result: token } = usePromiseResult(
-    () => backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(coinGeckoId),
-    [coinGeckoId],
-    {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 45 }),
-      initResult: responseToken,
-    },
-  );
   const {
-    name,
-    symbol,
-    stats: { performance, currentPrice, lastUpdated },
-  } = token;
+    name = '',
+    symbol = '',
+    price: currentPrice = '0',
+    // coingeckoId, // TODO: uncomment when MarketStar is used
+    // priceChangePercentage24h, // TODO: uncomment when PriceChangePercentage is used
+  } = tokenDetail || {};
+
   return (
     <YStack
       bg="$green4"
@@ -67,25 +47,21 @@ export function TokenDetailHeader({
             price={currentPrice}
             tokenName={name}
             tokenSymbol={symbol}
-            lastUpdated={lastUpdated}
+            // lastUpdated={lastUpdated} // lastUpdated is not in IMarketTokenDetail from marketV2.ts
           />
-          <MarketStar
+          {/* <MarketStar
             coingeckoId={coinGeckoId}
             mr="$-2"
             size="medium"
             from={EWatchlistFrom.details}
-          />
+          /> */}
         </XStack>
-        <PriceChangePercentage pt="$0.5" width="100%">
+        {/* <PriceChangePercentage pt="$0.5" width="100%">
           {performance.priceChangePercentage24h}
-        </PriceChangePercentage>
+        </PriceChangePercentage> */}
       </YStack>
-      <MarketTradeButton
-        coinGeckoId={coinGeckoId}
-        token={token}
-        wallet={wallet}
-      />
-      {gtMd ? <MarketDetailOverview token={token} /> : null}
+
+      {/* {gtMd ? <MarketDetailOverview token={token} /> : null} */}
     </YStack>
   );
 }

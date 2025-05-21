@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 function PrimeBenefitsItem({
   icon,
@@ -49,6 +50,8 @@ function PrimeBenefitsItem({
 export function PrimeBenefitsList() {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
+  
   return (
     <Stack py="$2">
       <PrimeBenefitsItem
@@ -100,7 +103,8 @@ export function PrimeBenefitsList() {
         subtitle={intl.formatMessage({
           id: ETranslations.prime_device_management_desc,
         })}
-        onPress={() => {
+        onPress={async () => {
+          await ensureOneKeyIDLoggedIn();
           navigation.pushFullModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDeviceLimit,
           });

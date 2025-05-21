@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { Dialog, SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 /*
 - 本地密码未设置（本地修改密码过程中异常退出）
@@ -7,14 +10,20 @@ import { Dialog, SizableText, Stack } from '@onekeyhq/components';
 */
 
 export function PrimeMasterPasswordInvalidDialog() {
+  const intl = useIntl();
   return (
     <Stack>
-      <Dialog.Title>Master Password Invalid</Dialog.Title>
+      <Dialog.Title>
+        {intl.formatMessage({
+          id: ETranslations.prime_sync_password_invalid_title,
+        })}
+      </Dialog.Title>
 
       <Stack pt="$4">
         <SizableText>
-          Your master password is reset or changed by another device, please
-          re-enable cloud sync and verify your master password again.
+          {intl.formatMessage({
+            id: ETranslations.prime_sync_password_invalid_description,
+          })}
         </SizableText>
       </Stack>
       <Dialog.Footer
