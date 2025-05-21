@@ -1,5 +1,4 @@
-import { useCallback, useMemo } from 'react';
-import type { ComponentProps, PropsWithChildren } from 'react';
+import { useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -21,6 +20,7 @@ import type {
   IEarnPopupActionIcon,
   IEarnText,
   IEarnToken,
+  IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
 function PopupItemLine({
@@ -134,7 +134,7 @@ export function GridItem({
 }: {
   title: IEarnText;
   description?: IEarnText;
-  tooltip?: IEarnText;
+  tooltip?: IEarnTooltip;
   actionIcon?: IEarnActionIcon;
 }) {
   const actionIconButton = useMemo(() => {
@@ -181,6 +181,38 @@ export function GridItem({
       />
     ) : null;
   }, [actionIcon?.data, actionIcon?.type, title.text]);
+
+  const tooltipElement = useMemo(() => {
+    if (tooltip) {
+      switch (tooltip.type) {
+        case 'text':
+        default:
+          return (
+            <Popover
+              placement="top"
+              title={title.text}
+              renderTrigger={
+                <IconButton
+                  iconColor="$iconSubdued"
+                  size="small"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                />
+              }
+              renderContent={
+                <Stack p="$5">
+                  <SizableText color={tooltip.data.color}>
+                    {tooltip.data.text}
+                  </SizableText>
+                </Stack>
+              }
+            />
+          );
+      }
+    }
+    return null;
+  }, [title.text, tooltip]);
+
   return (
     <YStack
       p="$3"
@@ -193,25 +225,7 @@ export function GridItem({
         <SizableText size="$bodyMd" color={title.color || '$textSubdued'}>
           {title.text}
         </SizableText>
-        {tooltip ? (
-          <Popover
-            placement="top"
-            title={title.text}
-            renderTrigger={
-              <IconButton
-                iconColor="$iconSubdued"
-                size="small"
-                icon="InfoCircleOutline"
-                variant="tertiary"
-              />
-            }
-            renderContent={
-              <Stack p="$5">
-                <SizableText color={tooltip.color}>{tooltip.text}</SizableText>
-              </Stack>
-            }
-          />
-        ) : null}
+        {tooltipElement}
       </XStack>
       <XStack gap="$1" alignItems="center">
         {description ? (

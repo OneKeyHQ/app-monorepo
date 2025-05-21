@@ -1,4 +1,3 @@
-import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -29,7 +28,6 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
-import { useEarnEventActive } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnEventActive';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -131,9 +129,9 @@ function SubscriptionSection({
           size="$bodyLgMedium"
           formatter="balance"
           color="$textSubdued"
-          formatterOptions={{ tokenSymbol: 'ETH' }}
+          formatterOptions={{ tokenSymbol: subscriptionValue.token.symbol }}
         >
-          {0}
+          {subscriptionValue.formattedValue || 0}
         </NumberSizeableText>
       </YStack>
     </YStack>
@@ -174,6 +172,39 @@ function ProtocolRewards({
     accountId: tokenInfo?.accountId || '',
     networkId: tokenInfo?.networkId || '',
   });
+  const tooltipElement = useMemo(() => {
+    if (rewards?.tooltip) {
+      switch (rewards.tooltip.type) {
+        case 'text':
+        default:
+          return (
+            <Popover
+              title={rewards.title.text}
+              placement="top"
+              renderTrigger={
+                <IconButton
+                  iconColor="$iconSubdued"
+                  size="small"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                />
+              }
+              renderContent={
+                <Stack p="$5">
+                  <SizableText
+                    color={rewards.tooltip.data.color || '$text'}
+                    size="$bodyLg"
+                  >
+                    {rewards.tooltip.data.text}
+                  </SizableText>
+                </Stack>
+              }
+            />
+          );
+      }
+    }
+    return null;
+  }, [rewards?.title?.text, rewards?.tooltip]);
   return rewards ? (
     <YStack
       gap="$2.5"
@@ -192,28 +223,7 @@ function ProtocolRewards({
         >
           {rewards.title.text}
         </SizableText>
-        <Popover
-          title={rewards.title.text}
-          placement="top"
-          renderTrigger={
-            <IconButton
-              iconColor="$iconSubdued"
-              size="small"
-              icon="InfoCircleOutline"
-              variant="tertiary"
-            />
-          }
-          renderContent={
-            <Stack p="$5">
-              <SizableText
-                color={rewards.tooltip.color || '$text'}
-                size="$bodyLg"
-              >
-                {rewards.tooltip.text}
-              </SizableText>
-            </Stack>
-          }
-        />
+        {tooltipElement}
       </XStack>
       {rewards?.tokens?.map((token, index) => {
         return (
@@ -308,6 +318,44 @@ function PortfolioSection({
   rewards: IStakeEarnDetail['rewards'];
   tokenInfo?: IEarnTokenInfo;
 }) {
+  const renderItem = useCallback(
+    (item: IStakeEarnDetail['portfolios']['items'][0]) => {
+      switch (item.type) {
+        case 'default':
+        default:
+          return (
+            <XStack
+              key={item.title.text}
+              minHeight={30}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <XStack alignItems="center" gap="$1.5">
+                <Token size="sm" tokenImageUri={item.token.logoURI} />
+                <SizableText size="$bodyLgMedium" color={item.title.color}>
+                  {item.title.text}
+                </SizableText>
+                <SizableText
+                  size="$bodyLgMedium"
+                  color={item.description.color}
+                >
+                  {item.description.text}
+                </SizableText>
+                {item?.badge ? (
+                  <Badge
+                    badgeType={item.badge.badgeType}
+                    badgeSize={item.badge.badgeSize}
+                  >
+                    <Badge.Text>{item.badge.text.text}</Badge.Text>
+                  </Badge>
+                ) : null}
+              </XStack>
+            </XStack>
+          );
+      }
+    },
+    [],
+  );
   return portfolios?.items?.length ? (
     <>
       <YStack gap="$6">
@@ -325,65 +373,7 @@ function PortfolioSection({
        </Button>
      ) : null} */}
         </XStack>
-        <YStack gap="$3">
-          {portfolios.items.map((item) => (
-            <XStack
-              key={item.title.text}
-              minHeight={30}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <XStack alignItems="center" gap="$1.5">
-                <Token size="sm" tokenImageUri={item.token.logoURI} />
-                <SizableText size="$bodyLgMedium" color={item.title.color}>
-                  {item.title.text}
-                </SizableText>
-                {/* {tooltip || renderTooltipContent ? (
-             <Popover
-               placement="top"
-               title={statusText}
-               renderTrigger={
-                 <IconButton
-                   iconColor="$iconSubdued"
-                   size="small"
-                   icon="InfoCircleOutline"
-                   variant="tertiary"
-                 />
-               }
-               renderContent={
-                 tooltip ? (
-                   <Stack p="$5">
-                     <SizableText>{tooltip}</SizableText>
-                   </Stack>
-                 ) : (
-                   renderTooltipContent || null
-                 )
-               }
-             />
-           ) : null} */}
-                {item?.badge ? (
-                  <Badge
-                    badgeType={item.badge.badgeType}
-                    badgeSize={item.badge.badgeSize}
-                  >
-                    <Badge.Text>{item.badge.text.text}</Badge.Text>
-                  </Badge>
-                ) : null}
-              </XStack>
-              {/* {buttonText && onPress ? (
-           <Button
-             size="small"
-             disabled={disabled}
-             variant="primary"
-             onPress={handlePress}
-             loading={loading}
-           >
-             {buttonText}
-           </Button>
-         ) : null} */}
-            </XStack>
-          ))}
-        </YStack>
+        <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
         <ProtocolRewards rewards={rewards} tokenInfo={tokenInfo} />
       </YStack>
       <Divider />

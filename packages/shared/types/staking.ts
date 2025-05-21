@@ -311,7 +311,7 @@ interface IRewardToken {
 
 interface IRewards {
   title: IEarnText;
-  tooltip: IEarnText;
+  tooltip: IEarnTooltip;
   tokens: IRewardToken[];
 }
 
@@ -356,12 +356,17 @@ export interface IEarnWithdrawActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnTooltip {
+  type: 'text';
+  data: IEarnText;
+}
+
 export type IEarnActionIcon = IEarnPopupActionIcon | IEarnLinkActionIcon;
 interface IEarnCell {
   title: IEarnText;
   description: IEarnText;
   button?: IEarnActionIcon;
-  tooltip?: IEarnText;
+  tooltip?: IEarnTooltip;
 }
 
 interface IEarnProfit {
@@ -398,10 +403,12 @@ export interface IStakeEarnDetail {
   portfolios: {
     title: IEarnText;
     items: {
+      type: 'default';
       token: IEarnToken;
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
+      description: IEarnText;
       badge: IEarnBadge;
     }[];
   };
@@ -413,7 +420,7 @@ export interface IStakeEarnDetail {
       description: IEarnText;
     }[];
   };
-  rewards: IRewards;
+  rewards?: IRewards;
   risk: IEarnRisk;
   profit: IEarnProfit;
   provider: {
