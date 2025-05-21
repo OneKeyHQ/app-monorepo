@@ -17,8 +17,8 @@ interface IUseEarnPermitApproveParams {
   accountId: string;
   token: IToken;
   amountValue: string;
-  providerName,
-  vaultAddress,
+  providerName: string;
+  vaultAddress: string;
 }
 
 export function useEarnPermitApprove() {

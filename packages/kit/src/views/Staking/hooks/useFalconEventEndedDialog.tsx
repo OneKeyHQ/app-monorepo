@@ -18,7 +18,7 @@ export function useFalconEventEndedDialog({
   providerName,
   weeklyNetApyWithoutFee,
 }: {
-  eventEndTime: number;
+  eventEndTime?: number;
   providerName: string;
   weeklyNetApyWithoutFee?: string;
 }): { showFalconEventEndedDialog: () => Promise<void> } {
