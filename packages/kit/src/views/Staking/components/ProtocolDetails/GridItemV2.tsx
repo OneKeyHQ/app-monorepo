@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Icon,
@@ -11,27 +13,32 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
   IEarnIcon,
   IEarnPopupActionIcon,
   IEarnText,
+  IEarnToken,
 } from '@onekeyhq/shared/types/staking';
 
 function PopupItemLine({
   icon,
   title,
   value,
+  token,
 }: {
-  icon: IEarnIcon;
+  icon?: IEarnIcon;
+  token?: IEarnToken;
   title: IEarnText;
   value: string;
 }) {
   return (
     <XStack gap="$2" alignItems="center" justifyContent="space-between">
       <XStack gap="$2" alignItems="center">
-        <Icon name={icon.icon} size="$5" color={icon.color} />
+        {icon ? <Icon name={icon.icon} size="$5" color={icon.color} /> : null}
+        {token ? <Token tokenImageUri={token.logoURI ?? ''} size="xs" /> : null}
         <SizableText color={title.color || '$textSubdued'} size="$bodyMd">
           {title.text}
         </SizableText>
@@ -44,17 +51,20 @@ function PopupItemLine({
 function PopupContent({
   bulletList,
   items,
+  panel,
 }: {
   bulletList: IEarnPopupActionIcon['data']['bulletList'];
   items: IEarnPopupActionIcon['data']['items'];
+  panel: IEarnPopupActionIcon['data']['panel'];
 }) {
   return (
     <YStack p="$5">
       <YStack gap="$2.5">
-        {items.map(({ icon, title, value }) => (
+        {items?.map(({ icon, title, value, token }) => (
           <PopupItemLine
             key={title.text}
             icon={icon}
+            token={token}
             title={title}
             value={value}
           />
@@ -78,6 +88,39 @@ function PopupContent({
             </XStack>
           ))}
         </YStack>
+      ) : null}
+      {panel ? (
+        <XStack
+          mt="$4"
+          py="$3"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderRadius="$2"
+          justifyContent="space-between"
+          width="100%"
+        >
+          {panel.map((item, index) => (
+            <YStack
+              key={index}
+              flex={1}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <SizableText
+                color={item.title.color || '$textSubdued'}
+                size="$bodySm"
+              >
+                {item.title.text}
+              </SizableText>
+              <SizableText
+                color={item.description?.color || '$text'}
+                size="$bodyMdMedium"
+              >
+                {item.description?.text || '-'}
+              </SizableText>
+            </YStack>
+          ))}
+        </XStack>
       ) : null}
     </YStack>
   );
@@ -120,6 +163,7 @@ export function GridItem({
               <PopupContent
                 bulletList={actionIcon.data.bulletList}
                 items={actionIcon.data.items}
+                panel={actionIcon.data.panel}
               />
             }
             placement="top"
