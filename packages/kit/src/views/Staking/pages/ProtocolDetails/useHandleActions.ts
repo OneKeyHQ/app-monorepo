@@ -9,28 +9,29 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
-  IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
 export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
   return useCallback(
     async ({
-      details,
+      tokenInfo,
+      protocolInfo,
       accountId,
       networkId,
       symbol,
       provider,
       onSuccess,
     }: {
-      details?: IStakeProtocolDetails;
+      protocolInfo?: IProtocolInfo;
+      tokenInfo?: IEarnTokenInfo;
       accountId?: string;
       networkId: string;
       symbol: string;
       provider: string;
       onSuccess?: () => void;
     }) => {
-      if (!details || !accountId) return;
+      if (!accountId) return;
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,

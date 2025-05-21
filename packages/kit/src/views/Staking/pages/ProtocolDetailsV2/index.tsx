@@ -642,6 +642,15 @@ const ProtocolDetailsPage = () => {
           lidoStTokenRate: resultV1.provider.lidoStTokenRate,
           morphoTokenRate: resultV1.provider.morphoTokenRate,
           eventEndTime: resultV1.provider.eventEndTime,
+          minStakeTerm: resultV1.provider.minStakeTerm,
+          maxStakeAmount: resultV1.provider.maxStakeAmount,
+          maxStakeTerm: resultV1.provider.maxStakeTerm,
+          stakeDisable: resultV1.provider.stakeDisable,
+          stakingTime: resultV1.provider.stakingTime,
+          nextLaunchLeft: resultV1.provider.nextLaunchLeft,
+          minStakeBlocks: resultV1.provider.minStakeBlocks,
+          updateFrequency: resultV1.updateFrequency,
+          minTransactionFee: resultV1.provider.minTransactionFee,
         }
       : undefined;
   }, [detailInfo?.protocol, resultV1]);
@@ -674,7 +683,8 @@ const ProtocolDetailsPage = () => {
 
   const onWithdraw = useCallback(async () => {
     await handleWithdraw({
-      details: resultV1,
+      protocolInfo,
+      tokenInfo,
       accountId: earnAccount?.accountId,
       networkId,
       symbol,
@@ -682,7 +692,6 @@ const ProtocolDetailsPage = () => {
       onSuccess: async () => {
         if (networkUtils.isBTCNetwork(networkId)) {
           await run();
-          void runV1();
         }
       },
     });
@@ -690,11 +699,11 @@ const ProtocolDetailsPage = () => {
     earnAccount?.accountId,
     handleWithdraw,
     networkId,
+    protocolInfo,
     provider,
-    resultV1,
     run,
-    runV1,
     symbol,
+    tokenInfo,
   ]);
 
   const onPortfolioDetails = useMemo(
