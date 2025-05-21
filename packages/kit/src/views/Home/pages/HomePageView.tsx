@@ -19,13 +19,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { UpdateReminder } from '../../../components/UpdateReminder';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
-import { WalletXfpStatusReminder } from '../components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';

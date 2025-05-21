@@ -226,7 +226,6 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       loadingDuration,
       ...rest
     },
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _: any,
   ) => {
     const { isLoading: mockIsLoading } =

@@ -511,7 +511,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
+  override validateXpub(_xpub: string): Promise<IXpubValidation> {
     return Promise.resolve({
       isValid: false,
     });

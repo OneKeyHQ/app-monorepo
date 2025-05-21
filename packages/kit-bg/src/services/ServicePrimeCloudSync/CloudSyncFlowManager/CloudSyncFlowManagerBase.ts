@@ -284,37 +284,26 @@ export abstract class CloudSyncFlowManagerBase<
     }
   }
 
-  async txWithSyncFlowOfDBRecordCreating<TResult>({
+  async buildExistingSyncItemsInfo({
     tx,
     targets,
-    onExistingSyncItemsInfo,
     useCreateGenesisTime,
-    runDbTxFn,
-    skipServerSyncFlow,
+    onExistingSyncItemsInfo,
   }: {
-    tx: ILocalDBTransaction;
+    tx?: ILocalDBTransaction;
     targets: Array<ICloudSyncTargetMap[T]>;
-    onExistingSyncItemsInfo: (
-      existingSyncItemsInfo: IExistingSyncItemsInfo<T>,
-    ) => Promise<void>;
     useCreateGenesisTime?: (params: {
       target: ICloudSyncTargetMap[T];
     }) => Promise<boolean>;
-    runDbTxFn: (options: { tx: ILocalDBTransaction }) => Promise<TResult>;
-    skipServerSyncFlow?: boolean;
+    onExistingSyncItemsInfo: (
+      existingSyncItemsInfo: IExistingSyncItemsInfo<T>,
+    ) => Promise<void>;
   }) {
-    // abstract the db sync flow of the create process
-    // - get existing sync item
-    // - build new sync item
-    // - save to db at the end of the transaction
-    // - upload to server
-    // - start cloud sync flow
     const newSyncItems: IDBCloudSyncItem[] = [];
     const existingSyncItems: IDBCloudSyncItem[] = [];
     const existingSyncItemsInfo: IExistingSyncItemsInfo<T> = {};
 
     const syncCredential = await this.getSyncCredential();
-
     const canSyncWithoutServer = cloudSyncUtils.canSyncWithoutServer(
       this.dataType,
     );
@@ -326,13 +315,7 @@ export abstract class CloudSyncFlowManagerBase<
         canSyncWithoutServer ||
         (await this.backgroundApi.servicePrimeCloudSync.isCloudSyncIsAvailable())
       ) {
-        if (IS_DB_BUCKET_SUPPORT) {
-          // TODO TransactionInactiveError: Failed to execute 'get' on 'IDBObjectStore': The transaction has finished.
-          // existingSyncItem = await this.getSyncItem({
-          //   shouldDecrypt: true,
-          //   target,
-          //   syncCredential,
-          // });
+        if (tx) {
           existingSyncItem = await this.txGetSyncItem({
             tx,
             shouldDecrypt: true,
@@ -340,8 +323,8 @@ export abstract class CloudSyncFlowManagerBase<
             syncCredential,
           });
         } else {
-          existingSyncItem = await this.txGetSyncItem({
-            tx,
+          existingSyncItem = await this.getSyncItem({
+            // tx,
             shouldDecrypt: true,
             target,
             syncCredential,
@@ -410,6 +393,33 @@ export abstract class CloudSyncFlowManagerBase<
     }
 
     await onExistingSyncItemsInfo(existingSyncItemsInfo);
+
+    return {
+      existingSyncItemsInfo,
+      existingSyncItems,
+      newSyncItems,
+    };
+  }
+
+  async txWithSyncFlowOfDBRecordCreating<TResult>({
+    tx,
+    runDbTxFn,
+    newSyncItems,
+    existingSyncItems,
+    skipServerSyncFlow,
+  }: {
+    tx: ILocalDBTransaction;
+    runDbTxFn: (options: { tx: ILocalDBTransaction }) => Promise<TResult>;
+    newSyncItems: IDBCloudSyncItem[];
+    existingSyncItems: IDBCloudSyncItem[];
+    skipServerSyncFlow?: boolean;
+  }) {
+    // abstract the db sync flow of the create process
+    // - get existing sync item
+    // - build new sync item
+    // - save to db at the end of the transaction
+    // - upload to server
+    // - start cloud sync flow
 
     if (newSyncItems.length) {
       if (IS_DB_BUCKET_SUPPORT) {

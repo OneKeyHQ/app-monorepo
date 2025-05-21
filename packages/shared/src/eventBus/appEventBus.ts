@@ -60,6 +60,9 @@ export interface IAppEventBusPayload {
     approvedSwapInfo: ISwapApproveTransaction;
     enableFilled?: boolean;
   };
+  [EAppEventBusNames.SwapSpeedApprovingReset]: {
+    approvedSwapInfo: ISwapApproveTransaction;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };

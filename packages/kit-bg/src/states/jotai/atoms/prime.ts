@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeServerUserInfo,
+  IPrimeUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -24,6 +27,7 @@ export const {
 
 export type IPrimeCloudSyncPersistAtomData = {
   isCloudSyncEnabled: boolean;
+  lastSyncTime?: number;
 };
 export const {
   target: primeCloudSyncPersistAtom,
@@ -69,6 +73,9 @@ export type IPrimeLoginDialogAtomPasswordData = {
   promiseId: number;
   isRegister?: boolean;
   email: string;
+  isVerifyMasterPassword?: boolean;
+  isChangeMasterPassword?: boolean;
+  serverUserInfo?: IPrimeServerUserInfo;
 };
 
 export type IPrimeLoginDialogAtomEmailCodeData = {

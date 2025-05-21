@@ -6,8 +6,6 @@ import {
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { IMarketWatchListData } from '@onekeyhq/shared/types/market';
-import { ESpeedSwapSwitchType } from '@onekeyhq/shared/types/market';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 const {
   Provider: ProviderJotaiContextMarketWatchList,

@@ -42,6 +42,7 @@ import {
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteEventTimeout,
+  swapSpeedSwapApprovingStateFetchInterval,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapQuoteKind,
@@ -58,6 +59,7 @@ import type {
   IFetchTokensParams,
   IOKXTransactionObject,
   ISpeedSwapConfig,
+  ISwapApproveAllowanceResponse,
   ISwapApproveTransaction,
   ISwapCheckSupportResponse,
   ISwapNetwork,
@@ -128,6 +130,10 @@ export default class ServiceSwap extends ServiceBase {
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
 
   private approvingIntervalCount = 0;
+
+  private speedSwapApprovingInterval: ReturnType<typeof setTimeout> | undefined;
+
+  private speedSwapApprovingIntervalCount = 0;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -978,16 +984,15 @@ export default class ServiceSwap extends ServiceBase {
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
 
-    const { data } = await client.get<IFetchResponse<string>>(
-      '/swap/v1/allowance',
-      {
-        params,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
+    const { data } = await client.get<
+      IFetchResponse<ISwapApproveAllowanceResponse>
+    >('/swap/v1/allowance', {
+      params,
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
     return data?.data;
   }
 
@@ -996,6 +1001,12 @@ export default class ServiceSwap extends ServiceBase {
   async getApprovingTransaction() {
     const { swapApprovingTransaction } = await inAppNotificationAtom.get();
     return swapApprovingTransaction;
+  }
+
+  @backgroundMethod()
+  async getSpeedSwapApprovingTransaction() {
+    const { speedSwapApprovingTransaction } = await inAppNotificationAtom.get();
+    return speedSwapApprovingTransaction;
   }
 
   @backgroundMethod()
@@ -1010,11 +1021,31 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setSpeedSwapApprovingTransaction(item?: ISwapApproveTransaction) {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      speedSwapApprovingTransaction: item,
+      ...(item?.status !== ESwapApproveTransactionStatus.PENDING && {
+        speedSwapApprovingLoading: false,
+      }),
+    }));
+  }
+
+  @backgroundMethod()
   async closeApproving() {
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapApprovingTransaction: undefined,
       swapApprovingLoading: false,
+    }));
+  }
+
+  @backgroundMethod()
+  async closeSpeedSwapApproving() {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      speedSwapApprovingTransaction: undefined,
+      speedSwapApprovingLoading: false,
     }));
   }
 
@@ -1065,6 +1096,14 @@ export default class ServiceSwap extends ServiceBase {
     if (this.approvingInterval) {
       clearTimeout(this.approvingInterval);
       this.approvingInterval = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async cleanSpeedSwapApprovingInterval() {
+    if (this.speedSwapApprovingInterval) {
+      clearTimeout(this.speedSwapApprovingInterval);
+      this.speedSwapApprovingInterval = undefined;
     }
   }
 
@@ -1123,6 +1162,61 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  async speedSwapApprovingStateRunSync(networkId: string, txId: string) {
+    let enableInterval = true;
+    try {
+      const txState = await this.fetchTxState({
+        txId,
+        networkId,
+      });
+      const preApproveTx = await this.getSpeedSwapApprovingTransaction();
+      if (
+        txState.state === ESwapTxHistoryStatus.SUCCESS ||
+        txState.state === ESwapTxHistoryStatus.FAILED
+      ) {
+        enableInterval = false;
+        if (preApproveTx) {
+          if (
+            txState.state === ESwapTxHistoryStatus.SUCCESS ||
+            txState.state === ESwapTxHistoryStatus.FAILED
+          ) {
+            let newApproveTx: ISwapApproveTransaction = {
+              ...preApproveTx,
+              blockNumber: txState.blockNumber,
+              status: ESwapApproveTransactionStatus.SUCCESS,
+            };
+            if (txState.state === ESwapTxHistoryStatus.FAILED) {
+              newApproveTx = {
+                ...preApproveTx,
+                txId: undefined,
+                status: ESwapApproveTransactionStatus.FAILED,
+              };
+            }
+            await this.setSpeedSwapApprovingTransaction(newApproveTx);
+          }
+        }
+      } else if (
+        preApproveTx &&
+        preApproveTx.status !== ESwapApproveTransactionStatus.PENDING
+      ) {
+        await this.setSpeedSwapApprovingTransaction({
+          ...preApproveTx,
+          status: ESwapApproveTransactionStatus.PENDING,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      if (enableInterval) {
+        this.speedSwapApprovingIntervalCount += 1;
+        void this.speedSwapApprovingStateAction();
+      } else {
+        void this.cleanSpeedSwapApprovingInterval();
+        this.speedSwapApprovingIntervalCount = 0;
+      }
+    }
+  }
+
   @backgroundMethod()
   async approvingStateAction() {
     void this.cleanApprovingInterval();
@@ -1136,6 +1230,22 @@ export default class ServiceSwap extends ServiceBase {
           );
         }
       }, swapApprovingStateFetchInterval * (Math.floor(this.approvingIntervalCount / swapHistoryStateFetchRiceIntervalCount) + 1));
+    }
+  }
+
+  @backgroundMethod()
+  async speedSwapApprovingStateAction() {
+    void this.cleanSpeedSwapApprovingInterval();
+    const approvingTransaction = await this.getSpeedSwapApprovingTransaction();
+    if (approvingTransaction && approvingTransaction.txId) {
+      this.speedSwapApprovingInterval = setTimeout(() => {
+        if (approvingTransaction.txId) {
+          void this.speedSwapApprovingStateRunSync(
+            approvingTransaction.fromToken.networkId,
+            approvingTransaction.txId,
+          );
+        }
+      }, swapSpeedSwapApprovingStateFetchInterval * (Math.floor(this.speedSwapApprovingIntervalCount / swapHistoryStateFetchRiceIntervalCount) + 1));
     }
   }
 
@@ -1996,6 +2106,7 @@ export default class ServiceSwap extends ServiceBase {
         provider: '',
         speedConfig: {
           slippage: 0.5,
+          spenderAddress: '',
           defaultTokens: [],
         },
         supportSpeedSwap: false,

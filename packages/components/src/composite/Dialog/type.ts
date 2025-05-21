@@ -44,6 +44,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
   trackID?: string;
   showFooter?: boolean;
   footerProps?: Omit<IStackProps, 'children'>;
+  contentContainerProps?: Omit<IStackProps, 'children'>;
   showExitButton?: boolean;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;

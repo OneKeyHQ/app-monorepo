@@ -47,8 +47,6 @@ import {
 import { webviewRefs } from '../../utils/explorerUtils';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar } from '../../utils/tabBarUtils';
-import { BrowserTitle } from '../components/BrowserTitle';
-import { HistoryIconButton } from '../components/HistoryIconButton';
 import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';

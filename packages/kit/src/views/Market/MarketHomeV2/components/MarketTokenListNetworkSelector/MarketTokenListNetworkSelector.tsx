@@ -59,7 +59,9 @@ const getDefaultMarketNetworks = () => [
   presetNetworksMap.optimism,
   presetNetworksMap.blast,
   presetNetworksMap.mantle,
+  // eslint-disable-next-line spellcheck/spell-checker
   presetNetworksMap.cronos,
+  // eslint-disable-next-line spellcheck/spell-checker
   presetNetworksMap.linea,
 ];
 
