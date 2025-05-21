@@ -121,7 +121,11 @@ function WalletList() {
   return (
     <YStack pt="$5">
       <YStack px="$5">
-        <SizableText size="$bodyLg">Total Wallets</SizableText>
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.referral_referred_total_wallets,
+          })}
+        </SizableText>
         <SizableText size="$heading5xl">{total}</SizableText>
       </YStack>
       {total === 0 && !isLoading ? (
