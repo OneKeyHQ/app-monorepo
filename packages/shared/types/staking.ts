@@ -323,10 +323,15 @@ export interface IEarnIcon {
 export interface IEarnPopupActionIcon {
   type: 'popup';
   data: {
-    bulletList: IEarnText[];
+    bulletList?: IEarnText[];
     icon?: IEarnIcon;
-    items: {
-      icon: IEarnIcon;
+    panel?: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
+    items?: {
+      icon?: IEarnIcon;
+      token?: IEarnToken;
       title: IEarnText;
       value: string;
     }[];
