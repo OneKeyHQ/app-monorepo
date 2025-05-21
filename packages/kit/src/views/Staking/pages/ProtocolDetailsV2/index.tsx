@@ -487,6 +487,7 @@ function ProviderSection({
               description={cell.description}
               actionIcon={cell.button}
               tooltip={cell?.tooltip}
+              type={cell.type}
             />
           ))}
         </XStack>

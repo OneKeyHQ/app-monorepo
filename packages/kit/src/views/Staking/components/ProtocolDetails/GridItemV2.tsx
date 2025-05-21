@@ -205,7 +205,7 @@ export function GridItem({
   description?: IEarnText;
   tooltip?: IEarnTooltip;
   actionIcon?: IEarnActionIcon;
-  type?: 'default' | 'info';
+  type?: 'default' | 'info' | 'alert';
 }) {
   const { onHistory } = useShareEvents();
   const actionIconButton = useMemo(() => {
@@ -307,6 +307,16 @@ export function GridItem({
 
   if (type === 'info') {
     return <Alert title={title.text} description={description?.text} />;
+  }
+
+  if (type === 'alert') {
+    return (
+      <Alert
+        type="critical"
+        title={title.text}
+        description={description?.text}
+      />
+    );
   }
   return (
     <YStack
