@@ -295,7 +295,7 @@ export type IProtocolInfo = {
   unstakingTime?: number;
   unstakingPeriod?: number;
   maxUnstakeAmount?: string;
-  minUnstakeAmount?: string;
+  minUnstakeAmount?: number;
 };
 
 export interface IEarnToken {
@@ -437,6 +437,14 @@ interface IEarnRisk {
 }
 
 export interface IStakeEarnDetail {
+  protection?: {
+    title: IEarnText;
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+      icon: IEarnIcon;
+    }[];
+  };
   actions: (
     | IEarnDepositActionIcon
     | IEarnWithdrawActionIcon

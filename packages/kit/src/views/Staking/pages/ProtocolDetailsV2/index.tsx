@@ -28,6 +28,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
+import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -37,7 +38,6 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnTokenInfo,
@@ -46,16 +46,13 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { BabylonTrackingAlert } from '../../components/BabylonTrackingAlert';
 import {
   PageFrame,
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
-import { ProtocolDetails } from '../../components/ProtocolDetails';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
-import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
@@ -890,6 +887,7 @@ const ProtocolDetailsPage = () => {
                 )}
                 <ProfitSection profit={detailInfo.profit} />
                 <PeriodSection timeline={detailInfo.timeline} />
+                <ProtectionSection protection={detailInfo.protection} />
                 <ProviderSection provider={detailInfo.provider} />
                 <RiskSection risk={detailInfo.risk} />
                 <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
