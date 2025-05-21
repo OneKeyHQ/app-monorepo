@@ -23,12 +23,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
   EModalAssetDetailRoutes,
@@ -59,6 +61,7 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
+import { useWebSiteHandler } from '../../Discovery/hooks/useWebSiteHandler';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
@@ -137,6 +140,8 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
+
+  const handleWebSite = useWebSiteHandler();
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -513,6 +518,10 @@ export function UniversalSearch({
             <ListItem
               onPress={() => {
                 console.log('[universalSearch] renderItem: ', item);
+                handleWebSite({
+                  dApp: item.payload,
+                  enterMethod: EEnterMethod.search,
+                });
               }}
               renderAvatar={<Image source={{ uri: logo }} size="$10" />}
               title={name}
@@ -533,6 +542,7 @@ export function UniversalSearch({
       universalSearchActions,
       searchStatus,
       settings.currencyInfo.symbol,
+      handleWebSite,
     ],
   );
 
@@ -718,11 +728,13 @@ const UniversalSearchWithProvider = (
     <MarketWatchListProviderMirror
       storeName={EJotaiContextStoreNames.marketWatchList}
     >
-      <UniversalSearchProviderMirror
-        storeName={EJotaiContextStoreNames.universalSearch}
-      >
-        <UniversalSearchWithHomeTokenListProvider {...params} />
-      </UniversalSearchProviderMirror>
+      <DiscoveryBrowserProviderMirror>
+        <UniversalSearchProviderMirror
+          storeName={EJotaiContextStoreNames.universalSearch}
+        >
+          <UniversalSearchWithHomeTokenListProvider {...params} />
+        </UniversalSearchProviderMirror>
+      </DiscoveryBrowserProviderMirror>
     </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
 );
