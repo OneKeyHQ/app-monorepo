@@ -53,12 +53,12 @@ export const useHandleClaim = ({
       onSuccess?: () => void;
     }) => {
       if (!accountId) return;
-      const provider = protocolInfo?.providerDetail.name || '';
+      const provider = protocolInfo?.provider || '';
       const vault = protocolInfo?.approve?.approveTarget || '';
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
-          symbol,
+          symbol: 'USDC',
           provider,
         });
       if (!stakingConfig) {

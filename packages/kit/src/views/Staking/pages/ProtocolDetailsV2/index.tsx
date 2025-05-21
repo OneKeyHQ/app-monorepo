@@ -40,6 +40,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
+  IEarnToken,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -161,10 +162,12 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
 }
 
 function ProtocolRewards({
+  rewardToken,
   rewards,
   tokenInfo,
   protocolInfo,
 }: {
+  rewardToken: IEarnToken;
   rewards: IStakeEarnDetail['rewards'];
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
@@ -193,10 +196,7 @@ function ProtocolRewards({
               }
               renderContent={
                 <Stack p="$5">
-                  <SizableText
-                    color={rewards.tooltip.data.color || '$text'}
-                    size="$bodyLg"
-                  >
+                  <SizableText color="$text" size="$bodyLg">
                     {rewards.tooltip.data.text}
                   </SizableText>
                 </Stack>
@@ -260,7 +260,7 @@ function ProtocolRewards({
                       tokenInfo: tokenInfo
                         ? {
                             ...tokenInfo,
-                            token: token.token,
+                            token: rewardToken || token.token,
                           }
                         : undefined,
                       claimAmount,
@@ -383,6 +383,7 @@ function PortfolioSection({
         </XStack>
         <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
         <ProtocolRewards
+          rewardToken={portfolios.items?.[0]?.token}
           rewards={rewards}
           tokenInfo={tokenInfo}
           protocolInfo={protocolInfo}
