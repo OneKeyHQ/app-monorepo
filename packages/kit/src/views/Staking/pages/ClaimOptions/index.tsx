@@ -37,7 +37,7 @@ const ClaimOptions = () => {
   const appNavigation = useAppNavigation();
   const { accountId, networkId, protocolInfo, tokenInfo } = appRoute.params;
 
-  const provider = protocolInfo?.providerDetail.name || '';
+  const provider = protocolInfo?.provider || '';
   const symbol = tokenInfo?.token.symbol || '';
   const { result, isLoading, run } = usePromiseResult(
     () =>
