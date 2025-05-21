@@ -1,6 +1,6 @@
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
-import type { IToken } from './token';
+import type { IFetchTokenDetailItem, IToken } from './token';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -260,11 +260,43 @@ export interface IEarnText {
   color?: string;
 }
 
-interface IEarnButtonAction {
-  text: IEarnText;
-  actionType: 'deposit' | 'withdraw';
-  disabled: boolean;
-}
+export type IProtocolInfo = {
+  provider: string;
+  networkId: string;
+  symbol: string;
+  approve?: {
+    approveType: EApproveType;
+    approveTarget: string;
+  };
+  providerDetail: {
+    name: string;
+    logoURI: string;
+  };
+  apys?: IRewardApys;
+  activeBalance?: string;
+  overflowBalance?: string;
+  joinRequirement?: string;
+  rewardAssets?: Record<string, IEarnTokenItem>;
+  poolFee?: string;
+  aprWithoutFee?: string;
+  minStakeAmount?: string;
+  lidoStTokenRate?: string;
+  morphoTokenRate?: string;
+  eventEndTime?: number;
+  minStakeTerm?: number;
+  maxStakeTerm?: number;
+  minStakeBlocks?: number;
+  maxStakeAmount?: string;
+  stakeDisable?: boolean;
+  stakingTime?: number;
+  nextLaunchLeft?: string;
+  updateFrequency?: string;
+  minTransactionFee?: string;
+  unstakingTime?: number;
+  unstakingPeriod?: number;
+  maxUnstakeAmount?: string;
+  minUnstakeAmount?: string;
+};
 
 export interface IEarnToken {
   uniqueKey: string;
@@ -284,6 +316,8 @@ export interface IEarnTokenInfo {
   provider: string;
   vault: string | undefined;
   accountId: string;
+  nativeToken?: IFetchTokenDetailItem;
+  balanceParsed: string;
   token: IEarnToken;
 }
 
@@ -358,6 +392,12 @@ export interface IEarnWithdrawActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnHistoryActionIcon {
+  type: 'history';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export interface IEarnTooltip {
   type: 'text';
   data: IEarnText;
@@ -397,8 +437,13 @@ interface IEarnRisk {
 }
 
 export interface IStakeEarnDetail {
-  actions: (IEarnDepositActionIcon | IEarnWithdrawActionIcon)[];
+  actions: (
+    | IEarnDepositActionIcon
+    | IEarnWithdrawActionIcon
+    | IEarnHistoryActionIcon
+  )[];
   subscriptionValue: ISubscriptionValue;
+  protocol: IProtocolInfo;
   countDownAlert: {
     description: IEarnText;
     startTime: number;
