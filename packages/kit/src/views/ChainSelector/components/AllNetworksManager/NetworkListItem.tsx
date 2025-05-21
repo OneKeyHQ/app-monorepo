@@ -51,7 +51,7 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
       titleMatch={network.titleMatch}
       testID={`all-networks-manager-item-${network.id}`}
     >
-      <Checkbox value={isEnabledInAllNetworks} />
+      <Checkbox value={isEnabledInAllNetworks} onChange={handleToggle} />
     </ListItem>
   );
 }
