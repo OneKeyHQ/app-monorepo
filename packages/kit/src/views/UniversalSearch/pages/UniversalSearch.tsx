@@ -9,6 +9,7 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
   Icon,
+  Image,
   NumberSizeableText,
   Page,
   SearchBar,
@@ -85,6 +86,7 @@ const AllTypes = [
   EUniversalSearchType.Address,
   EUniversalSearchType.MarketToken,
   EUniversalSearchType.AccountAssets,
+  EUniversalSearchType.Dapp,
 ];
 
 const SkeletonItem = () => (
@@ -232,6 +234,17 @@ export function UniversalSearch({
         searchResultSections.push({
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
+          }),
+          ...generateDataFn(data),
+        });
+      }
+
+      if (result?.[EUniversalSearchType.Dapp]?.items?.length) {
+        const data = result?.[EUniversalSearchType.Dapp]
+          ?.items as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          title: intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_dapps,
           }),
           ...generateDataFn(data),
         });
@@ -492,6 +505,21 @@ export function UniversalSearch({
                 </NumberSizeableText>
               </Stack>
             </ListItem>
+          );
+        }
+        case EUniversalSearchType.Dapp: {
+          const { name, dappId, logo } = item.payload;
+          return (
+            <ListItem
+              onPress={() => {
+                console.log('[universalSearch] renderItem: ', item);
+              }}
+              renderAvatar={<Image source={{ uri: logo }} size="$10" />}
+              title={name}
+              titleProps={{
+                color: dappId === 'SEARCH_ITEM_ID' ? '$textSubdued' : '$text',
+              }}
+            />
           );
         }
         default: {

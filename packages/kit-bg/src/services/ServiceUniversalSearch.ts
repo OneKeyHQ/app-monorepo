@@ -5,10 +5,6 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  GOOGLE_LOGO_URL,
-  SEARCH_ITEM_ID,
-} from '@onekeyhq/shared/src/consts/discovery';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -455,6 +451,9 @@ class ServiceUniversalSearch extends ServiceBase {
     const otherResults = searchResult?.filter((item) => !item.isExactUrl) || [];
 
     // Add Google search item if there is input
+    const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
+    const GOOGLE_LOGO_URL =
+      'https://uni.onekey-asset.com/static/logo/google.png';
     const googleSearchDapp = input.trim()
       ? {
           dappId: SEARCH_ITEM_ID,
