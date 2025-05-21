@@ -174,7 +174,7 @@ function ProtocolRewards({
 }) {
   const intl = useIntl();
   const handleClaim = useHandleClaim({
-    accountId: tokenInfo?.accountId || '',
+    accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
   });
   const tooltipElement = useMemo(() => {
@@ -327,7 +327,7 @@ function PortfolioSection({
   protocolInfo?: IProtocolInfo;
 }) {
   const handleClaim = useHandleClaim({
-    accountId: tokenInfo?.accountId || '',
+    accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
   });
   const renderItem = useCallback(
@@ -694,6 +694,7 @@ const ProtocolDetailsPage = () => {
     return detailInfo?.protocol && resultV1
       ? {
           ...detailInfo.protocol,
+          earnAccount,
           apys: resultV1.provider.apys,
           activeBalance: resultV1.active,
           overflowBalance: resultV1.overflow,
