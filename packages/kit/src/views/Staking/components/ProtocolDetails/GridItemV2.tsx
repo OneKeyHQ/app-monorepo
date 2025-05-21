@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 
 import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
+  Alert,
   Icon,
   IconButton,
   Popover,
@@ -198,11 +199,13 @@ export function GridItem({
   description,
   actionIcon,
   tooltip,
+  type = 'default',
 }: {
   title: IEarnText;
   description?: IEarnText;
   tooltip?: IEarnTooltip;
   actionIcon?: IEarnActionIcon;
+  type?: 'default' | 'info';
 }) {
   const { onHistory } = useShareEvents();
   const actionIconButton = useMemo(() => {
@@ -302,6 +305,9 @@ export function GridItem({
     return null;
   }, [onHistory, title.text, tooltip]);
 
+  if (type === 'info') {
+    return <Alert title={title.text} description={description?.text} />;
+  }
   return (
     <YStack
       p="$3"
