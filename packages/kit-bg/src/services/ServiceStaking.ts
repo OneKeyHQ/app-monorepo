@@ -330,7 +330,6 @@ class ServiceStaking extends ServiceBase {
       networkId,
       accountId,
       claimTokenAddress: rewardTokenAddress,
-      rewardTokenAmount,
       vault: vaultAddress,
       ...rest
     } = params;
@@ -356,8 +355,8 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (rewardTokenAmount) {
-      sendParams.rewardTokenAmount = rewardTokenAmount;
+    if (rewardTokenAddress) {
+      sendParams.rewardTokenAddress = rewardTokenAddress;
     }
     if (vaultAddress) {
       sendParams.vault = vaultAddress;
