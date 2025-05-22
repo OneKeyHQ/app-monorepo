@@ -59,8 +59,6 @@ type IUniversalStakeProps = {
   price: string;
   balance: string;
 
-  providerLabel?: string;
-
   tokenImageUri?: string;
   tokenSymbol?: string;
 
@@ -93,7 +91,6 @@ type IUniversalStakeProps = {
   stakingTime?: number;
   nextLaunchLeft?: string;
   rewardToken?: string;
-  updateFrequency?: string;
 
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
@@ -108,7 +105,6 @@ export function UniversalStake({
   decimals,
   minAmount = '0',
   minTransactionFee = '0',
-  providerLabel,
   minStakeTerm,
   minStakeBlocks,
   tokenImageUri,
@@ -127,7 +123,6 @@ export function UniversalStake({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
-  updateFrequency,
   protocolInfo,
   tokenInfo,
 }: PropsWithChildren<IUniversalStakeProps>) {

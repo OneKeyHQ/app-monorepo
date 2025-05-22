@@ -270,7 +270,7 @@ const formatSections = (data: IEarnRewardItem[]) => {
           leadingLength: 6,
           trailingLength: 4,
         }),
-        amount: totalFiatValue.toFixed(),
+        amount: totalFiatValue.toFixed(2),
         data: items
           .map((item) => {
             const orderTotalAmount = item?.orderTotalAmount || '0';
