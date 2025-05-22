@@ -361,6 +361,27 @@ function PortfolioSection({
                     <Badge.Text>{item.badge.text.text}</Badge.Text>
                   </Badge>
                 ) : null}
+                {item?.tooltip && item?.tooltip.type === 'text' ? (
+                  <Popover
+                    placement="top"
+                    title={item.description.text}
+                    renderTrigger={
+                      <IconButton
+                        iconColor="$iconSubdued"
+                        size="small"
+                        icon="InfoCircleOutline"
+                        variant="tertiary"
+                      />
+                    }
+                    renderContent={
+                      <Stack p="$5">
+                        <SizableText color={item.tooltip.data.color}>
+                          {item.tooltip.data.text}
+                        </SizableText>
+                      </Stack>
+                    }
+                  />
+                ) : null}
               </XStack>
               {item?.buttons?.[0]?.type === 'claim' ? (
                 <Button
