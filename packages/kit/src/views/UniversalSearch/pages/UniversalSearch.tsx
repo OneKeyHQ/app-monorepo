@@ -284,31 +284,9 @@ export function UniversalSearch({
 
   const renderSectionFooter = useCallback(
     ({ section }: { section: IUniversalSection }) => {
-      if (section.showMore) {
-        return (
-          <ListItem
-            onPress={() => {
-              console.log('[universalSearch] renderSectionFooter: ', section);
-            }}
-          >
-            <XStack ai="center" gap="$2">
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.global_show_more,
-                })}
-              </SizableText>
-              <Icon
-                name="ChevronRightSmallOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-            </XStack>
-          </ListItem>
-        );
-      }
       return null;
     },
-    [intl],
+    [],
   );
 
   const renderItem = useCallback(
