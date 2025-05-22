@@ -66,12 +66,21 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   }) {
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
-      recentRecipients[networkId] = {
-        ...recentRecipients[networkId],
-        [address]: {
-          updatedAt,
-        },
+      const networkRecipients = recentRecipients[networkId] ?? {};
+
+      // Add or update current address
+      networkRecipients[address] = {
+        updatedAt,
       };
+
+      // Get all recipients for this network sorted by updatedAt
+      const sortedRecipients = Object.entries(networkRecipients)
+        .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)
+        .slice(0, 10); // Keep only the 10 most recent recipients
+
+      // Reconstruct the network recipients object
+      recentRecipients[networkId] = Object.fromEntries(sortedRecipients);
+
       return { recentRecipients };
     });
   }
