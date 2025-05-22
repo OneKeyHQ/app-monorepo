@@ -1,6 +1,7 @@
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
-import type { IToken } from './token';
+import type { INetworkAccount } from './account';
+import type { IFetchTokenDetailItem, IToken } from './token';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -260,11 +261,54 @@ export interface IEarnText {
   color?: string;
 }
 
-interface IEarnButtonAction {
-  text: IEarnText;
-  actionType: 'deposit' | 'withdraw';
-  disabled: boolean;
-}
+export type IProtocolInfo = {
+  earnAccount?:
+    | {
+        accountId: string;
+        networkId: string;
+        accountAddress: string;
+        account: INetworkAccount;
+      }
+    | null
+    | undefined;
+  provider: string;
+  networkId: string;
+  symbol: string;
+  approve?: {
+    approveType: EApproveType;
+    approveTarget: string;
+  };
+  providerDetail: {
+    name: string;
+    logoURI: string;
+  };
+  apys?: IRewardApys;
+  activeBalance?: string;
+  overflowBalance?: string;
+  joinRequirement?: string;
+  rewardAssets?: Record<string, IEarnTokenItem>;
+  poolFee?: string;
+  aprWithoutFee?: string;
+  minStakeAmount?: string;
+  lidoStTokenRate?: string;
+  morphoTokenRate?: string;
+  eventEndTime?: number;
+  minStakeTerm?: number;
+  maxStakeTerm?: number;
+  minStakeBlocks?: number;
+  maxStakeAmount?: string;
+  stakeDisable?: boolean;
+  stakingTime?: number;
+  nextLaunchLeft?: string;
+  updateFrequency?: string;
+  minTransactionFee?: string;
+  unstakingTime?: number;
+  unstakingPeriod?: number;
+  maxUnstakeAmount?: string;
+  minUnstakeAmount?: number;
+
+  claimable?: string;
+};
 
 export interface IEarnToken {
   uniqueKey: string;
@@ -284,6 +328,9 @@ export interface IEarnTokenInfo {
   provider: string;
   vault: string | undefined;
   accountId: string;
+  indexedAccountId?: string;
+  nativeToken?: IFetchTokenDetailItem;
+  balanceParsed: string;
   token: IEarnToken;
 }
 
@@ -311,7 +358,7 @@ interface IRewardToken {
 
 interface IRewards {
   title: IEarnText;
-  tooltip: IEarnText;
+  tooltip: IEarnTooltip;
   tokens: IRewardToken[];
 }
 
@@ -341,7 +388,9 @@ export interface IEarnPopupActionIcon {
 
 export interface IEarnLinkActionIcon {
   type: 'link';
-  data: string;
+  data: {
+    link: string;
+  };
 }
 
 export interface IEarnDepositActionIcon {
@@ -356,12 +405,50 @@ export interface IEarnWithdrawActionIcon {
   text: IEarnText;
 }
 
-export type IEarnActionIcon = IEarnPopupActionIcon | IEarnLinkActionIcon;
+export interface IEarnHistoryActionIcon {
+  type: 'history';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnTextTooltip {
+  type: 'text';
+  data: IEarnText;
+}
+
+export interface IEarnRebateTooltip {
+  type: 'rebate';
+  data: {
+    title: IEarnText;
+    description: IEarnText;
+    text: IEarnText;
+    items: {
+      title: IEarnText;
+      button?: IEarnActionIcon;
+    }[];
+  };
+}
+
+export type IEarnTooltip = IEarnTextTooltip | IEarnRebateTooltip;
+
+export interface IEarnClaimActionIcon {
+  type: 'claim';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export type IEarnActionIcon =
+  | IEarnPopupActionIcon
+  | IEarnLinkActionIcon
+  | IEarnClaimActionIcon
+  | IEarnHistoryActionIcon;
+
 interface IEarnCell {
   title: IEarnText;
   description: IEarnText;
   button?: IEarnActionIcon;
-  tooltip?: IEarnText;
+  tooltip?: IEarnTooltip;
+  type?: 'default' | 'info';
 }
 
 interface IEarnProfit {
@@ -382,14 +469,29 @@ interface IEarnRisk {
     icon: IEarnIcon;
     actionButton: {
       type: 'link';
-      text: IEarnText;
+      data: {
+        link: string;
+      };
     };
   }[];
 }
 
 export interface IStakeEarnDetail {
-  actions: (IEarnDepositActionIcon | IEarnWithdrawActionIcon)[];
+  protection?: {
+    title: IEarnText;
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+      icon: IEarnIcon;
+    }[];
+  };
+  actions: (
+    | IEarnDepositActionIcon
+    | IEarnWithdrawActionIcon
+    | IEarnHistoryActionIcon
+  )[];
   subscriptionValue: ISubscriptionValue;
+  protocol: IProtocolInfo;
   countDownAlert: {
     description: IEarnText;
     startTime: number;
@@ -398,11 +500,14 @@ export interface IStakeEarnDetail {
   portfolios: {
     title: IEarnText;
     items: {
+      type: 'default';
       token: IEarnToken;
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
+      description: IEarnText;
       badge: IEarnBadge;
+      buttons?: IEarnActionIcon[];
     }[];
   };
   timeline: {
@@ -413,7 +518,7 @@ export interface IStakeEarnDetail {
       description: IEarnText;
     }[];
   };
-  rewards: IRewards;
+  rewards?: IRewards;
   risk: IEarnRisk;
   profit: IEarnProfit;
   provider: {

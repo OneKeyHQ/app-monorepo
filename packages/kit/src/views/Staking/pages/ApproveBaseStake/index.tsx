@@ -20,6 +20,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ApproveBaseStake } from '../../components/ApproveBaseStake';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
@@ -32,126 +33,160 @@ const BasicApproveBaseStakePage = () => {
     EModalStakingRoutes.ApproveBaseStake
   >();
 
-  const { networkId, accountId, details, currentAllowance } = route.params;
-  const { token, provider } = details;
-  const { balanceParsed, price } = token;
+  const { networkId, accountId, tokenInfo, protocolInfo, currentAllowance } =
+    route.params;
   const appNavigation = useAppNavigation();
-  // const actionTag = buildLocalTxStatusSyncId(details);
+  const actionTag = buildLocalTxStatusSyncId({
+    providerName: protocolInfo?.provider,
+    tokenSymbol: tokenInfo?.token.symbol,
+  });
   const { removePermitCache } = useEarnActions().current;
+  const providerName = protocolInfo?.provider || '';
 
   const handleStake = useUniversalStake({ accountId, networkId });
-  const onConfirm = useCallback(async (params: IApproveConfirmFnParams) => {
-    // const inviteCode =
-    //   await backgroundApiProxy.serviceReferralCode.getInviteCode();
-    // await handleStake({
-    //   amount: params.amount,
-    //   inviteCode,
-    //   stakingInfo: {
-    //     label: EEarnLabels.Stake,
-    //     protocol: earnUtils.getEarnProviderName({
-    //       providerName: provider.name,
-    //     }),
-    //     protocolLogoURI: provider.logoURI,
-    //     send: { token: token.info, amount: params.amount },
-    //     tags: [actionTag],
-    //   },
-    //   symbol: token.info.symbol,
-    //   provider: provider.name,
-    //   morphoVault: earnUtils.isMorphoProvider({
-    //     providerName: provider.name,
-    //   })
-    //     ? provider.vault
-    //     : undefined,
-    //   approveType: params.approveType,
-    //   permitSignature: params.permitSignature,
-    //   onSuccess: () => {
-    //     if (
-    //       params.approveType === EApproveType.Permit &&
-    //       params.permitSignature
-    //     ) {
-    //       removePermitCache({
-    //         accountId,
-    //         networkId,
-    //         tokenAddress: token.info.address,
-    //         amount: params.amount,
-    //       });
-    //     }
-    //     appNavigation.pop();
-    //     defaultLogger.staking.page.staking({
-    //       token: token.info,
-    //       stakingProtocol: provider.name,
-    //     });
-    //   },
-    // });
-  }, []);
+  const onConfirm = useCallback(
+    async (params: IApproveConfirmFnParams) => {
+      await handleStake({
+        amount: params.amount,
+        stakingInfo: {
+          label: EEarnLabels.Stake,
+          protocol: earnUtils.getEarnProviderName({
+            providerName,
+          }),
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          send: { token: tokenInfo?.token as IToken, amount: params.amount },
+          tags: [actionTag],
+        },
+        symbol: tokenInfo?.token.symbol || '',
+        provider: providerName,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName,
+        })
+          ? protocolInfo?.approve?.approveTarget
+          : undefined,
+        approveType: params.approveType,
+        permitSignature: params.permitSignature,
+        onSuccess: () => {
+          if (
+            params.approveType === EApproveType.Permit &&
+            params.permitSignature
+          ) {
+            removePermitCache({
+              accountId,
+              networkId,
+              tokenAddress: tokenInfo?.token.address || '',
+              amount: params.amount,
+            });
+          }
+          appNavigation.pop();
+          defaultLogger.staking.page.staking({
+            token: tokenInfo?.token,
+            stakingProtocol: providerName,
+          });
+        },
+      });
+    },
+    [
+      accountId,
+      actionTag,
+      appNavigation,
+      handleStake,
+      networkId,
+      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.providerDetail.logoURI,
+      providerName,
+      removePermitCache,
+      tokenInfo?.token,
+    ],
+  );
   const intl = useIntl();
 
   const showEstReceive = useMemo<boolean>(
     () =>
       earnUtils.isLidoProvider({
-        providerName: provider.name,
+        providerName,
       }) ||
       earnUtils.isMorphoProvider({
-        providerName: provider.name,
+        providerName,
       }),
-    [provider],
+    [providerName],
   );
 
   const estReceiveTokenRate = useMemo(() => {
     if (
       earnUtils.isLidoProvider({
-        providerName: provider.name,
+        providerName,
       })
     ) {
-      return provider.lidoStTokenRate;
+      return protocolInfo?.lidoStTokenRate;
     }
     if (
       earnUtils.isMorphoProvider({
-        providerName: provider.name,
+        providerName,
       })
     ) {
-      return provider.morphoTokenRate;
+      return protocolInfo?.morphoTokenRate;
     }
     return '1';
-  }, [provider]);
+  }, [
+    protocolInfo?.lidoStTokenRate,
+    protocolInfo?.morphoTokenRate,
+    providerName,
+  ]);
 
-  const providerLabel = useProviderLabel(provider.name);
+  const providerLabel = useProviderLabel(providerName);
+  const tokenSymbol = tokenInfo?.token.symbol || '';
+  const price = tokenInfo?.nativeToken?.price
+    ? String(tokenInfo?.nativeToken?.price)
+    : '0';
+  const balanceParsed = tokenInfo?.balanceParsed || '';
+  const minAmount = protocolInfo?.minStakeAmount || '';
+  const apr =
+    protocolInfo?.aprWithoutFee && Number(protocolInfo.aprWithoutFee) > 0
+      ? protocolInfo?.aprWithoutFee
+      : undefined;
+  const decimals = tokenInfo?.token.decimals || 0;
+  const rewardToken = tokenInfo?.token.symbol || '';
+  const token = tokenInfo?.token as IToken;
+  const approveType = protocolInfo?.approve?.approveType;
 
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_earn_token },
-          { 'token': token.info.symbol },
+          { token: tokenSymbol },
         )}
       />
       <Page.Body>
         <ApproveBaseStake
-          details={details}
           price={price}
           balance={balanceParsed}
-          token={token.info}
-          minAmount={provider.minStakeAmount}
-          decimals={token.info.decimals}
+          token={token}
+          approveType={approveType}
+          minAmount={minAmount}
+          decimals={decimals}
           onConfirm={onConfirm}
-          apr={
-            Number(provider.aprWithoutFee) > 0
-              ? provider.aprWithoutFee
-              : undefined
-          }
+          apys={protocolInfo?.apys}
+          apr={apr}
           currentAllowance={currentAllowance}
-          providerLogo={details.provider.logoURI}
-          providerName={details.provider.name}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={providerName}
           providerLabel={providerLabel}
           showEstReceive={showEstReceive}
-          estReceiveToken={details.rewardToken}
+          estReceiveToken={rewardToken}
+          eventEndTime={protocolInfo?.eventEndTime}
           estReceiveTokenRate={estReceiveTokenRate}
           approveTarget={{
             accountId,
             networkId,
-            spenderAddress: details.approveTarget ?? '',
-            token: token.info,
+            spenderAddress: protocolInfo?.approve?.approveTarget ?? '',
+            token,
           }}
+          activeBalance={protocolInfo?.activeBalance}
+          joinRequirement={protocolInfo?.joinRequirement}
+          rewardAssets={protocolInfo?.rewardAssets}
+          poolFee={protocolInfo?.poolFee}
         />
       </Page.Body>
     </Page>

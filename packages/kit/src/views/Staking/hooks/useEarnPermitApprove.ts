@@ -17,12 +17,8 @@ interface IUseEarnPermitApproveParams {
   accountId: string;
   token: IToken;
   amountValue: string;
-  details: {
-    provider: {
-      name: string;
-      vault?: string;
-    };
-  };
+  providerName: string;
+  vaultAddress: string;
 }
 
 export function useEarnPermitApprove() {
@@ -37,7 +33,8 @@ export function useEarnPermitApprove() {
       accountId,
       token,
       amountValue,
-      details,
+      providerName,
+      vaultAddress,
     }: IUseEarnPermitApproveParams) => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -47,10 +44,10 @@ export function useEarnPermitApprove() {
       const permit2Data =
         await backgroundApiProxy.serviceStaking.buildPermit2ApproveSignData({
           networkId,
-          provider: details.provider.name,
+          provider: providerName,
           symbol: token.symbol,
           accountAddress: account.address,
-          vault: details.provider.vault ?? '',
+          vault: vaultAddress,
           amount: new BigNumber(amountValue).toFixed(),
         });
 

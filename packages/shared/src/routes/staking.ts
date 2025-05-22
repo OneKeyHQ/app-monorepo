@@ -1,4 +1,8 @@
-import type { IStakeProtocolDetails } from '../../types/staking';
+import type {
+  IEarnTokenInfo,
+  IProtocolInfo,
+  IStakeProtocolDetails,
+} from '../../types/staking';
 import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
@@ -22,15 +26,9 @@ type IBaseRouteParams = {
   indexedAccountId?: string;
 };
 
-interface IClaimOptionsParams extends IBaseRouteParams {
-  accountId: string;
-  networkId: string;
-  token: IToken;
-  provider: {
-    name: string;
-    vault: string;
-    logoURI: string;
-  };
+interface IDetailPageInfoParams extends IBaseRouteParams {
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
 }
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
@@ -46,41 +44,28 @@ export type IModalStakingParamList = {
     details?: IStakeProtocolDetails;
     vault?: string;
   };
-  [EModalStakingRoutes.Stake]: IBaseRouteParams & {
-    symbol: string;
-    provider: string;
-    details: IStakeProtocolDetails;
+  [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     onSuccess?: () => void;
   };
-  [EModalStakingRoutes.ApproveBaseStake]: IBaseRouteParams & {
-    symbol: string;
-    provider: string;
-    details: IStakeProtocolDetails;
+  [EModalStakingRoutes.ApproveBaseStake]: IDetailPageInfoParams & {
     currentAllowance: string;
     onSuccess?: () => void;
   };
-  [EModalStakingRoutes.Withdraw]: IBaseRouteParams & {
+  [EModalStakingRoutes.Withdraw]: IDetailPageInfoParams & {
     rate?: string;
-    symbol: string;
-    provider: string;
-    details: IStakeProtocolDetails;
     identity?: string;
     amount?: string;
     onSuccess?: () => void;
   };
-  [EModalStakingRoutes.Claim]: IBaseRouteParams &
-    IClaimOptionsParams & {
+  [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
+    IDetailPageInfoParams & {
       amount?: string;
       onSuccess?: () => void;
       identity?: string;
       claimableAmount?: string;
     };
-  [EModalStakingRoutes.ClaimOptions]: IBaseRouteParams & IClaimOptionsParams;
-  [EModalStakingRoutes.WithdrawOptions]: IBaseRouteParams & {
-    symbol: string;
-    provider: string;
-    details: IStakeProtocolDetails;
-  };
+  [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams;
+  [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams;
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;
     filter?: boolean;
