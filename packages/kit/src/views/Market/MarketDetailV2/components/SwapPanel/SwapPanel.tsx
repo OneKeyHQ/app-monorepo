@@ -10,6 +10,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
+import { ESwapDirection, type ITradeType } from './hooks/useTradeType';
 import { SwapPanelContent } from './SwapPanelContent';
 
 export type ISwapPanelProps = {
@@ -25,7 +26,13 @@ export function SwapPanel(props: ISwapPanelProps) {
     networkId: networkIdProp ?? 'evm--1',
   });
 
-  const { networkId, setIsApproved, setPaymentToken, paymentToken } = swapPanel;
+  const {
+    networkId,
+    setIsApproved,
+    setPaymentToken,
+    paymentToken,
+    setTradeType,
+  } = swapPanel;
 
   const { isLoading, speedConfig, supportSpeedSwap, defaultTokens } =
     useSpeedSwapInit(networkId ?? '');
@@ -54,6 +61,14 @@ export function SwapPanel(props: ISwapPanelProps) {
     }
   }, [defaultTokens, paymentToken, setPaymentToken]);
 
+  const dialogRef = useRef<ReturnType<typeof Dialog.show>>();
+
+  useEffect(() => {
+    if (!media.md) {
+      void dialogRef.current?.close();
+    }
+  }, [media.md]);
+
   const handleApprove = () => {
     setIsApproved(true);
   };
@@ -69,8 +84,10 @@ export function SwapPanel(props: ISwapPanelProps) {
     />
   );
 
-  const showSwapDialog = () => {
-    Dialog.show({
+  const showSwapDialog = (tradeType: ITradeType) => {
+    setTradeType(tradeType);
+
+    dialogRef.current = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_swap }),
       renderContent: swapPanelContent,
       showFooter: false,
@@ -79,9 +96,17 @@ export function SwapPanel(props: ISwapPanelProps) {
 
   if (media.md) {
     return (
-      <Button onPress={showSwapDialog}>
-        {intl.formatMessage({ id: ETranslations.global_swap })}
-      </Button>
+      <>
+        <Button onPress={() => showSwapDialog(ESwapDirection.BUY)} mr="$2.5">
+          {intl.formatMessage({ id: ETranslations.global_buy })}
+        </Button>
+        <Button
+          onPress={() => showSwapDialog(ESwapDirection.SELL)}
+          variant="secondary"
+        >
+          {intl.formatMessage({ id: ETranslations.global_sell })}
+        </Button>
+      </>
     );
   }
 
