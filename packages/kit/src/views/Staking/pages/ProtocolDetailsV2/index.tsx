@@ -22,6 +22,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -347,9 +348,12 @@ function PortfolioSection({
             >
               <XStack alignItems="center" gap="$1.5">
                 <Token size="sm" tokenImageUri={item.token.logoURI} />
-                <SizableText size="$bodyLgMedium" color={item.title.color}>
+                <FormatHyperlinkText
+                  size="$bodyLgMedium"
+                  color={item.title.color}
+                >
                   {item.title.text}
-                </SizableText>
+                </FormatHyperlinkText>
                 <SizableText
                   size="$bodyLgMedium"
                   color={item.description.color}
