@@ -58,7 +58,10 @@ import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { Token, TokenName } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -129,6 +132,7 @@ export function UniversalSearch({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const accountSelectorActions = useAccountSelectorActions();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [settings] = useSettingsPersistAtom();
   const [allTokenList] = useAllTokenListAtom();
@@ -322,8 +326,31 @@ export function UniversalSearch({
           if (searchAddressItem.payload.account) {
             return (
               <ListItem
-                onPress={() => {
-                  console.log('press account');
+                onPress={async () => {
+                  navigation.pop();
+                  if (
+                    accountUtils.isOthersAccount({
+                      accountId: searchAddressItem.payload.account.id,
+                    })
+                  ) {
+                    await accountSelectorActions.current.confirmAccountSelect({
+                      num: 0,
+                      indexedAccount: undefined,
+                      othersWalletAccount: searchAddressItem.payload.account,
+                      forceSelectToNetworkId:
+                        searchAddressItem.payload.network.id,
+                    });
+                  } else {
+                    await accountSelectorActions.current.confirmAccountSelect({
+                      num: 0,
+                      indexedAccount: searchAddressItem.payload.indexedAccount,
+                      othersWalletAccount: undefined,
+                      forceSelectToNetworkId:
+                        searchAddressItem.payload.network.id,
+                    });
+                  }
+                  console.log('press account', searchAddressItem.payload);
+                  console.log('press action: ', accountSelectorActions);
                 }}
                 renderAvatar={
                   <AccountAvatar
@@ -576,6 +603,7 @@ export function UniversalSearch({
       searchStatus,
       settings.currencyInfo.symbol,
       handleWebSite,
+      accountSelectorActions,
     ],
   );
 
