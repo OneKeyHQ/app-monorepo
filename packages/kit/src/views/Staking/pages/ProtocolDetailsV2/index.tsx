@@ -210,7 +210,6 @@ function ProtocolRewards({
   return rewards ? (
     <YStack
       gap="$2.5"
-      mt="$3"
       py="$3.5"
       px="$4"
       borderRadius="$3"
@@ -444,17 +443,19 @@ function PortfolioSection({
             {portfolios.title.text}
           </SizableText>
         </XStack>
-        {portfolios?.items ? (
-          <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
-        ) : null}
-        {rewards?.tokens ? (
-          <ProtocolRewards
-            rewardToken={portfolios.items?.[0]?.token}
-            rewards={rewards}
-            tokenInfo={tokenInfo}
-            protocolInfo={protocolInfo}
-          />
-        ) : null}
+        <YStack gap="$3">
+          {portfolios?.items.length ? (
+            <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
+          ) : null}
+          {rewards?.tokens.length ? (
+            <ProtocolRewards
+              rewardToken={portfolios.items?.[0]?.token}
+              rewards={rewards}
+              tokenInfo={tokenInfo}
+              protocolInfo={protocolInfo}
+            />
+          ) : null}
+        </YStack>
       </YStack>
       <Divider />
     </>
