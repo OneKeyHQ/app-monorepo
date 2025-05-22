@@ -19,16 +19,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import {
@@ -37,29 +34,18 @@ import {
 } from '@onekeyhq/shared/types/search';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountAvatar } from '../../../components/AccountAvatar';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
-import { NetworkAvatar } from '../../../components/NetworkAvatar';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
-import { AccountAddress } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountAddress';
-import { AccountValueWithSpotlight } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountValue';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
-import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
-import { MarketStar } from '../../Market/components/MarketStar';
-import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
-import { MarketTokenPrice } from '../../Market/components/MarketTokenPrice';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import {
   UniversalSearchAccountAssetItem,
+  UniversalSearchAddressItem,
   UniversalSearchDappItem,
   UniversalSearchMarketTokenItem,
 } from '../components/SearchResultItems';
@@ -115,13 +101,10 @@ export function UniversalSearch({
   filterTypes?: EUniversalSearchType[];
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const accountSelectorActions = useAccountSelectorActions();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
 
-  const universalSearchActions = useUniversalSearchActions();
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
     ESearchStatus.init,
@@ -302,126 +285,13 @@ export function UniversalSearch({
   const renderItem = useCallback(
     ({ item }: { item: IUniversalSearchResultItem }) => {
       switch (item.type) {
-        case EUniversalSearchType.Address: {
-          const searchAddressItem = item;
-          if (searchAddressItem.payload.account) {
-            return (
-              <ListItem
-                onPress={async () => {
-                  navigation.pop();
-                  if (
-                    accountUtils.isOthersAccount({
-                      accountId: searchAddressItem.payload.account.id,
-                    })
-                  ) {
-                    await accountSelectorActions.current.confirmAccountSelect({
-                      num: 0,
-                      indexedAccount: undefined,
-                      othersWalletAccount: searchAddressItem.payload.account,
-                      forceSelectToNetworkId:
-                        searchAddressItem.payload.network.id,
-                    });
-                  } else {
-                    await accountSelectorActions.current.confirmAccountSelect({
-                      num: 0,
-                      indexedAccount: searchAddressItem.payload.indexedAccount,
-                      othersWalletAccount: undefined,
-                      forceSelectToNetworkId:
-                        searchAddressItem.payload.network.id,
-                    });
-                  }
-                  console.log('press account', searchAddressItem.payload);
-                  console.log('press action: ', accountSelectorActions);
-                }}
-                renderAvatar={
-                  <AccountAvatar
-                    size="$10"
-                    borderRadius="$1"
-                    wallet={searchAddressItem.payload.wallet}
-                    account={searchAddressItem.payload.account}
-                    indexedAccount={searchAddressItem.payload.indexedAccount}
-                  />
-                }
-                title={searchAddressItem.payload.accountInfo?.formattedName}
-                renderItemText={(textProps) => (
-                  <ListItem.Text
-                    {...textProps}
-                    flex={1}
-                    primary={
-                      <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                        {searchAddressItem.payload.accountInfo?.formattedName}
-                      </SizableText>
-                    }
-                    secondary={
-                      <XStack alignItems="center">
-                        {/* TODO: 只有 indexedAccount 或 otherAccount 才有余额 */}
-                        <AccountValueWithSpotlight
-                          isOthersUniversal={accountUtils.isOthersAccount({
-                            accountId: searchAddressItem.payload.account.id,
-                          })}
-                          index={0}
-                          accountValue={searchAddressItem.payload.accountsValue}
-                          linkedAccountId={searchAddressItem.payload.account.id}
-                          linkedNetworkId={searchAddressItem.payload.network.id}
-                        />
-                        <AccountAddress
-                          num={0}
-                          linkedNetworkId={searchAddressItem.payload.network.id}
-                          address={
-                            searchAddressItem.payload.addressInfo.displayAddress
-                          }
-                          isEmptyAddress={false}
-                        />
-                      </XStack>
-                    }
-                  />
-                )}
-                subtitle={searchAddressItem.payload.addressInfo.displayAddress}
-              />
-            );
-          }
+        case EUniversalSearchType.Address:
           return (
-            <ListItem
-              onPress={() => {
-                navigation.pop();
-                setTimeout(async () => {
-                  const { network, addressInfo } = searchAddressItem.payload;
-                  navigation.switchTab(ETabRoutes.Home);
-                  await urlAccountNavigation.pushUrlAccountPage(navigation, {
-                    address: addressInfo.displayAddress,
-                    networkId: network.id,
-                    contextNetworkId: activeAccount?.network?.id,
-                  });
-                  setTimeout(() => {
-                    universalSearchActions.current.addIntoRecentSearchList({
-                      id: `${addressInfo.displayAddress}-${network.id || ''}-${
-                        activeAccount?.network?.id || ''
-                      }`,
-                      text: addressInfo.displayAddress,
-                      type: item.type,
-                      timestamp: Date.now(),
-                      extra: {
-                        displayAddress: addressInfo.displayAddress,
-                        networkId: network.id,
-                        contextNetworkId: activeAccount?.network?.id || '',
-                      },
-                    });
-                  }, 10);
-                }, 80);
-              }}
-              renderAvatar={
-                <NetworkAvatar
-                  networkId={searchAddressItem.payload.network.id}
-                  size="$10"
-                />
-              }
-              title={searchAddressItem.payload.network.shortname}
-              subtitle={accountUtils.shortenAddress({
-                address: searchAddressItem.payload.addressInfo.displayAddress,
-              })}
+            <UniversalSearchAddressItem
+              item={item}
+              contextNetworkId={activeAccount?.network?.id}
             />
           );
-        }
         case EUniversalSearchType.MarketToken:
           return (
             <UniversalSearchMarketTokenItem
@@ -442,13 +312,7 @@ export function UniversalSearch({
           return null;
       }
     },
-    [
-      activeAccount,
-      accountSelectorActions,
-      navigation,
-      universalSearchActions,
-      searchStatus,
-    ],
+    [activeAccount?.network?.id, searchStatus],
   );
 
   const tabTitles = useMemo(() => {
