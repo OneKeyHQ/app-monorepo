@@ -1172,7 +1172,7 @@ class ServiceStaking extends ServiceBase {
   }) {
     const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const sendParams = {
+    const sendParams: Record<string, string | undefined> = {
       symbol,
       ...rest,
     };
