@@ -1,4 +1,10 @@
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import type { IServerNetwork } from '.';
+import type { INetworkAccount } from './account';
 import type { IAddressValidation } from './address';
 import type { IDApp } from './discovery';
 import type { IMarketToken } from './market';
@@ -10,11 +16,21 @@ export enum EUniversalSearchType {
   AccountAssets = 'AccountAssets',
   Dapp = 'Dapp',
 }
+
+export type IUniversalSearchAccountInfo = {
+  accountId: string;
+  formattedName: string;
+};
+
 export type IUniversalSearchAddress = {
   type: EUniversalSearchType.Address;
   payload: {
-    addressInfo: IAddressValidation;
+    wallet: IDBWallet | undefined;
+    account: INetworkAccount;
+    indexedAccount: IDBIndexedAccount;
     network: IServerNetwork;
+    addressInfo: IAddressValidation;
+    accountInfo?: IUniversalSearchAccountInfo;
   };
 };
 

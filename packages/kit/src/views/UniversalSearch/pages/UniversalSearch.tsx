@@ -51,6 +51,7 @@ import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountAvatar } from '../../../components/AccountAvatar';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
@@ -318,6 +319,26 @@ export function UniversalSearch({
       switch (item.type) {
         case EUniversalSearchType.Address: {
           const searchAddressItem = item;
+          if (searchAddressItem.payload.account) {
+            return (
+              <ListItem
+                onPress={() => {
+                  console.log('press account');
+                }}
+                renderAvatar={
+                  <AccountAvatar
+                    size="$10"
+                    borderRadius="$1"
+                    wallet={searchAddressItem.payload.wallet}
+                    account={searchAddressItem.payload.account}
+                    indexedAccount={searchAddressItem.payload.indexedAccount}
+                  />
+                }
+                title={searchAddressItem.payload.accountInfo?.formattedName}
+                subtitle={searchAddressItem.payload.addressInfo.displayAddress}
+              />
+            );
+          }
           return (
             <ListItem
               onPress={() => {
