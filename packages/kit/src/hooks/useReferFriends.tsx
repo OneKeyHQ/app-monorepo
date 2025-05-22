@@ -178,8 +178,6 @@ export const useReferFriends = () => {
 
   const shareReferRewards = useCallback(
     async (onSuccess?: () => void, onFail?: () => void) => {
-      const isBindInviteCode =
-        await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
@@ -271,9 +269,8 @@ export const useReferFriends = () => {
             </XStack>
           </YStack>
         ),
-        showCancelButton: !isLogin || !isBindInviteCode,
         onCancelText: intl.formatMessage({
-          id: ETranslations.global_learn_more,
+          id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
           openUrlExternal(ONEKEY_URL);

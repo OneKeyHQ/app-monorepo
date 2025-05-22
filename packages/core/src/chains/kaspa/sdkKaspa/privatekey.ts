@@ -48,3 +48,8 @@ export function privateKeyFromOriginPrivateKey(
   // @ts-expect-error
   return new PrivateKey(tweakedPrivateKey, chainId);
 }
+
+export function privateKeyFromHex(hex: string, chainId: string): PrivateKey {
+  // @ts-expect-error
+  return new PrivateKey(hex, chainId);
+}

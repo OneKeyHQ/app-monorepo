@@ -78,7 +78,6 @@ type IApproveBaseStakeProps = {
     spenderAddress: string;
     token: IToken;
   };
-  joinRequirement?: string;
 
   providerLabel?: string;
 
@@ -127,7 +126,6 @@ export function ApproveBaseStake({
   estReceiveTokenRate = '1',
   approveType,
   activeBalance,
-  joinRequirement,
   apys,
   rewardAssets,
   poolFee,
@@ -805,60 +803,6 @@ export function ApproveBaseStake({
     trackAllowance,
   ]);
 
-  // falcon join requirement
-  const currentTotalStakedBN = useMemo(() => {
-    const activeBalanceBN = new BigNumber(activeBalance ?? 0);
-    const amountValueBN = new BigNumber(amountValue);
-    return activeBalanceBN.plus(amountValueBN.isNaN() ? 0 : amountValueBN);
-  }, [activeBalance, amountValue]);
-
-  const displayJoinRequirementAlert = useMemo(() => {
-    // Check if amountValue is greater than 0 first
-    const amountValueBN = new BigNumber(amountValue);
-    if (amountValueBN.isNaN() || amountValueBN.lte(0)) {
-      return false;
-    }
-
-    if (
-      earnUtils.isFalconProvider({
-        providerName,
-      })
-    ) {
-      const joinRequirementBN = new BigNumber(joinRequirement ?? 0);
-      if (
-        joinRequirementBN.isNaN() ||
-        joinRequirementBN.isLessThanOrEqualTo(0)
-      ) {
-        return false;
-      }
-      // currentTotalStakedBN is already calculated as active balance + input amount
-      return currentTotalStakedBN.isLessThan(joinRequirementBN);
-    }
-    return false;
-  }, [amountValue, providerName, joinRequirement, currentTotalStakedBN]);
-
-  const joinRequirementAlertText = useMemo(() => {
-    if (!displayJoinRequirementAlert) {
-      return '';
-    }
-    const joinRequirementBN = new BigNumber(joinRequirement ?? 0);
-    const remainingAmount = joinRequirementBN.minus(currentTotalStakedBN);
-    // Ensure remaining amount is positive before formatting
-    const remainingAmountStr = remainingAmount.gt(0)
-      ? remainingAmount.toFixed(2)
-      : '0';
-    return intl.formatMessage(
-      { id: ETranslations.earn_remaining_to_minimum },
-      { value: `${remainingAmountStr}`, symbol: token.symbol },
-    );
-  }, [
-    displayJoinRequirementAlert,
-    joinRequirement,
-    currentTotalStakedBN,
-    intl,
-    token.symbol,
-  ]);
-
   const placeholderTokens = useMemo(
     () => (
       <>
@@ -1012,13 +956,6 @@ export function ApproveBaseStake({
           title={intl.formatMessage({
             id: ETranslations.earn_insufficient_balance,
           })}
-        />
-      ) : null}
-      {displayJoinRequirementAlert ? (
-        <Alert
-          icon="ErrorOutline"
-          type="default"
-          title={joinRequirementAlertText}
         />
       ) : null}
       <YStack

@@ -24,7 +24,6 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../components/UniversalStake';
-import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -33,14 +32,8 @@ function BasicStakePage() {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const {
-    accountId,
-    networkId,
-    tokenInfo,
-    protocolInfo,
-    onSuccess,
-    indexedAccountId,
-  } = route.params;
+  const { accountId, networkId, tokenInfo, protocolInfo, onSuccess } =
+    route.params;
   const token = tokenInfo?.token as IToken;
   const symbol = tokenInfo?.token.symbol || '';
   const providerName = protocolInfo?.provider || '';
@@ -209,7 +202,6 @@ function BasicStakePage() {
       btcFeeRateInit.current = true;
     }
   }, [estimateFeeUTXO]);
-  const providerLabel = useProviderLabel(providerName);
   const tokenSymbol = tokenInfo?.token.symbol || '';
   const price = tokenInfo?.nativeToken?.price
     ? String(tokenInfo?.nativeToken?.price)
@@ -245,13 +237,11 @@ function BasicStakePage() {
           tokenSymbol={token.symbol}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
-          providerLabel={providerLabel}
           stakingTime={protocolInfo?.stakingTime}
           nextLaunchLeft={protocolInfo?.nextLaunchLeft}
           isReachBabylonCap={isReachBabylonCap}
           rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
-          updateFrequency={protocolInfo?.updateFrequency}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
           estReceiveTokenRate={estReceiveTokenRate}
