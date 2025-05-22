@@ -6,6 +6,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketChainsResponse,
   IMarketTokenDetail,
+  IMarketTokenListResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
 import ServiceBase from './ServiceBase';
@@ -42,6 +43,36 @@ class ServiceMarketV2 extends ServiceBase {
     const response = await client.get<{
       data: IMarketChainsResponse;
     }>('/utility/v2/market/chains');
+    const { data } = response.data;
+    return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenList({
+    networkId,
+    sortBy,
+    sortType,
+    offset = 0,
+    limit = 50,
+  }: {
+    networkId: string;
+    sortBy?: string;
+    sortType?: 'asc' | 'desc';
+    offset?: number;
+    limit?: number;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketTokenListResponse;
+    }>('/utility/v2/market/token/list', {
+      params: {
+        networkId,
+        sortBy,
+        sortType,
+        offset,
+        limit,
+      },
+    });
     const { data } = response.data;
     return data;
   }

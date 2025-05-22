@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -32,15 +32,6 @@ export function TokenActivityOverview({
       createTimeRangeOption(tokenDetail, 'priceChange24hPercent', '24H', '24h'),
     ].filter(Boolean);
 
-    if (
-      availableOptions.length > 0 &&
-      !availableOptions.find((o) => o.value === selectedTimeRange)
-    ) {
-      setSelectedTimeRange(availableOptions[0].value);
-    } else if (availableOptions.length === 0 && selectedTimeRange !== '1h') {
-      setSelectedTimeRange('1h');
-    }
-
     if (availableOptions.length > 0) {
       return availableOptions;
     }
@@ -50,7 +41,26 @@ export function TokenActivityOverview({
       percentageChange: '0.00%',
       isPositive: false,
     }));
-  }, [tokenDetail, selectedTimeRange]);
+  }, [tokenDetail]);
+
+  useEffect(() => {
+    if (
+      timeRangeOptions.some((option) =>
+        defaultTimeRangeConfigs.every((cfg) => cfg.label !== option.label),
+      )
+    ) {
+      if (!timeRangeOptions.find((o) => o.value === selectedTimeRange)) {
+        setSelectedTimeRange(timeRangeOptions[0].value);
+      }
+    } else {
+      const isSelectedTimeRangeValidOrDefault = defaultTimeRangeConfigs.some(
+        (config) => config.value === selectedTimeRange,
+      );
+      if (!isSelectedTimeRangeValidOrDefault) {
+        setSelectedTimeRange('1h');
+      }
+    }
+  }, [timeRangeOptions, selectedTimeRange]);
 
   const { buys, sells, buyVolume, sellVolume } = formatTokenActivityData(
     tokenDetail,
@@ -100,9 +110,9 @@ export function TokenActivityOverview({
         value={selectedTimeRange}
         onChange={(value) => setSelectedTimeRange(value)}
       />
-      {activityData.map((activity, index) => (
+      {activityData.map((activity) => (
         <ActivityRow
-          key={`${selectedTimeRange}-${index}`} // In a real app, use a more stable key if possible
+          key={`activity-${selectedTimeRange}-${activity.label}`}
           label={activity.label}
           buyValue={activity.buyValue}
           sellValue={activity.sellValue}

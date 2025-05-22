@@ -29,7 +29,6 @@ export function TokenDetailHeader({
     name = '',
     symbol = '',
     price: currentPrice = '0',
-    // coingeckoId, // TODO: uncomment when MarketStar is used
     // priceChangePercentage24h, // TODO: uncomment when PriceChangePercentage is used
   } = tokenDetail || {};
 
