@@ -505,6 +505,7 @@ export interface IStakeEarnDetail {
       title: IEarnText;
       description: IEarnText;
       badge: IEarnBadge;
+      tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];
     }[];
   };
