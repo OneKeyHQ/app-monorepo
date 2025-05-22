@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,6 +8,8 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
+  Icon,
+  Image,
   NumberSizeableText,
   Page,
   SearchBar,
@@ -21,12 +23,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
   EModalAssetDetailRoutes,
@@ -57,6 +62,7 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
+import { useWebSiteHandler } from '../../Discovery/hooks/useWebSiteHandler';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
@@ -70,6 +76,8 @@ import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 interface IUniversalSection {
   title: string;
   data: IUniversalSearchResultItem[];
+  sliceData?: IUniversalSearchResultItem[];
+  showMore?: boolean;
 }
 
 enum ESearchStatus {
@@ -82,6 +90,7 @@ const AllTypes = [
   EUniversalSearchType.Address,
   EUniversalSearchType.MarketToken,
   EUniversalSearchType.AccountAssets,
+  EUniversalSearchType.Dapp,
 ];
 
 const SkeletonItem = () => (
@@ -133,6 +142,8 @@ export function UniversalSearch({
     IUniversalSection[]
   >([]);
 
+  const handleWebSite = useWebSiteHandler();
+
   const shouldUseTokensCacheData = useMemo(() => {
     return (
       allTokenList &&
@@ -170,9 +181,12 @@ export function UniversalSearch({
     void fetchRecommendList();
   }, [fetchRecommendList]);
 
+  const searchInputRef = useRef<string>('');
+
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     const input = val?.trim?.() || '';
     if (input) {
+      searchInputRef.current = input;
       const result =
         await backgroundApiProxy.serviceUniversalSearch.universalSearch({
           input,
@@ -187,37 +201,60 @@ export function UniversalSearch({
             ? allTokenListMap
             : undefined,
         });
+      const generateDataFn = (data: IUniversalSearchResultItem[]) => {
+        return {
+          data,
+          sliceData: data.slice(0, 5),
+          showMore: data.length > 5,
+        };
+      };
       const searchResultSections: {
         title: string;
         data: IUniversalSearchResultItem[];
+        sliceData?: IUniversalSearchResultItem[];
+        showMore?: boolean;
       }[] = [];
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
+        const data = result?.[EUniversalSearchType.Address]
+          ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           title: intl.formatMessage({
             id: ETranslations.global_wallets,
           }),
-          data: result?.[EUniversalSearchType.Address]
-            ?.items as IUniversalSearchResultItem[],
+          ...generateDataFn(data),
         });
       }
 
       if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
+        const data = result?.[EUniversalSearchType.MarketToken]
+          ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_tokens,
           }),
-          data: result?.[EUniversalSearchType.MarketToken]
-            ?.items as IUniversalSearchResultItem[],
+          ...generateDataFn(data),
         });
       }
 
       if (result?.[EUniversalSearchType.AccountAssets]?.items?.length) {
+        const data = result?.[EUniversalSearchType.AccountAssets]
+          ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
-          data: result?.[EUniversalSearchType.AccountAssets]
-            ?.items as IUniversalSearchResultItem[],
+          ...generateDataFn(data),
+        });
+      }
+
+      if (result?.[EUniversalSearchType.Dapp]?.items?.length) {
+        const data = result?.[EUniversalSearchType.Dapp]
+          ?.items as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          title: intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_dapps,
+          }),
+          ...generateDataFn(data),
         });
       }
 
@@ -241,6 +278,13 @@ export function UniversalSearch({
           </SizableText>
         </XStack>
       );
+    },
+    [],
+  );
+
+  const renderSectionFooter = useCallback(
+    ({ section }: { section: IUniversalSection }) => {
+      return null;
     },
     [],
   );
@@ -448,6 +492,32 @@ export function UniversalSearch({
             </ListItem>
           );
         }
+        case EUniversalSearchType.Dapp: {
+          const { name, dappId, logo } = item.payload;
+          return (
+            <ListItem
+              onPress={() => {
+                const isGoogle = isGoogleSearchItem(dappId);
+                handleWebSite({
+                  dApp: isGoogle ? undefined : item.payload,
+                  // @ts-expect-error
+                  webSite: isGoogle
+                    ? {
+                        title: 'Google',
+                        url: searchInputRef.current,
+                      }
+                    : undefined,
+                  enterMethod: EEnterMethod.search,
+                });
+              }}
+              renderAvatar={<Image source={{ uri: logo }} size="$10" />}
+              title={name}
+              titleProps={{
+                color: isGoogleSearchItem(dappId) ? '$textSubdued' : '$text',
+              }}
+            />
+          );
+        }
         default: {
           return null;
         }
@@ -459,6 +529,7 @@ export function UniversalSearch({
       universalSearchActions,
       searchStatus,
       settings.currencyInfo.symbol,
+      handleWebSite,
     ],
   );
 
@@ -505,7 +576,10 @@ export function UniversalSearch({
 
   const filterSections = useMemo(() => {
     if (filterType === tabTitles[0].title) {
-      return sections;
+      return sections.map((i) => ({
+        ...i,
+        data: i.sliceData,
+      }));
     }
     return sections.filter((i) => i.title === filterType);
   }, [filterType, sections, tabTitles]);
@@ -521,6 +595,7 @@ export function UniversalSearch({
             ListHeaderComponent={<RecentSearched filterTypes={filterTypes} />}
             ListEmptyComponent={<ListEmptyComponent />}
             estimatedItemSize="$16"
+            ListFooterComponent={<Stack h="$16" />}
           />
         );
 
@@ -555,6 +630,7 @@ export function UniversalSearch({
               stickySectionHeadersEnabled
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
+              renderSectionFooter={renderSectionFooter}
               ListEmptyComponent={
                 <Empty
                   icon="SearchOutline"
@@ -568,6 +644,7 @@ export function UniversalSearch({
               }
               renderItem={renderItem}
               estimatedItemSize="$16"
+              ListFooterComponent={<Stack h="$16" />}
             />
           </>
         );
@@ -582,6 +659,7 @@ export function UniversalSearch({
     recommendSections,
     renderItem,
     renderSectionHeader,
+    renderSectionFooter,
     searchStatus,
     tabTitles,
   ]);
@@ -637,11 +715,13 @@ const UniversalSearchWithProvider = (
     <MarketWatchListProviderMirror
       storeName={EJotaiContextStoreNames.marketWatchList}
     >
-      <UniversalSearchProviderMirror
-        storeName={EJotaiContextStoreNames.universalSearch}
-      >
-        <UniversalSearchWithHomeTokenListProvider {...params} />
-      </UniversalSearchProviderMirror>
+      <DiscoveryBrowserProviderMirror>
+        <UniversalSearchProviderMirror
+          storeName={EJotaiContextStoreNames.universalSearch}
+        >
+          <UniversalSearchWithHomeTokenListProvider {...params} />
+        </UniversalSearchProviderMirror>
+      </DiscoveryBrowserProviderMirror>
     </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
 );
