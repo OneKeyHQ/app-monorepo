@@ -325,7 +325,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         onConfirm: () => {
           setTimeout(() => {
             toUpdatePreviewPage(isFull, params);
-          }, 80);
+          }, 120);
         },
       });
     },
