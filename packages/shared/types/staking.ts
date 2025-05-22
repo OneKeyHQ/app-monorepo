@@ -1,7 +1,7 @@
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
+import type { INetworkAccount } from './account';
 import type { IFetchTokenDetailItem, IToken } from './token';
-import { INetworkAccount } from './account';
 
 export type IAllowanceOverview = {
   allowance: string;

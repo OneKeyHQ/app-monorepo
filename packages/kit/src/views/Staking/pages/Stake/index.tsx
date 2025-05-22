@@ -45,7 +45,6 @@ function BasicStakePage() {
   const symbol = tokenInfo?.token.symbol || '';
   const providerName = protocolInfo?.provider || '';
 
-
   const actionTag = buildLocalTxStatusSyncId({
     providerName,
     tokenSymbol: symbol,

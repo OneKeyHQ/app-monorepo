@@ -725,7 +725,7 @@ const ProtocolDetailsPage = () => {
           claimable: resultV1.claimable,
         }
       : undefined;
-  }, [detailInfo?.protocol, resultV1]);
+  }, [detailInfo?.protocol, earnAccount, resultV1]);
 
   const onStake = useCallback(async () => {
     await handleStake({
