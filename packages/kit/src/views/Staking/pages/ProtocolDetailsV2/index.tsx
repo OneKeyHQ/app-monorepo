@@ -252,24 +252,28 @@ function ProtocolRewards({
                   size="small"
                   variant="primary"
                   onPress={async () => {
-                    const claimAmount = protocolInfo?.claimable || '0';
+                    // TODO: need fiatValue
+                    const claimAmount =
+                      token?.title?.text?.split(' ')?.[0] || '0';
+                    const isMorphoClaim = !!(
+                      tokenInfo?.provider &&
+                      earnUtils.isMorphoProvider({
+                        providerName: tokenInfo?.provider,
+                      })
+                    );
+                    const newRewardToken = token.token;
                     await handleClaim({
-                      symbol: token.token.symbol,
+                      symbol: rewardToken.symbol,
                       protocolInfo,
                       tokenInfo: tokenInfo
                         ? {
                             ...tokenInfo,
-                            token: rewardToken || token.token,
+                            token: newRewardToken,
                           }
                         : undefined,
                       claimAmount,
-                      claimTokenAddress: tokenInfo?.token.address,
-                      isMorphoClaim: !!(
-                        tokenInfo?.provider &&
-                        earnUtils.isMorphoProvider({
-                          providerName: tokenInfo?.provider,
-                        })
-                      ),
+                      claimTokenAddress: newRewardToken.address,
+                      isMorphoClaim,
                       stakingInfo: {
                         label: EEarnLabels.Claim,
                         protocol: earnUtils.getEarnProviderName({
@@ -277,13 +281,13 @@ function ProtocolRewards({
                         }),
                         protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
-                          token: token.token,
+                          token: newRewardToken,
                           amount: claimAmount,
                         },
                         tags: [
                           buildLocalTxStatusSyncId({
                             providerName: tokenInfo?.provider || '',
-                            tokenSymbol: token.token.symbol,
+                            tokenSymbol: newRewardToken.symbol,
                           }),
                         ],
                       },
@@ -389,27 +393,26 @@ function PortfolioSection({
                   variant="primary"
                   onPress={async () => {
                     const claimAmount = protocolInfo?.claimable || '0';
+                    const newTokenInfo = {
+                      ...tokenInfo,
+                      token: item.token,
+                    };
                     await handleClaim({
                       symbol: item.token.symbol,
                       protocolInfo,
-                      tokenInfo: tokenInfo
-                        ? {
-                            ...tokenInfo,
-                            token: item.token,
-                          }
-                        : undefined,
+                      tokenInfo: newTokenInfo as IEarnTokenInfo,
                       claimAmount,
-                      claimTokenAddress: tokenInfo?.token.address,
+                      claimTokenAddress: newTokenInfo?.token.address,
                       isMorphoClaim: !!(
-                        tokenInfo?.provider &&
+                        newTokenInfo?.provider &&
                         earnUtils.isMorphoProvider({
-                          providerName: tokenInfo?.provider,
+                          providerName: newTokenInfo.provider,
                         })
                       ),
                       stakingInfo: {
                         label: EEarnLabels.Claim,
                         protocol: earnUtils.getEarnProviderName({
-                          providerName: tokenInfo?.provider || '',
+                          providerName: newTokenInfo?.provider || '',
                         }),
                         protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
@@ -418,7 +421,7 @@ function PortfolioSection({
                         },
                         tags: [
                           buildLocalTxStatusSyncId({
-                            providerName: tokenInfo?.provider || '',
+                            providerName: newTokenInfo?.provider || '',
                             tokenSymbol: item.token.symbol,
                           }),
                         ],
