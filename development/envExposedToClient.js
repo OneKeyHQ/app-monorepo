@@ -7,6 +7,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'NODE_ENV',
     'VERSION',
     'BUILD_NUMBER',
+    'BUILD_TIME',
     'ONEKEY_PLATFORM',
     'PUBLIC_URL',
     'EXT_INJECT_RELOAD_BUTTON',

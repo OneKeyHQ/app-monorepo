@@ -16,6 +16,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IEarnToken } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
@@ -34,17 +35,19 @@ const ClaimOptions = () => {
     EModalStakingRoutes.ClaimOptions
   >();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, provider, token } = appRoute.params;
+  const { accountId, networkId, protocolInfo, tokenInfo } = appRoute.params;
 
+  const provider = protocolInfo?.provider || '';
+  const symbol = tokenInfo?.token.symbol || '';
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getClaimableList({
         networkId,
         accountId,
-        symbol: token.symbol,
-        provider: provider.name,
+        symbol,
+        provider,
       }),
-    [networkId, accountId, token.symbol, provider.name],
+    [accountId, networkId, symbol, provider],
     { watchLoading: true },
   );
 
@@ -55,21 +58,24 @@ const ClaimOptions = () => {
       await handleClaim({
         identity: item.id,
         amount: item.amount,
-        symbol: token.symbol,
-        provider: provider.name,
-        morphoVault: provider.vault,
-        vault: provider.vault || '',
+        symbol,
+        provider,
+        morphoVault: protocolInfo?.approve?.approveTarget || '',
+        vault: protocolInfo?.approve?.approveTarget || '',
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider.name,
+            providerName: provider,
           }),
-          protocolLogoURI: provider.logoURI,
-          receive: { token, amount: item.amount },
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          receive: {
+            token: tokenInfo?.token as IEarnToken,
+            amount: item.amount,
+          },
           tags: [
             buildLocalTxStatusSyncId({
-              providerName: provider.name,
-              tokenSymbol: token.symbol,
+              providerName: provider,
+              tokenSymbol: symbol,
             }),
           ],
         },
@@ -86,16 +92,16 @@ const ClaimOptions = () => {
             });
           }
           appNavigation.pop();
-          defaultLogger.staking.page.staking({
-            token,
-            stakingProtocol: provider.name,
+          defaultLogger.staking.page.unstaking({
+            token: tokenInfo?.token,
+            stakingProtocol: provider,
           });
-          if (provider.name === 'babylon') {
+          if (provider === 'babylon') {
             void backgroundApiProxy.serviceStaking.babylonClaimRecord({
               accountId,
               networkId,
-              provider: provider.name,
-              symbol: token.symbol,
+              provider,
+              symbol,
               identity: item.id,
             });
           }
@@ -104,10 +110,11 @@ const ClaimOptions = () => {
     },
     [
       handleClaim,
-      token,
-      provider.name,
-      provider.vault,
-      provider.logoURI,
+      symbol,
+      provider,
+      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.providerDetail.logoURI,
+      tokenInfo?.token,
       appNavigation,
       accountId,
       networkId,

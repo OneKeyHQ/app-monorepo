@@ -1,5 +1,6 @@
 export enum EAppEventBusNames {
   ConfirmAccountSelected = 'ConfirmAccountSelected',
+  LocalSystemTimeInvalid = 'LocalSystemTimeInvalid',
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   WalletRemove = 'WalletRemove',

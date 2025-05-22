@@ -19,7 +19,6 @@ import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
-import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -32,17 +31,25 @@ const WithdrawPage = () => {
   const {
     accountId,
     networkId,
-    details,
+    protocolInfo,
+    tokenInfo,
     identity,
     amount: initialAmount,
     onSuccess,
   } = route.params;
 
-  const { token, provider, active, overflow } = details;
-  const { price, info: tokenInfo } = token;
+  const token = tokenInfo?.token;
+  const tokenSymbol = token?.symbol || '';
+  const providerName = protocolInfo?.provider || '';
+  const active = protocolInfo?.activeBalance;
+  const overflow = protocolInfo?.overflowBalance;
+  const price = tokenInfo?.nativeToken?.price
+    ? String(tokenInfo?.nativeToken?.price)
+    : '0';
+  const vault = protocolInfo?.approve?.approveTarget || '';
   const actionTag = buildLocalTxStatusSyncId({
-    providerName: provider.name,
-    tokenSymbol: tokenInfo.symbol,
+    providerName,
+    tokenSymbol,
   });
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
@@ -58,26 +65,26 @@ const WithdrawPage = () => {
         amount,
         identity,
         morphoVault: earnUtils.isMorphoProvider({
-          providerName: provider.name,
+          providerName,
         })
-          ? provider.vault
+          ? vault
           : undefined,
-        symbol: tokenInfo.symbol,
-        provider: provider.name,
+        symbol: tokenSymbol,
+        provider: providerName,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider.name,
+            providerName,
           }),
-          protocolLogoURI: provider.logoURI,
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
           tags: [actionTag],
         },
         withdrawAll,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
-            token: tokenInfo,
-            stakingProtocol: provider.name,
+            token,
+            stakingProtocol: providerName,
           });
           onSuccess?.();
         },
@@ -85,49 +92,47 @@ const WithdrawPage = () => {
     },
     [
       handleWithdraw,
-      tokenInfo,
-      appNavigation,
-      provider,
-      actionTag,
       identity,
+      providerName,
+      vault,
+      tokenSymbol,
+      protocolInfo?.providerDetail.logoURI,
+      actionTag,
+      appNavigation,
+      token,
       onSuccess,
     ],
   );
 
-  const providerLabel = useProviderLabel(provider.name);
-
   const showPayWith = useMemo<boolean>(
     () =>
       earnUtils.isLidoProvider({
-        providerName: provider.name,
+        providerName,
       }),
-    [provider],
+    [providerName],
   );
 
   const payWithTokenRate = useMemo(() => {
     if (
       earnUtils.isLidoProvider({
-        providerName: provider.name,
+        providerName,
       })
     ) {
-      return provider.lidoStTokenRate;
+      return protocolInfo?.lidoStTokenRate;
     }
     if (
       earnUtils.isMorphoProvider({
-        providerName: provider.name,
+        providerName,
       })
     ) {
-      return provider.morphoTokenRate;
+      return protocolInfo?.morphoTokenRate;
     }
     return '1';
-  }, [provider]);
-
-  const hideReceived = useMemo<boolean>(
-    () =>
-      provider.name.toLowerCase() === 'everstake' &&
-      tokenInfo.symbol.toLowerCase() === 'apt',
-    [provider, tokenInfo.symbol],
-  );
+  }, [
+    protocolInfo?.lidoStTokenRate,
+    protocolInfo?.morphoTokenRate,
+    providerName,
+  ]);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -136,54 +141,52 @@ const WithdrawPage = () => {
     });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
-      provider: provider.name,
-      symbol: tokenInfo.symbol,
+      provider: providerName,
+      symbol: tokenSymbol,
       action: 'unstake',
       amount: '1',
       txId:
-        provider.name.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
-      morphoVault: provider.vault,
+      morphoVault: earnUtils.isMorphoProvider({
+        providerName,
+      })
+        ? vault
+        : undefined,
       identity,
       accountAddress: account.address,
     });
     return resp;
-  }, [
-    accountId,
-    networkId,
-    provider.name,
-    provider.vault,
-    tokenInfo.symbol,
-    identity,
-  ]);
+  }, [accountId, networkId, providerName, tokenSymbol, identity, vault]);
 
   const { unstakingPeriod, showDetailWithdrawalRequested } = useMemo(() => {
-    const showDetail = !!details?.provider?.unstakingTime;
+    const showDetail = !!protocolInfo?.unstakingTime;
     return {
       showDetailWithdrawalRequested: showDetail,
       unstakingPeriod: showDetail
-        ? Math.ceil(Number(details.provider.unstakingTime) / (24 * 60 * 60))
-        : details.unstakingPeriod, // day
+        ? Math.ceil(Number(protocolInfo?.unstakingTime) / (24 * 60 * 60))
+        : protocolInfo?.unstakingPeriod, // day
     };
-  }, [details]);
+  }, [protocolInfo?.unstakingPeriod, protocolInfo?.unstakingTime]);
 
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_withdraw_token },
-          { token: tokenInfo.symbol },
+          { token: tokenSymbol },
         )}
       />
       <Page.Body>
         <UniversalWithdraw
           price={price}
-          hideReceived={hideReceived}
-          decimals={details.token.info.decimals}
+          decimals={token?.decimals}
           balance={
-            earnUtils.isMorphoProvider({ providerName: provider.name })
-              ? BigNumber(provider.maxUnstakeAmount ?? active ?? 0).toFixed()
+            earnUtils.isMorphoProvider({ providerName })
+              ? BigNumber(
+                  protocolInfo?.maxUnstakeAmount ?? active ?? 0,
+                ).toFixed()
               : BigNumber(active ?? 0)
                   .plus(overflow ?? 0)
                   .toFixed()
@@ -191,24 +194,20 @@ const WithdrawPage = () => {
           accountId={accountId}
           networkId={networkId}
           initialAmount={initialAmount}
-          tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI}
-          providerLogo={provider.logoURI}
-          providerName={provider.name}
+          tokenSymbol={tokenSymbol}
+          tokenImageUri={token?.logoURI}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={providerName}
           onConfirm={onConfirm}
           minAmount={
-            Number(provider.minUnstakeAmount) > 0
-              ? String(provider.minUnstakeAmount)
+            Number(protocolInfo?.minUnstakeAmount) > 0
+              ? String(protocolInfo?.minUnstakeAmount)
               : undefined
           }
           showDetailWithdrawalRequested={showDetailWithdrawalRequested}
           unstakingPeriod={unstakingPeriod}
-          providerLabel={providerLabel}
-          showPayWith={showPayWith}
-          payWithToken={details.rewardToken}
-          payWithTokenRate={payWithTokenRate}
           estimateFeeResp={estimateFeeResp}
-          morphoVault={provider.vault}
+          morphoVault={vault}
         />
       </Page.Body>
     </Page>

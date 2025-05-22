@@ -31,12 +31,15 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IEarnEstimateFeeResp,
-  IStakeProtocolDetails,
+  IEarnTokenInfo,
+  IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -55,10 +58,6 @@ type IUniversalStakeProps = {
   networkId: string;
   price: string;
   balance: string;
-
-  details: IStakeProtocolDetails;
-
-  providerLabel?: string;
 
   tokenImageUri?: string;
   tokenSymbol?: string;
@@ -92,7 +91,9 @@ type IUniversalStakeProps = {
   stakingTime?: number;
   nextLaunchLeft?: string;
   rewardToken?: string;
-  updateFrequency?: string;
+
+  tokenInfo?: IEarnTokenInfo;
+  protocolInfo?: IProtocolInfo;
 };
 
 export function UniversalStake({
@@ -101,16 +102,14 @@ export function UniversalStake({
   price,
   balance,
   apr,
-  details,
   decimals,
   minAmount = '0',
   minTransactionFee = '0',
-  providerLabel,
   minStakeTerm,
   minStakeBlocks,
   tokenImageUri,
   tokenSymbol,
-  providerName,
+  providerName = '',
   providerLogo,
   isReachBabylonCap,
   showEstReceive,
@@ -124,7 +123,8 @@ export function UniversalStake({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
-  updateFrequency,
+  protocolInfo,
+  tokenInfo,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -162,11 +162,13 @@ export function UniversalStake({
     });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
-      provider: details.provider.name,
-      symbol: details.token.info.symbol,
+      provider: providerName,
+      symbol: tokenInfo?.token.symbol || '',
       action: 'stake',
       amount: amountNumber.toFixed(),
-      morphoVault: details.provider.vault,
+      morphoVault: earnUtils.isMorphoProvider({ providerName })
+        ? protocolInfo?.approve?.approveTarget
+        : undefined,
       accountAddress: account?.address,
     });
     setEstimateFeeResp(resp);
@@ -508,7 +510,7 @@ export function UniversalStake({
             <SizableText color="$textSuccess" size="$headingLg">
               {`${formatApy(apr)}% APY`}
             </SizableText>
-            {details.provider.apys ? (
+            {protocolInfo?.apys ? (
               <Popover
                 floatingPanelProps={{
                   w: 320,
@@ -718,7 +720,7 @@ export function UniversalStake({
           </Accordion.Item>
         </Accordion>
         <TradeOrBuy
-          token={details.token.info}
+          token={tokenInfo?.token as IToken}
           accountId={accountId}
           networkId={networkId}
         />
