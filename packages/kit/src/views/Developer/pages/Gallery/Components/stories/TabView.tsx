@@ -179,7 +179,7 @@ const TabViewGallery = () => (
       {
         title: 'Custom tabview for swap',
         element: () => {
-          const tabRef = useRef<ITabHeaderInstance>();
+          const tabRef = useRef<ITabHeaderInstance>(null);
           return (
             <Stack>
               <Tab.Header
