@@ -228,7 +228,7 @@ class SystemTimeUtils {
       return;
     }
     try {
-      await this._handleServerResponseDate({
+      await this._handleServerResponseDateThrottle({
         source,
         headerDate,
         url,
@@ -238,7 +238,7 @@ class SystemTimeUtils {
     }
   }
 
-  _handleServerResponseDate = throttle(
+  _handleServerResponseDateThrottle = throttle(
     async ({
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       source,
