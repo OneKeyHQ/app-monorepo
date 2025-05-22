@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -9,7 +8,6 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
   Icon,
-  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
@@ -30,19 +28,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import {
-  EModalAssetDetailRoutes,
-  EModalRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
@@ -52,8 +43,6 @@ import { AccountAvatar } from '../../../components/AccountAvatar';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
-import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
-import { Token, TokenName } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
@@ -71,7 +60,10 @@ import { MarketStar } from '../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
 import { MarketTokenPrice } from '../../Market/components/MarketTokenPrice';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
-import { UniversalSearchDappItem } from '../components/SearchResultItems';
+import {
+  UniversalSearchAccountAssetItem,
+  UniversalSearchDappItem,
+} from '../components/SearchResultItems';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -133,7 +125,6 @@ export function UniversalSearch({
   const navigation = useAppNavigation();
   const accountSelectorActions = useAccountSelectorActions();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [settings] = useSettingsPersistAtom();
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
 
@@ -492,108 +483,8 @@ export function UniversalSearch({
             </ListItem>
           );
         }
-        case EUniversalSearchType.AccountAssets: {
-          const { token, tokenFiat } = item.payload;
-          const priceChange = tokenFiat?.price24h ?? 0;
-          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-            priceChange,
-          });
-          const fiatValue = new BigNumber(tokenFiat?.fiatValue ?? 0);
-          return (
-            <ListItem
-              key={token?.$key || token?.name}
-              userSelect="none"
-              onPress={() => {
-                navigation.pop();
-                setTimeout(async () => {
-                  if (
-                    !activeAccount ||
-                    !activeAccount.account ||
-                    !activeAccount.network ||
-                    !activeAccount.wallet ||
-                    !activeAccount.deriveInfo ||
-                    !activeAccount.deriveType ||
-                    !activeAccount.indexedAccount
-                  )
-                    return;
-
-                  navigation.pushModal(EModalRoutes.MainModal, {
-                    screen: EModalAssetDetailRoutes.TokenDetails,
-                    params: {
-                      accountId:
-                        token.accountId ?? activeAccount.account?.id ?? '',
-                      networkId: token.networkId ?? activeAccount.network?.id,
-                      walletId: activeAccount.wallet?.id,
-                      deriveInfo: activeAccount.deriveInfo,
-                      deriveType: activeAccount.deriveType,
-                      tokenInfo: token,
-                      isAllNetworks: activeAccount.network?.isAllNetworks,
-                      indexedAccountId: activeAccount.indexedAccount?.id ?? '',
-                    },
-                  });
-                }, 80);
-              }}
-            >
-              <Token
-                size="lg"
-                tokenImageUri={token?.logoURI}
-                networkId={token?.networkId}
-                showNetworkIcon
-              />
-              <Stack
-                flexGrow={1}
-                flexBasis={0}
-                minWidth={96}
-                flexDirection="column"
-              >
-                <TokenName
-                  name={token?.name}
-                  networkId={token?.networkId}
-                  isNative={token?.isNative}
-                  isAllNetworks={networkUtils.isAllNetwork({
-                    networkId: activeAccount?.network?.id,
-                  })}
-                  withNetwork={networkUtils.isAllNetwork({
-                    networkId: activeAccount?.network?.id,
-                  })}
-                  textProps={{
-                    size: '$bodyLgMedium',
-                    flexShrink: 0,
-                  }}
-                />
-                <NumberSizeableTextWrapper
-                  formatter="balance"
-                  formatterOptions={{ tokenSymbol: token?.symbol }}
-                  size="$bodyMd"
-                  color="$textSubdued"
-                >
-                  {tokenFiat?.balanceParsed ?? '0'}
-                </NumberSizeableTextWrapper>
-              </Stack>
-              <Stack
-                flexDirection="column"
-                alignItems="flex-end"
-                flexShrink={1}
-              >
-                <NumberSizeableTextWrapper
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                  size="$bodyLgMedium"
-                >
-                  {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-                </NumberSizeableTextWrapper>
-                <NumberSizeableText
-                  formatter="priceChange"
-                  formatterOptions={{ showPlusMinusSigns }}
-                  color={changeColor}
-                  size="$bodyMd"
-                >
-                  {priceChange}
-                </NumberSizeableText>
-              </Stack>
-            </ListItem>
-          );
-        }
+        case EUniversalSearchType.AccountAssets:
+          return <UniversalSearchAccountAssetItem item={item} />;
         case EUniversalSearchType.Dapp:
           return (
             <UniversalSearchDappItem
@@ -611,7 +502,6 @@ export function UniversalSearch({
       navigation,
       universalSearchActions,
       searchStatus,
-      settings.currencyInfo.symbol,
     ],
   );
 
