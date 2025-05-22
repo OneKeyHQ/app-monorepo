@@ -65,6 +65,9 @@ export function TokenInputSection({
                   onOpenChange={setIsPopoverOpen}
                   renderContent={
                     <TokenList
+                      onTradePress={() => {
+                        setIsPopoverOpen(false);
+                      }}
                       tokens={selectableTokens}
                       onTokenPress={(token) => {
                         onTokenChange(token);
