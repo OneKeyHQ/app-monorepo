@@ -121,7 +121,9 @@ function EnableOneKeyCloudSwitchListItem() {
         disabled={false}
         size={ESwitchSize.small}
         onChange={async (value) => {
-          await ensurePrimeSubscriptionActive();
+          if (value) {
+            await ensurePrimeSubscriptionActive();
+          }
 
           if (isSubmittingRef.current) {
             return;
