@@ -2,9 +2,11 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketChainsResponse,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 
 import ServiceBase from './ServiceBase';
 
@@ -32,6 +34,16 @@ class ServiceMarketV2 extends ServiceBase {
     });
     const { data } = response.data;
     return data.token;
+  }
+
+  @backgroundMethod()
+  async fetchMarketChains() {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketChainsResponse;
+    }>('/utility/v2/market/chains');
+    const { data } = response.data;
+    return data;
   }
 }
 

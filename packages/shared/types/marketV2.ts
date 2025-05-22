@@ -52,3 +52,20 @@ export interface IMarketTokenDetail {
   volumeSell24h?: string;
   [key: string]: unknown;
 }
+
+export interface IMarketTokenDetailAttribute {
+  labelKey: string;
+  value: string;
+}
+
+export interface IMarketChain {
+  networkId: string;
+  name: string;
+  logoUrl: string;
+  explorerUrl: string;
+}
+
+export interface IMarketChainsResponse {
+  list: IMarketChain[];
+  total: number;
+}
