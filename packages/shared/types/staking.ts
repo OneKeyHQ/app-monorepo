@@ -1,6 +1,7 @@
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
 import type { IFetchTokenDetailItem, IToken } from './token';
+import { INetworkAccount } from './account';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -261,6 +262,15 @@ export interface IEarnText {
 }
 
 export type IProtocolInfo = {
+  earnAccount?:
+    | {
+        accountId: string;
+        networkId: string;
+        accountAddress: string;
+        account: INetworkAccount;
+      }
+    | null
+    | undefined;
   provider: string;
   networkId: string;
   symbol: string;
@@ -318,6 +328,7 @@ export interface IEarnTokenInfo {
   provider: string;
   vault: string | undefined;
   accountId: string;
+  indexedAccountId?: string;
   nativeToken?: IFetchTokenDetailItem;
   balanceParsed: string;
   token: IEarnToken;
@@ -420,7 +431,6 @@ export interface IEarnRebateTooltip {
 
 export type IEarnTooltip = IEarnTextTooltip | IEarnRebateTooltip;
 
-
 export interface IEarnClaimActionIcon {
   type: 'claim';
   disabled: boolean;
@@ -438,6 +448,7 @@ interface IEarnCell {
   description: IEarnText;
   button?: IEarnActionIcon;
   tooltip?: IEarnTooltip;
+  type?: 'default' | 'info';
 }
 
 interface IEarnProfit {
