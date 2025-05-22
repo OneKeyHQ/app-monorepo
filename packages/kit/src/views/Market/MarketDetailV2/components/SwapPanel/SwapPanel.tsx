@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Button, Dialog, useMedia } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
@@ -13,6 +18,9 @@ export type ISwapPanelProps = {
 
 export function SwapPanel(props: ISwapPanelProps) {
   const { networkId: networkIdProp } = props;
+  const intl = useIntl();
+  const media = useMedia();
+
   const swapPanel = useSwapPanel({
     networkId: networkIdProp ?? 'evm--1',
   });
@@ -50,7 +58,7 @@ export function SwapPanel(props: ISwapPanelProps) {
     setIsApproved(true);
   };
 
-  return (
+  const swapPanelContent = (
     <SwapPanelContent
       swapPanel={swapPanel}
       isLoading={isLoading}
@@ -60,4 +68,22 @@ export function SwapPanel(props: ISwapPanelProps) {
       onApprove={handleApprove}
     />
   );
+
+  const showSwapDialog = () => {
+    Dialog.show({
+      title: intl.formatMessage({ id: ETranslations.global_swap }),
+      renderContent: swapPanelContent,
+      showFooter: false,
+    });
+  };
+
+  if (media.md) {
+    return (
+      <Button onPress={showSwapDialog}>
+        {intl.formatMessage({ id: ETranslations.global_swap })}
+      </Button>
+    );
+  }
+
+  return swapPanelContent;
 }
