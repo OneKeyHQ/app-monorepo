@@ -1851,9 +1851,15 @@ class ServicePrimeCloudSync extends ServiceBase {
   async getLocalSystemTimeStatus() {
     return {
       status: systemTimeUtils.systemTimeStatus,
+
       lastServerTime: systemTimeUtils.lastServerTime,
       lastServerTimeDate: new Date(
         systemTimeUtils.lastServerTime ?? 0,
+      ).toISOString(),
+
+      lastLocalTime: systemTimeUtils.lastLocalTime,
+      lastLocalTimeDate: new Date(
+        systemTimeUtils.lastLocalTime ?? 0,
       ).toISOString(),
     };
   }

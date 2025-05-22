@@ -6,6 +6,8 @@ import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
 import { getEndpointByServiceName } from '../config/endpointsMap';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import requestHelper from '../request/requestHelper';
+import appStorage from '../storage/appStorage';
+import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import timerUtils from './timerUtils';
 
@@ -32,12 +34,66 @@ const localServerTimeDiff = timerUtils.getTimeDurationMs({
   minute: 30,
 });
 
+function isTimeValid({ time }: { time: number | undefined }): boolean {
+  if (isNil(time) || isNaN(time) || time < appBuildTime) {
+    return false;
+  }
+  return true;
+}
 class SystemTimeUtils {
+  constructor() {
+    const lastServerTimeInStorage = appStorage.syncStorage.getNumber(
+      EAppSyncStorageKeys.last_valid_server_time,
+    );
+    this.lastServerTime = lastServerTimeInStorage;
+
+    const lastLocalTimeInStorage = appStorage.syncStorage.getNumber(
+      EAppSyncStorageKeys.last_valid_local_time,
+    );
+    this.lastLocalTime = lastLocalTimeInStorage;
+  }
+
   systemTimeStatus: ELocalSystemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
 
-  lastServerTime: number | undefined;
+  private _lastServerTime: number | undefined;
 
-  lastLocalTime: number | undefined;
+  get lastServerTime(): number | undefined {
+    return this._lastServerTime;
+  }
+
+  set lastServerTime(value: number | undefined) {
+    if (!this.isTimeValid({ time: value })) {
+      this._lastServerTime = appBuildTime;
+      return;
+    }
+    this._lastServerTime = value;
+    if (value) {
+      appStorage.syncStorage.set(
+        EAppSyncStorageKeys.last_valid_server_time,
+        value,
+      );
+    }
+  }
+
+  private _lastLocalTime: number | undefined;
+
+  get lastLocalTime(): number | undefined {
+    return this._lastLocalTime;
+  }
+
+  set lastLocalTime(value: number | undefined) {
+    if (!this.isTimeValid({ time: value })) {
+      this._lastLocalTime = appBuildTime;
+      return;
+    }
+    this._lastLocalTime = value;
+    if (value) {
+      appStorage.syncStorage.set(
+        EAppSyncStorageKeys.last_valid_local_time,
+        value,
+      );
+    }
+  }
 
   _serverTimeInterval: NodeJS.Timeout | undefined;
 
@@ -63,6 +119,10 @@ class SystemTimeUtils {
     }, intervalTimeout);
   }
 
+  isTimeValid({ time }: { time: number | undefined }): boolean {
+    return isTimeValid({ time });
+  }
+
   isLocalTimeValid({
     localTime,
     serverTime,
@@ -82,13 +142,6 @@ class SystemTimeUtils {
     }
     const isValid = Math.abs(timeDiff) < localServerTimeDiff;
     return isValid;
-  }
-
-  isTimeValid({ time }: { time: number | undefined }): boolean {
-    if (isNil(time) || isNaN(time) || time < appBuildTime) {
-      return false;
-    }
-    return true;
   }
 
   increaseTimeCache = throttle(
@@ -112,10 +165,9 @@ class SystemTimeUtils {
 
     this.increaseTimeCache();
 
-    // TODO persist lastLocalTime and lastServerTime
-
     const defaultTimeNow = Math.max(
       now,
+      appBuildTime,
       this.lastLocalTime ?? 0,
       this.lastServerTime ?? 0,
     );
@@ -141,7 +193,11 @@ class SystemTimeUtils {
     }
 
     if (this.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
-      const time = Math.max(this.lastServerTime ?? 0, this.lastLocalTime ?? 0);
+      const time = Math.max(
+        appBuildTime,
+        this.lastLocalTime ?? 0,
+        this.lastServerTime ?? 0,
+      );
       if (this.isTimeValid({ time })) {
         return time;
       }
