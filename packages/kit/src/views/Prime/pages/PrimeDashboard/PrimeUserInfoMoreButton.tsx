@@ -136,6 +136,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           ) : null}
         </>
       ) : null}
+
       <Divider mx="$2" my="$1" />
       <ActionList.Item
         label={intl.formatMessage({

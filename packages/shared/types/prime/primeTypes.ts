@@ -3,8 +3,8 @@ export type IPrimeSubscriptionInfo = {
   expiresAt: number;
 };
 export type IPrimeUserInfo = {
-  isLoggedIn: boolean; // privy login status
-  isLoggedInOnServer: boolean; // server login status
+  isLoggedIn: boolean; // local privy sdk login status
+  isLoggedInOnServer: boolean; // server api login status
   isEnablePrime: boolean | undefined;
   isEnableSandboxPay: boolean | undefined;
   email: string | undefined; // update by local privy sdk

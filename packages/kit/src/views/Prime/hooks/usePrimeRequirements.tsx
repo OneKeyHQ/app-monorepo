@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,9 +20,8 @@ const PrimePurchaseDialog = LazyLoadPage(
 );
 
 export function usePrimeRequirements() {
-  const { user, isLoggedIn } = usePrimeAuthV2();
+  const { user, isLoggedIn, logout } = usePrimeAuthV2();
   const { loginOneKeyId } = useLoginOneKeyId();
-  const [devSettings] = useDevSettingsPersistAtom();
 
   const intl = useIntl();
   const ensureOneKeyIDLoggedIn = useCallback(
@@ -35,6 +33,9 @@ export function usePrimeRequirements() {
       const isLoggedInInBackground: boolean =
         await backgroundApiProxy.servicePrime.isLoggedIn();
       if (!isLoggedInInBackground || !isLoggedIn) {
+        // logout before login, make sure local privy cache is cleared
+        void logout();
+
         const onConfirm = async () => {
           await loginOneKeyId();
         };
@@ -60,7 +61,7 @@ export function usePrimeRequirements() {
         throw new Error('Prime is not logged in');
       }
     },
-    [isLoggedIn, intl, loginOneKeyId],
+    [isLoggedIn, logout, intl, loginOneKeyId],
   );
 
   const ensurePrimeSubscriptionActive = useCallback(

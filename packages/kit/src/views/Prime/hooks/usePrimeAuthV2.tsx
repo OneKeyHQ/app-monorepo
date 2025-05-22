@@ -32,7 +32,7 @@ export function usePrimeAuthV2() {
 
   return useMemo(() => {
     return {
-      isLoggedIn: user?.isLoggedIn,
+      isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
       isPrimeSubscriptionActive: user?.primeSubscription?.isActive,
       user,
       logout,

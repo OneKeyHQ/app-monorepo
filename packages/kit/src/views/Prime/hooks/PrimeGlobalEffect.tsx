@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
 import { useUpdateEffect } from '@onekeyhq/components';
+import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeInitAtom,
   usePrimePersistAtom,
@@ -20,7 +21,7 @@ import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 function PrimeGlobalEffectView() {
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
-  const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
+  const [, setPrimeInitAtom] = usePrimeInitAtom();
 
   // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
   const { authenticated, getAccessToken, privyUser } = usePrivyUniversalV2();
@@ -93,10 +94,12 @@ function PrimeGlobalEffectView() {
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
       }
 
-      setPrimeInitAtom((v) => ({
-        ...v,
-        isReady: true,
-      }));
+      setPrimeInitAtom(
+        (v): IPrimeInitAtomData => ({
+          ...v,
+          isReady: true,
+        }),
+      );
     })();
   }, [
     setPrimePersistAtom,

@@ -224,8 +224,14 @@ export const useLoginOneKeyId = () => {
       toOneKeyIdPageOnLoginSuccess?: boolean;
     } = {}) => {
       const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (isLoggedIn && toOneKeyIdPageOnLoginSuccess) {
-        toOneKeyIdPage();
+      const onLoginSuccess = async () => {
+        if (toOneKeyIdPageOnLoginSuccess) {
+          await timerUtils.wait(120);
+          toOneKeyIdPage();
+        }
+      };
+      if (isLoggedIn) {
+        await onLoginSuccess();
       } else {
         // logout before login, make sure local privy cache is cleared
         void logout();
@@ -243,12 +249,7 @@ export const useLoginOneKeyId = () => {
               onComplete={() => {
                 void loginDialog.close();
               }}
-              onLoginSuccess={async () => {
-                if (toOneKeyIdPageOnLoginSuccess) {
-                  await timerUtils.wait(120);
-                  toOneKeyIdPage();
-                }
-              }}
+              onLoginSuccess={onLoginSuccess}
             />
           ),
         });
