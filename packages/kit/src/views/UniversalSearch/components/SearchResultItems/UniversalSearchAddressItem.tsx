@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
@@ -85,6 +85,36 @@ export function UniversalSearchAddressItem({
     universalSearchActions,
   ]);
 
+  const renderAccountValue = useCallback(() => {
+    if (item.payload.accountsValue?.value) {
+      return (
+        <>
+          <AccountValueWithSpotlight
+            isOthersUniversal={accountUtils.isOthersAccount({
+              accountId: item.payload.account.id,
+            })}
+            index={0}
+            accountValue={item.payload.accountsValue}
+            linkedAccountId={item.payload.account.id}
+            linkedNetworkId={item.payload.network.id}
+          />
+          <Stack
+            mx="$1.5"
+            w="$1"
+            h="$1"
+            bg="$iconSubdued"
+            borderRadius="$full"
+          />
+        </>
+      );
+    }
+    return null;
+  }, [
+    item.payload.account?.id,
+    item.payload.accountsValue,
+    item.payload.network.id,
+  ]);
+
   if (item.payload.account) {
     return (
       <ListItem
@@ -110,19 +140,13 @@ export function UniversalSearchAddressItem({
             }
             secondary={
               <XStack alignItems="center">
-                <AccountValueWithSpotlight
-                  isOthersUniversal={accountUtils.isOthersAccount({
-                    accountId: item.payload.account.id,
-                  })}
-                  index={0}
-                  accountValue={item.payload.accountsValue}
-                  linkedAccountId={item.payload.account.id}
-                  linkedNetworkId={item.payload.network.id}
-                />
+                {renderAccountValue()}
                 <AccountAddress
                   num={0}
                   linkedNetworkId={item.payload.network.id}
-                  address={item.payload.addressInfo.displayAddress}
+                  address={accountUtils.shortenAddress({
+                    address: item.payload.addressInfo.displayAddress,
+                  })}
                   isEmptyAddress={false}
                 />
               </XStack>
