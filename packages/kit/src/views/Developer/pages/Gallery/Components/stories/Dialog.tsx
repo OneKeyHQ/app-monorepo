@@ -2,15 +2,18 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef, useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
 import type { ICheckedState } from '@onekeyhq/components';
 import {
   Dialog as BaseDialog,
   Button,
-  LottieView,
   Checkbox,
   DialogContainer,
   Form,
   Input,
+  LottieView,
   ScrollView,
   Select,
   SizableText,
@@ -26,24 +29,22 @@ import type {
   IDialogContainerProps,
   IDialogInstance,
 } from '@onekeyhq/components/src/composite/Dialog/type';
+import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
+import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EGalleryRoutes,
   EModalRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
-import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
 
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
-import { useThemeVariant } from '../../../../../../hooks/useThemeVariant';
-import { StyleSheet } from 'react-native';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const TRACK_ID = 'demo-dialog';
 
