@@ -7,10 +7,10 @@ export type IPrimeUserInfo = {
   isLoggedInOnServer: boolean; // server login status
   isEnablePrime: boolean | undefined;
   isEnableSandboxPay: boolean | undefined;
-  email: string | undefined;
-  displayEmail: string | undefined;
+  email: string | undefined; // update by local privy sdk
+  displayEmail: string | undefined; // update by server api
   privyUserId: string | undefined;
-  subscriptionManageUrl: string | undefined; // will update by sdk Purchases.getCustomerInfo()
+  subscriptionManageUrl: string | undefined; // update by local revenuecat sdk: Purchases.getCustomerInfo()
   primeSubscription: IPrimeSubscriptionInfo | undefined;
 };
 

@@ -83,7 +83,7 @@ class ServicePrime extends ServiceBase {
         await primePersistAtom.set(
           (v): IPrimePersistAtomData => ({
             ...v,
-            displayEmail: response.data.data.emails[0],
+            displayEmail: response?.data?.data?.emails?.[0],
             isLoggedInOnServer: true,
           }),
         );
@@ -215,7 +215,7 @@ class ServicePrime extends ServiceBase {
     await primePersistAtom.set(
       (v): IPrimePersistAtomData => ({
         ...v,
-        displayEmail: serverUserInfo?.emails?.[0] || v.displayEmail,
+        displayEmail: serverUserInfo?.emails?.[0] || v?.displayEmail,
         isEnablePrime: serverUserInfo?.isEnablePrime,
         isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
         isLoggedIn: true,
