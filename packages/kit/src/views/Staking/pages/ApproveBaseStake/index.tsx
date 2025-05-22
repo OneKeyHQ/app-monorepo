@@ -184,7 +184,6 @@ const BasicApproveBaseStakePage = () => {
             token,
           }}
           activeBalance={protocolInfo?.activeBalance}
-          joinRequirement={protocolInfo?.joinRequirement}
           rewardAssets={protocolInfo?.rewardAssets}
           poolFee={protocolInfo?.poolFee}
         />

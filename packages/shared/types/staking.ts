@@ -285,7 +285,6 @@ export type IProtocolInfo = {
   apys?: IRewardApys;
   activeBalance?: string;
   overflowBalance?: string;
-  joinRequirement?: string;
   rewardAssets?: Record<string, IEarnTokenItem>;
   poolFee?: string;
   aprWithoutFee?: string;
@@ -300,7 +299,6 @@ export type IProtocolInfo = {
   stakeDisable?: boolean;
   stakingTime?: number;
   nextLaunchLeft?: string;
-  updateFrequency?: string;
   minTransactionFee?: string;
   unstakingTime?: number;
   unstakingPeriod?: number;

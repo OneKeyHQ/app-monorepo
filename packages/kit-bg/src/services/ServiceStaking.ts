@@ -497,6 +497,9 @@ class ServiceStaking extends ServiceBase {
     if (account?.account?.pub) {
       requestParams.publicKey = account?.account?.pub;
     }
+    if (requestParams.provider) {
+      requestParams.provider = requestParams.provider.toLowerCase();
+    }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       isV2
         ? '/earn/v2/stake-protocol/detail'
@@ -1172,7 +1175,7 @@ class ServiceStaking extends ServiceBase {
   }) {
     const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const sendParams: Record<string, string | undefined> = {
+    const sendParams: Record<string, string> = {
       symbol,
       ...rest,
     };
