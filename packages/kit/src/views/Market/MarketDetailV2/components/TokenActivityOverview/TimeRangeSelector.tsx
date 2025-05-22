@@ -10,7 +10,7 @@ type ITimeRangeOption = {
 type ITimeRangeSelectorProps = {
   options: ITimeRangeOption[];
   value: string;
-  onChange: (value: string | number) => void;
+  onChange: (value: string) => void;
 };
 
 export function TimeRangeSelector({
@@ -22,7 +22,9 @@ export function TimeRangeSelector({
     <Stack>
       <SegmentControl
         value={value}
-        onChange={onChange}
+        onChange={(newValue) => {
+          onChange(newValue as string);
+        }}
         options={options.map((opt) => ({ label: opt.label, value: opt.value }))}
       />
       <Stack flexDirection="row" justifyContent="space-around" mt="$2">
