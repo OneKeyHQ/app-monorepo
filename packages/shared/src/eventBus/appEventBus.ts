@@ -52,6 +52,7 @@ export type IEventBusPayloadShowToast = {
 };
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
+  [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
