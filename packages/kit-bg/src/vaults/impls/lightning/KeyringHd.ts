@@ -42,6 +42,7 @@ export class KeyringHd extends KeyringHdBase {
     const networkInfo = await this.getCoreApiNetworkInfo();
     const isTestnet = !!networkInfo.isTestnet;
     const credentials = await this.baseGetCredentialsInfo({ password });
+    const addressEncoding = params?.deriveInfo?.addressEncoding;
     const nativeSegwitAccounts = await this.basePrepareHdNormalAccounts(
       params,
       {
@@ -58,6 +59,7 @@ export class KeyringHd extends KeyringHdBase {
               hdCredential: checkIsDefined(credentials.hd),
               password,
               indexes: usedIndexes,
+              addressEncoding,
             });
 
           if (addressesInfo.length !== usedIndexes.length) {

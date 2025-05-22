@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Script, Transaction } from '@onekeyfe/kaspa-core-lib';
+import { Transaction } from '@onekeyfe/kaspa-core-lib';
 
 import {
   EKaspaSignType,
@@ -13,10 +13,11 @@ import {
 import sdkWasm from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  ICoreApiGetAddressItem,
-  ISignedMessagePro,
-  ISignedTxPro,
+import {
+  EAddressEncodings,
+  type ICoreApiGetAddressItem,
+  type ISignedMessagePro,
+  type ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
@@ -56,6 +57,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       path: params.path,
       showOnOneKey: false,
       prefix: chainId,
+      useTweak: params.addressEncoding !== EAddressEncodings.KASPA_ORG,
     };
   }
 
@@ -135,6 +137,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
     const chainId = await this.getNetworkChainId();
+    const addressEncoding = await this.vault.getAddressEncoding();
 
     if (unsignedTx.isKRC20RevealTx) {
       if (!encodedTx.commitScriptHex) {
@@ -153,6 +156,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const response = await sdk.kaspaSignTransaction(connectId, deviceId, {
         ...params.deviceParams?.deviceCommonParams,
         ...unSignTx,
+        useTweak: addressEncoding !== EAddressEncodings.KASPA_ORG,
       });
 
       if (response.success) {
@@ -171,6 +175,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           encodedTx,
         };
       }
+      throw convertDeviceError(response.payload);
     }
 
     const txn = toTransaction(encodedTx);
@@ -184,7 +189,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         `Transaction size is too large, please try to reduce the amount of the transaction. UTXO Count: ${txn?.inputs?.length}`,
       );
     }
-
     const unSignTx: KaspaSignTransactionParams = {
       version: txn.version,
       inputs: txn.inputs.map((input) => ({
@@ -210,6 +214,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       sigOpCount: 1,
       scheme: EKaspaSignType.Schnorr,
       prefix: chainId,
+      useTweak: addressEncoding !== EAddressEncodings.KASPA_ORG,
     };
 
     const response = await sdk.kaspaSignTransaction(connectId, deviceId, {

@@ -24,7 +24,11 @@ import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  EAddressEncodings,
+  type ISignedTxPro,
+  type IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -120,7 +124,7 @@ export default class Vault extends VaultBase {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
 
-    let encodedTx;
+    let encodedTx: IEncodedTxKaspa;
 
     const dbAccount = await this.getAccount();
     const confirmUtxos = await this._collectUTXOsInfoByApi({
@@ -477,6 +481,15 @@ export default class Vault extends VaultBase {
     return {
       isValid,
     };
+  }
+
+  // ------------------- Utils -----------------------------------------
+
+  override async getAddressEncoding(): Promise<EAddressEncodings | undefined> {
+    const account = await this.getAccount();
+    return account.id.endsWith(EAddressEncodings.KASPA_ORG)
+      ? EAddressEncodings.KASPA_ORG
+      : undefined;
   }
 
   isHexPrivateKey(input: string) {
