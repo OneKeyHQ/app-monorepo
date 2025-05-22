@@ -21,14 +21,9 @@ import {
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
-import {
-  EJotaiContextStoreNames,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
@@ -36,7 +31,10 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
-import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
+import {
+  ESearchStatus,
+  EUniversalSearchType,
+} from '@onekeyhq/shared/types/search';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountAvatar } from '../../../components/AccountAvatar';
@@ -63,6 +61,7 @@ import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProvi
 import {
   UniversalSearchAccountAssetItem,
   UniversalSearchDappItem,
+  UniversalSearchMarketTokenItem,
 } from '../components/SearchResultItems';
 
 import { RecentSearched } from './components/RecentSearched';
@@ -73,12 +72,6 @@ interface IUniversalSection {
   data: IUniversalSearchResultItem[];
   sliceData?: IUniversalSearchResultItem[];
   showMore?: boolean;
-}
-
-enum ESearchStatus {
-  init = 'init',
-  loading = 'loading',
-  done = 'done',
 }
 
 const AllTypes = [
@@ -429,60 +422,13 @@ export function UniversalSearch({
             />
           );
         }
-        case EUniversalSearchType.MarketToken: {
-          const { image, coingeckoId, price, symbol, name, lastUpdated } =
-            item.payload;
+        case EUniversalSearchType.MarketToken:
           return (
-            <ListItem
-              jc="space-between"
-              onPress={async () => {
-                navigation.pop();
-                setTimeout(async () => {
-                  navigation.switchTab(ETabRoutes.Market);
-                  navigation.push(ETabMarketRoutes.MarketDetail, {
-                    token: coingeckoId,
-                  });
-                  defaultLogger.market.token.searchToken({
-                    tokenSymbol: coingeckoId,
-                    from:
-                      searchStatus === ESearchStatus.init
-                        ? 'trendingList'
-                        : 'searchList',
-                  });
-                  setTimeout(() => {
-                    universalSearchActions.current.addIntoRecentSearchList({
-                      id: coingeckoId,
-                      text: symbol,
-                      type: item.type,
-                      timestamp: Date.now(),
-                    });
-                  }, 10);
-                }, 80);
-              }}
-              renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
-              title={symbol.toUpperCase()}
-              subtitle={name}
-              subtitleProps={{
-                numberOfLines: 1,
-              }}
-            >
-              <XStack>
-                <MarketTokenPrice
-                  price={String(price)}
-                  size="$bodyLgMedium"
-                  lastUpdated={lastUpdated}
-                  tokenName={name}
-                  tokenSymbol={symbol}
-                />
-                <MarketStar
-                  coingeckoId={coingeckoId}
-                  ml="$3"
-                  from={EWatchlistFrom.search}
-                />
-              </XStack>
-            </ListItem>
+            <UniversalSearchMarketTokenItem
+              item={item}
+              searchStatus={searchStatus}
+            />
           );
-        }
         case EUniversalSearchType.AccountAssets:
           return <UniversalSearchAccountAssetItem item={item} />;
         case EUniversalSearchType.Dapp:

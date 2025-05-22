@@ -17,6 +17,12 @@ export enum EUniversalSearchType {
   Dapp = 'Dapp',
 }
 
+export enum ESearchStatus {
+  init = 'init',
+  loading = 'loading',
+  done = 'done',
+}
+
 export type IUniversalSearchAccountInfo = {
   accountId: string;
   formattedName: string;
