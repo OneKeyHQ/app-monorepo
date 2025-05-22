@@ -66,6 +66,8 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
+import { AccountAddress } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountAddress';
+import { AccountValueWithSpotlight } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountValue';
 import { useWebSiteHandler } from '../../Discovery/hooks/useWebSiteHandler';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
@@ -362,6 +364,39 @@ export function UniversalSearch({
                   />
                 }
                 title={searchAddressItem.payload.accountInfo?.formattedName}
+                renderItemText={(textProps) => (
+                  <ListItem.Text
+                    {...textProps}
+                    flex={1}
+                    primary={
+                      <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                        {searchAddressItem.payload.accountInfo?.formattedName}
+                      </SizableText>
+                    }
+                    secondary={
+                      <XStack alignItems="center">
+                        {/* TODO: 只有 indexedAccount 或 otherAccount 才有余额 */}
+                        <AccountValueWithSpotlight
+                          isOthersUniversal={accountUtils.isOthersAccount({
+                            accountId: searchAddressItem.payload.account.id,
+                          })}
+                          index={0}
+                          accountValue={searchAddressItem.payload.accountsValue}
+                          linkedAccountId={searchAddressItem.payload.account.id}
+                          linkedNetworkId={searchAddressItem.payload.network.id}
+                        />
+                        <AccountAddress
+                          num={0}
+                          linkedNetworkId={searchAddressItem.payload.network.id}
+                          address={
+                            searchAddressItem.payload.addressInfo.displayAddress
+                          }
+                          isEmptyAddress={false}
+                        />
+                      </XStack>
+                    }
+                  />
+                )}
                 subtitle={searchAddressItem.payload.addressInfo.displayAddress}
               />
             );

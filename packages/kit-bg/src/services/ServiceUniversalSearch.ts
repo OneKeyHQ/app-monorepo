@@ -460,6 +460,7 @@ class ServiceUniversalSearch extends ServiceBase {
       let account;
       let indexedAccount;
       let wallet;
+      let accountsValue;
       try {
         if (
           accountUtils.isOthersAccount({
@@ -489,6 +490,13 @@ class ServiceUniversalSearch extends ServiceBase {
         wallet = await serviceAccount.getWalletSafe({
           walletId,
         });
+        if (account?.id) {
+          accountsValue = (
+            await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+              accounts: [{ accountId: account?.id }],
+            })
+          )?.[0];
+        }
       } catch (e) {
         console.error('Failed to get account or indexedAccount:', e);
         // if get account or indexedAccount failed, skip current account, continue to next
@@ -513,6 +521,7 @@ class ServiceUniversalSearch extends ServiceBase {
           wallet,
           account,
           indexedAccount,
+          accountsValue,
         },
       } as IUniversalSearchResultItem);
     }

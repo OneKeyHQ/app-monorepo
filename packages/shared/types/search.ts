@@ -31,6 +31,11 @@ export type IUniversalSearchAddress = {
     network: IServerNetwork;
     addressInfo: IAddressValidation;
     accountInfo?: IUniversalSearchAccountInfo;
+    accountsValue?: {
+      accountId: string;
+      value: Record<string, string> | string | undefined;
+      currency: string | undefined;
+    };
   };
 };
 
