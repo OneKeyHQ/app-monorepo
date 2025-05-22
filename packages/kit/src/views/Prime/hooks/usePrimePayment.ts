@@ -39,36 +39,38 @@ export function usePrimePayment(): IUsePrimePayment {
           customerInfo?.entitlements?.active?.Prime?.isActive;
         const localWillRenew =
           customerInfo?.entitlements?.active?.Prime?.willRenew;
+        const localIsSandbox =
+          customerInfo?.entitlements?.active?.Prime?.isSandbox;
         let localExpiresAt = 0;
-        if (!localWillRenew) {
-          if (
-            customerInfoNative?.entitlements?.active?.Prime
-              ?.expirationDateMillis
-          ) {
-            localExpiresAt =
-              customerInfoNative.entitlements.active.Prime.expirationDateMillis;
-          } else if (
-            customerInfoWeb?.entitlements?.active?.Prime?.expirationDate
-              ?.getTime
-          ) {
-            localExpiresAt =
-              customerInfoWeb.entitlements.active.Prime.expirationDate?.getTime() ??
-              0;
-          }
+        if (
+          customerInfoNative?.entitlements?.active?.Prime?.expirationDateMillis
+        ) {
+          localExpiresAt =
+            customerInfoNative.entitlements.active.Prime.expirationDateMillis;
+        } else if (
+          customerInfoWeb?.entitlements?.active?.Prime?.expirationDate?.getTime
+        ) {
+          localExpiresAt =
+            customerInfoWeb.entitlements.active.Prime.expirationDate?.getTime() ??
+            0;
         }
 
+        console.log('prime payment status', {
+          local: {
+            $customerInfo: customerInfo,
+            isActive: localIsActive,
+            willRenew: localWillRenew,
+            expiresAt: localExpiresAt,
+            isSandbox: localIsSandbox,
+          },
+          server: {
+            $user: userRef.current,
+            isActive: userRef.current.primeSubscription?.isActive,
+            expiresAt: userRef.current.primeSubscription?.expiresAt,
+          },
+        });
         if (localIsActive !== userRef.current.primeSubscription?.isActive) {
-          console.log('prime payment status not match', {
-            local: {
-              customerInfo,
-              isActive: localIsActive,
-              willRenew: localWillRenew,
-              expiresAt: localExpiresAt,
-            },
-            server: {
-              user: userRef.current,
-            },
-          });
+          console.log('prime payment status not match');
         }
       }
     })();
