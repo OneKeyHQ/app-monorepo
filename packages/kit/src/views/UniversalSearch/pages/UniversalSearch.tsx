@@ -9,7 +9,6 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
   Icon,
-  Image,
   NumberSizeableText,
   Page,
   SearchBar,
@@ -28,10 +27,8 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import {
   EModalAssetDetailRoutes,
@@ -68,7 +65,6 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 import { AccountAddress } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountAddress';
 import { AccountValueWithSpotlight } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountValue';
-import { useWebSiteHandler } from '../../Discovery/hooks/useWebSiteHandler';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
@@ -149,8 +145,6 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
-
-  const handleWebSite = useWebSiteHandler();
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -604,21 +598,7 @@ export function UniversalSearch({
           return (
             <UniversalSearchDappItem
               item={item}
-              onPress={() => {
-                console.log('[universalSearch] renderItem: ', item);
-                const isGoogle = isGoogleSearchItem(item.payload.dappId);
-                handleWebSite({
-                  dApp: isGoogle ? undefined : item.payload,
-                  // @ts-expect-error
-                  webSite: isGoogle
-                    ? {
-                        title: 'Google',
-                        url: searchInputRef.current,
-                      }
-                    : undefined,
-                  enterMethod: EEnterMethod.search,
-                });
-              }}
+              getSearchInput={() => searchInputRef.current}
             />
           );
         default:
@@ -632,7 +612,6 @@ export function UniversalSearch({
       universalSearchActions,
       searchStatus,
       settings.currencyInfo.symbol,
-      handleWebSite,
     ],
   );
 
