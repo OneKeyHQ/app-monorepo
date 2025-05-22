@@ -582,13 +582,23 @@ function DebugPanel() {
       </Button>
       <Button
         onPress={async () => {
-          await backgroundApiProxy.servicePrimeCloudSync.debugTamperingSyncItemData();
+          await backgroundApiProxy.servicePrimeCloudSync.debugTamperingLocalSyncItemData();
           Toast.success({
             title: 'success',
           });
         }}
       >
         篡改本地数据 data
+      </Button>
+      <Button
+        onPress={async () => {
+          await backgroundApiProxy.servicePrimeCloudSync.debugTamperingLocalSyncItemDataTime();
+          Toast.success({
+            title: 'success',
+          });
+        }}
+      >
+        篡改本地数据 dataTime
       </Button>
       <Button
         onPress={async () => {

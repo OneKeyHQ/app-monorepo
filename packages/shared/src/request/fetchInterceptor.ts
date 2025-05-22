@@ -88,7 +88,7 @@ const newFetch = async function (
         void systemTimeUtils.handleServerResponseDate({
           source: 'fetch',
           headerDate: res?.headers?.get?.('date') || '',
-          url: res?.url || '',
+          url: res?.url || url || '',
         });
 
         if (isEnableLogNetwork(url)) {
