@@ -361,6 +361,27 @@ function PortfolioSection({
                     <Badge.Text>{item.badge.text.text}</Badge.Text>
                   </Badge>
                 ) : null}
+                {item?.tooltip && item?.tooltip.type === 'text' ? (
+                  <Popover
+                    placement="top"
+                    title={item.description.text}
+                    renderTrigger={
+                      <IconButton
+                        iconColor="$iconSubdued"
+                        size="small"
+                        icon="InfoCircleOutline"
+                        variant="tertiary"
+                      />
+                    }
+                    renderContent={
+                      <Stack p="$5">
+                        <SizableText color={item.tooltip.data.color}>
+                          {item.tooltip.data.text}
+                        </SizableText>
+                      </Stack>
+                    }
+                  />
+                ) : null}
               </XStack>
               {item?.buttons?.[0]?.type === 'claim' ? (
                 <Button
@@ -700,7 +721,6 @@ const ProtocolDetailsPage = () => {
           apys: resultV1.provider.apys,
           activeBalance: resultV1.active,
           overflowBalance: resultV1.overflow,
-          joinRequirement: resultV1.provider.joinRequirement,
           rewardAssets: resultV1.rewardAssets,
           poolFee: resultV1.provider.poolFee,
           aprWithoutFee: resultV1.provider.aprWithoutFee,
@@ -715,7 +735,6 @@ const ProtocolDetailsPage = () => {
           stakingTime: resultV1.provider.stakingTime,
           nextLaunchLeft: resultV1.provider.nextLaunchLeft,
           minStakeBlocks: resultV1.provider.minStakeBlocks,
-          updateFrequency: resultV1.updateFrequency,
           minTransactionFee: resultV1.provider.minTransactionFee,
           unstakingTime: resultV1.provider.unstakingTime,
           unstakingPeriod: resultV1.unstakingPeriod,
