@@ -114,7 +114,7 @@ function ProfitInfo({
                     isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
                   )}% ${rewardUnit}`}
                 </SizableText>
-                {apys ? (
+                {/* {apys ? (
                   <Popover
                     floatingPanelProps={{
                       w: 320,
@@ -132,7 +132,7 @@ function ProfitInfo({
                     renderContent={<ProtocolApyRewards details={details} />}
                     placement="top"
                   />
-                ) : null}
+                ) : null} */}
               </XStack>
             </GridItem>
           ) : null}

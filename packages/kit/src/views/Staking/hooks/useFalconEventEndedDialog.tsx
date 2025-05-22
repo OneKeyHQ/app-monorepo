@@ -14,12 +14,16 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useEarnEventActive } from './useEarnEventActive';
 
 export function useFalconEventEndedDialog({
-  details,
+  eventEndTime,
+  providerName,
+  weeklyNetApyWithoutFee,
 }: {
-  details: IStakeProtocolDetails;
+  eventEndTime?: number;
+  providerName: string;
+  weeklyNetApyWithoutFee?: string;
 }): { showFalconEventEndedDialog: () => Promise<void> } {
   const intl = useIntl();
-  const { isEventActive } = useEarnEventActive(details?.provider.eventEndTime);
+  const { isEventActive } = useEarnEventActive(eventEndTime);
   const { result: falconDepositDoNotShowAgain, run } = usePromiseResult(
     () => backgroundApiProxy.serviceStaking.getFalconDepositDoNotShowAgain(),
     [],
@@ -31,7 +35,7 @@ export function useFalconEventEndedDialog({
     async (): Promise<void> =>
       new Promise((resolve) => {
         const isFalconProvider = earnUtils.isFalconProvider({
-          providerName: details.provider.name,
+          providerName,
         });
 
         if (!isFalconProvider || isEventActive || falconDepositDoNotShowAgain) {
@@ -44,9 +48,7 @@ export function useFalconEventEndedDialog({
           title: intl.formatMessage(
             { id: ETranslations.earn_apy_change_title },
             {
-              value: `${formatApy(
-                details.provider.apys?.weeklyNetApyWithoutFee ?? 0,
-              )}%`,
+              value: `${formatApy(weeklyNetApyWithoutFee ?? 0)}%`,
             },
           ),
           description: intl.formatMessage({
@@ -90,12 +92,12 @@ export function useFalconEventEndedDialog({
         });
       }),
     [
-      details.provider.apys?.weeklyNetApyWithoutFee,
-      details.provider.name,
-      falconDepositDoNotShowAgain,
+      providerName,
       isEventActive,
-      run,
+      falconDepositDoNotShowAgain,
       intl,
+      weeklyNetApyWithoutFee,
+      run,
     ],
   );
 

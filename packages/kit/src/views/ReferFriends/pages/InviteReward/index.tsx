@@ -87,6 +87,10 @@ function ShareCode({
   }, [navigation]);
   const intl = useIntl();
   const sharedUrl = useMemo(() => `https://${inviteCodeUrl}`, [inviteCodeUrl]);
+  const copyLink = useCallback(() => {
+    copyText(sharedUrl);
+    defaultLogger.referral.page.shareReferralLink('copy');
+  }, [copyText, sharedUrl]);
   return (
     <>
       <YStack px="$5" pt="$6" pb="$5" $platform-native={{ pb: '$8' }}>
@@ -104,16 +108,30 @@ function ShareCode({
               {intl.formatMessage({ id: ETranslations.referral_referred })}
             </Button>
           </XStack>
-          <XStack gap="$3" pt="$2" ai="center">
-            <SizableText size="$heading4xl">{inviteCode}</SizableText>
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_copy })}
-              variant="tertiary"
-              icon="Copy3Outline"
-              size="large"
-              iconColor="$iconSubdued"
+          <XStack pt="$2">
+            <XStack
+              flexShrink={1}
               onPress={handleCopy}
-            />
+              gap="$3"
+              borderRadius="$2"
+              ml="$-2"
+              px="$2"
+              borderCurve="continuous"
+              ai="center"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+            >
+              <SizableText size="$heading4xl">{inviteCode}</SizableText>
+              <IconButton
+                title={intl.formatMessage({ id: ETranslations.global_copy })}
+                variant="tertiary"
+                icon="Copy3Outline"
+                size="large"
+                iconColor="$iconSubdued"
+                onPress={handleCopy}
+              />
+            </XStack>
+            <XStack flex={1} />
           </XStack>
           <Stack
             mt="$2.5"
@@ -135,7 +153,10 @@ function ShareCode({
               borderWidth={StyleSheet.hairlineWidth}
               jc="space-between"
               ai="center"
+              onPress={copyLink}
               borderRadius="$2.5"
+              hoverStyle={{ bg: '$bgActive' }}
+              pressStyle={{ bg: '$bgActive' }}
             >
               <SizableText
                 size="$bodyLg"
@@ -153,10 +174,7 @@ function ShareCode({
                   variant="tertiary"
                   size="medium"
                   iconColor="$iconSubdued"
-                  onPress={() => {
-                    copyText(sharedUrl);
-                    defaultLogger.referral.page.shareReferralLink('copy');
-                  }}
+                  onPress={copyLink}
                 />
               )}
             </XStack>
@@ -175,10 +193,7 @@ function ShareCode({
                     flex: 1,
                   }}
                   size="medium"
-                  onPress={() => {
-                    copyText(sharedUrl);
-                    defaultLogger.referral.page.shareReferralLink('copy');
-                  }}
+                  onPress={copyLink}
                 >
                   {intl.formatMessage({ id: ETranslations.global_copy })}
                 </Button>

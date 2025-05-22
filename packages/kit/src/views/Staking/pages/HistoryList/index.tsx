@@ -5,9 +5,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Empty,
+  Icon,
   NumberSizeableText,
   Page,
   SectionList,
+  Select,
+  SizableText,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -157,7 +161,7 @@ const HistoryContent = ({
 
   return (
     <YStack flex={1}>
-      {/* <XStack px="$5">
+      <XStack px="$5">
         <Select
           value={filterType}
           renderTrigger={({ label }) => (
@@ -172,9 +176,8 @@ const HistoryContent = ({
           items={items}
           onChange={handleSelectChange}
           title="Demo Title"
-          onOpenChange={console.log}
         />
-      </XStack> */}
+      </XStack>
       <SectionList
         estimatedItemSize="$14"
         sections={sections}

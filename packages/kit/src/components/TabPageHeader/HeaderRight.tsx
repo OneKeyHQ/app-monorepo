@@ -202,11 +202,20 @@ export function HeaderRight({
         break;
     }
   }, [isHorizontal, tabRoute, customHeaderRightItems]);
+  const width = useMemo(() => {
+    if (platformEnv.isNative) {
+      return undefined;
+    }
+    if (platformEnv.isDesktopMac) {
+      return 'unset';
+    }
+    return '100%';
+  }, []);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
       className="app-region-no-drag"
-      width={platformEnv.isNative ? undefined : '100%'}
+      width={width}
       jc={platformEnv.isNative ? undefined : 'flex-end'}
     >
       {items}

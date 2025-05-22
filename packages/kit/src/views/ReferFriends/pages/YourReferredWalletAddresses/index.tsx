@@ -53,7 +53,12 @@ export default function YourReferredWalletAddresses() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Addresses" headerRight={renderHeaderRight} />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.referral_referred_address,
+        })}
+        headerRight={renderHeaderRight}
+      />
       <Page.Body>
         <ListView
           contentContainerStyle={{ pb: '$20' }}

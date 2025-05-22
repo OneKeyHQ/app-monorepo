@@ -184,7 +184,7 @@ function ReferAFriendPage({ postConfig }: { postConfig: IInvitePostConfig }) {
                       }}
                     >
                       {intl.formatMessage({
-                        id: ETranslations.global_learn_more,
+                        id: ETranslations.referral_intro_learn_more,
                       })}
                     </SizableText>
                   </YStack>
