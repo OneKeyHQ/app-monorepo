@@ -1172,14 +1172,17 @@ class ServiceStaking extends ServiceBase {
   }) {
     const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const sendParams = {
+      symbol,
+      ...rest,
+    };
+    if (earnUtils.isMorphoProvider({ providerName: params.provider })) {
+      sendParams.vault = morphoVault;
+    }
     const resp = await client.get<{
       data: IEarnEstimateFeeResp;
     }>(`/earn/v1/estimate-fee`, {
-      params: {
-        symbol,
-        vault: morphoVault,
-        ...rest,
-      },
+      params: sendParams,
     });
     return resp.data.data;
   }
