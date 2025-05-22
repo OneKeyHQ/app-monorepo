@@ -20,8 +20,16 @@ import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 
-export function SwapPanel() {
-  const swapPanel = useSwapPanel();
+export type ISwapPanelProps = {
+  networkId?: string;
+};
+
+export function SwapPanel(props: ISwapPanelProps) {
+  const { networkId: networkIdProp } = props;
+  const swapPanel = useSwapPanel({
+    networkId: networkIdProp ?? 'evm--1',
+  });
+
   const {
     antiMEV,
     balance,
@@ -50,7 +58,7 @@ export function SwapPanel() {
     speedSwapApproveLoading,
   } = useSpeedSwapActions({
     token: {
-      networkId: 'evm--1',
+      networkId: networkId ?? '',
       contractAddress: '',
       symbol: '',
       decimals: 0,
