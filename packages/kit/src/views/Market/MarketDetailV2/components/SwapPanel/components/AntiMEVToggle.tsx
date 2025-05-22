@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { Switch, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { InfoItemLabel } from './InfoItemLabel/InfoItemLabel';
+import { InfoItemLabel } from './InfoItemLabel';
 
 export interface IAntiMEVToggleProps {
   value: boolean;
