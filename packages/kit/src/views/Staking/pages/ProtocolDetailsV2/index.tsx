@@ -436,30 +436,25 @@ function PortfolioSection({
     },
     [handleClaim, protocolInfo, tokenInfo],
   );
-  return portfolios?.items?.length ? (
+  return portfolios?.items?.length || rewards?.tokens?.length ? (
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
           <SizableText size="$headingLg" color={portfolios.title.color}>
             {portfolios.title.text}
           </SizableText>
-          {/* {onPortfolioDetails !== undefined ? (
-       <Button
-         variant="tertiary"
-         iconAfter="ChevronRightOutline"
-         onPress={onPortfolioDetails}
-       >
-         {intl.formatMessage({ id: ETranslations.global_details })}
-       </Button>
-     ) : null} */}
         </XStack>
-        <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
-        <ProtocolRewards
-          rewardToken={portfolios.items?.[0]?.token}
-          rewards={rewards}
-          tokenInfo={tokenInfo}
-          protocolInfo={protocolInfo}
-        />
+        {portfolios?.items ? (
+          <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
+        ) : null}
+        {rewards?.tokens ? (
+          <ProtocolRewards
+            rewardToken={portfolios.items?.[0]?.token}
+            rewards={rewards}
+            tokenInfo={tokenInfo}
+            protocolInfo={protocolInfo}
+          />
+        ) : null}
       </YStack>
       <Divider />
     </>
