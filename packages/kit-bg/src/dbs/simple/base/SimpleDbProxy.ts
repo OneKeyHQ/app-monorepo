@@ -44,6 +44,7 @@ import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHist
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -216,4 +217,8 @@ export class SimpleDbProxy
   addressInfo = this._createProxyService(
     'addressInfo',
   ) as SimpleDbEntityAddressInfo;
+
+  recentRecipients = this._createProxyService(
+    'recentRecipients',
+  ) as SimpleDbEntityRecentRecipients;
 }
