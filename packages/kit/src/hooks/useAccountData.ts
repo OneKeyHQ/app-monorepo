@@ -81,6 +81,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
           serviceNetwork.getDeriveTypeByTemplate({
             networkId,
             template: account.template,
+            accountId: account.id,
           }),
         ]);
 

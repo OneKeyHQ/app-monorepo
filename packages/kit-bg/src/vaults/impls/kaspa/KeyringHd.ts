@@ -38,11 +38,13 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(params);
+    const addressEncoding = await this.vault.getAddressEncoding();
+    return this.baseSignTransaction({ ...params, addressEncoding });
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
     // throw new NotImplemented();;
-    return this.baseSignMessage(params);
+    const addressEncoding = await this.vault.getAddressEncoding();
+    return this.baseSignMessage({ ...params, addressEncoding });
   }
 }

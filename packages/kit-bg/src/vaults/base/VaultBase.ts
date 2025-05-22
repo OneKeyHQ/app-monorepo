@@ -13,6 +13,7 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type {
+  EAddressEncodings,
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -1456,5 +1457,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async afterSendTxAction(params: IAfterSendTxActionParams) {
     throw new NotImplemented();
+  }
+
+  async getAddressEncoding(): Promise<EAddressEncodings | undefined> {
+    return undefined;
   }
 }

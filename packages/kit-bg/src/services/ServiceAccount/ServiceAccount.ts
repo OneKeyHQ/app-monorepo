@@ -4086,6 +4086,7 @@ class ServiceAccount extends ServiceBase {
                       const { deriveType } =
                         await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate(
                           {
+                            accountId: item.id,
                             networkId,
                             template: item.template,
                           },

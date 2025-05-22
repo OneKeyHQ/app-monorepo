@@ -106,8 +106,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-
-    const { password, unsignedTx } = params;
+    const { password, unsignedTx, addressEncoding } = params;
 
     const account = await this.vault.getAccount();
     const credentials = await this.baseGetCredentialsInfo(params);
@@ -119,6 +118,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       account,
       credentials,
       unsignedTx,
+      addressEncoding,
     });
     return result;
   }
@@ -403,6 +403,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const { deriveInfo } =
       await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+        accountId: account.id,
         networkId: this.networkId,
         template: account.template,
       });

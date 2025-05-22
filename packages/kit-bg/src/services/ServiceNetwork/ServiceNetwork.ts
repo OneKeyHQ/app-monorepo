@@ -344,9 +344,11 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getDeriveTypeByTemplate({
+    accountId,
     networkId,
     template,
   }: {
+    accountId: string;
     networkId: string;
     template: string | undefined;
   }): Promise<{
@@ -359,9 +361,24 @@ class ServiceNetwork extends ServiceBase {
     const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
       networkId,
     });
-    const deriveInfo = deriveInfoItems.find(
-      (item) => item.item.template === template,
-    );
+    let deriveInfo: IAccountDeriveInfoItems | undefined;
+    if (
+      deriveInfoItems.length > 1 &&
+      deriveInfoItems[0].item.useAddressEncodingDerive &&
+      accountId.split('--').length > 2
+    ) {
+      deriveInfo = deriveInfoItems.find(
+        (item) =>
+          item.item.template === template &&
+          item.item.addressEncoding &&
+          accountId.endsWith(item.item.addressEncoding),
+      );
+    }
+    if (!deriveInfo) {
+      deriveInfo = deriveInfoItems.find(
+        (item) => item.item.template === template,
+      );
+    }
     const deriveType = deriveInfo?.value as IAccountDeriveTypes | undefined;
     return {
       deriveType: deriveType || 'default',
@@ -379,6 +396,7 @@ class ServiceNetwork extends ServiceBase {
   }) {
     const { template } = account;
     const deriveTypeData = await this.getDeriveTypeByTemplate({
+      accountId: account.id,
       networkId,
       template,
     });
@@ -614,6 +632,7 @@ class ServiceNetwork extends ServiceBase {
   }
 
   async getAccountImportingDeriveTypes({
+    accountId,
     networkId,
     input,
     validateAddress,
@@ -622,6 +641,7 @@ class ServiceNetwork extends ServiceBase {
     validateXprvt,
     template,
   }: {
+    accountId: string;
     networkId: string;
     input: string;
     validateAddress?: boolean;
@@ -635,6 +655,7 @@ class ServiceNetwork extends ServiceBase {
 
     const { deriveType: deriveTypeInTpl } =
       await serviceNetwork.getDeriveTypeByTemplate({
+        accountId,
         networkId,
         template,
       });
