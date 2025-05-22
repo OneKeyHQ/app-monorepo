@@ -13,6 +13,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import { SwapPanel, TokenDetailHeader } from './components';
+import { TokenActivityOverview } from './components/TokenActivityOverview';
 import { useMarketDetail } from './hooks/useMarketDetail';
 
 function MarketDetail({
@@ -34,7 +35,7 @@ function MarketDetail({
       />
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} />
-
+        <TokenActivityOverview />
         <SwapPanel />
       </Page.Body>
     </Page>
