@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { isNaN, isNil, throttle } from 'lodash';
+import { isNaN, isNil, isNumber, throttle } from 'lodash';
 
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
@@ -23,8 +23,10 @@ const mockServerTime: number | undefined = undefined;
 // const mockLocalTimeOffset: number | undefined = 1000 * 60 * 60 * 24 * 30;
 const mockLocalTimeOffset: number | undefined = undefined;
 
-// TODO use webpack build time
-const appBuildTime = 1_747_527_766_656;
+const appBuildTime = Math.max(
+  Number(process.env.BUILD_TIME) || 0,
+  1_747_527_766_656,
+);
 
 const intervalTimeout = timerUtils.getTimeDurationMs({
   // seconds: 5,
@@ -35,7 +37,13 @@ const localServerTimeDiff = timerUtils.getTimeDurationMs({
 });
 
 function isTimeValid({ time }: { time: number | undefined }): boolean {
-  if (isNil(time) || isNaN(time) || time < appBuildTime) {
+  if (
+    !time ||
+    isNil(time) ||
+    isNaN(time) ||
+    !isNumber(time) ||
+    time < appBuildTime
+  ) {
     return false;
   }
   return true;
