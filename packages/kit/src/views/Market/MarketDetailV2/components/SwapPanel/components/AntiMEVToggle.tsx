@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Switch, XStack } from '@onekeyhq/components';
+import { Switch, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InfoItemLabel } from './InfoItemLabel/InfoItemLabel';
