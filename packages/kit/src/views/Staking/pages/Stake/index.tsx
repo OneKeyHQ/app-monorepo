@@ -21,6 +21,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../components/UniversalStake';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
@@ -32,89 +33,74 @@ function BasicStakePage() {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const { accountId, networkId, details, onSuccess, indexedAccountId } =
-    route.params;
-  const { token, provider, rewardToken } = details;
-
-  const { result: tokenResult } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getProtocolDetails({
-        accountId,
-        networkId,
-        indexedAccountId,
-        symbol: token.info.symbol,
-        provider: provider.name,
-      }),
-    [accountId, networkId, indexedAccountId, token, provider],
-    {
-      revalidateOnFocus: true,
-    },
-  );
-
-  const balanceParsed = tokenResult?.token.balanceParsed || token.balanceParsed;
-  const price = tokenResult?.token.price || token.price;
-
-  const tokenInfo = token.info;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    protocolInfo,
+    onSuccess,
+    indexedAccountId,
+  } = route.params;
+  const token = tokenInfo?.token as IToken;
+  const symbol = tokenInfo?.token.symbol || '';
+  const providerName = protocolInfo?.provider || '';
 
   const actionTag = buildLocalTxStatusSyncId({
-    providerName: provider.name,
-    tokenSymbol: tokenInfo.symbol,
+    providerName,
+    tokenSymbol: symbol,
   });
   const [btcFeeRate, setBtcFeeRate] = useState<string | undefined>();
   const btcFeeRateInit = useRef<boolean>(false);
 
   const onFeeRateChange = useMemo(() => {
     if (
-      provider.name.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+      providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
     ) {
       return (value: string) => setBtcFeeRate(value);
     }
-  }, [provider.name]);
+  }, [providerName]);
 
   const btcStakingTerm = useMemo<number | undefined>(() => {
-    if (provider?.minStakeTerm) {
-      return formatMillisecondsToBlocks(provider.minStakeTerm);
+    if (protocolInfo?.minStakeTerm) {
+      return formatMillisecondsToBlocks(protocolInfo.minStakeTerm);
     }
     return undefined;
-  }, [provider]);
+  }, [protocolInfo]);
 
   const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
     async (amount: string) => {
-      const inviteCode =
-        await backgroundApiProxy.serviceReferralCode.getInviteCode();
       await handleStake({
-        inviteCode,
         amount,
-        symbol: tokenInfo.symbol,
-        provider: provider.name,
+        symbol,
+        provider: providerName,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider.name,
+            providerName,
           }),
-          protocolLogoURI: provider.logoURI,
-          send: { token: tokenInfo, amount },
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          send: { token, amount },
           tags: [actionTag],
         },
         term: btcStakingTerm,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
         morphoVault: earnUtils.isMorphoProvider({
-          providerName: provider.name,
+          providerName,
         })
-          ? provider.vault
+          ? protocolInfo?.approve?.approveTarget
           : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
-            token: tokenInfo,
-            stakingProtocol: provider.name,
+            token,
+            stakingProtocol: providerName,
           });
           const tx = txs[0];
           if (
             tx &&
-            provider.name.toLowerCase() ===
+            providerName.toLowerCase() ===
               EEarnProviderEnum.Babylon.toLowerCase()
           ) {
             await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
@@ -124,7 +110,7 @@ function BasicStakePage() {
               accountId,
               networkId,
               amount,
-              minStakeTerm: provider.minStakeTerm,
+              minStakeTerm: protocolInfo?.minStakeTerm,
             });
           }
           onSuccess?.();
@@ -133,56 +119,65 @@ function BasicStakePage() {
     },
     [
       handleStake,
-      appNavigation,
-      tokenInfo,
-      provider,
+      symbol,
+      providerName,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.minStakeTerm,
+      token,
       actionTag,
-      onSuccess,
       btcStakingTerm,
+      btcFeeRate,
+      appNavigation,
+      onSuccess,
       accountId,
       networkId,
-      btcFeeRate,
     ],
   );
 
   const intl = useIntl();
-  const providerLabel = useProviderLabel(provider.name);
 
   const isReachBabylonCap = useMemo<boolean | undefined>(() => {
-    if (provider && provider.name === EEarnProviderEnum.Babylon.toLowerCase()) {
-      return provider.stakeDisable;
+    if (
+      providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+    ) {
+      return protocolInfo?.stakeDisable;
     }
     return false;
-  }, [provider]);
+  }, [protocolInfo?.stakeDisable, providerName]);
 
   const showEstReceive = useMemo<boolean>(
     () =>
       earnUtils.isLidoProvider({
-        providerName: provider.name,
+        providerName,
       }) ||
       earnUtils.isMorphoProvider({
-        providerName: provider.name,
+        providerName,
       }),
-    [provider],
+    [providerName],
   );
 
   const estReceiveTokenRate = useMemo(() => {
     if (
       earnUtils.isLidoProvider({
-        providerName: provider.name,
+        providerName,
       })
     ) {
-      return provider.lidoStTokenRate;
+      return protocolInfo?.lidoStTokenRate;
     }
     if (
       earnUtils.isMorphoProvider({
-        providerName: provider.name,
+        providerName,
       })
     ) {
-      return provider.morphoTokenRate;
+      return protocolInfo?.morphoTokenRate;
     }
     return '1';
-  }, [provider]);
+  }, [
+    protocolInfo?.lidoStTokenRate,
+    protocolInfo?.morphoTokenRate,
+    providerName,
+  ]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
@@ -214,50 +209,58 @@ function BasicStakePage() {
       btcFeeRateInit.current = true;
     }
   }, [estimateFeeUTXO]);
-
+  const providerLabel = useProviderLabel(providerName);
+  const tokenSymbol = tokenInfo?.token.symbol || '';
+  const price = tokenInfo?.nativeToken?.price
+    ? String(tokenInfo?.nativeToken?.price)
+    : '0';
+  const balanceParsed = tokenInfo?.balanceParsed || '';
+  const apr =
+    protocolInfo?.aprWithoutFee && Number(protocolInfo.aprWithoutFee) > 0
+      ? protocolInfo?.aprWithoutFee
+      : undefined;
+  const decimals = tokenInfo?.token.decimals || 0;
+  const rewardToken = tokenInfo?.token.symbol || '';
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_earn_token },
-          { 'token': tokenInfo.symbol },
+          { token: tokenSymbol },
         )}
       />
       <Page.Body>
         <UniversalStake
           accountId={accountId}
           networkId={networkId}
-          decimals={details.token.info.decimals}
-          details={details}
-          apr={
-            Number(provider.aprWithoutFee) > 0
-              ? provider.aprWithoutFee
-              : undefined
-          }
+          decimals={decimals}
+          apr={apr}
           price={price}
           balance={balanceParsed}
-          minAmount={provider.minStakeAmount}
-          maxAmount={provider.maxStakeAmount}
-          minStakeTerm={provider.minStakeTerm}
-          minStakeBlocks={provider.minStakeBlocks}
-          tokenImageUri={tokenInfo.logoURI}
-          tokenSymbol={tokenInfo.symbol}
-          providerLogo={provider.logoURI}
-          providerName={provider.name}
+          minAmount={protocolInfo?.minStakeAmount}
+          maxAmount={protocolInfo?.maxStakeAmount}
+          minStakeTerm={protocolInfo?.minStakeTerm}
+          minStakeBlocks={protocolInfo?.minStakeBlocks}
+          tokenImageUri={token?.logoURI}
+          tokenSymbol={token.symbol}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={protocolInfo?.provider}
           providerLabel={providerLabel}
-          stakingTime={provider.stakingTime}
-          nextLaunchLeft={provider.nextLaunchLeft}
+          stakingTime={protocolInfo?.stakingTime}
+          nextLaunchLeft={protocolInfo?.nextLaunchLeft}
           isReachBabylonCap={isReachBabylonCap}
           rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
-          updateFrequency={tokenResult?.updateFrequency}
+          updateFrequency={protocolInfo?.updateFrequency}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
           estReceiveTokenRate={estReceiveTokenRate}
           onConfirm={onConfirm}
-          minTransactionFee={provider.minTransactionFee}
+          minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
+          tokenInfo={tokenInfo}
+          protocolInfo={protocolInfo}
         />
       </Page.Body>
     </Page>

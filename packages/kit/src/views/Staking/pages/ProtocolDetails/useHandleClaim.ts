@@ -7,7 +7,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showMorphoClaimDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showMorphoClaimDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnTokenInfo,
+  IProtocolInfo,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 
@@ -28,32 +32,32 @@ export const useHandleClaim = ({
   });
   return useCallback(
     async ({
+      protocolInfo,
+      tokenInfo,
       symbol,
       claimAmount,
       claimTokenAddress,
       isReward,
       isMorphoClaim,
-      provider,
-      vault,
-      tokenAddress,
       stakingInfo,
       onSuccess,
     }: {
+      protocolInfo?: IProtocolInfo;
+      tokenInfo?: IEarnTokenInfo;
       symbol: string;
-      provider: string;
       claimAmount: string;
       claimTokenAddress?: string;
-      vault: string;
-      tokenAddress?: string;
       isReward?: boolean;
       isMorphoClaim?: boolean;
       stakingInfo?: IStakingInfo;
       onSuccess?: () => void;
     }) => {
       if (!accountId) return;
+      const provider = protocolInfo?.provider || '';
+      const vault = protocolInfo?.approve?.approveTarget || '';
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
-          networkId: networkId || '',
+          networkId,
           symbol,
           provider,
         });
@@ -67,7 +71,7 @@ export const useHandleClaim = ({
           provider,
           stakingInfo,
           claimTokenAddress,
-          vault: vault || '',
+          vault: protocolInfo?.approve?.approveTarget || '',
         });
         return;
       }
@@ -92,29 +96,20 @@ export const useHandleClaim = ({
               stakingInfo,
               claimTokenAddress,
               morphoVault: vault,
-              vault: vault || '',
+              vault,
             });
           },
         });
         return;
       }
-      const providerInfo = {
-        name: provider,
-        vault,
-        logoURI: '',
-      };
-
-      const token = backgroundApiProxy.serviceToken.getToken({
-        accountId,
-        networkId: networkId || '',
-        tokenIdOnNetwork: tokenAddress || '',
-      });
       if (stakingConfig.claimWithTx) {
         appNavigation.push(EModalStakingRoutes.ClaimOptions, {
           accountId,
           networkId,
-          provider: providerInfo,
-          token,
+          protocolInfo,
+          tokenInfo,
+          symbol,
+          provider,
         });
         return;
       }
@@ -125,11 +120,10 @@ export const useHandleClaim = ({
         appNavigation.push(EModalStakingRoutes.Claim, {
           accountId,
           networkId,
+          protocolInfo,
+          tokenInfo,
           onSuccess,
           amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
-          claimableAmount: '0',
-          token,
-          provider: providerInfo,
         });
         return;
       }
@@ -139,7 +133,7 @@ export const useHandleClaim = ({
         provider,
         claimTokenAddress,
         stakingInfo,
-        vault: vault || '',
+        vault,
       });
     },
     [

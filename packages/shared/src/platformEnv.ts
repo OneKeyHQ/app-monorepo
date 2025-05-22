@@ -39,6 +39,7 @@ export type IPlatformEnv = {
   appFullName: string;
   version: string | undefined;
   buildNumber: string | undefined;
+  buildTime: number | undefined;
   githubSHA: string | undefined;
   NODE_ENV?: string;
   JEST_WORKER_ID?: string;
@@ -442,6 +443,7 @@ const platformEnv: IPlatformEnv = {
   appFullName: '',
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
+  buildTime: Number(process.env.BUILD_TIME) || undefined,
   githubSHA: process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA,
 
   isJest,

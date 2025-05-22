@@ -19,7 +19,6 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnTokenItem,
   IRewardApys,
-  IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
 import { useEarnEventActive } from '../../hooks/useEarnEventActive';
@@ -244,32 +243,39 @@ function FalconApyInternal({
 }
 
 export function ProtocolApyRewards({
-  details,
+  eventEndTime,
+  apys,
+  providerName,
+  poolFee,
+  rewardAssets,
 }: {
-  details: IStakeProtocolDetails;
+  eventEndTime?: number;
+  apys: IRewardApys;
+  providerName: string;
+  poolFee?: string;
+  rewardAssets?: Record<string, IEarnTokenItem>;
 }) {
-  const { provider, rewardAssets } = details;
-  const { isEventActive } = useEarnEventActive(provider.eventEndTime);
+  const { isEventActive } = useEarnEventActive(eventEndTime);
 
-  if (!provider.apys) {
+  if (!apys) {
     return null;
   }
 
-  if (earnUtils.isMorphoProvider({ providerName: provider.name })) {
+  if (earnUtils.isMorphoProvider({ providerName })) {
     return (
       <MorphoApyInternal
-        apys={provider.apys}
+        apys={apys}
         rewardAssets={rewardAssets}
-        poolFee={provider.poolFee}
+        poolFee={poolFee}
       />
     );
   }
 
-  if (earnUtils.isFalconProvider({ providerName: provider.name })) {
+  if (earnUtils.isFalconProvider({ providerName })) {
     return (
       <FalconApyInternal
-        apys={provider.apys}
-        poolFee={provider.poolFee}
+        apys={apys}
+        poolFee={poolFee}
         isEventActive={isEventActive}
       />
     );

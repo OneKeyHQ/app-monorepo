@@ -25,7 +25,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import systemTimeUtils, {
+  ELocalSystemTimeStatus,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
@@ -77,6 +79,7 @@ import { CloudSyncFlowManagerMarketWatchList } from './CloudSyncFlowManager/Clou
 import { CloudSyncFlowManagerWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerWallet';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 
+import type { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
 
 const nonce = 0;
@@ -240,6 +243,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         updated: ICloudSyncServerItem[];
         obsoleted: string[]; //
         pwdHash: string;
+        serverTime: number | undefined;
       }>
     >('/prime/v1/sync/check', {
       localData: items.map((item) => ({
@@ -258,10 +262,65 @@ class ServicePrimeCloudSync extends ServiceBase {
           ]
         : Object.values(EPrimeCloudSyncDataType),
     });
-    const data = result?.data?.data;
-    data.pwdHash = data.pwdHash || masterPasswordUUID;
-    console.log('prime cloud sync apiCheck: ', data);
-    return data;
+    const responseData = result?.data?.data;
+    if (!responseData.serverTime) {
+      try {
+        const serverTimeStr = result?.headers?.date as string | undefined;
+        if (serverTimeStr) {
+          const serverTime = new Date(serverTimeStr).getTime();
+          if (
+            serverTime &&
+            systemTimeUtils.isTimeValid({
+              time: serverTime,
+            })
+          ) {
+            responseData.serverTime = serverTime;
+          }
+        }
+      } catch (error) {
+        console.error('prime cloud sync apiCheck: ', error);
+      }
+    }
+    // fix localItems dataTime which is greater than server time
+    if (responseData.serverTime) {
+      try {
+        const wrongTimeItems = localItems?.filter(
+          (item) =>
+            responseData.serverTime &&
+            item.dataTime &&
+            item.dataTime > responseData.serverTime,
+        );
+        if (wrongTimeItems?.length) {
+          const fixItemTime = (
+            item: IDBCloudSyncItem | RealmSchemaCloudSyncItem,
+          ) => {
+            if (
+              responseData.serverTime &&
+              item.dataTime &&
+              item.dataTime > responseData.serverTime
+            ) {
+              item.dataTime = responseData.serverTime;
+            }
+          };
+          wrongTimeItems.forEach((item) => {
+            fixItemTime(item);
+          });
+          await localDb.updateSyncItem({
+            ids: wrongTimeItems.map((item) => item.id),
+            updater: (item) => {
+              fixItemTime(item);
+              return item;
+            },
+          });
+        }
+      } catch (error) {
+        console.error('prime cloud sync apiCheck: ', error);
+      }
+    }
+
+    responseData.pwdHash = responseData.pwdHash || masterPasswordUUID;
+    console.log('prime cloud sync apiCheck: ', responseData);
+    return responseData;
   }
 
   async buildLockItem({
@@ -1569,6 +1628,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer?: string;
     serverDiffItems?: ICloudSyncServerDiffItem[];
   }> {
+    if (systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
+      throw new OneKeyError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_time_error_description,
+        }),
+      );
+    }
+
     const isPrimeLoggedIn = await this.backgroundApi.servicePrime.isLoggedIn();
     if (!isPrimeLoggedIn) {
       throw new OneKeyError('Prime is not logged in');
@@ -1775,20 +1842,24 @@ class ServicePrimeCloudSync extends ServiceBase {
     return localItem;
   }
 
-  // TODO check all Date.now() new Date.getTime() to timeNow()
   @backgroundMethod()
   async timeNow(): Promise<number> {
-    // TODO Local verification of time accuracy, no need to get from server, otherwise it will interrupt normal business
-    return Date.now();
+    return systemTimeUtils.getTimeNow();
   }
 
   @backgroundMethod()
   async getLocalSystemTimeStatus() {
     return {
-      status: systemTimeUtils.status,
+      status: systemTimeUtils.systemTimeStatus,
+
       lastServerTime: systemTimeUtils.lastServerTime,
       lastServerTimeDate: new Date(
         systemTimeUtils.lastServerTime ?? 0,
+      ).toISOString(),
+
+      lastLocalTime: systemTimeUtils.lastLocalTime,
+      lastLocalTimeDate: new Date(
+        systemTimeUtils.lastLocalTime ?? 0,
       ).toISOString(),
     };
   }
@@ -1883,7 +1954,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async debugTamperingSyncItemData() {
+  async debugTamperingLocalSyncItemData() {
     const { syncItems } = await localDb.getAllSyncItems();
     await localDb.withTransaction(
       // EIndexedDBBucketNames.cloudSync,
@@ -1896,6 +1967,26 @@ class ServicePrimeCloudSync extends ServiceBase {
           updater: (record) => {
             record.data = '999999';
             record.localSceneUpdated = false;
+            return record;
+          },
+        });
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async debugTamperingLocalSyncItemDataTime() {
+    const { syncItems } = await localDb.getAllSyncItems();
+    await localDb.withTransaction(
+      // EIndexedDBBucketNames.cloudSync,
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await localDb.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: syncItems.map((item) => item.id),
+          updater: (record) => {
+            record.dataTime = 2_000_000_000_000;
             return record;
           },
         });

@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
-import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { StyleSheet } from 'react-native';
 
 import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
+  Alert,
   Icon,
   IconButton,
   Popover,
@@ -12,16 +12,23 @@ import {
   Stack,
   XStack,
   YStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
+  IEarnHistoryActionIcon,
   IEarnIcon,
   IEarnPopupActionIcon,
+  IEarnRebateTooltip,
   IEarnText,
   IEarnToken,
+  IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
+
+import { useShareEvents } from '../../pages/ProtocolDetailsV2/ShareEventsProvider';
 
 function PopupItemLine({
   icon,
@@ -126,24 +133,88 @@ function PopupContent({
   );
 }
 
+function RewardAmountPopoverContent({
+  tooltip,
+  onHistory,
+}: {
+  tooltip?: IEarnRebateTooltip;
+  onHistory?: (params?: { filterType?: string }) => void;
+}) {
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    setTimeout(() => {
+      onHistory?.({ filterType: 'rebate' });
+    }, 50);
+  }, [closePopover, onHistory]);
+  return (
+    <YStack p="$5">
+      <XStack>
+        <SizableText size="$bodyLgMedium" color={tooltip?.data.title.color}>
+          {tooltip?.data.description.text}
+        </SizableText>
+      </XStack>
+      <XStack pt="$2">
+        <SizableText
+          size="$bodySm"
+          color={tooltip?.data.text.color || '$textSubdued'}
+        >
+          {tooltip?.data.text.text}
+        </SizableText>
+      </XStack>
+      {tooltip?.data.items.map((item, index) => {
+        const button = item.button as IEarnHistoryActionIcon;
+        const isHistoryButton = button?.type === 'history' && !button?.disabled;
+        return (
+          <XStack
+            key={index}
+            jc="space-between"
+            pt="$4"
+            onPress={isHistoryButton ? handlePress : undefined}
+          >
+            <SizableText size="$bodyMdMedium" color={item?.title?.color}>
+              {item?.title?.text}
+            </SizableText>
+            {isHistoryButton ? (
+              <XStack gap="$0.5" cursor="pointer">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {button?.text.text}
+                </SizableText>
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  color="$iconSubdued"
+                  size="$5"
+                />
+              </XStack>
+            ) : null}
+          </XStack>
+        );
+      })}
+    </YStack>
+  );
+}
+
 export function GridItem({
   title,
   description,
   actionIcon,
   tooltip,
+  type = 'default',
 }: {
   title: IEarnText;
   description?: IEarnText;
-  tooltip?: IEarnText;
+  tooltip?: IEarnTooltip;
   actionIcon?: IEarnActionIcon;
+  type?: 'default' | 'info' | 'alert';
 }) {
+  const { onHistory } = useShareEvents();
   const actionIconButton = useMemo(() => {
     let onPress: undefined | IIconButtonProps['onPress'];
     let icon: IKeyOfIcons | undefined;
     switch (actionIcon?.type) {
       case 'link':
         icon = 'OpenOutline';
-        onPress = () => openUrlExternal(actionIcon.data);
+        onPress = () => openUrlExternal(actionIcon.data.link);
         break;
       case 'popup':
         return actionIcon.data.icon ? (
@@ -180,7 +251,82 @@ export function GridItem({
         variant="tertiary"
       />
     ) : null;
-  }, [actionIcon?.data, actionIcon?.type, title.text]);
+  }, [actionIcon, title.text]);
+
+  const tooltipElement = useMemo(() => {
+    if (tooltip) {
+      switch (tooltip.type) {
+        case 'rebate':
+          return (
+            <Popover
+              placement="top"
+              title={title.text}
+              renderTrigger={
+                <IconButton
+                  iconColor="$iconSubdued"
+                  size="small"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                />
+              }
+              renderContent={
+                <RewardAmountPopoverContent
+                  tooltip={tooltip}
+                  onHistory={onHistory}
+                />
+              }
+            />
+          );
+        case 'text':
+        default:
+          return (
+            <Popover
+              placement="top"
+              title={title.text}
+              renderTrigger={
+                <IconButton
+                  iconColor="$iconSubdued"
+                  size="small"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                />
+              }
+              renderContent={
+                <Stack p="$5">
+                  <SizableText color={tooltip.data.color}>
+                    {tooltip.data.text}
+                  </SizableText>
+                </Stack>
+              }
+            />
+          );
+      }
+    }
+    return null;
+  }, [onHistory, title.text, tooltip]);
+
+  if (type === 'info') {
+    return (
+      <Alert
+        m="$3"
+        flex={1}
+        title={title.text}
+        description={description?.text}
+      />
+    );
+  }
+
+  if (type === 'alert') {
+    return (
+      <Alert
+        type="critical"
+        m="$3"
+        flex={1}
+        title={title.text}
+        description={description?.text}
+      />
+    );
+  }
   return (
     <YStack
       p="$3"
@@ -193,25 +339,7 @@ export function GridItem({
         <SizableText size="$bodyMd" color={title.color || '$textSubdued'}>
           {title.text}
         </SizableText>
-        {tooltip ? (
-          <Popover
-            placement="top"
-            title={title.text}
-            renderTrigger={
-              <IconButton
-                iconColor="$iconSubdued"
-                size="small"
-                icon="InfoCircleOutline"
-                variant="tertiary"
-              />
-            }
-            renderContent={
-              <Stack p="$5">
-                <SizableText color={tooltip.color}>{tooltip.text}</SizableText>
-              </Stack>
-            }
-          />
-        ) : null}
+        {tooltipElement}
       </XStack>
       <XStack gap="$1" alignItems="center">
         {description ? (
