@@ -75,6 +75,7 @@ import { MarketStar } from '../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
 import { MarketTokenPrice } from '../../Market/components/MarketTokenPrice';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
+import { UniversalSearchDappItem } from '../components/SearchResultItems';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -599,13 +600,13 @@ export function UniversalSearch({
             </ListItem>
           );
         }
-        case EUniversalSearchType.Dapp: {
-          const { name, dappId, logo } = item.payload;
+        case EUniversalSearchType.Dapp:
           return (
-            <ListItem
+            <UniversalSearchDappItem
+              item={item}
               onPress={() => {
                 console.log('[universalSearch] renderItem: ', item);
-                const isGoogle = isGoogleSearchItem(dappId);
+                const isGoogle = isGoogleSearchItem(item.payload.dappId);
                 handleWebSite({
                   dApp: isGoogle ? undefined : item.payload,
                   // @ts-expect-error
@@ -618,27 +619,20 @@ export function UniversalSearch({
                   enterMethod: EEnterMethod.search,
                 });
               }}
-              renderAvatar={<Image source={{ uri: logo }} size="$10" />}
-              title={name}
-              titleProps={{
-                color: isGoogleSearchItem(dappId) ? '$textSubdued' : '$text',
-              }}
             />
           );
-        }
-        default: {
+        default:
           return null;
-        }
       }
     },
     [
-      navigation,
       activeAccount,
+      accountSelectorActions,
+      navigation,
       universalSearchActions,
       searchStatus,
       settings.currencyInfo.symbol,
       handleWebSite,
-      accountSelectorActions,
     ],
   );
 
