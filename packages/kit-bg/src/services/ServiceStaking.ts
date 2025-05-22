@@ -358,7 +358,10 @@ class ServiceStaking extends ServiceBase {
     if (rewardTokenAddress) {
       sendParams.rewardTokenAddress = rewardTokenAddress;
     }
-    if (vaultAddress) {
+    if (
+      earnUtils.isMorphoProvider({ providerName: params.provider }) &&
+      vaultAddress
+    ) {
       sendParams.vault = vaultAddress;
     }
     const resp = await client.post<{
