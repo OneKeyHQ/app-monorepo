@@ -2819,6 +2819,8 @@
   "update.verifying": "Überprüfung...",
   "update.verifying_sha256_and_package_name": "Überprüfung von SHA256 und Paketname...",
   "update.whats_new_in_onekey_version": "Was ist neu\nin OneKey {version} 👋🏻",
+  "update_notification_dialog.desc": "Dieses Update enthält neue Verbesserungen, um Ihr Erlebnis zu optimieren. Aktualisieren Sie jetzt Ihre OneKey App für das beste Nutzungserlebnis!",
+  "update_notification_dialog.title": "OneKey ist jetzt noch besser geworden!",
   "v4.select_account_name_label": "Name von OneKey v4",
   "v4_migration.backed_up_warning": "Haben Sie alles gesichert?",
   "v4_migration.backed_up_warning_desc": "Stellen Sie sicher, dass Sie alle Ihre Wiederherstellungsphrasen und privaten Schlüssel gesichert haben, um einen Verlust von Vermögenswerten aufgrund unerwarteter Probleme während der Datenmigration zu verhindern.",

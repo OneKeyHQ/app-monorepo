@@ -2819,6 +2819,8 @@
   "update.verifying": "Memverifikasi...",
   "update.verifying_sha256_and_package_name": "Memverifikasi SHA256 dan nama paket...",
   "update.whats_new_in_onekey_version": "Apa yang baru\ndi OneKey {version} 👋🏻",
+  "update_notification_dialog.desc": "Pembaruan ini mencakup peningkatan baru untuk meningkatkan pengalaman Anda. Perbarui OneKey App Anda sekarang untuk pengalaman terbaik!",
+  "update_notification_dialog.title": "OneKey kini semakin baik!",
   "v4.select_account_name_label": "Nama dari OneKey v4",
   "v4_migration.backed_up_warning": "Apakah Anda sudah mencadangkan semua data?",
   "v4_migration.backed_up_warning_desc": "Pastikan Anda telah mencadangkan semua frase pemulihan dan kunci pribadi Anda untuk mencegah kehilangan aset apa pun karena masalah tak terduga selama migrasi data.",
