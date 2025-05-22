@@ -48,6 +48,23 @@ function PrimeGlobalEffectView() {
 
   useEffect(() => {
     void (async () => {
+      if (isReady && user.isLoggedIn && !user.isLoggedInOnServer) {
+        const accessToken =
+          await backgroundApiProxy.simpleDb.prime.getAuthToken();
+        if (accessToken) {
+          await backgroundApiProxy.servicePrime.apiLogin({
+            accessToken,
+          });
+        } else {
+          // Do not call apiLogout here, otherwise the user will automatically call logout during the login process, resulting in no login
+          // await backgroundApiProxy.servicePrime.apiLogout();
+        }
+      }
+    })();
+  }, [isReady, user.isLoggedIn, user.isLoggedInOnServer]);
+
+  useEffect(() => {
+    void (async () => {
       if (!isReady) {
         return;
       }

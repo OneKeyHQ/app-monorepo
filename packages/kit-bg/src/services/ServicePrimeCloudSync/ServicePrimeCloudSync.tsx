@@ -1058,7 +1058,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const devSettings = await devSettingsPersistAtom.get();
     const prime = await primePersistAtom.get();
     const primeAvailable =
-      prime.primeAvailable === true || devSettings.settings?.showPrimeTest;
+      prime.isEnablePrime === true || devSettings.settings?.showPrimeTest;
     if (!primeAvailable) {
       throw new OneKeyError(`Prime DevSettings is not enabled: ${callerName}`);
     }

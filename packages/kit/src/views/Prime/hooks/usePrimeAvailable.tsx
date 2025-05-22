@@ -10,7 +10,7 @@ export function usePrimeAvailable() {
   const { user } = usePrimeAuthV2();
 
   const isPrimeAvailable =
-    user?.primeAvailable === true ||
+    user?.isEnablePrime === true ||
     (devSettings.enabled && devSettings.settings?.showPrimeTest);
 
   return useMemo(

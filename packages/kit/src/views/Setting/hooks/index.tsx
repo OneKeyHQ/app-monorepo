@@ -50,7 +50,7 @@ export function useResetApp(
 ) {
   const { inAppStateLock = false, silentReset = false } = params || {};
   const intl = useIntl();
-  const { logout: logoutPrivy } = usePrimeAuthV2();
+  const { logout: logoutOnekeyID } = usePrimeAuthV2();
 
   const doReset = useCallback(async () => {
     // reset app
@@ -60,7 +60,7 @@ export function useResetApp(
         resetUtils.startResetting();
       }
       try {
-        void logoutPrivy();
+        void logoutOnekeyID();
         await timerUtils.wait(1000);
       } catch (error) {
         console.error('failed to logoutPrivy', error);
@@ -74,7 +74,7 @@ export function useResetApp(
         resetUtils.endResetting();
       }
     }
-  }, [logoutPrivy]);
+  }, [logoutOnekeyID]);
 
   return useCallback(async () => {
     await timerUtils.wait(50);

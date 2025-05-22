@@ -216,7 +216,8 @@ class ServicePrime extends ServiceBase {
       (v): IPrimePersistAtomData => ({
         ...v,
         displayEmail: serverUserInfo?.emails?.[0] || v.displayEmail,
-        primeAvailable: serverUserInfo?.primeAvailable,
+        isEnablePrime: serverUserInfo?.isEnablePrime,
+        isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
         isLoggedIn: true,
         isLoggedInOnServer: true,
         primeSubscription,
@@ -238,7 +239,8 @@ class ServicePrime extends ServiceBase {
       (): IPrimePersistAtomData => ({
         isLoggedIn: false,
         isLoggedInOnServer: false,
-        primeAvailable: undefined,
+        isEnablePrime: undefined,
+        isEnableSandboxPay: undefined,
         privyUserId: undefined,
         email: undefined,
         displayEmail: undefined,
@@ -253,8 +255,9 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async isLoggedIn() {
-    const { isLoggedIn } = await primePersistAtom.get();
-    return Boolean(isLoggedIn);
+    const { isLoggedIn, isLoggedInOnServer } = await primePersistAtom.get();
+    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    return Boolean(isLoggedIn && isLoggedInOnServer && authToken);
   }
 
   @backgroundMethod()

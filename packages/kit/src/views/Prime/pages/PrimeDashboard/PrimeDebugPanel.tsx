@@ -175,14 +175,7 @@ export function PrimeDebugPanel({
 }: {
   shouldShowConfirmButton: boolean;
 }) {
-  const {
-    getAccessToken,
-    logout,
-    sdkLogout,
-    apiLogout,
-    isReady,
-    authenticated,
-  } = usePrimeAuthV2();
+  const { getAccessToken, logout, isReady, authenticated } = usePrimeAuthV2();
   const { getCustomerInfo } = usePrimePayment();
   const navigation = useAppNavigation();
   const [isHidden, setIsHidden] = useState(false);
@@ -262,20 +255,6 @@ export function PrimeDebugPanel({
           }}
         >
           Logout
-        </Button>
-        <Button
-          onPress={() => {
-            void apiLogout();
-          }}
-        >
-          API Logout
-        </Button>
-        <Button
-          onPress={() => {
-            void sdkLogout();
-          }}
-        >
-          SDK Logout
         </Button>
         <Button
           onPress={() => {
