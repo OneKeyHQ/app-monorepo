@@ -133,47 +133,37 @@ const ProtocolDetailsPage = () => {
   }, [run, refreshTracking]);
 
   const onStake = useCallback(async () => {
-    await handleStake({
-      details: result,
-      accountId: earnAccount?.accountId,
-      networkId,
-      indexedAccountId,
-      symbol,
-      provider,
-      setStakeLoading,
-      onSuccess: async () => {
-        if (networkUtils.isBTCNetwork(networkId)) {
-          await run();
-          await refreshTracking();
-        }
-      },
-    });
-  }, [
-    handleStake,
-    result,
-    earnAccount?.accountId,
-    networkId,
-    indexedAccountId,
-    symbol,
-    provider,
-    run,
-    refreshTracking,
-  ]);
+    // await handleStake({
+    //   details: result,
+    //   accountId: earnAccount?.accountId,
+    //   networkId,
+    //   indexedAccountId,
+    //   symbol,
+    //   provider,
+    //   setStakeLoading,
+    //   onSuccess: async () => {
+    //     if (networkUtils.isBTCNetwork(networkId)) {
+    //       await run();
+    //       await refreshTracking();
+    //     }
+    //   },
+    // });
+  }, []);
 
   const onWithdraw = useCallback(async () => {
-    await handleWithdraw({
-      details: result,
-      accountId: earnAccount?.accountId,
-      networkId,
-      symbol,
-      provider,
-      onSuccess: async () => {
-        if (networkUtils.isBTCNetwork(networkId)) {
-          await run();
-        }
-      },
-    });
-  }, [handleWithdraw, result, earnAccount, networkId, symbol, provider, run]);
+    // await handleWithdraw({
+    //   details: result,
+    //   accountId: earnAccount?.accountId,
+    //   networkId,
+    //   symbol,
+    //   provider,
+    //   onSuccess: async () => {
+    //     if (networkUtils.isBTCNetwork(networkId)) {
+    //       await run();
+    //     }
+    //   },
+    // });
+  }, []);
 
   const handleClaim = useHandleClaim({
     accountId: earnAccount?.accountId,
