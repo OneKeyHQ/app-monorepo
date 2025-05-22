@@ -1,4 +1,3 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   atom,
   createJotaiContext,
