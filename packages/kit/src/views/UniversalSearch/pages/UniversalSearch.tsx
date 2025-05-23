@@ -150,6 +150,7 @@ export function UniversalSearch({
     ];
   }, [intl]);
   const [filterType, setFilterType] = useState(tabTitles[0].title);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const isInAllTab = useMemo(() => {
     return filterType === tabTitles[0].title;
   }, [filterType, tabTitles]);
@@ -190,6 +191,16 @@ export function UniversalSearch({
   useEffect(() => {
     void fetchRecommendList();
   }, [fetchRecommendList]);
+
+  // Maintain selected tab when search status changes
+  useEffect(() => {
+    if (searchStatus === ESearchStatus.done && selectedIndex > 0) {
+      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
+      setTimeout(() => {
+        tabRef.current?.scrollToIndex(selectedIndex);
+      }, 0);
+    }
+  }, [searchStatus, selectedIndex]);
 
   const searchInputRef = useRef<string>('');
 
@@ -393,6 +404,7 @@ export function UniversalSearch({
   const handleTabSelectedPageIndex = useCallback(
     (index: number) => {
       setFilterType(tabTitles[index].title);
+      setSelectedIndex(index);
     },
     [tabTitles],
   );
