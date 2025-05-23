@@ -196,6 +196,7 @@ class ServiceUniversalSearch extends ServiceBase {
           tokens: getFilteredTokenBySearchKey({
             tokens: tokenListCache,
             searchKey: input,
+            allowEmptyWhenBelowMinLength: true,
           }),
           map: tokenListCacheMap,
         }),
