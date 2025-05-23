@@ -15,7 +15,6 @@ import {
   Icon,
   IconButton,
   Image,
-  NumberSizeableText,
   Page,
   Popover,
   SizableText,
@@ -102,10 +101,6 @@ type IUniversalStakeProps = {
   onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
   onFeeRateChange?: (rate: string) => void;
 
-  stakingTime?: number;
-  nextLaunchLeft?: string;
-  rewardToken?: string;
-
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   approveTarget: {
@@ -138,9 +133,6 @@ export function UniversalStake({
 
   onConfirm,
   onFeeRateChange,
-  stakingTime,
-  nextLaunchLeft,
-  rewardToken,
   protocolInfo,
   tokenInfo,
   approveType,
@@ -847,33 +839,6 @@ export function UniversalStake({
         </CalculationListItem>,
       );
     }
-    // if (showEstReceive && estReceiveToken) {
-    //   items.push(
-    //     <CalculationListItem>
-    //       <CalculationListItem.Label
-    //         size="$bodyMd"
-    //         tooltip={intl.formatMessage({
-    //           id: ETranslations.earn_est_receive_tooltip,
-    //         })}
-    //       >
-    //         {intl.formatMessage({
-    //           id: ETranslations.earn_est_receive,
-    //         })}
-    //       </CalculationListItem.Label>
-    //       <CalculationListItem.Value>
-    //         <NumberSizeableText
-    //           formatter="balance"
-    //           size="$bodyMdMedium"
-    //           formatterOptions={{ tokenSymbol: estReceiveToken }}
-    //         >
-    //           {BigNumber(amountValue)
-    //             .multipliedBy(estReceiveTokenRate)
-    //             .toFixed()}
-    //         </NumberSizeableText>
-    //       </CalculationListItem.Value>
-    //     </CalculationListItem>,
-    //   );
-    // }
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
@@ -1035,22 +1000,38 @@ export function UniversalStake({
           >
             {transactionConfirmation?.title.text || ' '}
           </SizableText>
-          {transactionConfirmation?.rewards.map((reward) => (
-            <XStack key={reward.title.text}>
-              <FormatHyperlinkText
-                size="$bodyLgMedium"
-                color={reward.title.color}
-              >
-                {reward.title.text}
-              </FormatHyperlinkText>
-              <FormatHyperlinkText
-                size="$bodyLgMedium"
-                color={reward.description.color || '$textSubdued'}
-              >
-                {reward.description.text}
-              </FormatHyperlinkText>
-            </XStack>
-          ))}
+          {transactionConfirmation?.rewards.map((reward) => {
+            const hasTooltip = reward.tooltip?.type === 'text';
+            const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
+            return (
+              <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
+                <XStack gap="$1">
+                  <FormatHyperlinkText
+                    size={textSize}
+                    color={reward.title.color}
+                  >
+                    {reward.title.text}
+                  </FormatHyperlinkText>
+                  <FormatHyperlinkText
+                    size={textSize}
+                    color={reward.description.color || '$textSubdued'}
+                  >
+                    {reward.description.text}
+                  </FormatHyperlinkText>
+                </XStack>
+                <Popover.Tooltip
+                  iconSize="$5"
+                  title={intl.formatMessage({
+                    id: ETranslations.earn_until_next_launch,
+                  })}
+                  tooltip={intl.formatMessage({
+                    id: ETranslations.earn_until_next_launch_tooltip,
+                  })}
+                  placement="top"
+                />
+              </XStack>
+            );
+          })}
         </YStack>
         {/* {btcStakeTerm ? (
           <YStack gap="$2">

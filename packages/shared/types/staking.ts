@@ -558,6 +558,7 @@ export interface IStakeTransactionConfirmation {
   rewards: Array<{
     title: IEarnText;
     description: IEarnText;
+    tooltip?: IEarnTooltip;
   }>;
   receive: {
     title: IEarnText;

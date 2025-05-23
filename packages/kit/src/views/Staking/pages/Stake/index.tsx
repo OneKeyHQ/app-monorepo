@@ -166,39 +166,6 @@ function BasicStakePage() {
     return false;
   }, [protocolInfo?.stakeDisable, providerName]);
 
-  const showEstReceive = useMemo<boolean>(
-    () =>
-      earnUtils.isLidoProvider({
-        providerName,
-      }) ||
-      earnUtils.isMorphoProvider({
-        providerName,
-      }),
-    [providerName],
-  );
-
-  const estReceiveTokenRate = useMemo(() => {
-    if (
-      earnUtils.isLidoProvider({
-        providerName,
-      })
-    ) {
-      return protocolInfo?.lidoStTokenRate;
-    }
-    if (
-      earnUtils.isMorphoProvider({
-        providerName,
-      })
-    ) {
-      return protocolInfo?.morphoTokenRate;
-    }
-    return '1';
-  }, [
-    protocolInfo?.lidoStTokenRate,
-    protocolInfo?.morphoTokenRate,
-    providerName,
-  ]);
-
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return;
@@ -269,9 +236,6 @@ function BasicStakePage() {
           isReachBabylonCap={isReachBabylonCap}
           rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
-          showEstReceive={showEstReceive}
-          estReceiveToken={rewardToken}
-          estReceiveTokenRate={estReceiveTokenRate}
           onConfirm={onConfirm}
           approveType={protocolInfo?.approve?.approveType}
           currentAllowance={currentAllowance}
