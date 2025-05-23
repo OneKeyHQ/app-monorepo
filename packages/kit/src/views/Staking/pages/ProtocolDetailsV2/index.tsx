@@ -753,8 +753,6 @@ const ProtocolDetailsPage = () => {
           maxStakeAmount: resultV1.provider.maxStakeAmount,
           maxStakeTerm: resultV1.provider.maxStakeTerm,
           stakeDisable: resultV1.provider.stakeDisable,
-          stakingTime: resultV1.provider.stakingTime,
-          nextLaunchLeft: resultV1.provider.nextLaunchLeft,
           minStakeBlocks: resultV1.provider.minStakeBlocks,
           minTransactionFee: resultV1.provider.minTransactionFee,
           unstakingTime: resultV1.provider.unstakingTime,
