@@ -1636,7 +1636,7 @@
   "market.7d": "7일",
   "market.add_number_tokens": "{number} 토큰 추가",
   "market.add_to_watchlist": "시계 목록에 추가",
-  "market.added_to_watchlist": "마켓 관심 목록에 추가됨",
+  "market.added_to_watchlist": "마켓 즐겨찾기에 추가됨",
   "market.all_time_high": "사상 최고치",
   "market.all_time_low": "사상 최저",
   "market.ath_desc": "{token}의 사상 최고가는 {time}에 {price}였으며, 현재 가격은 그 최고가에서 {percent} 하락했습니다.",
