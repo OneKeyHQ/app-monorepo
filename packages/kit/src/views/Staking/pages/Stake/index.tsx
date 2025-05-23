@@ -9,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -25,6 +26,7 @@ import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -282,7 +284,7 @@ function BasicStakePage() {
             accountId,
             networkId,
             spenderAddress: protocolInfo?.approve?.approveTarget ?? '',
-            token: tokenInfo?.token as IToken,
+            token: tokenInfo?.token,
           }}
         />
       </Page.Body>
@@ -299,7 +301,9 @@ export default function StakePage() {
       }}
       enabledNum={[0]}
     >
-      <BasicStakePage />
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <BasicStakePage />
+      </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }
