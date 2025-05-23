@@ -208,6 +208,7 @@ export const useDownloadPackage = () => {
   );
 };
 
+let isFirstLaunch = true;
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -356,10 +357,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           if (needUpdate) {
             if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
-            } else if (response?.isShowUpdateDialog) {
+            } else if (response?.isShowUpdateDialog && isFirstLaunch) {
               showUpdateDialog(false, response);
             }
           }
+          isFirstLaunch = false;
         },
       );
     }
