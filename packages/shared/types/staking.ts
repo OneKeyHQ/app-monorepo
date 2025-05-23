@@ -492,7 +492,7 @@ export interface IStakeEarnDetail {
     type: 'default';
     title: IEarnText;
     description: IEarnText;
-    button: IEarnActionIcon[];
+    button: IEarnActionIcon;
   };
   actions: (
     | IEarnDepositActionIcon

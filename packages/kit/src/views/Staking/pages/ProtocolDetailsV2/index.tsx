@@ -719,7 +719,6 @@ const ProtocolDetailsPage = () => {
           ...detailInfo.protocol,
           apyDetail: detailInfo.apyDetail,
           earnAccount,
-          apys: resultV1.provider.apys,
           activeBalance: resultV1.active,
           overflowBalance: resultV1.overflow,
           rewardAssets: resultV1.rewardAssets,

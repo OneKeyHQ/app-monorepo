@@ -60,6 +60,7 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { ActionPopupContent } from '../ProtocolDetails/GridItemV2';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
@@ -341,7 +342,7 @@ export function UniversalStake({
   const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
     providerName,
     eventEndTime: protocolInfo?.eventEndTime,
-    weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
+    // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
   });
 
   const { navigationToTxConfirm } = useSignatureConfirm({
@@ -935,19 +936,20 @@ export function UniversalStake({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
       >
-        {!btcStakeTerm && apr && Number(apr) > 0 ? (
+        {protocolInfo?.apyDetail ? (
           <XStack gap="$1" ai="center">
-            <SizableText color="$textSuccess" size="$headingLg">
-              {`${formatApy(apr)}% APY`}
+            <SizableText
+              color={protocolInfo.apyDetail.description.color || '$textSuccess'}
+              size="$headingLg"
+            >
+              {protocolInfo.apyDetail.description.text}
             </SizableText>
-            {protocolInfo?.apys ? (
+            {protocolInfo?.apyDetail.button.type === 'popup' ? (
               <Popover
                 floatingPanelProps={{
                   w: 320,
                 }}
-                title={intl.formatMessage({
-                  id: ETranslations.earn_rewards,
-                })}
+                title={protocolInfo.apyDetail.title.text}
                 renderTrigger={
                   <IconButton
                     icon="CoinsAddOutline"
@@ -955,7 +957,13 @@ export function UniversalStake({
                     variant="tertiary"
                   />
                 }
-                renderContent={null}
+                renderContent={
+                  <ActionPopupContent
+                    bulletList={protocolInfo.apyDetail.button.data.bulletList}
+                    items={protocolInfo.apyDetail.button.data.items}
+                    panel={protocolInfo.apyDetail.button.data.panel}
+                  />
+                }
                 placement="top"
               />
             ) : null}
