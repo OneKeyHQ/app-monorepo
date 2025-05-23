@@ -2819,6 +2819,8 @@
   "update.verifying": "확인 중...",
   "update.verifying_sha256_and_package_name": "SHA256 및 패키지 이름 확인 중...",
   "update.whats_new_in_onekey_version": "OneKey {version}에서 새로운 기능 👋🏻",
+  "update_notification_dialog.desc": "이번 업데이트에는 사용 경험을 향상시키기 위한 새로운 개선 사항이 포함되어 있습니다. 최고의 경험을 위해 지금 OneKey App을 업데이트하세요!",
+  "update_notification_dialog.title": "OneKey가 더 좋아졌어요!",
   "v4.select_account_name_label": "OneKey v4에서의 이름",
   "v4_migration.backed_up_warning": "모든 것을 백업하셨나요?",
   "v4_migration.backed_up_warning_desc": "데이터 마이그레이션 중 예기치 않은 문제로 인한 자산 손실을 방지하기 위해 모든 복구 구문과 개인 키를 백업했는지 확인하세요.",

@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Dialog, LottieView, Toast, YStack } from '@onekeyhq/components';
+import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
+import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
@@ -204,7 +208,10 @@ export const useDownloadPackage = () => {
   );
 };
 
+let isFirstLaunch = true;
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
+  const intl = useIntl();
+  const themeVariant = useThemeVariant();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
   const {
@@ -276,6 +283,57 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     };
   }, []);
 
+  const showUpdateDialog = useCallback(
+    (
+      isFull = false,
+      params?: {
+        latestVersion?: string;
+        isForceUpdate?: boolean;
+      },
+    ) => {
+      Dialog.show({
+        dismissOnOverlayPress: false,
+        renderIcon: (
+          <YStack
+            borderRadius="$5"
+            borderCurve="continuous"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            elevation={0.5}
+            overflow="hidden"
+          >
+            <LottieView
+              loop={false}
+              height={56}
+              width={56}
+              source={
+                themeVariant === 'light'
+                  ? UpdateNotificationLight
+                  : UpdateNotificationDark
+              }
+            />
+          </YStack>
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.update_notification_dialog_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.update_notification_dialog_desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.update_update_now,
+        }),
+        showCancelButton: false,
+        onConfirm: () => {
+          setTimeout(() => {
+            toUpdatePreviewPage(isFull, params);
+          }, 120);
+        },
+      });
+    },
+    [intl, themeVariant, toUpdatePreviewPage],
+  );
+
   // run only once
   useEffect(() => {
     if (!autoCheck) {
@@ -297,9 +355,14 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     } else {
       void checkForUpdates().then(
         ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
-          if (isForceUpdate && needUpdate) {
-            toUpdatePreviewPage(true, response);
+          if (needUpdate) {
+            if (isForceUpdate) {
+              toUpdatePreviewPage(true, response);
+            } else if (response?.isShowUpdateDialog && isFirstLaunch) {
+              showUpdateDialog(false, response);
+            }
           }
+          isFirstLaunch = false;
         },
       );
     }

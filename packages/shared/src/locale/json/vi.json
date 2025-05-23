@@ -2819,6 +2819,8 @@
   "update.verifying": "Đang xác minh...",
   "update.verifying_sha256_and_package_name": "Đang xác minh SHA256 và tên gói...",
   "update.whats_new_in_onekey_version": "Điểm mới\ntrong OneKey {version} 👋🏻",
+  "update_notification_dialog.desc": "Bản cập nhật này bao gồm những cải tiến mới để nâng cao trải nghiệm của bạn. Hãy cập nhật OneKey App ngay bây giờ để có trải nghiệm tốt nhất!",
+  "update_notification_dialog.title": "OneKey vừa được nâng cấp tốt hơn!",
   "v4.select_account_name_label": "Tên từ OneKey v4",
   "v4_migration.backed_up_warning": "Bạn đã sao lưu tất cả chưa?",
   "v4_migration.backed_up_warning_desc": "Hãy đảm bảo bạn đã sao lưu tất cả các cụm từ khôi phục và khóa riêng tư của mình để tránh mất tài sản do các vấn đề không lường trước trong quá trình di chuyển dữ liệu.",
