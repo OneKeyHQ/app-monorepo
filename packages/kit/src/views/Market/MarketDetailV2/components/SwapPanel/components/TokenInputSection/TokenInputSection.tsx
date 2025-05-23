@@ -9,7 +9,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -64,16 +66,24 @@ export function TokenInputSection({
                   open={isPopoverOpen}
                   onOpenChange={setIsPopoverOpen}
                   renderContent={
-                    <TokenList
-                      onTradePress={() => {
-                        setIsPopoverOpen(false);
+                    <AccountSelectorProviderMirror
+                      config={{
+                        sceneName: EAccountSelectorSceneName.home,
+                        sceneUrl: '',
                       }}
-                      tokens={selectableTokens}
-                      onTokenPress={(token) => {
-                        onTokenChange(token);
-                        setIsPopoverOpen(false);
-                      }}
-                    />
+                      enabledNum={[0]}
+                    >
+                      <TokenList
+                        onTradePress={() => {
+                          setIsPopoverOpen(false);
+                        }}
+                        tokens={selectableTokens}
+                        onTokenPress={(token) => {
+                          onTokenChange(token);
+                          setIsPopoverOpen(false);
+                        }}
+                      />
+                    </AccountSelectorProviderMirror>
                   }
                   renderTrigger={
                     <XStack>

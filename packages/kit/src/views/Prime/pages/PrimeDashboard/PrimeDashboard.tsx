@@ -98,6 +98,8 @@ export default function PrimeDashboard() {
     user,
     isLoggedIn,
     isPrimeSubscriptionActive,
+    privyUser,
+    authenticated,
     // logout,
   } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
@@ -126,10 +128,7 @@ export default function PrimeDashboard() {
   }, [isFocused]);
 
   const shouldShowConfirmButton = useMemo(() => {
-    if (!isLoggedIn) {
-      return true;
-    }
-    if (isLoggedIn && !isPrimeSubscriptionActive) {
+    if (!isLoggedIn || !isPrimeSubscriptionActive) {
       return true;
     }
     return false;
@@ -141,6 +140,12 @@ export default function PrimeDashboard() {
     });
   }, [ensurePrimeSubscriptionActive]);
 
+  const isLoggedInMaybe =
+    authenticated ||
+    privyUser?.id ||
+    user?.isLoggedIn ||
+    user?.isLoggedInOnServer ||
+    isLoggedIn;
   return (
     <>
       <Theme name="dark">
@@ -163,7 +168,7 @@ export default function PrimeDashboard() {
             >
               <PrimeLottieAnimation />
               <PrimeBanner />
-              {user?.isLoggedIn ? <PrimeUserInfo /> : null}
+              {isLoggedInMaybe ? <PrimeUserInfo /> : null}
             </Stack>
 
             {isReady ? <PrimeBenefitsList /> : <Spinner my="$10" />}

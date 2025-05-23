@@ -196,16 +196,6 @@ class ServiceMarket extends ServiceBase {
     return [];
   }
 
-  @backgroundMethod()
-  async fetchMarketChains() {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: ISwapNetwork[];
-    }>('/utility/v2/market/chains');
-    const { data } = response.data;
-    return data;
-  }
-
   async buildMarketWatchListSyncItems({
     watchList,
     isDeleted,
