@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -49,7 +50,6 @@ import type {
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { useSignatureConfirm } from '../../../../hooks/useSignatureConfirm';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
@@ -64,7 +64,7 @@ import { ActionPopupContent } from '../ProtocolDetails/GridItemV2';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
+import { formatStakingDistanceToNowStrict } from '../utils';
 
 type IUniversalStakeProps = {
   accountId: string;
