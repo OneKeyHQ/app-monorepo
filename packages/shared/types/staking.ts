@@ -466,7 +466,7 @@ export interface IEarnFAQItem {
 
 interface IEarnRisk {
   title: IEarnText;
-  items: {
+  items?: {
     title: IEarnText;
     description: IEarnText;
     icon: IEarnIcon;
@@ -476,6 +476,10 @@ interface IEarnRisk {
         link: string;
       };
     };
+  }[];
+  list?: {
+    title: IEarnText;
+    icon: IEarnIcon;
   }[];
 }
 
