@@ -99,7 +99,7 @@ const PageComponent = (
     <>
       {ListHeaderComponent}
       <Header
-        ref={pageManager.headerView}
+        ref={pageManager.headerView as any}
         {...pageManagerProps}
         {...headerProps}
         shouldSelectedPageIndex={shouldSelectedPageIndex}
