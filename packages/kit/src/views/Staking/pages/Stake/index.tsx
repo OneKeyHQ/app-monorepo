@@ -206,7 +206,6 @@ function BasicStakePage() {
       ? protocolInfo?.aprWithoutFee
       : undefined;
   const decimals = tokenInfo?.token.decimals || 0;
-  const rewardToken = tokenInfo?.token.symbol || '';
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -231,10 +230,7 @@ function BasicStakePage() {
           tokenSymbol={token.symbol}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
-          stakingTime={protocolInfo?.stakingTime}
-          nextLaunchLeft={protocolInfo?.nextLaunchLeft}
           isReachBabylonCap={isReachBabylonCap}
-          rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
           onConfirm={onConfirm}
           approveType={protocolInfo?.approve?.approveType}
