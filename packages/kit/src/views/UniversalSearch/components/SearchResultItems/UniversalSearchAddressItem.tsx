@@ -101,24 +101,27 @@ export function UniversalSearchAddressItem({
             linkedAccountId={item.payload.account?.id}
             linkedNetworkId={item.payload.network?.id}
           />
-          <Stack
-            mx="$1.5"
-            w="$1"
-            h="$1"
-            bg="$iconSubdued"
-            borderRadius="$full"
-          />
+          {item.payload.addressInfo?.displayAddress ? (
+            <Stack
+              mx="$1.5"
+              w="$1"
+              h="$1"
+              bg="$iconSubdued"
+              borderRadius="$full"
+            />
+          ) : null}
         </>
       );
     }
     return null;
   }, [
-    item.payload.account?.id,
     item.payload.accountsValue,
+    item.payload.addressInfo?.displayAddress,
+    item.payload.account?.id,
     item.payload.network?.id,
   ]);
 
-  if (item.payload.account) {
+  if (item.payload.account || item.payload.isSearchedByAccountName) {
     return (
       <ListItem
         onPress={handleAccountPress}

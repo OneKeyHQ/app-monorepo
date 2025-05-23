@@ -42,6 +42,7 @@ export type IUniversalSearchAddress = {
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     };
+    isSearchedByAccountName?: boolean;
   };
 };
 

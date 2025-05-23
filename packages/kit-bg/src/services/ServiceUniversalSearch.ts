@@ -764,6 +764,7 @@ class ServiceUniversalSearch extends ServiceBase {
           addressInfo: result.addressInfo,
           accountInfo: result.accountInfo,
           accountsValue: result.accountsValue,
+          isSearchedByAccountName: true,
         },
       };
     });
