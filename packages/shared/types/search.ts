@@ -32,16 +32,17 @@ export type IUniversalSearchAddress = {
   type: EUniversalSearchType.Address;
   payload: {
     wallet: IDBWallet | undefined;
-    account: INetworkAccount;
-    indexedAccount: IDBIndexedAccount;
-    network: IServerNetwork;
-    addressInfo: IAddressValidation;
+    account?: INetworkAccount;
+    indexedAccount?: IDBIndexedAccount;
+    network?: IServerNetwork;
+    addressInfo?: IAddressValidation;
     accountInfo?: IUniversalSearchAccountInfo;
     accountsValue?: {
       accountId: string;
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     };
+    isSearchedByAccountName?: boolean;
   };
 };
 

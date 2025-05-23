@@ -12,6 +12,7 @@ import {
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -370,6 +371,11 @@ class ServiceUniversalSearch extends ServiceBase {
     const { serviceValidator } = this.backgroundApi;
     const trimmedInput = input.trim();
 
+    // Always search for account names regardless of address validation
+    const accountNameSearchPromise = this.searchAccountsByName({
+      searchTerm: trimmedInput,
+    });
+
     // Step 1: Get supported networks and batch validate
     const networkIdList = await this.getUniversalValidateNetworkIds();
     const batchValidateResult =
@@ -378,9 +384,15 @@ class ServiceUniversalSearch extends ServiceBase {
         accountAddress: trimmedInput,
       });
 
+    // Execute account name search in parallel
+    const accountNameResults = await accountNameSearchPromise;
+
     if (!batchValidateResult.isValid) {
-      return { items: [] } as IUniversalSearchSingleResult;
+      // If address validation fails, return only account name search results
+      return accountNameResults;
     }
+
+    let addressSearchItems: IUniversalSearchResultItem[] = [];
 
     // Step 2: Check if address belongs to internal wallets for valid networks
     for (const validNetworkId of batchValidateResult.networkIds) {
@@ -396,21 +408,39 @@ class ServiceUniversalSearch extends ServiceBase {
         });
 
         if (internalItems.length > 0) {
+          addressSearchItems.push(...internalItems);
           console.log(
-            '[universalSearchOfAddress] internalItems: ',
+            '[universalSearchOfAddress] internalItems from network',
+            validNetworkId,
+            ':',
             internalItems,
           );
-          return { items: internalItems } as IUniversalSearchSingleResult;
         }
       }
     }
 
-    // Step 3: If not internal account, proceed with external address search
-    return this.findExternalAddresses({
-      input: trimmedInput,
-      networkId,
-      batchValidateResult,
-    });
+    // Step 3: If no internal accounts found, search for external addresses
+    if (addressSearchItems.length === 0) {
+      const externalAddressResults = await this.findExternalAddresses({
+        input: trimmedInput,
+        networkId,
+        batchValidateResult,
+      });
+      addressSearchItems = externalAddressResults.items;
+      console.log('[universalSearchOfAddress] externalItems: ', {
+        items: addressSearchItems,
+      });
+    }
+
+    // Step 4: Merge results with address search results having priority
+    const mergedItems = [
+      ...addressSearchItems, // Address search results first (higher priority)
+      ...accountNameResults.items, // Account name search results second
+    ];
+
+    console.log('[universalSearchOfAddress] mergedItems: ', mergedItems);
+
+    return { items: mergedItems } as IUniversalSearchSingleResult;
   }
 
   private async findInternalWalletAccounts({
@@ -591,7 +621,7 @@ class ServiceUniversalSearch extends ServiceBase {
         });
         if (
           currentImpl === IMPL_EVM &&
-          item.payload.network.impl === currentImpl
+          item.payload.network?.impl === currentImpl
         ) {
           item.payload.network = currentNetwork;
           return 0;
@@ -599,6 +629,175 @@ class ServiceUniversalSearch extends ServiceBase {
       }
       return 1;
     });
+  }
+
+  private async searchAccountsByName({
+    searchTerm,
+  }: {
+    searchTerm: string;
+  }): Promise<IUniversalSearchSingleResult> {
+    const {
+      serviceAccount,
+      serviceNetwork,
+      serviceAccountProfile,
+      serviceValidator,
+    } = this.backgroundApi;
+
+    if (!searchTerm.trim()) {
+      return { items: [] } as IUniversalSearchSingleResult;
+    }
+
+    const threshold = 0.3;
+    const maxResults = 20;
+    const includeScore = true;
+    const includeMatches = true;
+    const shouldSort = true;
+    const minMatchCharLength = 3;
+
+    // search indexed accounts
+    const { indexedAccounts } = await serviceAccount.getAllIndexedAccounts({
+      filterRemoved: true,
+    });
+    const indexedAccountsFuse = buildFuse(indexedAccounts, {
+      keys: ['name'],
+      threshold,
+      includeScore,
+      includeMatches,
+      minMatchCharLength,
+      shouldSort,
+    });
+    const indexedAccountsSearchResult = indexedAccountsFuse.search(searchTerm);
+    const indexedAccountsResults = indexedAccountsSearchResult
+      .slice(0, maxResults)
+      .map(async (i) => {
+        try {
+          const wallet = await serviceAccount.getWalletSafe({
+            walletId: i.item.walletId,
+          });
+          const accountsValue = (
+            await serviceAccountProfile.getAccountsValue({
+              accounts: [{ accountId: i.item.id }],
+            })
+          )?.[0];
+          return {
+            wallet,
+            indexedAccount: i.item,
+            accountsValue,
+            accountInfo: {
+              accountId: i.item.id,
+              formattedName: `${wallet?.name || ''} / ${i.item.name}`,
+            },
+            score: i.score,
+            network: undefined,
+            account: undefined,
+            addressInfo: undefined,
+          };
+        } catch (e) {
+          console.error('Failed to get indexed account data:', e);
+          return null;
+        }
+      });
+
+    // search other accounts
+    const { accounts } = await serviceAccount.getAllAccounts({
+      filterRemoved: true,
+    });
+    const otherAccounts = accounts.filter((account) =>
+      accountUtils.isOthersAccount({ accountId: account.id }),
+    );
+    const otherAccountsFuse = buildFuse(otherAccounts, {
+      keys: ['name'],
+      threshold,
+      includeScore,
+      includeMatches,
+      minMatchCharLength,
+      shouldSort,
+    });
+    const otherAccountsSearchResult = otherAccountsFuse.search(searchTerm);
+    const otherAccountsResults = otherAccountsSearchResult
+      .slice(0, maxResults)
+      .map(async (i) => {
+        try {
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: i.item.id,
+          });
+          const wallet = await serviceAccount.getWalletSafe({
+            walletId,
+          });
+          const network = await serviceNetwork.getNetworkSafe({
+            networkId: i.item.createAtNetwork,
+          });
+          const accountsValue = (
+            await serviceAccountProfile.getAccountsValue({
+              accounts: [{ accountId: i.item.id }],
+            })
+          )?.[0];
+          const localValidateResult =
+            await serviceValidator.localValidateAddress({
+              networkId: i.item.createAtNetwork ?? '',
+              address: i.item.address,
+            });
+          return {
+            wallet,
+            network,
+            account: i.item,
+            accountsValue,
+            addressInfo: localValidateResult,
+            accountInfo: {
+              accountId: i.item.id,
+              formattedName: `${wallet?.name || ''} / ${i.item.name}`,
+            },
+            score: i.score,
+            indexedAccount: undefined,
+          };
+        } catch (e) {
+          console.error('Failed to get other account data:', e);
+          return null;
+        }
+      });
+
+    const allResults = [
+      ...(await Promise.all(indexedAccountsResults)),
+      ...(await Promise.all(otherAccountsResults)),
+    ]
+      .filter(Boolean)
+      .sort((a, b) => {
+        // Sort by accountsValue.value first (higher weight), then by score
+        const aValue = Number(a?.accountsValue?.value) || 0;
+        const bValue = Number(b?.accountsValue?.value) || 0;
+        const aScore = a?.score ?? 0;
+        const bScore = b?.score ?? 0;
+
+        // If values are different, prioritize higher value
+        if (aValue !== bValue) {
+          return bValue - aValue;
+        }
+
+        // If values are same, prioritize higher score
+        return bScore - aScore;
+      })
+      .slice(0, maxResults);
+
+    // Format results as IUniversalSearchAddress items
+    const items = allResults.map((result) => {
+      return {
+        type: EUniversalSearchType.Address,
+        payload: {
+          wallet: result.wallet,
+          account: result.account,
+          indexedAccount: result.indexedAccount,
+          network: result.network,
+          addressInfo: result.addressInfo,
+          accountInfo: result.accountInfo,
+          accountsValue: result.accountsValue,
+          isSearchedByAccountName: true,
+        },
+      };
+    });
+
+    console.log('[searchAccountsByName] items: ', items);
+
+    return { items } as IUniversalSearchSingleResult;
   }
 
   async universalSearchOfDapp({

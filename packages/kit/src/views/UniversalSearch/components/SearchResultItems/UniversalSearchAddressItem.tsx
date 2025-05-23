@@ -32,21 +32,21 @@ export function UniversalSearchAddressItem({
     navigation.pop();
     if (
       accountUtils.isOthersAccount({
-        accountId: item.payload.account.id,
+        accountId: item.payload.account?.id,
       })
     ) {
       await accountSelectorActions.current.confirmAccountSelect({
         num: 0,
         indexedAccount: undefined,
         othersWalletAccount: item.payload.account,
-        forceSelectToNetworkId: item.payload.network.id,
+        forceSelectToNetworkId: item.payload.network?.id,
       });
     } else {
       await accountSelectorActions.current.confirmAccountSelect({
         num: 0,
         indexedAccount: item.payload.indexedAccount,
         othersWalletAccount: undefined,
-        forceSelectToNetworkId: item.payload.network.id,
+        forceSelectToNetworkId: item.payload.network?.id,
       });
     }
   }, [accountSelectorActions, item.payload, navigation]);
@@ -55,6 +55,9 @@ export function UniversalSearchAddressItem({
     navigation.pop();
     setTimeout(async () => {
       const { network, addressInfo } = item.payload;
+      if (!network || !addressInfo) {
+        return;
+      }
       navigation.switchTab(ETabRoutes.Home);
       await urlAccountNavigation.pushUrlAccountPage(navigation, {
         address: addressInfo.displayAddress,
@@ -86,18 +89,18 @@ export function UniversalSearchAddressItem({
   ]);
 
   const renderAccountValue = useCallback(() => {
-    if (item.payload.accountsValue?.value) {
-      return (
-        <>
-          <AccountValueWithSpotlight
-            isOthersUniversal={accountUtils.isOthersAccount({
-              accountId: item.payload.account.id,
-            })}
-            index={0}
-            accountValue={item.payload.accountsValue}
-            linkedAccountId={item.payload.account.id}
-            linkedNetworkId={item.payload.network.id}
-          />
+    return (
+      <>
+        <AccountValueWithSpotlight
+          isOthersUniversal={accountUtils.isOthersAccount({
+            accountId: item.payload.account?.id,
+          })}
+          index={0}
+          accountValue={item.payload.accountsValue}
+          linkedAccountId={item.payload.account?.id}
+          linkedNetworkId={item.payload.network?.id}
+        />
+        {item.payload.addressInfo?.displayAddress ? (
           <Stack
             mx="$1.5"
             w="$1"
@@ -105,17 +108,17 @@ export function UniversalSearchAddressItem({
             bg="$iconSubdued"
             borderRadius="$full"
           />
-        </>
-      );
-    }
-    return null;
+        ) : null}
+      </>
+    );
   }, [
-    item.payload.account?.id,
     item.payload.accountsValue,
-    item.payload.network.id,
+    item.payload.addressInfo?.displayAddress,
+    item.payload.account?.id,
+    item.payload.network?.id,
   ]);
 
-  if (item.payload.account) {
+  if (item.payload.account || item.payload.isSearchedByAccountName) {
     return (
       <ListItem
         onPress={handleAccountPress}
@@ -143,9 +146,9 @@ export function UniversalSearchAddressItem({
                 {renderAccountValue()}
                 <AccountAddress
                   num={0}
-                  linkedNetworkId={item.payload.network.id}
+                  linkedNetworkId={item.payload.network?.id}
                   address={accountUtils.shortenAddress({
-                    address: item.payload.addressInfo.displayAddress,
+                    address: item.payload.addressInfo?.displayAddress,
                   })}
                   isEmptyAddress={false}
                 />
@@ -153,7 +156,7 @@ export function UniversalSearchAddressItem({
             }
           />
         )}
-        subtitle={item.payload.addressInfo.displayAddress}
+        subtitle={item.payload.addressInfo?.displayAddress}
       />
     );
   }
@@ -162,11 +165,11 @@ export function UniversalSearchAddressItem({
     <ListItem
       onPress={handleAddressPress}
       renderAvatar={
-        <NetworkAvatar networkId={item.payload.network.id} size="$10" />
+        <NetworkAvatar networkId={item.payload.network?.id} size="$10" />
       }
-      title={item.payload.network.shortname}
+      title={item.payload.network?.shortname}
       subtitle={accountUtils.shortenAddress({
-        address: item.payload.addressInfo.displayAddress,
+        address: item.payload.addressInfo?.displayAddress,
       })}
     />
   );
