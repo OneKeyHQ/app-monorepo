@@ -197,7 +197,8 @@ export abstract class CoreChainApiBase {
     },
   ): Promise<ICoreApiGetAddressesResult> {
     const { curve, generateFrom } = options;
-    const { template, hdCredential, password, indexes } = query;
+    const { template, hdCredential, password, indexes, addressEncoding } =
+      query;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
@@ -244,6 +245,7 @@ export abstract class CoreChainApiBase {
             networkInfo: query.networkInfo,
             privateKeyRaw,
             privateKeyInfo: info,
+            addressEncoding,
           });
         } else {
           publicKey = key.toString('hex');
@@ -251,6 +253,7 @@ export abstract class CoreChainApiBase {
             networkInfo: query.networkInfo,
             publicKey,
             publicKeyInfo: info,
+            addressEncoding,
           });
         }
 

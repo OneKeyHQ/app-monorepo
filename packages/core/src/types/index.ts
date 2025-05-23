@@ -33,12 +33,19 @@ export type ICoreApiGetAddressesQueryHdBase = {
   hdCredential: ICoreHdCredentialEncryptHex;
   password: string;
   indexes: number[];
+  addressEncoding: EAddressEncodings | undefined;
 };
 export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
-export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
+export type ICoreApiGetAddressesQueryHdBtc = Omit<
+  ICoreApiGetAddressesQueryHdBase,
+  'addressEncoding'
+> & {
   addressEncoding: EAddressEncodings;
 };
-export type ICoreApiGetAddressesQueryHdTon = ICoreApiGetAddressesQueryHdBase & {
+export type ICoreApiGetAddressesQueryHdTon = Omit<
+  ICoreApiGetAddressesQueryHdBase,
+  'addressEncoding'
+> & {
   addressEncoding: EAddressEncodings;
 };
 
@@ -60,9 +67,14 @@ export type ICoreApiGetAddressQueryImportedTon =
   ICoreApiGetAddressQueryImportedBase & {
     addressEncoding: EAddressEncodings | undefined;
   };
+export type ICoreApiGetAddressQueryImportedKaspa =
+  ICoreApiGetAddressQueryImportedBase & {
+    addressEncoding: EAddressEncodings | undefined;
+  };
 export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBase
-  | ICoreApiGetAddressQueryImportedBtc;
+  | ICoreApiGetAddressQueryImportedBtc
+  | ICoreApiGetAddressQueryImportedKaspa;
 export type ICoreApiGetAddressQueryPublicKey = {
   networkInfo: ICoreApiNetworkInfo;
   publicKey: string; // xpub in BTC and other UTXO chain
@@ -129,6 +141,9 @@ export type ICoreApiSignBasePayload = {
   account: ICoreApiSignAccount;
   relPaths?: string[]; // used for get privateKey of other utxo address
   signOnly?: boolean;
+
+  // addressEncoding other derive address
+  addressEncoding?: EAddressEncodings;
 };
 export type ICoreApiSignBtcExtraInfo = {
   inputAddressesEncodings?: Array<EAddressEncodings | undefined>;

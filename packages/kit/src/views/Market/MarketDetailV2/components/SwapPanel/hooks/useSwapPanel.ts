@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useAtom } from 'jotai';
@@ -10,7 +10,9 @@ import { useTradeType } from './useTradeType';
 
 import type { IToken } from '../types';
 
-export function useSwapPanel() {
+export function useSwapPanel({
+  networkId: networkIdProp,
+}: { networkId?: string } = {}) {
   const { tradeType, setTradeType } = useTradeType();
   const [isApproved, setIsApproved] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState<BigNumber>(
@@ -22,6 +24,12 @@ export function useSwapPanel() {
   const { balance, setBalance, balanceToken } = useBalance({
     token: paymentToken,
   });
+
+  useEffect(() => {
+    if (networkIdProp) {
+      setNetworkId(networkIdProp);
+    }
+  }, [networkIdProp, setNetworkId]);
 
   const handleAntiMEVToggle = useCallback(() => {
     setAntiMEV((prev) => !prev);

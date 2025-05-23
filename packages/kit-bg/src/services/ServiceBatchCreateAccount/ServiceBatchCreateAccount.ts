@@ -610,6 +610,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                     path,
                     template: deriveInfo.template,
                     index: i,
+                    addressEncoding: deriveInfo.addressEncoding,
                   });
                 if (allNetworkPrepareParam) {
                   allNetworkPrepareParam.showOnOneKey =

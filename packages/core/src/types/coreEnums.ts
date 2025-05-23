@@ -15,5 +15,7 @@ export enum EAddressEncodings {
   ALPH_P2C = 'P2C',
 
   TON_V4R2 = 'v4R2',
+
+  KASPA_ORG = 'KaspaOrg',
 }
 // export enum AddressEncodings = EAddressEncodings
