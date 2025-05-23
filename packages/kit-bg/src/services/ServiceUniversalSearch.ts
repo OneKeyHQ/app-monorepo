@@ -371,6 +371,11 @@ class ServiceUniversalSearch extends ServiceBase {
     const { serviceValidator } = this.backgroundApi;
     const trimmedInput = input.trim();
 
+    // Always search for account names regardless of address validation
+    const accountNameSearchPromise = this.searchAccountsByName({
+      searchTerm: trimmedInput,
+    });
+
     // Step 1: Get supported networks and batch validate
     const networkIdList = await this.getUniversalValidateNetworkIds();
     const batchValidateResult =
@@ -379,12 +384,15 @@ class ServiceUniversalSearch extends ServiceBase {
         accountAddress: trimmedInput,
       });
 
+    // Execute account name search in parallel
+    const accountNameResults = await accountNameSearchPromise;
+
     if (!batchValidateResult.isValid) {
-      return this.searchAccountsByName({
-        searchTerm: trimmedInput,
-      });
-      // return { items: [] } as IUniversalSearchSingleResult;
+      // If address validation fails, return only account name search results
+      return accountNameResults;
     }
+
+    let addressSearchItems: IUniversalSearchResultItem[] = [];
 
     // Step 2: Check if address belongs to internal wallets for valid networks
     for (const validNetworkId of batchValidateResult.networkIds) {
@@ -400,21 +408,39 @@ class ServiceUniversalSearch extends ServiceBase {
         });
 
         if (internalItems.length > 0) {
+          addressSearchItems.push(...internalItems);
           console.log(
-            '[universalSearchOfAddress] internalItems: ',
+            '[universalSearchOfAddress] internalItems from network',
+            validNetworkId,
+            ':',
             internalItems,
           );
-          return { items: internalItems } as IUniversalSearchSingleResult;
         }
       }
     }
 
-    // Step 3: If not internal account, proceed with external address search
-    return this.findExternalAddresses({
-      input: trimmedInput,
-      networkId,
-      batchValidateResult,
-    });
+    // Step 3: If no internal accounts found, search for external addresses
+    if (addressSearchItems.length === 0) {
+      const externalAddressResults = await this.findExternalAddresses({
+        input: trimmedInput,
+        networkId,
+        batchValidateResult,
+      });
+      addressSearchItems = externalAddressResults.items;
+      console.log('[universalSearchOfAddress] externalItems: ', {
+        items: addressSearchItems,
+      });
+    }
+
+    // Step 4: Merge results with address search results having priority
+    const mergedItems = [
+      ...addressSearchItems, // Address search results first (higher priority)
+      ...accountNameResults.items, // Account name search results second
+    ];
+
+    console.log('[universalSearchOfAddress] mergedItems: ', mergedItems);
+
+    return { items: mergedItems } as IUniversalSearchSingleResult;
   }
 
   private async findInternalWalletAccounts({
