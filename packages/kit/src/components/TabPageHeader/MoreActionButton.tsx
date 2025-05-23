@@ -59,6 +59,7 @@ import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/component
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
+import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
@@ -92,6 +93,7 @@ function MoreActionContentHeader() {
   const { user } = usePrimeAuthV2();
   const [devSettings] = useDevSettingsPersistAtom();
   const { closePopover } = usePopoverContext();
+  const { isPrimeAvailable } = usePrimeAvailable();
 
   const { loginOneKeyId } = useLoginOneKeyId();
 
@@ -134,7 +136,7 @@ function MoreActionContentHeader() {
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
       </XStack>
       <XStack gap="$5">
-        {devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
+        {isPrimeAvailable ? (
           <PrimeHeaderIconButtonLazy
             key="prime"
             visible

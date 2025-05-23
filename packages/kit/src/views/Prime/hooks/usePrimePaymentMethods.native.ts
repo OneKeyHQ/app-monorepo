@@ -3,15 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  REVENUECAT_API_KEY_APPLE,
-  REVENUECAT_API_KEY_GOOGLE,
-} from '@onekeyhq/shared/src/consts/primeConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
@@ -21,11 +17,33 @@ import type {
 } from './usePrimePaymentTypes';
 import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
 
-export function usePrimePayment(): IUsePrimePayment {
+void (async () => {
+  if (process.env.NODE_ENV !== 'production') {
+    await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+    // TODO VPN required
+    await Purchases.setProxyURL('https://api.rc-backup.com/');
+  }
+})();
+
+export function usePrimePaymentMethods(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
   const { isReady: isAuthReady, user } = usePrimeAuthV2();
 
   const [, setPrimePersistAtom] = usePrimePersistAtom();
+
+  // TODO move to jotai context
+  useEffect(() => {
+    void (async () => {
+      const { apiKey } = await getPrimePaymentApiKey({
+        apiKeyType: 'native',
+      });
+      Purchases.configure({
+        apiKey,
+        // useAmazon: true
+      });
+      setIsPaymentReady(true);
+    })();
+  }, []);
 
   const isReady = isPaymentReady && isAuthReady;
 
@@ -65,48 +83,6 @@ export function usePrimePayment(): IUsePrimePayment {
 
     return customerInfo;
   }, [isReady, setPrimePersistAtom, user?.privyUserId]);
-
-  const getApiKey = useCallback(async () => {
-    if (process.env.NODE_ENV !== 'production') {
-      await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-      // TODO VPN required
-      await Purchases.setProxyURL('https://api.rc-backup.com/');
-    }
-
-    let apiKey = '';
-    if (platformEnv.isNativeIOS) {
-      apiKey = REVENUECAT_API_KEY_APPLE || '';
-    }
-    if (platformEnv.isNativeAndroid) {
-      apiKey = REVENUECAT_API_KEY_GOOGLE || '';
-    }
-    if (!apiKey) {
-      throw new Error('No REVENUECAT api key found');
-    }
-
-    return apiKey;
-  }, []);
-
-  // TODO move to jotai context
-  useEffect(() => {
-    void (async () => {
-      const apiKey = await getApiKey();
-
-      Purchases.configure({
-        apiKey,
-        // useAmazon: true
-      });
-      setIsPaymentReady(true);
-    })();
-  }, [getApiKey]);
-
-  useEffect(() => {
-    void (async () => {
-      if (isReady && user?.privyUserId) {
-        await getCustomerInfo();
-      }
-    })();
-  }, [getCustomerInfo, isReady, user?.privyUserId]);
 
   const getPackagesNative = useCallback(async () => {
     if (!isReady) {

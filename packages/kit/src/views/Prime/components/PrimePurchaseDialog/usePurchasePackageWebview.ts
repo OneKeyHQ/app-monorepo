@@ -7,8 +7,8 @@ import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { getPrimePaymentApiKey } from '../../hooks/getPrimePaymentApiKey';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-import { getPrimePaymentWebApiKey } from '../../hooks/usePrimePaymentWebApiKey';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
@@ -23,7 +23,9 @@ export function usePurchasePackageWebview({
 
   const purchasePackageWebview = useCallback(async () => {
     navigation.popStack();
-    const apiKey = await getPrimePaymentWebApiKey();
+    const { apiKey } = await getPrimePaymentApiKey({
+      apiKeyType: 'web',
+    });
 
     openUrlUtils.openUrlByWebviewPro({
       url: '',

@@ -49,7 +49,7 @@ function getDeviceIcon(device: IPrimeDeviceInfo): IKeyOfIcons {
 }
 
 export default function PrimeDeviceLimit() {
-  const { logout, getAccessToken } = usePrimeAuthV2();
+  const { getAccessToken } = usePrimeAuthV2();
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { formatDistanceToNow } = useFormatDate();
@@ -76,10 +76,6 @@ export default function PrimeDeviceLimit() {
       watchLoading: true,
     },
   );
-
-  const logoutCurrentDevice = async () => {
-    await logout();
-  };
 
   const logoutOtherDevices = async ({
     instanceId,
