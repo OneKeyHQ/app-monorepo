@@ -70,6 +70,7 @@ export function useSearchModalData(searchValue: string) {
         searchResult?.filter((item) => !item.isExactUrl) || [];
       setSearchList([
         ...exactUrlResults,
+        ...otherResults,
         {
           dappId: SEARCH_ITEM_ID,
           name: `${intl.formatMessage({
@@ -78,7 +79,6 @@ export function useSearchModalData(searchValue: string) {
           url: '',
           logo: GOOGLE_LOGO_URL,
         } as IDApp,
-        ...otherResults,
       ]);
     })();
   }, [searchValue, searchResult, intl]);
