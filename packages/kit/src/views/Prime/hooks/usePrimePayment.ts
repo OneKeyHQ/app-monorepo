@@ -41,6 +41,8 @@ export function usePrimePayment(): IUsePrimePayment {
           customerInfo?.entitlements?.active?.Prime?.willRenew;
         const localIsSandbox =
           customerInfo?.entitlements?.active?.Prime?.isSandbox;
+        const localSubscriptionManageUrl = customerInfo?.managementURL;
+
         let localExpiresAt = 0;
         if (
           customerInfoNative?.entitlements?.active?.Prime?.expirationDateMillis
@@ -55,22 +57,27 @@ export function usePrimePayment(): IUsePrimePayment {
             0;
         }
 
-        console.log('prime payment status', {
+        console.log('prime payment status ===========================', {
           local: {
             $customerInfo: customerInfo,
             isActive: localIsActive,
             willRenew: localWillRenew,
             expiresAt: localExpiresAt,
             isSandbox: localIsSandbox,
+            subscriptionManageUrl: localSubscriptionManageUrl,
           },
           server: {
             $user: userRef.current,
             isActive: userRef.current.primeSubscription?.isActive,
             expiresAt: userRef.current.primeSubscription?.expiresAt,
+            willRenew: userRef.current.primeSubscription?.willRenew,
+            subscriptions: userRef.current.primeSubscription?.subscriptions,
           },
         });
         if (localIsActive !== userRef.current.primeSubscription?.isActive) {
-          console.log('prime payment status not match');
+          console.log(
+            'prime payment status not match ===========================',
+          );
         }
       }
     })();

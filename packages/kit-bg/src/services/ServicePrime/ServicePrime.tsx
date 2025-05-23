@@ -202,6 +202,8 @@ class ServicePrime extends ServiceBase {
       primeSubscription = {
         isActive: true,
         expiresAt: serverUserInfo.primeExpiredAt,
+        willRenew: serverUserInfo.willRenew,
+        subscriptions: serverUserInfo.subscriptions,
       };
     } else {
       primeSubscription = undefined;

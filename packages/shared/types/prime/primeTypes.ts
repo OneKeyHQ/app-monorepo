@@ -1,6 +1,11 @@
 export type IPrimeSubscriptionInfo = {
   isActive: boolean;
   expiresAt: number;
+  subscriptions?: {
+    id?: string;
+    managementUrl?: string;
+  }[];
+  willRenew?: boolean;
 };
 export type IPrimeUserInfo = {
   isLoggedIn: boolean; // local privy sdk login status
@@ -40,6 +45,7 @@ export type IPrimeServerUserInfo = {
     id?: string;
     managementUrl?: string;
   }[];
+  willRenew?: boolean;
   // isLogin
 
   inviteCode: string;
