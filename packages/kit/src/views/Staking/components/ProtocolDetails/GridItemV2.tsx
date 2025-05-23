@@ -14,8 +14,8 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
@@ -141,7 +141,7 @@ function RewardAmountPopoverContent({
   onHistory?: (params?: { filterType?: string }) => void;
 }) {
   const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(async () => {
+  const handleHistoryPress = useCallback(async () => {
     await closePopover?.();
     setTimeout(() => {
       onHistory?.({ filterType: 'rebate' });
@@ -170,11 +170,14 @@ function RewardAmountPopoverContent({
             key={index}
             jc="space-between"
             pt="$4"
-            onPress={isHistoryButton ? handlePress : undefined}
+            onPress={isHistoryButton ? handleHistoryPress : undefined}
           >
-            <SizableText size="$bodyMdMedium" color={item?.title?.color}>
+            <FormatHyperlinkText
+              size="$bodyMdMedium"
+              color={item?.title?.color}
+            >
               {item?.title?.text}
-            </SizableText>
+            </FormatHyperlinkText>
             {isHistoryButton ? (
               <XStack gap="$0.5" cursor="pointer">
                 <SizableText size="$bodyMd" color="$textSubdued">
@@ -343,9 +346,9 @@ export function GridItem({
       </XStack>
       <XStack gap="$1" alignItems="center">
         {description ? (
-          <SizableText size="$bodyLgMedium" color={description.color}>
+          <FormatHyperlinkText size="$bodyLgMedium" color={description.color}>
             {description.text}
-          </SizableText>
+          </FormatHyperlinkText>
         ) : null}
         {actionIconButton}
       </XStack>

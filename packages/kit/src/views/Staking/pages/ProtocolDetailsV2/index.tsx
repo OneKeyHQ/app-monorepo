@@ -22,6 +22,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -210,7 +211,6 @@ function ProtocolRewards({
   return rewards ? (
     <YStack
       gap="$2.5"
-      mt="$3"
       py="$3.5"
       px="$4"
       borderRadius="$3"
@@ -253,24 +253,28 @@ function ProtocolRewards({
                   size="small"
                   variant="primary"
                   onPress={async () => {
-                    const claimAmount = protocolInfo?.claimable || '0';
+                    // TODO: need fiatValue
+                    const claimAmount =
+                      token?.title?.text?.split(' ')?.[0] || '0';
+                    const isMorphoClaim = !!(
+                      tokenInfo?.provider &&
+                      earnUtils.isMorphoProvider({
+                        providerName: tokenInfo?.provider,
+                      })
+                    );
+                    const newRewardToken = token.token;
                     await handleClaim({
-                      symbol: token.token.symbol,
+                      symbol: rewardToken.symbol,
                       protocolInfo,
                       tokenInfo: tokenInfo
                         ? {
                             ...tokenInfo,
-                            token: rewardToken || token.token,
+                            token: newRewardToken,
                           }
                         : undefined,
                       claimAmount,
-                      claimTokenAddress: tokenInfo?.token.address,
-                      isMorphoClaim: !!(
-                        tokenInfo?.provider &&
-                        earnUtils.isMorphoProvider({
-                          providerName: tokenInfo?.provider,
-                        })
-                      ),
+                      claimTokenAddress: newRewardToken.address,
+                      isMorphoClaim,
                       stakingInfo: {
                         label: EEarnLabels.Claim,
                         protocol: earnUtils.getEarnProviderName({
@@ -278,13 +282,13 @@ function ProtocolRewards({
                         }),
                         protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
-                          token: token.token,
+                          token: newRewardToken,
                           amount: claimAmount,
                         },
                         tags: [
                           buildLocalTxStatusSyncId({
                             providerName: tokenInfo?.provider || '',
-                            tokenSymbol: token.token.symbol,
+                            tokenSymbol: newRewardToken.symbol,
                           }),
                         ],
                       },
@@ -344,9 +348,12 @@ function PortfolioSection({
             >
               <XStack alignItems="center" gap="$1.5">
                 <Token size="sm" tokenImageUri={item.token.logoURI} />
-                <SizableText size="$bodyLgMedium" color={item.title.color}>
+                <FormatHyperlinkText
+                  size="$bodyLgMedium"
+                  color={item.title.color}
+                >
                   {item.title.text}
-                </SizableText>
+                </FormatHyperlinkText>
                 <SizableText
                   size="$bodyLgMedium"
                   color={item.description.color}
@@ -390,27 +397,26 @@ function PortfolioSection({
                   variant="primary"
                   onPress={async () => {
                     const claimAmount = protocolInfo?.claimable || '0';
+                    const newTokenInfo = {
+                      ...tokenInfo,
+                      token: item.token,
+                    };
                     await handleClaim({
                       symbol: item.token.symbol,
                       protocolInfo,
-                      tokenInfo: tokenInfo
-                        ? {
-                            ...tokenInfo,
-                            token: item.token,
-                          }
-                        : undefined,
+                      tokenInfo: newTokenInfo as IEarnTokenInfo,
                       claimAmount,
-                      claimTokenAddress: tokenInfo?.token.address,
+                      claimTokenAddress: newTokenInfo?.token.address,
                       isMorphoClaim: !!(
-                        tokenInfo?.provider &&
+                        newTokenInfo?.provider &&
                         earnUtils.isMorphoProvider({
-                          providerName: tokenInfo?.provider,
+                          providerName: newTokenInfo.provider,
                         })
                       ),
                       stakingInfo: {
                         label: EEarnLabels.Claim,
                         protocol: earnUtils.getEarnProviderName({
-                          providerName: tokenInfo?.provider || '',
+                          providerName: newTokenInfo?.provider || '',
                         }),
                         protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
@@ -419,7 +425,7 @@ function PortfolioSection({
                         },
                         tags: [
                           buildLocalTxStatusSyncId({
-                            providerName: tokenInfo?.provider || '',
+                            providerName: newTokenInfo?.provider || '',
                             tokenSymbol: item.token.symbol,
                           }),
                         ],
@@ -436,30 +442,27 @@ function PortfolioSection({
     },
     [handleClaim, protocolInfo, tokenInfo],
   );
-  return portfolios?.items?.length ? (
+  return portfolios?.items?.length || rewards?.tokens?.length ? (
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
           <SizableText size="$headingLg" color={portfolios.title.color}>
             {portfolios.title.text}
           </SizableText>
-          {/* {onPortfolioDetails !== undefined ? (
-       <Button
-         variant="tertiary"
-         iconAfter="ChevronRightOutline"
-         onPress={onPortfolioDetails}
-       >
-         {intl.formatMessage({ id: ETranslations.global_details })}
-       </Button>
-     ) : null} */}
         </XStack>
-        <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
-        <ProtocolRewards
-          rewardToken={portfolios.items?.[0]?.token}
-          rewards={rewards}
-          tokenInfo={tokenInfo}
-          protocolInfo={protocolInfo}
-        />
+        <YStack gap="$3">
+          {portfolios?.items.length ? (
+            <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
+          ) : null}
+          {rewards?.tokens.length ? (
+            <ProtocolRewards
+              rewardToken={portfolios.items?.[0]?.token}
+              rewards={rewards}
+              tokenInfo={tokenInfo}
+              protocolInfo={protocolInfo}
+            />
+          ) : null}
+        </YStack>
       </YStack>
       <Divider />
     </>

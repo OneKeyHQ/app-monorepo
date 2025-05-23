@@ -2,14 +2,20 @@
 import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
+import { createIntl, useIntl } from 'react-intl';
 
-import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
+import {
+  type ISizableTextProps,
+  SizableText,
+  getFontSize,
+} from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import useParseQRCode from '../../views/ScanQrCode/hooks/useParseQRCode';
+
+import type { FontSizeTokens } from 'tamagui';
 
 export type IHyperlinkTextProps = {
   translationId?: ETranslations;
@@ -26,11 +32,18 @@ export type IHyperlinkTextProps = {
   underlineTextProps?: ISizableTextProps;
   boldTextProps?: ISizableTextProps;
   textProps?: ISizableTextProps;
+  subscriptsTextProps?: ISizableTextProps;
+  scoped?: boolean;
 } & ISizableTextProps;
+
+const defaultIntl = createIntl({
+  locale: '',
+});
 
 export function HyperlinkText({
   translationId,
   defaultMessage,
+  scoped,
   onAction,
   children,
   values,
@@ -38,18 +51,33 @@ export function HyperlinkText({
   urlTextProps,
   actionTextProps,
   underlineTextProps,
+  subscriptsTextProps,
   boldTextProps,
   textProps,
   ...basicTextProps
 }: IHyperlinkTextProps) {
   const intl = useIntl();
   const parseQRCode = useParseQRCode();
+  const scriptFontSize = useMemo(
+    () =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      basicTextProps.fontSize !== 'unset'
+        ? Math.ceil(
+            (basicTextProps.fontSize as number) ||
+              getFontSize(basicTextProps.size as FontSizeTokens) * 0.6,
+          )
+        : basicTextProps.fontSize,
+    [basicTextProps.fontSize, basicTextProps.size],
+  );
+
+  const theIntl = scoped ? defaultIntl : intl;
+
   const text = useMemo(
     () =>
-      translationId
-        ? intl.formatMessage(
+      translationId || defaultMessage
+        ? theIntl.formatMessage(
             {
-              id: translationId,
+              id: translationId || (defaultMessage as ETranslations),
               defaultMessage,
             },
             {
@@ -105,6 +133,15 @@ export function HyperlinkText({
                   </SizableText>
                 );
               },
+              subscripts: ([string]) => (
+                <SizableText
+                  {...basicTextProps}
+                  fontSize={scriptFontSize}
+                  {...subscriptsTextProps}
+                >
+                  {string}
+                </SizableText>
+              ),
               underline: ([string]) => (
                 <SizableText
                   {...basicTextProps}
@@ -145,8 +182,8 @@ export function HyperlinkText({
         : (children as string),
     [
       translationId,
-      intl,
       defaultMessage,
+      theIntl,
       values,
       children,
       basicTextProps,
@@ -155,10 +192,23 @@ export function HyperlinkText({
       urlTextProps,
       parseQRCode,
       autoHandleResult,
+      scriptFontSize,
+      subscriptsTextProps,
       underlineTextProps,
       boldTextProps,
       textProps,
     ],
   );
   return <SizableText {...basicTextProps}>{text}</SizableText>;
+}
+
+export function FormatHyperlinkText({
+  children,
+  ...props
+}: Omit<IHyperlinkTextProps, 'translationId' | 'defaultMessage' | 'scoped'> & {
+  children?: string;
+}) {
+  return children ? (
+    <HyperlinkText scoped defaultMessage={children} {...props} />
+  ) : null;
 }
