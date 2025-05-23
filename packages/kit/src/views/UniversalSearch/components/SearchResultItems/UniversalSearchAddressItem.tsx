@@ -89,31 +89,28 @@ export function UniversalSearchAddressItem({
   ]);
 
   const renderAccountValue = useCallback(() => {
-    if (item.payload.accountsValue?.value) {
-      return (
-        <>
-          <AccountValueWithSpotlight
-            isOthersUniversal={accountUtils.isOthersAccount({
-              accountId: item.payload.account?.id,
-            })}
-            index={0}
-            accountValue={item.payload.accountsValue}
-            linkedAccountId={item.payload.account?.id}
-            linkedNetworkId={item.payload.network?.id}
+    return (
+      <>
+        <AccountValueWithSpotlight
+          isOthersUniversal={accountUtils.isOthersAccount({
+            accountId: item.payload.account?.id,
+          })}
+          index={0}
+          accountValue={item.payload.accountsValue}
+          linkedAccountId={item.payload.account?.id}
+          linkedNetworkId={item.payload.network?.id}
+        />
+        {item.payload.addressInfo?.displayAddress ? (
+          <Stack
+            mx="$1.5"
+            w="$1"
+            h="$1"
+            bg="$iconSubdued"
+            borderRadius="$full"
           />
-          {item.payload.addressInfo?.displayAddress ? (
-            <Stack
-              mx="$1.5"
-              w="$1"
-              h="$1"
-              bg="$iconSubdued"
-              borderRadius="$full"
-            />
-          ) : null}
-        </>
-      );
-    }
-    return null;
+        ) : null}
+      </>
+    );
   }, [
     item.payload.accountsValue,
     item.payload.addressInfo?.displayAddress,
