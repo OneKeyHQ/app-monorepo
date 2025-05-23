@@ -53,6 +53,7 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTransactionConfirmation,
   IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
@@ -535,6 +536,25 @@ class ServiceStaking extends ServiceBase {
       isV2: true,
     });
     return result as unknown as IStakeEarnDetail;
+  }
+
+  @backgroundMethod()
+  async getTransactionConfirmation(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault: string;
+    accountAddress: string;
+    action: 'stake' | 'unstake' | 'claim';
+    amount: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IStakeTransactionConfirmation;
+    }>(`/earn/v1/transaction-confirmation`, {
+      params,
+    });
+    return resp.data.data;
   }
 
   _getProtocolList = memoizee(

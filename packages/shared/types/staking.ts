@@ -553,6 +553,24 @@ export interface IEarnProvider {
   approveType?: string;
 }
 
+export interface IStakeTransactionConfirmation {
+  title: IEarnText;
+  rewards: Array<{
+    title: IEarnText;
+    description: IEarnText;
+  }>;
+  receive: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: {
+      type: 'text';
+      data: {
+        title: IEarnText;
+      };
+    };
+  };
+}
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;

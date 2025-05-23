@@ -46,10 +46,12 @@ import type {
   IEarnEstimateFeeResp,
   IEarnTokenInfo,
   IProtocolInfo,
+  IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { FormatHyperlinkText } from '../../../../components/HyperlinkText';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
@@ -85,10 +87,6 @@ type IUniversalStakeProps = {
 
   minTransactionFee?: string;
   apr?: string;
-
-  showEstReceive?: boolean;
-  estReceiveToken?: string;
-  estReceiveTokenRate?: string;
 
   minStakeBlocks?: number;
   minStakeTerm?: number;
@@ -134,9 +132,6 @@ export function UniversalStake({
   providerName = '',
   providerLogo,
   isReachBabylonCap,
-  showEstReceive,
-  estReceiveToken,
-  estReceiveTokenRate = '1',
   estimateFeeUTXO,
   isDisabled,
   maxAmount,
@@ -226,6 +221,40 @@ export function UniversalStake({
     approveTarget.networkId,
     approveTarget.token?.address,
   ]);
+
+  const [transactionConfirmation, setTransactionConfirmation] = useState<
+    IStakeTransactionConfirmation | undefined
+  >();
+  const fetchTransactionConfirmation = useCallback(
+    async (amount: string) => {
+      const resp =
+        await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
+          networkId,
+          provider: providerName,
+          symbol: tokenInfo?.token.symbol || '',
+          vault: protocolInfo?.approve?.approveTarget || '',
+          accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
+          action: 'stake',
+          amount,
+        });
+      return resp;
+    },
+    [
+      networkId,
+      providerName,
+      tokenInfo?.token.symbol,
+      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.earnAccount?.accountAddress,
+    ],
+  );
+
+  const debouncedFetchTransactionConfirmation = useDebouncedCallback(
+    async (amount?: string) => {
+      const resp = await fetchTransactionConfirmation(amount || '0');
+      setTransactionConfirmation(resp);
+    },
+    350,
+  );
 
   const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
     if (!amount) {
@@ -337,7 +366,14 @@ export function UniversalStake({
       void debouncedFetchEstimateFeeResp(amountValue);
     }
     prevShouldApproveRef.current = shouldApprove;
-  }, [shouldApprove, amountValue, debouncedFetchEstimateFeeResp]);
+
+    void debouncedFetchTransactionConfirmation(amountValue);
+  }, [
+    shouldApprove,
+    amountValue,
+    debouncedFetchEstimateFeeResp,
+    debouncedFetchTransactionConfirmation,
+  ]);
 
   const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
     providerName,
@@ -785,33 +821,59 @@ export function UniversalStake({
     if (Number(amountValue) <= 0) {
       return items;
     }
-    if (showEstReceive && estReceiveToken) {
+
+    if (transactionConfirmation?.receive) {
       items.push(
         <CalculationListItem>
           <CalculationListItem.Label
             size="$bodyMd"
-            tooltip={intl.formatMessage({
-              id: ETranslations.earn_est_receive_tooltip,
-            })}
+            color={transactionConfirmation.receive.title.color}
+            tooltip={
+              transactionConfirmation.receive.tooltip.type === 'text'
+                ? transactionConfirmation.receive.tooltip.data.title.text
+                : undefined
+            }
           >
-            {intl.formatMessage({
-              id: ETranslations.earn_est_receive,
-            })}
+            {transactionConfirmation.receive.title.text}
           </CalculationListItem.Label>
           <CalculationListItem.Value>
-            <NumberSizeableText
-              formatter="balance"
+            <FormatHyperlinkText
               size="$bodyMdMedium"
-              formatterOptions={{ tokenSymbol: estReceiveToken }}
+              color={transactionConfirmation.receive.description.color}
             >
-              {BigNumber(amountValue)
-                .multipliedBy(estReceiveTokenRate)
-                .toFixed()}
-            </NumberSizeableText>
+              {transactionConfirmation.receive.description.text}
+            </FormatHyperlinkText>
           </CalculationListItem.Value>
         </CalculationListItem>,
       );
     }
+    // if (showEstReceive && estReceiveToken) {
+    //   items.push(
+    //     <CalculationListItem>
+    //       <CalculationListItem.Label
+    //         size="$bodyMd"
+    //         tooltip={intl.formatMessage({
+    //           id: ETranslations.earn_est_receive_tooltip,
+    //         })}
+    //       >
+    //         {intl.formatMessage({
+    //           id: ETranslations.earn_est_receive,
+    //         })}
+    //       </CalculationListItem.Label>
+    //       <CalculationListItem.Value>
+    //         <NumberSizeableText
+    //           formatter="balance"
+    //           size="$bodyMdMedium"
+    //           formatterOptions={{ tokenSymbol: estReceiveToken }}
+    //         >
+    //           {BigNumber(amountValue)
+    //             .multipliedBy(estReceiveTokenRate)
+    //             .toFixed()}
+    //         </NumberSizeableText>
+    //       </CalculationListItem.Value>
+    //     </CalculationListItem>,
+    //   );
+    // }
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
@@ -843,15 +905,12 @@ export function UniversalStake({
     amountValue,
     daysSpent,
     estAnnualRewardsState?.fiatValue,
-    estReceiveToken,
-    estReceiveTokenRate,
     estimateFeeResp,
     estimateFeeUTXO,
-    intl,
     onFeeRateChange,
     providerName,
-    showEstReceive,
     showEstimateGasAlert,
+    transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
   return (
@@ -969,39 +1028,31 @@ export function UniversalStake({
             ) : null}
           </XStack>
         ) : null}
-        {!btcStakeTerm ? (
-          <YStack pt="$3.5" gap="$2">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.earn_est_annual_rewards,
-              })}
-            </SizableText>
-            <SizableText>
-              <NumberSizeableText
+        <YStack pt="$3.5" gap="$2">
+          <SizableText
+            size="$bodyMd"
+            color={transactionConfirmation?.title.color || '$textSubdued'}
+          >
+            {transactionConfirmation?.title.text || ' '}
+          </SizableText>
+          {transactionConfirmation?.rewards.map((reward) => (
+            <XStack key={reward.title.text}>
+              <FormatHyperlinkText
                 size="$bodyLgMedium"
-                formatter="balance"
-                formatterOptions={{ tokenSymbol: tokenSymbol ?? '' }}
+                color={reward.title.color}
               >
-                {estAnnualRewardsState?.amount || 0}
-              </NumberSizeableText>
-              {estAnnualRewardsState?.fiatValue ? (
-                <SizableText color="$textSubdued">
-                  <SizableText color="$textSubdued">{' ('}</SizableText>
-                  <NumberSizeableText
-                    size="$bodyLgMedium"
-                    formatter="value"
-                    color="$textSubdued"
-                    formatterOptions={{ currency: symbol }}
-                  >
-                    {estAnnualRewardsState?.fiatValue}
-                  </NumberSizeableText>
-                  <SizableText color="$textSubdued">)</SizableText>
-                </SizableText>
-              ) : null}
-            </SizableText>
-          </YStack>
-        ) : null}
-        {btcStakeTerm ? (
+                {reward.title.text}
+              </FormatHyperlinkText>
+              <FormatHyperlinkText
+                size="$bodyLgMedium"
+                color={reward.description.color || '$textSubdued'}
+              >
+                {reward.description.text}
+              </FormatHyperlinkText>
+            </XStack>
+          ))}
+        </YStack>
+        {/* {btcStakeTerm ? (
           <YStack gap="$2">
             <XStack gap="$1">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -1022,8 +1073,8 @@ export function UniversalStake({
             </XStack>
             {btcStakeTerm}
           </YStack>
-        ) : null}
-        {stakingTime ? (
+        ) : null} */}
+        {/* {stakingTime ? (
           <XStack pt="$3.5" gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.earn_earnings_start })}
@@ -1037,8 +1088,8 @@ export function UniversalStake({
               )}
             </SizableText>
           </XStack>
-        ) : null}
-        {nextLaunchLeft && rewardToken ? (
+        ) : null} */}
+        {/* {nextLaunchLeft && rewardToken ? (
           <XStack pt="$3.5" gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
@@ -1065,8 +1116,8 @@ export function UniversalStake({
               placement="top"
             />
           </XStack>
-        ) : null}
-        {btcUnlockTime ? (
+        ) : null} */}
+        {/* {btcUnlockTime ? (
           <XStack pt="$3.5" gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
@@ -1075,7 +1126,7 @@ export function UniversalStake({
             </SizableText>
             <SizableText size="$bodyMdMedium">{btcUnlockTime}</SizableText>
           </XStack>
-        ) : null}
+        ) : null} */}
         <Divider my="$5" />
         <Accordion
           overflow="hidden"
