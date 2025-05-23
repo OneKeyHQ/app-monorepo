@@ -1,4 +1,6 @@
-import { Image } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import { Icon, Image, Skeleton } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
@@ -35,7 +37,26 @@ export function UniversalSearchDappItem({
           enterMethod: EEnterMethod.search,
         });
       }}
-      renderAvatar={<Image source={{ uri: logo }} size="$10" />}
+      renderAvatar={
+        <Image
+          size="$10"
+          borderRadius="$2"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+        >
+          <Image.Source source={{ uri: logo }} />
+          <Image.Loading>
+            <Skeleton width="100%" height="100%" />
+          </Image.Loading>
+          <Image.Fallback
+            bg="$bgStrong"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Icon name="GlobusOutline" />
+          </Image.Fallback>
+        </Image>
+      }
       title={name}
       titleProps={{
         color: isGoogle ? '$textSubdued' : '$text',
