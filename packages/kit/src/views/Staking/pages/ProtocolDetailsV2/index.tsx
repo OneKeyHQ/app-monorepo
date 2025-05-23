@@ -525,48 +525,69 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
         <SizableText size="$headingLg" color={risk.title.color}>
           {risk.title.text}
         </SizableText>
-        {risk.items.map((item) => (
-          <XStack ai="center" gap="$3" key={item.title.text}>
-            <YStack flex={1} gap="$2">
-              <XStack ai="center" gap="$2">
-                <XStack
-                  ai="center"
-                  jc="center"
-                  w="$6"
-                  h="$6"
-                  bg="$bgCaution"
-                  borderRadius="$1"
+        <YStack gap="$3">
+          {risk.items?.map((item) => (
+            <XStack ai="center" gap="$3" key={item.title.text}>
+              <YStack flex={1} gap="$2">
+                <XStack ai="center" gap="$2">
+                  <XStack
+                    ai="center"
+                    jc="center"
+                    w="$6"
+                    h="$6"
+                    bg="$bgCaution"
+                    borderRadius="$1"
+                  >
+                    <Icon
+                      name={item.icon.icon}
+                      size="$4"
+                      color={item.icon.color || '$iconCaution'}
+                    />
+                  </XStack>
+                  <SizableText size="$bodyMdMedium" color={item.title.color}>
+                    {item.title.text}
+                  </SizableText>
+                </XStack>
+                <SizableText
+                  size="$bodyMd"
+                  color={item.description.color || '$textSubdued'}
                 >
+                  {item.description.text}
+                </SizableText>
+              </YStack>
+              {item?.actionButton?.type === 'link' ? (
+                <IconButton
+                  icon="OpenOutline"
+                  color="$iconSubdued"
+                  size="small"
+                  bg="transparent"
+                  onPress={() => {
+                    openUrlExternal(item?.actionButton?.data?.link);
+                  }}
+                />
+              ) : null}
+            </XStack>
+          ))}
+          {risk.list?.length ? (
+            <YStack gap="$1">
+              {risk.list.map((item, index) => (
+                <XStack key={index} gap="$1">
                   <Icon
                     name={item.icon.icon}
                     size="$4"
                     color={item.icon.color || '$iconCaution'}
                   />
+                  <FormatHyperlinkText
+                    size="$bodySm"
+                    color={item.title.color || '$textCaution'}
+                  >
+                    {item.title.text}
+                  </FormatHyperlinkText>
                 </XStack>
-                <SizableText size="$bodyMdMedium" color={item.title.color}>
-                  {item.title.text}
-                </SizableText>
-              </XStack>
-              <SizableText
-                size="$bodyMd"
-                color={item.description.color || '$textSubdued'}
-              >
-                {item.description.text}
-              </SizableText>
+              ))}
             </YStack>
-            {item?.actionButton?.type === 'link' ? (
-              <IconButton
-                icon="OpenOutline"
-                color="$iconSubdued"
-                size="small"
-                bg="transparent"
-                onPress={() => {
-                  openUrlExternal(item?.actionButton?.data?.link);
-                }}
-              />
-            ) : null}
-          </XStack>
-        ))}
+          ) : null}
+        </YStack>
       </YStack>
       <Divider />
     </>
