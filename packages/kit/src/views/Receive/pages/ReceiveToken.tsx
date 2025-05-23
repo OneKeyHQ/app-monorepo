@@ -472,7 +472,15 @@ function ReceiveToken() {
         ) : null}
       </YStack>
     );
-  }, [account, network, wallet, intl, token?.logoURI, shouldShowQRCode]);
+  }, [
+    account,
+    network,
+    wallet,
+    intl,
+    token?.logoURI,
+    shouldShowQRCode,
+    handleVerifyOnDevicePress,
+  ]);
 
   return (
     <Page safeAreaEnabled>
