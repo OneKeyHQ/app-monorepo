@@ -33,14 +33,13 @@ export default function OneKeyId() {
     navigation.push(EModalReferFriendsRoutes.InviteReward);
   }, [navigation]);
   const { isPrimeAvailable } = usePrimeAvailable();
-  const isPrimeEnabled = isPrimeAvailable;
 
   const toPrimePage = useCallback(() => {
-    if (isPrimeEnabled)
+    if (isPrimeAvailable)
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
       });
-  }, [navigation, isPrimeEnabled]);
+  }, [navigation, isPrimeAvailable]);
 
   return (
     <Page scrollEnabled>
@@ -95,7 +94,7 @@ export default function OneKeyId() {
               })}
               onPress={toPrimePage}
             >
-              {isPrimeEnabled ? (
+              {isPrimeAvailable ? (
                 <IconButton
                   icon="ChevronRightSmallOutline"
                   variant="tertiary"
