@@ -292,6 +292,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       },
     ) => {
       Dialog.show({
+        dismissOnOverlayPress: false,
         renderIcon: (
           <YStack
             borderRadius="$5"
