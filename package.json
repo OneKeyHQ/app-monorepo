@@ -50,7 +50,7 @@
     "lint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
     "tsc:only": "npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
-    "test": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn jest"
+    "test": "yarn jest"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
