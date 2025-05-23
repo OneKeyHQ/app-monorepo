@@ -717,6 +717,7 @@ const ProtocolDetailsPage = () => {
     return detailInfo?.protocol && resultV1
       ? {
           ...detailInfo.protocol,
+          apyDetail: detailInfo.apyDetail,
           earnAccount,
           apys: resultV1.provider.apys,
           activeBalance: resultV1.active,
