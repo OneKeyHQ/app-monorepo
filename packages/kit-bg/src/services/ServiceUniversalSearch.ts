@@ -644,20 +644,32 @@ class ServiceUniversalSearch extends ServiceBase {
     const indexedAccountsResults = indexedAccountsSearchResult
       .slice(0, maxResults)
       .map(async (i) => {
-        const wallet = await serviceAccount.getWalletSafe({
-          walletId: i.item.walletId,
-        });
-        const accountsValue = (
-          await serviceAccountProfile.getAccountsValue({
-            accounts: [{ accountId: i.item.id }],
-          })
-        )?.[0];
-        return {
-          wallet,
-          indexedAccount: i.item,
-          accountsValue,
-          score: i.score,
-        };
+        try {
+          const wallet = await serviceAccount.getWalletSafe({
+            walletId: i.item.walletId,
+          });
+          const accountsValue = (
+            await serviceAccountProfile.getAccountsValue({
+              accounts: [{ accountId: i.item.id }],
+            })
+          )?.[0];
+          return {
+            wallet,
+            indexedAccount: i.item,
+            accountsValue,
+            accountInfo: {
+              accountId: i.item.id,
+              formattedName: `${wallet?.name || ''} / ${i.item.name}`,
+            },
+            score: i.score,
+            network: undefined,
+            account: undefined,
+            addressInfo: undefined,
+          };
+        } catch (e) {
+          console.error('Failed to get indexed account data:', e);
+          return null;
+        }
       });
 
     // search other accounts
@@ -679,45 +691,86 @@ class ServiceUniversalSearch extends ServiceBase {
     const otherAccountsResults = otherAccountsSearchResult
       .slice(0, maxResults)
       .map(async (i) => {
-        const walletId = accountUtils.getWalletIdFromAccountId({
-          accountId: i.item.id,
-        });
-        const wallet = await serviceAccount.getWalletSafe({
-          walletId,
-        });
-        const network = await serviceNetwork.getNetworkSafe({
-          networkId: i.item.createAtNetwork,
-        });
-        const accountsValue = (
-          await serviceAccountProfile.getAccountsValue({
-            accounts: [{ accountId: i.item.id }],
-          })
-        )?.[0];
-        const localValidateResult = await serviceValidator.localValidateAddress(
-          {
-            networkId: i.item.createAtNetwork ?? '',
-            address: i.item.address,
-          },
-        );
-        // TODO: AccountInfo
-        return {
-          wallet,
-          network,
-          account: i.item,
-          accountsValue,
-          addressInfo: localValidateResult,
-          score: i.score,
-        };
+        try {
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: i.item.id,
+          });
+          const wallet = await serviceAccount.getWalletSafe({
+            walletId,
+          });
+          const network = await serviceNetwork.getNetworkSafe({
+            networkId: i.item.createAtNetwork,
+          });
+          const accountsValue = (
+            await serviceAccountProfile.getAccountsValue({
+              accounts: [{ accountId: i.item.id }],
+            })
+          )?.[0];
+          const localValidateResult =
+            await serviceValidator.localValidateAddress({
+              networkId: i.item.createAtNetwork ?? '',
+              address: i.item.address,
+            });
+          return {
+            wallet,
+            network,
+            account: i.item,
+            accountsValue,
+            addressInfo: localValidateResult,
+            accountInfo: {
+              accountId: i.item.id,
+              formattedName: `${wallet?.name || ''} / ${i.item.name}`,
+            },
+            score: i.score,
+            indexedAccount: undefined,
+          };
+        } catch (e) {
+          console.error('Failed to get other account data:', e);
+          return null;
+        }
       });
 
     const allResults = [
       ...(await Promise.all(indexedAccountsResults)),
       ...(await Promise.all(otherAccountsResults)),
-    ].sort((a, b) => (b?.score ?? 0) - (a?.score ?? 0));
+    ]
+      .filter(Boolean)
+      .sort((a, b) => {
+        // Sort by accountsValue.value first (higher weight), then by score
+        const aValue = Number(a?.accountsValue?.value) || 0;
+        const bValue = Number(b?.accountsValue?.value) || 0;
+        const aScore = a?.score ?? 0;
+        const bScore = b?.score ?? 0;
 
-    console.log('[searchAccountsByName] allResults: ', allResults);
+        // If values are different, prioritize higher value
+        if (aValue !== bValue) {
+          return bValue - aValue;
+        }
 
-    return { items: [] } as IUniversalSearchSingleResult;
+        // If values are same, prioritize higher score
+        return bScore - aScore;
+      })
+      .slice(0, maxResults);
+
+    // Format results as IUniversalSearchAddress items
+    const items = allResults.map((result) => {
+      return {
+        type: EUniversalSearchType.Address,
+        payload: {
+          wallet: result.wallet,
+          account: result.account,
+          indexedAccount: result.indexedAccount,
+          network: result.network,
+          addressInfo: result.addressInfo,
+          accountInfo: result.accountInfo,
+          accountsValue: result.accountsValue,
+        },
+      };
+    });
+
+    console.log('[searchAccountsByName] items: ', items);
+
+    return { items } as IUniversalSearchSingleResult;
   }
 
   async universalSearchOfDapp({
