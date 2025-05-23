@@ -22,6 +22,7 @@ import {
 import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EUniversalSearchPages,
@@ -149,6 +150,7 @@ export function UniversalSearch({
     ];
   }, [intl]);
   const [filterType, setFilterType] = useState(tabTitles[0].title);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const isInAllTab = useMemo(() => {
     return filterType === tabTitles[0].title;
   }, [filterType, tabTitles]);
@@ -190,6 +192,16 @@ export function UniversalSearch({
     void fetchRecommendList();
   }, [fetchRecommendList]);
 
+  // Maintain selected tab when search status changes
+  useEffect(() => {
+    if (searchStatus === ESearchStatus.done && selectedIndex > 0) {
+      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
+      setTimeout(() => {
+        tabRef.current?.scrollToIndex(selectedIndex);
+      }, 0);
+    }
+  }, [searchStatus, selectedIndex]);
+
   const searchInputRef = useRef<string>('');
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
@@ -218,6 +230,37 @@ export function UniversalSearch({
           showMore: data.length > 5,
         };
       };
+
+      // Special function for dApp results to handle Google search item
+      const generateDappDataFn = (data: IUniversalSearchResultItem[]) => {
+        const googleSearchIndex = data.findIndex(
+          (item) =>
+            item.type === EUniversalSearchType.Dapp &&
+            isGoogleSearchItem(item.payload?.dappId),
+        );
+
+        if (googleSearchIndex === -1) {
+          // No Google search item, use normal logic
+          return generateDataFn(data);
+        }
+
+        // Separate Google search item from other results
+        const googleSearchItem = data[googleSearchIndex];
+        const otherResults = data.filter(
+          (_, index) => index !== googleSearchIndex,
+        );
+
+        // Take first 5 non-Google results + always include Google search item
+        const slicedOtherResults = otherResults.slice(0, 5);
+        const sliceData = [...slicedOtherResults, googleSearchItem];
+
+        return {
+          data,
+          sliceData,
+          showMore: otherResults.length > 5, // Only count non-Google items for showMore
+        };
+      };
+
       const searchResultSections: IUniversalSection[] = [];
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
         const data = result?.[EUniversalSearchType.Address]
@@ -263,7 +306,7 @@ export function UniversalSearch({
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
-          ...generateDataFn(data),
+          ...generateDappDataFn(data),
         });
       }
 
@@ -361,6 +404,7 @@ export function UniversalSearch({
   const handleTabSelectedPageIndex = useCallback(
     (index: number) => {
       setFilterType(tabTitles[index].title);
+      setSelectedIndex(index);
     },
     [tabTitles],
   );
