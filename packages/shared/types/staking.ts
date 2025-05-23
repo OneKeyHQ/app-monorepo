@@ -262,6 +262,7 @@ export interface IEarnText {
 }
 
 export type IProtocolInfo = {
+  // account with Earn
   earnAccount?:
     | {
         accountId: string;
@@ -271,9 +272,11 @@ export type IProtocolInfo = {
       }
     | null
     | undefined;
+  // response from server
   provider: string;
   networkId: string;
   symbol: string;
+  vault: string;
   approve?: {
     approveType: EApproveType;
     approveTarget: string;
@@ -282,6 +285,7 @@ export type IProtocolInfo = {
     name: string;
     logoURI: string;
   };
+  // injected by client side
   apys?: IRewardApys;
   activeBalance?: string;
   overflowBalance?: string;

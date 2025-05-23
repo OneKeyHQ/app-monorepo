@@ -163,12 +163,10 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
 }
 
 function ProtocolRewards({
-  rewardToken,
   rewards,
   tokenInfo,
   protocolInfo,
 }: {
-  rewardToken: IEarnToken;
   rewards: IStakeEarnDetail['rewards'];
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
@@ -264,7 +262,7 @@ function ProtocolRewards({
                     );
                     const newRewardToken = token.token;
                     await handleClaim({
-                      symbol: rewardToken.symbol,
+                      symbol: protocolInfo?.symbol || '',
                       protocolInfo,
                       tokenInfo: tokenInfo
                         ? {
@@ -456,7 +454,6 @@ function PortfolioSection({
           ) : null}
           {rewards?.tokens.length ? (
             <ProtocolRewards
-              rewardToken={portfolios.items?.[0]?.token}
               rewards={rewards}
               tokenInfo={tokenInfo}
               protocolInfo={protocolInfo}
