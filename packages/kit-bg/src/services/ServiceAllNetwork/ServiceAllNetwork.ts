@@ -281,6 +281,7 @@ class ServiceAllNetwork extends ServiceBase {
 
             const { deriveType } =
               await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+                accountId: a.id,
                 networkId: realNetworkId,
                 template: a.template,
               });
