@@ -7,12 +7,14 @@ import {
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import { SwapPanel, TokenDetailHeader } from './components';
+import { TokenActivityOverview } from './components/TokenActivityOverview';
 import { useMarketDetail } from './hooks/useMarketDetail';
 
 function MarketDetail({
@@ -21,10 +23,11 @@ function MarketDetail({
   // TODO: new route params
   // const { token: coinGeckoId } = route.params;
 
-  const { tokenDetail } = useMarketDetail({
-    tokenAddress: '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
-    networkId: 'sol--101',
-  });
+  const { tokenDetail }: { tokenDetail: IMarketTokenDetailV2 | undefined } =
+    useMarketDetail({
+      tokenAddress: '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
+      networkId: 'sol--101',
+    });
 
   return (
     <Page>
@@ -34,7 +37,7 @@ function MarketDetail({
       />
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} />
-
+        <TokenActivityOverview tokenDetail={tokenDetail} />
         <SwapPanel />
       </Page.Body>
     </Page>

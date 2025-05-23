@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -9,8 +8,6 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
   Icon,
-  Image,
-  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
@@ -22,53 +19,36 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
-import {
-  EJotaiContextStoreNames,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import {
-  EModalAssetDetailRoutes,
-  EModalRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
-import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
+import {
+  ESearchStatus,
+  EUniversalSearchType,
+} from '@onekeyhq/shared/types/search';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
-import { NetworkAvatar } from '../../../components/NetworkAvatar';
-import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
-import { Token, TokenName } from '../../../components/Token';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
-import { useWebSiteHandler } from '../../Discovery/hooks/useWebSiteHandler';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
-import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
-import { MarketStar } from '../../Market/components/MarketStar';
-import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
-import { MarketTokenPrice } from '../../Market/components/MarketTokenPrice';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
+import {
+  UniversalSearchAccountAssetItem,
+  UniversalSearchAddressItem,
+  UniversalSearchDappItem,
+  UniversalSearchMarketTokenItem,
+} from '../components/SearchResultItems';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -78,12 +58,6 @@ interface IUniversalSection {
   data: IUniversalSearchResultItem[];
   sliceData?: IUniversalSearchResultItem[];
   showMore?: boolean;
-}
-
-enum ESearchStatus {
-  init = 'init',
-  loading = 'loading',
-  done = 'done',
 }
 
 const AllTypes = [
@@ -127,13 +101,10 @@ export function UniversalSearch({
   filterTypes?: EUniversalSearchType[];
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [settings] = useSettingsPersistAtom();
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
 
-  const universalSearchActions = useUniversalSearchActions();
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
     ESearchStatus.init,
@@ -141,8 +112,6 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
-
-  const handleWebSite = useWebSiteHandler();
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -184,6 +153,7 @@ export function UniversalSearch({
   const searchInputRef = useRef<string>('');
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
+    console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
       searchInputRef.current = input;
@@ -266,6 +236,7 @@ export function UniversalSearch({
   }, 1200);
 
   const handleChangeText = useCallback(() => {
+    console.log('[universalSearch] handleChangeText');
     setSearchStatus(ESearchStatus.loading);
   }, []);
 
@@ -284,253 +255,64 @@ export function UniversalSearch({
 
   const renderSectionFooter = useCallback(
     ({ section }: { section: IUniversalSection }) => {
+      if (section.showMore) {
+        return (
+          <ListItem
+            onPress={() => {
+              console.log('[universalSearch] renderSectionFooter: ', section);
+            }}
+          >
+            <XStack ai="center" gap="$2">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.global_show_more,
+                })}
+              </SizableText>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+          </ListItem>
+        );
+      }
       return null;
     },
-    [],
+    [intl],
   );
 
   const renderItem = useCallback(
     ({ item }: { item: IUniversalSearchResultItem }) => {
       switch (item.type) {
-        case EUniversalSearchType.Address: {
-          const searchAddressItem = item;
+        case EUniversalSearchType.Address:
           return (
-            <ListItem
-              onPress={() => {
-                navigation.pop();
-                setTimeout(async () => {
-                  const { network, addressInfo } = searchAddressItem.payload;
-                  navigation.switchTab(ETabRoutes.Home);
-                  await urlAccountNavigation.pushUrlAccountPage(navigation, {
-                    address: addressInfo.displayAddress,
-                    networkId: network.id,
-                    contextNetworkId: activeAccount?.network?.id,
-                  });
-                  setTimeout(() => {
-                    universalSearchActions.current.addIntoRecentSearchList({
-                      id: `${addressInfo.displayAddress}-${network.id || ''}-${
-                        activeAccount?.network?.id || ''
-                      }`,
-                      text: addressInfo.displayAddress,
-                      type: item.type,
-                      timestamp: Date.now(),
-                      extra: {
-                        displayAddress: addressInfo.displayAddress,
-                        networkId: network.id,
-                        contextNetworkId: activeAccount?.network?.id || '',
-                      },
-                    });
-                  }, 10);
-                }, 80);
-              }}
-              renderAvatar={
-                <NetworkAvatar
-                  networkId={searchAddressItem.payload.network.id}
-                  size="$10"
-                />
-              }
-              title={searchAddressItem.payload.network.shortname}
-              subtitle={accountUtils.shortenAddress({
-                address: searchAddressItem.payload.addressInfo.displayAddress,
-              })}
+            <UniversalSearchAddressItem
+              item={item}
+              contextNetworkId={activeAccount?.network?.id}
             />
           );
-        }
-        case EUniversalSearchType.MarketToken: {
-          const { image, coingeckoId, price, symbol, name, lastUpdated } =
-            item.payload;
+        case EUniversalSearchType.MarketToken:
           return (
-            <ListItem
-              jc="space-between"
-              onPress={async () => {
-                navigation.pop();
-                setTimeout(async () => {
-                  navigation.switchTab(ETabRoutes.Market);
-                  navigation.push(ETabMarketRoutes.MarketDetail, {
-                    token: coingeckoId,
-                  });
-                  defaultLogger.market.token.searchToken({
-                    tokenSymbol: coingeckoId,
-                    from:
-                      searchStatus === ESearchStatus.init
-                        ? 'trendingList'
-                        : 'searchList',
-                  });
-                  setTimeout(() => {
-                    universalSearchActions.current.addIntoRecentSearchList({
-                      id: coingeckoId,
-                      text: symbol,
-                      type: item.type,
-                      timestamp: Date.now(),
-                    });
-                  }, 10);
-                }, 80);
-              }}
-              renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
-              title={symbol.toUpperCase()}
-              subtitle={name}
-              subtitleProps={{
-                numberOfLines: 1,
-              }}
-            >
-              <XStack>
-                <MarketTokenPrice
-                  price={String(price)}
-                  size="$bodyLgMedium"
-                  lastUpdated={lastUpdated}
-                  tokenName={name}
-                  tokenSymbol={symbol}
-                />
-                <MarketStar
-                  coingeckoId={coingeckoId}
-                  ml="$3"
-                  from={EWatchlistFrom.search}
-                />
-              </XStack>
-            </ListItem>
-          );
-        }
-        case EUniversalSearchType.AccountAssets: {
-          const { token, tokenFiat } = item.payload;
-          const priceChange = tokenFiat?.price24h ?? 0;
-          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-            priceChange,
-          });
-          const fiatValue = new BigNumber(tokenFiat?.fiatValue ?? 0);
-          return (
-            <ListItem
-              key={token?.$key || token?.name}
-              userSelect="none"
-              onPress={() => {
-                navigation.pop();
-                setTimeout(async () => {
-                  if (
-                    !activeAccount ||
-                    !activeAccount.account ||
-                    !activeAccount.network ||
-                    !activeAccount.wallet ||
-                    !activeAccount.deriveInfo ||
-                    !activeAccount.deriveType ||
-                    !activeAccount.indexedAccount
-                  )
-                    return;
-
-                  navigation.pushModal(EModalRoutes.MainModal, {
-                    screen: EModalAssetDetailRoutes.TokenDetails,
-                    params: {
-                      accountId:
-                        token.accountId ?? activeAccount.account?.id ?? '',
-                      networkId: token.networkId ?? activeAccount.network?.id,
-                      walletId: activeAccount.wallet?.id,
-                      deriveInfo: activeAccount.deriveInfo,
-                      deriveType: activeAccount.deriveType,
-                      tokenInfo: token,
-                      isAllNetworks: activeAccount.network?.isAllNetworks,
-                      indexedAccountId: activeAccount.indexedAccount?.id ?? '',
-                    },
-                  });
-                }, 80);
-              }}
-            >
-              <Token
-                size="lg"
-                tokenImageUri={token?.logoURI}
-                networkId={token?.networkId}
-                showNetworkIcon
-              />
-              <Stack
-                flexGrow={1}
-                flexBasis={0}
-                minWidth={96}
-                flexDirection="column"
-              >
-                <TokenName
-                  name={token?.name}
-                  networkId={token?.networkId}
-                  isNative={token?.isNative}
-                  isAllNetworks={networkUtils.isAllNetwork({
-                    networkId: activeAccount?.network?.id,
-                  })}
-                  withNetwork={networkUtils.isAllNetwork({
-                    networkId: activeAccount?.network?.id,
-                  })}
-                  textProps={{
-                    size: '$bodyLgMedium',
-                    flexShrink: 0,
-                  }}
-                />
-                <NumberSizeableTextWrapper
-                  formatter="balance"
-                  formatterOptions={{ tokenSymbol: token?.symbol }}
-                  size="$bodyMd"
-                  color="$textSubdued"
-                >
-                  {tokenFiat?.balanceParsed ?? '0'}
-                </NumberSizeableTextWrapper>
-              </Stack>
-              <Stack
-                flexDirection="column"
-                alignItems="flex-end"
-                flexShrink={1}
-              >
-                <NumberSizeableTextWrapper
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                  size="$bodyLgMedium"
-                >
-                  {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-                </NumberSizeableTextWrapper>
-                <NumberSizeableText
-                  formatter="priceChange"
-                  formatterOptions={{ showPlusMinusSigns }}
-                  color={changeColor}
-                  size="$bodyMd"
-                >
-                  {priceChange}
-                </NumberSizeableText>
-              </Stack>
-            </ListItem>
-          );
-        }
-        case EUniversalSearchType.Dapp: {
-          const { name, dappId, logo } = item.payload;
-          return (
-            <ListItem
-              onPress={() => {
-                const isGoogle = isGoogleSearchItem(dappId);
-                handleWebSite({
-                  dApp: isGoogle ? undefined : item.payload,
-                  // @ts-expect-error
-                  webSite: isGoogle
-                    ? {
-                        title: 'Google',
-                        url: searchInputRef.current,
-                      }
-                    : undefined,
-                  enterMethod: EEnterMethod.search,
-                });
-              }}
-              renderAvatar={<Image source={{ uri: logo }} size="$10" />}
-              title={name}
-              titleProps={{
-                color: isGoogleSearchItem(dappId) ? '$textSubdued' : '$text',
-              }}
+            <UniversalSearchMarketTokenItem
+              item={item}
+              searchStatus={searchStatus}
             />
           );
-        }
-        default: {
+        case EUniversalSearchType.AccountAssets:
+          return <UniversalSearchAccountAssetItem item={item} />;
+        case EUniversalSearchType.Dapp:
+          return (
+            <UniversalSearchDappItem
+              item={item}
+              getSearchInput={() => searchInputRef.current}
+            />
+          );
+        default:
           return null;
-        }
       }
     },
-    [
-      navigation,
-      activeAccount,
-      universalSearchActions,
-      searchStatus,
-      settings.currencyInfo.symbol,
-      handleWebSite,
-    ],
+    [activeAccount?.network?.id, searchStatus],
   );
 
   const tabTitles = useMemo(() => {

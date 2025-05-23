@@ -1,44 +1,40 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Button, Dialog, useMedia } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { ActionButton } from './components/ActionButton';
-import { AntiMEVToggle } from './components/AntiMEVToggle';
-import { ApproveButton } from './components/ApproveButton';
-import { BalanceDisplay } from './components/BalanceDisplay';
-import { SlippageSetting } from './components/SlippageSetting';
-import { SwapTestPanel } from './components/SwapTestPanel';
-import { TokenInputSection } from './components/TokenInputSection';
-import { TradeTypeSelector } from './components/TradeTypeSelector';
-import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
+import { ESwapDirection, type ITradeType } from './hooks/useTradeType';
+import { SwapPanelContent } from './SwapPanelContent';
 
-export function SwapPanel() {
-  const swapPanel = useSwapPanel();
+export type ISwapPanelProps = {
+  networkId?: string;
+};
+
+export function SwapPanel(props: ISwapPanelProps) {
+  const { networkId: networkIdProp } = props;
+  const intl = useIntl();
+  const media = useMedia();
+
+  const swapPanel = useSwapPanel({
+    networkId: networkIdProp ?? 'evm--1',
+  });
+
   const {
-    antiMEV,
-    balance,
-    balanceToken,
-    handleAntiMEVToggle,
-    isApproved,
     networkId,
-    paymentAmount,
-    paymentToken,
     setIsApproved,
-    setPaymentAmount,
     setPaymentToken,
+    paymentToken,
     setTradeType,
-    tradeType,
   } = swapPanel;
 
-  const { isLoading, speedConfig, supportSpeedSwap, provider, defaultTokens } =
+  const { isLoading, speedConfig, supportSpeedSwap, defaultTokens } =
     useSpeedSwapInit(networkId ?? '');
 
   const {
@@ -50,7 +46,7 @@ export function SwapPanel() {
     speedSwapApproveLoading,
   } = useSpeedSwapActions({
     token: {
-      networkId: 'evm--1',
+      networkId: networkId ?? '',
       contractAddress: '',
       symbol: '',
       decimals: 0,
@@ -60,57 +56,59 @@ export function SwapPanel() {
   });
 
   useEffect(() => {
-    if (defaultTokens.length > 0) {
+    if (defaultTokens.length > 0 && !paymentToken) {
       setPaymentToken(defaultTokens[0]);
     }
-  }, [defaultTokens, setPaymentToken]);
+  }, [defaultTokens, paymentToken, setPaymentToken]);
 
-  return (
-    <YStack gap="$4" p="$4" maxWidth="$100">
-      {/* Trade type selector */}
-      <TradeTypeSelector value={tradeType} onChange={setTradeType} />
+  const dialogRef = useRef<ReturnType<typeof Dialog.show>>();
 
-      {/* Token input section */}
-      <TokenInputSection
-        tradeType={tradeType}
-        value={paymentAmount.toFixed()}
-        onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-        selectedToken={paymentToken}
-        selectableTokens={defaultTokens}
-        onTokenChange={(token) => setPaymentToken(token)}
-      />
+  useEffect(() => {
+    if (!media.md) {
+      void dialogRef.current?.close();
+    }
+  }, [media.md]);
 
-      {/* Balance display */}
-      <BalanceDisplay balance={balance} token={balanceToken} />
+  const handleApprove = () => {
+    setIsApproved(true);
+  };
 
-      {/* Unsupported swap warning */}
-      {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
-
-      {!isApproved ? (
-        <ApproveButton
-          onApprove={() => {
-            setIsApproved(true);
-          }}
-        />
-      ) : (
-        <ActionButton
-          disabled={!supportSpeedSwap}
-          loading={isLoading}
-          tradeType={tradeType}
-          amount={paymentAmount.toFixed()}
-          token={paymentToken}
-          totalValue={888}
-        />
-      )}
-
-      {/* Slippage setting */}
-      <SlippageSetting autoValue={speedConfig?.slippage} isMEV={antiMEV} />
-
-      {/* AntiMEV toggle */}
-      <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
-
-      {/* Test - Only in Dev Mode */}
-      {platformEnv.isDev ? <SwapTestPanel swapPanel={swapPanel} /> : null}
-    </YStack>
+  const swapPanelContent = (
+    <SwapPanelContent
+      swapPanel={swapPanel}
+      isLoading={isLoading}
+      slippageAutoValue={speedConfig?.slippage}
+      supportSpeedSwap={supportSpeedSwap}
+      defaultTokens={defaultTokens}
+      onApprove={handleApprove}
+    />
   );
+
+  const showSwapDialog = (tradeType: ITradeType) => {
+    setTradeType(tradeType);
+
+    dialogRef.current = Dialog.show({
+      title: intl.formatMessage({ id: ETranslations.global_swap }),
+      renderContent: swapPanelContent,
+      showFooter: false,
+    });
+  };
+
+  if (media.md) {
+    return (
+      <>
+        <Button onPress={() => showSwapDialog(ESwapDirection.BUY)} mr="$2.5">
+          {intl.formatMessage({ id: ETranslations.global_buy })}
+        </Button>
+        <Button
+          onPress={() => showSwapDialog(ESwapDirection.SELL)}
+          variant="secondary"
+        >
+          {intl.formatMessage({ id: ETranslations.global_sell })}
+        </Button>
+      </>
+    );
+  }
+
+  return swapPanelContent;
 }
