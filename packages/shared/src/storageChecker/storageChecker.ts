@@ -14,6 +14,9 @@ import platformEnv from '../platformEnv';
 
 const diskFullErrorMessage = `Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing`;
 
+const warningAtGB = 0.936;
+// const warningAtGB = 1110.936;
+
 function handleDiskFullError(error: unknown) {
   const err = error as Error | undefined;
   if (err && err?.message && err?.message.includes(diskFullErrorMessage)) {
@@ -50,7 +53,7 @@ async function checkIfDiskIsFull() {
             usageInGB,
             availableInGB,
           });
-          if (availableInGB < 0.936) {
+          if (availableInGB < warningAtGB) {
             globalThis.$onekeySystemDiskIsFull = true;
           }
         }
