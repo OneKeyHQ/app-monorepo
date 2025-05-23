@@ -285,6 +285,7 @@ export type IProtocolInfo = {
     name: string;
     logoURI: string;
   };
+  apyDetail?: IStakeEarnDetail['apyDetail'];
   // injected by client side
   apys?: IRewardApys;
   activeBalance?: string;
@@ -486,6 +487,12 @@ export interface IStakeEarnDetail {
       description: IEarnText;
       icon: IEarnIcon;
     }[];
+  };
+  apyDetail?: {
+    type: 'default';
+    title: IEarnText;
+    description: IEarnText;
+    button: IEarnActionIcon[];
   };
   actions: (
     | IEarnDepositActionIcon
