@@ -1,14 +1,16 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Accordion,
   Alert,
+  Dialog,
   Divider,
   Icon,
   IconButton,
@@ -27,20 +29,30 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
+  IApproveConfirmFnParams,
   IEarnEstimateFeeResp,
   IEarnTokenInfo,
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { useSignatureConfirm } from '../../../../hooks/useSignatureConfirm';
+import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
+import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
+import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
@@ -85,7 +97,10 @@ type IUniversalStakeProps = {
 
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
 
-  onConfirm?: (amount: string) => Promise<void>;
+  currentAllowance?: string;
+
+  approveType?: EApproveType;
+  onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
   onFeeRateChange?: (rate: string) => void;
 
   stakingTime?: number;
@@ -94,6 +109,12 @@ type IUniversalStakeProps = {
 
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
+  approveTarget: {
+    accountId: string;
+    networkId: string;
+    spenderAddress: string;
+    token?: IToken;
+  };
 };
 
 export function UniversalStake({
@@ -118,6 +139,7 @@ export function UniversalStake({
   estimateFeeUTXO,
   isDisabled,
   maxAmount,
+
   onConfirm,
   onFeeRateChange,
   stakingTime,
@@ -125,10 +147,14 @@ export function UniversalStake({
   rewardToken,
   protocolInfo,
   tokenInfo,
+  approveType,
+  approveTarget,
+  currentAllowance,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
+  const [approving, setApproving] = useState<boolean>(false);
   const [
     {
       currencyInfo: { symbol },
@@ -147,6 +173,59 @@ export function UniversalStake({
     undefined | IEarnEstimateFeeResp
   >();
 
+  const { getPermitSignature } = useEarnPermitApprove();
+  const { getPermitCache, updatePermitCache } = useEarnActions().current;
+
+  const usePermit2Approve = approveType === EApproveType.Permit;
+  const permitSignatureRef = useRef<string | undefined>(undefined);
+  const isFocus = useIsFocused();
+
+  const {
+    allowance,
+    loading: loadingAllowance,
+    trackAllowance,
+    fetchAllowanceResponse,
+  } = useTrackTokenAllowance({
+    accountId: approveTarget.accountId,
+    networkId: approveTarget.networkId,
+    tokenAddress: approveTarget.token?.address || '',
+    spenderAddress: approveTarget.spenderAddress,
+    initialValue: currentAllowance ?? '0',
+    approveType: approveType ?? EApproveType.Legacy,
+  });
+  const shouldApprove = useMemo(() => {
+    if (!isFocus) {
+      return true;
+    }
+    const amountValueBN = BigNumber(amountValue);
+    const allowanceBN = new BigNumber(allowance);
+
+    if (usePermit2Approve) {
+      // Check permit cache first
+      const permitCache = getPermitCache({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+        tokenAddress: approveTarget.token?.address || '',
+        amount: amountValue,
+      });
+      if (permitCache) {
+        permitSignatureRef.current = permitCache.signature;
+        return false;
+      }
+    }
+
+    return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
+  }, [
+    isFocus,
+    amountValue,
+    allowance,
+    usePermit2Approve,
+    getPermitCache,
+    approveTarget.accountId,
+    approveTarget.networkId,
+    approveTarget.token?.address,
+  ]);
+
   const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
     if (!amount) {
       setEstimateFeeResp(undefined);
@@ -156,6 +235,28 @@ export function UniversalStake({
     if (amountNumber.isZero() || amountNumber.isNaN()) {
       return;
     }
+
+    const permitParams: {
+      approveType?: 'permit';
+      permitSignature?: string;
+    } = {};
+
+    if (usePermit2Approve) {
+      if (shouldApprove) {
+        return undefined;
+      }
+
+      permitParams.approveType = EApproveType.Permit;
+
+      if (permitSignatureRef.current) {
+        const amountBN = BigNumber(amount);
+        const allowanceBN = BigNumber(allowance);
+        if (amountBN.gt(allowanceBN)) {
+          permitParams.permitSignature = permitSignatureRef.current;
+        }
+      }
+    }
+
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId,
       networkId,
@@ -164,15 +265,89 @@ export function UniversalStake({
       networkId,
       provider: providerName,
       symbol: tokenInfo?.token.symbol || '',
-      action: 'stake',
+      action: shouldApprove ? 'approve' : 'stake',
       amount: amountNumber.toFixed(),
       morphoVault: earnUtils.isMorphoProvider({ providerName })
         ? protocolInfo?.approve?.approveTarget
         : undefined,
       accountAddress: account?.address,
+      ...permitParams,
     });
-    setEstimateFeeResp(resp);
+    return resp;
   }, 350);
+
+  const debouncedFetchEstimateFeeResp = useDebouncedCallback(
+    async (amount?: string) => {
+      const resp = await fetchEstimateFeeResp(amount);
+      setEstimateFeeResp(resp);
+    },
+    350,
+  );
+
+  const checkEstimateGasAlert = useCallback(
+    async (onNext: () => Promise<void> | undefined) => {
+      if (usePermit2Approve) {
+        return onNext();
+      }
+
+      setApproving(true);
+
+      const response = await fetchEstimateFeeResp(amountValue);
+
+      setApproving(false);
+      if (!response) {
+        return onNext();
+      }
+      const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
+
+      if (!daySpent || daySpent <= 5) {
+        return onNext();
+      }
+
+      showEstimateGasAlert({
+        daysConsumed: formatStakingDistanceToNowStrict(
+          response.coverFeeSeconds,
+        ),
+        estFiatValue: response.feeFiatValue,
+        onConfirm: async (dialogInstance: IDialogInstance) => {
+          await dialogInstance.close();
+          await onNext();
+        },
+      });
+    },
+    [
+      usePermit2Approve,
+      fetchEstimateFeeResp,
+      amountValue,
+      showEstimateGasAlert,
+    ],
+  );
+
+  const prevShouldApproveRef = useRef<boolean | undefined>();
+  useEffect(() => {
+    const amountValueBN = new BigNumber(amountValue);
+    // Check if shouldApprove transitioned from true to false and amount is valid
+    if (
+      prevShouldApproveRef.current === true &&
+      !shouldApprove &&
+      !amountValueBN.isNaN() &&
+      amountValueBN.gt(0)
+    ) {
+      void debouncedFetchEstimateFeeResp(amountValue);
+    }
+    prevShouldApproveRef.current = shouldApprove;
+  }, [shouldApprove, amountValue, debouncedFetchEstimateFeeResp]);
+
+  const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
+    providerName,
+    eventEndTime: protocolInfo?.eventEndTime,
+    weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
+  });
+
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId: approveTarget.accountId,
+    networkId: approveTarget.networkId,
+  });
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -183,7 +358,7 @@ export function UniversalStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
-          void fetchEstimateFeeResp();
+          void debouncedFetchEstimateFeeResp();
         }
         return;
       }
@@ -193,13 +368,13 @@ export function UniversalStake({
           countDecimalPlaces(value) > decimals,
       );
       if (isOverflowDecimals) {
-        setAmountValue((oldValue) => oldValue);
+        // setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
-        void fetchEstimateFeeResp(value);
+        void debouncedFetchEstimateFeeResp(value);
       }
     },
-    [decimals, fetchEstimateFeeResp],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const onMax = useCallback(() => {
@@ -323,9 +498,20 @@ export function UniversalStake({
     }
   }, [estimateFeeResp?.coverFeeSeconds]);
 
-  const onPress = useCallback(async () => {
+  const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    const handleConfirm = () => onConfirm?.(amountValue);
+    const permitSignature = usePermit2Approve
+      ? {
+          approveType,
+          permitSignatureRef: permitSignatureRef.current,
+        }
+      : undefined;
+    const handleConfirm = () =>
+      onConfirm?.({ amount: amountValue, ...permitSignature });
+
+    // Wait for the dialog confirmation if it's shown
+    await showFalconEventEndedDialog();
+
     if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
       const daySpent =
         Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
@@ -341,14 +527,258 @@ export function UniversalStake({
         return;
       }
     }
+
+    if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
+      await checkEstimateGasAlert(handleConfirm);
+      return;
+    }
+
     await handleConfirm();
   }, [
-    onConfirm,
-    amountValue,
+    usePermit2Approve,
+    approveType,
+    showFalconEventEndedDialog,
     estAnnualRewardsState?.fiatValue,
     estimateFeeResp,
+    shouldApprove,
+    onConfirm,
+    amountValue,
     showEstimateGasAlert,
+    checkEstimateGasAlert,
   ]);
+
+  const showStakeProgressRef = useRef<Record<string, boolean>>({});
+
+  const resetUSDTApproveValue = useCallback(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+    const approveResetInfo: IApproveInfo = {
+      owner: account.address,
+      spender: approveTarget.spenderAddress,
+      amount: '0',
+      isMax: false,
+      tokenInfo: {
+        ...tokenInfo?.token,
+        address: tokenInfo?.token.address ?? '',
+        symbol: tokenInfo?.token.symbol ?? '',
+        decimals: tokenInfo?.token.decimals ?? 0,
+        isNative: !!tokenInfo?.token.isNative,
+        name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
+      },
+    };
+    const approvesInfo = [approveResetInfo];
+    await navigationToTxConfirm({
+      approvesInfo,
+      onSuccess() {
+        // Poll for allowance updates until it becomes 0
+        const pollAllowanceUntilZero = async () => {
+          try {
+            let attempts = 0;
+            const maxAttempts = 10; // Prevent infinite polling
+            const pollInterval = 3000; // 3 seconds between polls
+
+            const checkAllowance = async () => {
+              // Fetch latest allowance
+              const allowanceInfo = await fetchAllowanceResponse();
+
+              if (allowanceInfo) {
+                // If allowance is now 0, stop polling
+                if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                  setApproving(false);
+                  return;
+                }
+              }
+
+              attempts += 1;
+
+              if (attempts < maxAttempts) {
+                setTimeout(checkAllowance, pollInterval);
+              } else {
+                setApproving(false);
+              }
+            };
+
+            // Start the recursive polling
+            setTimeout(checkAllowance, pollInterval);
+          } catch (error) {
+            console.error('Error polling for allowance:', error);
+            setApproving(false);
+          }
+        };
+
+        // Start polling for USDT reset
+        void pollAllowanceUntilZero();
+      },
+      onFail() {
+        setApproving(false);
+      },
+      onCancel() {
+        setApproving(false);
+      },
+    });
+  }, [
+    approveTarget.accountId,
+    approveTarget.networkId,
+    approveTarget.spenderAddress,
+    fetchAllowanceResponse,
+    navigationToTxConfirm,
+    tokenInfo?.token,
+  ]);
+
+  const showResetUSDTApproveValueDialog = useCallback(() => {
+    Dialog.show({
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_continue,
+      }),
+      showExitButton: false,
+      dismissOnOverlayPress: false,
+      onCancel: () => {
+        setApproving(false);
+      },
+      onConfirm: () => {
+        void resetUSDTApproveValue();
+      },
+      title: intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+      }),
+      icon: 'ErrorOutline',
+    });
+  }, [intl, resetUSDTApproveValue]);
+
+  const onApprove = useCallback(async () => {
+    setApproving(true);
+    let approveAllowance = allowance;
+    try {
+      const allowanceInfo = await fetchAllowanceResponse();
+      approveAllowance = allowanceInfo.allowanceParsed;
+    } catch (e) {
+      console.error(e);
+    }
+    permitSignatureRef.current = undefined;
+    showStakeProgressRef.current[amountValue] = true;
+
+    const allowanceBN = BigNumber(approveAllowance);
+    const amountBN = BigNumber(amountValue);
+
+    if (tokenInfo?.token && earnUtils.isUSDTonETHNetwork(tokenInfo?.token)) {
+      if (allowanceBN.gt(0) && amountBN.gt(allowanceBN)) {
+        showResetUSDTApproveValueDialog();
+        return;
+      }
+    }
+
+    if (usePermit2Approve) {
+      const handlePermit2Approve = async () => {
+        try {
+          // Check permit cache first
+          const permitCache = getPermitCache({
+            accountId: approveTarget.accountId,
+            networkId: approveTarget.networkId,
+            tokenAddress: tokenInfo?.token?.address ?? '',
+            amount: amountValue,
+          });
+
+          if (permitCache) {
+            permitSignatureRef.current = permitCache.signature;
+            void onSubmit();
+            setApproving(false);
+            return;
+          }
+
+          const permitBundlerAction = await getPermitSignature({
+            networkId: approveTarget.networkId,
+            accountId: approveTarget.accountId,
+            token: tokenInfo?.token as IToken,
+            amountValue,
+            providerName,
+            vaultAddress: approveTarget.spenderAddress,
+          });
+          permitSignatureRef.current = permitBundlerAction;
+
+          // Update permit cache
+          updatePermitCache({
+            accountId: approveTarget.accountId,
+            networkId: approveTarget.networkId,
+            tokenAddress: tokenInfo?.token?.address ?? '',
+            amount: amountValue,
+            signature: permitBundlerAction,
+            expiredAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+          });
+
+          setTimeout(() => {
+            void debouncedFetchEstimateFeeResp(amountValue);
+          }, 200);
+
+          void onSubmit();
+          setApproving(false);
+        } catch (error: unknown) {
+          console.error('Permit sign error:', error);
+          defaultLogger.staking.page.permitSignError({
+            error: error instanceof Error ? error.message : String(error),
+          });
+          setApproving(false);
+        }
+      };
+
+      void checkEstimateGasAlert(handlePermit2Approve);
+      return;
+    }
+
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+
+    await navigationToTxConfirm({
+      approvesInfo: [
+        {
+          owner: account.address,
+          spender: approveTarget.spenderAddress,
+          amount: amountValue,
+          tokenInfo: approveTarget.token,
+        },
+      ],
+      onSuccess(data) {
+        trackAllowance(data[0].decodedTx.txid);
+        setApproving(false);
+        setTimeout(() => {
+          void debouncedFetchEstimateFeeResp(amountValue);
+        }, 200);
+      },
+      onFail() {
+        setApproving(false);
+      },
+      onCancel() {
+        setApproving(false);
+      },
+    });
+  }, [
+    allowance,
+    amountValue,
+    tokenInfo?.token,
+    usePermit2Approve,
+    approveTarget.accountId,
+    approveTarget.networkId,
+    approveTarget.spenderAddress,
+    approveTarget.token,
+    navigationToTxConfirm,
+    fetchAllowanceResponse,
+    showResetUSDTApproveValueDialog,
+    checkEstimateGasAlert,
+    getPermitCache,
+    getPermitSignature,
+    providerName,
+    updatePermitCache,
+    onSubmit,
+    debouncedFetchEstimateFeeResp,
+    trackAllowance,
+  ]);
+
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {
@@ -731,7 +1161,8 @@ export function UniversalStake({
             id: ETranslations.global_continue,
           })}
           confirmButtonProps={{
-            onPress,
+            onPress: shouldApprove ? onApprove : onSubmit,
+            loading: loadingAllowance || approving,
             disabled: isDisable,
           }}
         />

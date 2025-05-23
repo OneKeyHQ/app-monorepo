@@ -8,6 +8,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -20,7 +21,8 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
+import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../components/UniversalStake';
@@ -32,11 +34,18 @@ function BasicStakePage() {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const { accountId, networkId, tokenInfo, protocolInfo, onSuccess } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    protocolInfo,
+    currentAllowance,
+    onSuccess,
+  } = route.params;
   const token = tokenInfo?.token as IToken;
   const symbol = tokenInfo?.token.symbol || '';
   const providerName = protocolInfo?.provider || '';
+  const { removePermitCache } = useEarnActions().current;
 
   const actionTag = buildLocalTxStatusSyncId({
     providerName,
@@ -63,9 +72,15 @@ function BasicStakePage() {
   const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async ({
+      amount,
+      approveType,
+      permitSignature,
+    }: IApproveConfirmFnParams) => {
       await handleStake({
         amount,
+        approveType,
+        permitSignature,
         symbol,
         provider: providerName,
         stakingInfo: {
@@ -91,6 +106,14 @@ function BasicStakePage() {
             stakingProtocol: providerName,
           });
           const tx = txs[0];
+          if (approveType === EApproveType.Permit && permitSignature) {
+            removePermitCache({
+              accountId,
+              networkId,
+              tokenAddress: tokenInfo?.token.address || '',
+              amount,
+            });
+          }
           if (
             tx &&
             providerName.toLowerCase() ===
@@ -123,8 +146,10 @@ function BasicStakePage() {
       btcFeeRate,
       appNavigation,
       onSuccess,
+      removePermitCache,
       accountId,
       networkId,
+      tokenInfo?.token.address,
     ],
   );
 
@@ -246,11 +271,19 @@ function BasicStakePage() {
           estReceiveToken={rewardToken}
           estReceiveTokenRate={estReceiveTokenRate}
           onConfirm={onConfirm}
+          approveType={protocolInfo?.approve?.approveType}
+          currentAllowance={currentAllowance}
           minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
           tokenInfo={tokenInfo}
           protocolInfo={protocolInfo}
+          approveTarget={{
+            accountId,
+            networkId,
+            spenderAddress: protocolInfo?.approve?.approveTarget ?? '',
+            token: tokenInfo?.token as IToken,
+          }}
         />
       </Page.Body>
     </Page>
