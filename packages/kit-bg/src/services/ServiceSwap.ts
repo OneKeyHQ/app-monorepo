@@ -95,6 +95,8 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
 
+  private _checkTokenApproveAllowanceAbortController?: AbortController;
+
   private _tokenListAbortController?: AbortController;
 
   private _quoteEventSource?: EventSource;
@@ -145,6 +147,14 @@ export default class ServiceSwap extends ServiceBase {
     if (this._quoteAbortController) {
       this._quoteAbortController.abort();
       this._quoteAbortController = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelCheckTokenApproveAllowance() {
+    if (this._checkTokenApproveAllowanceAbortController) {
+      this._checkTokenApproveAllowanceAbortController.abort();
+      this._checkTokenApproveAllowanceAbortController = undefined;
     }
   }
 
@@ -976,6 +986,7 @@ export default class ServiceSwap extends ServiceBase {
     walletAddress: string;
     accountId?: string;
   }) {
+    await this.cancelCheckTokenApproveAllowance();
     const params = {
       networkId,
       tokenAddress,
@@ -983,17 +994,27 @@ export default class ServiceSwap extends ServiceBase {
       walletAddress,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
-
-    const { data } = await client.get<
-      IFetchResponse<ISwapApproveAllowanceResponse>
-    >('/swap/v1/allowance', {
-      params,
-      headers:
-        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-          accountId,
-        }),
-    });
-    return data?.data;
+    this._checkTokenApproveAllowanceAbortController = new AbortController();
+    try {
+      const { data } = await client.get<
+        IFetchResponse<ISwapApproveAllowanceResponse>
+      >('/swap/v1/allowance', {
+        params,
+        signal: this._checkTokenApproveAllowanceAbortController.signal,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      });
+      return data?.data;
+    } catch (e) {
+      if (axios.isCancel(e)) {
+        throw new Error('swap check token approve allowance cancel', {
+          cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
+        });
+      }
+      throw e;
+    }
   }
 
   // swap approving transaction

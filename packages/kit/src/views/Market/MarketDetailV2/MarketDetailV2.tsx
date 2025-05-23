@@ -38,7 +38,7 @@ function MarketDetail({
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} />
         <TokenActivityOverview tokenDetail={tokenDetail} />
-        <SwapPanel />
+        <SwapPanel tokenDetail={tokenDetail} networkId="sol--101" />
       </Page.Body>
     </Page>
   );

@@ -20,8 +20,10 @@ export type ISwapPanelContentProps = {
   isLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: boolean;
+  isApproved: boolean;
   defaultTokens: IToken[];
   onApprove: () => void;
+  onSwap: () => void;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -31,7 +33,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     slippageAutoValue,
     supportSpeedSwap,
     defaultTokens,
+    isApproved,
     onApprove,
+    onSwap,
   } = props;
 
   const {
@@ -43,9 +47,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     balance,
     balanceToken,
     handleAntiMEVToggle,
-    isApproved,
     tradeType,
     setTradeType,
+    setSlippage,
   } = swapPanel;
 
   return (
@@ -76,6 +80,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           disabled={!supportSpeedSwap}
           loading={isLoading}
           tradeType={tradeType}
+          onPress={onSwap}
           amount={paymentAmount.toFixed()}
           token={paymentToken}
           totalValue={888} // TODO: Replace with actual totalValue
@@ -83,7 +88,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       )}
 
       {/* Slippage setting */}
-      <SlippageSetting autoValue={slippageAutoValue} isMEV={antiMEV} />
+      <SlippageSetting
+        autoDefaultValue={slippageAutoValue}
+        isMEV={antiMEV}
+        onSlippageChange={(item) => setSlippage(item.value)}
+      />
 
       {/* AntiMEV toggle */}
       <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
