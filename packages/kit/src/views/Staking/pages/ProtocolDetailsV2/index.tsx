@@ -745,7 +745,7 @@ const ProtocolDetailsPage = () => {
           claimable: resultV1.claimable,
         }
       : undefined;
-  }, [detailInfo?.protocol, earnAccount, resultV1]);
+  }, [detailInfo?.apyDetail, detailInfo?.protocol, earnAccount, resultV1]);
 
   const onStake = useCallback(async () => {
     await handleStake({
