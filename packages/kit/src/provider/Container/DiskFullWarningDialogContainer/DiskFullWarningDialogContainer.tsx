@@ -24,6 +24,8 @@ export function DiskFullWarningDialogContainer() {
       ) => {
         await hideFn();
         dialogRef.current = Dialog.show({
+          icon: 'Disk2Outline',
+          tone: 'destructive',
           title: appLocale.intl.formatMessage({
             id: ETranslations.extension_disk_full,
           }),
@@ -36,6 +38,9 @@ export function DiskFullWarningDialogContainer() {
           onConfirmText: appLocale.intl.formatMessage({
             id: ETranslations.global_got_it,
           }),
+          confirmButtonProps: {
+            variant: 'secondary',
+          },
         });
       },
       1000,
