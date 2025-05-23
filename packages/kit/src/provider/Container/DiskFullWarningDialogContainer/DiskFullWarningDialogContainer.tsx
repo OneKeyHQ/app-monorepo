@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { debounce } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, YStack } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -24,6 +24,8 @@ export function DiskFullWarningDialogContainer() {
       ) => {
         await hideFn();
         dialogRef.current = Dialog.show({
+          icon: 'Disk2Outline',
+          tone: 'destructive',
           title: appLocale.intl.formatMessage({
             id: ETranslations.extension_disk_full,
           }),
@@ -36,6 +38,9 @@ export function DiskFullWarningDialogContainer() {
           onConfirmText: appLocale.intl.formatMessage({
             id: ETranslations.global_got_it,
           }),
+          confirmButtonProps: {
+            variant: 'secondary',
+          },
         });
       },
       1000,
