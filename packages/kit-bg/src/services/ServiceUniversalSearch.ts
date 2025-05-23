@@ -831,8 +831,8 @@ class ServiceUniversalSearch extends ServiceBase {
     // Format results into universal search format
     const allDapps = [
       ...exactUrlResults,
-      ...(googleSearchDapp ? [googleSearchDapp] : []),
       ...otherResults,
+      ...(googleSearchDapp ? [googleSearchDapp] : []),
     ];
     const items = allDapps.map((dapp) => ({
       type: EUniversalSearchType.Dapp as const,
