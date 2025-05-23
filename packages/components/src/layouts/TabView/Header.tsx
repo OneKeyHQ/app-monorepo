@@ -1,4 +1,10 @@
-import { forwardRef, useCallback, useMemo, useRef } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 import type { ForwardedRef, ReactElement } from 'react';
 
 import { PageHeaderView } from '@onekeyfe/react-native-tab-page-view';
@@ -11,6 +17,10 @@ import { Icon } from '../../primitives';
 import type { StackStyle, TextStyle } from '@tamagui/web/types/types';
 import type { NativeScrollEvent, View } from 'react-native';
 import type { GetProps } from 'tamagui';
+
+export type ITabHeaderInstance = PageHeaderView & {
+  scrollToIndex: (index: number) => void;
+};
 
 export type IHeaderProps = Omit<
   GetProps<typeof PageHeaderView>,
@@ -55,7 +65,7 @@ const HeaderComponent = (
     showHorizontalScrollButton,
     ...props
   }: IHeaderProps,
-  ref: ForwardedRef<PageHeaderView>,
+  ref: ForwardedRef<ITabHeaderInstance>,
 ) => {
   const scrollValue = useRef<
     Omit<NativeScrollEvent, 'contentInset' | 'zoomScale'>
@@ -164,10 +174,27 @@ const HeaderComponent = (
   rawCursorStyle.left = reloadWebPxNumber(rawCursorStyle?.left);
   rawCursorStyle.right = reloadWebPxNumber(rawCursorStyle?.right);
   rawCursorStyle.width = reloadWebPxNumber(rawCursorStyle?.width);
+
+  const headerViewRef = useRef<any>();
+
+  useImperativeHandle(
+    ref,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    () => ({
+      ...headerViewRef.current,
+      scrollToIndex: (index: number) => {
+        const instance = headerViewRef.current as {
+          _itemDidTouch: (item: any, index: number) => void;
+        };
+        instance._itemDidTouch(data[index], index);
+      },
+    }),
+    [data],
+  );
   return (
     <>
       <PageHeaderView
-        ref={ref}
+        ref={headerViewRef}
         titleFromItem={titleFromItem}
         style={rawStyle as any}
         contentContainerStyle={rawContentContainerStyle}

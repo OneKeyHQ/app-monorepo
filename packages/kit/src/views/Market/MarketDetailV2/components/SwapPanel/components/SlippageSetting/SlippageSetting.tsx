@@ -9,6 +9,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+import { InfoItemLabel } from '../InfoItemLabel/InfoItemLabel';
+
 export interface ISlippageSettingProps {
   autoValue?: number;
   isMEV?: boolean;
@@ -71,18 +73,23 @@ export function SlippageSetting({
     <XStack
       justifyContent="space-between"
       alignItems="center"
-      onPress={onSlippageHandleClick}
       userSelect="none"
       cursor="pointer"
     >
-      <XStack alignItems="center" gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.slippage_tolerance_title })}
-        </SizableText>
-        <Icon name="QuestionmarkOutline" size="$5" color="$iconSubdued" />
-      </XStack>
+      <InfoItemLabel
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_provider_slippage_tolerance,
+        })}
+        questionMarkContent={
+          <SizableText>
+            {intl.formatMessage({
+              id: ETranslations.slippage_tolerance_popover,
+            })}
+          </SizableText>
+        }
+      />
 
-      <XStack alignItems="center" gap="$1">
+      <XStack onPress={onSlippageHandleClick} alignItems="center" gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {displaySlippageText}
         </SizableText>
