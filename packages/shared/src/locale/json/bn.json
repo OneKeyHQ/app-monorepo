@@ -2026,7 +2026,7 @@
   "qr_wallet_address_creation_failed_dialog_title": "ঠিকানা তৈরি ব্যর্থ হয়েছে",
   "qr_wallet_address_creation_failed_firmware_update_desc": "আপনি যদি কিছু EVM নেটওয়ার্কের জন্য ঠিকানা তৈরি করতে না পারেন, তাহলে আমাদের আপডেট টুলের মাধ্যমে আপনার ফার্মওয়্যার আপডেট করুন এবং যদি এটি চালু থাকে তাহলে Air-gap মোড অক্ষম করুন।",
   "qr_wallet_address_creation_failed_supports_network_desc": "QR ওয়ালেট BTC, SOL, এবং ETH + EVM নেটওয়ার্ক সমর্থন করে।",
-  "receive.address_unconfimed_alert_message": "ঠিকানা অনিশ্চিত",
+  "receive.address_unconfimed_alert_message": "ঠিকানা যাচাই করা হয়নি",
   "receive.hide_unverified_address": "অপরিদর্শিত ঠিকানা লুকান",
   "receive.send_asset_warning_message": "শুধুমাত্র {network} নেটওয়ার্কের সম্পদ এই ঠিকানায় পাঠান",
   "receive.show_address_any": "ঠিকানা তথাপি দেখান",
