@@ -179,7 +179,7 @@ export const TabComponent = (
       >
         <>{ListHeaderComponent}</>
         <Header
-          ref={pageManager.headerView}
+          ref={pageManager.headerView as any}
           {...pageManagerProps}
           {...headerProps}
           ToolBar={ToolBar}
