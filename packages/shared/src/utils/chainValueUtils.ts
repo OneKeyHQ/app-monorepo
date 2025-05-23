@@ -26,6 +26,7 @@ function convertChainValueToGwei({
 }: IChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -network.feeMeta.decimals ??
         nilError('convertFeeValueToGwei ERROR: network.feeDecimals missing'),
     )
@@ -52,6 +53,7 @@ function convertChainValueToAmount({
 }: IChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -network.decimals ??
         nilError('convertFeeValueToNative ERROR: network.decimals missing'),
     )
@@ -93,6 +95,7 @@ function convertTokenChainValueToAmount({
 }: ITokenChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -token.decimals ??
         nilError(
           'convertTokenChainValueToAmount ERROR: token.decimals missing',
