@@ -1,14 +1,21 @@
 export type IPrimeSubscriptionInfo = {
   isActive: boolean;
   expiresAt: number;
+  subscriptions?: {
+    id?: string;
+    managementUrl?: string;
+  }[];
+  willRenew?: boolean;
 };
 export type IPrimeUserInfo = {
-  isLoggedIn: boolean; // privy login status
-  isLoggedInOnServer: boolean; // server login status
-  email: string | undefined;
-  displayEmail: string | undefined;
+  isLoggedIn: boolean; // local privy sdk login status
+  isLoggedInOnServer: boolean; // server api login status
+  isEnablePrime: boolean | undefined;
+  isEnableSandboxPay: boolean | undefined;
+  email: string | undefined; // update by local privy sdk
+  displayEmail: string | undefined; // update by server api
   privyUserId: string | undefined;
-  subscriptionManageUrl: string | undefined;
+  subscriptionManageUrl: string | undefined; // update by local revenuecat sdk: Purchases.getCustomerInfo()
   primeSubscription: IPrimeSubscriptionInfo | undefined;
 };
 
@@ -25,6 +32,8 @@ export type IPrimeServerUserInfo = {
   createdAt: string;
   updatedAt: string;
 
+  isEnablePrime: boolean | undefined;
+  isEnableSandboxPay: boolean | undefined;
   isPrime: boolean;
   primeExpiredAt: number;
   level: 'PRIME' | 'NORMAL';
@@ -32,6 +41,11 @@ export type IPrimeServerUserInfo = {
   pwdHash: string;
   userId: string;
   emails: string[];
+  subscriptions?: {
+    id?: string;
+    managementUrl?: string;
+  }[];
+  willRenew?: boolean;
   // isLogin
 
   inviteCode: string;

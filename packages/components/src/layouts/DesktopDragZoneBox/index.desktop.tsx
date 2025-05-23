@@ -33,26 +33,29 @@ export const DesktopDragZoneBox: FC<IDesktopDragZoneBoxProps> = ({
   children,
   style,
   disabled,
+  renderAs = 'Pressable',
   ...rest
-}) => (
-  <Pressable
-    {...rest}
-    onPress={toggleMaxWindow}
-    disabled={disabled}
-    style={[
-      !disabled && {
-        // @ts-expect-error
-        WebkitAppRegion: 'drag',
-        WebkitUserSelect: 'none',
-        cursor: 'default',
-      },
-      // @ts-expect-error
-      style,
-    ]}
-  >
-    {children}
-  </Pressable>
-);
+}) => {
+  const Component = renderAs === 'Pressable' ? Pressable : Stack;
+  return (
+    <Component
+      {...rest}
+      onPress={toggleMaxWindow}
+      disabled={disabled}
+      style={[
+        !disabled && {
+          // @ts-expect-error
+          WebkitAppRegion: 'drag',
+          WebkitUserSelect: 'none',
+          cursor: 'default',
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Component>
+  );
+};
 
 export function DesktopDragZoneAbsoluteBar({
   w = '100%',
