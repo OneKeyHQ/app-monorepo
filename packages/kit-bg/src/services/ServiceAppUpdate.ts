@@ -279,6 +279,7 @@ class ServiceAppUpdate extends ServiceBase {
       isForceUpdate: false,
       updateAt: 0,
       status: EAppUpdateStatus.done,
+      isShowUpdateDialog: false,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
@@ -333,6 +334,7 @@ class ServiceAppUpdate extends ServiceBase {
           releaseInfo?.version && releaseInfo.version !== prev.latestVersion
             ? EAppUpdateStatus.notify
             : prev.status,
+        isShowUpdateDialog: prev.latestVersion !== releaseInfo.version,
       }));
     } else {
       await this.reset();

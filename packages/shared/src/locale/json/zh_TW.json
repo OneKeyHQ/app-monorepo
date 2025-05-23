@@ -2819,6 +2819,8 @@
   "update.verifying": "正在驗證...",
   "update.verifying_sha256_and_package_name": "正在進行 SHA256 驗證與包名檢測",
   "update.whats_new_in_onekey_version": "OneKey {version} 的新功能 👋🏻",
+  "update_notification_dialog.desc": "本次更新帶來多項優化，提升使用體驗。立即更新 OneKey App，享受最佳體驗！",
+  "update_notification_dialog.title": "OneKey 再升級！",
   "v4.select_account_name_label": "來自 OneKey v4 的名稱",
   "v4_migration.backed_up_warning": "已完成所有備份了嗎？",
   "v4_migration.backed_up_warning_desc": "請確保您已備份所有的助記詞和私鑰，以防止在數據遷移過程中由於意外問題導致資產損失。",

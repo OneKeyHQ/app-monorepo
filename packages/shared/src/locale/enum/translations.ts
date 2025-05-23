@@ -2824,6 +2824,8 @@
   update_verifying = 'update.verifying',
   update_verifying_sha256_and_package_name = 'update.verifying_sha256_and_package_name',
   update_whats_new_in_onekey_version = 'update.whats_new_in_onekey_version',
+  update_notification_dialog_desc = 'update_notification_dialog.desc',
+  update_notification_dialog_title = 'update_notification_dialog.title',
   v4_select_account_name_label = 'v4.select_account_name_label',
   v4_migration_backed_up_warning = 'v4_migration.backed_up_warning',
   v4_migration_backed_up_warning_desc = 'v4_migration.backed_up_warning_desc',
