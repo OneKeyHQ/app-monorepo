@@ -27,8 +27,7 @@ function MobileTabListPinnedItem({
   return (
     <Stack
       p="$0.5"
-      minWidth="$28"
-      maxWidth="$40"
+      width={125}
       borderRadius="$4"
       borderWidth={4}
       borderColor={isActive ? '$brand6' : '$transparent'}

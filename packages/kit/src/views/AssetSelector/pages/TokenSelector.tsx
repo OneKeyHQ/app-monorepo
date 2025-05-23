@@ -113,6 +113,7 @@ function TokenSelector() {
               deriveType = (
                 await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate(
                   {
+                    accountId: tokenAccount.id,
                     networkId: token.networkId,
                     template: tokenAccount.template,
                   },

@@ -15,9 +15,14 @@ export type IPackage = {
   pricePerYearString: string;
 };
 
+export type IRevenueCatCustomerInfoWeb = CustomerInfoWeb;
+export type IRevenueCatCustomerInfoNative = CustomerInfoNative;
+
 export type IUsePrimePayment = {
   isReady: boolean;
-  getCustomerInfo: () => Promise<CustomerInfoWeb | CustomerInfoNative>;
+  getCustomerInfo: () => Promise<
+    IRevenueCatCustomerInfoWeb | IRevenueCatCustomerInfoNative
+  >;
   getPackagesNative: (() => Promise<IPackage[]>) | undefined;
   getPackagesWeb: (() => Promise<IPackage[]>) | undefined;
   purchasePackageNative:

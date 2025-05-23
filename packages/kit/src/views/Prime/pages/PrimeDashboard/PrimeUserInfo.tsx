@@ -1,8 +1,9 @@
-import type { ComponentProps } from 'react';
+import { type ComponentProps, useEffect } from 'react';
 
 import { StyleSheet } from 'react-native';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 

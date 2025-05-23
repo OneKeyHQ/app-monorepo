@@ -5,13 +5,13 @@ import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
-  BlurView,
   Button,
   IconButton,
   ListView,
   Page,
   Stack,
   Toast,
+  XStack,
   useClipboard,
 } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
@@ -138,14 +138,28 @@ function MobileTabListModal() {
     triggerCloseTab.current = false;
   }, [tabs, setDisplayHomePage, navigation]);
 
-  const tabInitialScrollIndex = useMemo(
-    () => data.findIndex((t) => t.id === activeTabId),
-    [data, activeTabId],
-  );
-  const pinInitialScrollIndex = useMemo(
-    () => pinnedData.findIndex((t) => t.id === activeTabId),
-    [pinnedData, activeTabId],
-  );
+  const initialScrollIndex = useMemo(() => {
+    const index = data.findIndex((t) => t.id === activeTabId);
+
+    if (index === -1) {
+      return data.length - 1;
+    }
+
+    if (index < 4) {
+      return 0;
+    }
+
+    return index;
+  }, [data, activeTabId]);
+  const pinInitialScrollIndex = useMemo(() => {
+    const index = pinnedData.findIndex((t) => t.id === activeTabId) - 2;
+
+    if (index <= 0) {
+      return -1;
+    }
+
+    return index;
+  }, [pinnedData, activeTabId]);
 
   const { handleShareUrl, handleRenameTab } = useBrowserOptionsAction();
   const { copyText } = useClipboard();
@@ -385,32 +399,21 @@ function MobileTabListModal() {
       return null;
     }
     return (
-      <BlurView
-        position="absolute"
-        left="$2.5"
-        bottom="$2.5"
-        right="$2.5"
-        borderRadius="$5"
-        bg="$bgStrong"
-        testID="tab-pined-container"
-        // To improve performance on Android, turn off the blur effect.
-        experimentalBlurMethod="none"
-      >
+      <XStack flexShrink={1} bg="$bgStrong" testID="tab-pined-container">
         <ListView
           contentContainerStyle={{
-            p: '$1',
+            py: '$0.5',
+            px: '$2.5',
           }}
           horizontal
           data={pinnedData}
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
-          estimatedItemSize="$28"
-          // @ts-expect-error
-          estimatedListSize={{ width: 370, height: 52 }}
+          estimatedItemSize={128}
           renderItem={renderPinnedItem}
           initialScrollIndex={pinInitialScrollIndex}
         />
-      </BlurView>
+      </XStack>
     );
   }, [pinnedData, renderPinnedItem, pinInitialScrollIndex]);
 
@@ -424,9 +427,9 @@ function MobileTabListModal() {
       />
       <Page.Body>
         <ListView
-          initialScrollIndex={tabInitialScrollIndex}
+          initialScrollIndex={initialScrollIndex}
           // estimated item min size
-          estimatedItemSize={223}
+          estimatedItemSize={232}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -435,7 +438,6 @@ function MobileTabListModal() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 10,
-            paddingBottom: 62,
           }}
           testID="tab-container"
         />

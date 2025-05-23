@@ -330,6 +330,7 @@ class ServiceStaking extends ServiceBase {
       networkId,
       accountId,
       claimTokenAddress: rewardTokenAddress,
+      vault: vaultAddress,
       ...rest
     } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -344,18 +345,28 @@ class ServiceStaking extends ServiceBase {
       throw new Error('Staking config not found');
     }
 
-    const resp = await client.post<{
-      data: IStakeTxResponse;
-    }>(`/earn/v2/claim`, {
+    const sendParams: Record<string, string | undefined> = {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      rewardTokenAddress,
       ...rest,
-    });
+    };
+
+    if (rewardTokenAddress) {
+      sendParams.rewardTokenAddress = rewardTokenAddress;
+    }
+    if (
+      earnUtils.isMorphoProvider({ providerName: params.provider }) &&
+      vaultAddress
+    ) {
+      sendParams.vault = vaultAddress;
+    }
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v2/claim`, sendParams);
     return resp.data.data;
   }
 

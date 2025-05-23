@@ -33,6 +33,7 @@ import ServiceBase from '../ServiceBase';
 import type {
   IPrimeLoginDialogAtomData,
   IPrimeLoginDialogKeys,
+  IPrimePersistAtomData,
 } from '../../states/jotai/atoms/prime';
 
 class ServicePrime extends ServiceBase {
@@ -79,11 +80,13 @@ class ServicePrime extends ServiceBase {
             response.data.data.inviteCode,
           );
         }
-        await primePersistAtom.set((v) => ({
-          ...v,
-          displayEmail: response.data.data.emails[0],
-          isLoggedInOnServer: true,
-        }));
+        await primePersistAtom.set(
+          (v): IPrimePersistAtomData => ({
+            ...v,
+            displayEmail: response?.data?.data?.emails?.[0],
+            isLoggedInOnServer: true,
+          }),
+        );
       } catch (error) {
         await this.backgroundApi.simpleDb.prime.saveAuthToken('');
         throw error;
@@ -199,6 +202,8 @@ class ServicePrime extends ServiceBase {
       primeSubscription = {
         isActive: true,
         expiresAt: serverUserInfo.primeExpiredAt,
+        willRenew: serverUserInfo.willRenew,
+        subscriptions: serverUserInfo.subscriptions,
       };
     } else {
       primeSubscription = undefined;
@@ -209,15 +214,19 @@ class ServicePrime extends ServiceBase {
         serverUserInfo.inviteCode,
       );
     }
-    await primePersistAtom.set((v) => ({
-      ...v,
-      displayEmail: serverUserInfo?.emails?.[0] || v.displayEmail,
-      isLoggedIn: true,
-      isLoggedInOnServer: true,
-      primeSubscription,
-      salt: serverUserInfo.salt,
-      pwdHash: serverUserInfo.pwdHash,
-    }));
+    await primePersistAtom.set(
+      (v): IPrimePersistAtomData => ({
+        ...v,
+        displayEmail: serverUserInfo?.emails?.[0] || v?.displayEmail,
+        isEnablePrime: serverUserInfo?.isEnablePrime,
+        isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        primeSubscription,
+        // salt: serverUserInfo.salt,
+        // pwdHash: serverUserInfo.pwdHash,
+      }),
+    );
     const localUserInfo = await primePersistAtom.get();
     return {
       userInfo: localUserInfo,
@@ -228,24 +237,29 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
-    await primePersistAtom.set(() => ({
-      isLoggedIn: false,
-      isLoggedInOnServer: false,
-      privyUserId: undefined,
-      email: undefined,
-      displayEmail: undefined,
-      primeSubscription: undefined,
-      subscriptionManageUrl: undefined,
-      salt: undefined,
-      pwdHash: undefined,
-    }));
+    await primePersistAtom.set(
+      (): IPrimePersistAtomData => ({
+        isLoggedIn: false,
+        isLoggedInOnServer: false,
+        isEnablePrime: undefined,
+        isEnableSandboxPay: undefined,
+        privyUserId: undefined,
+        email: undefined,
+        displayEmail: undefined,
+        primeSubscription: undefined,
+        subscriptionManageUrl: undefined,
+        // salt: undefined,
+        // pwdHash: undefined,
+      }),
+    );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
   }
 
   @backgroundMethod()
   async isLoggedIn() {
-    const { isLoggedIn } = await primePersistAtom.get();
-    return Boolean(isLoggedIn);
+    const { isLoggedIn, isLoggedInOnServer } = await primePersistAtom.get();
+    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    return Boolean(isLoggedIn && isLoggedInOnServer && authToken);
   }
 
   @backgroundMethod()

@@ -7,7 +7,10 @@ import {
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { MarketStar } from '../../../components/MarketStar';
 
 export function TokenDetailHeader({
   tokenDetail,
@@ -26,7 +29,6 @@ export function TokenDetailHeader({
     name = '',
     symbol = '',
     price: currentPrice = '0',
-    // coingeckoId, // TODO: uncomment when MarketStar is used
     // priceChangePercentage24h, // TODO: uncomment when PriceChangePercentage is used
   } = tokenDetail || {};
 
@@ -47,14 +49,14 @@ export function TokenDetailHeader({
             price={currentPrice}
             tokenName={name}
             tokenSymbol={symbol}
-            // lastUpdated={lastUpdated} // lastUpdated is not in IMarketTokenDetail from marketV2.ts
           />
-          {/* <MarketStar
-            coingeckoId={coinGeckoId}
+
+          <MarketStar
+            coingeckoId="BTC"
             mr="$-2"
             size="medium"
             from={EWatchlistFrom.details}
-          /> */}
+          />
         </XStack>
         {/* <PriceChangePercentage pt="$0.5" width="100%">
           {performance.priceChangePercentage24h}
