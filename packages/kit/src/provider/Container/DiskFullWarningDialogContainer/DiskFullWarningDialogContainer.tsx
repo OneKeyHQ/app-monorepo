@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { debounce } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, YStack } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
