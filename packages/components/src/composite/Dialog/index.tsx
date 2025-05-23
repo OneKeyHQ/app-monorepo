@@ -578,9 +578,11 @@ const dialogDebugMessage = (
   props: IDialogShowProps & { debugMessage: any },
 ) => {
   const dataContent = JSON.stringify(props.debugMessage, null, 4);
-  console.log('dialogDebugMessage:', dataContent);
+  console.log('dialogDebugMessage: ', dataContent);
   const copyContent = async () => {
     await setStringAsync(dataContent);
+    console.log('dialogDebugMessage: object >>> ', props.debugMessage);
+    console.log('dialogDebugMessage: ', dataContent);
     Toast.success({
       title: 'Copied',
     });
@@ -591,6 +593,7 @@ const dialogDebugMessage = (
     showConfirmButton: true,
     showCancelButton: true,
     onConfirmText: 'Copy',
+    dismissOnOverlayPress: false,
     onConfirm: async ({ preventClose }) => {
       preventClose();
       await copyContent();

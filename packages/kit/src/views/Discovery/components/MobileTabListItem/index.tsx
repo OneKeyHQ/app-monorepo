@@ -49,7 +49,7 @@ function MobileTabListItem({
       <Stack
         borderRadius="$4"
         borderWidth="$1"
-        borderColor={isActive ? '$brand6' : '$transparent'}
+        borderColor={isActive ? '$brand7' : '$transparent'}
         p="$0.5"
         borderCurve="continuous"
         testID={

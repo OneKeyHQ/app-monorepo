@@ -28,6 +28,7 @@ module.exports = [
   'addr1',
   'Ae2',
   'aes',
+  'expirationDateMillis',
   'airgap',
   'akash',
   'alg',

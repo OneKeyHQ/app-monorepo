@@ -2,13 +2,15 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
 
+import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 const PrimePurchaseDialog = LazyLoadPage(
@@ -18,7 +20,7 @@ const PrimePurchaseDialog = LazyLoadPage(
 );
 
 export function usePrimeRequirements() {
-  const { isLoggedIn } = usePrimeAuthV2();
+  const { user, isLoggedIn, logout } = usePrimeAuthV2();
   const { loginOneKeyId } = useLoginOneKeyId();
 
   const intl = useIntl();
@@ -31,6 +33,9 @@ export function usePrimeRequirements() {
       const isLoggedInInBackground: boolean =
         await backgroundApiProxy.servicePrime.isLoggedIn();
       if (!isLoggedInInBackground || !isLoggedIn) {
+        // logout before login, make sure local privy cache is cleared
+        void logout();
+
         const onConfirm = async () => {
           await loginOneKeyId();
         };
@@ -56,7 +61,7 @@ export function usePrimeRequirements() {
         throw new Error('Prime is not logged in');
       }
     },
-    [isLoggedIn, intl, loginOneKeyId],
+    [isLoggedIn, logout, intl, loginOneKeyId],
   );
 
   const ensurePrimeSubscriptionActive = useCallback(
@@ -72,6 +77,18 @@ export function usePrimeRequirements() {
         await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive();
       if (!isPrimeSubscriptionActive) {
         const onConfirm = async () => {
+          const { isSandboxKey } = await getPrimePaymentApiKey({
+            apiKeyType: 'web',
+          });
+          if (
+            platformEnv.isRuntimeBrowser &&
+            isSandboxKey &&
+            !user.isEnableSandboxPay
+          ) {
+            Toast.error({
+              title: 'Your account is not eligible for sandbox payment',
+            });
+          }
           const purchaseDialog = Dialog.show({
             renderContent: (
               <PrimePurchaseDialog
@@ -104,7 +121,7 @@ export function usePrimeRequirements() {
         throw new Error('Prime subscription is not active');
       }
     },
-    [ensureOneKeyIDLoggedIn, intl],
+    [ensureOneKeyIDLoggedIn, intl, user.isEnableSandboxPay],
   );
 
   return {

@@ -64,6 +64,7 @@ import {
   devSettingsPersistAtom,
   primeCloudSyncPersistAtom,
   primeMasterPasswordPersistAtom,
+  primePersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -1040,28 +1041,13 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   async isCloudSyncIsAvailable() {
-    const devSettings = await devSettingsPersistAtom.get();
-    if (!devSettings.settings?.showPrimeTest) {
+    try {
+      await this.ensureCloudSyncIsAvailable();
+      return true;
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
       return false;
     }
-
-    const primeCloudSyncConfig = await primeCloudSyncPersistAtom.get();
-    if (!primeCloudSyncConfig.isCloudSyncEnabled) {
-      return false;
-    }
-
-    const isPrimeLoggedIn = await this.backgroundApi.servicePrime.isLoggedIn();
-    if (!isPrimeLoggedIn) {
-      return false;
-    }
-
-    const isPrimeSubscriptionActive =
-      await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
-    if (!isPrimeSubscriptionActive) {
-      return false;
-    }
-
-    return true;
   }
 
   async ensureCloudSyncIsAvailable({
@@ -1070,7 +1056,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName?: string;
   } = {}) {
     const devSettings = await devSettingsPersistAtom.get();
-    if (!devSettings.settings?.showPrimeTest) {
+    const prime = await primePersistAtom.get();
+    const primeAvailable =
+      prime.isEnablePrime === true || devSettings.settings?.showPrimeTest;
+    if (!primeAvailable) {
       throw new OneKeyError(`Prime DevSettings is not enabled: ${callerName}`);
     }
 

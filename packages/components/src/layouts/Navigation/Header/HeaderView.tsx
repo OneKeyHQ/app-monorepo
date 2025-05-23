@@ -154,9 +154,13 @@ function HeaderView({
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView}
+            headerRightContainerStyle={headerRightContainerStyle}
             headerRight={
               typeof headerRight === 'function'
-                ? ({ tintColor }) => headerRight({ tintColor, canGoBack })
+                ? ({ tintColor }) => {
+                    const ele = headerRight({ tintColor, canGoBack });
+                    return ele;
+                  }
                 : (headerRight as any)
             }
             headerTitle={
@@ -171,7 +175,6 @@ function HeaderView({
               fontWeight: '600',
               ...(headerTitleStyle as any),
             }}
-            headerRightContainerStyle={headerRightContainerStyle}
             headerTitleContainerStyle={{
               marginHorizontal: 0,
               ...(headerTitleContainerStyle as any),

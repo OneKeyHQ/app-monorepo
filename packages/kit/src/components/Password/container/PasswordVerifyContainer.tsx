@@ -63,7 +63,6 @@ const PasswordVerifyContainer = ({
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(true);
   const [passwordMode] = usePasswordModeAtom();
-  const { logout } = usePrimeAuthV2();
   const { title } = useBiometricAuthInfo();
   const biologyAuthAttempts = useMemo(
     () =>
