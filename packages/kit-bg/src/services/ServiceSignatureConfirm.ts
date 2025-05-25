@@ -354,9 +354,17 @@ class ServiceSignatureConfirm extends ServiceBase {
     });
   }
 
-  async getRecentRecipients({ networkId }: { networkId: string }) {
+  @backgroundMethod()
+  async getRecentRecipients({
+    networkId,
+    limit,
+  }: {
+    networkId: string;
+    limit?: number;
+  }) {
     return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
       networkId,
+      limit,
     });
   }
 }

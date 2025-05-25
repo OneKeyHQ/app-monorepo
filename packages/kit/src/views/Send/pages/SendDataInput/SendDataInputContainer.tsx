@@ -84,6 +84,8 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
+import RecentRecipients from './RecentRecipients';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
@@ -348,6 +350,7 @@ function SendDataInputContainer() {
   const amount = form.watch('amount');
   const toPending = form.watch('to.pending');
   const toResolved = form.watch('to.resolved');
+  const toAddressRaw = form.watch('to.raw');
   const nftAmount = form.watch('nftAmount');
   const toIsContract = form.watch('to.isContract');
 
@@ -1393,6 +1396,8 @@ function SendDataInputContainer() {
     [form, isUseFiat, maxBalance, maxBalanceFiat, token?.decimals],
   );
 
+  const inputAddressFieldState = form.getFieldState('to');
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -1475,7 +1480,23 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               hideNonBackedUpWallet
             />
-            {renderDataInput()}
+            {!inputAddressFieldState.isDirty ||
+            inputAddressFieldState.invalid ||
+            toPending ? (
+              <RecentRecipients
+                accountId={currentAccount.accountId}
+                networkId={currentAccount.networkId}
+                searchKey={toAddressRaw}
+                isSearchMode={!form.formState.isValid}
+                onSelect={({ address: selectedAddress }) => {
+                  form.setValue('to', {
+                    raw: selectedAddress,
+                  });
+                }}
+              />
+            ) : (
+              renderDataInput()
+            )}
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
