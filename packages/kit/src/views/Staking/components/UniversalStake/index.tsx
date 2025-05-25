@@ -472,12 +472,15 @@ export function UniversalStake({
   //   return false;
   // }, [maxAmount, amountValue]);
 
+  const isCheckAmountMessageError =
+    amountValue?.length > 0 && !!checkAmountMessage;
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
-      isInsufficientBalance
+      isInsufficientBalance ||
+      isCheckAmountMessageError
     );
     // return (
     //   amountValueBN.isNaN() ||
@@ -487,7 +490,7 @@ export function UniversalStake({
     //   isGreaterThanMaxAmount ||
     //   isReachBabylonCap
     // );
-  }, [amountValue, isInsufficientBalance]);
+  }, [amountValue, isCheckAmountMessageError, isInsufficientBalance]);
 
   const estAnnualRewardsState = useMemo(() => {
     if (Number(amountValue) > 0 && Number(apr) > 0) {
@@ -891,8 +894,6 @@ export function UniversalStake({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
-  const isCheckAmountMessageError =
-    amountValue?.length > 0 && !!checkAmountMessage;
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
