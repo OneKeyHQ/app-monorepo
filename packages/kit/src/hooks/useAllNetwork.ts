@@ -485,6 +485,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
 
       const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
 
+      const mainnetItems = compatibleNetworks.mainnetItems;
       if (filterNetworksWithoutAccount && indexedAccountId) {
         const networksByImpl = compatibleNetworks.mainnetItems.reduce(
           (acc, network) => {
@@ -539,7 +540,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       }
 
       return {
-        compatibleNetworks: compatibleNetworks.mainnetItems,
+        compatibleNetworks: mainnetItems,
         compatibleNetworksWithoutAccount,
       };
     },

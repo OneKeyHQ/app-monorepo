@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react/no-unstable-nested-components */
+import { useMemo, useRef } from 'react';
 
 import {
   IconButton,
@@ -8,6 +10,7 @@ import {
   Tab,
   Toast,
 } from '@onekeyhq/components';
+import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
@@ -175,47 +178,54 @@ const TabViewGallery = () => (
       },
       {
         title: 'Custom tabview for swap',
-        element: (
-          <Stack>
-            <Tab.Header
-              style={{
-                height: '$8',
-                borderBottomWidth: 0,
-              }}
-              data={[
-                { title: 'Swap' },
-                { title: 'Bridge' },
-                { title: 'Limit' },
-              ]}
-              itemContainerStyle={{
-                px: '$2.5',
-                mr: '$3',
-                cursor: 'default',
-              }}
-              itemTitleNormalStyle={{
-                color: '$textSubdued',
-                fontWeight: '600',
-              }}
-              itemTitleSelectedStyle={{ color: '$text' }}
-              cursorStyle={{
-                height: '100%',
-                bg: '$bgStrong',
-                borderRadius: '$3',
-                borderCurve: 'continuous',
-              }}
-              onSelectedPageIndex={(index: number) => {
-                console.log('选中', index);
-              }}
-            />
-            <IconButton
-              variant="tertiary"
-              icon="InfoCircleOutline"
-              position="absolute"
-              right="$0"
-              top="$1"
-            />
-          </Stack>
-        ),
+        element: () => {
+          const tabRef = useRef<ITabHeaderInstance>(null);
+          return (
+            <Stack>
+              <Tab.Header
+                ref={tabRef}
+                style={{
+                  height: '$8',
+                  borderBottomWidth: 0,
+                }}
+                data={[
+                  { title: 'Swap' },
+                  { title: 'Bridge' },
+                  { title: 'Limit' },
+                ]}
+                itemContainerStyle={{
+                  px: '$2.5',
+                  mr: '$3',
+                  cursor: 'default',
+                }}
+                itemTitleNormalStyle={{
+                  color: '$textSubdued',
+                  fontWeight: '600',
+                }}
+                itemTitleSelectedStyle={{ color: '$text' }}
+                cursorStyle={{
+                  height: '100%',
+                  bg: '$bgStrong',
+                  borderRadius: '$3',
+                  borderCurve: 'continuous',
+                }}
+                onSelectedPageIndex={(index: number) => {
+                  console.log('选中', index);
+                }}
+              />
+              <IconButton
+                onPress={() => {
+                  tabRef.current?.scrollToIndex(2);
+                }}
+                variant="tertiary"
+                icon="InfoCircleOutline"
+                position="absolute"
+                right="$0"
+                top="$1"
+              />
+            </Stack>
+          );
+        },
       },
     ]}
   />

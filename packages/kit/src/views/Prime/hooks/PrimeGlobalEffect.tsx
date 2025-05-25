@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
 import { useUpdateEffect } from '@onekeyhq/components';
+import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeInitAtom,
   usePrimePersistAtom,
@@ -20,7 +21,7 @@ import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 function PrimeGlobalEffectView() {
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
-  const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
+  const [, setPrimeInitAtom] = usePrimeInitAtom();
 
   // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
   const { authenticated, getAccessToken, privyUser } = usePrivyUniversalV2();
@@ -45,6 +46,23 @@ function PrimeGlobalEffectView() {
   useEffect(() => {
     void autoRefreshPrimeUserInfo();
   }, [autoRefreshPrimeUserInfo]);
+
+  useEffect(() => {
+    void (async () => {
+      if (isReady && user.isLoggedIn && !user.isLoggedInOnServer) {
+        const accessToken =
+          await backgroundApiProxy.simpleDb.prime.getAuthToken();
+        if (accessToken) {
+          await backgroundApiProxy.servicePrime.apiLogin({
+            accessToken,
+          });
+        } else {
+          // Do not call apiLogout here, otherwise the user will automatically call logout during the login process, resulting in no login
+          // await backgroundApiProxy.servicePrime.apiLogout();
+        }
+      }
+    })();
+  }, [isReady, user.isLoggedIn, user.isLoggedInOnServer]);
 
   useEffect(() => {
     void (async () => {
@@ -76,10 +94,12 @@ function PrimeGlobalEffectView() {
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
       }
 
-      setPrimeInitAtom((v) => ({
-        ...v,
-        isReady: true,
-      }));
+      setPrimeInitAtom(
+        (v): IPrimeInitAtomData => ({
+          ...v,
+          isReady: true,
+        }),
+      );
     })();
   }, [
     setPrimePersistAtom,

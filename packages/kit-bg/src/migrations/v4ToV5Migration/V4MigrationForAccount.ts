@@ -122,6 +122,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       };
       const { deriveInfo } =
         await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+          accountId: v4account.id,
           networkId,
           template: await this.fixV4AccountTemplate({
             v4account,
@@ -697,6 +698,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             if (networkId) {
               const { deriveType, deriveInfo } =
                 await serviceNetwork.getDeriveTypeByTemplate({
+                  accountId: v4account.id,
                   networkId,
                   template: await this.fixV4AccountTemplate({
                     v4account,
@@ -787,6 +789,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       this.backgroundApi;
 
     const deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+      accountId: v4account.id,
       networkId,
       input: await servicePassword.encodeSensitiveText({
         text: input,
@@ -1102,6 +1105,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               });
               const deriveTypes =
                 await serviceNetwork.getAccountImportingDeriveTypes({
+                  accountId: v4account.id,
                   networkId,
                   input: await servicePassword.encodeSensitiveText({
                     text: input,

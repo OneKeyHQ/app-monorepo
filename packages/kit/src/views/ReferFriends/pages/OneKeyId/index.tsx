@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -24,6 +23,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
 
 export default function OneKeyId() {
@@ -32,16 +32,14 @@ export default function OneKeyId() {
   const toInviteRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.InviteReward);
   }, [navigation]);
-  const [devSettings] = useDevSettingsPersistAtom();
-  const isPrimeEnabled =
-    devSettings.enabled && devSettings.settings?.showPrimeTest;
+  const { isPrimeAvailable } = usePrimeAvailable();
 
   const toPrimePage = useCallback(() => {
-    if (isPrimeEnabled)
+    if (isPrimeAvailable)
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
       });
-  }, [navigation, isPrimeEnabled]);
+  }, [navigation, isPrimeAvailable]);
 
   return (
     <Page scrollEnabled>
@@ -96,7 +94,7 @@ export default function OneKeyId() {
               })}
               onPress={toPrimePage}
             >
-              {isPrimeEnabled ? (
+              {isPrimeAvailable ? (
                 <IconButton
                   icon="ChevronRightSmallOutline"
                   variant="tertiary"

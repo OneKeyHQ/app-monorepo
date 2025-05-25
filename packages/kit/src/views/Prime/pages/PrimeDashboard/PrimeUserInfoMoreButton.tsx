@@ -13,6 +13,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -40,18 +41,30 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const userInfoView = (
     <Stack px="$2" py="$2.5" gap="$1">
       <XStack alignItems="center" gap="$2">
-        <SizableText
+        <MultipleClickStack
           flex={1}
-          size="$headingSm"
           onPress={async () => {
+            handleActionListClose();
             const sdkCustomerInfo = await getCustomerInfo();
             const serverPrimeUserInfo =
               await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-            console.log({ user, sdkCustomerInfo, serverPrimeUserInfo });
+            const result = {
+              user,
+              sdkCustomerInfo,
+              serverPrimeUserInfo,
+            };
+            console.log(result);
+            Dialog.debugMessage({
+              title: 'sdkCustomerInfo',
+              debugMessage: result,
+            });
           }}
         >
-          {user?.email}
-        </SizableText>
+          <SizableText flex={1} size="$headingSm">
+            {user?.email}
+          </SizableText>
+        </MultipleClickStack>
+
         {/* {isPrime ? (
           <Badge bg="$brand3" badgeSize="sm">
             <Badge.Text color="$brand11">Prime</Badge.Text>
@@ -82,28 +95,35 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   return (
     <>
       {userInfoView}
+
+      {/* 
+       Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
+      */}
+      {isPrime || user.subscriptionManageUrl ? (
+        <ActionList.Item
+          label={intl.formatMessage({
+            id: ETranslations.prime_manage_subscription,
+          })}
+          icon="CreditCardOutline"
+          onClose={handleActionListClose}
+          onPress={async () => {
+            if (user.subscriptionManageUrl) {
+              openUrlUtils.openUrlExternal(user.subscriptionManageUrl);
+            } else {
+              Toast.message({
+                title: 'Please try again later',
+              });
+              await Promise.all([
+                backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo(),
+                getCustomerInfo(),
+              ]);
+            }
+          }}
+        />
+      ) : null}
+
       {isPrime ? (
         <>
-          <ActionList.Item
-            label={intl.formatMessage({
-              id: ETranslations.prime_manage_subscription,
-            })}
-            icon="CreditCardOutline"
-            onClose={handleActionListClose}
-            onPress={async () => {
-              if (user.subscriptionManageUrl) {
-                openUrlUtils.openUrlExternal(user.subscriptionManageUrl);
-              } else {
-                Toast.message({
-                  title: 'Please try again later',
-                });
-                await Promise.all([
-                  backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo(),
-                  getCustomerInfo(),
-                ]);
-              }
-            }}
-          />
           {devSettings?.enabled ? (
             <ActionList.Item
               label="Change Subscription"
@@ -116,6 +136,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           ) : null}
         </>
       ) : null}
+
       <Divider mx="$2" my="$1" />
       <ActionList.Item
         label={intl.formatMessage({

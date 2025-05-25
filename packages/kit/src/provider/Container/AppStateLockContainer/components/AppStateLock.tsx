@@ -15,6 +15,7 @@ import Animated, {
 import type { IThemeableStackProps } from '@onekeyhq/components';
 import {
   Button,
+  DesktopDragZoneBox,
   Heading,
   Image,
   Stack,
@@ -95,6 +96,14 @@ const AppStateLock = ({
             p="$8"
             gap="$8"
           >
+            <DesktopDragZoneBox
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              renderAs="Stack"
+              height="$12"
+            />
             <Stack gap="$4" alignItems="center">
               <Image w={72} h={72} source={Logo} />
               <Heading size="$headingLg" textAlign="center">
