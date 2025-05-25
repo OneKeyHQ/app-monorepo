@@ -297,7 +297,7 @@ export type IProtocolInfo = {
   activeBalance?: string;
   overflowBalance?: string;
   aprWithoutFee?: string;
-  minStakeAmount?: string;
+  minStakeTerm?: string;
   lidoStTokenRate?: string;
   morphoTokenRate?: string;
   eventEndTime?: number;
