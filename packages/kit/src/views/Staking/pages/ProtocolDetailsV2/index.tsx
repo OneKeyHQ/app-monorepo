@@ -746,17 +746,21 @@ const ProtocolDetailsPage = () => {
           activeBalance: withdrawAction?.data?.balance,
           eventEndTime: detailInfo?.countDownAlert?.endTime,
 
+          // withdraw
           overflowBalance: resultV1.overflow,
           lidoStTokenRate: resultV1.provider.lidoStTokenRate,
           morphoTokenRate: resultV1.provider.morphoTokenRate,
-          minTransactionFee: resultV1.provider.minTransactionFee,
           unstakingTime: resultV1.provider.unstakingTime,
           unstakingPeriod: resultV1.unstakingPeriod,
           maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
           minUnstakeAmount: resultV1.provider.minUnstakeAmount,
+
+          // staking
+          minTransactionFee: resultV1.provider.minTransactionFee,
           aprWithoutFee: resultV1.provider.aprWithoutFee,
           minStakeTerm: resultV1.provider.minStakeTerm,
-          // --- claim
+
+          // claim
           claimable: resultV1.claimable,
         }
       : undefined;
