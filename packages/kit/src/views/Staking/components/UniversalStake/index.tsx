@@ -38,13 +38,13 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
   IEarnEstimateFeeResp,
+  IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTransactionConfirmation,
@@ -217,7 +217,7 @@ export function UniversalStake({
           symbol: tokenInfo?.token.symbol || '',
           vault: protocolInfo?.approve?.approveTarget || '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
-          action: 'stake',
+          action: ECheckAmountActionType.STAKING,
           amount,
         });
       return resp;
@@ -1042,16 +1042,14 @@ export function UniversalStake({
                     {reward.description.text}
                   </FormatHyperlinkText>
                 </XStack>
-                <Popover.Tooltip
-                  iconSize="$5"
-                  title={intl.formatMessage({
-                    id: ETranslations.earn_until_next_launch,
-                  })}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.earn_until_next_launch_tooltip,
-                  })}
-                  placement="top"
-                />
+                {hasTooltip ? (
+                  <Popover.Tooltip
+                    iconSize="$5"
+                    title={reward.title.text}
+                    tooltip={(reward.tooltip as IEarnTextTooltip)?.data.text}
+                    placement="top"
+                  />
+                ) : null}
               </XStack>
             );
           })}

@@ -150,6 +150,7 @@ const WithdrawPage = () => {
       />
       <Page.Body>
         <UniversalWithdraw
+          accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={price}
           decimals={token?.decimals}
           balance={
