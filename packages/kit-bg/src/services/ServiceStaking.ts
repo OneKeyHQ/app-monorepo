@@ -928,11 +928,6 @@ class ServiceStaking extends ServiceBase {
       },
     });
     const { code, message } = result.data;
-    // this.handleServerError({
-    //   code,
-    //   message,
-    //   requestId: result.$requestId,
-    // });
     return Number(code) === 0 ? '' : message;
   }
 

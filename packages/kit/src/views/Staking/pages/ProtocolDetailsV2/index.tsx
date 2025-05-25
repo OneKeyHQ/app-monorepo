@@ -735,35 +735,38 @@ const ProtocolDetailsPage = () => {
   }, [run, runV1, refreshTracking]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
+    const withdrawAction = detailInfo?.actions.find(
+      (i) => i.type === 'withdraw',
+    );
     return detailInfo?.protocol && resultV1
       ? {
           ...detailInfo.protocol,
           apyDetail: detailInfo.apyDetail,
           earnAccount,
-          activeBalance: resultV1.active,
+          activeBalance: withdrawAction?.data?.balance,
           overflowBalance: resultV1.overflow,
-          rewardAssets: resultV1.rewardAssets,
-          poolFee: resultV1.provider.poolFee,
-          aprWithoutFee: resultV1.provider.aprWithoutFee,
-          minStakeAmount: resultV1.provider.minStakeAmount,
           lidoStTokenRate: resultV1.provider.lidoStTokenRate,
           morphoTokenRate: resultV1.provider.morphoTokenRate,
-          eventEndTime: resultV1.provider.eventEndTime,
-          minStakeTerm: resultV1.provider.minStakeTerm,
-          maxStakeAmount: resultV1.provider.maxStakeAmount,
-          maxStakeTerm: resultV1.provider.maxStakeTerm,
-          stakeDisable: resultV1.provider.stakeDisable,
-          minStakeBlocks: resultV1.provider.minStakeBlocks,
+          eventEndTime: detailInfo?.countDownAlert?.endTime,
           minTransactionFee: resultV1.provider.minTransactionFee,
           unstakingTime: resultV1.provider.unstakingTime,
           unstakingPeriod: resultV1.unstakingPeriod,
           maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
           minUnstakeAmount: resultV1.provider.minUnstakeAmount,
+          aprWithoutFee: resultV1.provider.aprWithoutFee,
+          minStakeTerm: resultV1.provider.minStakeTerm,
           // --- claim
           claimable: resultV1.claimable,
         }
       : undefined;
-  }, [detailInfo?.apyDetail, detailInfo?.protocol, earnAccount, resultV1]);
+  }, [
+    detailInfo?.actions,
+    detailInfo?.apyDetail,
+    detailInfo?.countDownAlert?.endTime,
+    detailInfo?.protocol,
+    earnAccount,
+    resultV1,
+  ]);
 
   const onStake = useCallback(async () => {
     await handleStake({

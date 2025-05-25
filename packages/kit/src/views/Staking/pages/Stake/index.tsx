@@ -157,15 +157,6 @@ function BasicStakePage() {
 
   const intl = useIntl();
 
-  const isReachBabylonCap = useMemo<boolean | undefined>(() => {
-    if (
-      providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
-    ) {
-      return protocolInfo?.stakeDisable;
-    }
-    return false;
-  }, [protocolInfo?.stakeDisable, providerName]);
-
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return;
@@ -222,16 +213,10 @@ function BasicStakePage() {
           apr={apr}
           price={price}
           balance={balanceParsed}
-          minAmount={protocolInfo?.minStakeAmount}
-          maxAmount={protocolInfo?.maxStakeAmount}
-          minStakeTerm={protocolInfo?.minStakeTerm}
-          minStakeBlocks={protocolInfo?.minStakeBlocks}
           tokenImageUri={token?.logoURI}
           tokenSymbol={token.symbol}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
-          isReachBabylonCap={isReachBabylonCap}
-          isDisabled={isReachBabylonCap}
           onConfirm={onConfirm}
           approveType={protocolInfo?.approve?.approveType}
           currentAllowance={currentAllowance}

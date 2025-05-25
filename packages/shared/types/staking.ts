@@ -296,18 +296,11 @@ export type IProtocolInfo = {
   apys?: IRewardApys;
   activeBalance?: string;
   overflowBalance?: string;
-  rewardAssets?: Record<string, IEarnTokenItem>;
-  poolFee?: string;
   aprWithoutFee?: string;
   minStakeAmount?: string;
   lidoStTokenRate?: string;
   morphoTokenRate?: string;
   eventEndTime?: number;
-  minStakeTerm?: number;
-  maxStakeTerm?: number;
-  minStakeBlocks?: number;
-  maxStakeAmount?: string;
-  stakeDisable?: boolean;
   minTransactionFee?: string;
   unstakingTime?: number;
   unstakingPeriod?: number;
@@ -406,12 +399,6 @@ export interface IEarnDepositActionIcon {
   text: IEarnText;
 }
 
-export interface IEarnWithdrawActionIcon {
-  type: 'withdraw';
-  disabled: boolean;
-  text: IEarnText;
-}
-
 export interface IEarnHistoryActionIcon {
   type: 'history';
   disabled: boolean;
@@ -485,6 +472,24 @@ interface IEarnRisk {
     title: IEarnText;
     icon: IEarnIcon;
   }[];
+}
+
+export interface IEarnWithdrawAction {
+  type: 'withdraw';
+  data: {
+    balance: string;
+    token: IEarnToken;
+  };
+}
+
+export interface IEarnWithdrawActionIcon {
+  type: 'withdraw';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    balance: string;
+    token: IEarnToken;
+  };
 }
 
 export interface IStakeEarnDetail {

@@ -82,19 +82,12 @@ type IUniversalStakeProps = {
 
   decimals?: number;
 
-  minAmount?: string;
-  maxAmount?: string;
-
   providerName?: string;
   providerLogo?: string;
 
   minTransactionFee?: string;
   apr?: string;
 
-  minStakeBlocks?: number;
-  minStakeTerm?: number;
-
-  isReachBabylonCap?: boolean;
   isDisabled?: boolean;
 
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
@@ -122,19 +115,13 @@ export function UniversalStake({
   balance,
   apr,
   decimals,
-  minAmount = '0',
   minTransactionFee = '0',
-  minStakeTerm,
-  minStakeBlocks,
   tokenImageUri,
   tokenSymbol,
   providerName = '',
   providerLogo,
-  isReachBabylonCap,
   estimateFeeUTXO,
   isDisabled,
-  maxAmount,
-
   onConfirm,
   onFeeRateChange,
   protocolInfo,
