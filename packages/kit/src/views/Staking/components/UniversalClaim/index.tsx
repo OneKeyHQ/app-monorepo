@@ -261,9 +261,7 @@ export const UniversalClaim = ({
         <Alert
           icon="InfoCircleOutline"
           type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_claimable_balance,
-          })}
+          title={checkAmountMessage}
         />
       ) : null}
       <CalculationList>
