@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNaN } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -23,6 +24,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
@@ -47,10 +49,12 @@ import type {
   IProtocolInfo,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
-import { EApproveType } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  ECheckAmountActionType,
+} from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { FormatHyperlinkText } from '../../../../components/HyperlinkText';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
@@ -378,6 +382,28 @@ export function UniversalStake({
     networkId: approveTarget.networkId,
   });
 
+  const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+
+  const morphoVault = earnUtils.isMorphoProvider({ providerName })
+    ? protocolInfo?.approve?.approveTarget
+    : undefined;
+  const checkAmount = useDebouncedCallback(async (amount: string) => {
+    if (isNaN(amount)) {
+      return;
+    }
+    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+      accountId,
+      networkId,
+      symbol: tokenSymbol,
+      provider: providerName,
+      action: ECheckAmountActionType.STAKING,
+      amount,
+      morphoVault,
+      withdrawAll: false,
+    });
+    setCheckoutAmountMessage(message);
+  }, 300);
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
       if (!validateAmountInput(value, decimals)) {
@@ -401,9 +427,10 @@ export function UniversalStake({
       } else {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
+        void checkAmount(value);
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp],
+    [decimals, debouncedFetchEstimateFeeResp, checkAmount],
   );
 
   const onMax = useCallback(() => {
@@ -442,39 +469,38 @@ export function UniversalStake({
     [amountValue, balance],
   );
 
-  const isLessThanMinAmount = useMemo<boolean>(() => {
-    const minAmountBn = new BigNumber(minAmount);
-    const amountValueBn = new BigNumber(amountValue);
-    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
-      return amountValueBn.isLessThan(minAmountBn);
-    }
-    return false;
-  }, [minAmount, amountValue]);
+  // const isLessThanMinAmount = useMemo<boolean>(() => {
+  //   const minAmountBn = new BigNumber(minAmount);
+  //   const amountValueBn = new BigNumber(amountValue);
+  //   if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
+  //     return amountValueBn.isLessThan(minAmountBn);
+  //   }
+  //   return false;
+  // }, [minAmount, amountValue]);
 
-  const isGreaterThanMaxAmount = useMemo(() => {
-    if (maxAmount && Number(maxAmount) > 0 && Number(amountValue) > 0) {
-      return new BigNumber(amountValue).isGreaterThan(maxAmount);
-    }
-    return false;
-  }, [maxAmount, amountValue]);
+  // const isGreaterThanMaxAmount = useMemo(() => {
+  //   if (maxAmount && Number(maxAmount) > 0 && Number(amountValue) > 0) {
+  //     return new BigNumber(amountValue).isGreaterThan(maxAmount);
+  //   }
+  //   return false;
+  // }, [maxAmount, amountValue]);
 
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
-      isInsufficientBalance ||
-      isLessThanMinAmount ||
-      isGreaterThanMaxAmount ||
-      isReachBabylonCap
+      isInsufficientBalance
     );
-  }, [
-    amountValue,
-    isInsufficientBalance,
-    isLessThanMinAmount,
-    isGreaterThanMaxAmount,
-    isReachBabylonCap,
-  ]);
+    // return (
+    //   amountValueBN.isNaN() ||
+    //   amountValueBN.isLessThanOrEqualTo(0) ||
+    //   isInsufficientBalance ||
+    //   isLessThanMinAmount ||
+    //   isGreaterThanMaxAmount ||
+    //   isReachBabylonCap
+    // );
+  }, [amountValue, isInsufficientBalance]);
 
   const estAnnualRewardsState = useMemo(() => {
     if (Number(amountValue) > 0 && Number(apr) > 0) {
@@ -491,35 +517,35 @@ export function UniversalStake({
     }
   }, [amountValue, apr, price]);
 
-  const btcStakeTerm = useMemo(() => {
-    if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
-      const days = Math.ceil(minStakeTerm / (1000 * 60 * 60 * 24));
-      return (
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage(
-            { id: ETranslations.earn_term_number_days },
-            { number_days: days },
-          )}
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
-            {intl.formatMessage(
-              { id: ETranslations.earn_term_number_block },
-              { number: minStakeBlocks },
-            )}
-          </SizableText>
-        </SizableText>
-      );
-    }
-    return null;
-  }, [minStakeTerm, minStakeBlocks, intl]);
+  // const btcStakeTerm = useMemo(() => {
+  //   if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
+  //     const days = Math.ceil(minStakeTerm / (1000 * 60 * 60 * 24));
+  //     return (
+  //       <SizableText size="$bodyLgMedium">
+  //         {intl.formatMessage(
+  //           { id: ETranslations.earn_term_number_days },
+  //           { number_days: days },
+  //         )}
+  //         <SizableText size="$bodyLgMedium" color="$textSubdued">
+  //           {intl.formatMessage(
+  //             { id: ETranslations.earn_term_number_block },
+  //             { number: minStakeBlocks },
+  //           )}
+  //         </SizableText>
+  //       </SizableText>
+  //     );
+  //   }
+  //   return null;
+  // }, [minStakeTerm, minStakeBlocks, intl]);
 
-  const btcUnlockTime = useMemo(() => {
-    if (minStakeTerm) {
-      const currentDate = new Date();
-      const endDate = new Date(currentDate.getTime() + minStakeTerm);
-      return formatDate(endDate, { hideTimeForever: true });
-    }
-    return null;
-  }, [minStakeTerm]);
+  // const btcUnlockTime = useMemo(() => {
+  //   if (minStakeTerm) {
+  //     const currentDate = new Date();
+  //     const endDate = new Date(currentDate.getTime() + minStakeTerm);
+  //     return formatDate(endDate, { hideTimeForever: true });
+  //   }
+  //   return null;
+  // }, [minStakeTerm]);
 
   const daysSpent = useMemo(() => {
     if (estimateFeeResp?.coverFeeSeconds) {
@@ -878,13 +904,15 @@ export function UniversalStake({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
+  const isCheckAmountMessageError =
+    amountValue?.length > 0 && !!checkAmountMessage;
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
         <StakingAmountInput
           title={intl.formatMessage({ id: ETranslations.earn_deposit })}
           disabled={isDisabled}
-          hasError={isInsufficientBalance || isLessThanMinAmount}
+          hasError={isInsufficientBalance || isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
@@ -911,8 +939,15 @@ export function UniversalStake({
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
+      {isCheckAmountMessageError ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={checkAmountMessage}
+        />
+      ) : null}
 
-      {isLessThanMinAmount ? (
+      {/* {isLessThanMinAmount ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
@@ -951,7 +986,7 @@ export function UniversalStake({
             id: ETranslations.earn_reaching_staking_cap,
           })}
         />
-      ) : null}
+      ) : null} */}
 
       <YStack
         p="$3.5"

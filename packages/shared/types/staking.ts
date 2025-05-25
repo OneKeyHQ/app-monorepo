@@ -8,6 +8,12 @@ export type IAllowanceOverview = {
   allowanceParsed: string;
 };
 
+export enum ECheckAmountActionType {
+  STAKING = 'stake',
+  UNSTAKING = 'unstake',
+  CLAIM = 'claim',
+}
+
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
 export type IStakeTag = string;
 
@@ -302,8 +308,6 @@ export type IProtocolInfo = {
   minStakeBlocks?: number;
   maxStakeAmount?: string;
   stakeDisable?: boolean;
-  stakingTime?: number;
-  nextLaunchLeft?: string;
   minTransactionFee?: string;
   unstakingTime?: number;
   unstakingPeriod?: number;

@@ -26,6 +26,7 @@ import type {
   IChangedPendingTxInfo,
 } from '@onekeyhq/shared/types/history';
 import type {
+  ECheckAmountActionType,
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
@@ -900,7 +901,7 @@ class ServiceStaking extends ServiceBase {
     networkId?: string;
     symbol?: string;
     provider?: string;
-    action: 'stake' | 'unstake' | 'claim';
+    action: ECheckAmountActionType;
     withdrawAll: boolean;
     amount?: string;
     morphoVault?: string;
@@ -927,11 +928,11 @@ class ServiceStaking extends ServiceBase {
       },
     });
     const { code, message } = result.data;
-    this.handleServerError({
-      code,
-      message,
-      requestId: result.$requestId,
-    });
+    // this.handleServerError({
+    //   code,
+    //   message,
+    //   requestId: result.$requestId,
+    // });
     return Number(code) === 0 ? '' : message;
   }
 

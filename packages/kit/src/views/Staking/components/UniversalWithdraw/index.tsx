@@ -30,7 +30,10 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
+import {
+  ECheckAmountActionType,
+  type IEarnEstimateFeeResp,
+} from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
@@ -140,7 +143,7 @@ export const UniversalWithdraw = ({
       networkId,
       symbol: tokenSymbol,
       provider: providerName,
-      action: 'unstake',
+      action: ECheckAmountActionType.UNSTAKING,
       amount,
       morphoVault,
       withdrawAll: withdrawAllRef.current,
