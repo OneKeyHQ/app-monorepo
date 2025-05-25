@@ -744,10 +744,11 @@ const ProtocolDetailsPage = () => {
           apyDetail: detailInfo.apyDetail,
           earnAccount,
           activeBalance: withdrawAction?.data?.balance,
+          eventEndTime: detailInfo?.countDownAlert?.endTime,
+
           overflowBalance: resultV1.overflow,
           lidoStTokenRate: resultV1.provider.lidoStTokenRate,
           morphoTokenRate: resultV1.provider.morphoTokenRate,
-          eventEndTime: detailInfo?.countDownAlert?.endTime,
           minTransactionFee: resultV1.provider.minTransactionFee,
           unstakingTime: resultV1.provider.unstakingTime,
           unstakingPeriod: resultV1.unstakingPeriod,
