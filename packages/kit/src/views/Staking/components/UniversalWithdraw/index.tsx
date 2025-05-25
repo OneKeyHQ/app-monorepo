@@ -62,8 +62,6 @@ type IUniversalWithdrawProps = {
   tokenSymbol?: string;
 
   minAmount?: string;
-  showDetailWithdrawalRequested: boolean;
-  unstakingPeriod?: number;
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
@@ -95,8 +93,6 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
-  showDetailWithdrawalRequested,
-  unstakingPeriod,
   decimals,
   morphoVault,
   estimateFeeResp,
@@ -114,10 +110,6 @@ export const UniversalWithdraw = ({
   ] = useSettingsPersistAtom();
 
   const intl = useIntl();
-
-  const isMorphoProvider = earnUtils.isMorphoProvider({
-    providerName: providerName ?? '',
-  });
 
   const network = usePromiseResult(
     () =>
@@ -271,11 +263,6 @@ export const UniversalWithdraw = ({
 
   const editable = initialAmount === undefined;
 
-  const fiatValue = useMemo(
-    () =>
-      amountValue ? BigNumber(amountValue).multipliedBy(price).toFixed() : 0,
-    [amountValue, price],
-  );
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {

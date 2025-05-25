@@ -130,16 +130,6 @@ const WithdrawPage = () => {
     return resp;
   }, [accountId, networkId, providerName, tokenSymbol, identity, vault]);
 
-  const { unstakingPeriod, showDetailWithdrawalRequested } = useMemo(() => {
-    const showDetail = !!protocolInfo?.unstakingTime;
-    return {
-      showDetailWithdrawalRequested: showDetail,
-      unstakingPeriod: showDetail
-        ? Math.ceil(Number(protocolInfo?.unstakingTime) / (24 * 60 * 60))
-        : protocolInfo?.unstakingPeriod, // day
-    };
-  }, [protocolInfo?.unstakingPeriod, protocolInfo?.unstakingTime]);
-
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -175,8 +165,6 @@ const WithdrawPage = () => {
               ? String(protocolInfo?.minUnstakeAmount)
               : undefined
           }
-          showDetailWithdrawalRequested={showDetailWithdrawalRequested}
-          unstakingPeriod={unstakingPeriod}
           estimateFeeResp={estimateFeeResp}
           morphoVault={vault}
         />

@@ -300,8 +300,6 @@ export type IProtocolInfo = {
   morphoTokenRate?: string;
   eventEndTime?: number;
   minTransactionFee?: string;
-  unstakingTime?: number;
-  unstakingPeriod?: number;
   maxUnstakeAmount?: string;
   minUnstakeAmount?: number;
 

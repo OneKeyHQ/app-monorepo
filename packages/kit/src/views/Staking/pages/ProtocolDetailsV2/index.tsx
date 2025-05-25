@@ -748,8 +748,6 @@ const ProtocolDetailsPage = () => {
 
           // withdraw
           overflowBalance: resultV1.overflow,
-          unstakingTime: resultV1.provider.unstakingTime,
-          unstakingPeriod: resultV1.unstakingPeriod,
           maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
           minUnstakeAmount: resultV1.provider.minUnstakeAmount,
 
