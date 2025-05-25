@@ -9,21 +9,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useUniversalSearchActions,
   useUniversalSearchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EUniversalSearchType,
   type IIUniversalRecentSearchItem,
 } from '@onekeyhq/shared/types/search';
-
-import { urlAccountNavigation } from '../../../Home/pages/urlAccount/urlAccountUtils';
 
 function SearchTextItem({
   item,
@@ -69,48 +64,22 @@ function SearchTextItem({
 
 export function RecentSearched({
   filterTypes,
+  onSearchTextFill,
 }: {
   filterTypes?: EUniversalSearchType[];
+  onSearchTextFill?: (text: string) => void;
 }) {
   const intl = useIntl();
   const [{ recentSearch }] = useUniversalSearchAtom();
 
   const actions = useUniversalSearchActions();
 
-  const navigation = useAppNavigation();
   const handlePress = useCallback(
-    async (item: IIUniversalRecentSearchItem) => {
-      switch (item.type) {
-        case EUniversalSearchType.Address:
-          navigation.pop();
-          setTimeout(async () => {
-            const { displayAddress, networkId, contextNetworkId } =
-              item.extra || {};
-            navigation.switchTab(ETabRoutes.Home);
-            await urlAccountNavigation.pushUrlAccountPage(navigation, {
-              address: displayAddress,
-              networkId,
-              contextNetworkId,
-            });
-          }, 80);
-          break;
-        case EUniversalSearchType.MarketToken:
-          navigation.pop();
-          setTimeout(() => {
-            navigation.switchTab(ETabRoutes.Market);
-            navigation.push(ETabMarketRoutes.MarketDetail, {
-              token: item.id,
-            });
-            defaultLogger.market.token.searchToken({
-              tokenSymbol: item.id,
-              from: 'recentSearch',
-            });
-          }, 80);
-          break;
-        default:
-      }
+    (item: IIUniversalRecentSearchItem) => {
+      // Fill the search text back into the search input instead of navigating
+      onSearchTextFill?.(item.text);
     },
-    [navigation],
+    [onSearchTextFill],
   );
 
   const handleDeleteAll = useCallback(() => {
