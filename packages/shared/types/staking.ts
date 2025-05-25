@@ -57,8 +57,6 @@ export type IStakeProviderInfo = {
   isNative?: string;
   nextLaunchLeft?: string;
 
-  lidoStTokenRate?: string;
-  morphoTokenRate?: string;
   type?: 'native' | 'liquid' | 'lending';
   isStaking?: boolean;
 

@@ -104,36 +104,6 @@ const WithdrawPage = () => {
     ],
   );
 
-  const showPayWith = useMemo<boolean>(
-    () =>
-      earnUtils.isLidoProvider({
-        providerName,
-      }),
-    [providerName],
-  );
-
-  const payWithTokenRate = useMemo(() => {
-    if (
-      earnUtils.isLidoProvider({
-        providerName,
-      })
-    ) {
-      return protocolInfo?.lidoStTokenRate;
-    }
-    if (
-      earnUtils.isMorphoProvider({
-        providerName,
-      })
-    ) {
-      return protocolInfo?.morphoTokenRate;
-    }
-    return '1';
-  }, [
-    protocolInfo?.lidoStTokenRate,
-    protocolInfo?.morphoTokenRate,
-    providerName,
-  ]);
-
   const { result: estimateFeeResp } = usePromiseResult(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId,

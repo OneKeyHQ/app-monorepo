@@ -748,8 +748,6 @@ const ProtocolDetailsPage = () => {
 
           // withdraw
           overflowBalance: resultV1.overflow,
-          lidoStTokenRate: resultV1.provider.lidoStTokenRate,
-          morphoTokenRate: resultV1.provider.morphoTokenRate,
           unstakingTime: resultV1.provider.unstakingTime,
           unstakingPeriod: resultV1.unstakingPeriod,
           maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
