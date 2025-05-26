@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, Dialog, useMedia } from '@onekeyhq/components';
@@ -15,6 +16,8 @@ import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection, type ITradeType } from './hooks/useTradeType';
 import { SwapPanelContent } from './SwapPanelContent';
 
+import type { IToken } from './types';
+
 export type ISwapPanelProps = {
   networkId?: string;
   tokenDetail?: IMarketTokenDetail;
@@ -25,13 +28,11 @@ export function SwapPanel(props: ISwapPanelProps) {
   const intl = useIntl();
   const media = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  console.log('swap__activeAccount--', activeAccount);
   const swapPanel = useSwapPanel({
     networkId: networkIdProp ?? 'evm--1',
   });
 
   const {
-    networkId,
     setPaymentToken,
     paymentToken,
     paymentAmount,
@@ -51,30 +52,33 @@ export function SwapPanel(props: ISwapPanelProps) {
     speedSwapApproveHandler,
     speedSwapApproveLoading,
     shouldApprove,
+    balance,
+    balanceToken,
   } = useSpeedSwapActions({
     slippage,
     spenderAddress: speedConfig.spenderAddress,
-    token: {
-      networkId: networkId ?? '',
+    marketToken: {
+      networkId: networkIdProp ?? '',
       contractAddress: tokenDetail?.address ?? '',
       symbol: tokenDetail?.symbol ?? '',
       decimals: tokenDetail?.decimals ?? 0,
       logoURI: tokenDetail?.logoUrl ?? '',
-      isNative: !tokenDetail?.address,
     },
     tradeToken: {
-      networkId: networkId ?? '',
+      networkId: paymentToken?.networkId ?? '',
       contractAddress: paymentToken?.contractAddress ?? '',
       symbol: paymentToken?.symbol ?? '',
       decimals: paymentToken?.decimals ?? 0,
       logoURI: paymentToken?.logoURI ?? '',
       isNative: paymentToken?.isNative ?? false,
     },
+    defaultTradeTokens: defaultTokens,
     provider,
     tradeType: tradeType ?? ESwapDirection.BUY,
-    accountId: activeAccount.account?.indexedAccountId,
+    account: activeAccount,
     fromTokenAmount: paymentAmount.toFixed(),
   });
+
   useEffect(() => {
     if (defaultTokens.length > 0 && !paymentToken) {
       setPaymentToken(defaultTokens[0]);
@@ -106,6 +110,8 @@ export function SwapPanel(props: ISwapPanelProps) {
   const swapPanelContent = (
     <SwapPanelContent
       swapPanel={swapPanel}
+      balance={balance ?? new BigNumber(0)}
+      balanceToken={balanceToken as IToken}
       isLoading={
         isLoading ||
         speedSwapApproveLoading ||

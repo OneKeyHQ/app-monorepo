@@ -7,7 +7,9 @@ import { Dialog } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -24,6 +26,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   ISwapApproveTransaction,
   ISwapTokenBase,
@@ -43,23 +46,25 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { ESwapDirection } from './useTradeType';
 
 export function useSpeedSwapActions({
-  token,
-  accountId,
+  marketToken,
+  account,
   fromTokenAmount,
   tradeToken,
   tradeType,
   provider,
   spenderAddress,
   slippage,
+  defaultTradeTokens,
 }: {
-  token: ISwapTokenBase;
+  marketToken: ISwapTokenBase;
   tradeToken: ISwapTokenBase;
   tradeType: ESwapDirection;
-  accountId?: string;
+  account?: IAccountSelectorActiveAccountInfo;
   fromTokenAmount: string;
   provider: string;
   spenderAddress: string;
   slippage: number;
+  defaultTradeTokens: ISwapTokenBase[];
 }) {
   const intl = useIntl();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
@@ -70,14 +75,52 @@ export function useSpeedSwapActions({
   const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useState(false);
   const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] =
     useState(false);
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId: accountId ?? '',
-    networkId: token.networkId,
-  });
 
+  const [baseToken, setBaseToken] = useState<ISwapTokenBase>(() => {
+    return {
+      name: marketToken?.name,
+      symbol: marketToken?.symbol,
+      decimals: marketToken?.decimals,
+      networkId: marketToken?.networkId,
+      contractAddress: marketToken?.contractAddress,
+      logoURI: marketToken?.logoURI,
+    };
+  });
+  const [balance, setBalance] = useState<BigNumber | undefined>(
+    new BigNumber(0),
+  );
+
+  const netAccountRes = usePromiseResult(async () => {
+    const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+      accountId: undefined,
+      indexedAccountId: account?.indexedAccount?.id ?? '',
+      networkId: marketToken?.networkId,
+      deriveType: account?.deriveType ?? 'default',
+    });
+    return res;
+  }, [account, marketToken?.networkId]);
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId: netAccountRes.result?.id ?? '',
+    networkId: marketToken?.networkId,
+  });
   const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
     leading: true,
   });
+
+  const { fromToken, toToken, balanceToken } = useMemo(() => {
+    if (tradeType === ESwapDirection.BUY) {
+      return {
+        fromToken: tradeToken,
+        toToken: baseToken,
+        balanceToken: tradeToken,
+      };
+    }
+    return {
+      fromToken: baseToken,
+      toToken: defaultTradeTokens?.find((item) => item.isNative) ?? tradeToken,
+      balanceToken: baseToken,
+    };
+  }, [tradeType, baseToken, defaultTradeTokens, tradeToken]);
 
   // --- build tx
 
@@ -196,20 +239,7 @@ export function useSpeedSwapActions({
 
   const speedSwapBuildTx = useCallback(async () => {
     setSpeedSwapBuildTxLoading(true);
-    let fromToken: ISwapTokenBase;
-    let toToken: ISwapTokenBase;
-    if (tradeType === ESwapDirection.BUY) {
-      fromToken = tradeToken;
-      toToken = token;
-    } else {
-      fromToken = token;
-      toToken = tradeToken;
-    }
-    const userAddress =
-      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-        accountId: accountId ?? '',
-        networkId: fromToken.networkId,
-      });
+    const userAddress = netAccountRes.result?.address ?? '';
     const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx(
       {
         fromToken,
@@ -219,19 +249,20 @@ export function useSpeedSwapActions({
         userAddress,
         receivingAddress: userAddress,
         slippagePercentage: slippage,
-        accountId,
+        accountId: netAccountRes.result?.id ?? '',
         protocol: EProtocolOfExchange.SWAP,
         kind: ESwapQuoteKind.SELL,
       },
     );
     if (!buildRes) {
+      setSpeedSwapBuildTxLoading(false);
       return;
     }
     let transferInfo: ITransferInfo | undefined;
     let encodedTx: IEncodedTx | undefined;
     if (buildRes?.OKXTxObject) {
       encodedTx = await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
-        accountId: accountId ?? '',
+        accountId: netAccountRes.result?.id ?? '',
         networkId: fromToken.networkId,
         okxTx: buildRes.OKXTxObject,
         fromTokenInfo: buildRes.result.fromTokenInfo,
@@ -256,7 +287,7 @@ export function useSpeedSwapActions({
         amount: fromTokenAmount,
         token: fromToken,
         accountInfo: {
-          accountId: accountId ?? '',
+          accountId: netAccountRes.result?.id ?? '',
           networkId: fromToken.networkId,
         },
       },
@@ -264,7 +295,7 @@ export function useSpeedSwapActions({
         amount: buildRes?.result.toAmount ?? '',
         token: toToken,
         accountInfo: {
-          accountId: accountId ?? '',
+          accountId: netAccountRes.result?.id ?? '',
           networkId: toToken.networkId,
         },
       },
@@ -290,8 +321,10 @@ export function useSpeedSwapActions({
     });
     return buildRes;
   }, [
-    tradeType,
-    accountId,
+    netAccountRes.result?.address,
+    netAccountRes.result?.id,
+    fromToken,
+    toToken,
     fromTokenAmountDebounced,
     provider,
     slippage,
@@ -299,8 +332,6 @@ export function useSpeedSwapActions({
     navigationToTxConfirm,
     handleSpeedSwapBuildTxSuccess,
     cancelSpeedSwapBuildTx,
-    tradeToken,
-    token,
   ]);
 
   // --- approve
@@ -363,44 +394,43 @@ export function useSpeedSwapActions({
     });
   }, [setInAppNotificationAtom]);
 
-  const checkTokenApproveAllowance = useCallback(async () => {
-    let fromToken: ISwapTokenBase;
-    if (tradeType === ESwapDirection.BUY) {
-      fromToken = tradeToken;
-    } else {
-      fromToken = token;
-    }
-    try {
-      setCheckTokenAllowanceLoading(true);
-      const userAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId: accountId ?? '',
-          networkId: fromToken.networkId,
-        });
-      const approveRes =
-        await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
-          networkId: fromToken.networkId,
-          tokenAddress: fromToken.contractAddress,
-          spenderAddress,
-          walletAddress: userAddress,
-        });
-      setShouldApprove(!approveRes.isApproved);
-      setShouldResetApprove(!!approveRes.shouldResetApprove);
-      setCheckTokenAllowanceLoading(false);
-    } catch (e: any) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (e.cause !== ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL) {
+  const checkTokenApproveAllowance = useCallback(
+    async (amount: string) => {
+      try {
+        setCheckTokenAllowanceLoading(true);
+        const userAddress = netAccountRes.result?.address ?? '';
+        const approveRes =
+          await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
+            networkId: fromToken.networkId,
+            tokenAddress: fromToken.contractAddress,
+            spenderAddress,
+            walletAddress: userAddress,
+            amount,
+          });
+        setShouldApprove(!approveRes.isApproved);
+        setShouldResetApprove(!!approveRes.shouldResetApprove);
         setCheckTokenAllowanceLoading(false);
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e.cause !== ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL) {
+          setCheckTokenAllowanceLoading(false);
+        }
       }
-    }
-  }, [accountId, spenderAddress, token, tradeToken, tradeType]);
+    },
+    [
+      fromToken.contractAddress,
+      fromToken.networkId,
+      netAccountRes.result?.address,
+      spenderAddress,
+    ],
+  );
 
   const approveRun = useCallback(
     async ({
       amount,
       isReset,
-      fromToken,
-      toToken,
+      fromToken: fromTokenParam,
+      toToken: toTokenParam,
     }: {
       spenderAddress: string;
       amount: string;
@@ -413,21 +443,17 @@ export function useSpeedSwapActions({
           ...pre,
           speedSwapApprovingLoading: true,
         }));
-        const userAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId: accountId ?? '',
-            networkId: token.networkId,
-          });
+        const userAddress = netAccountRes.result?.address ?? '';
         const approveInfo: IApproveInfo = {
           owner: userAddress,
           spender: spenderAddress,
           amount: isReset ? '0' : amount,
           isMax: !isReset,
           tokenInfo: {
-            ...fromToken,
-            isNative: !!fromToken.isNative,
-            address: fromToken.contractAddress,
-            name: fromToken.name ?? fromToken.symbol,
+            ...fromTokenParam,
+            isNative: !!fromTokenParam.isNative,
+            address: fromTokenParam.contractAddress,
+            name: fromTokenParam.name ?? fromTokenParam.symbol,
           },
           swapApproveRes: undefined,
         };
@@ -445,8 +471,8 @@ export function useSpeedSwapActions({
             provider,
             providerName: provider,
             unSupportReceiveAddressDifferent: false,
-            fromToken,
-            toToken,
+            fromToken: fromTokenParam,
+            toToken: toTokenParam,
             amount,
             toAmount: amount,
             useAddress: userAddress,
@@ -466,8 +492,7 @@ export function useSpeedSwapActions({
     },
     [
       setInAppNotificationAtom,
-      accountId,
-      token.networkId,
+      netAccountRes.result?.address,
       spenderAddress,
       navigationToTxConfirm,
       handleSpeedSwapApproveTxSuccess,
@@ -477,15 +502,6 @@ export function useSpeedSwapActions({
   );
 
   const speedSwapApproveHandler = useCallback(async () => {
-    let fromToken: ISwapTokenBase;
-    let toToken: ISwapTokenBase;
-    if (tradeType === ESwapDirection.BUY) {
-      fromToken = tradeToken;
-      toToken = token;
-    } else {
-      fromToken = token;
-      toToken = tradeToken;
-    }
     if (shouldResetApprove) {
       Dialog.confirm({
         onConfirmText: intl.formatMessage({
@@ -520,13 +536,12 @@ export function useSpeedSwapActions({
     }
   }, [
     approveRun,
+    fromToken,
     fromTokenAmountDebounced,
     intl,
     shouldResetApprove,
     spenderAddress,
-    token,
-    tradeToken,
-    tradeType,
+    toToken,
   ]);
   const speedSwapApproveLoading = useMemo(() => {
     const speedSwapApproveTransaction =
@@ -536,11 +551,11 @@ export function useSpeedSwapActions({
       inAppNotificationAtom.speedSwapApprovingLoading &&
       (equalTokenNoCaseSensitive({
         token1: speedSwapApproveTransaction.fromToken,
-        token2: token,
+        token2: marketToken,
       }) ||
         equalTokenNoCaseSensitive({
           token1: speedSwapApproveTransaction.toToken,
-          token2: token,
+          token2: marketToken,
         }))
     ) {
       return true;
@@ -549,7 +564,7 @@ export function useSpeedSwapActions({
   }, [
     inAppNotificationAtom.speedSwapApprovingLoading,
     inAppNotificationAtom.speedSwapApprovingTransaction,
-    token,
+    marketToken,
   ]);
 
   const handleSwapSpeedApprovingReset = useCallback(
@@ -567,28 +582,44 @@ export function useSpeedSwapActions({
     [approveRun],
   );
 
-  // ref
-  const tradeTokenRef = useRef<ISwapTokenBase>(tradeToken);
-  const tokenRef = useRef<ISwapTokenBase>(token);
-  const tradeTypeRef = useRef<ESwapDirection>(tradeType);
-  const checkTokenApproveAllowanceRef = useRef<() => void>(
-    checkTokenApproveAllowance,
+  const syncTokensBalance = useCallback(
+    async ({
+      orderFromToken,
+      orderToToken,
+    }: {
+      orderFromToken?: ISwapTokenBase;
+      orderToToken?: ISwapTokenBase;
+    }) => {
+      if (
+        orderFromToken?.networkId === account?.network?.id &&
+        (equalTokenNoCaseSensitive({
+          token1: orderFromToken,
+          token2: balanceToken,
+        }) ||
+          equalTokenNoCaseSensitive({
+            token1: orderToToken,
+            token2: balanceToken,
+          }))
+      ) {
+        const tokenDetail =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: balanceToken.networkId ?? '',
+            contractAddress: balanceToken.contractAddress ?? '',
+          });
+        if (tokenDetail) {
+          setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
+        }
+      }
+    },
+    [account?.network?.id, balanceToken],
   );
 
-  if (tradeTokenRef.current !== tradeToken) {
-    tradeTokenRef.current = tradeToken;
-  }
-  if (tokenRef.current !== token) {
-    tokenRef.current = token;
-  }
-  if (tradeTypeRef.current !== tradeType) {
-    tradeTypeRef.current = tradeType;
-  }
-  if (checkTokenApproveAllowanceRef.current !== checkTokenApproveAllowance) {
-    checkTokenApproveAllowanceRef.current = checkTokenApproveAllowance;
-  }
-
   useEffect(() => {
+    appEventBus.off(
+      EAppEventBusNames.SwapSpeedBalanceUpdate,
+      syncTokensBalance,
+    );
+    appEventBus.on(EAppEventBusNames.SwapSpeedBalanceUpdate, syncTokensBalance);
     appEventBus.off(
       EAppEventBusNames.SwapSpeedApprovingReset,
       handleSwapSpeedApprovingReset,
@@ -597,29 +628,51 @@ export function useSpeedSwapActions({
       EAppEventBusNames.SwapSpeedApprovingReset,
       handleSwapSpeedApprovingReset,
     );
-  }, [handleSwapSpeedApprovingReset]);
+  }, [handleSwapSpeedApprovingReset, syncTokensBalance]);
 
   useEffect(() => {
-    let fromToken: ISwapTokenBase;
-    if (tradeTypeRef.current === ESwapDirection.BUY) {
-      fromToken = tradeTokenRef.current;
-    } else {
-      fromToken = tokenRef.current;
-    }
     const fromTokenAmountDebouncedBN = new BigNumber(
       fromTokenAmountDebounced ?? 0,
     );
     if (
       !fromTokenAmountDebouncedBN.isNaN() &&
       fromTokenAmountDebouncedBN.gt(0) &&
-      !fromToken.isNative
+      !fromToken.isNative &&
+      spenderAddress &&
+      netAccountRes?.result?.address
     ) {
-      void checkTokenApproveAllowanceRef.current();
+      void checkTokenApproveAllowance(fromTokenAmountDebouncedBN.toFixed());
     } else {
       setShouldApprove(false);
       setShouldResetApprove(false);
     }
-  }, [fromTokenAmountDebounced]);
+  }, [
+    fromToken.isNative,
+    fromTokenAmountDebounced,
+    spenderAddress,
+    checkTokenApproveAllowance,
+    netAccountRes?.result?.address,
+  ]);
+
+  useEffect(() => {
+    void (async () => {
+      const tokenInfo =
+        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: marketToken?.networkId,
+          contractAddress: marketToken?.contractAddress,
+        });
+      if (tokenInfo?.length) {
+        setBaseToken((prev) => ({
+          ...prev,
+          isNative: tokenInfo[0].isNative,
+        }));
+      }
+    })();
+  }, [marketToken?.contractAddress, marketToken?.networkId]);
+
+  useEffect(() => {
+    void syncTokensBalance({ orderFromToken: balanceToken });
+  }, [balanceToken, syncTokensBalance]);
 
   return {
     speedSwapBuildTx,
@@ -629,5 +682,7 @@ export function useSpeedSwapActions({
     speedSwapApproveHandler,
     speedSwapApproveLoading,
     shouldApprove,
+    balance,
+    balanceToken,
   };
 }

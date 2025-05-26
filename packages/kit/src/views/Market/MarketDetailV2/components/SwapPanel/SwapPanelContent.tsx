@@ -22,6 +22,8 @@ export type ISwapPanelContentProps = {
   supportSpeedSwap: boolean;
   isApproved: boolean;
   defaultTokens: IToken[];
+  balance: BigNumber;
+  balanceToken?: IToken;
   onApprove: () => void;
   onSwap: () => void;
 };
@@ -34,6 +36,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     supportSpeedSwap,
     defaultTokens,
     isApproved,
+    balance,
+    balanceToken,
     onApprove,
     onSwap,
   } = props;
@@ -44,8 +48,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setPaymentAmount,
     setPaymentToken,
     antiMEV,
-    balance,
-    balanceToken,
     handleAntiMEVToggle,
     tradeType,
     setTradeType,

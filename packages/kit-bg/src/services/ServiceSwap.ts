@@ -979,12 +979,14 @@ export default class ServiceSwap extends ServiceBase {
     spenderAddress,
     walletAddress,
     accountId,
+    amount,
   }: {
     networkId: string;
     tokenAddress: string;
     spenderAddress: string;
     walletAddress: string;
     accountId?: string;
+    amount: string;
   }) {
     await this.cancelCheckTokenApproveAllowance();
     const params = {
@@ -992,6 +994,7 @@ export default class ServiceSwap extends ServiceBase {
       tokenAddress,
       spenderAddress,
       walletAddress,
+      amount,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     this._checkTokenApproveAllowanceAbortController = new AbortController();
@@ -1576,6 +1579,10 @@ export default class ServiceSwap extends ServiceBase {
             toToken: currentSwapTxHistory.baseInfo.toToken,
             status: txStatusRes.state,
             crossChainStatus: txStatusRes.crossChainStatus,
+          });
+          appEventBus.emit(EAppEventBusNames.SwapSpeedBalanceUpdate, {
+            orderFromToken: currentSwapTxHistory.baseInfo.fromToken,
+            orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
         if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
