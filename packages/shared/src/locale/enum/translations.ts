@@ -1209,6 +1209,7 @@
   global_hardware_name_input_max = 'global.hardware_name_input_max',
   global_hardware_troubleshooting = 'global.hardware_troubleshooting',
   global_hardware_troubleshooting_contact = 'global.hardware_troubleshooting_contact',
+  global_hardware_troubleshooting_warranty_description = 'global.hardware_troubleshooting_warranty_description',
   global_hardware_troubleshooting_warranty_title = 'global.hardware_troubleshooting_warranty_title',
   global_help_message = 'global.help_message',
   global_hex_data = 'global.hex_data',
