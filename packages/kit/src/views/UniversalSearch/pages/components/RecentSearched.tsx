@@ -6,6 +6,7 @@ import {
   Button,
   IconButton,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -110,7 +111,7 @@ export function RecentSearched({
           display: 'flex',
           flexDirection: 'row',
           flexWrap: 'wrap',
-          maxHeight: 108,
+          maxHeight: 78,
         }}
       >
         {recentSearch.map((i) => (
