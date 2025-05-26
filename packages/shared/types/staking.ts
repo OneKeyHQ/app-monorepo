@@ -297,7 +297,7 @@ export type IProtocolInfo = {
   eventEndTime?: number;
   minTransactionFee?: string;
   maxUnstakeAmount?: string;
-  minUnstakeAmount?: number;
+  minUnstakeAmount?: string;
   claimable?: string;
 };
 
@@ -458,10 +458,10 @@ interface IEarnRisk {
         link: string;
       };
     };
-  }[];
-  list?: {
-    title: IEarnText;
-    icon: IEarnIcon;
+    list?: {
+      title: IEarnText;
+      icon: IEarnIcon;
+    }[];
   }[];
 }
 
@@ -480,6 +480,15 @@ export interface IEarnWithdrawActionIcon {
   data: {
     balance: string;
     token: IEarnToken;
+  };
+}
+
+export interface IEarnWithdrawOrderActionIcon {
+  type: 'withdrawOrder';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    text: IEarnText;
   };
 }
 
@@ -502,6 +511,7 @@ export interface IStakeEarnDetail {
     | IEarnDepositActionIcon
     | IEarnWithdrawActionIcon
     | IEarnHistoryActionIcon
+    | IEarnWithdrawOrderActionIcon
   )[];
   subscriptionValue: ISubscriptionValue;
   protocol: IProtocolInfo;
@@ -518,7 +528,7 @@ export interface IStakeEarnDetail {
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
-      description: IEarnText;
+      description?: IEarnText;
       badge: IEarnBadge;
       tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];
@@ -543,6 +553,13 @@ export interface IStakeEarnDetail {
   faqs: {
     title: IEarnText;
     items: IEarnFAQItem[];
+  };
+  nums?: {
+    overflow: string;
+    minUnstakeAmount: string;
+    maxUnstakeAmount: string;
+    minTransactionFee: string;
+    claimable: string;
   };
 }
 
