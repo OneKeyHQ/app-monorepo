@@ -356,23 +356,31 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // await dbTx.done;
       return result;
     } catch (error) {
-      const isRecordNotFoundError =
-        error instanceof LocalDBRecordNotFoundError ||
-        errorUtils.isErrorByClassName({
-          error,
-          className: EOneKeyErrorClassNames.LocalDBRecordNotFoundError,
-        });
-      if (process.env.NODE_ENV !== 'production' && !isRecordNotFoundError) {
-        console.error(error);
-      }
+      let abortError: unknown | undefined;
       try {
-        if (!isRecordNotFoundError) {
-          dbTx.abort();
-        }
+        // cause: Uncaught (in promise) AbortError: AbortError
+        dbTx.abort();
         // Cannot set property error of #<IDBTransaction> which has only a getter
         // dbTx.nativeTx.error = dbTx.nativeTx.error || error;
       } catch (error2) {
-        //
+        abortError = error2;
+      } finally {
+        if (process.env.NODE_ENV !== 'production') {
+          const isRecordNotFoundError =
+            error instanceof LocalDBRecordNotFoundError ||
+            errorUtils.isErrorByClassName({
+              error,
+              className: EOneKeyErrorClassNames.LocalDBRecordNotFoundError,
+            });
+
+          if (!isRecordNotFoundError) {
+            console.error(error);
+            if (abortError) {
+              console.error(abortError);
+            }
+            errorUtils.logCurrentCallStack('localDB.withTransaction Failed');
+          }
+        }
       }
       throw error;
     }
