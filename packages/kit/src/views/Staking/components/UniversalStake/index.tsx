@@ -203,6 +203,7 @@ export function UniversalStake({
 
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
+    isMorphoProvider,
     isFocus,
     amountValue,
     allowance,
