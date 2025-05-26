@@ -104,7 +104,15 @@ export function RecentSearched({
           onPress={handleDeleteAll}
         />
       </XStack>
-      <XStack flexWrap="wrap">
+      <Stack
+        overflow="hidden"
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          maxHeight: 108,
+        }}
+      >
         {recentSearch.map((i) => (
           <SearchTextItem
             onPress={handlePress}
@@ -113,7 +121,7 @@ export function RecentSearched({
             key={i.text}
           />
         ))}
-      </XStack>
+      </Stack>
     </YStack>
   ) : (
     <XStack pt="$5" />
