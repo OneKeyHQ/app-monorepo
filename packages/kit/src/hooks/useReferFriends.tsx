@@ -251,7 +251,7 @@ export const useReferFriends = () => {
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage(
                     {
-                      id: ETranslations.referral_intro_for_you_1,
+                      id: ETranslations.earn_referral_for_you_reward,
                     },
                     {
                       RebateRate: (
@@ -279,16 +279,12 @@ export const useReferFriends = () => {
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage(
                     {
-                      id: ETranslations.referral_intro_for_your_friend_1,
+                      id: ETranslations.earn_referral_for_your_friend_reward,
                     },
                     {
-                      RebateAmount: (
-                        <SizableText size="$bodyMd" color="$textInfo">
-                          {`${postConfig?.friendDiscount.unit || ''}${
-                            postConfig?.friendDiscount.amount || ''
-                          }`}
-                        </SizableText>
-                      ),
+                      number: `${postConfig?.friendDiscount.unit || ''}${
+                        postConfig?.friendDiscount.amount || ''
+                      }`,
                     },
                   )}
                 </SizableText>
