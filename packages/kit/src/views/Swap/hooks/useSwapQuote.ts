@@ -85,7 +85,10 @@ export function useSwapQuote() {
   const swapSlippageRef = useRef(slippageItem);
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
-  if (fromTokenAmountRef.current !== fromTokenAmount) {
+  if (
+    fromTokenAmountRef.current?.value !== fromTokenAmount.value ||
+    fromTokenAmountRef.current?.isInput !== fromTokenAmount.isInput
+  ) {
     fromTokenAmountRef.current = fromTokenAmount;
   }
   if (swapToAddressInfoRef.current !== swapToAddressInfo) {
@@ -605,5 +608,12 @@ export function useSwapQuote() {
         );
       }
     }
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      appEventBus.off(
+        EAppEventBusNames.SwapApprovingSuccess,
+        swapApprovingSuccessAction,
+      );
+    };
   }, [isFocused, pageType, quoteEventHandler, swapApprovingSuccessAction]);
 }

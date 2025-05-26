@@ -108,9 +108,10 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T> {
+    const shouldUseTransaction = !options?.readOnly;
     const fn = async () => {
       // Error: The Realm is already in a write transaction
-      if (!options?.readOnly) {
+      if (shouldUseTransaction) {
         this.realm.beginTransaction();
       }
       try {
@@ -119,12 +120,13 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         };
         const result = await task(tx);
         // await timerUtils.wait(2000);
-        if (!options?.readOnly) {
+        if (shouldUseTransaction) {
           this.realm.commitTransaction();
         }
         return result;
       } catch (error) {
-        if (!options?.readOnly) {
+        if (shouldUseTransaction) {
+          // transaction.abort()
           this.realm.cancelTransaction();
         }
         throw error;
