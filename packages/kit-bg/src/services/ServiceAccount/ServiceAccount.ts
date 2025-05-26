@@ -1606,9 +1606,10 @@ class ServiceAccount extends ServiceBase {
     walletId: IDBWalletIdSingleton;
     activeNetworkId?: string;
   }) {
-    let { accounts } = await localDb.getSingletonAccountsOfWallet({
-      walletId,
-    });
+    let { accounts, removedAccountIds } =
+      await localDb.getSingletonAccountsOfWallet({
+        walletId,
+      });
     accounts = await Promise.all(
       accounts.map(async (account) => {
         const { id: accountId } = account;
@@ -1629,6 +1630,11 @@ class ServiceAccount extends ServiceBase {
         return account;
       }),
     );
+    if (removedAccountIds?.length) {
+      void localDb.removeAccountsByIds({
+        ids: removedAccountIds,
+      });
+    }
     return { accounts };
   }
 
@@ -4228,7 +4234,10 @@ class ServiceAccount extends ServiceBase {
 
         for (const walletId of walletsToRemove) {
           try {
-            await this.removeWallet({ walletId, skipBackupWalletRemove: true });
+            await this.removeWallet({
+              walletId,
+              // skipBackupWalletRemove: true
+            });
           } catch (e) {
             console.error(e);
           }
