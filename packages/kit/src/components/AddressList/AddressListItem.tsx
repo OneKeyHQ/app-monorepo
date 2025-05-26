@@ -43,9 +43,14 @@ function AddressListItem(props: IAddressListItemProps) {
       gap="$1"
       px="$5"
       py="$2"
-      borderCurve="continuous"
+      minHeight="$11"
+      justifyContent="center"
       onPress={onPress}
-      {...(onPress && !disabled && listItemPressStyle)}
+      {...(onPress &&
+        !disabled && {
+          userSelect: 'none',
+          ...listItemPressStyle,
+        })}
     >
       {shouldDisplayAccount ? (
         <SizableText size="$bodyMd" color="$textPrimary">

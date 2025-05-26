@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "Follow the instructions to complete",
   "transfer.qr_stepall_desc": "OneKey doesn't back up hardware wallets, please record and safeguard your recovery phrase. ",
   "transfer.qr_stepall_desc2": "The transfer process uses end-to-end encryption to ensure security, is open-source, and verifiable. Details <link>Here</link>.",
+  "transfer.recent_transfers": "Recent transfers",
   "transfer.transfer": "Transfer",
   "transfer.transfer_data": "Transfer data",
   "transfer.transfer_data_completed": "Transfer completed",

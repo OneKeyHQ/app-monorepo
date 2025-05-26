@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "ทำตามคำแนะนำเพื่อให้เสร็จสมบูรณ์",
   "transfer.qr_stepall_desc": "OneKey ไม่สำรองข้อมูลกระเป๋าเงินฮาร์ดแวร์ กรุณาบันทึกและรักษาวลีการกู้คืนของคุณให้ปลอดภัย",
   "transfer.qr_stepall_desc2": "กระบวนการถ่ายโอนใช้การเข้ารหัสแบบ end-to-end เพื่อความปลอดภัย เป็นโอเพ่นซอร์ส และสามารถตรวจสอบได้ รายละเอียด <link>ที่นี่</link>.",
+  "transfer.recent_transfers": "การโอนล่าสุด",
   "transfer.transfer": "โอน",
   "transfer.transfer_data": "ถ่ายโอนข้อมูล",
   "transfer.transfer_data_completed": "การโอนเสร็จสมบูรณ์",

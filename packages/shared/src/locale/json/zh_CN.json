@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "请按照说明完成",
   "transfer.qr_stepall_desc": "OneKey 不支持备份硬件钱包，请记录并妥善保管您的助记词。",
   "transfer.qr_stepall_desc2": "传输过程使用端到端加密以确保安全性，过程开源并且可验证。详情请见<link>此处</link>。",
+  "transfer.recent_transfers": "最近转账",
   "transfer.transfer": "传输",
   "transfer.transfer_data": "传输数据",
   "transfer.transfer_data_completed": "传输完成",

@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "Ikuti instruksi untuk menyelesaikan",
   "transfer.qr_stepall_desc": "OneKey tidak mencadangkan dompet perangkat keras, harap catat dan lindungi frase pemulihan Anda. ",
   "transfer.qr_stepall_desc2": "Proses transfer menggunakan enkripsi end-to-end untuk memastikan keamanan, bersifat open-source, dan dapat diverifikasi. Detail <link>Di Sini</link>.",
+  "transfer.recent_transfers": "Transfer terbaru",
   "transfer.transfer": "Transfer",
   "transfer.transfer_data": "Transfer data",
   "transfer.transfer_data_completed": "Transfer selesai",

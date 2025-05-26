@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "Suivez les instructions pour terminer",
   "transfer.qr_stepall_desc": "OneKey ne sauvegarde pas les portefeuilles matériels, veuillez enregistrer et protéger votre phrase de récupération. ",
   "transfer.qr_stepall_desc2": "Le processus de transfert utilise le chiffrement de bout en bout pour garantir la sécurité, est open-source et vérifiable. Détails <link>ici</link>.",
+  "transfer.recent_transfers": "Transferts récents",
   "transfer.transfer": "Transfert",
   "transfer.transfer_data": "Transférer des données",
   "transfer.transfer_data_completed": "Transfert terminé",

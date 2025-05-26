@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "Làm theo hướng dẫn để hoàn thành",
   "transfer.qr_stepall_desc": "OneKey không sao lưu ví phần cứng, vui lòng ghi lại và bảo vệ cụm từ khôi phục của bạn. ",
   "transfer.qr_stepall_desc2": "Quá trình chuyển giao sử dụng mã hóa đầu cuối để đảm bảo an ninh, là mã nguồn mở và có thể xác minh. Chi tiết <link>Tại đây</link>.",
+  "transfer.recent_transfers": "Chuyển khoản gần đây",
   "transfer.transfer": "Chuyển khoản",
   "transfer.transfer_data": "Chuyển dữ liệu",
   "transfer.transfer_data_completed": "Chuyển khoản hoàn tất",

@@ -7,6 +7,8 @@ import { AddressListItem } from '@onekeyhq/kit/src/components/AddressList';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IRecentRecipientsProps {
   accountId?: string;
@@ -17,6 +19,7 @@ interface IRecentRecipientsProps {
 }
 
 function RecentRecipients(props: IRecentRecipientsProps) {
+  const intl = useIntl();
   const {
     accountId,
     networkId,
@@ -84,7 +87,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     <Stack mx={-20}>
       <Divider mb="$5" borderColor="$borderSubdued" />
       <SizableText size="$bodyMd" color="$textSubdued" mb="$2" ml="$5">
-        Recent
+        {intl.formatMessage({ id: ETranslations.transfer_recent_transfers })}
       </SizableText>
       {filteredRecentRecipients.map((recipient) => (
         <AddressListItem

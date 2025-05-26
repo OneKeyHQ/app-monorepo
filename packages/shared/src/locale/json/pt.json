@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "Siga as instruções para completar",
   "transfer.qr_stepall_desc": "OneKey não faz backup de carteiras de hardware, por favor, registre e proteja sua frase de recuperação. ",
   "transfer.qr_stepall_desc2": "O processo de transferência utiliza criptografia de ponta a ponta para garantir a segurança, é de código aberto e verificável. Detalhes <link>Aqui</link>.",
+  "transfer.recent_transfers": "Transferências recentes",
   "transfer.transfer": "Transferir",
   "transfer.transfer_data": "Transferir dados",
   "transfer.transfer_data_completed": "Transferência concluída",

@@ -2654,6 +2654,7 @@
   "transfer.qr_step3": "Befolgen Sie die Anweisungen, um abzuschließen",
   "transfer.qr_stepall_desc": "OneKey sichert keine Hardware-Wallets, bitte notieren und schützen Sie Ihre Wiederherstellungsphrase.",
   "transfer.qr_stepall_desc2": "Der Übertragungsprozess verwendet Ende-zu-Ende-Verschlüsselung, um Sicherheit zu gewährleisten, ist Open-Source und überprüfbar. Details <link>Hier</link>.",
+  "transfer.recent_transfers": "Letzte Überweisungen",
   "transfer.transfer": "Übertragen",
   "transfer.transfer_data": "Daten übertragen",
   "transfer.transfer_data_completed": "Übertragung abgeschlossen",
