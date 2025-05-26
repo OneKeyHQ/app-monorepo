@@ -76,8 +76,11 @@ export function RecentSearched({
 
   const handlePress = useCallback(
     (item: IIUniversalRecentSearchItem) => {
-      // Fill the search text back into the search input instead of navigating
-      onSearchTextFill?.(item.text);
+      const textToFill =
+        item.extra?.autoFillText && typeof item.extra?.autoFillText === 'string'
+          ? item.extra?.autoFillText
+          : item.text;
+      onSearchTextFill?.(textToFill);
     },
     [onSearchTextFill],
   );
