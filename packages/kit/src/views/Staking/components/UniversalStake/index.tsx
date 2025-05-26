@@ -177,6 +177,10 @@ export function UniversalStake({
     approveType: approveType ?? EApproveType.Legacy,
   });
   const shouldApprove = useMemo(() => {
+    if (!isMorphoProvider) {
+      return false;
+    }
+
     if (!isFocus) {
       return true;
     }
@@ -900,6 +904,7 @@ export function UniversalStake({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
   const isShowStakeProgress =
+    isMorphoProvider &&
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
