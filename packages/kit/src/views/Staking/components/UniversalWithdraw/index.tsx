@@ -99,6 +99,10 @@ export const UniversalWithdraw = ({
 
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
+  const isMorphoProvider = useMemo(
+    () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
+    [providerName],
+  );
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
@@ -159,14 +163,21 @@ export const UniversalWithdraw = ({
           networkId: networkId || '',
           provider: providerName || '',
           symbol: tokenSymbol || '',
-          vault: morphoVault || '',
+          vault: isMorphoProvider ? morphoVault || '' : '',
           accountAddress,
           action: ECheckAmountActionType.UNSTAKING,
           amount,
         });
       return resp;
     },
-    [accountAddress, morphoVault, networkId, providerName, tokenSymbol],
+    [
+      accountAddress,
+      isMorphoProvider,
+      morphoVault,
+      networkId,
+      providerName,
+      tokenSymbol,
+    ],
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
