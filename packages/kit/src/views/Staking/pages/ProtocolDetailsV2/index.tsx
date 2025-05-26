@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -10,6 +10,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  Image,
   NumberSizeableText,
   Page,
   Popover,
@@ -27,7 +28,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,9 +39,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
-  IEarnToken,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -67,6 +65,38 @@ import { useHandleClaim } from '../ProtocolDetails/useHandleClaim';
 
 import { FAQSection } from './FAQSection';
 import { ShareEventsContext } from './ShareEventsProvider';
+
+function ManagersSection({
+  managers,
+}: {
+  managers: IStakeEarnDetail['managers'] | undefined;
+}) {
+  return managers?.items?.length ? (
+    <XStack pt="$1" pb="$4" gap="$1" px="$5">
+      {managers.items.map((item, index) => (
+        <>
+          <XStack key={item.title.text} gap="$1" alignItems="center">
+            <Image size="$4" borderRadius="$1" src={item.logoURI} />
+            <SizableText size="$bodySm" color={item.title.color}>
+              {item.title.text}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color={item.description.color || '$textSubdued'}
+            >
+              {item.description.text}
+            </SizableText>
+          </XStack>
+          {index !== managers.items.length - 1 ? (
+            <XStack w="$4" h="$4" ai="center" jc="center">
+              <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
+            </XStack>
+          ) : null}
+        </>
+      ))}
+    </XStack>
+  ) : null;
+}
 
 function SubscriptionSection({
   subscriptionValue,
@@ -929,6 +959,7 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
+        <ManagersSection managers={detailInfo?.managers} />
         {detailInfo?.countDownAlert?.startTime &&
         detailInfo?.countDownAlert?.endTime &&
         now > detailInfo.countDownAlert.startTime &&
