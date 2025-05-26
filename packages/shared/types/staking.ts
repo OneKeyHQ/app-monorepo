@@ -458,10 +458,10 @@ interface IEarnRisk {
         link: string;
       };
     };
-  }[];
-  list?: {
-    title: IEarnText;
-    icon: IEarnIcon;
+    list?: {
+      title: IEarnText;
+      icon: IEarnIcon;
+    }[];
   }[];
 }
 
