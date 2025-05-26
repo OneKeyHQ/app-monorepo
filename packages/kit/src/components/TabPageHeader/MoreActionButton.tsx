@@ -91,7 +91,7 @@ function MoreActionProvider({ children }: PropsWithChildren) {
 function MoreActionContentHeader() {
   const intl = useIntl();
   const { user } = usePrimeAuthV2();
-  const [devSettings] = useDevSettingsPersistAtom();
+
   const { closePopover } = usePopoverContext();
   const { isPrimeAvailable } = usePrimeAvailable();
 
