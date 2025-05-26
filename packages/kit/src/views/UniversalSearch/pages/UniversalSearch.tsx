@@ -506,9 +506,12 @@ export function UniversalSearch({
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
       <Page.Body>
-        <View px="$5">
+        <View px="$5" pb="$2">
           <SearchBar
             autoFocus
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_universal_search_placeholder,
+            })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />
