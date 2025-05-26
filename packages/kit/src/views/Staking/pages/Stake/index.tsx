@@ -192,10 +192,6 @@ function BasicStakePage() {
     ? String(tokenInfo?.nativeToken?.price)
     : '0';
   const balanceParsed = tokenInfo?.balanceParsed || '';
-  const apr =
-    protocolInfo?.aprWithoutFee && Number(protocolInfo.aprWithoutFee) > 0
-      ? protocolInfo?.aprWithoutFee
-      : undefined;
   const decimals = tokenInfo?.token.decimals || 0;
   return (
     <Page scrollEnabled>
@@ -210,7 +206,6 @@ function BasicStakePage() {
           accountId={accountId}
           networkId={networkId}
           decimals={decimals}
-          apr={apr}
           price={price}
           balance={balanceParsed}
           tokenImageUri={token?.logoURI}

@@ -113,7 +113,6 @@ export function UniversalStake({
   networkId,
   price,
   balance,
-  apr,
   decimals,
   minTransactionFee = '0',
   tokenImageUri,
@@ -492,20 +491,20 @@ export function UniversalStake({
     // );
   }, [amountValue, isCheckAmountMessageError, isInsufficientBalance]);
 
-  const estAnnualRewardsState = useMemo(() => {
-    if (Number(amountValue) > 0 && Number(apr) > 0) {
-      const amountBN = BigNumber(amountValue)
-        .multipliedBy(apr ?? 0)
-        .dividedBy(100);
-      return {
-        amount: amountBN.toFixed(),
-        fiatValue:
-          Number(price) > 0
-            ? amountBN.multipliedBy(price).toFixed()
-            : undefined,
-      };
-    }
-  }, [amountValue, apr, price]);
+  // const estAnnualRewardsState = useMemo(() => {
+  //   if (Number(amountValue) > 0 && Number(apr) > 0) {
+  //     const amountBN = BigNumber(amountValue)
+  //       .multipliedBy(apr ?? 0)
+  //       .dividedBy(100);
+  //     return {
+  //       amount: amountBN.toFixed(),
+  //       fiatValue:
+  //         Number(price) > 0
+  //           ? amountBN.multipliedBy(price).toFixed()
+  //           : undefined,
+  //     };
+  //   }
+  // }, [amountValue, apr, price]);
 
   // const btcStakeTerm = useMemo(() => {
   //   if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
@@ -557,7 +556,7 @@ export function UniversalStake({
     // Wait for the dialog confirmation if it's shown
     await showFalconEventEndedDialog();
 
-    if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
+    if (estimateFeeResp) {
       const daySpent =
         Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
 
@@ -583,7 +582,6 @@ export function UniversalStake({
     usePermit2Approve,
     approveType,
     showFalconEventEndedDialog,
-    estAnnualRewardsState?.fiatValue,
     estimateFeeResp,
     shouldApprove,
     onConfirm,
@@ -858,8 +856,8 @@ export function UniversalStake({
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
+          isVisible
           estimateFeeResp={estimateFeeResp}
-          isVisible={!!estAnnualRewardsState?.fiatValue}
           onPress={() => {
             showEstimateGasAlert({
               daysConsumed: daysSpent,
@@ -885,7 +883,6 @@ export function UniversalStake({
   }, [
     amountValue,
     daysSpent,
-    estAnnualRewardsState?.fiatValue,
     estimateFeeResp,
     estimateFeeUTXO,
     onFeeRateChange,
