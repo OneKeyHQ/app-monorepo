@@ -66,6 +66,7 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { ActionPopupContent } from '../ProtocolDetails/GridItemV2';
+import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
@@ -133,6 +134,10 @@ export function UniversalStake({
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
+  const isMorphoProvider = useMemo(
+    () => earnUtils.isMorphoProvider({ providerName }),
+    [providerName],
+  );
   const [
     {
       currencyInfo: { symbol },
@@ -214,7 +219,9 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: protocolInfo?.approve?.approveTarget || '',
+          vault: isMorphoProvider
+            ? protocolInfo?.approve?.approveTarget || ''
+            : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
@@ -225,6 +232,7 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
+      isMorphoProvider,
       protocolInfo?.approve?.approveTarget,
       protocolInfo?.earnAccount?.accountAddress,
     ],
@@ -279,7 +287,7 @@ export function UniversalStake({
       symbol: tokenInfo?.token.symbol || '',
       action: shouldApprove ? 'approve' : 'stake',
       amount: amountNumber.toFixed(),
-      morphoVault: earnUtils.isMorphoProvider({ providerName })
+      morphoVault: isMorphoProvider
         ? protocolInfo?.approve?.approveTarget
         : undefined,
       accountAddress: account?.address,
@@ -370,7 +378,7 @@ export function UniversalStake({
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
 
-  const morphoVault = earnUtils.isMorphoProvider({ providerName })
+  const morphoVault = isMorphoProvider
     ? protocolInfo?.approve?.approveTarget
     : undefined;
   const checkAmount = useDebouncedCallback(async (amount: string) => {
@@ -891,6 +899,30 @@ export function UniversalStake({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
+  const isShowStakeProgress =
+    !!amountValue &&
+    (shouldApprove || showStakeProgressRef.current[amountValue]);
+
+  const onConfirmText = useMemo(() => {
+    if (shouldApprove) {
+      return intl.formatMessage(
+        {
+          id: usePermit2Approve
+            ? ETranslations.earn_approve_deposit
+            : ETranslations.global_approve,
+        },
+        { amount: amountValue, symbol: tokenInfo?.token.symbol || '' },
+      );
+    }
+    return intl.formatMessage({ id: ETranslations.earn_deposit });
+  }, [
+    shouldApprove,
+    intl,
+    usePermit2Approve,
+    amountValue,
+    tokenInfo?.token.symbol,
+  ]);
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
@@ -1214,16 +1246,37 @@ export function UniversalStake({
         />
       </YStack>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_continue,
-          })}
-          confirmButtonProps={{
-            onPress: shouldApprove ? onApprove : onSubmit,
-            loading: loadingAllowance || approving,
-            disabled: isDisable,
+        <Stack
+          bg="$bgApp"
+          flexDirection="column"
+          $gtMd={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            jc: 'space-between',
           }}
-        />
+        >
+          <Stack pl="$5" $md={{ pt: '$5' }}>
+            {isShowStakeProgress ? (
+              <StakeProgress
+                approveType={approveType ?? EApproveType.Legacy}
+                currentStep={
+                  isDisable || shouldApprove
+                    ? EStakeProgressStep.approve
+                    : EStakeProgressStep.deposit
+                }
+              />
+            ) : null}
+          </Stack>
+
+          <Page.FooterActions
+            onConfirmText={onConfirmText}
+            confirmButtonProps={{
+              onPress: shouldApprove ? onApprove : onSubmit,
+              loading: loadingAllowance || approving,
+              disabled: isDisable,
+            }}
+          />
+        </Stack>
         <PercentageStageOnKeyboard
           onSelectPercentageStage={onSelectPercentageStage}
         />
