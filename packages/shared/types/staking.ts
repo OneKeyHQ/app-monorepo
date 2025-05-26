@@ -294,15 +294,10 @@ export type IProtocolInfo = {
   apys?: IRewardApys;
   activeBalance?: string;
   overflowBalance?: string;
-  aprWithoutFee?: string;
-  minStakeTerm?: number;
-  lidoStTokenRate?: string;
-  morphoTokenRate?: string;
   eventEndTime?: number;
   minTransactionFee?: string;
   maxUnstakeAmount?: string;
   minUnstakeAmount?: number;
-
   claimable?: string;
 };
 
