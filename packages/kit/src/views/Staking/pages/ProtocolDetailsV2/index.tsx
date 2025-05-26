@@ -607,20 +607,6 @@ const ProtocolDetailsPage = () => {
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
 
-  const { result: resultV1, run: runV1 } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getProtocolDetails({
-        accountId,
-        networkId,
-        indexedAccountId,
-        symbol,
-        provider,
-        vault,
-      }),
-    [accountId, networkId, indexedAccountId, symbol, provider, vault],
-    { revalidateOnFocus: true },
-  );
-
   const { result: earnAccount, run: refreshAccount } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceStaking.getEarnAccount({
@@ -733,15 +719,14 @@ const ProtocolDetailsPage = () => {
 
   const onRefreshTracking = useCallback(async () => {
     void run();
-    void runV1();
     void refreshTracking();
-  }, [run, runV1, refreshTracking]);
+  }, [run, refreshTracking]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     const withdrawAction = detailInfo?.actions.find(
       (i) => i.type === 'withdraw',
     );
-    return detailInfo?.protocol && resultV1
+    return detailInfo?.protocol
       ? {
           ...detailInfo.protocol,
           apyDetail: detailInfo.apyDetail,
@@ -750,24 +735,28 @@ const ProtocolDetailsPage = () => {
           eventEndTime: detailInfo?.countDownAlert?.endTime,
 
           // withdraw
-          overflowBalance: resultV1.overflow,
-          maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
-          minUnstakeAmount: resultV1.provider.minUnstakeAmount,
+          overflowBalance: detailInfo.nums?.overflow,
+          maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
+          minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
 
           // staking
-          minTransactionFee: resultV1.provider.minTransactionFee,
+          minTransactionFee: detailInfo.nums?.minTransactionFee,
 
           // claim
-          claimable: resultV1.claimable,
+          claimable: detailInfo.nums?.claimable,
         }
       : undefined;
   }, [
     detailInfo?.actions,
     detailInfo?.apyDetail,
     detailInfo?.countDownAlert?.endTime,
+    detailInfo?.nums?.claimable,
+    detailInfo?.nums?.maxUnstakeAmount,
+    detailInfo?.nums?.minTransactionFee,
+    detailInfo?.nums?.minUnstakeAmount,
+    detailInfo?.nums?.overflow,
     detailInfo?.protocol,
     earnAccount,
-    resultV1,
   ]);
 
   const onStake = useCallback(async () => {
