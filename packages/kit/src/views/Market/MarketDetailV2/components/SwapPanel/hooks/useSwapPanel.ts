@@ -14,13 +14,13 @@ export function useSwapPanel({
   networkId: networkIdProp,
 }: { networkId?: string } = {}) {
   const { tradeType, setTradeType } = useTradeType();
-  const [isApproved, setIsApproved] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState<BigNumber>(
     new BigNumber(0),
   );
   const [antiMEV, setAntiMEV] = useState(false);
   const [paymentToken, setPaymentToken] = useState<IToken>();
   const [networkId, setNetworkId] = useAtom(networkIdAtom);
+  const [slippage, setSlippage] = useState<number>(0.5);
   const { balance, setBalance, balanceToken } = useBalance({
     token: paymentToken,
   });
@@ -52,10 +52,6 @@ export function useSwapPanel({
     handleAntiMEVToggle,
     antiMEV,
 
-    // For ApproveButton
-    isApproved,
-    setIsApproved,
-
     // For TokenInputSection
     paymentToken,
     setPaymentToken,
@@ -63,5 +59,9 @@ export function useSwapPanel({
     // For TradeTypeSelector
     tradeType,
     setTradeType,
+
+    // For SlippageSetting
+    slippage,
+    setSlippage,
   };
 }
