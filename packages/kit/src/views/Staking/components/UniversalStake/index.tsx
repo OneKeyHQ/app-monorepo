@@ -1,7 +1,6 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { token } from '@alephium/web3/dist/src/codec';
 import BigNumber from 'bignumber.js';
 import { isNaN } from 'lodash';
 import { useIntl } from 'react-intl';
