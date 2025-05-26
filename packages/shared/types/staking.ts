@@ -554,6 +554,13 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnFAQItem[];
   };
+  nums?: {
+    overflow: string;
+    minUnstakeAmount: string;
+    maxUnstakeAmount: string;
+    minTransactionFee: string;
+    claimable: string;
+  };
 }
 
 export interface IEarnProvider {
