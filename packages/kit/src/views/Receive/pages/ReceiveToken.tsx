@@ -13,7 +13,6 @@ import {
   Page,
   QRCode,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useClipboard,
@@ -244,6 +243,7 @@ function ReceiveToken() {
         $md={{
           flexDirection: 'column',
           gap: '$5',
+          mt: '0',
           justifyContent: 'center',
         }}
       >
@@ -313,11 +313,32 @@ function ReceiveToken() {
     }
 
     return (
-      <XStack maxWidth={288} flexWrap="wrap">
-        <SizableText fontFamily="$monoRegular">{addressContent}</SizableText>
+      <XStack
+        maxWidth={288}
+        flexWrap="wrap"
+        {...(shouldShowAddress && {
+          onPress: () => copyText(account?.address ?? ''),
+          userSelect: 'none',
+          borderRadius: '$1',
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+          focusable: true,
+          focusVisibleStyle: {
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineOffset: 2,
+            outlineStyle: 'solid',
+          },
+        })}
+      >
+        <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
       </XStack>
     );
-  }, [account, network, shouldShowAddress, wallet]);
+  }, [account, network, shouldShowAddress, wallet, copyText]);
 
   const renderReceiveFooter = useCallback(() => {
     if (!account || !network || !wallet) return null;
@@ -330,16 +351,19 @@ function ReceiveToken() {
         padding="$5"
         gap="$5"
       >
-        <YStack gap="$2">
+        <YStack gap="$1.5">
           <XStack gap="$2" alignItems="center">
             <SizableText size="$bodyMd">
               {token?.symbol ?? network.symbol}
             </SizableText>
-            {vaultSettings?.showAddressType && addressType ? (
-              <Badge>{addressType}</Badge>
-            ) : (
-              <Badge>{network.name}</Badge>
-            )}
+            <Badge>
+              <Badge.Text>
+                {network.name}{' '}
+                {vaultSettings?.showAddressType && addressType
+                  ? `/ ${addressType}`
+                  : ''}
+              </Badge.Text>
+            </Badge>
             {shouldShowAddress && addressState === EAddressState.ForceShow ? (
               <Badge badgeType="critical">
                 {intl.formatMessage({
@@ -387,71 +411,83 @@ function ReceiveToken() {
     if (!account || !network || !wallet) return null;
 
     return (
-      <Stack
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        p="$5"
+      <YStack
         width={264}
         height={264}
+        p="$5"
+        borderRadius="$3"
+        borderCurve="continuous"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        elevation={0.5}
+        alignItems="center"
+        justifyContent="center"
+        {...(!shouldShowQRCode && {
+          onPress: handleVerifyOnDevicePress,
+          userSelect: 'none',
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+          focusable: true,
+          focusVisibleStyle: {
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineOffset: 2,
+            outlineStyle: 'solid',
+          },
+        })}
       >
         {shouldShowQRCode ? (
-          <Stack position="relative">
-            <QRCode
-              value={account.address}
-              size={214}
-              logo={
-                network.isCustomNetwork
-                  ? undefined
-                  : { uri: token?.logoURI || network.logoURI }
-              }
-              logoSize={network.isCustomNetwork ? undefined : 40}
-            />
-          </Stack>
+          <QRCode
+            value={account.address}
+            size={224}
+            logo={
+              network.isCustomNetwork
+                ? undefined
+                : { uri: token?.logoURI || network.logoURI }
+            }
+            logoSize={network.isCustomNetwork ? undefined : 45}
+          />
         ) : null}
 
         {!shouldShowQRCode ? (
-          <Stack
-            position="absolute"
-            top="$0"
-            left="$0"
-            right="$0"
-            bottom="$0"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Empty
-              icon="EyeOffOutline"
-              description={intl.formatMessage({
-                id: ETranslations.address_verify_address_instruction,
-              })}
-              iconProps={{
-                size: '$8',
-                mb: '$5',
-              }}
-              descriptionProps={{
-                size: '$bodyLgMedium',
-                color: '$text',
-              }}
-            />
-          </Stack>
+          <Empty
+            p="0"
+            icon="QrCodeOutline"
+            description={intl.formatMessage({
+              id: ETranslations.address_verify_address_instruction,
+            })}
+            iconProps={{
+              size: '$8',
+              mb: '$5',
+            }}
+            descriptionProps={{
+              size: '$bodyLgMedium',
+              color: '$text',
+            }}
+          />
         ) : null}
-      </Stack>
+      </YStack>
     );
-  }, [account, network, wallet, intl, token?.logoURI, shouldShowQRCode]);
+  }, [
+    account,
+    network,
+    wallet,
+    intl,
+    token?.logoURI,
+    shouldShowQRCode,
+    handleVerifyOnDevicePress,
+  ]);
 
   return (
     <Page safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
-      <Page.Body
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        px="$5"
-        pb="$5"
-      >
+      <Page.Body flex={1} justifyContent="center" alignItems="center">
         {renderReceiveQrCode()}
       </Page.Body>
       <Page.Footer>{renderReceiveFooter()}</Page.Footer>

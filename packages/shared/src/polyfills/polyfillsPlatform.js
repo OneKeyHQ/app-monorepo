@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
-require('setimmediate');
+require('./setimmediateShim');
 require('./intlShim');
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
