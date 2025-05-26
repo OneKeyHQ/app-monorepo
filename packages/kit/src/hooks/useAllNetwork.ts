@@ -326,12 +326,6 @@ function useAllNetworkRequests<T>(params: {
             (networkDataString) => {
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { accountId, networkId, apiAddress } = networkDataString;
-              // console.log(
-              //   'accountsBackedIndexedRequests: =====>>>>>: ',
-              //   accountId,
-              //   networkId,
-              //   apiAddress,
-              // );
               return allNetworkRequests({
                 accountId,
                 networkId,
@@ -353,12 +347,6 @@ function useAllNetworkRequests<T>(params: {
             (networkDataString) => {
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { accountId, networkId, apiAddress } = networkDataString;
-              // console.log(
-              //   'accountsBackedNotIndexedRequests: =====>>>>>: ',
-              //   accountId,
-              //   networkId,
-              //   apiAddress,
-              // );
               return allNetworkRequests({
                 accountId,
                 networkId,
@@ -499,39 +487,53 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
 
       const mainnetItems = compatibleNetworks.mainnetItems;
       if (filterNetworksWithoutAccount && indexedAccountId) {
-        for (const network of mainnetItems) {
+        const networksByImpl = compatibleNetworks.mainnetItems.reduce(
+          (acc, network) => {
+            if (!acc[network.impl]) {
+              acc[network.impl] = [];
+            }
+            acc[network.impl].push(network);
+            return acc;
+          },
+          {} as Record<string, IServerNetwork[]>,
+        );
+
+        // Process networks by implementation group
+        for (const [_, networksInGroup] of Object.entries(networksByImpl)) {
+          const firstNetwork = networksInGroup[0];
           const [{ networkAccounts }, vaultSettings] = await Promise.all([
             backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
                 indexedAccountId,
-                networkId: network.id,
+                networkId: firstNetwork.id,
                 excludeEmptyAccount: true,
               },
             ),
             backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: network.id,
+              networkId: firstNetwork.id,
             }),
           ]);
 
           if (vaultSettings.mergeDeriveAssetsEnabled) {
             if (!networkAccounts || networkAccounts.length === 0) {
-              compatibleNetworksWithoutAccount.push(network);
+              compatibleNetworksWithoutAccount.push(...networksInGroup);
             }
-          } else if (!networkAccounts || networkAccounts.length === 0) {
-            compatibleNetworksWithoutAccount.push(network);
           } else {
             const currentDeriveType =
               await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
                 {
-                  networkId: network.id,
+                  networkId: firstNetwork.id,
                 },
               );
-            if (
+
+            if (!networkAccounts || networkAccounts.length === 0) {
+              compatibleNetworksWithoutAccount.push(...networksInGroup);
+            } else if (
               !networkAccounts.some(
                 (account) => account.deriveType === currentDeriveType,
               )
             ) {
-              compatibleNetworksWithoutAccount.push(network);
+              compatibleNetworksWithoutAccount.push(...networksInGroup);
             }
           }
         }

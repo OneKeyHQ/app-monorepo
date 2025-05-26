@@ -1121,6 +1121,7 @@ const icons = {
     I18nManager.isRTL
       ? import("./react/solid/ArrowBottomLeft")
       : import("./react/solid/ArrowBottomRight"),
+  ArrowCornerDownRightSolid: () => import("./react/solid/ArrowCornerDownRight"),
   ArrowExpandHsolid: () => import("./react/solid/ArrowExpandH"),
   ArrowExpandVsolid: () => import("./react/solid/ArrowExpandV"),
   ArrowLeftSolid: () =>

@@ -146,6 +146,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
   enableAllowListValidation?: boolean;
+  enableAddressDeriveInfo?: boolean;
   skipValidateAddress?: boolean;
 };
 
