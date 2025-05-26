@@ -21,7 +21,7 @@ import enUS from './json/${defaultLocaleJsonFile}';
 export const LOCALES = {
 ${jsonFiles
   .map((file) =>
-    file !== defaultLocaleJsonFile
+    file !== defaultLocaleJsonFile && file !== 'en.json'
       ? `  '${file
           .split('.')[0]
           .replace(/_/g, '-')}': () => import('./json/${file}'),`

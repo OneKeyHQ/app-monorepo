@@ -1204,6 +1204,7 @@
   "global.hardware_name_input_max": "Dépasser la limite maximale de mots",
   "global.hardware_troubleshooting": "Résolution des problèmes matériels",
   "global.hardware_troubleshooting_contact": "Nous contacter",
+  "global.hardware_troubleshooting_warranty_description": "Vérifiez l'état de votre garantie - nous vous aiderons avec les problèmes couverts.",
   "global.hardware_troubleshooting_warranty_title": "Vous rencontrez des problèmes matériels ?",
   "global.help_message": "Besoin d'aide ? <url>https://help.onekey.so/hc/requests/new<underline>Contactez le support OneKey</underline></url>.",
   "global.hex_data": "Message",
