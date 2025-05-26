@@ -182,6 +182,16 @@ export const useReferFriends = () => {
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
+      let postConfig =
+        await backgroundApiProxy.serviceReferralCode.getPostConfig();
+
+      if (!postConfig) {
+        postConfig =
+          await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
+      } else {
+        void backgroundApiProxy.serviceReferralCode.fetchPostConfig();
+      }
+
       const handleConfirm = () => {
         if (isLogin) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
@@ -238,11 +248,22 @@ export const useReferFriends = () => {
                     id: ETranslations.referral_intro_for_you,
                   })}
                 </SizableText>
-                {/* <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_referral_for_you_reward,
-                  })}
-                </SizableText> */}
+                <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.earn_referral_for_you_reward,
+                    },
+                    {
+                      RebateRate: (
+                        <SizableText size="$bodyMd" color="$textSuccess">
+                          {`${postConfig?.commissionRate.amount || ''}${
+                            postConfig?.commissionRate.unit || ''
+                          }`}
+                        </SizableText>
+                      ),
+                    },
+                  )}
+                </SizableText>
               </YStack>
             </XStack>
             <XStack gap="$4">
@@ -261,7 +282,9 @@ export const useReferFriends = () => {
                       id: ETranslations.earn_referral_for_your_friend_reward,
                     },
                     {
-                      number: '3%',
+                      number: `${postConfig?.friendDiscount.unit || ''}${
+                        postConfig?.friendDiscount.amount || ''
+                      }`,
                     },
                   )}
                 </SizableText>
