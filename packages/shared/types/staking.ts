@@ -556,8 +556,8 @@ export interface IStakeEarnDetail {
   };
   nums?: {
     overflow: string;
-    minUnstakeAmount: string;
-    maxUnstakeAmount: string;
+    minUnstakeAmount: number;
+    maxUnstakeAmount: number;
     minTransactionFee: string;
     claimable: string;
   };
