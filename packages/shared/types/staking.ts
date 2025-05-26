@@ -561,6 +561,13 @@ export interface IStakeEarnDetail {
     minTransactionFee: string;
     claimable: string;
   };
+  managers: {
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+      logoURI: string;
+    }[];
+  };
 }
 
 export interface IEarnProvider {
