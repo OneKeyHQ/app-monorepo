@@ -26,7 +26,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   ISwapApproveTransaction,
   ISwapTokenBase,

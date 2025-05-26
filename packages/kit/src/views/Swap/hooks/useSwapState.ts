@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   swapQuoteIntervalMaxCount,
   swapSlippageAutoValue,
@@ -181,7 +182,31 @@ export function useSwapActionState() {
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
-  const [{ swapApprovingLoading }] = useInAppNotificationAtom();
+  const [{ swapApprovingLoading, swapApprovingTransaction }] =
+    useInAppNotificationAtom();
+
+  const swapApprovingMatchLoading = useMemo(() => {
+    return (
+      swapApprovingLoading &&
+      fromTokenAmount.value === swapApprovingTransaction?.amount &&
+      equalTokenNoCaseSensitive({
+        token1: swapApprovingTransaction?.fromToken,
+        token2: fromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: swapApprovingTransaction?.toToken,
+        token2: toToken,
+      })
+    );
+  }, [
+    swapApprovingLoading,
+    swapApprovingTransaction?.fromToken,
+    fromToken,
+    swapApprovingTransaction?.toToken,
+    toToken,
+    fromTokenAmount,
+    swapApprovingTransaction?.amount,
+  ]);
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
@@ -254,10 +279,10 @@ export function useSwapActionState() {
     if (
       quoteLoading ||
       quoteEventFetching ||
-      swapApprovingLoading ||
+      swapApprovingMatchLoading ||
       buildTxFetching
     ) {
-      if (swapApprovingLoading) {
+      if (swapApprovingMatchLoading) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_btn_approving,
         });
@@ -378,7 +403,7 @@ export function useSwapActionState() {
     isRefreshQuote,
     quoteLoading,
     quoteEventFetching,
-    swapApprovingLoading,
+    swapApprovingMatchLoading,
     isCrossChain,
     fromToken,
     toToken,
@@ -390,13 +415,13 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    approving: swapApprovingLoading,
+    approving: swapApprovingMatchLoading,
     noConnectWallet: actionInfo.noConnectWallet,
     disabled:
       actionInfo.disable ||
       quoteLoading ||
       quoteEventFetching ||
-      swapApprovingLoading,
+      swapApprovingMatchLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
