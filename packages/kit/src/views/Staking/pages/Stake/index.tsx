@@ -64,13 +64,6 @@ function BasicStakePage() {
     }
   }, [providerName]);
 
-  const btcStakingTerm = useMemo<number | undefined>(() => {
-    if (protocolInfo?.minStakeTerm) {
-      return formatMillisecondsToBlocks(protocolInfo.minStakeTerm);
-    }
-    return undefined;
-  }, [protocolInfo]);
-
   const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
@@ -94,7 +87,8 @@ function BasicStakePage() {
           send: { token, amount },
           tags: [actionTag],
         },
-        term: btcStakingTerm,
+        // TODO: remove term after babylon remove term
+        term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
         morphoVault: earnUtils.isMorphoProvider({
           providerName,
@@ -128,7 +122,8 @@ function BasicStakePage() {
               accountId,
               networkId,
               amount,
-              minStakeTerm: protocolInfo?.minStakeTerm,
+              // TODO: remove term after babylon remove term
+              minStakeTerm: undefined,
             });
           }
           onSuccess?.();
@@ -141,10 +136,8 @@ function BasicStakePage() {
       providerName,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.approve?.approveTarget,
-      protocolInfo?.minStakeTerm,
       token,
       actionTag,
-      btcStakingTerm,
       btcFeeRate,
       appNavigation,
       onSuccess,

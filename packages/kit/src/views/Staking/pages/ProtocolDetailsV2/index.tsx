@@ -753,8 +753,6 @@ const ProtocolDetailsPage = () => {
 
           // staking
           minTransactionFee: resultV1.provider.minTransactionFee,
-          aprWithoutFee: resultV1.provider.aprWithoutFee,
-          minStakeTerm: resultV1.provider.minStakeTerm,
 
           // claim
           claimable: resultV1.claimable,
