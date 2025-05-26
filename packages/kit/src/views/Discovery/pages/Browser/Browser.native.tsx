@@ -216,13 +216,13 @@ function MobileBrowser() {
       console.error('takeScreenshot error: ', e);
     }
     setTimeout(() => {
-      setCurrentWebTab(null);
+      setDisplayHomePage(true);
       showTabBar();
       if (platformEnv.isNativeIOSPad) {
         navigation.switchTab(ETabRoutes.Discovery);
       }
     });
-  }, [takeScreenshot, setCurrentWebTab, navigation]);
+  }, [takeScreenshot, setDisplayHomePage, navigation]);
 
   useAndroidHardwareBack({
     displayHomePage,
