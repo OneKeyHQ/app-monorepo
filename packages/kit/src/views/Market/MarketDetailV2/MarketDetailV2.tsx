@@ -25,8 +25,8 @@ function MarketDetail({
 
   const { tokenDetail }: { tokenDetail: IMarketTokenDetailV2 | undefined } =
     useMarketDetail({
-      tokenAddress: '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
-      networkId: 'sol--101',
+      tokenAddress: '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0',
+      networkId: 'evm--1',
     });
 
   return (
@@ -38,7 +38,7 @@ function MarketDetail({
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} />
         <TokenActivityOverview tokenDetail={tokenDetail} />
-        <SwapPanel />
+        <SwapPanel tokenDetail={tokenDetail} networkId="evm--1" />
       </Page.Body>
     </Page>
   );
