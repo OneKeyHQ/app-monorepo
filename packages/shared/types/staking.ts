@@ -8,6 +8,12 @@ export type IAllowanceOverview = {
   allowanceParsed: string;
 };
 
+export enum ECheckAmountActionType {
+  STAKING = 'stake',
+  UNSTAKING = 'unstake',
+  CLAIM = 'claim',
+}
+
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
 export type IStakeTag = string;
 
@@ -51,8 +57,6 @@ export type IStakeProviderInfo = {
   isNative?: string;
   nextLaunchLeft?: string;
 
-  lidoStTokenRate?: string;
-  morphoTokenRate?: string;
   type?: 'native' | 'liquid' | 'lending';
   isStaking?: boolean;
 
@@ -262,6 +266,7 @@ export interface IEarnText {
 }
 
 export type IProtocolInfo = {
+  // account with Earn
   earnAccount?:
     | {
         accountId: string;
@@ -271,9 +276,11 @@ export type IProtocolInfo = {
       }
     | null
     | undefined;
+  // response from server
   provider: string;
   networkId: string;
   symbol: string;
+  vault: string;
   approve?: {
     approveType: EApproveType;
     approveTarget: string;
@@ -282,26 +289,17 @@ export type IProtocolInfo = {
     name: string;
     logoURI: string;
   };
+  apyDetail?: IStakeEarnDetail['apyDetail'];
+  // injected by client side
   apys?: IRewardApys;
   activeBalance?: string;
   overflowBalance?: string;
-  rewardAssets?: Record<string, IEarnTokenItem>;
-  poolFee?: string;
   aprWithoutFee?: string;
-  minStakeAmount?: string;
+  minStakeTerm?: number;
   lidoStTokenRate?: string;
   morphoTokenRate?: string;
   eventEndTime?: number;
-  minStakeTerm?: number;
-  maxStakeTerm?: number;
-  minStakeBlocks?: number;
-  maxStakeAmount?: string;
-  stakeDisable?: boolean;
-  stakingTime?: number;
-  nextLaunchLeft?: string;
   minTransactionFee?: string;
-  unstakingTime?: number;
-  unstakingPeriod?: number;
   maxUnstakeAmount?: string;
   minUnstakeAmount?: number;
 
@@ -397,12 +395,6 @@ export interface IEarnDepositActionIcon {
   text: IEarnText;
 }
 
-export interface IEarnWithdrawActionIcon {
-  type: 'withdraw';
-  disabled: boolean;
-  text: IEarnText;
-}
-
 export interface IEarnHistoryActionIcon {
   type: 'history';
   disabled: boolean;
@@ -461,7 +453,7 @@ export interface IEarnFAQItem {
 
 interface IEarnRisk {
   title: IEarnText;
-  items: {
+  items?: {
     title: IEarnText;
     description: IEarnText;
     icon: IEarnIcon;
@@ -472,6 +464,28 @@ interface IEarnRisk {
       };
     };
   }[];
+  list?: {
+    title: IEarnText;
+    icon: IEarnIcon;
+  }[];
+}
+
+export interface IEarnWithdrawAction {
+  type: 'withdraw';
+  data: {
+    balance: string;
+    token: IEarnToken;
+  };
+}
+
+export interface IEarnWithdrawActionIcon {
+  type: 'withdraw';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    balance: string;
+    token: IEarnToken;
+  };
 }
 
 export interface IStakeEarnDetail {
@@ -482,6 +496,12 @@ export interface IStakeEarnDetail {
       description: IEarnText;
       icon: IEarnIcon;
     }[];
+  };
+  apyDetail?: {
+    type: 'default';
+    title: IEarnText;
+    description: IEarnText;
+    button: IEarnActionIcon;
   };
   actions: (
     | IEarnDepositActionIcon
@@ -536,6 +556,25 @@ export interface IEarnProvider {
   vault: string;
   logoURI: string;
   approveType?: string;
+}
+
+export interface IStakeTransactionConfirmation {
+  title: IEarnText;
+  rewards: Array<{
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  }>;
+  receive: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: {
+      type: 'text';
+      data: {
+        title: IEarnText;
+      };
+    };
+  };
 }
 
 export type IStakeProtocolDetails = {

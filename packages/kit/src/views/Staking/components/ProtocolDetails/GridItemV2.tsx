@@ -55,7 +55,7 @@ function PopupItemLine({
   );
 }
 
-function PopupContent({
+export function ActionPopupContent({
   bulletList,
   items,
   panel,
@@ -66,18 +66,20 @@ function PopupContent({
 }) {
   return (
     <YStack p="$5">
-      <YStack gap="$2.5">
-        {items?.map(({ icon, title, value, token }) => (
-          <PopupItemLine
-            key={title.text}
-            icon={icon}
-            token={token}
-            title={title}
-            value={value}
-          />
-        ))}
-      </YStack>
-      {bulletList ? (
+      {items?.length ? (
+        <YStack gap="$2.5">
+          {items.map(({ icon, title, value, token }) => (
+            <PopupItemLine
+              key={title.text}
+              icon={icon}
+              token={token}
+              title={title}
+              value={value}
+            />
+          ))}
+        </YStack>
+      ) : null}
+      {bulletList?.length ? (
         <YStack pt="$1.5" gap="$2">
           {bulletList.map((text, index) => (
             <XStack key={index} gap="$2" ai="center">
@@ -96,7 +98,7 @@ function PopupContent({
           ))}
         </YStack>
       ) : null}
-      {panel ? (
+      {panel?.length ? (
         <XStack
           mt="$4"
           py="$3"
@@ -234,7 +236,7 @@ export function GridItem({
               />
             }
             renderContent={
-              <PopupContent
+              <ActionPopupContent
                 bulletList={actionIcon.data.bulletList}
                 items={actionIcon.data.items}
                 panel={actionIcon.data.panel}
