@@ -1204,6 +1204,7 @@
   "global.hardware_name_input_max": "超過最大字數限制",
   "global.hardware_troubleshooting": "硬件疑難排解",
   "global.hardware_troubleshooting_contact": "聯絡我們",
+  "global.hardware_troubleshooting_warranty_description": "查看保養狀態 - 我們會幫您解決保養範圍內的問題。",
   "global.hardware_troubleshooting_warranty_title": "遇到硬件問題嗎？",
   "global.help_message": "需要幫助嗎？<url>https://help.onekey.so/hc/requests/new<underline>聯絡 OneKey 支援</underline></url>。",
   "global.hex_data": "訊息",
