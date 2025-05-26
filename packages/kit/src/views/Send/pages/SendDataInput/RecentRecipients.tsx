@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Divider, SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
@@ -7,7 +9,6 @@ import { AddressListItem } from '@onekeyhq/kit/src/components/AddressList';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IRecentRecipientsProps {
