@@ -298,8 +298,8 @@ export function GridItem({
               }
               renderContent={
                 <Stack p="$5">
-                  <SizableText color={tooltip.data.color}>
-                    {tooltip.data.text}
+                  <SizableText color={tooltip?.data?.color}>
+                    {tooltip?.data?.text}
                   </SizableText>
                 </Stack>
               }
