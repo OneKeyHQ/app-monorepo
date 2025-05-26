@@ -754,10 +754,9 @@ const ProtocolDetailsPage = () => {
       indexedAccountId,
       setStakeLoading,
       onSuccess: async () => {
-        if (networkUtils.isBTCNetwork(networkId)) {
-          await run();
-          await refreshTracking();
-        }
+        // if (networkUtils.isBTCNetwork(networkId)) {
+        //   await run();
+        // }
       },
     });
   }, [
@@ -767,7 +766,6 @@ const ProtocolDetailsPage = () => {
     earnAccount?.accountId,
     networkId,
     indexedAccountId,
-    run,
   ]);
 
   const onWithdraw = useCallback(async () => {
@@ -779,9 +777,9 @@ const ProtocolDetailsPage = () => {
       symbol,
       provider,
       onSuccess: async () => {
-        if (networkUtils.isBTCNetwork(networkId)) {
-          await run();
-        }
+        // if (networkUtils.isBTCNetwork(networkId)) {
+        //   await run();
+        // }
       },
     });
   }, [
@@ -790,7 +788,6 @@ const ProtocolDetailsPage = () => {
     networkId,
     protocolInfo,
     provider,
-    run,
     symbol,
     tokenInfo,
   ]);
