@@ -528,7 +528,7 @@ export interface IStakeEarnDetail {
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
-      description: IEarnText;
+      description?: IEarnText;
       badge: IEarnBadge;
       tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];

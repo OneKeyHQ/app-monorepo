@@ -167,8 +167,8 @@ export const ProtectionSection = ({
                     <SizableText size="$bodyMdMedium" color={item.title.color}>
                       {item.title.text}
                     </SizableText>
-                    <SizableText size="$bodyMd" color={item.description.color}>
-                      {item.description.text}
+                    <SizableText size="$bodyMd" color={item.description?.color}>
+                      {item.description?.text}
                     </SizableText>
                   </YStack>
                 </XStack>

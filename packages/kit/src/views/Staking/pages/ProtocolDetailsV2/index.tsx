@@ -196,7 +196,7 @@ function ProtocolRewards({
               renderContent={
                 <Stack p="$5">
                   <SizableText color="$text" size="$bodyLg">
-                    {rewards.tooltip.data.text}
+                    {rewards.tooltip.data?.text}
                   </SizableText>
                 </Stack>
               }
@@ -354,9 +354,9 @@ function PortfolioSection({
                 </FormatHyperlinkText>
                 <SizableText
                   size="$bodyLgMedium"
-                  color={item.description.color}
+                  color={item.description?.color}
                 >
-                  {item.description.text}
+                  {item.description?.text}
                 </SizableText>
                 {item?.badge ? (
                   <Badge
