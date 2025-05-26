@@ -483,6 +483,15 @@ export interface IEarnWithdrawActionIcon {
   };
 }
 
+export interface IEarnWithdrawOrderActionIcon {
+  type: 'withdrawOrder';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    text: IEarnText;
+  };
+}
+
 export interface IStakeEarnDetail {
   protection?: {
     title: IEarnText;
@@ -502,6 +511,7 @@ export interface IStakeEarnDetail {
     | IEarnDepositActionIcon
     | IEarnWithdrawActionIcon
     | IEarnHistoryActionIcon
+    | IEarnWithdrawOrderActionIcon
   )[];
   subscriptionValue: ISubscriptionValue;
   protocol: IProtocolInfo;

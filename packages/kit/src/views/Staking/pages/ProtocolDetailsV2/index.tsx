@@ -896,7 +896,9 @@ const ProtocolDetailsPage = () => {
   }, [detailInfo?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
 
   const withdrawButtonProps = useMemo(() => {
-    const item = detailInfo?.actions?.find((i) => i.type === 'withdraw');
+    const item = detailInfo?.actions?.find(
+      (i) => i.type === 'withdraw' || i.type === 'withdrawOrder',
+    );
     return {
       text: item?.text.text,
       props: {
