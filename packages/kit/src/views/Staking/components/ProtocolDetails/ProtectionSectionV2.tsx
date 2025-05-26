@@ -13,11 +13,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type {
-  IStakeEarnDetail,
-  IStakeProtocolDetails,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
 
 function AutoRiskControlContent() {
   const intl = useIntl();

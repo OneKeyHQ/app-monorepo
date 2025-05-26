@@ -297,7 +297,7 @@ export type IProtocolInfo = {
   eventEndTime?: number;
   minTransactionFee?: string;
   maxUnstakeAmount?: string;
-  minUnstakeAmount?: number;
+  minUnstakeAmount?: string;
   claimable?: string;
 };
 
@@ -556,8 +556,8 @@ export interface IStakeEarnDetail {
   };
   nums?: {
     overflow: string;
-    minUnstakeAmount: number;
-    maxUnstakeAmount: number;
+    minUnstakeAmount: string;
+    maxUnstakeAmount: string;
     minTransactionFee: string;
     claimable: string;
   };
