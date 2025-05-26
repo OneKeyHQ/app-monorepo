@@ -2150,6 +2150,26 @@ const bbnTestnet: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const noble: IServerNetwork = {
+  'chainId': 'noble-1',
+  'code': 'noble',
+  'decimals': 6,
+  'id': 'cosmos--noble-1',
+  'impl': 'cosmos',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/noble.png',
+  'name': 'Noble',
+  'shortcode': 'noble',
+  'shortname': 'Noble',
+  'symbol': 'USDC',
+  'feeMeta': {
+    'decimals': 6,
+    'symbol': 'UUSDC',
+  },
+  'defaultEnabled': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const lightning: IServerNetwork = {
   'chainId': '0',
   'code': 'lightning',
@@ -2796,6 +2816,8 @@ export const presetNetworksMap = {
   akash,
   osmosis,
   cosmoshub,
+  noble,
+
   // polkadot
   polkadot,
   astar,
@@ -2987,6 +3009,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     cosmoshub,
     bbn,
     bbnTestnet,
+    noble,
 
     // polkadot
     polkadot,
