@@ -528,6 +528,7 @@ export function UniversalSearch({
         <View px="$5" pb="$2">
           <SearchBar
             autoFocus
+            value={searchValue}
             placeholder={intl.formatMessage({
               id: ETranslations.global_universal_search_placeholder,
             })}
