@@ -26,6 +26,7 @@ import type {
   IChangedPendingTxInfo,
 } from '@onekeyhq/shared/types/history';
 import type {
+  ECheckAmountActionType,
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
@@ -53,6 +54,7 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTransactionConfirmation,
   IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
@@ -537,6 +539,25 @@ class ServiceStaking extends ServiceBase {
     return result as unknown as IStakeEarnDetail;
   }
 
+  @backgroundMethod()
+  async getTransactionConfirmation(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault: string;
+    accountAddress: string;
+    action: 'stake' | 'unstake' | 'claim';
+    amount: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IStakeTransactionConfirmation;
+    }>(`/earn/v1/transaction-confirmation`, {
+      params,
+    });
+    return resp.data.data;
+  }
+
   _getProtocolList = memoizee(
     async (params: {
       symbol: string;
@@ -880,7 +901,7 @@ class ServiceStaking extends ServiceBase {
     networkId?: string;
     symbol?: string;
     provider?: string;
-    action: 'stake' | 'unstake' | 'claim';
+    action: ECheckAmountActionType;
     withdrawAll: boolean;
     amount?: string;
     morphoVault?: string;
@@ -907,11 +928,6 @@ class ServiceStaking extends ServiceBase {
       },
     });
     const { code, message } = result.data;
-    this.handleServerError({
-      code,
-      message,
-      requestId: result.$requestId,
-    });
     return Number(code) === 0 ? '' : message;
   }
 

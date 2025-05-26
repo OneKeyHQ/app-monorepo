@@ -8,6 +8,8 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -20,9 +22,11 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
+import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -32,11 +36,18 @@ function BasicStakePage() {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const { accountId, networkId, tokenInfo, protocolInfo, onSuccess } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    protocolInfo,
+    currentAllowance,
+    onSuccess,
+  } = route.params;
   const token = tokenInfo?.token as IToken;
   const symbol = tokenInfo?.token.symbol || '';
   const providerName = protocolInfo?.provider || '';
+  const { removePermitCache } = useEarnActions().current;
 
   const actionTag = buildLocalTxStatusSyncId({
     providerName,
@@ -63,9 +74,15 @@ function BasicStakePage() {
   const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async ({
+      amount,
+      approveType,
+      permitSignature,
+    }: IApproveConfirmFnParams) => {
       await handleStake({
         amount,
+        approveType,
+        permitSignature,
         symbol,
         provider: providerName,
         stakingInfo: {
@@ -91,6 +108,14 @@ function BasicStakePage() {
             stakingProtocol: providerName,
           });
           const tx = txs[0];
+          if (approveType === EApproveType.Permit && permitSignature) {
+            removePermitCache({
+              accountId,
+              networkId,
+              tokenAddress: tokenInfo?.token.address || '',
+              amount,
+            });
+          }
           if (
             tx &&
             providerName.toLowerCase() ===
@@ -123,54 +148,14 @@ function BasicStakePage() {
       btcFeeRate,
       appNavigation,
       onSuccess,
+      removePermitCache,
       accountId,
       networkId,
+      tokenInfo?.token.address,
     ],
   );
 
   const intl = useIntl();
-
-  const isReachBabylonCap = useMemo<boolean | undefined>(() => {
-    if (
-      providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
-    ) {
-      return protocolInfo?.stakeDisable;
-    }
-    return false;
-  }, [protocolInfo?.stakeDisable, providerName]);
-
-  const showEstReceive = useMemo<boolean>(
-    () =>
-      earnUtils.isLidoProvider({
-        providerName,
-      }) ||
-      earnUtils.isMorphoProvider({
-        providerName,
-      }),
-    [providerName],
-  );
-
-  const estReceiveTokenRate = useMemo(() => {
-    if (
-      earnUtils.isLidoProvider({
-        providerName,
-      })
-    ) {
-      return protocolInfo?.lidoStTokenRate;
-    }
-    if (
-      earnUtils.isMorphoProvider({
-        providerName,
-      })
-    ) {
-      return protocolInfo?.morphoTokenRate;
-    }
-    return '1';
-  }, [
-    protocolInfo?.lidoStTokenRate,
-    protocolInfo?.morphoTokenRate,
-    providerName,
-  ]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
@@ -212,7 +197,6 @@ function BasicStakePage() {
       ? protocolInfo?.aprWithoutFee
       : undefined;
   const decimals = tokenInfo?.token.decimals || 0;
-  const rewardToken = tokenInfo?.token.symbol || '';
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -229,28 +213,24 @@ function BasicStakePage() {
           apr={apr}
           price={price}
           balance={balanceParsed}
-          minAmount={protocolInfo?.minStakeAmount}
-          maxAmount={protocolInfo?.maxStakeAmount}
-          minStakeTerm={protocolInfo?.minStakeTerm}
-          minStakeBlocks={protocolInfo?.minStakeBlocks}
           tokenImageUri={token?.logoURI}
           tokenSymbol={token.symbol}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
-          stakingTime={protocolInfo?.stakingTime}
-          nextLaunchLeft={protocolInfo?.nextLaunchLeft}
-          isReachBabylonCap={isReachBabylonCap}
-          rewardToken={rewardToken}
-          isDisabled={isReachBabylonCap}
-          showEstReceive={showEstReceive}
-          estReceiveToken={rewardToken}
-          estReceiveTokenRate={estReceiveTokenRate}
           onConfirm={onConfirm}
+          approveType={protocolInfo?.approve?.approveType}
+          currentAllowance={currentAllowance}
           minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
           tokenInfo={tokenInfo}
           protocolInfo={protocolInfo}
+          approveTarget={{
+            accountId,
+            networkId,
+            spenderAddress: protocolInfo?.approve?.approveTarget ?? '',
+            token: tokenInfo?.token,
+          }}
         />
       </Page.Body>
     </Page>
@@ -266,7 +246,9 @@ export default function StakePage() {
       }}
       enabledNum={[0]}
     >
-      <BasicStakePage />
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <BasicStakePage />
+      </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

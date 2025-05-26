@@ -111,7 +111,7 @@ export const useHandleStake = () => {
                   : protocolInfo.approve.approveTarget,
               tokenAddress: tokenInfo?.token.address || '',
             });
-          appNavigation.push(EModalStakingRoutes.ApproveBaseStake, {
+          appNavigation.push(EModalStakingRoutes.Stake, {
             accountId,
             networkId,
             protocolInfo,

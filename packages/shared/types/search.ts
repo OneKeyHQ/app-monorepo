@@ -26,6 +26,7 @@ export enum ESearchStatus {
 export type IUniversalSearchAccountInfo = {
   accountId: string;
   formattedName: string;
+  accountName?: string;
 };
 
 export type IUniversalSearchAddress = {
@@ -98,7 +99,7 @@ export interface IIUniversalRecentSearchItem {
   text: string;
   timestamp: number;
   type: EUniversalSearchType;
-  extra?: Record<string, string>;
+  extra?: Record<string, string | boolean>;
 }
 
 export type IUniversalSearchAtomData = {

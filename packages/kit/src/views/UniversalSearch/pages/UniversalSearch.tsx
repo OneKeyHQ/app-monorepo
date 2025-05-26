@@ -116,6 +116,7 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
+  const [searchValue, setSearchValue] = useState('');
 
   const tabTitles = useMemo(() => {
     return [
@@ -317,10 +318,22 @@ export function UniversalSearch({
     }
   }, 1200);
 
-  const handleChangeText = useCallback(() => {
+  const handleChangeText = useCallback((val: string) => {
     console.log('[universalSearch] handleChangeText');
+    setSearchValue(val); // Update search value state immediately
     setSearchStatus(ESearchStatus.loading);
   }, []);
+
+  const handleSearchTextFill = useCallback(
+    (text: string) => {
+      setSearchValue(text);
+      // Set loading status to show skeleton screen
+      setSearchStatus(ESearchStatus.loading);
+      // Trigger search with the filled text
+      void handleTextChange(text);
+    },
+    [handleTextChange],
+  );
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
@@ -427,7 +440,12 @@ export function UniversalSearch({
             renderSectionHeader={renderSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
-            ListHeaderComponent={<RecentSearched filterTypes={filterTypes} />}
+            ListHeaderComponent={
+              <RecentSearched
+                filterTypes={filterTypes}
+                onSearchTextFill={handleSearchTextFill}
+              />
+            }
             ListEmptyComponent={<ListEmptyComponent />}
             estimatedItemSize="$16"
             ListFooterComponent={<Stack h="$16" />}
@@ -491,6 +509,7 @@ export function UniversalSearch({
     filterSections,
     filterTypes,
     handleTabSelectedPageIndex,
+    handleSearchTextFill,
     intl,
     recommendSections,
     renderItem,
@@ -509,6 +528,7 @@ export function UniversalSearch({
         <View px="$5" pb="$2">
           <SearchBar
             autoFocus
+            value={searchValue}
             placeholder={intl.formatMessage({
               id: ETranslations.global_universal_search_placeholder,
             })}
