@@ -44,6 +44,7 @@ export { default as ArrowBottomCircle } from './ArrowBottomCircle';
 export { default as ArrowBottomLeft } from './ArrowBottomLeft';
 export { default as ArrowBottomRight } from './ArrowBottomRight';
 export { default as ArrowBottom } from './ArrowBottom';
+export { default as ArrowCornerDownRight } from './ArrowCornerDownRight';
 export { default as ArrowExpandH } from './ArrowExpandH';
 export { default as ArrowExpandV } from './ArrowExpandV';
 export { default as ArrowLeftCircle } from './ArrowLeftCircle';

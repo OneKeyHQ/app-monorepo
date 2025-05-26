@@ -3,9 +3,9 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   IconButton,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -54,20 +54,16 @@ function SearchTextItem({
     }
   }, [item.text, searchType]);
   return (
-    <Stack
-      ai="center"
-      jc="center"
-      borderRadius="$2"
-      bg="$bgStrong"
+    <Button
+      size="small"
+      variant="secondary"
       mt="$2"
       mr="$2"
       cursor="pointer"
       onPress={handlePress}
     >
-      <SizableText px="$2.5" py="$1" size="$bodyMdMedium">
-        {text}
-      </SizableText>
-    </Stack>
+      {text}
+    </Button>
   );
 }
 

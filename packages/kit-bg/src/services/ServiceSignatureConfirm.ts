@@ -338,6 +338,35 @@ class ServiceSignatureConfirm extends ServiceBase {
       result,
     });
   }
+
+  @backgroundMethod()
+  async updateRecentRecipients({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    await this.backgroundApi.simpleDb.recentRecipients.updateRecentRecipients({
+      networkId,
+      address,
+      updatedAt: Date.now(),
+    });
+  }
+
+  @backgroundMethod()
+  async getRecentRecipients({
+    networkId,
+    limit,
+  }: {
+    networkId: string;
+    limit?: number;
+  }) {
+    return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
+      networkId,
+      limit,
+    });
+  }
 }
 
 export default ServiceSignatureConfirm;
