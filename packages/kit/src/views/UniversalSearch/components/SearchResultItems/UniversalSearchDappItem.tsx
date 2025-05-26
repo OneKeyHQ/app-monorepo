@@ -31,8 +31,8 @@ export function UniversalSearchDappItem({
     if (text.length <= 12) {
       return text;
     }
-    // Long content (>12 characters): show first 6 + last 6 characters
-    return `${text.substring(0, 6)}...${text.substring(text.length - 6)}`;
+    // Long content (>12 characters): show first 12 characters with ellipsis
+    return `${text.substring(0, 12)}...`;
   }, []);
 
   // Extract main domain from URL and apply display rules
