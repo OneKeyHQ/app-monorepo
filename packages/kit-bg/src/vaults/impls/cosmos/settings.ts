@@ -125,6 +125,11 @@ const settings: IVaultSettings = {
       curve: 'secp256k1',
       nativeTokenAddress: 'ubbn',
     },
+    'cosmos--noble-1': {
+      addressPrefix: 'noble',
+      curve: 'secp256k1',
+      nativeTokenAddress: 'uusdc',
+    },
   },
 
   stakingConfig: {
