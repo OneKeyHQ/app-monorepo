@@ -557,14 +557,14 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    const permitSignature = usePermit2Approve
+    const permitSignatureParams = usePermit2Approve
       ? {
           approveType,
-          permitSignatureRef: permitSignatureRef.current,
+          permitSignature: permitSignatureRef.current,
         }
       : undefined;
     const handleConfirm = () =>
-      onConfirm?.({ amount: amountValue, ...permitSignature });
+      onConfirm?.({ amount: amountValue, ...permitSignatureParams });
 
     // Wait for the dialog confirmation if it's shown
     await showFalconEventEndedDialog();
