@@ -369,7 +369,7 @@ function PortfolioSection({
                 {item?.tooltip && item?.tooltip.type === 'text' ? (
                   <Popover
                     placement="top"
-                    title={item.description.text}
+                    title={item?.description?.text || ''}
                     renderTrigger={
                       <IconButton
                         iconColor="$iconSubdued"
@@ -669,20 +669,6 @@ const ProtocolDetailsPage = () => {
     accountId,
   ]);
 
-  const { result: unbondingDelegationList } = usePromiseResult(
-    () =>
-      earnAccount?.accountAddress
-        ? backgroundApiProxy.serviceStaking.getUnbondingDelegationList({
-            accountAddress: earnAccount?.accountAddress,
-            symbol,
-            networkId,
-            provider,
-          })
-        : Promise.resolve([]),
-    [earnAccount?.accountAddress, symbol, networkId, provider],
-    { watchLoading: true, initResult: [], revalidateOnFocus: true },
-  );
-
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     void run();
@@ -691,36 +677,36 @@ const ProtocolDetailsPage = () => {
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
-  const { result: trackingResp, run: refreshTracking } = usePromiseResult(
-    async () => {
-      if (
-        provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase() ||
-        !earnAccount
-      ) {
-        return [];
-      }
-      const items =
-        await backgroundApiProxy.serviceStaking.getBabylonTrackingItems({
-          accountId: earnAccount.accountId,
-          networkId: earnAccount.networkId,
-        });
-      return items;
-    },
-    [provider, earnAccount],
-    { initResult: [] },
-  );
+  // const { result: trackingResp, run: refreshTracking } = usePromiseResult(
+  //   async () => {
+  //     if (
+  //       provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase() ||
+  //       !earnAccount
+  //     ) {
+  //       return [];
+  //     }
+  //     const items =
+  //       await backgroundApiProxy.serviceStaking.getBabylonTrackingItems({
+  //         accountId: earnAccount.accountId,
+  //         networkId: earnAccount.networkId,
+  //       });
+  //     return items;
+  //   },
+  //   [provider, earnAccount],
+  //   { initResult: [] },
+  // );
 
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isFocused) {
-      void refreshTracking();
-    }
-  }, [isFocused, refreshTracking]);
+  // const isFocused = useIsFocused();
+  // useEffect(() => {
+  //   if (isFocused) {
+  //     void refreshTracking();
+  //   }
+  // }, [isFocused, refreshTracking]);
 
-  const onRefreshTracking = useCallback(async () => {
-    void run();
-    void refreshTracking();
-  }, [run, refreshTracking]);
+  // const onRefreshTracking = useCallback(async () => {
+  //   void run();
+  //   void refreshTracking();
+  // }, [run, refreshTracking]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     const withdrawAction = detailInfo?.actions.find(
@@ -782,7 +768,6 @@ const ProtocolDetailsPage = () => {
     networkId,
     indexedAccountId,
     run,
-    refreshTracking,
   ]);
 
   const onWithdraw = useCallback(async () => {
@@ -810,20 +795,20 @@ const ProtocolDetailsPage = () => {
     tokenInfo,
   ]);
 
-  const onPortfolioDetails = useMemo(
-    () =>
-      networkUtils.isBTCNetwork(networkId) && earnAccount?.accountId
-        ? () => {
-            appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
-              accountId: earnAccount?.accountId,
-              networkId,
-              symbol,
-              provider,
-            });
-          }
-        : undefined,
-    [appNavigation, earnAccount?.accountId, networkId, symbol, provider],
-  );
+  // const onPortfolioDetails = useMemo(
+  //   () =>
+  //     networkUtils.isBTCNetwork(networkId) && earnAccount?.accountId
+  //       ? () => {
+  //           appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
+  //             accountId: earnAccount?.accountId,
+  //             networkId,
+  //             symbol,
+  //             provider,
+  //           });
+  //         }
+  //       : undefined,
+  //   [appNavigation, earnAccount?.accountId, networkId, symbol, provider],
+  // );
 
   const onHistory = useMemo(() => {
     const historyAction = detailInfo?.actions.find((i) => i.type === 'history');
@@ -860,15 +845,15 @@ const ProtocolDetailsPage = () => {
   const intl = useIntl();
   const media = useMedia();
 
-  const falconUSDfRegister = useFalconUSDfRegister();
-  const shouldRegisterBeforeStake = useMemo(() => {
-    // if (
-    //   earnUtils.isFalconProvider({ providerName: detailInfo?.provider.name ?? '' })
-    // ) {
-    //   return !detailInfo?.hasRegister;
-    // }
-    return false;
-  }, []);
+  // const falconUSDfRegister = useFalconUSDfRegister();
+  // const shouldRegisterBeforeStake = useMemo(() => {
+  //   // if (
+  //   //   earnUtils.isFalconProvider({ providerName: detailInfo?.provider.name ?? '' })
+  //   // ) {
+  //   //   return !detailInfo?.hasRegister;
+  //   // }
+  //   return false;
+  // }, []);
 
   const depositButtonProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
