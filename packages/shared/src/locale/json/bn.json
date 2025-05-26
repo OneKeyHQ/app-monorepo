@@ -1204,6 +1204,7 @@
   "global.hardware_name_input_max": "সর্বাধিক শব্দ সীমা অতিক্রম করা",
   "global.hardware_troubleshooting": "হার্ডওয়্যার সমস্যা সমাধান",
   "global.hardware_troubleshooting_contact": "যোগাযোগ করুন",
+  "global.hardware_troubleshooting_warranty_description": "ওয়ারেন্টির অবস্থা দেখুন - আমরা কভার করা সমস্যার সমাধানে সাহায্য করব।",
   "global.hardware_troubleshooting_warranty_title": "হার্ডওয়্যার সমস্যা হচ্ছে?",
   "global.help_message": "সাহায্য দরকার? <url>https://help.onekey.so/hc/requests/new<underline>OneKey সাপোর্টের সাথে যোগাযোগ করুন</underline></url>.",
   "global.hex_data": "বার্তা",

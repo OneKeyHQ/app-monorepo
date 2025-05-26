@@ -87,11 +87,13 @@ export function getFilteredTokenBySearchKey({
   searchKey,
   searchAll,
   searchTokenList,
+  allowEmptyWhenBelowMinLength,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
   searchAll?: boolean;
   searchTokenList?: IAccountToken[];
+  allowEmptyWhenBelowMinLength?: boolean;
 }) {
   let mergedTokens = tokens;
 
@@ -103,7 +105,7 @@ export function getFilteredTokenBySearchKey({
     );
   }
   if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
-    return mergedTokens;
+    return allowEmptyWhenBelowMinLength ? [] : mergedTokens;
   }
 
   // eslint-disable-next-line no-param-reassign

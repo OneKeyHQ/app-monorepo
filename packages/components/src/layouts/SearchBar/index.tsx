@@ -17,20 +17,26 @@ export type ISearchBarProps = IInputProps & {
 const NATIVE_COMPOSITION_SPACE = String.fromCharCode(8198);
 
 export function SearchBar({
-  value: defaultValue,
+  value: controlledValue,
   onChangeText,
   onSearchTextChange,
   testID,
   containerProps,
   ...rest
 }: ISearchBarProps) {
-  const [value, setValue] = useState(defaultValue ?? '');
+  const [internalValue, setInternalValue] = useState('');
   const compositionLockRef = useRef(false);
   const searchTextRef = useRef('');
 
+  // Use controlled value if provided, otherwise use internal state
+  const value = controlledValue !== undefined ? controlledValue : internalValue;
+
   const handleChange = useCallback(
     (text: string) => {
-      setValue(text);
+      // Only update internal state if not controlled
+      if (controlledValue === undefined) {
+        setInternalValue(text);
+      }
       onChangeText?.(text);
       // This is a simple solution to support pinyin composition on iOS.
       if (platformEnv.isNative) {
@@ -55,7 +61,7 @@ export function SearchBar({
         onSearchTextChange?.(text);
       }
     },
-    [onChangeText, onSearchTextChange],
+    [controlledValue, onChangeText, onSearchTextChange],
   );
 
   const handleClearValue = useCallback(() => {
