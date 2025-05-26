@@ -12,20 +12,20 @@ import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 import { InfoItemLabel } from '../InfoItemLabel/InfoItemLabel';
 
 export interface ISlippageSettingProps {
-  autoValue?: number;
+  autoDefaultValue?: number;
   isMEV?: boolean;
   onSlippageChange?: (item: ISwapSlippageSegmentItem) => void;
 }
 
 export function SlippageSetting({
-  autoValue = 0.5,
   isMEV = false,
+  autoDefaultValue = 0.5,
   onSlippageChange,
 }: ISlippageSettingProps) {
   const intl = useIntl();
   const [slippageItem, setSlippageItem] = useState<ISwapSlippageSegmentItem>({
     key: ESwapSlippageSegmentKey.AUTO,
-    value: autoValue,
+    value: autoDefaultValue,
   });
 
   const slippageOnSave = useCallback(
@@ -46,7 +46,7 @@ export function SlippageSetting({
       renderContent: (
         <SlippageSettingDialog
           swapSlippage={slippageItem}
-          autoValue={autoValue}
+          autoValue={autoDefaultValue}
           onSave={slippageOnSave}
           isMEV={isMEV}
         />
@@ -58,16 +58,16 @@ export function SlippageSetting({
         console.log('Slippage dialog closed', extra);
       },
     });
-  }, [intl, slippageItem, autoValue, slippageOnSave, isMEV]);
+  }, [intl, slippageItem, autoDefaultValue, slippageOnSave, isMEV]);
 
   const displaySlippageText = useMemo(() => {
     if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
       return `${intl.formatMessage({
         id: ETranslations.slippage_tolerance_switch_auto,
-      })} (${autoValue}%)`;
+      })} (${autoDefaultValue}%)`;
     }
     return `${slippageItem.value}%`;
-  }, [slippageItem, intl, autoValue]);
+  }, [slippageItem, intl, autoDefaultValue]);
 
   return (
     <XStack
