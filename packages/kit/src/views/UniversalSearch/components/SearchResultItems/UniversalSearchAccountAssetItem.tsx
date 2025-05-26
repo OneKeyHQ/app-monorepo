@@ -8,6 +8,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalAssetDetailRoutes,
@@ -26,6 +27,7 @@ export function UniversalSearchAccountAssetItem({
 }: IUniversalSearchAccountAssetItemProps) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const universalSearchActions = useUniversalSearchActions();
   const [settings] = useSettingsPersistAtom();
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
@@ -61,8 +63,26 @@ export function UniversalSearchAccountAssetItem({
           indexedAccountId: activeAccount.indexedAccount?.id ?? '',
         },
       });
+
+      // Add to recent search list
+      setTimeout(() => {
+        universalSearchActions.current.addIntoRecentSearchList({
+          id: `${token.symbol}-${token.networkId || ''}-${
+            token.accountId || activeAccount.account?.id || ''
+          }`,
+          text: token.symbol || token.name || '',
+          type: item.type,
+          timestamp: Date.now(),
+          extra: {
+            tokenSymbol: token.symbol || '',
+            tokenName: token.name || '',
+            networkId: token.networkId || '',
+            accountId: token.accountId || '',
+          },
+        });
+      }, 10);
     }, 80);
-  }, [activeAccount, navigation, token]);
+  }, [activeAccount, item.type, navigation, token, universalSearchActions]);
 
   return (
     <ListItem

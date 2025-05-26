@@ -687,6 +687,7 @@ class ServiceUniversalSearch extends ServiceBase {
             accountInfo: {
               accountId: i.item.id,
               formattedName: `${wallet?.name || ''} / ${i.item.name}`,
+              accountName: i.item.name,
             },
             score: i.score,
             network: undefined,
@@ -747,6 +748,7 @@ class ServiceUniversalSearch extends ServiceBase {
             accountInfo: {
               accountId: i.item.id,
               formattedName: `${wallet?.name || ''} / ${i.item.name}`,
+              accountName: i.item.name,
             },
             score: i.score,
             indexedAccount: undefined,

@@ -121,6 +121,7 @@ const ClaimPage = () => {
       />
       <Page.Body>
         <UniversalClaim
+          accountId={accountId}
           networkId={networkId}
           price={price}
           decimals={info?.decimals}

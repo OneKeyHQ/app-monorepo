@@ -49,7 +49,52 @@ export function UniversalSearchAddressItem({
         forceSelectToNetworkId: item.payload.network?.id,
       });
     }
-  }, [accountSelectorActions, item.payload, navigation]);
+
+    // Add to recent search list
+    setTimeout(() => {
+      const { addressInfo, network, accountInfo, isSearchedByAccountName } =
+        item.payload;
+
+      if (isSearchedByAccountName && accountInfo?.accountName) {
+        // User searched by account name, save the original search input
+        const encodedSearchInput = encodeURIComponent(accountInfo.accountName);
+        universalSearchActions.current.addIntoRecentSearchList({
+          id: `${encodedSearchInput}-${accountInfo.accountId}-${
+            network?.id || ''
+          }-accountName`,
+          text: accountInfo.accountName,
+          type: item.type,
+          timestamp: Date.now(),
+          extra: {
+            accountId: accountInfo.accountId,
+            accountName: accountInfo.formattedName,
+            networkId: network?.id || '',
+            isAccountName: true,
+            originalSearchInput: accountInfo.accountName,
+          },
+        });
+      } else if (addressInfo && network) {
+        // User searched by address and found an account
+        universalSearchActions.current.addIntoRecentSearchList({
+          id: `${addressInfo.displayAddress}-${network.id || ''}-account`,
+          text: addressInfo.displayAddress,
+          type: item.type,
+          timestamp: Date.now(),
+          extra: {
+            displayAddress: addressInfo.displayAddress,
+            networkId: network.id,
+            isAccount: true,
+          },
+        });
+      }
+    }, 10);
+  }, [
+    accountSelectorActions,
+    item.payload,
+    item.type,
+    navigation,
+    universalSearchActions,
+  ]);
 
   const handleAddressPress = useCallback(() => {
     navigation.pop();
