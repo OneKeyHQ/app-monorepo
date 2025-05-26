@@ -882,6 +882,20 @@ module.exports = [
   'zondax',
   'Zx4',
   'zxcvbn',
+  // Algorand transaction fields and types
+  'aamt',
+  'aclose',
+  'arcv',
+  'asnd',
+  'axfer',
+  // Font names
+  'Geist',
+  // Blockchain and crypto terms
+  'Millis',
+  'Onchain',
+  'versionnum',
+  // Third-party library field names (with typos)
+  'titchannelle',
   "'aes",
   "'algosdk'",
   "'algosdk",
