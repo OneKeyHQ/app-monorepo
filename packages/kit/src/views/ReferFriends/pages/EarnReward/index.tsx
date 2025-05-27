@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { RefObject } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -474,13 +473,13 @@ export default function EarnReward() {
                         id: ETranslations.referral_reward_undistributed,
                       })}
                     </SizableText>
-                    <NumberSizeableText
+                    <Currency
+                      sourceCurrency="usd"
                       size="$heading5xl"
-                      formatter="balance"
-                      formatterOptions={{ currency: currencySymbol }}
+                      formatter="value"
                     >
                       {amount?.pending || 0}
-                    </NumberSizeableText>
+                    </Currency>
                   </YStack>
                 </YStack>
               }

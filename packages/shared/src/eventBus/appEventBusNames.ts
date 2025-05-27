@@ -66,6 +66,7 @@ export enum EAppEventBusNames {
   SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
   SwapApprovingSuccess = 'SwapApprovingSuccess',
   SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
+  SwapSpeedBalanceUpdate = 'SwapSpeedBalanceUpdate',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
