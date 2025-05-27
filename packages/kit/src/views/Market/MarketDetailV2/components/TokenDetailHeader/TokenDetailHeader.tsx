@@ -1,5 +1,6 @@
 import {
   Icon,
+  IconButton,
   SizableText,
   XStack,
   YStack,
@@ -13,6 +14,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStar } from '../../../components/MarketStar';
@@ -54,11 +56,26 @@ export function TokenDetailHeader({
     holders = 0,
     address = '',
     logoUrl = '',
+    extraData,
   } = tokenDetail || {};
+
+  const { website, twitter } = extraData || {};
 
   const handleCopyAddress = () => {
     if (address) {
       copyText(address);
+    }
+  };
+
+  const handleOpenWebsite = () => {
+    if (website) {
+      openUrlExternal(website);
+    }
+  };
+
+  const handleOpenTwitter = () => {
+    if (twitter) {
+      openUrlExternal(twitter);
     }
   };
 
@@ -80,56 +97,72 @@ export function TokenDetailHeader({
             {symbol}
           </SizableText>
 
-          {address ? (
-            <XStack
-              ai="center"
-              gap="$1"
-              onPress={handleCopyAddress}
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-            >
-              <SizableText size="$bodySm" color="$textSubdued">
-                {accountUtils.shortenAddress({
-                  address,
-                  leadingLength: 6,
-                  trailingLength: 4,
-                })}
-              </SizableText>
+          <XStack gap="$1" ai="center">
+            {address ? (
+              <XStack
+                ai="center"
+                gap="$1"
+                onPress={handleCopyAddress}
+                cursor="pointer"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+              >
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {accountUtils.shortenAddress({
+                    address,
+                    leadingLength: 6,
+                    trailingLength: 4,
+                  })}
+                </SizableText>
 
-              <Icon name="Copy1Outline" size="$4" color="$iconSubdued" />
+                <Icon name="Copy1Outline" size="$4" color="$iconSubdued" />
+              </XStack>
+            ) : null}
+
+            {/* Social Links */}
+            <XStack ai="center" gap="$2" mt="$1">
+              {website ? (
+                <IconButton
+                  size="small"
+                  icon="GlobusOutline"
+                  onPress={handleOpenWebsite}
+                  variant="tertiary"
+                />
+              ) : null}
+              {twitter ? (
+                <IconButton
+                  size="small"
+                  icon="Xbrand"
+                  onPress={handleOpenTwitter}
+                  variant="tertiary"
+                />
+              ) : null}
             </XStack>
-          ) : null}
+          </XStack>
         </YStack>
       </XStack>
 
-      {/* Price and Price Change */}
-      <YStack ai="center" jc="space-between">
-        <MarketTokenPrice
-          size="$heading3xl"
-          price={currentPrice}
-          tokenName={name}
-          tokenSymbol={symbol}
-        />
-        <XStack
-          ai="center"
-          px="$2"
-          py="$1"
-          bg={isPriceUp ? '$bgSuccessSubdued' : '$bgCriticalSubdued'}
-          borderRadius="$2"
-        >
-          <SizableText
-            size="$bodyMdMedium"
-            color={isPriceUp ? '$textSuccess' : '$textCritical'}
-          >
-            {isPriceUp ? '+' : ''}
-            {priceChange24hPercent}%
-          </SizableText>
-        </XStack>
-      </YStack>
-
       {/* Market Stats */}
       <XStack gap="$6" pt="$2">
+        {/* Price and Price Change */}
+        <YStack ai="center" jc="space-between">
+          <MarketTokenPrice
+            size="$bodyLgMedium"
+            price={currentPrice}
+            tokenName={name}
+            tokenSymbol={symbol}
+          />
+          <XStack ai="center">
+            <SizableText
+              size="$bodyMdMedium"
+              color={isPriceUp ? '$textSuccess' : '$textCritical'}
+            >
+              {isPriceUp ? '+' : ''}
+              {priceChange24hPercent.slice(0, 6)}%
+            </SizableText>
+          </XStack>
+        </YStack>
+
         <YStack gap="$1">
           <SizableText size="$bodySm" color="$textSubdued">
             Market cap
