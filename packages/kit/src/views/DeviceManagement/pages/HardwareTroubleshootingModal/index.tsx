@@ -2,14 +2,18 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Badge,
   Button,
   Divider,
+  Icon,
   IconButton,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useClipboard,
@@ -82,6 +86,64 @@ function HardwareTroubleshootingModal() {
     copyText(deviceInfo.serialNumber);
   }, [copyText, deviceInfo.serialNumber]);
 
+  const hardwareTroubleshootingQuestions = useMemo<
+    {
+      title: string;
+      icon: IKeyOfIcons;
+      link: string;
+    }[]
+  >(
+    () => [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_faqs_firmware_detection,
+        }),
+        icon: 'ErrorOutline',
+        link: 'https://help.onekey.so/hc/articles/8739271314319-Solution-for-firmware-upgrade-page-not-recognizing-hardware-wallet',
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_faqs_forgot_pin,
+        }),
+        icon: 'UnlockedOutline',
+        link: 'https://help.onekey.so/hc/articles/10822167443343-What-to-do-If-you-forget-the-PIN-code-for-your-OneKey-hardware-wallet',
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_faqs_reset_wallet,
+        }),
+        icon: 'RepeatOutline',
+        link: 'https://help.onekey.so/hc/articles/9800444975247-How-to-reset-your-OneKey-hardware-wallet',
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_faqs_bootloader_mode,
+        }),
+        icon: 'ConsoleOutline',
+        link: 'https://help.onekey.so/hc/articles/8352275268623-How-to-enter-and-exit-the-Bootloader-mode-on-OneKey-hardware-wallets',
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_faqs_bridge_download,
+        }),
+        icon: 'DownloadOutline',
+        link: 'https://help.onekey.so/hc/articles/9740566472335-Download-and-update-OneKey-Bridge',
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_faqs_bluetooth_status,
+        }),
+        icon: 'BluetoothOutline',
+        link: 'https://help.onekey.so/hc/articles/360002789976-Identifying-whether-the-hardware-wallet-bluetooth-is-turned-on',
+      },
+    ],
+    [intl],
+  );
+
+  const handleFaqItemPress = useCallback((link: string) => {
+    openUrlExternal(link);
+  }, []);
+
   const renderHeader = useCallback(() => {
     return (
       <XStack flex={1} ai="center">
@@ -130,19 +192,12 @@ function HardwareTroubleshootingModal() {
     onCopyPress,
   ]);
 
-  return (
-    <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.global_hardware_troubleshooting,
-        })}
-      />
-      <Page.Body>
-        <YStack px="$5" pt="$3" pb="$5">
-          {renderHeader()}
-        </YStack>
-        <Divider borderBottomWidth="$2" borderColor="$bgSubdued" />
-        <YStack px="$5" pt="$5" pb="$3">
+  const renderContent = useCallback(() => {
+    return (
+      <YStack px="$5" pt="$3" pb="$5">
+        {renderHeader()}
+        <Divider mt="$5" borderBottomWidth="$2" borderColor="$bgSubdued" />
+        <YStack pt="$5" pb="$3">
           <XStack pt="$2" pb="$4" jc="space-between" ai="center">
             <SizableText size="$headingMd" color="$text">
               {intl.formatMessage({
@@ -155,8 +210,79 @@ function HardwareTroubleshootingModal() {
               })}
             </Button>
           </XStack>
+
+          <XStack flexWrap="wrap" ml={-10} mt={-10}>
+            {hardwareTroubleshootingQuestions.map((_, i) => (
+              <Stack key={i} pl={10} pt={10} flexBasis="33.333%" height="auto">
+                <YStack
+                  f={1}
+                  px="$5"
+                  py="$4"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="$borderSubdued"
+                  borderRadius="$3"
+                  bg="$bgSubdued"
+                  ai="center"
+                  jc="center"
+                  shadowColor="$shadowColor"
+                  shadowOffset={{ width: 0, height: 1 }}
+                  shadowOpacity={0.04}
+                  shadowRadius={2}
+                  elevation={1}
+                  gap="$1"
+                  onPress={() =>
+                    handleFaqItemPress(hardwareTroubleshootingQuestions[i].link)
+                  }
+                >
+                  <Icon
+                    name={hardwareTroubleshootingQuestions[i].icon}
+                    size="$6"
+                    color="$iconSubdued"
+                  />
+                  <SizableText size="$bodyLgMedium" color="$text">
+                    {hardwareTroubleshootingQuestions[i].title}
+                  </SizableText>
+                </YStack>
+              </Stack>
+            ))}
+          </XStack>
+
+          {/* Warranty Card */}
+          <Stack mt="$5" bg="$bgSubdued" borderRadius="$3" p="$4" gap="$3">
+            <XStack gap="$3" ai="center">
+              <Icon name="ShieldCheckDoneOutline" size="$6" color="$iconInfo" />
+              <YStack flex={1}>
+                <SizableText size="$bodyLgMedium" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.global_hardware_troubleshooting_warranty_title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMd" color="$textSubdued" mt="$1">
+                  {intl.formatMessage({
+                    id: ETranslations.global_hardware_troubleshooting_warranty_description,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+          </Stack>
         </YStack>
-      </Page.Body>
+      </YStack>
+    );
+  }, [
+    renderHeader,
+    intl,
+    hardwareTroubleshootingQuestions,
+    handleFaqItemPress,
+  ]);
+
+  return (
+    <Page>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.global_hardware_troubleshooting,
+        })}
+      />
+      <Page.Body>{renderContent()}</Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_hardware_troubleshooting_contact,
