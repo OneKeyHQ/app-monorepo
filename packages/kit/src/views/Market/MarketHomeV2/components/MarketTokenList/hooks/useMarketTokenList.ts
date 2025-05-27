@@ -35,6 +35,7 @@ function transformApiDataToComponentData(
     tokenAge: '0Y', // API 中没有这个字段，暂时使用默认值
     audit: 'unknown' as IRiskIndicatorType, // API 中没有这个字段，暂时使用默认值
     tokenImageUri: item.logoUrl || '',
+    networkLogoUri: '',
     walletInfo: undefined,
   }));
 }

@@ -16,5 +16,6 @@ export interface IMarketToken {
   tokenAge: string;
   audit: IRiskIndicatorType;
   tokenImageUri: string;
+  networkLogoUri: string;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
 }
