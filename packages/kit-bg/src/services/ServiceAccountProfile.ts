@@ -461,11 +461,15 @@ class ServiceAccountProfile extends ServiceBase {
               {
                 networkId,
                 indexedAccountId: item.accountId,
+                excludeEmptyAccount: true,
               },
             );
-          if (account.networkAccounts && account.networkAccounts[0]) {
-            result.addressDeriveInfo = account.networkAccounts[0].deriveInfo;
-            result.addressDeriveType = account.networkAccounts[0].deriveType;
+          const matchedAccount = account.networkAccounts?.find(
+            (a) => a.account?.address === resolveAddress,
+          );
+          if (matchedAccount) {
+            result.addressDeriveInfo = matchedAccount.deriveInfo;
+            result.addressDeriveType = matchedAccount.deriveType;
           }
         }
       }
