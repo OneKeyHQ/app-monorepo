@@ -682,7 +682,7 @@ const ProtocolDetailsPage = () => {
       ? {
           nativeToken,
           balanceParsed: detailInfo.subscriptionValue.balance,
-          token: detailInfo.subscriptionValue.token,
+          token: detailInfo.subscriptionValue.token.info,
           networkId,
           provider,
           vault,
