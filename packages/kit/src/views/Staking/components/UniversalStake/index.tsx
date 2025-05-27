@@ -293,7 +293,7 @@ export function UniversalStake({
       symbol: tokenInfo?.token.symbol || '',
       action: shouldApprove ? 'approve' : 'stake',
       amount: amountNumber.toFixed(),
-      morphoVault: !isLegacyApprove
+      morphoVault: isMorphoProvider
         ? protocolInfo?.approve?.approveTarget
         : undefined,
       accountAddress: account?.address,

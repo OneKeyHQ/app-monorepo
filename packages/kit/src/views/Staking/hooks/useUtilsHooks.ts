@@ -75,6 +75,7 @@ export function useTrackTokenAllowance({
   spenderAddress: string;
   approveType: EApproveType;
 }) {
+  const isLegacyApprove = approveType === EApproveType.Legacy;
   const [allowance, setAllowance] = useState<string>(initialValue);
   const [trackTxId, setTrackTxId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>();
@@ -97,21 +98,23 @@ export function useTrackTokenAllowance({
     [accountId, approveType, networkId, spenderAddress, tokenAddress],
   );
   useEffect(() => {
-    async function fetchAllowance() {
-      if (!txDetails) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const allowanceInfo = await fetchAllowanceResponse();
-        if (allowanceInfo) {
-          setAllowance(allowanceInfo.allowanceParsed);
+    if (!isLegacyApprove) {
+      const fetchAllowance = async () => {
+        if (!txDetails) {
+          setLoading(false);
+          return;
         }
-      } finally {
-        setLoading(false);
-      }
+        try {
+          const allowanceInfo = await fetchAllowanceResponse();
+          if (allowanceInfo) {
+            setAllowance(allowanceInfo.allowanceParsed);
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      void fetchAllowance();
     }
-    void fetchAllowance();
   }, [
     txDetails,
     networkId,
@@ -120,13 +123,17 @@ export function useTrackTokenAllowance({
     tokenAddress,
     approveType,
     fetchAllowanceResponse,
+    isLegacyApprove,
   ]);
   const trackAllowance = useCallback(
     (txid: string) => {
+      if (isLegacyApprove) {
+        return;
+      }
       setTrackTxId(txid);
       setLoading(true);
     },
-    [setTrackTxId],
+    [isLegacyApprove],
   );
   return { allowance, trackAllowance, loading, fetchAllowanceResponse };
 }
