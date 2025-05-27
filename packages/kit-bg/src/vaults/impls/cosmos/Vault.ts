@@ -182,12 +182,24 @@ export default class VaultCosmos extends VaultBase {
           );
           msgs.protoMsgs.push(...msg.protoMsgs);
           msgs.aminoMsgs.push(...msg.aminoMsgs);
-        } else {
-          const msg = this.txMsgBuilder.makeSendCwTokenMsg(
+        }
+        // else { // else cw20 token
+        //   const msg = this.txMsgBuilder.makeSendCwTokenMsg(
+        //     from,
+        //     address,
+        //     to,
+        //     amountValue,
+        //   );
+        //   msgs.protoMsgs.push(...msg.protoMsgs);
+        //   msgs.aminoMsgs.push(...msg.aminoMsgs);
+        // }
+        else {
+          // native token
+          const msg = this.txMsgBuilder.makeSendNativeMsg(
             from,
-            address,
             to,
             amountValue,
+            address,
           );
           msgs.protoMsgs.push(...msg.protoMsgs);
           msgs.aminoMsgs.push(...msg.aminoMsgs);
