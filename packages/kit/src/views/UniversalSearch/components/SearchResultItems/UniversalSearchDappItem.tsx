@@ -25,40 +25,57 @@ export function UniversalSearchDappItem({
   const handleWebSite = useWebSiteHandler();
   const universalSearchActions = useUniversalSearchActions();
 
-  // Extract main domain from URL and apply length rules
-  const extractMainDomain = useCallback((url: string): string => {
-    try {
-      // Remove protocol and www
-      let domain = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
-
-      // Remove path, query, and fragment
-      domain = domain.split('/')[0].split('?')[0].split('#')[0];
-
-      // Apply length rules: ≤12 characters show all, >12 characters truncate
-      if (domain.length <= 12) {
-        return domain;
-      }
-      // Truncate and add ellipsis
-      return `${domain.substring(0, 9)}...`;
-    } catch {
-      return url;
+  // Format text content based on display rules
+  const formatDisplayText = useCallback((text: string): string => {
+    // Short content (≤12 characters): show all
+    if (text.length <= 12) {
+      return text;
     }
+    // Long content (>12 characters): show first 12 characters with ellipsis
+    return `${text.substring(0, 12)}...`;
   }, []);
+
+  // Extract main domain from URL and apply display rules
+  const extractMainDomain = useCallback(
+    (url: string): string => {
+      try {
+        // Remove protocol and www
+        let domain = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
+
+        // Remove path, query, and fragment
+        domain = domain.split('/')[0].split('?')[0].split('#')[0];
+
+        // Apply display rules to domain
+        return formatDisplayText(domain);
+      } catch {
+        return formatDisplayText(url);
+      }
+    },
+    [formatDisplayText],
+  );
 
   // Check if input is URL and process display text
   const processSearchInput = useCallback(
     (searchInput: string, fallbackText: string) => {
       const isUrl =
         searchInput.match(/^https?:\/\//) || searchInput.includes('.');
-      const displayText = isUrl ? extractMainDomain(searchInput) : fallbackText;
+
+      // For display: use formatted text
+      const displayText = isUrl
+        ? extractMainDomain(searchInput)
+        : formatDisplayText(fallbackText);
+
+      // For auto-fill: use original full text
+      const autoFillText = isUrl ? searchInput : fallbackText;
 
       return {
         isUrl,
         displayText,
+        autoFillText,
         originalInput: searchInput,
       };
     },
-    [extractMainDomain],
+    [extractMainDomain, formatDisplayText],
   );
 
   const handlePress = useCallback(() => {
@@ -78,7 +95,7 @@ export function UniversalSearchDappItem({
     // Add to recent search list
     setTimeout(() => {
       const searchInput = getSearchInput();
-      const { isUrl, displayText } = processSearchInput(
+      const { isUrl, displayText, autoFillText } = processSearchInput(
         searchInput,
         isGoogle ? searchInput : name,
       );
@@ -94,7 +111,7 @@ export function UniversalSearchDappItem({
             isGoogleSearch: 'true',
             searchQuery: searchInput,
             originalUrl: searchInput,
-            autoFillText: isUrl ? searchInput : displayText,
+            autoFillText,
           },
         });
       } else {
@@ -111,7 +128,7 @@ export function UniversalSearchDappItem({
             dappId,
             dappName: name,
             dappUrl: item.payload.url || '',
-            autoFillText: isUrl ? searchInput : displayText,
+            autoFillText,
             ...(isUrl
               ? {
                   isUrlSearch: 'true',

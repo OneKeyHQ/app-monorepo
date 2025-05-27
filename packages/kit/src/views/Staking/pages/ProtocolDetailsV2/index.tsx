@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -10,6 +10,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  Image,
   NumberSizeableText,
   Page,
   Popover,
@@ -27,7 +28,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,9 +39,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
-  IEarnToken,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -67,6 +65,38 @@ import { useHandleClaim } from '../ProtocolDetails/useHandleClaim';
 
 import { FAQSection } from './FAQSection';
 import { ShareEventsContext } from './ShareEventsProvider';
+
+function ManagersSection({
+  managers,
+}: {
+  managers: IStakeEarnDetail['managers'] | undefined;
+}) {
+  return managers?.items?.length ? (
+    <XStack pt="$1" pb="$4" gap="$1" px="$5">
+      {managers.items.map((item, index) => (
+        <>
+          <XStack key={item.title.text} gap="$1" alignItems="center">
+            <Image size="$4" borderRadius="$1" src={item.logoURI} />
+            <SizableText size="$bodySm" color={item.title.color}>
+              {item.title.text}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color={item.description.color || '$textSubdued'}
+            >
+              {item.description.text}
+            </SizableText>
+          </XStack>
+          {index !== managers.items.length - 1 ? (
+            <XStack w="$4" h="$4" ai="center" jc="center">
+              <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
+            </XStack>
+          ) : null}
+        </>
+      ))}
+    </XStack>
+  ) : null;
+}
 
 function SubscriptionSection({
   subscriptionValue,
@@ -131,7 +161,9 @@ function SubscriptionSection({
           size="$bodyLgMedium"
           formatter="balance"
           color="$textSubdued"
-          formatterOptions={{ tokenSymbol: subscriptionValue.token.symbol }}
+          formatterOptions={{
+            tokenSymbol: subscriptionValue.token.info.symbol,
+          }}
         >
           {subscriptionValue.formattedValue || 0}
         </NumberSizeableText>
@@ -239,7 +271,7 @@ function ProtocolRewards({
                   <Token
                     mr="$1.5"
                     size="sm"
-                    tokenImageUri={token.token.logoURI}
+                    tokenImageUri={token.token.info.logoURI}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
                     <SizableText size="$bodyLgMedium" color={token.title.color}>
@@ -260,7 +292,7 @@ function ProtocolRewards({
                         providerName: tokenInfo?.provider,
                       })
                     );
-                    const newRewardToken = token.token;
+                    const newRewardToken = token.token.info;
                     await handleClaim({
                       symbol: protocolInfo?.symbol || '',
                       protocolInfo,
@@ -345,7 +377,7 @@ function PortfolioSection({
               justifyContent="space-between"
             >
               <XStack alignItems="center" gap="$1.5">
-                <Token size="sm" tokenImageUri={item.token.logoURI} />
+                <Token size="sm" tokenImageUri={item.token.info.logoURI} />
                 <FormatHyperlinkText
                   size="$bodyLgMedium"
                   color={item.title.color}
@@ -397,10 +429,10 @@ function PortfolioSection({
                     const claimAmount = protocolInfo?.claimable || '0';
                     const newTokenInfo = {
                       ...tokenInfo,
-                      token: item.token,
+                      token: item.token.info,
                     };
                     await handleClaim({
-                      symbol: item.token.symbol,
+                      symbol: item.token.info.symbol,
                       protocolInfo,
                       tokenInfo: newTokenInfo as IEarnTokenInfo,
                       claimAmount,
@@ -418,13 +450,13 @@ function PortfolioSection({
                         }),
                         protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
-                          token: item.token,
+                          token: item.token.info,
                           amount: claimAmount,
                         },
                         tags: [
                           buildLocalTxStatusSyncId({
                             providerName: newTokenInfo?.provider || '',
-                            tokenSymbol: item.token.symbol,
+                            tokenSymbol: item.token.info.symbol,
                           }),
                         ],
                       },
@@ -629,10 +661,10 @@ const ProtocolDetailsPage = () => {
           vault,
         });
 
-      const tokens = response?.subscriptionValue?.token.address
+      const tokens = response?.subscriptionValue?.token.info.address
         ? await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
             networkId,
-            contractList: [response.subscriptionValue.token.address],
+            contractList: [response.subscriptionValue.token.info.address],
           })
         : undefined;
       return {
@@ -652,7 +684,8 @@ const ProtocolDetailsPage = () => {
       ? {
           nativeToken,
           balanceParsed: detailInfo.subscriptionValue.balance,
-          token: detailInfo.subscriptionValue.token,
+          token: detailInfo.subscriptionValue.token.info,
+          price: detailInfo.subscriptionValue.token.price,
           networkId,
           provider,
           vault,
@@ -929,6 +962,7 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
+        <ManagersSection managers={detailInfo?.managers} />
         {detailInfo?.countDownAlert?.startTime &&
         detailInfo?.countDownAlert?.endTime &&
         now > detailInfo.countDownAlert.startTime &&

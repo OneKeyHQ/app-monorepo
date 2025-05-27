@@ -66,6 +66,7 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { ActionPopupContent } from '../ProtocolDetails/GridItemV2';
+import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
@@ -158,6 +159,7 @@ export function UniversalStake({
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
+  const isLegacyApprove = approveType === EApproveType.Legacy;
   const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
   const isFocus = useIsFocused();
@@ -176,6 +178,10 @@ export function UniversalStake({
     approveType: approveType ?? EApproveType.Legacy,
   });
   const shouldApprove = useMemo(() => {
+    if (isLegacyApprove) {
+      return false;
+    }
+
     if (!isFocus) {
       return true;
     }
@@ -198,6 +204,7 @@ export function UniversalStake({
 
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
+    isLegacyApprove,
     isFocus,
     amountValue,
     allowance,
@@ -218,7 +225,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: isMorphoProvider
+          vault: !isLegacyApprove
             ? protocolInfo?.approve?.approveTarget || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
@@ -231,7 +238,7 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
-      isMorphoProvider,
+      isLegacyApprove,
       protocolInfo?.approve?.approveTarget,
       protocolInfo?.earnAccount?.accountAddress,
     ],
@@ -551,14 +558,14 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    const permitSignature = usePermit2Approve
+    const permitSignatureParams = usePermit2Approve
       ? {
           approveType,
-          permitSignatureRef: permitSignatureRef.current,
+          permitSignature: permitSignatureRef.current,
         }
       : undefined;
     const handleConfirm = () =>
-      onConfirm?.({ amount: amountValue, ...permitSignature });
+      onConfirm?.({ amount: amountValue, ...permitSignatureParams });
 
     // Wait for the dialog confirmation if it's shown
     await showFalconEventEndedDialog();
@@ -898,6 +905,35 @@ export function UniversalStake({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
+  const isShowStakeProgress =
+    !isLegacyApprove &&
+    !!amountValue &&
+    (shouldApprove || showStakeProgressRef.current[amountValue]);
+
+  const onConfirmText = useMemo(() => {
+    if (isLegacyApprove) {
+      return intl.formatMessage({ id: ETranslations.global_continue });
+    }
+    if (shouldApprove) {
+      return intl.formatMessage(
+        {
+          id: usePermit2Approve
+            ? ETranslations.earn_approve_deposit
+            : ETranslations.global_approve,
+        },
+        { amount: amountValue, symbol: tokenInfo?.token.symbol || '' },
+      );
+    }
+    return intl.formatMessage({ id: ETranslations.earn_deposit });
+  }, [
+    isLegacyApprove,
+    shouldApprove,
+    intl,
+    usePermit2Approve,
+    amountValue,
+    tokenInfo?.token.symbol,
+  ]);
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
@@ -1221,16 +1257,37 @@ export function UniversalStake({
         />
       </YStack>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_continue,
-          })}
-          confirmButtonProps={{
-            onPress: shouldApprove ? onApprove : onSubmit,
-            loading: loadingAllowance || approving,
-            disabled: isDisable,
+        <Stack
+          bg="$bgApp"
+          flexDirection="column"
+          $gtMd={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            jc: 'space-between',
           }}
-        />
+        >
+          <Stack pl="$5" $md={{ pt: '$5' }}>
+            {isShowStakeProgress ? (
+              <StakeProgress
+                approveType={approveType ?? EApproveType.Legacy}
+                currentStep={
+                  isDisable || shouldApprove
+                    ? EStakeProgressStep.approve
+                    : EStakeProgressStep.deposit
+                }
+              />
+            ) : null}
+          </Stack>
+
+          <Page.FooterActions
+            onConfirmText={onConfirmText}
+            confirmButtonProps={{
+              onPress: shouldApprove ? onApprove : onSubmit,
+              loading: loadingAllowance || approving,
+              disabled: isDisable,
+            }}
+          />
+        </Stack>
         <PercentageStageOnKeyboard
           onSelectPercentageStage={onSelectPercentageStage}
         />
