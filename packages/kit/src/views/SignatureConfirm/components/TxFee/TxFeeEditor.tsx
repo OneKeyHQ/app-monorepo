@@ -967,9 +967,18 @@ function TxFeeEditor(props: IProps) {
         form.setValue(filedName, valueBN.toFixed(0));
       } else if (!value?.includes('.')) {
         form.setValue(filedName, valueBN.toFixed());
+      } else if (value?.includes('.')) {
+        const dp = valueBN.decimalPlaces();
+        if (dp && dp > feeDecimals) {
+          form.setValue(
+            filedName,
+            valueBN.toFixed(feeDecimals, BigNumber.ROUND_FLOOR),
+          );
+          void form.trigger(filedName);
+        }
       }
     },
-    [form],
+    [feeDecimals, form],
   );
 
   const handleValidateDotExtraTip = useCallback(
