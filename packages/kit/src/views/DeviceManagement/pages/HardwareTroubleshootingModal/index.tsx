@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -44,6 +45,8 @@ function HardwareTroubleshootingModal() {
         EModalDeviceManagementRoutes.HardwareTroubleshootingModal
       >
     >();
+
+  const media = useMedia();
 
   const { walletWithDevice } = route.params;
   const { wallet, device } = walletWithDevice;
@@ -213,10 +216,16 @@ function HardwareTroubleshootingModal() {
 
           <XStack flexWrap="wrap" ml={-10} mt={-10}>
             {hardwareTroubleshootingQuestions.map((_, i) => (
-              <Stack key={i} pl={10} pt={10} flexBasis="33.333%" height="auto">
+              <Stack
+                key={i}
+                pl={10}
+                pt={10}
+                flexBasis={media.gtMd ? '33.333%' : '50%'}
+                height="auto"
+              >
                 <YStack
                   f={1}
-                  px="$5"
+                  px={media.gtMd ? '$5' : '$3'}
                   py="$4"
                   borderWidth={StyleSheet.hairlineWidth}
                   borderColor="$borderSubdued"
@@ -229,7 +238,7 @@ function HardwareTroubleshootingModal() {
                   shadowOpacity={0.04}
                   shadowRadius={2}
                   elevation={1}
-                  gap="$1"
+                  gap="$2"
                   onPress={() =>
                     handleFaqItemPress(hardwareTroubleshootingQuestions[i].link)
                   }
@@ -239,7 +248,12 @@ function HardwareTroubleshootingModal() {
                     size="$6"
                     color="$iconSubdued"
                   />
-                  <SizableText size="$bodyLgMedium" color="$text">
+                  <SizableText
+                    size="$headingSm"
+                    color="$text"
+                    textAlign="center"
+                    flexShrink={1}
+                  >
                     {hardwareTroubleshootingQuestions[i].title}
                   </SizableText>
                 </YStack>
@@ -273,6 +287,7 @@ function HardwareTroubleshootingModal() {
     intl,
     hardwareTroubleshootingQuestions,
     handleFaqItemPress,
+    media.gtMd,
   ]);
 
   return (
