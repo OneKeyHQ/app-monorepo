@@ -528,7 +528,10 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: {
       type: 'default';
-      token: IEarnToken;
+      token: {
+        info: IEarnToken;
+        price: string;
+      };
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
