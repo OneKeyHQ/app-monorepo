@@ -75,7 +75,6 @@ import { formatStakingDistanceToNowStrict } from '../utils';
 type IUniversalStakeProps = {
   accountId: string;
   networkId: string;
-  price: string;
   balance: string;
 
   tokenImageUri?: string;
@@ -112,7 +111,6 @@ type IUniversalStakeProps = {
 export function UniversalStake({
   accountId,
   networkId,
-  price,
   balance,
   decimals,
   minTransactionFee = '0',
@@ -457,12 +455,12 @@ export function UniversalStake({
   );
 
   const currentValue = useMemo<string | undefined>(() => {
-    if (Number(amountValue) > 0 && Number(price) > 0) {
+    if (Number(amountValue) > 0 && Number(tokenInfo?.price) > 0) {
       const amountValueBn = new BigNumber(amountValue);
-      return amountValueBn.multipliedBy(price).toFixed();
+      return amountValueBn.multipliedBy(tokenInfo?.price ?? '0').toFixed();
     }
     return undefined;
-  }, [amountValue, price]);
+  }, [amountValue, tokenInfo?.price]);
 
   const isInsufficientBalance = useMemo<boolean>(
     () => new BigNumber(amountValue).gt(balance),
