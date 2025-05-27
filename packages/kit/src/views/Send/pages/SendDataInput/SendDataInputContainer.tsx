@@ -834,6 +834,24 @@ function SendDataInputContainer() {
     [isLightningNetwork, isUseFiat, lnUnit],
   );
 
+  const selectedTokenSymbol = useMemo(() => {
+    if (isNFT) {
+      return nft?.metadata?.name;
+    }
+
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      return 'BTC';
+    }
+
+    return tokenInfo?.symbol;
+  }, [
+    isLightningNetwork,
+    isNFT,
+    lnUnit,
+    nft?.metadata?.name,
+    tokenInfo?.symbol,
+  ]);
+
   const renderTokenDataInputForm = useCallback(
     () => (
       <>
@@ -951,9 +969,7 @@ function SendDataInputContainer() {
                 : tokenInfo?.logoURI,
               selectedNetworkImageUri: network?.logoURI,
               selectedNetworkName: network?.name,
-              selectedTokenSymbol: isNFT
-                ? nft?.metadata?.name
-                : tokenInfo?.symbol,
+              selectedTokenSymbol,
               isCustomNetwork: network?.isCustomNetwork,
               onPress: isNFT ? undefined : handleOnSelectToken,
               disabled: isSelectTokenDisabled,
@@ -1003,11 +1019,10 @@ function SendDataInputContainer() {
       network?.logoURI,
       network?.name,
       nft?.metadata?.image,
-      nft?.metadata?.name,
+      selectedTokenSymbol,
       showPercentToolbar,
       tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
-      tokenInfo?.symbol,
       tokenSymbol,
     ],
   );
@@ -1480,9 +1495,10 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               hideNonBackedUpWallet
             />
-            {!inputAddressFieldState.isDirty ||
-            inputAddressFieldState.invalid ||
-            toPending ? (
+            {!isLightningNetwork &&
+            (!inputAddressFieldState.isDirty ||
+              inputAddressFieldState.invalid ||
+              toPending) ? (
               <RecentRecipients
                 accountId={currentAccount.accountId}
                 networkId={currentAccount.networkId}
