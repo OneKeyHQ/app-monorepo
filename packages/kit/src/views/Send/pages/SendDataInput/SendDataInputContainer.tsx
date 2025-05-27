@@ -179,6 +179,7 @@ function SendDataInputContainer() {
   }, []);
 
   const [isHexTxMessage, setIsHexTxMessage] = useState(false);
+  const [ensureAddressValid, setEnsureAddressValid] = useState(false);
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
@@ -1413,6 +1414,16 @@ function SendDataInputContainer() {
 
   const inputAddressFieldState = form.getFieldState('to');
 
+  useEffect(() => {
+    if (inputAddressFieldState.isDirty && inputAddressFieldState.invalid) {
+      setEnsureAddressValid(false);
+    }
+  }, [
+    inputAddressFieldState.isDirty,
+    inputAddressFieldState.invalid,
+    setEnsureAddressValid,
+  ]);
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -1496,6 +1507,7 @@ function SendDataInputContainer() {
               hideNonBackedUpWallet
             />
             {!isLightningNetwork &&
+            !ensureAddressValid &&
             (!inputAddressFieldState.isDirty ||
               inputAddressFieldState.invalid ||
               toPending) ? (
@@ -1505,6 +1517,7 @@ function SendDataInputContainer() {
                 searchKey={toAddressRaw}
                 isSearchMode={!form.formState.isValid}
                 onSelect={({ address: selectedAddress }) => {
+                  setEnsureAddressValid(true);
                   form.setValue('to', {
                     raw: selectedAddress,
                   });
