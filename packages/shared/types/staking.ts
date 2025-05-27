@@ -266,6 +266,7 @@ export interface IEarnText {
 }
 
 export type IProtocolInfo = {
+  stakeTag: string;
   // account with Earn
   earnAccount?:
     | {

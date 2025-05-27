@@ -47,7 +47,6 @@ const StakingActivityIndicator = ({
   historyAction,
 }: IStakingActivityIndicatorProps) => {
   const appNavigation = useAppNavigation();
-  const intl = useIntl();
   const headerRight = useCallback(() => {
     if (num > 0) {
       return <PendingIndicator num={num} onPress={onPress} />;

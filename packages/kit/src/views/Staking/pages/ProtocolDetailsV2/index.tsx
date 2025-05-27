@@ -317,12 +317,9 @@ function ProtocolRewards({
                             token: newRewardToken,
                             amount: claimAmount,
                           },
-                          tags: [
-                            buildLocalTxStatusSyncId({
-                              providerName: tokenInfo?.provider || '',
-                              tokenSymbol: newRewardToken.symbol,
-                            }),
-                          ],
+                          tags: protocolInfo?.stakeTag
+                            ? [protocolInfo.stakeTag]
+                            : [],
                         },
                       });
                     }}
@@ -472,12 +469,9 @@ function PortfolioSection({
                           token: item.token.info,
                           amount: claimAmount,
                         },
-                        tags: [
-                          buildLocalTxStatusSyncId({
-                            providerName: newTokenInfo?.provider || '',
-                            tokenSymbol: item.token.info.symbol,
-                          }),
-                        ],
+                        tags: protocolInfo?.stakeTag
+                          ? [protocolInfo.stakeTag]
+                          : [],
                       },
                     });
                   }}
@@ -778,6 +772,10 @@ const ProtocolDetailsPage = () => {
           earnAccount,
           activeBalance: withdrawAction?.data?.balance,
           eventEndTime: detailInfo?.countDownAlert?.endTime,
+          stakeTag: buildLocalTxStatusSyncId({
+            providerName: provider,
+            tokenSymbol: symbol,
+          }),
 
           // withdraw
           overflowBalance: detailInfo.nums?.overflow,
@@ -866,10 +864,7 @@ const ProtocolDetailsPage = () => {
         networkId,
         symbol,
         provider,
-        stakeTag: buildLocalTxStatusSyncId({
-          providerName: tokenInfo?.provider || '',
-          tokenSymbol: tokenInfo?.token.symbol || '',
-        }),
+        stakeTag: protocolInfo?.stakeTag || '',
         morphoVault: vault,
         filterType,
       });
@@ -879,10 +874,9 @@ const ProtocolDetailsPage = () => {
     earnAccount?.accountId,
     historyAction?.disabled,
     networkId,
+    protocolInfo?.stakeTag,
     provider,
     symbol,
-    tokenInfo?.provider,
-    tokenInfo?.token.symbol,
     vault,
   ]);
 
@@ -1040,10 +1034,8 @@ const ProtocolDetailsPage = () => {
                 <StakingTransactionIndicator
                   accountId={earnAccount?.accountId ?? ''}
                   networkId={networkId}
-                  stakeTag={buildLocalTxStatusSyncId({
-                    providerName: tokenInfo?.provider || '',
-                    tokenSymbol: tokenInfo?.token.symbol || '',
-                  })}
+                  stakeTag={protocolInfo?.stakeTag || ''}
+                  historyAction={historyAction}
                   onRefresh={run}
                   onPress={onHistory}
                 />
