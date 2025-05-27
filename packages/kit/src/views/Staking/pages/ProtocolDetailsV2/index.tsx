@@ -282,6 +282,7 @@ function ProtocolRewards({
                 <Button
                   size="small"
                   variant="primary"
+                  disabled={token?.button?.disabled}
                   onPress={async () => {
                     // TODO: need fiatValue
                     const claimAmount =
