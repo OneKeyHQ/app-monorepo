@@ -20,7 +20,6 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { UniversalClaim } from '../../components/UniversalClaim';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const ClaimPage = () => {
   const intl = useIntl();
@@ -42,10 +41,7 @@ const ClaimPage = () => {
   const price = tokenInfo?.nativeToken?.price
     ? String(tokenInfo?.nativeToken?.price)
     : '0';
-  const actionTag = buildLocalTxStatusSyncId({
-    providerName: provider,
-    tokenSymbol: symbol,
-  });
+  const actionTag = protocolInfo?.stakeTag || '';
   const vault = protocolInfo?.approve?.approveTarget || '';
   const appNavigation = useAppNavigation();
   const handleClaim = useUniversalClaim({ accountId, networkId });

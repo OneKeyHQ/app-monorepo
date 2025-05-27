@@ -16,7 +16,6 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -29,7 +28,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 function BasicStakePage() {
   const route = useAppRoute<
@@ -49,10 +47,7 @@ function BasicStakePage() {
   const providerName = protocolInfo?.provider || '';
   const { removePermitCache } = useEarnActions().current;
 
-  const actionTag = buildLocalTxStatusSyncId({
-    providerName,
-    tokenSymbol: symbol,
-  });
+  const actionTag = protocolInfo?.stakeTag || '';
   const [btcFeeRate, setBtcFeeRate] = useState<string | undefined>();
   const btcFeeRateInit = useRef<boolean>(false);
 
