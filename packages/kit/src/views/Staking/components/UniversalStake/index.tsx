@@ -910,6 +910,9 @@ export function UniversalStake({
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
   const onConfirmText = useMemo(() => {
+    if (!isMorphoProvider) {
+      return intl.formatMessage({ id: ETranslations.global_continue });
+    }
     if (shouldApprove) {
       return intl.formatMessage(
         {
@@ -922,6 +925,7 @@ export function UniversalStake({
     }
     return intl.formatMessage({ id: ETranslations.earn_deposit });
   }, [
+    isMorphoProvider,
     shouldApprove,
     intl,
     usePermit2Approve,
