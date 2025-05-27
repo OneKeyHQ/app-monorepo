@@ -67,6 +67,7 @@ function AddressListItem(props: IAddressListItemProps) {
         ) : null}
         <YStack
           gap="$1"
+          flex={1}
           ml={
             shouldDisplayHierarchyIndicator || !shouldDisplayAccount ? 0 : '$5'
           }
@@ -81,6 +82,8 @@ function AddressListItem(props: IAddressListItemProps) {
           <SizableText
             size="$bodySm"
             color={isLocal ? '$textSubdued' : '$text'}
+            flex={1}
+            flexWrap="wrap"
           >
             {address}
           </SizableText>
