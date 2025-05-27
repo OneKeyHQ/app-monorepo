@@ -1,5 +1,5 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, Stack, XStack } from '@onekeyhq/components';
+import { Page, Stack, XStack, YStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type ETabMarketV2Routes,
