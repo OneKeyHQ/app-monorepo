@@ -507,7 +507,7 @@ function TxFeeInfo(props: IProps) {
               maxPriorityFeePerGas,
             } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
 
-            const limit = gasLimit || gas;
+            const limit = new BigNumber(gasLimit || gas || 0).toFixed();
             if (
               maxFeePerGas &&
               maxPriorityFeePerGas &&
@@ -596,6 +596,16 @@ function TxFeeInfo(props: IProps) {
                     gasPrice:
                       defaultCustomFeeInfo.feeInfo.gasEIP1559?.gasPrice ??
                       customFeeInfo.gasEIP1559?.gasPrice ??
+                      '',
+                  }
+                : undefined,
+
+              feeBudget: customFeeInfo.feeBudget
+                ? {
+                    ...customFeeInfo.feeBudget,
+                    gasPrice:
+                      defaultCustomFeeInfo.feeInfo.feeBudget?.gasPrice ??
+                      customFeeInfo.feeBudget?.gasPrice ??
                       '',
                   }
                 : undefined,
@@ -968,15 +978,18 @@ function TxFeeInfo(props: IProps) {
       feeType,
       presetIndex,
       customFeeInfo,
+      source,
     }: {
       feeType: EFeeType;
       presetIndex: number;
       customFeeInfo: IFeeInfoUnit;
+      source?: 'dapp' | 'wallet';
     }) => {
       if (feeType === EFeeType.Custom) {
         updateSendSelectedFee({
           feeType: EFeeType.Custom,
           presetIndex: 0,
+          source,
         });
         updateCustomFee(customFeeInfo);
       } else {

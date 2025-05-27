@@ -2659,6 +2659,7 @@
   transfer_qr_step3 = 'transfer.qr_step3',
   transfer_qr_stepall_desc = 'transfer.qr_stepall_desc',
   transfer_qr_stepall_desc2 = 'transfer.qr_stepall_desc2',
+  transfer_recent_transfers = 'transfer.recent_transfers',
   transfer_transfer = 'transfer.transfer',
   transfer_transfer_data = 'transfer.transfer_data',
   transfer_transfer_data_completed = 'transfer.transfer_data_completed',
