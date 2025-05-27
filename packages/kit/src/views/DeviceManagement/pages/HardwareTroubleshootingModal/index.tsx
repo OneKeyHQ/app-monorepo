@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
+  Divider,
   IconButton,
   Page,
   SizableText,
@@ -136,8 +138,23 @@ function HardwareTroubleshootingModal() {
         })}
       />
       <Page.Body>
-        <YStack px="$5" py="$3">
+        <YStack px="$5" pt="$3" pb="$5">
           {renderHeader()}
+        </YStack>
+        <Divider borderBottomWidth="$2" borderColor="$bgSubdued" />
+        <YStack px="$5" pt="$5" pb="$3">
+          <XStack pt="$2" pb="$4" jc="space-between" ai="center">
+            <SizableText size="$headingMd" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.global_faqs,
+              })}
+            </SizableText>
+            <Button variant="tertiary" size="small" iconAfter="OpenOutline">
+              {intl.formatMessage({
+                id: ETranslations.global_more,
+              })}
+            </Button>
+          </XStack>
         </YStack>
       </Page.Body>
       <Page.Footer
