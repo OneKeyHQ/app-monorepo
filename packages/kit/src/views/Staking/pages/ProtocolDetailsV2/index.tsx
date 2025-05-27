@@ -271,7 +271,7 @@ function ProtocolRewards({
                   <Token
                     mr="$1.5"
                     size="sm"
-                    tokenImageUri={token.token.logoURI}
+                    tokenImageUri={token.token.info.logoURI}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
                     <SizableText size="$bodyLgMedium" color={token.title.color}>
@@ -292,7 +292,7 @@ function ProtocolRewards({
                         providerName: tokenInfo?.provider,
                       })
                     );
-                    const newRewardToken = token.token;
+                    const newRewardToken = token.token.info;
                     await handleClaim({
                       symbol: protocolInfo?.symbol || '',
                       protocolInfo,
