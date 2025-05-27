@@ -1,5 +1,5 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, XStack } from '@onekeyhq/components';
+import { Page, Stack, XStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type ETabMarketV2Routes,
@@ -54,8 +54,13 @@ function MarketDetail({
       />
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} />
-        <TokenActivityOverview tokenDetail={tokenDetail} />
-        <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
+        <XStack>
+          <Stack w="$100">
+            <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
+          </Stack>
+
+          <TokenActivityOverview tokenDetail={tokenDetail} />
+        </XStack>
       </Page.Body>
     </Page>
   );
