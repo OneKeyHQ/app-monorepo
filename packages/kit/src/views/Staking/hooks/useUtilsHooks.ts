@@ -127,15 +127,9 @@ export function useTrackTokenAllowance({
     isLegacyApprove,
     isExistApproveTarget,
   ]);
-  const trackAllowance = useCallback(
-    (txid: string) => {
-      if (isLegacyApprove) {
-        return;
-      }
-      setTrackTxId(txid);
-      setLoading(true);
-    },
-    [isLegacyApprove],
-  );
+  const trackAllowance = useCallback((txid: string) => {
+    setTrackTxId(txid);
+    setLoading(true);
+  }, []);
   return { allowance, trackAllowance, loading, fetchAllowanceResponse };
 }
