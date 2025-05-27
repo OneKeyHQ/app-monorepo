@@ -223,7 +223,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: !isMorphoProvider
+          vault: isMorphoProvider
             ? protocolInfo?.approve?.approveTarget || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
