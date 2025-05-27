@@ -1,5 +1,5 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { NavBackButton, Page, XStack } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type ETabMarketRoutes,
@@ -15,6 +15,7 @@ import {
 } from '../../../components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import { SwapPanel, TokenDetailHeader } from './components';
@@ -35,7 +36,7 @@ function MarketDetail({
 
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
-      <NavBackButton />
+      <HeaderLeftCloseButton />
       <AccountSelectorTriggerHome num={0} />
       <NetworkSelectorTriggerHome
         num={0}
@@ -48,7 +49,7 @@ function MarketDetail({
   return (
     <Page>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
+        sceneName={EAccountSelectorSceneName.market}
         tabRoute={ETabRoutes.Market}
         customHeaderLeftItems={customHeaderLeft}
       />

@@ -53,13 +53,12 @@ export function useMarketTokenList({
     run: fetchMarketTokenList,
   } = usePromiseResult(
     async () => {
-      const offset = (currentPage - 1) * pageSize;
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
           sortBy,
           sortType,
-          offset,
+          page: currentPage,
           limit: pageSize,
         });
       return response;
