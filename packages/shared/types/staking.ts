@@ -387,7 +387,10 @@ export interface IEarnPopupActionIcon {
     }[];
     items?: {
       icon?: IEarnIcon;
-      token?: IEarnToken;
+      token?: {
+        info: IEarnToken;
+        price: string;
+      };
       title: IEarnText;
       value: string;
     }[];
