@@ -346,7 +346,10 @@ interface IEarnBadge {
 }
 
 interface IRewardToken {
-  token: IEarnToken;
+  token: {
+    info: IEarnToken;
+    price: string;
+  };
   title: IEarnText;
   description: IEarnText;
 }
