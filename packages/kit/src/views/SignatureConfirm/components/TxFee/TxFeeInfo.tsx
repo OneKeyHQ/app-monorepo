@@ -507,7 +507,7 @@ function TxFeeInfo(props: IProps) {
               maxPriorityFeePerGas,
             } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
 
-            const limit = new BigNumber(gasLimit || gas || 0).toString(10);
+            const limit = new BigNumber(gasLimit || gas || 0).toFixed();
             if (
               maxFeePerGas &&
               maxPriorityFeePerGas &&
