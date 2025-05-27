@@ -3,7 +3,13 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Dialog, LottieView, Toast, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  LottieView,
+  Toast,
+  YStack,
+  useInTabDialog,
+} from '@onekeyhq/components';
 import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
 import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -283,6 +289,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     };
   }, []);
 
+  const dialog = useInTabDialog();
   const showUpdateDialog = useCallback(
     (
       isFull = false,
@@ -291,7 +298,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         isForceUpdate?: boolean;
       },
     ) => {
-      Dialog.show({
+      dialog.show({
         dismissOnOverlayPress: false,
         renderIcon: (
           <YStack
@@ -331,7 +338,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         },
       });
     },
-    [intl, themeVariant, toUpdatePreviewPage],
+    [dialog, intl, themeVariant, toUpdatePreviewPage],
   );
 
   // run only once
