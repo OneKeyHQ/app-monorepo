@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
+  Alert,
   Badge,
   Button,
   Divider,
@@ -214,7 +215,7 @@ function HardwareTroubleshootingModal() {
             </Button>
           </XStack>
 
-          <XStack flexWrap="wrap" ml={-10} mt={-10}>
+          <XStack flexWrap="wrap" ml={-10} mt={-10} mb="$3">
             {hardwareTroubleshootingQuestions.map((_, i) => (
               <Stack
                 key={i}
@@ -261,24 +262,17 @@ function HardwareTroubleshootingModal() {
             ))}
           </XStack>
 
-          {/* Warranty Card */}
-          <Stack mt="$5" bg="$bgSubdued" borderRadius="$3" p="$4" gap="$3">
-            <XStack gap="$3" ai="center">
-              <Icon name="ShieldCheckDoneOutline" size="$6" color="$iconInfo" />
-              <YStack flex={1}>
-                <SizableText size="$bodyLgMedium" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.global_hardware_troubleshooting_warranty_title,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMd" color="$textSubdued" mt="$1">
-                  {intl.formatMessage({
-                    id: ETranslations.global_hardware_troubleshooting_warranty_description,
-                  })}
-                </SizableText>
-              </YStack>
-            </XStack>
-          </Stack>
+          <Alert
+            my="$5"
+            type="info"
+            icon="ShieldCheckDoneOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_hardware_troubleshooting_warranty_title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.global_hardware_troubleshooting_warranty_description,
+            })}
+          />
         </YStack>
       </YStack>
     );
