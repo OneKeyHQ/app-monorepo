@@ -279,57 +279,59 @@ function ProtocolRewards({
                     </SizableText>
                   </XStack>
                 </XStack>
-                <Button
-                  size="small"
-                  variant="primary"
-                  disabled={token?.button?.disabled}
-                  onPress={async () => {
-                    // TODO: need fiatValue
-                    const claimAmount =
-                      token?.title?.text?.split(' ')?.[0] || '0';
-                    const isMorphoClaim = !!(
-                      tokenInfo?.provider &&
-                      earnUtils.isMorphoProvider({
-                        providerName: tokenInfo?.provider,
-                      })
-                    );
-                    const newRewardToken = token.token.info;
-                    await handleClaim({
-                      symbol: protocolInfo?.symbol || '',
-                      protocolInfo,
-                      tokenInfo: tokenInfo
-                        ? {
-                            ...tokenInfo,
-                            token: newRewardToken,
-                          }
-                        : undefined,
-                      claimAmount,
-                      claimTokenAddress: newRewardToken.address,
-                      isMorphoClaim,
-                      stakingInfo: {
-                        label: EEarnLabels.Claim,
-                        protocol: earnUtils.getEarnProviderName({
-                          providerName: tokenInfo?.provider || '',
-                        }),
-                        protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                        receive: {
-                          token: newRewardToken,
-                          amount: claimAmount,
-                        },
-                        tags: [
-                          buildLocalTxStatusSyncId({
+                {token?.button.type === 'claim' ? (
+                  <Button
+                    size="small"
+                    variant="primary"
+                    disabled={token?.button?.disabled}
+                    onPress={async () => {
+                      // TODO: need fiatValue
+                      const claimAmount =
+                        token?.title?.text?.split(' ')?.[0] || '0';
+                      const isMorphoClaim = !!(
+                        tokenInfo?.provider &&
+                        earnUtils.isMorphoProvider({
+                          providerName: tokenInfo?.provider,
+                        })
+                      );
+                      const newRewardToken = token.token.info;
+                      await handleClaim({
+                        symbol: protocolInfo?.symbol || '',
+                        protocolInfo,
+                        tokenInfo: tokenInfo
+                          ? {
+                              ...tokenInfo,
+                              token: newRewardToken,
+                            }
+                          : undefined,
+                        claimAmount,
+                        claimTokenAddress: newRewardToken.address,
+                        isMorphoClaim,
+                        stakingInfo: {
+                          label: EEarnLabels.Claim,
+                          protocol: earnUtils.getEarnProviderName({
                             providerName: tokenInfo?.provider || '',
-                            tokenSymbol: newRewardToken.symbol,
                           }),
-                        ],
-                      },
-                    });
-                  }}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.earn_claim,
-                  })}
-                </Button>
+                          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+                          receive: {
+                            token: newRewardToken,
+                            amount: claimAmount,
+                          },
+                          tags: [
+                            buildLocalTxStatusSyncId({
+                              providerName: tokenInfo?.provider || '',
+                              tokenSymbol: newRewardToken.symbol,
+                            }),
+                          ],
+                        },
+                      });
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.earn_claim,
+                    })}
+                  </Button>
+                ) : null}
               </XStack>
               <XStack>
                 <SizableText
