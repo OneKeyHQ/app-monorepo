@@ -6,10 +6,7 @@ import {
 } from 'bchaddrjs';
 
 export function decodeAddress(address: string): string {
-  if (
-    !isValidAddress(address) ||
-    (isCashAddress(address) && !address.startsWith('bitcoincash:'))
-  ) {
+  if (!isValidAddress(address)) {
     throw new Error(`Invalid address: ${address}`);
   }
   if (isCashAddress(address)) {

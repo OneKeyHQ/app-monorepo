@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNaN, isNil, omit } from 'lodash';
+import { isEqual, isNaN, isNil, omit, pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -74,10 +74,12 @@ type IProps = {
     feeType,
     presetIndex,
     customFeeInfo,
+    source,
   }: {
     feeType: EFeeType;
     presetIndex: number;
     customFeeInfo: IFeeInfoUnit;
+    source?: 'dapp' | 'wallet';
   }) => void;
   replaceTxMode?: boolean;
   replaceTxOriginalFeeInfo?: IFeeInfoUnit;
@@ -234,12 +236,13 @@ function TxFeeEditor(props: IProps) {
 
   const form = useForm({
     defaultValues: {
-      gasLimit: new BigNumber(
-        customFee?.gas?.gasLimit ?? customFee?.gasEIP1559?.gasLimit ?? '0',
-      ).toFixed(),
       // gas legacy
+      gasLimitLegacy: new BigNumber(customFee?.gas?.gasLimit ?? '0').toFixed(),
       gasPrice: new BigNumber(customFee?.gas?.gasPrice ?? '0').toFixed(),
       // gas eip1559
+      gasEIP1559Limit: new BigNumber(
+        customFee?.gasEIP1559?.gasLimit ?? '0',
+      ).toFixed(),
       priorityFee: new BigNumber(
         customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       ).toFixed(),
@@ -295,8 +298,8 @@ function TxFeeEditor(props: IProps) {
       common: customFee?.common,
       gas: customFee?.gas && {
         gasPrice: watchAllFields.gasPrice,
-        gasLimit: watchAllFields.gasLimit,
-        gasLimitForDisplay: watchAllFields.gasLimit,
+        gasLimit: watchAllFields.gasLimitLegacy,
+        gasLimitForDisplay: watchAllFields.gasLimitLegacy,
       },
       gasEIP1559: customFee?.gasEIP1559 && {
         baseFeePerGas: customFee?.gasEIP1559?.baseFeePerGas ?? '0',
@@ -304,8 +307,8 @@ function TxFeeEditor(props: IProps) {
         maxFeePerGas: new BigNumber(watchAllFields.maxBaseFee ?? '0')
           .plus(watchAllFields.priorityFee ?? '0')
           .toFixed(),
-        gasLimit: watchAllFields.gasLimit,
-        gasLimitForDisplay: watchAllFields.gasLimit,
+        gasLimit: watchAllFields.gasEIP1559Limit,
+        gasLimitForDisplay: watchAllFields.gasEIP1559Limit,
       },
       feeUTXO: customFee?.feeUTXO && {
         feeRate: watchAllFields.feeRate,
@@ -348,25 +351,25 @@ function TxFeeEditor(props: IProps) {
       },
     }),
     [
-      algoMinFee,
       customFee?.common,
-      customFee?.feeAlgo,
-      customFee?.feeCkb,
-      customFee?.feeSol,
-      customFee?.feeUTXO,
       customFee?.gas,
       customFee?.gasEIP1559,
+      customFee?.feeUTXO,
+      customFee?.feeSol,
+      customFee?.feeCkb,
+      customFee?.feeAlgo,
       customFee?.feeDot,
       customFee?.feeBudget,
       customFee?.feeNeoN3,
-      watchAllFields.computeUnitPrice,
+      watchAllFields.gasPrice,
+      watchAllFields.gasLimitLegacy,
+      watchAllFields.priorityFee,
+      watchAllFields.maxBaseFee,
+      watchAllFields.gasEIP1559Limit,
       watchAllFields.feeRate,
+      watchAllFields.computeUnitPrice,
       watchAllFields.feeRateCkb,
       watchAllFields.flatFee,
-      watchAllFields.gasLimit,
-      watchAllFields.gasPrice,
-      watchAllFields.maxBaseFee,
-      watchAllFields.priorityFee,
       watchAllFields.dotExtraTip,
       watchAllFields.gasSuiPrice,
       watchAllFields.gasSuiBudget,
@@ -376,6 +379,7 @@ function TxFeeEditor(props: IProps) {
       watchAllFields.neoN3SystemFee,
       watchAllFields.neoN3NetworkFee,
       watchAllFields.neoN3PriorityFee,
+      algoMinFee,
     ],
   );
 
@@ -849,10 +853,36 @@ function TxFeeEditor(props: IProps) {
       });
     }
 
+    let source = sendSelectedFee.source;
+
+    if (isDappSuggestedFeeInfo) {
+      const cleanCustomFeeInfo = pickBy(
+        customFeeInfo,
+        (value) => value !== undefined,
+      ) as unknown as IFeeInfoUnit;
+      const cleanOriginalCustomFee = pickBy(
+        originalCustomFee,
+        (value) => value !== undefined,
+      ) as unknown as IFeeInfoUnit;
+
+      if (cleanCustomFeeInfo.gasEIP1559 && cleanOriginalCustomFee.gas) {
+        delete cleanCustomFeeInfo.gas;
+      }
+
+      if (cleanOriginalCustomFee.gasEIP1559 && cleanOriginalCustomFee.gas) {
+        delete cleanOriginalCustomFee.gas;
+      }
+
+      if (!isEqual(cleanCustomFeeInfo, cleanOriginalCustomFee)) {
+        source = 'wallet';
+      }
+    }
+
     onApplyFeeInfo({
       feeType: currentFeeType,
       presetIndex: currentFeeIndex,
       customFeeInfo,
+      source,
     });
     await dialog?.close();
   }, [
@@ -864,6 +894,8 @@ function TxFeeEditor(props: IProps) {
     isDappSuggestedFeeInfo,
     networkId,
     onApplyFeeInfo,
+    originalCustomFee,
+    sendSelectedFee.source,
   ]);
 
   const renderFeeTypeSelector = useCallback(() => {
@@ -967,9 +999,18 @@ function TxFeeEditor(props: IProps) {
         form.setValue(filedName, valueBN.toFixed(0));
       } else if (!value?.includes('.')) {
         form.setValue(filedName, valueBN.toFixed());
+      } else if (value?.includes('.')) {
+        const dp = valueBN.decimalPlaces();
+        if (dp && dp > feeDecimals) {
+          form.setValue(
+            filedName,
+            valueBN.toFixed(feeDecimals, BigNumber.ROUND_FLOOR),
+          );
+          void form.trigger(filedName);
+        }
       }
     },
-    [form],
+    [feeDecimals, form],
   );
 
   const handleValidateDotExtraTip = useCallback(
@@ -1158,7 +1199,7 @@ function TxFeeEditor(props: IProps) {
               label={intl.formatMessage({
                 id: ETranslations.content__gas_limit,
               })}
-              name="gasLimit"
+              name="gasEIP1559Limit"
               // description={recommendGasLimit.description}
               rules={{
                 required: true,
@@ -1177,8 +1218,11 @@ function TxFeeEditor(props: IProps) {
                   {
                     iconName: 'UndoOutline',
                     onPress: () => {
-                      form.setValue('gasLimit', recommendGasLimit.gasLimit);
-                      void form.trigger('gasLimit');
+                      form.setValue(
+                        'gasEIP1559Limit',
+                        recommendGasLimit.gasLimit,
+                      );
+                      void form.trigger('gasEIP1559Limit');
                     },
                   },
                 ]}
@@ -1284,7 +1328,7 @@ function TxFeeEditor(props: IProps) {
               label={intl.formatMessage({
                 id: ETranslations.content__gas_limit,
               })}
-              name="gasLimit"
+              name="gasLimitLegacy"
               // description={recommendGasLimit.description}
               rules={{
                 required: true,
@@ -1303,8 +1347,11 @@ function TxFeeEditor(props: IProps) {
                   {
                     iconName: 'UndoOutline',
                     onPress: () => {
-                      form.setValue('gasLimit', recommendGasLimit.gasLimit);
-                      void form.trigger('gasLimit');
+                      form.setValue(
+                        'gasLimitLegacy',
+                        recommendGasLimit.gasLimit,
+                      );
+                      void form.trigger('gasLimitLegacy');
                     },
                   },
                 ]}
@@ -1588,7 +1635,7 @@ function TxFeeEditor(props: IProps) {
       let priorityFee = new BigNumber(0);
       let maxFee = new BigNumber(0);
       if (currentFeeType === EFeeType.Custom) {
-        limit = new BigNumber(watchAllFields.gasLimit || 0);
+        limit = new BigNumber(watchAllFields.gasEIP1559Limit || 0);
         priorityFee = new BigNumber(watchAllFields.priorityFee || 0);
         maxFee = new BigNumber(watchAllFields.maxBaseFee || 0).plus(
           watchAllFields.priorityFee || 0,
@@ -1704,7 +1751,7 @@ function TxFeeEditor(props: IProps) {
       let limit = new BigNumber(0);
       let gasPrice = new BigNumber(0);
       if (currentFeeType === EFeeType.Custom) {
-        limit = new BigNumber(watchAllFields.gasLimit || 0);
+        limit = new BigNumber(watchAllFields.gasLimitLegacy || 0);
         gasPrice = new BigNumber(watchAllFields.gasPrice || 0);
       } else {
         limit = new BigNumber(fee.gas.gasLimitForDisplay || fee.gas.gasLimit);
@@ -1924,32 +1971,33 @@ function TxFeeEditor(props: IProps) {
       </>
     );
   }, [
-    currentFeeIndex,
     currentFeeType,
     customFee,
-    estimateFeeParams?.estimateFeeParamsSol,
     feeSelectorItems,
-    feeSymbol,
-    feeDecimals,
+    currentFeeIndex,
+    estimateFeeParams?.estimateFeeParamsSol,
     intl,
     nativeSymbol,
     nativeTokenPrice,
-    unsignedTxs,
-    vaultSettings?.withL1BaseFee,
-    watchAllFields.computeUnitPrice,
-    watchAllFields.dotExtraTip,
-    watchAllFields.feeRate,
-    watchAllFields.feeRateCkb,
     watchAllFields.flatFee,
-    watchAllFields.gasLimit,
-    watchAllFields.gasPrice,
-    watchAllFields.maxBaseFee,
+    watchAllFields.dotExtraTip,
+    watchAllFields.gasEIP1559Limit,
     watchAllFields.priorityFee,
-    watchAllFields.gasSuiBudget,
+    watchAllFields.maxBaseFee,
     watchAllFields.gasSuiPrice,
+    watchAllFields.gasSuiBudget,
+    watchAllFields.gasLimitLegacy,
+    watchAllFields.gasPrice,
+    watchAllFields.feeRate,
+    watchAllFields.computeUnitPrice,
+    watchAllFields.feeRateCkb,
+    watchAllFields.neoN3SystemFee,
     watchAllFields.neoN3NetworkFee,
     watchAllFields.neoN3PriorityFee,
-    watchAllFields.neoN3SystemFee,
+    vaultSettings?.withL1BaseFee,
+    feeSymbol,
+    feeDecimals,
+    unsignedTxs,
   ]);
 
   const renderFeeDetails = useCallback(() => {

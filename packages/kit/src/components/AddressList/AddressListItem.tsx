@@ -43,9 +43,14 @@ function AddressListItem(props: IAddressListItemProps) {
       gap="$1"
       px="$5"
       py="$2"
-      borderCurve="continuous"
+      minHeight="$11"
+      justifyContent="center"
       onPress={onPress}
-      {...(onPress && !disabled && listItemPressStyle)}
+      {...(onPress &&
+        !disabled && {
+          userSelect: 'none',
+          ...listItemPressStyle,
+        })}
     >
       {shouldDisplayAccount ? (
         <SizableText size="$bodyMd" color="$textPrimary">
@@ -62,6 +67,7 @@ function AddressListItem(props: IAddressListItemProps) {
         ) : null}
         <YStack
           gap="$1"
+          flex={1}
           ml={
             shouldDisplayHierarchyIndicator || !shouldDisplayAccount ? 0 : '$5'
           }
@@ -76,6 +82,8 @@ function AddressListItem(props: IAddressListItemProps) {
           <SizableText
             size="$bodySm"
             color={isLocal ? '$textSubdued' : '$text'}
+            flex={1}
+            flexWrap="wrap"
           >
             {address}
           </SizableText>
