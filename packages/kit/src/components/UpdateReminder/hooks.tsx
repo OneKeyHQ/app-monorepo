@@ -358,7 +358,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           if (needUpdate) {
             if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
-            } else if (response?.isShowUpdateDialog && isFirstLaunch) {
+            } else if (
+              !platformEnv.isDev &&
+              response?.isShowUpdateDialog &&
+              isFirstLaunch
+            ) {
               showUpdateDialog(false, response);
             }
           }
