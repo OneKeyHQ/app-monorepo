@@ -53,11 +53,13 @@ async function buildAddAccountsNetworks({
   evm,
   tron,
   sol,
+  ltc,
 }: IBuildDefaultAddAccountNetworksParams & {
   btc?: boolean;
   evm?: boolean;
   tron?: boolean;
   sol?: boolean;
+  ltc?: boolean;
 }) {
   const networkIdsMap = getNetworkIdsMap();
   let networks: INetworkWithDeriveType[] = [];
@@ -86,6 +88,29 @@ async function buildAddAccountsNetworks({
       ],
     });
     networks = [...networks, ...btcNetworks];
+  }
+
+  if (ltc) {
+    const ltcNetworks: INetworkWithDeriveType[] = await buildWithNetworks({
+      backgroundApi,
+      includingNetworkWithGlobalDeriveType,
+      networkId: networkIdsMap.ltc,
+      networks: [
+        {
+          networkId: networkIdsMap.ltc,
+          deriveType: 'default',
+        },
+        {
+          networkId: networkIdsMap.ltc,
+          deriveType: 'BIP84',
+        },
+        {
+          networkId: networkIdsMap.ltc,
+          deriveType: 'BIP44',
+        },
+      ],
+    });
+    networks = [...networks, ...ltcNetworks];
   }
 
   if (evm) {
@@ -145,6 +170,7 @@ export async function buildDefaultAddAccountNetworks(
     evm: true,
     tron: true,
     sol: true,
+    ltc: true,
   });
   return networks;
 }
