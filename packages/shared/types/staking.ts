@@ -323,6 +323,7 @@ export interface IEarnTokenInfo {
   nativeToken?: IFetchTokenDetailItem;
   balanceParsed: string;
   token: IEarnToken;
+  price: string;
 }
 
 interface ISubscriptionValue {
@@ -330,7 +331,10 @@ interface ISubscriptionValue {
   fiatValue: string;
   formattedValue: string;
   balance: string;
-  token: IEarnToken;
+  token: {
+    info: IEarnToken;
+    price: string;
+  };
 }
 
 interface IEarnBadge {

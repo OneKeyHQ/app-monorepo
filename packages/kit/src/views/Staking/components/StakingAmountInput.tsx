@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
 
 import {
@@ -11,6 +12,10 @@ import {
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { StyleProp, TextStyle } from 'react-native';
@@ -23,6 +28,7 @@ export const StakingPercentageInputStage = [25, 50, 100];
 export function StakingAmountInput({
   title,
   inputProps,
+  valueProps,
   disabled,
   onSelectPercentageStage,
   value,
@@ -42,6 +48,25 @@ export function StakingAmountInput({
       setPercentageInputStageShow(false);
     }, 200);
   }, []);
+
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const sourceCurrencyInfo = useMemo(() => currencyMap.usd, [currencyMap]);
+  const newValueProps = useMemo(() => {
+    if (
+      currencyInfo.id !== 'usd' &&
+      valueProps?.value &&
+      valueProps?.currency
+    ) {
+      const targetCurrencyInfo = currencyMap[currencyInfo.id];
+      valueProps.value = new BigNumber(valueProps.value)
+        .div(new BigNumber(sourceCurrencyInfo.value))
+        .times(new BigNumber(targetCurrencyInfo.value))
+        .toFixed();
+    }
+    return valueProps;
+  }, [valueProps, currencyMap, currencyInfo.id, sourceCurrencyInfo.value]);
+
   return (
     <YStack
       borderRadius="$3"
@@ -98,6 +123,7 @@ export function StakingAmountInput({
           onFocus: onFromInputFocus,
           onBlur: onFromInputBlur,
         }}
+        valueProps={newValueProps}
         value={value}
         {...props}
       />

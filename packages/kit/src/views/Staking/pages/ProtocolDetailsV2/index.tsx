@@ -161,7 +161,9 @@ function SubscriptionSection({
           size="$bodyLgMedium"
           formatter="balance"
           color="$textSubdued"
-          formatterOptions={{ tokenSymbol: subscriptionValue.token.symbol }}
+          formatterOptions={{
+            tokenSymbol: subscriptionValue.token.info.symbol,
+          }}
         >
           {subscriptionValue.formattedValue || 0}
         </NumberSizeableText>
@@ -659,10 +661,10 @@ const ProtocolDetailsPage = () => {
           vault,
         });
 
-      const tokens = response?.subscriptionValue?.token.address
+      const tokens = response?.subscriptionValue?.token.info.address
         ? await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
             networkId,
-            contractList: [response.subscriptionValue.token.address],
+            contractList: [response.subscriptionValue.token.info.address],
           })
         : undefined;
       return {
@@ -682,7 +684,8 @@ const ProtocolDetailsPage = () => {
       ? {
           nativeToken,
           balanceParsed: detailInfo.subscriptionValue.balance,
-          token: detailInfo.subscriptionValue.token,
+          token: detailInfo.subscriptionValue.token.info,
+          price: detailInfo.subscriptionValue.token.price,
           networkId,
           provider,
           vault,
