@@ -363,6 +363,22 @@ function PortfolioSection({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
+  const intl = useIntl();
+  const appNavigation = useAppNavigation();
+  const onPortfolioDetails = useCallback(() => {
+    appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
+      accountId: protocolInfo?.earnAccount?.accountId || '',
+      networkId: tokenInfo?.networkId || '',
+      symbol: protocolInfo?.symbol || '',
+      provider: protocolInfo?.provider || '',
+    });
+  }, [
+    appNavigation,
+    protocolInfo?.earnAccount?.accountId,
+    protocolInfo?.provider,
+    protocolInfo?.symbol,
+    tokenInfo?.networkId,
+  ]);
   const handleClaim = useHandleClaim({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
@@ -482,6 +498,13 @@ function PortfolioSection({
           <SizableText size="$headingLg" color={portfolios.title.color}>
             {portfolios.title.text}
           </SizableText>
+          <Button
+            variant="tertiary"
+            iconAfter="ChevronRightOutline"
+            onPress={onPortfolioDetails}
+          >
+            {intl.formatMessage({ id: ETranslations.global_details })}
+          </Button>
         </XStack>
         <YStack gap="$3">
           {portfolios?.items.length ? (
@@ -828,23 +851,11 @@ const ProtocolDetailsPage = () => {
     tokenInfo,
   ]);
 
-  // const onPortfolioDetails = useMemo(
-  //   () =>
-  //     networkUtils.isBTCNetwork(networkId) && earnAccount?.accountId
-  //       ? () => {
-  //           appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
-  //             accountId: earnAccount?.accountId,
-  //             networkId,
-  //             symbol,
-  //             provider,
-  //           });
-  //         }
-  //       : undefined,
-  //   [appNavigation, earnAccount?.accountId, networkId, symbol, provider],
-  // );
+  const historyAction = useMemo(() => {
+    return detailInfo?.actions.find((i) => i.type === 'history');
+  }, [detailInfo?.actions]);
 
   const onHistory = useMemo(() => {
-    const historyAction = detailInfo?.actions.find((i) => i.type === 'history');
     if (historyAction?.disabled || !earnAccount?.accountId) {
       return undefined;
     }
@@ -865,8 +876,8 @@ const ProtocolDetailsPage = () => {
     };
   }, [
     appNavigation,
-    detailInfo?.actions,
     earnAccount?.accountId,
+    historyAction?.disabled,
     networkId,
     provider,
     symbol,
