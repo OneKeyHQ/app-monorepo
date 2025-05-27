@@ -45,7 +45,6 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       const addressInfoResults = await Promise.all(
         result.map((recipient) =>
           backgroundApiProxy.serviceAccountProfile.queryAddress({
-            accountId,
             networkId,
             address: recipient,
             enableAddressBook: true,
@@ -59,7 +58,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       setFilteredRecentRecipients(addressInfoResults);
       return addressInfoResults;
     },
-    [accountId, networkId],
+    [networkId],
     {
       initResult: [],
     },
