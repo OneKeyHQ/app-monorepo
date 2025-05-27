@@ -26,6 +26,7 @@ import type {
   IChangedPendingTxInfo,
 } from '@onekeyhq/shared/types/history';
 import type {
+  ECheckAmountActionType,
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
@@ -53,6 +54,7 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTransactionConfirmation,
   IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
@@ -330,6 +332,7 @@ class ServiceStaking extends ServiceBase {
       networkId,
       accountId,
       claimTokenAddress: rewardTokenAddress,
+      vault: vaultAddress,
       ...rest
     } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -344,18 +347,28 @@ class ServiceStaking extends ServiceBase {
       throw new Error('Staking config not found');
     }
 
-    const resp = await client.post<{
-      data: IStakeTxResponse;
-    }>(`/earn/v2/claim`, {
+    const sendParams: Record<string, string | undefined> = {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      rewardTokenAddress,
       ...rest,
-    });
+    };
+
+    if (rewardTokenAddress) {
+      sendParams.rewardTokenAddress = rewardTokenAddress;
+    }
+    if (
+      earnUtils.isMorphoProvider({ providerName: params.provider }) &&
+      vaultAddress
+    ) {
+      sendParams.vault = vaultAddress;
+    }
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v2/claim`, sendParams);
     return resp.data.data;
   }
 
@@ -524,6 +537,25 @@ class ServiceStaking extends ServiceBase {
       isV2: true,
     });
     return result as unknown as IStakeEarnDetail;
+  }
+
+  @backgroundMethod()
+  async getTransactionConfirmation(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault: string;
+    accountAddress: string;
+    action: 'stake' | 'unstake' | 'claim';
+    amount: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IStakeTransactionConfirmation;
+    }>(`/earn/v1/transaction-confirmation`, {
+      params,
+    });
+    return resp.data.data;
   }
 
   _getProtocolList = memoizee(
@@ -869,7 +901,7 @@ class ServiceStaking extends ServiceBase {
     networkId?: string;
     symbol?: string;
     provider?: string;
-    action: 'stake' | 'unstake' | 'claim';
+    action: ECheckAmountActionType;
     withdrawAll: boolean;
     amount?: string;
     morphoVault?: string;
@@ -896,11 +928,6 @@ class ServiceStaking extends ServiceBase {
       },
     });
     const { code, message } = result.data;
-    this.handleServerError({
-      code,
-      message,
-      requestId: result.$requestId,
-    });
     return Number(code) === 0 ? '' : message;
   }
 

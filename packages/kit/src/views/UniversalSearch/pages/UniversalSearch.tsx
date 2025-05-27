@@ -19,8 +19,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EUniversalSearchPages,
@@ -54,6 +56,7 @@ import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 
 interface IUniversalSection {
+  tabIndex: number;
   title: string;
   data: IUniversalSearchResultItem[];
   sliceData?: IUniversalSearchResultItem[];
@@ -101,6 +104,7 @@ export function UniversalSearch({
   filterTypes?: EUniversalSearchType[];
 }) {
   const intl = useIntl();
+  const tabRef = useRef<ITabHeaderInstance>(null);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
@@ -112,6 +116,45 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
+  const [searchValue, setSearchValue] = useState('');
+
+  const tabTitles = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_all,
+        }),
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_wallets,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_tokens,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_my_assets,
+        }),
+      },
+
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
+      },
+    ];
+  }, [intl]);
+  const [filterType, setFilterType] = useState(tabTitles[0].title);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const isInAllTab = useMemo(() => {
+    return filterType === tabTitles[0].title;
+  }, [filterType, tabTitles]);
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -143,12 +186,22 @@ export function UniversalSearch({
           ?.items as IUniversalSearchResultItem[],
       });
     }
-    setRecommendSections(searchResultSections);
+    setRecommendSections(searchResultSections as IUniversalSection[]);
   }, [intl]);
 
   useEffect(() => {
     void fetchRecommendList();
   }, [fetchRecommendList]);
+
+  // Maintain selected tab when search status changes
+  useEffect(() => {
+    if (searchStatus === ESearchStatus.done && selectedIndex > 0) {
+      // Use setTimeout to ensure the Tab.Header is rendered before calling scrollToIndex
+      setTimeout(() => {
+        tabRef.current?.scrollToIndex(selectedIndex);
+      }, 0);
+    }
+  }, [searchStatus, selectedIndex]);
 
   const searchInputRef = useRef<string>('');
 
@@ -178,16 +231,43 @@ export function UniversalSearch({
           showMore: data.length > 5,
         };
       };
-      const searchResultSections: {
-        title: string;
-        data: IUniversalSearchResultItem[];
-        sliceData?: IUniversalSearchResultItem[];
-        showMore?: boolean;
-      }[] = [];
+
+      // Special function for dApp results to handle Google search item
+      const generateDappDataFn = (data: IUniversalSearchResultItem[]) => {
+        const googleSearchIndex = data.findIndex(
+          (item) =>
+            item.type === EUniversalSearchType.Dapp &&
+            isGoogleSearchItem(item.payload?.dappId),
+        );
+
+        if (googleSearchIndex === -1) {
+          // No Google search item, use normal logic
+          return generateDataFn(data);
+        }
+
+        // Separate Google search item from other results
+        const googleSearchItem = data[googleSearchIndex];
+        const otherResults = data.filter(
+          (_, index) => index !== googleSearchIndex,
+        );
+
+        // Take first 5 non-Google results + always include Google search item
+        const slicedOtherResults = otherResults.slice(0, 5);
+        const sliceData = [...slicedOtherResults, googleSearchItem];
+
+        return {
+          data,
+          sliceData,
+          showMore: otherResults.length > 5, // Only count non-Google items for showMore
+        };
+      };
+
+      const searchResultSections: IUniversalSection[] = [];
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
         const data = result?.[EUniversalSearchType.Address]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
+          tabIndex: 1,
           title: intl.formatMessage({
             id: ETranslations.global_wallets,
           }),
@@ -199,6 +279,7 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
+          tabIndex: 2,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_tokens,
           }),
@@ -210,6 +291,7 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.AccountAssets]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
+          tabIndex: 3,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
@@ -221,10 +303,11 @@ export function UniversalSearch({
         const data = result?.[EUniversalSearchType.Dapp]
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
+          tabIndex: 4,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
-          ...generateDataFn(data),
+          ...generateDappDataFn(data),
         });
       }
 
@@ -235,10 +318,22 @@ export function UniversalSearch({
     }
   }, 1200);
 
-  const handleChangeText = useCallback(() => {
+  const handleChangeText = useCallback((val: string) => {
     console.log('[universalSearch] handleChangeText');
+    setSearchValue(val); // Update search value state immediately
     setSearchStatus(ESearchStatus.loading);
   }, []);
+
+  const handleSearchTextFill = useCallback(
+    (text: string) => {
+      setSearchValue(text);
+      // Set loading status to show skeleton screen
+      setSearchStatus(ESearchStatus.loading);
+      // Trigger search with the filled text
+      void handleTextChange(text);
+    },
+    [handleTextChange],
+  );
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
@@ -255,11 +350,16 @@ export function UniversalSearch({
 
   const renderSectionFooter = useCallback(
     ({ section }: { section: IUniversalSection }) => {
+      if (!isInAllTab) {
+        return null;
+      }
       if (section.showMore) {
         return (
           <ListItem
             onPress={() => {
               console.log('[universalSearch] renderSectionFooter: ', section);
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+              tabRef.current?.scrollToIndex(section.tabIndex);
             }}
           >
             <XStack ai="center" gap="$2">
@@ -279,7 +379,7 @@ export function UniversalSearch({
       }
       return null;
     },
-    [intl],
+    [intl, isInAllTab],
   );
 
   const renderItem = useCallback(
@@ -314,57 +414,23 @@ export function UniversalSearch({
     },
     [activeAccount?.network?.id, searchStatus],
   );
-
-  const tabTitles = useMemo(() => {
-    return [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_all,
-        }),
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_wallets,
-        }),
-      },
-
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_tokens,
-        }),
-      },
-
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_my_assets,
-        }),
-      },
-
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_dapps,
-        }),
-      },
-    ];
-  }, [intl]);
-
-  const [filterType, setFilterType] = useState(tabTitles[0].title);
   const handleTabSelectedPageIndex = useCallback(
     (index: number) => {
       setFilterType(tabTitles[index].title);
+      setSelectedIndex(index);
     },
     [tabTitles],
   );
 
   const filterSections = useMemo(() => {
-    if (filterType === tabTitles[0].title) {
+    if (isInAllTab) {
       return sections.map((i) => ({
         ...i,
         data: i.sliceData,
       }));
     }
     return sections.filter((i) => i.title === filterType);
-  }, [filterType, sections, tabTitles]);
+  }, [filterType, isInAllTab, sections]);
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
@@ -374,7 +440,12 @@ export function UniversalSearch({
             renderSectionHeader={renderSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
-            ListHeaderComponent={<RecentSearched filterTypes={filterTypes} />}
+            ListHeaderComponent={
+              <RecentSearched
+                filterTypes={filterTypes}
+                onSearchTextFill={handleSearchTextFill}
+              />
+            }
             ListEmptyComponent={<ListEmptyComponent />}
             estimatedItemSize="$16"
             ListFooterComponent={<Stack h="$16" />}
@@ -400,6 +471,7 @@ export function UniversalSearch({
               mb="$3"
             >
               <Tab.Header
+                ref={tabRef}
                 style={{
                   height: 44,
                   borderBottomWidth: 0,
@@ -437,6 +509,7 @@ export function UniversalSearch({
     filterSections,
     filterTypes,
     handleTabSelectedPageIndex,
+    handleSearchTextFill,
     intl,
     recommendSections,
     renderItem,
@@ -452,9 +525,13 @@ export function UniversalSearch({
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
       <Page.Body>
-        <View px="$5">
+        <View px="$5" pb="$2">
           <SearchBar
             autoFocus
+            value={searchValue}
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_universal_search_placeholder,
+            })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />

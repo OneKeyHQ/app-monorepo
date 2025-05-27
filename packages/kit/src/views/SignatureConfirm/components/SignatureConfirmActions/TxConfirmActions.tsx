@@ -308,6 +308,12 @@ function TxConfirmActions(props: IProps) {
       }
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
+      if (transferPayload?.originalRecipient) {
+        void backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients({
+          networkId,
+          address: transferPayload.originalRecipient,
+        });
+      }
     } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       // show toast by @toastIfError() in background method

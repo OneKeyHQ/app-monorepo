@@ -3,7 +3,6 @@ import { type ReactNode, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DesktopDragZoneBox,
   SizableText,
   Stack,
   useIsHorizontalLayout,
@@ -219,8 +218,6 @@ export function HeaderRight({
       width={width}
       jc={platformEnv.isNative ? undefined : 'flex-end'}
     >
-      <DesktopDragZoneBox renderAs="Stack" flex={1} height="100%" />
-      {/* <Stack bg="red" flex={1} height="100%" /> */}
       {items}
     </HeaderButtonGroup>
   );

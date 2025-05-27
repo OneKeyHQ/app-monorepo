@@ -13,6 +13,7 @@ import {
   Dialog,
   ESwitchSize,
   Form,
+  Icon,
   IconButton,
   Input,
   LottieView,
@@ -211,9 +212,100 @@ export function EnterPin({
     [val],
   );
   const keyboardMap = useMemo(
-    () => ['7', '8', '9', /**/ '4', '5', '6', /**/ '1', '2', '3'],
+    () => [
+      '7',
+      '8',
+      '9',
+      /**/
+      '4',
+      '5',
+      '6',
+      /**/
+      '1',
+      '2',
+      '3',
+      /**/
+      'delete',
+      '0',
+      'confirm',
+    ],
     [],
   );
+
+  const onDelete = useCallback(() => {
+    setVal((v) => v.slice(0, -1));
+  }, []);
+
+  const onPress = useCallback(
+    (num: string) => {
+      if (num === 'delete') {
+        onDelete();
+        return;
+      }
+      if (num === 'confirm') {
+        onConfirm(val);
+        return;
+      }
+      setVal((v) => {
+        // classic only supports 9 digits
+        // pro only on device input pin
+        if (v.length >= 9) {
+          return v;
+        }
+        return v + num;
+      });
+    },
+    [onConfirm, onDelete, val],
+  );
+
+  const getButtonType = useCallback((item: string) => {
+    if (item === 'delete') return 'delete';
+    if (item === 'confirm') return 'confirm';
+    return 'number';
+  }, []);
+
+  const buttonStyles = useMemo(
+    () => ({
+      delete: {
+        bg: '$bgCriticalStrong',
+        hoverBg: '$bgCriticalStrongHover',
+        pressBg: '$bgCriticalStrongActive',
+      },
+      confirm: {
+        bg: '$bgPrimary',
+        hoverBg: '$bgPrimaryHover',
+        pressBg: '$bgPrimaryActive',
+      },
+      number: {
+        bg: '$bgSubdued',
+        hoverBg: '$bgHover',
+        pressBg: '$bgActive',
+      },
+    }),
+    [],
+  );
+
+  const getButtonBg = useCallback(
+    (item: string, state: 'default' | 'hover' | 'press') => {
+      const type = getButtonType(item);
+      const style = buttonStyles[type];
+      if (state === 'hover') return style.hoverBg;
+      if (state === 'press') return style.pressBg;
+      return style.bg;
+    },
+    [buttonStyles, getButtonType],
+  );
+
+  const renderKeyboardItem = useCallback((num: string) => {
+    if (num === 'delete') {
+      return <Icon size="$5" name="XBackspaceOutline" color="$textOnColor" />;
+    }
+    if (num === 'confirm') {
+      return <Icon size="$5" name="CheckLargeOutline" color="$textOnColor" />;
+    }
+    return <Stack w="$2.5" h="$2.5" borderRadius="$full" bg="$text" />;
+  }, []);
+
   return (
     <Stack>
       <Dialog.Header>
@@ -230,8 +322,8 @@ export function EnterPin({
       </Dialog.Header>
       <Stack
         borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderRadius="$2"
+        borderColor="$bgApp"
+        borderRadius="$3"
         overflow="hidden"
         borderCurve="continuous"
       >
@@ -240,7 +332,7 @@ export function EnterPin({
           alignItems="center"
           px="$3"
           borderBottomWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
+          borderColor="$bgApp"
           bg="$bgSubdued"
         >
           <SizableText
@@ -252,84 +344,53 @@ export function EnterPin({
           >
             {varMask}
           </SizableText>
-          <IconButton
-            variant="tertiary"
-            icon="XBackspaceOutline"
-            onPress={() => {
-              setVal((v) => v.slice(0, -1));
-            }}
-          />
         </XStack>
         <XStack flexWrap="wrap">
-          {keyboardMap.map((num, index) => (
-            <Stack
-              key={index}
-              flexBasis="33.3333%"
-              h="$14"
-              borderRightWidth={StyleSheet.hairlineWidth}
-              borderBottomWidth={StyleSheet.hairlineWidth}
-              borderColor="$borderSubdued"
-              justifyContent="center"
-              alignItems="center"
-              {...((index === 2 || index === 5 || index === 8) && {
-                borderRightWidth: 0,
-              })}
-              {...((index === 6 || index === 7 || index === 8) && {
-                borderBottomWidth: 0,
-              })}
-              hoverStyle={{
-                bg: '$bgHover',
-              }}
-              pressStyle={{
-                bg: '$bgActive',
-              }}
-              focusable
-              focusVisibleStyle={{
-                outlineColor: '$focusRing',
-                outlineOffset: -2,
-                outlineWidth: 2,
-                outlineStyle: 'solid',
-              }}
-              onPress={() =>
-                setVal((v) => {
-                  // classic only supports 9 digits
-                  // pro only on device input pin
-                  if (v.length >= 9) {
-                    return v;
-                  }
-                  return v + num;
-                })
-              }
-            >
-              <Stack w="$2.5" h="$2.5" borderRadius="$full" bg="$text" />
-            </Stack>
-          ))}
+          {keyboardMap.map((num, index) => {
+            const isLastColumn = (index + 1) % 3 === 0;
+            const isLastRow = index >= 9;
+            return (
+              <Stack
+                key={index}
+                flexBasis="33.3333%"
+                h="$14"
+                borderRightWidth={isLastColumn ? 0 : StyleSheet.hairlineWidth}
+                borderBottomWidth={isLastRow ? 0 : StyleSheet.hairlineWidth}
+                borderColor="$bgApp"
+                justifyContent="center"
+                alignItems="center"
+                bg={getButtonBg(num, 'default')}
+                hoverStyle={{
+                  bg: getButtonBg(num, 'hover'),
+                }}
+                pressStyle={{
+                  bg: getButtonBg(num, 'press'),
+                }}
+                focusable
+                focusVisibleStyle={{
+                  outlineColor: '$focusRing',
+                  outlineOffset: -2,
+                  outlineWidth: 2,
+                  outlineStyle: 'solid',
+                }}
+                onPress={() => onPress(num)}
+              >
+                {renderKeyboardItem(num)}
+              </Stack>
+            );
+          })}
         </XStack>
       </Stack>
       {/* TODO: add loading state while waiting for result */}
-      <Button
-        mt="$5"
-        $md={
-          {
-            size: 'large',
-          } as any
-        }
-        variant="primary"
-        onPress={() => {
-          onConfirm(val);
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.global_confirm })}
-      </Button>
       <Button
         m="$0"
         mt="$2.5"
         $md={
           {
-            size: 'large',
+            size: 'medium',
           } as any
         }
-        variant="secondary"
+        variant="tertiary"
         onPress={() => {
           switchOnDevice();
         }}

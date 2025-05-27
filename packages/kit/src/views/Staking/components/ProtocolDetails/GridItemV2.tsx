@@ -14,8 +14,8 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
@@ -55,7 +55,7 @@ function PopupItemLine({
   );
 }
 
-function PopupContent({
+export function ActionPopupContent({
   bulletList,
   items,
   panel,
@@ -66,18 +66,20 @@ function PopupContent({
 }) {
   return (
     <YStack p="$5">
-      <YStack gap="$2.5">
-        {items?.map(({ icon, title, value, token }) => (
-          <PopupItemLine
-            key={title.text}
-            icon={icon}
-            token={token}
-            title={title}
-            value={value}
-          />
-        ))}
-      </YStack>
-      {bulletList ? (
+      {items?.length ? (
+        <YStack gap="$2.5">
+          {items.map(({ icon, title, value, token }) => (
+            <PopupItemLine
+              key={title.text}
+              icon={icon}
+              token={token}
+              title={title}
+              value={value}
+            />
+          ))}
+        </YStack>
+      ) : null}
+      {bulletList?.length ? (
         <YStack pt="$1.5" gap="$2">
           {bulletList.map((text, index) => (
             <XStack key={index} gap="$2" ai="center">
@@ -96,7 +98,7 @@ function PopupContent({
           ))}
         </YStack>
       ) : null}
-      {panel ? (
+      {panel?.length ? (
         <XStack
           mt="$4"
           py="$3"
@@ -141,7 +143,7 @@ function RewardAmountPopoverContent({
   onHistory?: (params?: { filterType?: string }) => void;
 }) {
   const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(async () => {
+  const handleHistoryPress = useCallback(async () => {
     await closePopover?.();
     setTimeout(() => {
       onHistory?.({ filterType: 'rebate' });
@@ -170,11 +172,14 @@ function RewardAmountPopoverContent({
             key={index}
             jc="space-between"
             pt="$4"
-            onPress={isHistoryButton ? handlePress : undefined}
+            onPress={isHistoryButton ? handleHistoryPress : undefined}
           >
-            <SizableText size="$bodyMdMedium" color={item?.title?.color}>
+            <FormatHyperlinkText
+              size="$bodyMdMedium"
+              color={item?.title?.color}
+            >
               {item?.title?.text}
-            </SizableText>
+            </FormatHyperlinkText>
             {isHistoryButton ? (
               <XStack gap="$0.5" cursor="pointer">
                 <SizableText size="$bodyMd" color="$textSubdued">
@@ -231,7 +236,7 @@ export function GridItem({
               />
             }
             renderContent={
-              <PopupContent
+              <ActionPopupContent
                 bulletList={actionIcon.data.bulletList}
                 items={actionIcon.data.items}
                 panel={actionIcon.data.panel}
@@ -293,8 +298,8 @@ export function GridItem({
               }
               renderContent={
                 <Stack p="$5">
-                  <SizableText color={tooltip.data.color}>
-                    {tooltip.data.text}
+                  <SizableText color={tooltip?.data?.color}>
+                    {tooltip?.data?.text}
                   </SizableText>
                 </Stack>
               }
@@ -343,9 +348,9 @@ export function GridItem({
       </XStack>
       <XStack gap="$1" alignItems="center">
         {description ? (
-          <SizableText size="$bodyLgMedium" color={description.color}>
+          <FormatHyperlinkText size="$bodyLgMedium" color={description.color}>
             {description.text}
-          </SizableText>
+          </FormatHyperlinkText>
         ) : null}
         {actionIconButton}
       </XStack>
