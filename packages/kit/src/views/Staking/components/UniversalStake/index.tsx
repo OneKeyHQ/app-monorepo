@@ -250,55 +250,62 @@ export function UniversalStake({
     350,
   );
 
-  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    if (!amount) {
-      setEstimateFeeResp(undefined);
-      return;
-    }
-    const amountNumber = BigNumber(amount);
-    if (amountNumber.isZero() || amountNumber.isNaN()) {
-      return;
-    }
-
-    const permitParams: {
-      approveType?: 'permit';
-      permitSignature?: string;
-    } = {};
-
-    if (usePermit2Approve) {
-      if (shouldApprove) {
-        return undefined;
+  const fetchEstimateFeeResp = useCallback(
+    async (amount?: string) => {
+      if (!amount) {
+        return Promise.resolve(undefined);
+      }
+      const amountNumber = BigNumber(amount);
+      if (amountNumber.isZero() || amountNumber.isNaN()) {
+        return Promise.resolve(undefined);
       }
 
-      permitParams.approveType = EApproveType.Permit;
+      const permitParams: {
+        approveType?: 'permit';
+        permitSignature?: string;
+      } = {};
 
-      if (permitSignatureRef.current) {
-        const amountBN = BigNumber(amount);
-        const allowanceBN = BigNumber(allowance);
-        if (amountBN.gt(allowanceBN)) {
-          permitParams.permitSignature = permitSignatureRef.current;
+      if (usePermit2Approve && !shouldApprove) {
+        permitParams.approveType = EApproveType.Permit;
+        if (permitSignatureRef.current) {
+          const amountBN = BigNumber(amount);
+          const allowanceBN = BigNumber(allowance);
+          if (amountBN.gt(allowanceBN)) {
+            permitParams.permitSignature = permitSignatureRef.current;
+          }
         }
       }
-    }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId,
+        provider: providerName,
+        symbol: tokenInfo?.token.symbol || '',
+        action: shouldApprove ? 'approve' : 'stake',
+        amount: amountNumber.toFixed(),
+        morphoVault: isMorphoProvider
+          ? protocolInfo?.approve?.approveTarget
+          : undefined,
+        accountAddress: account?.address,
+        ...permitParams,
+      });
+      return resp;
+    },
+    [
       accountId,
+      allowance,
+      isMorphoProvider,
       networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: tokenInfo?.token.symbol || '',
-      action: shouldApprove ? 'approve' : 'stake',
-      amount: amountNumber.toFixed(),
-      morphoVault: isMorphoProvider
-        ? protocolInfo?.approve?.approveTarget
-        : undefined,
-      accountAddress: account?.address,
-      ...permitParams,
-    });
-    return resp;
-  }, 350);
+      protocolInfo?.approve?.approveTarget,
+      providerName,
+      shouldApprove,
+      tokenInfo?.token.symbol,
+      usePermit2Approve,
+    ],
+  );
 
   const debouncedFetchEstimateFeeResp = useDebouncedCallback(
     async (amount?: string) => {
