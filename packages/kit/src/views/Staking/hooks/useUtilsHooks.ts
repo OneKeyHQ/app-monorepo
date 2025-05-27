@@ -76,6 +76,7 @@ export function useTrackTokenAllowance({
   approveType: EApproveType;
 }) {
   const isLegacyApprove = approveType === EApproveType.Legacy;
+  const isExistApproveTarget = !!spenderAddress;
   const [allowance, setAllowance] = useState<string>(initialValue);
   const [trackTxId, setTrackTxId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>();
@@ -98,7 +99,7 @@ export function useTrackTokenAllowance({
     [accountId, approveType, networkId, spenderAddress, tokenAddress],
   );
   useEffect(() => {
-    if (!isLegacyApprove) {
+    if (isExistApproveTarget) {
       const fetchAllowance = async () => {
         if (!txDetails) {
           setLoading(false);
@@ -124,6 +125,7 @@ export function useTrackTokenAllowance({
     approveType,
     fetchAllowanceResponse,
     isLegacyApprove,
+    isExistApproveTarget,
   ]);
   const trackAllowance = useCallback(
     (txid: string) => {
