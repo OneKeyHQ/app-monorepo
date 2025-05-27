@@ -63,7 +63,8 @@ function MarketTokenList({
                 : (item) => ({
                     onPress: () =>
                       toDetailPage({
-                        coingeckoId: item.address, // 使用 token address 作为 coingeckoId
+                        tokenAddress: item.address,
+                        networkId,
                       }),
                   })
             }

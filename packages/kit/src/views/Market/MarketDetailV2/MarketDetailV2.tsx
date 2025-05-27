@@ -2,9 +2,9 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, XStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  type ETabMarketRoutes,
+  type ETabMarketV2Routes,
   ETabRoutes,
-  type ITabMarketParamList,
+  type ITabMarketV2ParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
@@ -23,15 +23,14 @@ import { TokenActivityOverview } from './components/TokenActivityOverview';
 import { useMarketDetail } from './hooks/useMarketDetail';
 
 function MarketDetail({
-  route: _route,
-}: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  // TODO: new route params
-  // const { token: coinGeckoId } = route.params;
+  route,
+}: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
+  const { tokenAddress, networkId } = route.params;
 
   const { tokenDetail }: { tokenDetail: IMarketTokenDetailV2 | undefined } =
     useMarketDetail({
-      tokenAddress: '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0',
-      networkId: 'evm--1',
+      tokenAddress,
+      networkId,
     });
 
   const customHeaderLeft = (
@@ -56,14 +55,17 @@ function MarketDetail({
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} />
         <TokenActivityOverview tokenDetail={tokenDetail} />
-        <SwapPanel tokenDetail={tokenDetail} networkId="evm--1" />
+        <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
       </Page.Body>
     </Page>
   );
 }
 
 export default function MarketDetailWithProvider(
-  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>,
+  props: IPageScreenProps<
+    ITabMarketV2ParamList,
+    ETabMarketV2Routes.MarketDetail
+  >,
 ) {
   return (
     <AccountSelectorProviderMirror
