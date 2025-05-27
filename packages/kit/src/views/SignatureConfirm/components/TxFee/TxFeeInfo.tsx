@@ -599,6 +599,16 @@ function TxFeeInfo(props: IProps) {
                       '',
                   }
                 : undefined,
+
+              feeBudget: customFeeInfo.feeBudget
+                ? {
+                    ...customFeeInfo.feeBudget,
+                    gasPrice:
+                      defaultCustomFeeInfo.feeInfo.feeBudget?.gasPrice ??
+                      customFeeInfo.feeBudget?.gasPrice ??
+                      '',
+                  }
+                : undefined,
             };
 
             originalFeeChanged = true;
