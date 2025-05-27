@@ -492,13 +492,16 @@ function PortfolioSection({
           <SizableText size="$headingLg" color={portfolios.title.color}>
             {portfolios.title.text}
           </SizableText>
-          <Button
-            variant="tertiary"
-            iconAfter="ChevronRightOutline"
-            onPress={onPortfolioDetails}
-          >
-            {intl.formatMessage({ id: ETranslations.global_details })}
-          </Button>
+          {portfolios.button && portfolios.button.type === 'portfolio' ? (
+            <Button
+              disabled={portfolios.button.disabled}
+              variant="tertiary"
+              iconAfter="ChevronRightOutline"
+              onPress={onPortfolioDetails}
+            >
+              {portfolios?.button.text.text}
+            </Button>
+          ) : null}
         </XStack>
         <YStack gap="$3">
           {portfolios?.items.length ? (
