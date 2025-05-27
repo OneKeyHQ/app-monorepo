@@ -159,6 +159,7 @@ export function UniversalStake({
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
+  const isLegacyApprove = approveType === EApproveType.Legacy;
   const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
   const isFocus = useIsFocused();
@@ -177,7 +178,7 @@ export function UniversalStake({
     approveType: approveType ?? EApproveType.Legacy,
   });
   const shouldApprove = useMemo(() => {
-    if (!isMorphoProvider) {
+    if (isLegacyApprove) {
       return false;
     }
 
@@ -203,7 +204,7 @@ export function UniversalStake({
 
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
-    isMorphoProvider,
+    isLegacyApprove,
     isFocus,
     amountValue,
     allowance,
@@ -224,7 +225,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: isMorphoProvider
+          vault: !isLegacyApprove
             ? protocolInfo?.approve?.approveTarget || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
@@ -237,7 +238,7 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
-      isMorphoProvider,
+      isLegacyApprove,
       protocolInfo?.approve?.approveTarget,
       protocolInfo?.earnAccount?.accountAddress,
     ],
@@ -292,7 +293,7 @@ export function UniversalStake({
       symbol: tokenInfo?.token.symbol || '',
       action: shouldApprove ? 'approve' : 'stake',
       amount: amountNumber.toFixed(),
-      morphoVault: isMorphoProvider
+      morphoVault: !isLegacyApprove
         ? protocolInfo?.approve?.approveTarget
         : undefined,
       accountAddress: account?.address,
@@ -905,12 +906,12 @@ export function UniversalStake({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
   const isShowStakeProgress =
-    isMorphoProvider &&
+    !isLegacyApprove &&
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
   const onConfirmText = useMemo(() => {
-    if (!isMorphoProvider) {
+    if (isLegacyApprove) {
       return intl.formatMessage({ id: ETranslations.global_continue });
     }
     if (shouldApprove) {
@@ -925,7 +926,7 @@ export function UniversalStake({
     }
     return intl.formatMessage({ id: ETranslations.earn_deposit });
   }, [
-    isMorphoProvider,
+    isLegacyApprove,
     shouldApprove,
     intl,
     usePermit2Approve,
