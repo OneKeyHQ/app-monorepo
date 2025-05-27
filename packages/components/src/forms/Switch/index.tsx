@@ -2,8 +2,6 @@ import { useState } from 'react';
 
 import { Switch as TMSwitch, useTheme } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import type { IFormFieldProps } from '../types';
 import type { GetProps } from 'tamagui';
 
