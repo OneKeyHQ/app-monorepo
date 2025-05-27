@@ -1,5 +1,5 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page } from '@onekeyhq/components';
+import { NavBackButton, Page, XStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type ETabMarketRoutes,
@@ -9,7 +9,11 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import {
+  AccountSelectorProviderMirror,
+  AccountSelectorTriggerHome,
+} from '../../../components/AccountSelector';
+import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
@@ -29,11 +33,24 @@ function MarketDetail({
       networkId: 'evm--1',
     });
 
+  const customHeaderLeft = (
+    <XStack gap="$3" ai="center">
+      <NavBackButton />
+      <AccountSelectorTriggerHome num={0} />
+      <NetworkSelectorTriggerHome
+        num={0}
+        recordNetworkHistoryEnabled
+        hideOnNoAccount
+      />
+    </XStack>
+  );
+
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
+        customHeaderLeftItems={customHeaderLeft}
       />
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} />
