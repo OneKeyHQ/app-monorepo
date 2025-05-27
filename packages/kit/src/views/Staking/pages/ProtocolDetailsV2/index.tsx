@@ -271,7 +271,7 @@ function ProtocolRewards({
                   <Token
                     mr="$1.5"
                     size="sm"
-                    tokenImageUri={token.token.logoURI}
+                    tokenImageUri={token.token.info.logoURI}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
                     <SizableText size="$bodyLgMedium" color={token.title.color}>
@@ -292,7 +292,7 @@ function ProtocolRewards({
                         providerName: tokenInfo?.provider,
                       })
                     );
-                    const newRewardToken = token.token;
+                    const newRewardToken = token.token.info;
                     await handleClaim({
                       symbol: protocolInfo?.symbol || '',
                       protocolInfo,
@@ -377,7 +377,7 @@ function PortfolioSection({
               justifyContent="space-between"
             >
               <XStack alignItems="center" gap="$1.5">
-                <Token size="sm" tokenImageUri={item.token.logoURI} />
+                <Token size="sm" tokenImageUri={item.token.info.logoURI} />
                 <FormatHyperlinkText
                   size="$bodyLgMedium"
                   color={item.title.color}
@@ -429,10 +429,10 @@ function PortfolioSection({
                     const claimAmount = protocolInfo?.claimable || '0';
                     const newTokenInfo = {
                       ...tokenInfo,
-                      token: item.token,
+                      token: item.token.info,
                     };
                     await handleClaim({
-                      symbol: item.token.symbol,
+                      symbol: item.token.info.symbol,
                       protocolInfo,
                       tokenInfo: newTokenInfo as IEarnTokenInfo,
                       claimAmount,
@@ -450,13 +450,13 @@ function PortfolioSection({
                         }),
                         protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
-                          token: item.token,
+                          token: item.token.info,
                           amount: claimAmount,
                         },
                         tags: [
                           buildLocalTxStatusSyncId({
                             providerName: newTokenInfo?.provider || '',
-                            tokenSymbol: item.token.symbol,
+                            tokenSymbol: item.token.info.symbol,
                           }),
                         ],
                       },
