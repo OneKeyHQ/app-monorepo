@@ -507,7 +507,7 @@ function TxFeeInfo(props: IProps) {
               maxPriorityFeePerGas,
             } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
 
-            const limit = gasLimit || gas;
+            const limit = new BigNumber(gasLimit || gas || 0).toString(10);
             if (
               maxFeePerGas &&
               maxPriorityFeePerGas &&
@@ -978,15 +978,18 @@ function TxFeeInfo(props: IProps) {
       feeType,
       presetIndex,
       customFeeInfo,
+      source,
     }: {
       feeType: EFeeType;
       presetIndex: number;
       customFeeInfo: IFeeInfoUnit;
+      source?: 'dapp' | 'wallet';
     }) => {
       if (feeType === EFeeType.Custom) {
         updateSendSelectedFee({
           feeType: EFeeType.Custom,
           presetIndex: 0,
+          source,
         });
         updateCustomFee(customFeeInfo);
       } else {
