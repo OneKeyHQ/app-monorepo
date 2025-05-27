@@ -553,6 +553,11 @@ export interface IStakeEarnDetail {
       tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];
     }[];
+    button?: {
+      type: 'portfolio';
+      disabled: boolean;
+      text: IEarnText;
+    };
   };
   timeline: {
     title: IEarnText;
