@@ -352,6 +352,15 @@ interface IRewardToken {
   };
   title: IEarnText;
   description: IEarnText;
+  button: {
+    type: 'claim';
+    text: string;
+    disabled: boolean;
+    data: {
+      balance: string;
+      token: IEarnToken;
+    };
+  };
 }
 
 interface IRewards {
