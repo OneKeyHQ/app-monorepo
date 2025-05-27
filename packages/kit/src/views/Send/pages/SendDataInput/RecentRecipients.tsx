@@ -97,7 +97,6 @@ function RecentRecipients(props: IRecentRecipientsProps) {
           address={recipient.input ?? ''}
           isLocal={!!(recipient.walletAccountName || recipient.addressBookName)}
           showAccount
-          showHierarchyIndicator
           showType={
             vaultSettings?.mergeDeriveAssetsEnabled ||
             recipient.addressDeriveType !== 'default'
