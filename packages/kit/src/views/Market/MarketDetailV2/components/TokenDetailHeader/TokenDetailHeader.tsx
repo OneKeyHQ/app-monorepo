@@ -1,15 +1,17 @@
 import {
-  EPageType,
   Icon,
   SizableText,
   XStack,
   YStack,
   useClipboard,
-  usePageType,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -17,10 +19,11 @@ import { MarketStar } from '../../../components/MarketStar';
 
 export function TokenDetailHeader({
   tokenDetail,
+  networkId,
 }: {
   tokenDetail?: IMarketTokenDetail;
+  networkId?: string;
 }) {
-  const pageType = usePageType();
   const { copyText } = useClipboard();
 
   const {
@@ -28,6 +31,18 @@ export function TokenDetailHeader({
   } = useActiveAccount({
     num: 0,
   });
+
+  const { result: network } = usePromiseResult(
+    () =>
+      networkId
+        ? backgroundApiProxy.serviceNetwork.getNetwork({ networkId })
+        : Promise.resolve(undefined),
+    [networkId],
+    {
+      checkIsFocused: false,
+      overrideIsFocused: () => false,
+    },
+  );
 
   const {
     name = '',
@@ -38,17 +53,13 @@ export function TokenDetailHeader({
     volume24h = '0', // Using volume24h as liquidity
     holders = 0,
     address = '',
+    logoUrl = '',
   } = tokenDetail || {};
 
   const handleCopyAddress = () => {
     if (address) {
       copyText(address);
     }
-  };
-
-  const formatAddress = (addr: string) => {
-    if (!addr) return '';
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
   const priceChangeNum = parseFloat(priceChange24hPercent);
@@ -58,28 +69,38 @@ export function TokenDetailHeader({
     <XStack width="100%" px="$5" pt="$4" pb="$2" jc="space-between">
       {/* Token Symbol and Address */}
       <XStack ai="center" gap="$2">
-        <SizableText size="$heading2xl" color="$text">
-          {symbol}
-        </SizableText>
-        {address ? (
-          <XStack
-            ai="center"
-            gap="$1"
-            px="$2"
-            py="$1"
-            bg="$bgSubdued"
-            borderRadius="$2"
-            onPress={handleCopyAddress}
-            cursor="pointer"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-          >
-            <SizableText size="$bodySm" color="$textSubdued">
-              {formatAddress(address)}
-            </SizableText>
-            <Icon name="Copy1Outline" size="$4" color="$iconSubdued" />
-          </XStack>
-        ) : null}
+        <Token
+          tokenImageUri={logoUrl}
+          networkImageUri={network?.logoURI}
+          fallbackIcon="CryptoCoinOutline"
+        />
+
+        <YStack>
+          <SizableText size="$heading2xl" color="$text">
+            {symbol}
+          </SizableText>
+
+          {address ? (
+            <XStack
+              ai="center"
+              gap="$1"
+              onPress={handleCopyAddress}
+              cursor="pointer"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+            >
+              <SizableText size="$bodySm" color="$textSubdued">
+                {accountUtils.shortenAddress({
+                  address,
+                  leadingLength: 6,
+                  trailingLength: 4,
+                })}
+              </SizableText>
+
+              <Icon name="Copy1Outline" size="$4" color="$iconSubdued" />
+            </XStack>
+          ) : null}
+        </YStack>
       </XStack>
 
       {/* Price and Price Change */}
