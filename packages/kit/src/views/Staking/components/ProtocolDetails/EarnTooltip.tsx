@@ -4,19 +4,18 @@ import {
   Icon,
   IconButton,
   Popover,
-  SizableText,
   Stack,
   XStack,
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type {
   IEarnHistoryActionIcon,
   IEarnRebateTooltip,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
+import { EarnText } from './EarnText';
 import { useShareEvents } from './ShareEventsProvider';
 
 function RewardAmountPopoverContent({
@@ -36,20 +35,14 @@ function RewardAmountPopoverContent({
   return (
     <>
       <XStack>
-        <SizableText
-          size={tooltip?.data.title.size || '$bodyLgMedium'}
-          color={tooltip?.data.title.color}
-        >
-          {tooltip?.data.description.text}
-        </SizableText>
+        <EarnText text={tooltip?.data.title} size="$bodyLgMedium" />
       </XStack>
       <XStack pt="$2">
-        <SizableText
-          size={tooltip?.data.text.size || '$bodySm'}
-          color={tooltip?.data.text.color || '$textSubdued'}
-        >
-          {tooltip?.data.text.text}
-        </SizableText>
+        <EarnText
+          text={tooltip?.data.text}
+          size="$bodySm"
+          color="$textSubdued"
+        />
       </XStack>
       {tooltip?.data.items.map((item, index) => {
         const button = item.button as IEarnHistoryActionIcon;
@@ -61,17 +54,14 @@ function RewardAmountPopoverContent({
             pt="$4"
             onPress={isHistoryButton ? handleHistoryPress : undefined}
           >
-            <FormatHyperlinkText
-              size={item?.title?.size || '$bodyMdMedium'}
-              color={item?.title?.color}
-            >
-              {item?.title?.text}
-            </FormatHyperlinkText>
+            <EarnText text={item?.title} size="$bodyMdMedium" />
             {isHistoryButton ? (
               <XStack gap="$0.5" cursor="pointer">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {button?.text.text}
-                </SizableText>
+                <EarnText
+                  text={button?.text}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                />
                 <Icon
                   name="ChevronRightSmallOutline"
                   color="$iconSubdued"
@@ -110,24 +100,16 @@ export function EarnTooltip({
         <YStack gap="$4">
           {tooltip.data.items.map((item, index) => (
             <XStack jc="space-between" key={index}>
-              <FormatHyperlinkText
-                size={item.title.size || '$bodyLgMedium'}
-                color={item.title.color}
-              >
-                {item.title.text}
-              </FormatHyperlinkText>
-              <FormatHyperlinkText
-                size={item.title.size || '$bodyLgMedium'}
-                color={item.title.color}
-              >
-                {item.description.text}
-              </FormatHyperlinkText>
+              <EarnText text={item.title} size="$bodyLgMedium" />
+              <EarnText text={item.description} size="$bodyLgMedium" />
             </XStack>
           ))}
           {tooltip.data.description ? (
-            <FormatHyperlinkText size="$bodySm" color="$textSubdued">
-              {tooltip.data.description}
-            </FormatHyperlinkText>
+            <EarnText
+              text={{ text: tooltip.data.description }}
+              size="$bodySm"
+              color="$textSubdued"
+            />
           ) : null}
         </YStack>
       );
@@ -137,11 +119,7 @@ export function EarnTooltip({
         <RewardAmountPopoverContent tooltip={tooltip} onHistory={onHistory} />
       );
     }
-    return (
-      <FormatHyperlinkText size={tooltip.data.size} color={tooltip.data.color}>
-        {tooltip.data.text}
-      </FormatHyperlinkText>
-    );
+    return <EarnText text={tooltip.data} />;
   }, [onHistory, tooltip]);
   return tooltip ? (
     <Popover
