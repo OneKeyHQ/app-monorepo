@@ -86,6 +86,7 @@ const AppStateLock = ({
         zIndex={APP_STATE_LOCK_Z_INDEX}
         flex={1}
         bg="$bgApp"
+        pointerEvents={platformEnv.isNative ? undefined : 'auto'}
         {...props}
       >
         <Animated.View style={safeKeyboardAnimationStyle}>
