@@ -53,7 +53,7 @@ function AddressListItem(props: IAddressListItemProps) {
         })}
     >
       {shouldDisplayAccount ? (
-        <SizableText size="$bodyMd" color="$textPrimary">
+        <SizableText size="$bodyMd" color="$textPrimary" numberOfLines={1}>
           {accountName}
         </SizableText>
       ) : null}
