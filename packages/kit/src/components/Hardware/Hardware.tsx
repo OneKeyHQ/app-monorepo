@@ -267,9 +267,9 @@ export function EnterPin({
   const buttonStyles = useMemo(
     () => ({
       delete: {
-        bg: '$bgCriticalStrong',
-        hoverBg: '$bgCriticalStrongHover',
-        pressBg: '$bgCriticalStrongActive',
+        bg: '$bgSubdued',
+        hoverBg: '$bgHover',
+        pressBg: '$bgActive',
       },
       confirm: {
         bg: '$bgPrimary',
@@ -298,10 +298,10 @@ export function EnterPin({
 
   const renderKeyboardItem = useCallback((num: string) => {
     if (num === 'delete') {
-      return <Icon size="$5" name="XBackspaceOutline" color="$textOnColor" />;
+      return <Icon size="$8" name="XBackspaceOutline" color="$iconStrong" />;
     }
     if (num === 'confirm') {
-      return <Icon size="$5" name="CheckLargeOutline" color="$textOnColor" />;
+      return <Icon size="$5" name="CheckLargeOutline" color="$iconOnColor" />;
     }
     return <Stack w="$2.5" h="$2.5" borderRadius="$full" bg="$text" />;
   }, []);
