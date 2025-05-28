@@ -1414,6 +1414,20 @@ function SendDataInputContainer() {
 
   const inputAddressFieldState = form.getFieldState('to');
 
+  const shouldShowRecentRecipients = useMemo(() => {
+    return (
+      !ensureAddressValid &&
+      (!inputAddressFieldState.isDirty ||
+        inputAddressFieldState.invalid ||
+        toPending)
+    );
+  }, [
+    ensureAddressValid,
+    inputAddressFieldState.isDirty,
+    inputAddressFieldState.invalid,
+    toPending,
+  ]);
+
   useEffect(() => {
     if (inputAddressFieldState.isDirty && inputAddressFieldState.invalid) {
       setEnsureAddressValid(false);
@@ -1506,11 +1520,7 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               hideNonBackedUpWallet
             />
-            {!isLightningNetwork &&
-            !ensureAddressValid &&
-            (!inputAddressFieldState.isDirty ||
-              inputAddressFieldState.invalid ||
-              toPending) ? (
+            {shouldShowRecentRecipients ? (
               <RecentRecipients
                 accountId={currentAccount.accountId}
                 networkId={currentAccount.networkId}
@@ -1529,23 +1539,25 @@ function SendDataInputContainer() {
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      <Page.Footer>
-        <Page.FooterActions
-          onConfirm={form.submit}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.send_preview_button,
-          })}
-          confirmButtonProps={{
-            disabled: isSubmitDisabled,
-            loading: isSubmitting,
-          }}
-        />
-        {isShowPercentToolbar ? (
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
+      {shouldShowRecentRecipients ? null : (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirm={form.submit}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.send_preview_button,
+            })}
+            confirmButtonProps={{
+              disabled: isSubmitDisabled,
+              loading: isSubmitting,
+            }}
           />
-        ) : null}
-      </Page.Footer>
+          {isShowPercentToolbar ? (
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          ) : null}
+        </Page.Footer>
+      )}
     </Page>
   );
 }
