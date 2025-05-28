@@ -252,12 +252,15 @@ export function UniversalStake({
 
   const fetchEstimateFeeResp = useCallback(
     async (amount?: string) => {
+      if (shouldApprove && usePermit2Approve) {
+        return undefined;
+      }
       if (!amount) {
-        return Promise.resolve(undefined);
+        return undefined;
       }
       const amountNumber = BigNumber(amount);
       if (amountNumber.isZero() || amountNumber.isNaN()) {
-        return Promise.resolve(undefined);
+        return undefined;
       }
 
       const permitParams: {
