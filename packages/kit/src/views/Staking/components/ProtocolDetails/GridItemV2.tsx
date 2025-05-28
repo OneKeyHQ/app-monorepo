@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -9,26 +9,22 @@ import {
   IconButton,
   Popover,
   SizableText,
-  Stack,
   XStack,
   YStack,
-  usePopoverContext,
 } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnActionIcon,
-  IEarnHistoryActionIcon,
   IEarnIcon,
   IEarnPopupActionIcon,
-  IEarnRebateTooltip,
   IEarnText,
   IEarnToken,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
-import { useShareEvents } from '../../pages/ProtocolDetailsV2/ShareEventsProvider';
+import { EarnTooltip } from '../../pages/ProtocolDetailsV2/EarnTooltip';
 
 function PopupItemLine({
   icon,
@@ -141,73 +137,6 @@ export function ActionPopupContent({
   );
 }
 
-function RewardAmountPopoverContent({
-  tooltip,
-  onHistory,
-}: {
-  tooltip?: IEarnRebateTooltip;
-  onHistory?: (params?: { filterType?: string }) => void;
-}) {
-  const { closePopover } = usePopoverContext();
-  const handleHistoryPress = useCallback(async () => {
-    await closePopover?.();
-    setTimeout(() => {
-      onHistory?.({ filterType: 'rebate' });
-    }, 50);
-  }, [closePopover, onHistory]);
-  return (
-    <YStack p="$5">
-      <XStack>
-        <SizableText
-          size={tooltip?.data.title.size || '$bodyLgMedium'}
-          color={tooltip?.data.title.color}
-        >
-          {tooltip?.data.description.text}
-        </SizableText>
-      </XStack>
-      <XStack pt="$2">
-        <SizableText
-          size={tooltip?.data.text.size || '$bodySm'}
-          color={tooltip?.data.text.color || '$textSubdued'}
-        >
-          {tooltip?.data.text.text}
-        </SizableText>
-      </XStack>
-      {tooltip?.data.items.map((item, index) => {
-        const button = item.button as IEarnHistoryActionIcon;
-        const isHistoryButton = button?.type === 'history' && !button?.disabled;
-        return (
-          <XStack
-            key={index}
-            jc="space-between"
-            pt="$4"
-            onPress={isHistoryButton ? handleHistoryPress : undefined}
-          >
-            <FormatHyperlinkText
-              size={item?.title?.size || '$bodyMdMedium'}
-              color={item?.title?.color}
-            >
-              {item?.title?.text}
-            </FormatHyperlinkText>
-            {isHistoryButton ? (
-              <XStack gap="$0.5" cursor="pointer">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {button?.text.text}
-                </SizableText>
-                <Icon
-                  name="ChevronRightSmallOutline"
-                  color="$iconSubdued"
-                  size="$5"
-                />
-              </XStack>
-            ) : null}
-          </XStack>
-        );
-      })}
-    </YStack>
-  );
-}
-
 export function GridItem({
   title,
   description,
@@ -221,7 +150,6 @@ export function GridItem({
   actionIcon?: IEarnActionIcon;
   type?: 'default' | 'info' | 'alert';
 }) {
-  const { onHistory } = useShareEvents();
   const actionIconButton = useMemo(() => {
     let onPress: undefined | IIconButtonProps['onPress'];
     let icon: IKeyOfIcons | undefined;
@@ -267,61 +195,6 @@ export function GridItem({
     ) : null;
   }, [actionIcon, title.text]);
 
-  const tooltipElement = useMemo(() => {
-    if (tooltip) {
-      switch (tooltip.type) {
-        case 'rebate':
-          return (
-            <Popover
-              placement="top"
-              title={title.text}
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <RewardAmountPopoverContent
-                  tooltip={tooltip}
-                  onHistory={onHistory}
-                />
-              }
-            />
-          );
-        case 'text':
-        default:
-          return (
-            <Popover
-              placement="top"
-              title={title.text}
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <Stack p="$5">
-                  <SizableText
-                    color={tooltip?.data?.color}
-                    size={tooltip?.data?.size}
-                  >
-                    {tooltip?.data?.text}
-                  </SizableText>
-                </Stack>
-              }
-            />
-          );
-      }
-    }
-    return null;
-  }, [onHistory, title.text, tooltip]);
-
   if (type === 'info') {
     return (
       <Alert
@@ -359,7 +232,7 @@ export function GridItem({
         >
           {title.text}
         </SizableText>
-        {tooltipElement}
+        <EarnTooltip title={title.text} tooltip={tooltip} />
       </XStack>
       <XStack gap="$1" alignItems="center">
         {description ? (

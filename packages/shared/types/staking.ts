@@ -436,7 +436,22 @@ export interface IEarnRebateTooltip {
   };
 }
 
-export type IEarnTooltip = IEarnTextTooltip | IEarnRebateTooltip;
+export interface IEarnWithdrawTooltip {
+  type: 'withdraw';
+  data: {
+    title: string;
+    description: string;
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
+  };
+}
+
+export type IEarnTooltip =
+  | IEarnTextTooltip
+  | IEarnRebateTooltip
+  | IEarnWithdrawTooltip;
 
 export interface IEarnClaimActionIcon {
   type: 'claim';

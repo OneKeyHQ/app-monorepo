@@ -63,6 +63,7 @@ import {
 } from '../ProtocolDetails/useHandleActions';
 import { useHandleClaim } from '../ProtocolDetails/useHandleClaim';
 
+import { EarnTooltip } from './EarnTooltip';
 import { FAQSection } from './FAQSection';
 import { ShareEventsContext } from './ShareEventsProvider';
 
@@ -211,36 +212,6 @@ function ProtocolRewards({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
   });
-  const tooltipElement = useMemo(() => {
-    if (rewards?.tooltip) {
-      switch (rewards.tooltip.type) {
-        case 'text':
-        default:
-          return (
-            <Popover
-              title={rewards.title.text}
-              placement="top"
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <Stack p="$5">
-                  <SizableText color="$text" size="$bodyLg">
-                    {rewards.tooltip.data?.text}
-                  </SizableText>
-                </Stack>
-              }
-            />
-          );
-      }
-    }
-    return null;
-  }, [rewards?.title?.text, rewards?.tooltip]);
   return rewards ? (
     <YStack
       gap="$2.5"
@@ -258,7 +229,7 @@ function ProtocolRewards({
         >
           {rewards.title.text}
         </SizableText>
-        {tooltipElement}
+        <EarnTooltip title={rewards?.title?.text} tooltip={rewards?.tooltip} />
       </XStack>
       {rewards?.tokens?.map((token, index) => {
         return (
@@ -366,7 +337,6 @@ function PortfolioSection({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
-  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const onPortfolioDetails = useCallback(() => {
     appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
@@ -420,30 +390,10 @@ function PortfolioSection({
                     <Badge.Text>{item.badge.text.text}</Badge.Text>
                   </Badge>
                 ) : null}
-                {item?.tooltip && item?.tooltip.type === 'text' ? (
-                  <Popover
-                    placement="top"
-                    title={item?.description?.text || ''}
-                    renderTrigger={
-                      <IconButton
-                        iconColor="$iconSubdued"
-                        size="small"
-                        icon="InfoCircleOutline"
-                        variant="tertiary"
-                      />
-                    }
-                    renderContent={
-                      <Stack p="$5">
-                        <SizableText
-                          size={item.tooltip.data.size}
-                          color={item.tooltip.data.color}
-                        >
-                          {item.tooltip.data.text}
-                        </SizableText>
-                      </Stack>
-                    }
-                  />
-                ) : null}
+                <EarnTooltip
+                  title={item?.description?.text}
+                  tooltip={item?.tooltip}
+                />
               </XStack>
               {item?.buttons?.[0]?.type === 'claim' ? (
                 <Button
