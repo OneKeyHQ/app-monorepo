@@ -16,7 +16,7 @@ export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
     render: (_, record) => (
       <TokenIdentityItem
         tokenLogoURI={record.tokenImageUri}
-        networkLogoURI={record.tokenImageUri}
+        networkLogoURI={record.networkLogoUri}
         symbol={record.symbol}
         address={record.address}
       />

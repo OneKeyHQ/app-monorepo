@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Animated, Easing } from 'react-native';
 
@@ -20,6 +20,9 @@ let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
 function MarketHome() {
   const { pageWidth } = useHomePageWidth();
+  const [selectedNetworkId, setSelectedNetworkId] =
+    useState<string>('sol--101'); // 默认选择 Solana
+
   if (CONTENT_ITEM_WIDTH == null) {
     CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
   }
@@ -42,11 +45,14 @@ function MarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        <MarketTokenListNetworkSelector />
+        <MarketTokenListNetworkSelector
+          selectedNetworkId={selectedNetworkId}
+          onSelectNetworkId={setSelectedNetworkId}
+        />
 
         <MarketFilterBar />
 
-        <MarketTokenList />
+        <MarketTokenList networkId={selectedNetworkId} />
       </Page.Body>
     </Page>
   );
