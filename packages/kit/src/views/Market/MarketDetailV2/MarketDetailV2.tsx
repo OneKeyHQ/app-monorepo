@@ -54,6 +54,7 @@ function MarketDetail({
       />
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
+
         <XStack>
           <Stack w="$100">
             <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
