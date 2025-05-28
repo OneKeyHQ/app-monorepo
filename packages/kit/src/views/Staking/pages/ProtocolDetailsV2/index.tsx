@@ -10,7 +10,6 @@ import {
   Divider,
   Icon,
   Image,
-  NumberSizeableText,
   Page,
   XStack,
   YStack,
@@ -19,13 +18,13 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -49,6 +48,7 @@ import { EarnText } from '../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
+import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
@@ -59,7 +59,6 @@ import {
 } from '../ProtocolDetails/useHandleActions';
 
 import { FAQSection } from './FAQSection';
-import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 
 function ManagersSection({
   managers,
@@ -100,6 +99,7 @@ function SubscriptionSection({
   cancelButtonProps: IPageFooterProps['cancelButtonProps'];
 }) {
   const media = useMedia();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const renderActionButtons = useCallback(() => {
     if (!media.gtMd) {
       return null;
@@ -126,33 +126,34 @@ function SubscriptionSection({
     onCancelText,
     onConfirmText,
   ]);
+  const isZero = useMemo(() => {
+    return !subscriptionValue.fiatValue || subscriptionValue.fiatValue === '0';
+  }, [subscriptionValue.fiatValue]);
   return subscriptionValue ? (
     <YStack gap="$8">
       <YStack>
         <EarnText text={subscriptionValue.title} size="$headingLg" pt="$2" />
-        <XStack gap="$2" pt="$2" pb="$1">
-          <NumberSizeableText
-            flex={1}
+        <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
+          <EarnText
+            text={{
+              text: isZero
+                ? `${currencyInfo.symbol} 0.00`
+                : subscriptionValue.fiatValue,
+            }}
             size="$heading4xl"
-            color={
-              subscriptionValue.fiatValue === '0' ? '$textDisabled' : '$text'
-            }
-            formatter="value"
-          >
-            {subscriptionValue.fiatValue || 0}
-          </NumberSizeableText>
+            color={isZero ? '$textDisabled' : '$text'}
+          />
           {renderActionButtons()}
         </XStack>
-        <NumberSizeableText
-          size="$bodyLgMedium"
-          formatter="balance"
-          color="$textSubdued"
-          formatterOptions={{
-            tokenSymbol: subscriptionValue.token.info.symbol,
+        <EarnText
+          text={{
+            text: `${subscriptionValue.formattedValue || 0} ${
+              subscriptionValue.token.info.symbol
+            }`,
           }}
-        >
-          {subscriptionValue.formattedValue || 0}
-        </NumberSizeableText>
+          size="$bodyLgMedium"
+          color="$textSubdued"
+        />
       </YStack>
     </YStack>
   ) : null;
@@ -436,12 +437,11 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                         size="$4"
                         color={i.icon.color || '$iconCaution'}
                       />
-                      <FormatHyperlinkText
-                        size={i.title.size || '$bodySm'}
-                        color={i.title.color || '$textCaution'}
-                      >
-                        {i.title.text}
-                      </FormatHyperlinkText>
+                      <EarnText
+                        text={i.title}
+                        size="$bodySm"
+                        color="$textCaution"
+                      />
                     </XStack>
                   ))}
                 </YStack>
