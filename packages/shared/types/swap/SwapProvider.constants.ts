@@ -559,7 +559,7 @@ export const swapDefaultSetTokens: Record<
       'networkId': 'evm--81457',
       'contractAddress': '',
       'name': 'Ethereum',
-      'symbol': 'BLAST',
+      'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--81457/tokens/native.png',

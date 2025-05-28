@@ -609,11 +609,13 @@ export function useSwapQuote() {
       }
     }
     return () => {
-      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-      appEventBus.off(
-        EAppEventBusNames.SwapApprovingSuccess,
-        swapApprovingSuccessAction,
-      );
+      if (pageType === EPageType.modal) {
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        appEventBus.off(
+          EAppEventBusNames.SwapApprovingSuccess,
+          swapApprovingSuccessAction,
+        );
+      }
     };
   }, [isFocused, pageType, quoteEventHandler, swapApprovingSuccessAction]);
 }
