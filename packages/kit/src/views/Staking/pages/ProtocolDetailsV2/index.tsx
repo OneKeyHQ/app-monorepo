@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import React, { Fragment, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -68,8 +68,8 @@ function ManagersSection({
   return managers?.items?.length ? (
     <XStack pt="$1" pb="$4" gap="$1" px="$5">
       {managers.items.map((item, index) => (
-        <>
-          <XStack key={item.title.text} gap="$1" alignItems="center">
+        <Fragment key={index}>
+          <XStack gap="$1" alignItems="center">
             <Image size="$4" borderRadius="$1" src={item.logoURI} />
             <EarnText text={item.title} size="$bodySm" />
             <EarnText text={item.description} size="$bodySm" />
@@ -79,7 +79,7 @@ function ManagersSection({
               <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
             </XStack>
           ) : null}
-        </>
+        </Fragment>
       ))}
     </XStack>
   ) : null;
@@ -207,7 +207,7 @@ function ProtocolRewards({
       </XStack>
       {rewards?.tokens?.map((token, index) => {
         return (
-          <>
+          <Fragment key={index}>
             <YStack gap="$2.5">
               <XStack
                 alignItems="center"
@@ -244,7 +244,7 @@ function ProtocolRewards({
             {rewards?.tokens.length !== index + 1 ? (
               <Divider my="$1.5" />
             ) : null}
-          </>
+          </Fragment>
         );
       })}
     </YStack>
