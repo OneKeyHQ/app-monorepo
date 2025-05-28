@@ -266,6 +266,7 @@ export interface IEarnText {
 }
 
 export type IProtocolInfo = {
+  stakeTag: string;
   // account with Earn
   earnAccount?:
     | {
@@ -352,6 +353,15 @@ interface IRewardToken {
   };
   title: IEarnText;
   description: IEarnText;
+  button: {
+    type: 'claim';
+    text: string;
+    disabled: boolean;
+    data: {
+      balance: string;
+      token: IEarnToken;
+    };
+  };
 }
 
 interface IRewards {
@@ -377,7 +387,10 @@ export interface IEarnPopupActionIcon {
     }[];
     items?: {
       icon?: IEarnIcon;
-      token?: IEarnToken;
+      token?: {
+        info: IEarnToken;
+        price: string;
+      };
       title: IEarnText;
       value: string;
     }[];
@@ -543,6 +556,11 @@ export interface IStakeEarnDetail {
       tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];
     }[];
+    button?: {
+      type: 'portfolio';
+      disabled: boolean;
+      text: IEarnText;
+    };
   };
   timeline: {
     title: IEarnText;

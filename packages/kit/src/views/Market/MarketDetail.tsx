@@ -362,7 +362,7 @@ export default function MarketDetailWithProvider(
     devSettings.enabled && devSettings.settings?.enableMarketV2;
 
   if (enableMarketV2) {
-    return <MarketDetailV2 {...props} />;
+    return <MarketDetailV2 {...(props as any)} />;
   }
 
   return (

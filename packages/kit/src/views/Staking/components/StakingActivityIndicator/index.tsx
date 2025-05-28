@@ -10,11 +10,15 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IStakeTag } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnHistoryActionIcon,
+  IStakeTag,
+} from '@onekeyhq/shared/types/staking';
 
 type IStakingActivityIndicatorProps = {
   num: number;
   onPress?: () => void;
+  historyAction?: IEarnHistoryActionIcon;
 };
 
 const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
@@ -40,22 +44,27 @@ const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
 const StakingActivityIndicator = ({
   num,
   onPress,
+  historyAction,
 }: IStakingActivityIndicatorProps) => {
   const appNavigation = useAppNavigation();
-  const intl = useIntl();
   const headerRight = useCallback(() => {
     if (num > 0) {
       return <PendingIndicator num={num} onPress={onPress} />;
     }
-    if (onPress) {
+    if (historyAction && onPress) {
       return (
-        <Button variant="tertiary" size="medium" onPress={onPress}>
-          {intl.formatMessage({ id: ETranslations.global_history })}
+        <Button
+          variant="tertiary"
+          size="medium"
+          disabled={historyAction.disabled}
+          onPress={onPress}
+        >
+          {historyAction.text.text}
         </Button>
       );
     }
     return null;
-  }, [intl, num, onPress]);
+  }, [historyAction, num, onPress]);
   useEffect(() => {
     appNavigation.setOptions({
       headerRight,
@@ -70,12 +79,14 @@ export const StakingTransactionIndicator = ({
   stakeTag,
   onRefresh,
   onPress,
+  historyAction,
 }: {
   accountId?: string;
   networkId: string;
   stakeTag: IStakeTag;
   onRefresh?: () => void;
   onPress?: () => void;
+  historyAction?: IEarnHistoryActionIcon;
 }) => {
   const { result: txs, run } = usePromiseResult(
     async () => {
@@ -138,5 +149,11 @@ export const StakingTransactionIndicator = ({
     }
   }, [prevIsPending, isPending, onRefresh]);
 
-  return <StakingActivityIndicator num={txs.length} onPress={onPress} />;
+  return (
+    <StakingActivityIndicator
+      num={txs.length}
+      onPress={onPress}
+      historyAction={historyAction}
+    />
+  );
 };
