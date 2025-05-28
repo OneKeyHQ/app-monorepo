@@ -2,6 +2,7 @@ import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
 import type { INetworkAccount } from './account';
 import type { IFetchTokenDetailItem, IToken } from './token';
+import type { FontSizeTokens } from 'tamagui';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -263,6 +264,7 @@ export type IEarnTokenItem = {
 export interface IEarnText {
   text: string;
   color?: string;
+  size?: FontSizeTokens;
 }
 
 export type IProtocolInfo = {

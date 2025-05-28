@@ -46,7 +46,10 @@ function PopupItemLine({
       <XStack gap="$2" alignItems="center">
         {icon ? <Icon name={icon.icon} size="$5" color={icon.color} /> : null}
         {token ? <Token tokenImageUri={token.logoURI ?? ''} size="xs" /> : null}
-        <SizableText color={title.color || '$textSubdued'} size="$bodyMd">
+        <SizableText
+          color={title.color || '$textSubdued'}
+          size={title?.size || '$bodyMd'}
+        >
           {title.text}
         </SizableText>
       </XStack>
@@ -91,7 +94,10 @@ export function ActionPopupContent({
                 borderRadius="$full"
                 bg="$iconSubdued"
               />
-              <SizableText size="$bodySm" color={text.color || '$textSubdued'}>
+              <SizableText
+                size={text.size || '$bodySm'}
+                color={text.color || '$textSubdued'}
+              >
                 {text.text}
               </SizableText>
             </XStack>
@@ -152,13 +158,16 @@ function RewardAmountPopoverContent({
   return (
     <YStack p="$5">
       <XStack>
-        <SizableText size="$bodyLgMedium" color={tooltip?.data.title.color}>
+        <SizableText
+          size={tooltip?.data.title.size || '$bodyLgMedium'}
+          color={tooltip?.data.title.color}
+        >
           {tooltip?.data.description.text}
         </SizableText>
       </XStack>
       <XStack pt="$2">
         <SizableText
-          size="$bodySm"
+          size={tooltip?.data.text.size || '$bodySm'}
           color={tooltip?.data.text.color || '$textSubdued'}
         >
           {tooltip?.data.text.text}
@@ -175,7 +184,7 @@ function RewardAmountPopoverContent({
             onPress={isHistoryButton ? handleHistoryPress : undefined}
           >
             <FormatHyperlinkText
-              size="$bodyMdMedium"
+              size={item?.title?.size || '$bodyMdMedium'}
               color={item?.title?.color}
             >
               {item?.title?.text}
@@ -298,7 +307,10 @@ export function GridItem({
               }
               renderContent={
                 <Stack p="$5">
-                  <SizableText color={tooltip?.data?.color}>
+                  <SizableText
+                    color={tooltip?.data?.color}
+                    size={tooltip?.data?.size}
+                  >
                     {tooltip?.data?.text}
                   </SizableText>
                 </Stack>
@@ -341,14 +353,20 @@ export function GridItem({
       }}
     >
       <XStack gap="$1" mb="$1">
-        <SizableText size="$bodyMd" color={title.color || '$textSubdued'}>
+        <SizableText
+          size={title?.size || '$bodyMd'}
+          color={title.color || '$textSubdued'}
+        >
           {title.text}
         </SizableText>
         {tooltipElement}
       </XStack>
       <XStack gap="$1" alignItems="center">
         {description ? (
-          <FormatHyperlinkText size="$bodyLgMedium" color={description.color}>
+          <FormatHyperlinkText
+            size={description?.size || '$bodyLgMedium'}
+            color={description.color}
+          >
             {description.text}
           </FormatHyperlinkText>
         ) : null}

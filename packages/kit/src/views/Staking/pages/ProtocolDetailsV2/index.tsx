@@ -77,11 +77,14 @@ function ManagersSection({
         <>
           <XStack key={item.title.text} gap="$1" alignItems="center">
             <Image size="$4" borderRadius="$1" src={item.logoURI} />
-            <SizableText size="$bodySm" color={item.title.color}>
+            <SizableText
+              size={item.title.size || '$bodySm'}
+              color={item.title.color}
+            >
               {item.title.text}
             </SizableText>
             <SizableText
-              size="$bodySm"
+              size={item.description.size || '$bodySm'}
               color={item.description.color || '$textSubdued'}
             >
               {item.description.text}
@@ -251,7 +254,7 @@ function ProtocolRewards({
       <XStack alignItems="center" gap="$1">
         <SizableText
           color={rewards.title.color || '$textSubdued'}
-          size="$bodyMd"
+          size={rewards.title.size || '$bodyMd'}
         >
           {rewards.title.text}
         </SizableText>
@@ -274,7 +277,10 @@ function ProtocolRewards({
                     tokenImageUri={token.token.info.logoURI}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
-                    <SizableText size="$bodyLgMedium" color={token.title.color}>
+                    <SizableText
+                      size={token.title.size || '$bodyLgMedium'}
+                      color={token.title.color}
+                    >
                       {token.title.text}
                     </SizableText>
                   </XStack>
@@ -332,7 +338,7 @@ function ProtocolRewards({
               </XStack>
               <XStack>
                 <SizableText
-                  size="$bodyMd"
+                  size={token.description.size || '$bodyMd'}
                   color={token.description.color || '$textSubdued'}
                 >
                   {token.description.text}
@@ -395,13 +401,13 @@ function PortfolioSection({
               <XStack alignItems="center" gap="$1.5">
                 <Token size="sm" tokenImageUri={item.token.info.logoURI} />
                 <FormatHyperlinkText
-                  size="$bodyLgMedium"
+                  size={item.title.size || '$bodyLgMedium'}
                   color={item.title.color}
                 >
                   {item.title.text}
                 </FormatHyperlinkText>
                 <SizableText
-                  size="$bodyLgMedium"
+                  size={item.description?.size || '$bodyLgMedium'}
                   color={item.description?.color}
                 >
                   {item.description?.text}
@@ -428,7 +434,10 @@ function PortfolioSection({
                     }
                     renderContent={
                       <Stack p="$5">
-                        <SizableText color={item.tooltip.data.color}>
+                        <SizableText
+                          size={item.tooltip.data.size}
+                          color={item.tooltip.data.color}
+                        >
                           {item.tooltip.data.text}
                         </SizableText>
                       </Stack>
@@ -489,7 +498,10 @@ function PortfolioSection({
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <SizableText size="$headingLg" color={portfolios.title.color}>
+          <SizableText
+            size={portfolios.title.size || '$headingLg'}
+            color={portfolios.title.color}
+          >
             {portfolios.title.text}
           </SizableText>
           {portfolios.button && portfolios.button.type === 'portfolio' ? (
@@ -552,7 +564,10 @@ function ProviderSection({
   return provider ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg" color={provider.title.color}>
+        <SizableText
+          size={provider.title.size || '$headingLg'}
+          color={provider.title.color}
+        >
           {provider.title.text}
         </SizableText>
         <XStack flexWrap="wrap" m="$-5" p="$2">
@@ -577,7 +592,10 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
   return risk ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg" color={risk.title.color}>
+        <SizableText
+          size={risk.title.size || '$headingLg'}
+          color={risk.title.color}
+        >
           {risk.title.text}
         </SizableText>
         <YStack gap="$3">
@@ -600,12 +618,15 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                         color={item.icon.color || '$iconCaution'}
                       />
                     </XStack>
-                    <SizableText size="$bodyMdMedium" color={item.title.color}>
+                    <SizableText
+                      size={item.title.size || '$bodyMdMedium'}
+                      color={item.title.color}
+                    >
                       {item.title.text}
                     </SizableText>
                   </XStack>
                   <SizableText
-                    size="$bodyMd"
+                    size={item.description.size || '$bodyMd'}
                     color={item.description.color || '$textSubdued'}
                   >
                     {item.description.text}
@@ -634,7 +655,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                         color={i.icon.color || '$iconCaution'}
                       />
                       <FormatHyperlinkText
-                        size="$bodySm"
+                        size={i.title.size || '$bodySm'}
                         color={i.title.color || '$textCaution'}
                       >
                         {i.title.text}
@@ -985,6 +1006,7 @@ const ProtocolDetailsPage = () => {
               description={detailInfo.countDownAlert.description.text}
               descriptionTextProps={{
                 color: detailInfo.countDownAlert.description.color,
+                size: detailInfo.countDownAlert.description.size,
               }}
               effectiveTimeAt={detailInfo.countDownAlert.endTime}
             />
