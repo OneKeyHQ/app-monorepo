@@ -22,6 +22,10 @@ const BuyOneKeyHardwareWallet = LazyLoadPage(
     ),
 );
 
+const HardwareTroubleshootingModal = LazyLoadPage(
+  () => import('../pages/HardwareTroubleshootingModal'),
+);
+
 export const DeviceManagementStacks: IModalFlowNavigatorConfig<
   EModalDeviceManagementRoutes,
   IModalDeviceManagementParamList
@@ -44,5 +48,9 @@ export const DeviceManagementStacks: IModalFlowNavigatorConfig<
     options: {
       headerShown: false,
     },
+  },
+  {
+    name: EModalDeviceManagementRoutes.HardwareTroubleshootingModal,
+    component: HardwareTroubleshootingModal,
   },
 ];
