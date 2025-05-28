@@ -810,6 +810,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async setPassphraseEnabled(p: ISetPassphraseEnabledParams) {
     const result = await this.deviceSettingsManager.setPassphraseEnabled(p);
     if (result.message) {

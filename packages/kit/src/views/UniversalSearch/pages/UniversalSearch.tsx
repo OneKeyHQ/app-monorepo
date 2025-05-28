@@ -269,7 +269,7 @@ export function UniversalSearch({
         searchResultSections.push({
           tabIndex: 1,
           title: intl.formatMessage({
-            id: ETranslations.global_wallets,
+            id: ETranslations.global_universal_search_tabs_wallets,
           }),
           ...generateDataFn(data),
         });
