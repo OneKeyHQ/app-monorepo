@@ -40,12 +40,15 @@ function PopupItemLine({
   return (
     <XStack gap="$2" alignItems="center" justifyContent="space-between">
       <XStack gap="$2" alignItems="center">
-        {icon ? <Icon name={icon.icon} size="$5" color={icon.color} /> : null}
+        {icon ? (
+          <Icon
+            name={icon.icon}
+            size="$4"
+            color={icon.color || '$iconSubdued'}
+          />
+        ) : null}
         {token ? <Token tokenImageUri={token.logoURI ?? ''} size="xs" /> : null}
-        <SizableText
-          color={title.color || '$textSubdued'}
-          size={title?.size || '$bodyMd'}
-        >
+        <SizableText color={title.color} size={title?.size || '$bodyMd'}>
           {title.text}
         </SizableText>
       </XStack>
@@ -79,7 +82,7 @@ export function ActionPopupContent({
         </YStack>
       ) : null}
       {bulletList?.length ? (
-        <YStack pt="$1.5" gap="$2">
+        <YStack pt="$2" gap="$2">
           {bulletList.map((text, index) => (
             <XStack key={index} gap="$2" ai="center">
               <XStack
@@ -162,7 +165,7 @@ export function GridItem({
         return actionIcon.data.icon ? (
           <Popover
             floatingPanelProps={{
-              w: 320,
+              w: 360,
             }}
             title={title.text}
             renderTrigger={
