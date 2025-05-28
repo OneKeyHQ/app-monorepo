@@ -455,11 +455,18 @@ export interface IEarnClaimActionIcon {
   };
 }
 
+export interface IEarnPortfolioActionIcon {
+  type: 'portfolio';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
   | IEarnClaimActionIcon
-  | IEarnHistoryActionIcon;
+  | IEarnHistoryActionIcon
+  | IEarnPortfolioActionIcon;
 
 interface IEarnCell {
   title: IEarnText;
@@ -569,11 +576,7 @@ export interface IStakeEarnDetail {
       tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];
     }[];
-    button?: {
-      type: 'portfolio';
-      disabled: boolean;
-      text: IEarnText;
-    };
+    button?: IEarnPortfolioActionIcon;
   };
   timeline: {
     title: IEarnText;

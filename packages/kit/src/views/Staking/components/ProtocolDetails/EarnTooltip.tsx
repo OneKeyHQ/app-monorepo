@@ -17,7 +17,7 @@ import type {
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
-import { useShareEvents } from '../../components/ProtocolDetails/ShareEventsProvider';
+import { useShareEvents } from './ShareEventsProvider';
 
 function RewardAmountPopoverContent({
   tooltip,

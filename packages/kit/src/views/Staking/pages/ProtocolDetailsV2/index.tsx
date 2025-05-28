@@ -12,7 +12,6 @@ import {
   Image,
   NumberSizeableText,
   Page,
-  SizableText,
   XStack,
   YStack,
   useMedia,
@@ -39,7 +38,6 @@ import type {
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import {
   PageFrame,
@@ -47,6 +45,8 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnText } from '../../components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
@@ -58,9 +58,8 @@ import {
   useHandleWithdraw,
 } from '../ProtocolDetails/useHandleActions';
 
-import { EarnTooltip } from './EarnTooltip';
 import { FAQSection } from './FAQSection';
-import { ShareEventsContext } from './ShareEventsProvider';
+import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 
 function ManagersSection({
   managers,
@@ -73,18 +72,8 @@ function ManagersSection({
         <>
           <XStack key={item.title.text} gap="$1" alignItems="center">
             <Image size="$4" borderRadius="$1" src={item.logoURI} />
-            <SizableText
-              size={item.title.size || '$bodySm'}
-              color={item.title.color}
-            >
-              {item.title.text}
-            </SizableText>
-            <SizableText
-              size={item.description.size || '$bodySm'}
-              color={item.description.color || '$textSubdued'}
-            >
-              {item.description.text}
-            </SizableText>
+            <EarnText text={item.title} size="$bodySm" />
+            <EarnText text={item.description} size="$bodySm" />
           </XStack>
           {index !== managers.items.length - 1 ? (
             <XStack w="$4" h="$4" ai="center" jc="center">
@@ -140,9 +129,7 @@ function SubscriptionSection({
   return subscriptionValue ? (
     <YStack gap="$8">
       <YStack>
-        <SizableText size="$headingLg" pt="$2">
-          {subscriptionValue.title.text}
-        </SizableText>
+        <EarnText text={subscriptionValue.title} size="$headingLg" pt="$2" />
         <XStack gap="$2" pt="$2" pb="$1">
           <NumberSizeableText
             flex={1}
@@ -183,9 +170,10 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
         px="$4"
       >
         {alerts.map((text, index) => (
-          <SizableText key={index} size="$bodyMd" color="$textSubdued">
-            {text}
-          </SizableText>
+          <EarnText
+            key={index}
+            text={{ text, size: '$bodyMd', color: '$textSubdued' }}
+          />
         ))}
       </YStack>
     );
@@ -213,12 +201,7 @@ function ProtocolRewards({
       bg="$bgSubdued"
     >
       <XStack alignItems="center" gap="$1">
-        <SizableText
-          color={rewards.title.color || '$textSubdued'}
-          size={rewards.title.size || '$bodyMd'}
-        >
-          {rewards.title.text}
-        </SizableText>
+        <EarnText text={rewards.title} size="$bodyMd" color="$textSubdued" />
         <EarnTooltip title={rewards?.title?.text} tooltip={rewards?.tooltip} />
       </XStack>
       {rewards?.tokens?.map((token, index) => {
@@ -238,12 +221,7 @@ function ProtocolRewards({
                     tokenImageUri={token.token.info.logoURI}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
-                    <SizableText
-                      size={token.title.size || '$bodyLgMedium'}
-                      color={token.title.color}
-                    >
-                      {token.title.text}
-                    </SizableText>
+                    <EarnText text={token.title} size="$bodyLgMedium" />
                   </XStack>
                 </XStack>
                 <EarnActionIcon
@@ -255,12 +233,11 @@ function ProtocolRewards({
                 />
               </XStack>
               <XStack>
-                <SizableText
-                  size={token.description.size || '$bodyMd'}
-                  color={token.description.color || '$textSubdued'}
-                >
-                  {token.description.text}
-                </SizableText>
+                <EarnText
+                  text={token.description}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                />
               </XStack>
             </YStack>
             {rewards?.tokens.length !== index + 1 ? (
@@ -284,21 +261,6 @@ function PortfolioSection({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
-  const appNavigation = useAppNavigation();
-  const onPortfolioDetails = useCallback(() => {
-    appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
-      accountId: protocolInfo?.earnAccount?.accountId || '',
-      networkId: tokenInfo?.networkId || '',
-      symbol: protocolInfo?.symbol || '',
-      provider: protocolInfo?.provider || '',
-    });
-  }, [
-    appNavigation,
-    protocolInfo?.earnAccount?.accountId,
-    protocolInfo?.provider,
-    protocolInfo?.symbol,
-    tokenInfo?.networkId,
-  ]);
   const renderItem = useCallback(
     (item: IStakeEarnDetail['portfolios']['items'][0]) => {
       switch (item.type) {
@@ -313,18 +275,8 @@ function PortfolioSection({
             >
               <XStack alignItems="center" gap="$1.5">
                 <Token size="sm" tokenImageUri={item.token.info.logoURI} />
-                <FormatHyperlinkText
-                  size={item.title.size || '$bodyLgMedium'}
-                  color={item.title.color}
-                >
-                  {item.title.text}
-                </FormatHyperlinkText>
-                <SizableText
-                  size={item.description?.size || '$bodyLgMedium'}
-                  color={item.description?.color}
-                >
-                  {item.description?.text}
-                </SizableText>
+                <EarnText text={item.title} size="$bodyLgMedium" />
+                <EarnText text={item.description} size="$bodyLgMedium" />
                 {item?.badge ? (
                   <Badge
                     badgeType={item.badge.badgeType}
@@ -360,22 +312,13 @@ function PortfolioSection({
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <SizableText
-            size={portfolios.title.size || '$headingLg'}
-            color={portfolios.title.color}
-          >
-            {portfolios.title.text}
-          </SizableText>
-          {portfolios.button && portfolios.button.type === 'portfolio' ? (
-            <Button
-              disabled={portfolios.button.disabled}
-              variant="tertiary"
-              iconAfter="ChevronRightOutline"
-              onPress={onPortfolioDetails}
-            >
-              {portfolios?.button.text.text}
-            </Button>
-          ) : null}
+          <EarnText text={portfolios.title} size="$headingLg" />
+          <EarnActionIcon
+            title={portfolios.title.text}
+            actionIcon={portfolios.button}
+            protocolInfo={protocolInfo}
+            tokenInfo={tokenInfo}
+          />
         </XStack>
         <YStack gap="$3">
           {portfolios?.items.length ? (
@@ -399,7 +342,7 @@ function ProfitSection({ profit }: { profit: IStakeEarnDetail['profit'] }) {
   return profit ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg">{profit.title.text}</SizableText>
+        <EarnText text={profit.title} size="$headingLg" />
         <XStack flexWrap="wrap" m="$-5" p="$2">
           {profit.items.map((cell) => (
             <GridItem
@@ -426,12 +369,7 @@ function ProviderSection({
   return provider ? (
     <>
       <YStack gap="$6">
-        <SizableText
-          size={provider.title.size || '$headingLg'}
-          color={provider.title.color}
-        >
-          {provider.title.text}
-        </SizableText>
+        <EarnText text={provider.title} size="$headingLg" />
         <XStack flexWrap="wrap" m="$-5" p="$2">
           {provider.items.map((cell) => (
             <GridItem
@@ -454,12 +392,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
   return risk ? (
     <>
       <YStack gap="$6">
-        <SizableText
-          size={risk.title.size || '$headingLg'}
-          color={risk.title.color}
-        >
-          {risk.title.text}
-        </SizableText>
+        <EarnText text={risk.title} size="$headingLg" />
         <YStack gap="$3">
           {risk.items?.map((item) => (
             <>
@@ -480,19 +413,13 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                         color={item.icon.color || '$iconCaution'}
                       />
                     </XStack>
-                    <SizableText
-                      size={item.title.size || '$bodyMdMedium'}
-                      color={item.title.color}
-                    >
-                      {item.title.text}
-                    </SizableText>
+                    <EarnText text={item.title} size="$bodyMdMedium" />
                   </XStack>
-                  <SizableText
-                    size={item.description.size || '$bodyMd'}
+                  <EarnText
+                    text={item.description}
+                    size="$bodyMd"
                     color={item.description.color || '$textSubdued'}
-                  >
-                    {item.description.text}
-                  </SizableText>
+                  />
                 </YStack>
                 <EarnActionIcon
                   title={item.title.text}

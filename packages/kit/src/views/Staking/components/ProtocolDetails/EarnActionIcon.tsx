@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -13,18 +13,21 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import {
-  EEarnLabels,
-  type IEarnActionIcon,
-  type IEarnClaimActionIcon,
-  type IEarnIcon,
-  type IEarnPopupActionIcon,
-  type IEarnText,
-  type IEarnToken,
-  type IEarnTokenInfo,
-  type IProtocolInfo,
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnActionIcon,
+  IEarnClaimActionIcon,
+  IEarnIcon,
+  IEarnPopupActionIcon,
+  IEarnPortfolioActionIcon,
+  IEarnText,
+  IEarnToken,
+  IEarnTokenInfo,
+  IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
@@ -143,6 +146,45 @@ export function ActionPopupContent({
   );
 }
 
+function BasicPortfolioActionIcon({
+  actionIcon,
+  protocolInfo,
+  tokenInfo,
+}: {
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
+  actionIcon: IEarnPortfolioActionIcon;
+}) {
+  const appNavigation = useAppNavigation();
+
+  const onPortfolioDetails = useCallback(() => {
+    appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
+      accountId: protocolInfo?.earnAccount?.accountId || '',
+      networkId: tokenInfo?.networkId || '',
+      symbol: protocolInfo?.symbol || '',
+      provider: protocolInfo?.provider || '',
+    });
+  }, [
+    appNavigation,
+    protocolInfo?.earnAccount?.accountId,
+    protocolInfo?.provider,
+    protocolInfo?.symbol,
+    tokenInfo?.networkId,
+  ]);
+  return (
+    <Button
+      disabled={actionIcon.disabled}
+      variant="tertiary"
+      iconAfter="ChevronRightOutline"
+      onPress={onPortfolioDetails}
+    >
+      {actionIcon.text.text}
+    </Button>
+  );
+}
+
+const PortfolioActionIcon = memo(BasicPortfolioActionIcon);
+
 function BasicClaimActionIcon({
   actionIcon,
   protocolInfo,
@@ -231,6 +273,14 @@ function BasicEarnActionIcon({
       icon = 'OpenOutline';
       onPress = () => openUrlExternal(actionIcon.data.link);
       break;
+    case 'portfolio':
+      return (
+        <PortfolioActionIcon
+          actionIcon={actionIcon}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
+        />
+      );
     case 'claim':
       return (
         <ClaimActionIcon

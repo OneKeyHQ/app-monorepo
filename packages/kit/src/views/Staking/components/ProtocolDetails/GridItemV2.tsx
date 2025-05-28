@@ -1,14 +1,13 @@
-import { Alert, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { Alert, XStack, YStack } from '@onekeyhq/components';
 import type {
   IEarnActionIcon,
   IEarnText,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
-import { EarnTooltip } from '../../pages/ProtocolDetailsV2/EarnTooltip';
-
 import { EarnActionIcon } from './EarnActionIcon';
+import { EarnText } from './EarnText';
+import { EarnTooltip } from './EarnTooltip';
 
 export function GridItem({
   title,
@@ -54,23 +53,11 @@ export function GridItem({
       }}
     >
       <XStack gap="$1" mb="$1">
-        <SizableText
-          size={title?.size || '$bodyMd'}
-          color={title.color || '$textSubdued'}
-        >
-          {title.text}
-        </SizableText>
+        <EarnText text={title} size="$bodyMd" color="$textSubdued" />
         <EarnTooltip title={title.text} tooltip={tooltip} />
       </XStack>
       <XStack gap="$1" alignItems="center">
-        {description ? (
-          <FormatHyperlinkText
-            size={description?.size || '$bodyLgMedium'}
-            color={description.color}
-          >
-            {description.text}
-          </FormatHyperlinkText>
-        ) : null}
+        <EarnText text={description} size="$bodyLgMedium" />
         <EarnActionIcon title={title.text} actionIcon={actionIcon} />
       </XStack>
     </YStack>

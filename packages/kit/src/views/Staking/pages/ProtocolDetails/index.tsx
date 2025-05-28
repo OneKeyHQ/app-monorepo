@@ -38,7 +38,7 @@ import { StakingTransactionIndicator } from '../../components/StakingActivityInd
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
-import { ShareEventsContext } from '../ProtocolDetailsV2/ShareEventsProvider';
+import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
 import { useHandleClaim } from './useHandleClaim';
