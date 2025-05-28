@@ -279,56 +279,56 @@ function ProtocolRewards({
                     </SizableText>
                   </XStack>
                 </XStack>
-                <Button
-                  size="small"
-                  variant="primary"
-                  onPress={async () => {
-                    // TODO: need fiatValue
-                    const claimAmount =
-                      token?.title?.text?.split(' ')?.[0] || '0';
-                    const isMorphoClaim = !!(
-                      tokenInfo?.provider &&
-                      earnUtils.isMorphoProvider({
-                        providerName: tokenInfo?.provider,
-                      })
-                    );
-                    const newRewardToken = token.token.info;
-                    await handleClaim({
-                      symbol: protocolInfo?.symbol || '',
-                      protocolInfo,
-                      tokenInfo: tokenInfo
-                        ? {
-                            ...tokenInfo,
-                            token: newRewardToken,
-                          }
-                        : undefined,
-                      claimAmount,
-                      claimTokenAddress: newRewardToken.address,
-                      isMorphoClaim,
-                      stakingInfo: {
-                        label: EEarnLabels.Claim,
-                        protocol: earnUtils.getEarnProviderName({
-                          providerName: tokenInfo?.provider || '',
-                        }),
-                        protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                        receive: {
-                          token: newRewardToken,
-                          amount: claimAmount,
-                        },
-                        tags: [
-                          buildLocalTxStatusSyncId({
+                {token?.button.type === 'claim' ? (
+                  <Button
+                    size="small"
+                    variant="primary"
+                    disabled={token?.button?.disabled}
+                    onPress={async () => {
+                      // TODO: need fiatValue
+                      const claimAmount =
+                        token?.title?.text?.split(' ')?.[0] || '0';
+                      const isMorphoClaim = !!(
+                        tokenInfo?.provider &&
+                        earnUtils.isMorphoProvider({
+                          providerName: tokenInfo?.provider,
+                        })
+                      );
+                      const newRewardToken = token.token.info;
+                      await handleClaim({
+                        symbol: protocolInfo?.symbol || '',
+                        protocolInfo,
+                        tokenInfo: tokenInfo
+                          ? {
+                              ...tokenInfo,
+                              token: newRewardToken,
+                            }
+                          : undefined,
+                        claimAmount,
+                        claimTokenAddress: newRewardToken.address,
+                        isMorphoClaim,
+                        stakingInfo: {
+                          label: EEarnLabels.Claim,
+                          protocol: earnUtils.getEarnProviderName({
                             providerName: tokenInfo?.provider || '',
-                            tokenSymbol: newRewardToken.symbol,
                           }),
-                        ],
-                      },
-                    });
-                  }}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.earn_claim,
-                  })}
-                </Button>
+                          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+                          receive: {
+                            token: newRewardToken,
+                            amount: claimAmount,
+                          },
+                          tags: protocolInfo?.stakeTag
+                            ? [protocolInfo.stakeTag]
+                            : [],
+                        },
+                      });
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.earn_claim,
+                    })}
+                  </Button>
+                ) : null}
               </XStack>
               <XStack>
                 <SizableText
@@ -360,6 +360,22 @@ function PortfolioSection({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
+  const intl = useIntl();
+  const appNavigation = useAppNavigation();
+  const onPortfolioDetails = useCallback(() => {
+    appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
+      accountId: protocolInfo?.earnAccount?.accountId || '',
+      networkId: tokenInfo?.networkId || '',
+      symbol: protocolInfo?.symbol || '',
+      provider: protocolInfo?.provider || '',
+    });
+  }, [
+    appNavigation,
+    protocolInfo?.earnAccount?.accountId,
+    protocolInfo?.provider,
+    protocolInfo?.symbol,
+    tokenInfo?.networkId,
+  ]);
   const handleClaim = useHandleClaim({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
@@ -453,12 +469,9 @@ function PortfolioSection({
                           token: item.token.info,
                           amount: claimAmount,
                         },
-                        tags: [
-                          buildLocalTxStatusSyncId({
-                            providerName: newTokenInfo?.provider || '',
-                            tokenSymbol: item.token.info.symbol,
-                          }),
-                        ],
+                        tags: protocolInfo?.stakeTag
+                          ? [protocolInfo.stakeTag]
+                          : [],
                       },
                     });
                   }}
@@ -479,6 +492,16 @@ function PortfolioSection({
           <SizableText size="$headingLg" color={portfolios.title.color}>
             {portfolios.title.text}
           </SizableText>
+          {portfolios.button && portfolios.button.type === 'portfolio' ? (
+            <Button
+              disabled={portfolios.button.disabled}
+              variant="tertiary"
+              iconAfter="ChevronRightOutline"
+              onPress={onPortfolioDetails}
+            >
+              {portfolios?.button.text.text}
+            </Button>
+          ) : null}
         </XStack>
         <YStack gap="$3">
           {portfolios?.items.length ? (
@@ -752,6 +775,10 @@ const ProtocolDetailsPage = () => {
           earnAccount,
           activeBalance: withdrawAction?.data?.balance,
           eventEndTime: detailInfo?.countDownAlert?.endTime,
+          stakeTag: buildLocalTxStatusSyncId({
+            providerName: provider,
+            tokenSymbol: symbol,
+          }),
 
           // withdraw
           overflowBalance: detailInfo.nums?.overflow,
@@ -776,6 +803,8 @@ const ProtocolDetailsPage = () => {
     detailInfo?.nums?.overflow,
     detailInfo?.protocol,
     earnAccount,
+    provider,
+    symbol,
   ]);
 
   const onStake = useCallback(async () => {
@@ -825,23 +854,11 @@ const ProtocolDetailsPage = () => {
     tokenInfo,
   ]);
 
-  // const onPortfolioDetails = useMemo(
-  //   () =>
-  //     networkUtils.isBTCNetwork(networkId) && earnAccount?.accountId
-  //       ? () => {
-  //           appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
-  //             accountId: earnAccount?.accountId,
-  //             networkId,
-  //             symbol,
-  //             provider,
-  //           });
-  //         }
-  //       : undefined,
-  //   [appNavigation, earnAccount?.accountId, networkId, symbol, provider],
-  // );
+  const historyAction = useMemo(() => {
+    return detailInfo?.actions.find((i) => i.type === 'history');
+  }, [detailInfo?.actions]);
 
   const onHistory = useMemo(() => {
-    const historyAction = detailInfo?.actions.find((i) => i.type === 'history');
     if (historyAction?.disabled || !earnAccount?.accountId) {
       return undefined;
     }
@@ -852,23 +869,19 @@ const ProtocolDetailsPage = () => {
         networkId,
         symbol,
         provider,
-        stakeTag: buildLocalTxStatusSyncId({
-          providerName: tokenInfo?.provider || '',
-          tokenSymbol: tokenInfo?.token.symbol || '',
-        }),
+        stakeTag: protocolInfo?.stakeTag || '',
         morphoVault: vault,
         filterType,
       });
     };
   }, [
     appNavigation,
-    detailInfo?.actions,
     earnAccount?.accountId,
+    historyAction?.disabled,
     networkId,
+    protocolInfo?.stakeTag,
     provider,
     symbol,
-    tokenInfo?.provider,
-    tokenInfo?.token.symbol,
     vault,
   ]);
 
@@ -1026,10 +1039,8 @@ const ProtocolDetailsPage = () => {
                 <StakingTransactionIndicator
                   accountId={earnAccount?.accountId ?? ''}
                   networkId={networkId}
-                  stakeTag={buildLocalTxStatusSyncId({
-                    providerName: tokenInfo?.provider || '',
-                    tokenSymbol: tokenInfo?.token.symbol || '',
-                  })}
+                  stakeTag={protocolInfo?.stakeTag || ''}
+                  historyAction={historyAction}
                   onRefresh={run}
                   onPress={onHistory}
                 />

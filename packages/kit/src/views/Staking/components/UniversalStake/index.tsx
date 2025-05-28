@@ -75,7 +75,6 @@ import { formatStakingDistanceToNowStrict } from '../utils';
 type IUniversalStakeProps = {
   accountId: string;
   networkId: string;
-  price: string;
   balance: string;
 
   tokenImageUri?: string;
@@ -112,7 +111,6 @@ type IUniversalStakeProps = {
 export function UniversalStake({
   accountId,
   networkId,
-  price,
   balance,
   decimals,
   minTransactionFee = '0',
@@ -225,7 +223,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: !isLegacyApprove
+          vault: isMorphoProvider
             ? protocolInfo?.approve?.approveTarget || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
@@ -238,7 +236,7 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
-      isLegacyApprove,
+      isMorphoProvider,
       protocolInfo?.approve?.approveTarget,
       protocolInfo?.earnAccount?.accountAddress,
     ],
@@ -252,55 +250,62 @@ export function UniversalStake({
     350,
   );
 
-  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    if (!amount) {
-      setEstimateFeeResp(undefined);
-      return;
-    }
-    const amountNumber = BigNumber(amount);
-    if (amountNumber.isZero() || amountNumber.isNaN()) {
-      return;
-    }
-
-    const permitParams: {
-      approveType?: 'permit';
-      permitSignature?: string;
-    } = {};
-
-    if (usePermit2Approve) {
-      if (shouldApprove) {
-        return undefined;
+  const fetchEstimateFeeResp = useCallback(
+    async (amount?: string) => {
+      if (!amount) {
+        return Promise.resolve(undefined);
+      }
+      const amountNumber = BigNumber(amount);
+      if (amountNumber.isZero() || amountNumber.isNaN()) {
+        return Promise.resolve(undefined);
       }
 
-      permitParams.approveType = EApproveType.Permit;
+      const permitParams: {
+        approveType?: 'permit';
+        permitSignature?: string;
+      } = {};
 
-      if (permitSignatureRef.current) {
-        const amountBN = BigNumber(amount);
-        const allowanceBN = BigNumber(allowance);
-        if (amountBN.gt(allowanceBN)) {
-          permitParams.permitSignature = permitSignatureRef.current;
+      if (usePermit2Approve && !shouldApprove) {
+        permitParams.approveType = EApproveType.Permit;
+        if (permitSignatureRef.current) {
+          const amountBN = BigNumber(amount);
+          const allowanceBN = BigNumber(allowance);
+          if (amountBN.gt(allowanceBN)) {
+            permitParams.permitSignature = permitSignatureRef.current;
+          }
         }
       }
-    }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId,
+        provider: providerName,
+        symbol: tokenInfo?.token.symbol || '',
+        action: shouldApprove ? 'approve' : 'stake',
+        amount: amountNumber.toFixed(),
+        morphoVault: isMorphoProvider
+          ? protocolInfo?.approve?.approveTarget
+          : undefined,
+        accountAddress: account?.address,
+        ...permitParams,
+      });
+      return resp;
+    },
+    [
       accountId,
+      allowance,
+      isMorphoProvider,
       networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: tokenInfo?.token.symbol || '',
-      action: shouldApprove ? 'approve' : 'stake',
-      amount: amountNumber.toFixed(),
-      morphoVault: isMorphoProvider
-        ? protocolInfo?.approve?.approveTarget
-        : undefined,
-      accountAddress: account?.address,
-      ...permitParams,
-    });
-    return resp;
-  }, 350);
+      protocolInfo?.approve?.approveTarget,
+      providerName,
+      shouldApprove,
+      tokenInfo?.token.symbol,
+      usePermit2Approve,
+    ],
+  );
 
   const debouncedFetchEstimateFeeResp = useDebouncedCallback(
     async (amount?: string) => {
@@ -457,12 +462,12 @@ export function UniversalStake({
   );
 
   const currentValue = useMemo<string | undefined>(() => {
-    if (Number(amountValue) > 0 && Number(price) > 0) {
+    if (Number(amountValue) > 0 && Number(tokenInfo?.price) > 0) {
       const amountValueBn = new BigNumber(amountValue);
-      return amountValueBn.multipliedBy(price).toFixed();
+      return amountValueBn.multipliedBy(tokenInfo?.price ?? '0').toFixed();
     }
     return undefined;
-  }, [amountValue, price]);
+  }, [amountValue, tokenInfo?.price]);
 
   const isInsufficientBalance = useMemo<boolean>(
     () => new BigNumber(amountValue).gt(balance),
