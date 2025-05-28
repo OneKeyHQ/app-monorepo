@@ -840,7 +840,7 @@ function BasicEarnHome() {
               provider,
               symbol,
               networkId,
-              vault,
+              vault: vault ?? '',
             });
           }
           return;
@@ -894,7 +894,7 @@ function BasicEarnHome() {
   return (
     <Page fullPage>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
+        sceneName={EAccountSelectorSceneName.swap}
         tabRoute={ETabRoutes.Earn}
       >
         {/* {headerRight} */}
@@ -1012,12 +1012,12 @@ export default function EarnHome() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName: EAccountSelectorSceneName.swap,
         sceneUrl: '',
       }}
-      enabledNum={[0]}
+      enabledNum={[0, 1]}
     >
-      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.swap}>
         <BasicEarnHome />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
