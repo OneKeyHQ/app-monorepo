@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import {
   calculateFeeForSend,
+  calculateTotalFeeRange,
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
@@ -498,7 +499,68 @@ function TxFeeInfo(props: IProps) {
         if (network && !feeInTxUpdated.current) {
           let originalFeeChanged = false;
 
-          if (useFeeInTx) {
+          const defaultCustomFeeEnabled =
+            defaultCustomFeeInfo?.enabled && defaultCustomFeeInfo?.feeInfo;
+
+          // Saved custom fee has the highest priority
+          if (defaultCustomFeeEnabled) {
+            customFeeInfo = {
+              ...customFeeInfo,
+              ...defaultCustomFeeInfo.feeInfo,
+
+              // for gas & gasEIP1559, always use latest gasLimit
+              gas: customFeeInfo.gas
+                ? {
+                    ...customFeeInfo.gas,
+                    gasPrice: defaultCustomFeeInfo.feeInfo.gas?.gasPrice ?? '',
+                  }
+                : undefined,
+              gasEIP1559: customFeeInfo.gasEIP1559
+                ? {
+                    ...customFeeInfo.gasEIP1559,
+                    baseFeePerGas:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.baseFeePerGas ??
+                      customFeeInfo.gasEIP1559?.baseFeePerGas ??
+                      '',
+                    maxFeePerGas:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.maxFeePerGas ??
+                      customFeeInfo.gasEIP1559?.maxFeePerGas ??
+                      '',
+                    maxPriorityFeePerGas:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559
+                        ?.maxPriorityFeePerGas ??
+                      customFeeInfo.gasEIP1559?.maxPriorityFeePerGas ??
+                      '',
+                    confidence:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.confidence ??
+                      customFeeInfo.gasEIP1559?.confidence ??
+                      0,
+                    gasPrice:
+                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.gasPrice ??
+                      customFeeInfo.gasEIP1559?.gasPrice ??
+                      '',
+                  }
+                : undefined,
+
+              feeBudget: customFeeInfo.feeBudget
+                ? {
+                    ...customFeeInfo.feeBudget,
+                    gasPrice:
+                      defaultCustomFeeInfo.feeInfo.feeBudget?.gasPrice ??
+                      customFeeInfo.feeBudget?.gasPrice ??
+                      '',
+                  }
+                : undefined,
+            };
+
+            originalFeeChanged = true;
+          } else if (useFeeInTx) {
+            const selectedFeeResult = calculateTotalFeeRange({
+              feeInfo: customFeeInfo,
+              txSize: unsignedTxs?.[0]?.txSize ?? 0,
+              estimateFeeParams,
+            });
+
             const {
               gas,
               gasLimit,
@@ -558,67 +620,27 @@ function TxFeeInfo(props: IProps) {
                 originalFeeChanged = true;
               }
             }
-          } else if (
-            defaultCustomFeeInfo?.enabled &&
-            defaultCustomFeeInfo?.feeInfo
-          ) {
-            customFeeInfo = {
-              ...customFeeInfo,
-              ...defaultCustomFeeInfo.feeInfo,
 
-              // for gas & gasEIP1559, always use latest gasLimit
-              gas: customFeeInfo.gas
-                ? {
-                    ...customFeeInfo.gas,
-                    gasPrice: defaultCustomFeeInfo.feeInfo.gas?.gasPrice ?? '',
-                  }
-                : undefined,
-              gasEIP1559: customFeeInfo.gasEIP1559
-                ? {
-                    ...customFeeInfo.gasEIP1559,
-                    baseFeePerGas:
-                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.baseFeePerGas ??
-                      customFeeInfo.gasEIP1559?.baseFeePerGas ??
-                      '',
-                    maxFeePerGas:
-                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.maxFeePerGas ??
-                      customFeeInfo.gasEIP1559?.maxFeePerGas ??
-                      '',
-                    maxPriorityFeePerGas:
-                      defaultCustomFeeInfo.feeInfo.gasEIP1559
-                        ?.maxPriorityFeePerGas ??
-                      customFeeInfo.gasEIP1559?.maxPriorityFeePerGas ??
-                      '',
-                    confidence:
-                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.confidence ??
-                      customFeeInfo.gasEIP1559?.confidence ??
-                      0,
-                    gasPrice:
-                      defaultCustomFeeInfo.feeInfo.gasEIP1559?.gasPrice ??
-                      customFeeInfo.gasEIP1559?.gasPrice ??
-                      '',
-                  }
-                : undefined,
+            const dappFeeResult = calculateTotalFeeRange({
+              feeInfo: customFeeInfo,
+              txSize: unsignedTxs?.[0]?.txSize ?? 0,
+              estimateFeeParams,
+            });
 
-              feeBudget: customFeeInfo.feeBudget
-                ? {
-                    ...customFeeInfo.feeBudget,
-                    gasPrice:
-                      defaultCustomFeeInfo.feeInfo.feeBudget?.gasPrice ??
-                      customFeeInfo.feeBudget?.gasPrice ??
-                      '',
-                  }
-                : undefined,
-            };
+            console.log('selectedFeeResult >>>>>>>>>>>>>', selectedFeeResult);
+            console.log('dappFeeResult >>>>>>>>>>>>>', dappFeeResult);
 
-            originalFeeChanged = true;
+            if (new BigNumber(dappFeeResult.max).gte(selectedFeeResult.max)) {
+              originalFeeChanged = false;
+            }
           }
 
           if (originalFeeChanged) {
             updateSendSelectedFee({
               feeType: EFeeType.Custom,
               presetIndex: 0,
-              source: useFeeInTx ? 'dapp' : 'wallet',
+              source:
+                useFeeInTx && !defaultCustomFeeEnabled ? 'dapp' : 'wallet',
             });
             updateCustomFee(customFeeInfo);
           }
@@ -712,6 +734,7 @@ function TxFeeInfo(props: IProps) {
     customFee?.feeNeoN3,
     defaultCustomFeeInfo?.enabled,
     defaultCustomFeeInfo?.feeInfo,
+    estimateFeeParams,
     updateSendSelectedFee,
     updateCustomFee,
   ]);
