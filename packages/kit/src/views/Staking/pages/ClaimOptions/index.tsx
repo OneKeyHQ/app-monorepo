@@ -108,6 +108,7 @@ const ClaimOptions = () => {
       provider,
       protocolInfo?.approve?.approveTarget,
       protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.stakeTag,
       tokenInfo?.token,
       appNavigation,
       accountId,

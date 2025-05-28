@@ -803,6 +803,8 @@ const ProtocolDetailsPage = () => {
     detailInfo?.nums?.overflow,
     detailInfo?.protocol,
     earnAccount,
+    provider,
+    symbol,
   ]);
 
   const onStake = useCallback(async () => {
