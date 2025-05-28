@@ -65,7 +65,7 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { ActionPopupContent } from '../ProtocolDetails/GridItemV2';
+import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
@@ -1039,29 +1039,10 @@ export function UniversalStake({
             >
               {protocolInfo.apyDetail.description.text}
             </SizableText>
-            {protocolInfo?.apyDetail.button.type === 'popup' ? (
-              <Popover
-                floatingPanelProps={{
-                  w: 320,
-                }}
-                title={protocolInfo.apyDetail.title.text}
-                renderTrigger={
-                  <IconButton
-                    icon="CoinsAddOutline"
-                    size="small"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <ActionPopupContent
-                    bulletList={protocolInfo.apyDetail.button.data.bulletList}
-                    items={protocolInfo.apyDetail.button.data.items}
-                    panel={protocolInfo.apyDetail.button.data.panel}
-                  />
-                }
-                placement="top"
-              />
-            ) : null}
+            <EarnActionIcon
+              title={protocolInfo.apyDetail.title.text}
+              actionIcon={protocolInfo.apyDetail.button}
+            />
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">

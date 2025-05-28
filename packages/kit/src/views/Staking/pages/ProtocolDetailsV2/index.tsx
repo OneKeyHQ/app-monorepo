@@ -40,6 +40,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  IEarnClaimActionIcon,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -51,6 +52,7 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
@@ -262,9 +264,8 @@ function ProtocolRewards({
                     variant="primary"
                     disabled={token?.button?.disabled}
                     onPress={async () => {
-                      // TODO: need fiatValue
                       const claimAmount =
-                        token?.title?.text?.split(' ')?.[0] || '0';
+                        (token.button as IEarnClaimActionIcon).balance || '0';
                       const isMorphoClaim = !!(
                         tokenInfo?.provider &&
                         earnUtils.isMorphoProvider({
@@ -582,17 +583,10 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                     {item.description.text}
                   </SizableText>
                 </YStack>
-                {item?.actionButton?.type === 'link' ? (
-                  <IconButton
-                    icon="OpenOutline"
-                    color="$iconSubdued"
-                    size="small"
-                    bg="transparent"
-                    onPress={() => {
-                      openUrlExternal(item?.actionButton?.data?.link);
-                    }}
-                  />
-                ) : null}
+                <EarnActionIcon
+                  title={item.title.text}
+                  actionIcon={item.actionButton}
+                />
               </XStack>
 
               {item.list?.length ? (
