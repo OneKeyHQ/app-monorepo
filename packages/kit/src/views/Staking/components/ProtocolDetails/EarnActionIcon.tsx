@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 
 import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
+  Button,
   Icon,
   IconButton,
   Popover,
@@ -12,14 +13,21 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type {
-  IEarnActionIcon,
-  IEarnIcon,
-  IEarnPopupActionIcon,
-  IEarnText,
-  IEarnToken,
+import {
+  EEarnLabels,
+  type IEarnActionIcon,
+  type IEarnClaimActionIcon,
+  type IEarnIcon,
+  type IEarnPopupActionIcon,
+  type IEarnText,
+  type IEarnToken,
+  type IEarnTokenInfo,
+  type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
+
+import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
 function PopupItemLine({
   icon,
@@ -135,12 +143,83 @@ export function ActionPopupContent({
   );
 }
 
+function BasicClaimActionIcon({
+  actionIcon,
+  protocolInfo,
+  tokenInfo,
+  token,
+}: {
+  actionIcon: IEarnClaimActionIcon;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
+  token?: IEarnToken;
+}) {
+  const handleClaim = useHandleClaim({
+    accountId: protocolInfo?.earnAccount?.accountId || '',
+    networkId: tokenInfo?.networkId || '',
+  });
+  return (
+    <Button
+      size="small"
+      variant="primary"
+      disabled={actionIcon?.disabled}
+      onPress={async () => {
+        const claimAmount =
+          protocolInfo?.claimable || actionIcon.data?.balance || '0';
+        const isMorphoClaim = !!(
+          tokenInfo?.provider &&
+          earnUtils.isMorphoProvider({
+            providerName: tokenInfo?.provider,
+          })
+        );
+        await handleClaim({
+          symbol: protocolInfo?.symbol || '',
+          protocolInfo,
+          tokenInfo: tokenInfo
+            ? {
+                ...tokenInfo,
+                token: token as IEarnToken,
+              }
+            : undefined,
+          claimAmount,
+          claimTokenAddress: token?.address,
+          isMorphoClaim,
+          stakingInfo: {
+            label: EEarnLabels.Claim,
+            protocol: earnUtils.getEarnProviderName({
+              providerName: tokenInfo?.provider || '',
+            }),
+            protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+            receive: {
+              token: token as IEarnToken,
+              amount: claimAmount,
+            },
+            tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+          },
+        });
+      }}
+    >
+      {typeof actionIcon.text === 'string'
+        ? actionIcon.text
+        : actionIcon.text.text}
+    </Button>
+  );
+}
+
+const ClaimActionIcon = memo(BasicClaimActionIcon);
+
 function BasicEarnActionIcon({
   title,
   actionIcon,
+  protocolInfo,
+  tokenInfo,
+  token,
 }: {
   title?: string;
   actionIcon?: IEarnActionIcon;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
+  token?: IEarnToken;
 }) {
   if (!actionIcon) {
     return null;
@@ -152,6 +231,15 @@ function BasicEarnActionIcon({
       icon = 'OpenOutline';
       onPress = () => openUrlExternal(actionIcon.data.link);
       break;
+    case 'claim':
+      return (
+        <ClaimActionIcon
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
+          token={token}
+          actionIcon={actionIcon}
+        />
+      );
     case 'popup':
       return actionIcon.data.icon ? (
         <Popover

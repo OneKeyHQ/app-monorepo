@@ -355,15 +355,7 @@ interface IRewardToken {
   };
   title: IEarnText;
   description: IEarnText;
-  button: {
-    type: 'claim';
-    text: string;
-    disabled: boolean;
-    data: {
-      balance: string;
-      token: IEarnToken;
-    };
-  };
+  button?: IEarnClaimActionIcon;
 }
 
 interface IRewards {
@@ -455,8 +447,12 @@ export type IEarnTooltip =
 
 export interface IEarnClaimActionIcon {
   type: 'claim';
+  text: string | IEarnText;
   disabled: boolean;
-  text: IEarnText;
+  data: {
+    balance: string;
+    token: IEarnToken;
+  };
 }
 
 export type IEarnActionIcon =

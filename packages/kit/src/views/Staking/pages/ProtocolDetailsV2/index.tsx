@@ -9,13 +9,10 @@ import {
   Button,
   Divider,
   Icon,
-  IconButton,
   Image,
   NumberSizeableText,
   Page,
-  Popover,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -35,12 +32,9 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
-  IEarnClaimActionIcon,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -63,7 +57,6 @@ import {
   useHandleStake,
   useHandleWithdraw,
 } from '../ProtocolDetails/useHandleActions';
-import { useHandleClaim } from '../ProtocolDetails/useHandleClaim';
 
 import { EarnTooltip } from './EarnTooltip';
 import { FAQSection } from './FAQSection';
@@ -209,11 +202,6 @@ function ProtocolRewards({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
-  const intl = useIntl();
-  const handleClaim = useHandleClaim({
-    accountId: protocolInfo?.earnAccount?.accountId || '',
-    networkId: tokenInfo?.networkId || '',
-  });
   return rewards ? (
     <YStack
       gap="$2.5"
@@ -258,55 +246,13 @@ function ProtocolRewards({
                     </SizableText>
                   </XStack>
                 </XStack>
-                {token?.button.type === 'claim' ? (
-                  <Button
-                    size="small"
-                    variant="primary"
-                    disabled={token?.button?.disabled}
-                    onPress={async () => {
-                      const claimAmount =
-                        (token.button as IEarnClaimActionIcon).balance || '0';
-                      const isMorphoClaim = !!(
-                        tokenInfo?.provider &&
-                        earnUtils.isMorphoProvider({
-                          providerName: tokenInfo?.provider,
-                        })
-                      );
-                      const newRewardToken = token.token.info;
-                      await handleClaim({
-                        symbol: protocolInfo?.symbol || '',
-                        protocolInfo,
-                        tokenInfo: tokenInfo
-                          ? {
-                              ...tokenInfo,
-                              token: newRewardToken,
-                            }
-                          : undefined,
-                        claimAmount,
-                        claimTokenAddress: newRewardToken.address,
-                        isMorphoClaim,
-                        stakingInfo: {
-                          label: EEarnLabels.Claim,
-                          protocol: earnUtils.getEarnProviderName({
-                            providerName: tokenInfo?.provider || '',
-                          }),
-                          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                          receive: {
-                            token: newRewardToken,
-                            amount: claimAmount,
-                          },
-                          tags: protocolInfo?.stakeTag
-                            ? [protocolInfo.stakeTag]
-                            : [],
-                        },
-                      });
-                    }}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.earn_claim,
-                    })}
-                  </Button>
-                ) : null}
+                <EarnActionIcon
+                  title={token.title.text}
+                  actionIcon={token.button}
+                  protocolInfo={protocolInfo}
+                  tokenInfo={tokenInfo}
+                  token={token.token.info}
+                />
               </XStack>
               <XStack>
                 <SizableText
@@ -353,10 +299,6 @@ function PortfolioSection({
     protocolInfo?.symbol,
     tokenInfo?.networkId,
   ]);
-  const handleClaim = useHandleClaim({
-    accountId: protocolInfo?.earnAccount?.accountId || '',
-    networkId: tokenInfo?.networkId || '',
-  });
   const renderItem = useCallback(
     (item: IStakeEarnDetail['portfolios']['items'][0]) => {
       switch (item.type) {
@@ -396,54 +338,23 @@ function PortfolioSection({
                   tooltip={item?.tooltip}
                 />
               </XStack>
-              {item?.buttons?.[0]?.type === 'claim' ? (
-                <Button
-                  size="small"
-                  disabled={item?.buttons?.[0]?.disabled}
-                  variant="primary"
-                  onPress={async () => {
-                    const claimAmount = protocolInfo?.claimable || '0';
-                    const newTokenInfo = {
-                      ...tokenInfo,
-                      token: item.token.info,
-                    };
-                    await handleClaim({
-                      symbol: item.token.info.symbol,
-                      protocolInfo,
-                      tokenInfo: newTokenInfo as IEarnTokenInfo,
-                      claimAmount,
-                      claimTokenAddress: newTokenInfo?.token.address,
-                      isMorphoClaim: !!(
-                        newTokenInfo?.provider &&
-                        earnUtils.isMorphoProvider({
-                          providerName: newTokenInfo.provider,
-                        })
-                      ),
-                      stakingInfo: {
-                        label: EEarnLabels.Claim,
-                        protocol: earnUtils.getEarnProviderName({
-                          providerName: newTokenInfo?.provider || '',
-                        }),
-                        protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                        receive: {
-                          token: item.token.info,
-                          amount: claimAmount,
-                        },
-                        tags: protocolInfo?.stakeTag
-                          ? [protocolInfo.stakeTag]
-                          : [],
-                      },
-                    });
-                  }}
-                >
-                  {item?.buttons?.[0]?.text.text}
-                </Button>
-              ) : null}
+              <XStack gap="$1">
+                {item.buttons?.map((button, index) => (
+                  <EarnActionIcon
+                    key={index}
+                    title={item.title.text}
+                    actionIcon={button}
+                    protocolInfo={protocolInfo}
+                    tokenInfo={tokenInfo}
+                    token={item.token.info}
+                  />
+                ))}
+              </XStack>
             </XStack>
           );
       }
     },
-    [handleClaim, protocolInfo, tokenInfo],
+    [protocolInfo, tokenInfo],
   );
   return portfolios?.items?.length || rewards?.tokens?.length ? (
     <>
