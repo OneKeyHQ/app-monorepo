@@ -105,7 +105,7 @@ const getPresetIndex = (
 
   if (feeSelectorItem) {
     if (feeSelectorItem.type === EFeeType.Custom) {
-      return feeSelectorItems.length - 1;
+      return Math.max(0, feeSelectorItems.length - 2);
     }
     return sendSelectedFee.presetIndex;
   }
@@ -393,7 +393,7 @@ function TxFeeEditor(props: IProps) {
       let maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
 
       if (maxFeeInfo?.type === EFeeType.Custom) {
-        maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 2];
+        maxFeeInfo = feeSelectorItems[Math.max(0, feeSelectorItems.length - 2)];
         maxFeeInfo = maxFeeInfo || minFeeInfo;
       }
 
