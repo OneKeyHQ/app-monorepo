@@ -2085,9 +2085,7 @@ function TxFeeEditor(props: IProps) {
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$80">
         <Stack gap="$5">
           {renderFeeTypeSelector()}
-          {isDappSuggestedFeeInfo &&
-          defaultCustomFeeInfo?.enabled &&
-          defaultCustomFeeInfo.feeInfo ? (
+          {currentFeeType === EFeeType.Custom && isDappSuggestedFeeInfo ? (
             <Alert
               icon="GasOutline"
               type="info"
