@@ -70,7 +70,9 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     const searchKey = debouncedSearchKey?.trim().toLowerCase();
 
     if (!isSearchMode || !searchKey) {
-      setFilteredRecentRecipients(recentRecipients);
+      if (!searchKey) {
+        setFilteredRecentRecipients(recentRecipients);
+      }
       return;
     }
     setFilteredRecentRecipients(
@@ -89,23 +91,37 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       <SizableText size="$bodyMd" color="$textSubdued" mb="$2" ml="$5">
         {intl.formatMessage({ id: ETranslations.transfer_recent_transfers })}
       </SizableText>
-      {filteredRecentRecipients.map((recipient) => (
+      {filteredRecentRecipients.length > 0 ? (
+        filteredRecentRecipients.map((recipient) => (
+          <AddressListItem
+            key={recipient.input}
+            accountName={
+              recipient.addressBookName ?? recipient.walletAccountName
+            }
+            addressType={recipient.addressDeriveInfo?.label}
+            address={recipient.input ?? ''}
+            isLocal={
+              !!(recipient.walletAccountName || recipient.addressBookName)
+            }
+            showAccount
+            showType={
+              vaultSettings?.mergeDeriveAssetsEnabled ||
+              recipient.addressDeriveType !== 'default'
+            }
+            onPress={() => {
+              onSelect?.({ address: recipient.input ?? '' });
+            }}
+          />
+        ))
+      ) : (
         <AddressListItem
-          key={recipient.input}
-          accountName={recipient.addressBookName ?? recipient.walletAccountName}
-          addressType={recipient.addressDeriveInfo?.label}
-          address={recipient.input ?? ''}
-          isLocal={!!(recipient.walletAccountName || recipient.addressBookName)}
+          address=""
           showAccount
-          showType={
-            vaultSettings?.mergeDeriveAssetsEnabled ||
-            recipient.addressDeriveType !== 'default'
-          }
-          onPress={() => {
-            onSelect?.({ address: recipient.input ?? '' });
-          }}
+          accountName={intl.formatMessage({
+            id: ETranslations.transfer_recent_transfers_empty,
+          })}
         />
-      ))}
+      )}
     </Stack>
   );
 }
