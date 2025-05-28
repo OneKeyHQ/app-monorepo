@@ -44,17 +44,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { ESwapDirection } from './useTradeType';
 
-export function useSpeedSwapActions({
-  marketToken,
-  account,
-  fromTokenAmount,
-  tradeToken,
-  tradeType,
-  provider,
-  spenderAddress,
-  slippage,
-  defaultTradeTokens,
-}: {
+export function useSpeedSwapActions(props: {
   marketToken: ISwapTokenBase;
   tradeToken: ISwapTokenBase;
   tradeType: ESwapDirection;
@@ -65,6 +55,20 @@ export function useSpeedSwapActions({
   slippage: number;
   defaultTradeTokens: ISwapTokenBase[];
 }) {
+  const {
+    marketToken,
+    account,
+    fromTokenAmount,
+    tradeToken,
+    tradeType,
+    provider,
+    spenderAddress,
+    slippage,
+    defaultTradeTokens,
+  } = props;
+
+  console.log('useSpeedSwapActions props', props);
+
   const intl = useIntl();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
@@ -398,14 +402,23 @@ export function useSpeedSwapActions({
       try {
         setCheckTokenAllowanceLoading(true);
         const userAddress = netAccountRes.result?.address ?? '';
+
+        const fetchApproveAllowanceParams = {
+          networkId: fromToken.networkId,
+          tokenAddress: fromToken.contractAddress,
+          spenderAddress,
+          walletAddress: userAddress,
+          amount,
+        };
+
+        console.log('fetchApproveAllowanceParams', fetchApproveAllowanceParams);
+
         const approveRes =
-          await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
-            networkId: fromToken.networkId,
-            tokenAddress: fromToken.contractAddress,
-            spenderAddress,
-            walletAddress: userAddress,
-            amount,
-          });
+          await backgroundApiProxy.serviceSwap.fetchApproveAllowance(
+            fetchApproveAllowanceParams,
+          );
+
+        console.log('approveRes', approveRes);
         setShouldApprove(!approveRes.isApproved);
         setShouldResetApprove(!!approveRes.shouldResetApprove);
         setCheckTokenAllowanceLoading(false);

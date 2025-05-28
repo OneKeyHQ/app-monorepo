@@ -25,6 +25,8 @@ export type ISwapPanelProps = {
 
 export function SwapPanel(props: ISwapPanelProps) {
   const { networkId: networkIdProp, tokenDetail } = props;
+
+  console.log('networkIdProp, tokenDetail', networkIdProp, tokenDetail);
   const intl = useIntl();
   const media = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -46,6 +48,7 @@ export function SwapPanel(props: ISwapPanelProps) {
     useSpeedSwapInit(networkIdProp ?? '');
 
   const {
+    checkTokenApproveAllowance,
     speedSwapBuildTx,
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
@@ -153,5 +156,13 @@ export function SwapPanel(props: ISwapPanelProps) {
     );
   }
 
-  return swapPanelContent;
+  return (
+    <>
+      {swapPanelContent}
+
+      <Button onPress={() => checkTokenApproveAllowance('100')}>
+        checkTokenApproveAllowance
+      </Button>
+    </>
+  );
 }
