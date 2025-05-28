@@ -432,42 +432,43 @@ function TxFeeInfo(props: IProps) {
 
         if (txFee.gas && !isEmpty(txFee.gas)) {
           customFeeInfo.gas = {
-            ...txFee.gas[sendSelectedFee.presetIndex],
+            ...(txFee.gas[sendSelectedFee.presetIndex] ?? txFee.gas[0]),
             ...(customFee?.gas ?? {}),
           };
         }
 
         if (txFee.gasEIP1559 && !isEmpty(txFee.gasEIP1559)) {
           customFeeInfo.gasEIP1559 = {
-            ...txFee.gasEIP1559[sendSelectedFee.presetIndex],
+            ...(txFee.gasEIP1559[sendSelectedFee.presetIndex] ??
+              txFee.gasEIP1559[0]),
             ...(customFee?.gasEIP1559 ?? {}),
           };
         }
 
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
-            ...txFee.feeUTXO[sendSelectedFee.presetIndex],
+            ...(txFee.feeUTXO[sendSelectedFee.presetIndex] ?? txFee.feeUTXO[0]),
             ...(customFee?.feeUTXO ?? {}),
           };
         }
 
         if (txFee.feeSol && !isEmpty(txFee.feeSol)) {
           customFeeInfo.feeSol = {
-            ...txFee.feeSol[sendSelectedFee.presetIndex],
+            ...(txFee.feeSol[sendSelectedFee.presetIndex] ?? txFee.feeSol[0]),
             ...(customFee?.feeSol ?? {}),
           };
         }
 
         if (txFee.feeCkb && !isEmpty(txFee.feeCkb)) {
           customFeeInfo.feeCkb = {
-            ...txFee.feeCkb[sendSelectedFee.presetIndex],
+            ...(txFee.feeCkb[sendSelectedFee.presetIndex] ?? txFee.feeCkb[0]),
             ...(customFee?.feeCkb ?? {}),
           };
         }
 
         if (txFee.feeAlgo && !isEmpty(txFee.feeAlgo)) {
           customFeeInfo.feeAlgo = {
-            ...txFee.feeAlgo[sendSelectedFee.presetIndex],
+            ...(txFee.feeAlgo[sendSelectedFee.presetIndex] ?? txFee.feeAlgo[0]),
             ...(customFee?.feeAlgo ?? {
               minFee: ALGO_TX_MIN_FEE,
               baseFee: ALGO_TX_MIN_FEE,
@@ -477,21 +478,23 @@ function TxFeeInfo(props: IProps) {
 
         if (txFee.feeDot && !isEmpty(txFee.feeDot)) {
           customFeeInfo.feeDot = {
-            ...txFee.feeDot[sendSelectedFee.presetIndex],
+            ...(txFee.feeDot[sendSelectedFee.presetIndex] ?? txFee.feeDot[0]),
             ...(customFee?.feeDot ?? { extraTipInDot: '0' }),
           };
         }
 
         if (txFee.feeBudget && !isEmpty(txFee.feeBudget)) {
           customFeeInfo.feeBudget = {
-            ...txFee.feeBudget[sendSelectedFee.presetIndex],
+            ...(txFee.feeBudget[sendSelectedFee.presetIndex] ??
+              txFee.feeBudget[0]),
             ...(customFee?.feeBudget ?? {}),
           };
         }
 
         if (txFee.feeNeoN3 && !isEmpty(txFee.feeNeoN3)) {
           customFeeInfo.feeNeoN3 = {
-            ...txFee.feeNeoN3[sendSelectedFee.presetIndex],
+            ...(txFee.feeNeoN3[sendSelectedFee.presetIndex] ??
+              txFee.feeNeoN3[0]),
             ...(customFee?.feeNeoN3 ?? {}),
           };
         }
@@ -569,7 +572,7 @@ function TxFeeInfo(props: IProps) {
               maxPriorityFeePerGas,
             } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
 
-            const limit = new BigNumber(gasLimit || gas || 0).toFixed();
+            const limit = gasLimit || gas;
             if (
               maxFeePerGas &&
               maxPriorityFeePerGas &&
