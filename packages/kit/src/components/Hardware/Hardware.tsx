@@ -337,7 +337,6 @@ export function EnterPin({
         >
           <SizableText
             userSelect="none"
-            pl="$6"
             textAlign="center"
             flex={1}
             size="$heading4xl"
