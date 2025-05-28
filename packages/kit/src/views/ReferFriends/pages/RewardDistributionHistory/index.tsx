@@ -75,11 +75,11 @@ export default function RewardDistributionHistory() {
 
       setIsLoading(false);
     });
-  }, [fetchSales, fetchSummaryInfo]);
+  }, [fetchSales]);
 
   useEffect(() => {
     onRefresh();
-  }, [fetchSales, fetchSummaryInfo, onRefresh]);
+  }, [fetchSales, onRefresh]);
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
