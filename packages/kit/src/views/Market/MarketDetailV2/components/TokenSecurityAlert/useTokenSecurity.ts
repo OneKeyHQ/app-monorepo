@@ -48,7 +48,6 @@ export const useTokenSecurity = ({
       data.isBlacklisted,
       data.hasExternalCall,
       data.hasHiddenOwner,
-      data.hasSelfdestruct,
       data.hasMintFunction,
       data.canTakeBackOwnership,
       data.ownerChangeBalance,
