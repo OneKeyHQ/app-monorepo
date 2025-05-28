@@ -150,7 +150,7 @@ function HardwareTroubleshootingModal() {
 
   const renderHeader = useCallback(() => {
     return (
-      <XStack flex={1} ai="center" px="$5">
+      <XStack ai="center" px="$5">
         <XStack h="$16" w="$16" ai="center" jc="center">
           <WalletAvatar
             size={50}
@@ -159,7 +159,7 @@ function HardwareTroubleshootingModal() {
             badge={deviceInfo.walletAvatarBadge}
           />
         </XStack>
-        <YStack flex={1}>
+        <YStack>
           <XStack pr="$5" ai="center">
             <SizableText size="$headingMd" color="$text">
               {wallet.name}
@@ -226,13 +226,12 @@ function HardwareTroubleshootingModal() {
               >
                 <YStack
                   role="button"
-                  f={1}
                   px={media.gtMd ? '$5' : '$3'}
                   py="$4"
-                  borderWidth="$0"
-                  outlineColor="$borderSubdued"
-                  outlineStyle="solid"
-                  outlineWidth={StyleSheet.hairlineWidth}
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor={
+                    media.gtMd ? '$borderDisabled' : '$borderSubdued'
+                  }
                   borderRadius="$3"
                   bg="$bgSubdued"
                   hoverStyle={{
@@ -242,11 +241,6 @@ function HardwareTroubleshootingModal() {
                   cursor="pointer"
                   ai="center"
                   jc="center"
-                  shadowColor="$shadowColor"
-                  shadowOffset={{ width: 0, height: 1 }}
-                  shadowOpacity={0.04}
-                  shadowRadius={2}
-                  elevation={1}
                   gap="$2"
                   onPress={() =>
                     handleFaqItemPress(hardwareTroubleshootingQuestions[i].link)
