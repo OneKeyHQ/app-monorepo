@@ -197,9 +197,7 @@ function BasicStakePage() {
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
-          approveType={
-            protocolInfo?.approve?.approveType || EApproveType.Legacy
-          }
+          approveType={protocolInfo?.approve?.approveType}
           currentAllowance={currentAllowance}
           minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}

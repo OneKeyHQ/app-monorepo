@@ -157,7 +157,7 @@ export function UniversalStake({
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
-  const isLegacyApprove = approveType === EApproveType.Legacy;
+  const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
   const isFocus = useIsFocused();
@@ -173,10 +173,10 @@ export function UniversalStake({
     tokenAddress: approveTarget.token?.address || '',
     spenderAddress: approveTarget.spenderAddress,
     initialValue: currentAllowance ?? '0',
-    approveType: approveType ?? EApproveType.Legacy,
+    approveType,
   });
   const shouldApprove = useMemo(() => {
-    if (isLegacyApprove) {
+    if (!useApprove) {
       return false;
     }
 
@@ -202,7 +202,7 @@ export function UniversalStake({
 
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
-    isLegacyApprove,
+    useApprove,
     isFocus,
     amountValue,
     allowance,
@@ -911,12 +911,12 @@ export function UniversalStake({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
   const isShowStakeProgress =
-    !isLegacyApprove &&
+    useApprove &&
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
   const onConfirmText = useMemo(() => {
-    if (isLegacyApprove) {
+    if (!useApprove) {
       return intl.formatMessage({ id: ETranslations.global_continue });
     }
     if (shouldApprove) {
@@ -931,7 +931,7 @@ export function UniversalStake({
     }
     return intl.formatMessage({ id: ETranslations.earn_deposit });
   }, [
-    isLegacyApprove,
+    useApprove,
     shouldApprove,
     intl,
     usePermit2Approve,
@@ -1274,7 +1274,7 @@ export function UniversalStake({
           <Stack pl="$5" $md={{ pt: '$5' }}>
             {isShowStakeProgress ? (
               <StakeProgress
-                approveType={approveType ?? EApproveType.Legacy}
+                approveType={approveType}
                 currentStep={
                   isDisable || shouldApprove
                     ? EStakeProgressStep.approve
