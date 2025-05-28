@@ -1,6 +1,12 @@
 import type { FC } from 'react';
 
-import { Dialog, IconButton, Stack } from '@onekeyhq/components';
+import {
+  ButtonFrame,
+  Dialog,
+  Icon,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 
 import { TokenSecurityAlertDialogContent } from './TokenSecurityAlertDialogContent';
 import { useTokenSecurity } from './useTokenSecurity';
@@ -14,10 +20,11 @@ const TokenSecurityAlert: FC<ITokenSecurityAlertProps> = ({
   tokenAddress,
   networkId,
 }) => {
-  const { securityData, error, loading } = useTokenSecurity({
-    tokenAddress,
-    networkId,
-  });
+  const { securityData, securityStatus, warningCount, error, loading } =
+    useTokenSecurity({
+      tokenAddress,
+      networkId,
+    });
 
   const handlePress = () => {
     Dialog.show({
@@ -38,15 +45,16 @@ const TokenSecurityAlert: FC<ITokenSecurityAlertProps> = ({
     return null;
   }
 
+  const color = securityStatus === 'warning' ? '$iconCaution' : '$iconSuccess';
+
   return (
-    <Stack>
-      <IconButton
-        icon="BugOutline"
-        variant="tertiary"
-        size="small"
-        onPress={handlePress}
-      />
-    </Stack>
+    <ButtonFrame bg="$transparent" borderWidth={0} onPress={handlePress}>
+      <XStack gap="$0.5">
+        <Icon name="BugOutline" size={12} color={color} />
+
+        <SizableText color={color}>{warningCount}</SizableText>
+      </XStack>
+    </ButtonFrame>
   );
 };
 
