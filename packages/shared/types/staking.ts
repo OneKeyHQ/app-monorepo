@@ -468,7 +468,7 @@ export type IEarnActionIcon =
   | IEarnHistoryActionIcon
   | IEarnPortfolioActionIcon;
 
-interface IEarnCell {
+interface IEarnGridItem {
   title: IEarnText;
   description: IEarnText;
   button?: IEarnActionIcon;
@@ -478,7 +478,7 @@ interface IEarnCell {
 
 interface IEarnProfit {
   title: IEarnText;
-  items: IEarnCell[];
+  items: IEarnGridItem[];
 }
 
 export interface IEarnFAQItem {
@@ -591,7 +591,7 @@ export interface IStakeEarnDetail {
   profit: IEarnProfit;
   provider: {
     title: IEarnText;
-    items: IEarnCell[];
+    items: IEarnGridItem[];
   };
   alerts: string[];
   faqs: {
