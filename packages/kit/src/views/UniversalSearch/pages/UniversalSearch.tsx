@@ -481,6 +481,7 @@ export function UniversalSearch({
               />
             </XStack>
             <SectionList
+              key={`search-results-${isInAllTab ? 'all' : filterType}`}
               stickySectionHeadersEnabled
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
@@ -507,10 +508,12 @@ export function UniversalSearch({
     }
   }, [
     filterSections,
+    filterType,
     filterTypes,
     handleTabSelectedPageIndex,
     handleSearchTextFill,
     intl,
+    isInAllTab,
     recommendSections,
     renderItem,
     renderSectionHeader,
