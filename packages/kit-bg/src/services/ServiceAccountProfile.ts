@@ -312,6 +312,10 @@ class ServiceAccountProfile extends ServiceBase {
 
     let address = rawAddress.trim();
 
+    const result: IAddressQueryResult = {
+      input: rawAddress,
+    };
+
     try {
       const { displayAddress, isValid } =
         await this.backgroundApi.serviceValidator.localValidateAddress({
@@ -320,14 +324,12 @@ class ServiceAccountProfile extends ServiceBase {
         });
       if (isValid) {
         address = displayAddress;
+        result.validAddress = address;
       }
     } catch (e) {
       // noop
     }
 
-    const result: IAddressQueryResult = {
-      input: rawAddress,
-    };
     if (!networkId) {
       return result;
     }
