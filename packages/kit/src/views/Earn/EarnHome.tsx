@@ -832,6 +832,7 @@ function BasicEarnHome() {
           const symbol = paths.pop();
           const params = new URLSearchParams(query);
           const networkId = params.get('networkId');
+          const vault = params.get('vault');
           if (provider && symbol && networkId) {
             void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
               accountId: account?.id ?? '',
@@ -839,6 +840,7 @@ function BasicEarnHome() {
               provider,
               symbol,
               networkId,
+              vault,
             });
           }
           return;
