@@ -65,13 +65,7 @@ function AddressListItem(props: IAddressListItemProps) {
             color="$iconSubdued"
           />
         ) : null}
-        <YStack
-          gap="$1"
-          flex={1}
-          ml={
-            shouldDisplayHierarchyIndicator || !shouldDisplayAccount ? 0 : '$5'
-          }
-        >
+        <YStack gap="$1" flex={1}>
           {shouldDisplayType ? (
             <XStack>
               <Badge badgeSize="sm" badgeType="default">
