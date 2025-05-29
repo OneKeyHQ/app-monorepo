@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -25,8 +26,14 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
+} from '@onekeyhq/shared/src/routes/referFriends';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
@@ -308,6 +315,15 @@ const buildAccountNetworkKey = (item: IEarnRewardItem) =>
   `${item.accountAddress}-${item.networkId}`;
 
 export default function EarnReward() {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EarnReward
+      >
+    >();
+
+  const { title } = route.params;
   const intl = useIntl();
 
   const [amount, setAmount] = useState<
@@ -325,7 +341,6 @@ export default function EarnReward() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [settings] = useSettingsPersistAtom();
-  const currencySymbol = settings.currencyInfo.symbol;
 
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.earnRewardAlert,
@@ -433,9 +448,7 @@ export default function EarnReward() {
 
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-      />
+      <Page.Header title={title} />
       <Page.Body>
         {isLoading ? (
           <YStack
@@ -451,7 +464,7 @@ export default function EarnReward() {
             <Spinner size="large" />
           </YStack>
         ) : (
-          <ScrollView contentContainerStyle={{ pb: '$5' }}>
+          <ScrollView contentContainerStyle={{ pb: '$10' }}>
             <Tab.Page
               ListHeaderComponent={
                 <YStack>

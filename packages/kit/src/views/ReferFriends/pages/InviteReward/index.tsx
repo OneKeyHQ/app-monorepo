@@ -362,8 +362,10 @@ function Dashboard({
   ]);
 
   const toEarnRewardPage = useCallback(() => {
-    navigation.push(EModalReferFriendsRoutes.EarnReward);
-  }, [navigation]);
+    navigation.push(EModalReferFriendsRoutes.EarnReward, {
+      title: onChain.title || '',
+    });
+  }, [navigation, onChain.title]);
 
   const toHardwareSalesRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
