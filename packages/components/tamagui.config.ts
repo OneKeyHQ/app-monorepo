@@ -190,10 +190,11 @@ const animations = createAnimations({
     damping: 20,
     stiffness: 60,
   },
-  easeInOut: {
-    type: 'timing',
-    duration: 250,
-    easing: Easing.inOut(Easing.ease),
+  switch: {
+    type: 'spring',
+    damping: 30,
+    mass: 1,
+    stiffness: 300,
   },
 });
 
