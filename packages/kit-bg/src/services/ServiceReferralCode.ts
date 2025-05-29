@@ -235,7 +235,7 @@ class ServiceReferralCode extends ServiceBase {
   async getPostConfig() {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
-    if (postConfig) {
+    if (postConfig?.locales) {
       setTimeout(() => {
         void this.fetchPostConfig();
       });
