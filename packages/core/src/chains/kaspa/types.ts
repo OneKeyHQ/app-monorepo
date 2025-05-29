@@ -1,5 +1,4 @@
 import type { IKaspaUnspentOutputInfo } from './sdkKaspa';
-import type { EAddressEncodings } from '../../types';
 import type { PrivateKey, PublicKey } from '@onekeyfe/kaspa-core-lib';
 
 export type IEncodedTxKaspa = {
