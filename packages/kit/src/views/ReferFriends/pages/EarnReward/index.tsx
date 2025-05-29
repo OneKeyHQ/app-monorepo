@@ -335,9 +335,11 @@ export default function EarnReward() {
     | undefined
   >();
   const [undistributedListData, setUndistributedListData] = useState<
-    ISectionData[]
-  >([]);
-  const [totalListData, setTotalListData] = useState<ISectionData[]>([]);
+    ISectionData[] | undefined
+  >(undefined);
+  const [totalListData, setTotalListData] = useState<
+    ISectionData[] | undefined
+  >(undefined);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -432,16 +434,20 @@ export default function EarnReward() {
           id: ETranslations.earn_referral_undistributed,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => (
-          <List listData={undistributedListData} vaultAmount={vaultAmount} />
-        ),
+        page: () =>
+          undistributedListData ? (
+            <List listData={undistributedListData} vaultAmount={vaultAmount} />
+          ) : null,
       },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_total,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => <List listData={totalListData} vaultAmount={vaultAmount} />,
+        page: () =>
+          totalListData ? (
+            <List listData={totalListData} vaultAmount={vaultAmount} />
+          ) : null,
       },
     ],
     [intl, totalListData, undistributedListData, vaultAmount],
@@ -477,22 +483,24 @@ export default function EarnReward() {
   }, [amount?.pending, intl, tourTimes, tourVisited]);
 
   const Content = useMemo(() => {
-    if (isLoading) {
-      <YStack
-        position="absolute"
-        top={0}
-        left={0}
-        right={0}
-        bottom={0}
-        ai="center"
-        jc="center"
-        flex={1}
-      >
-        <Spinner size="large" />
-      </YStack>;
+    if (isLoading || !undistributedListData || !totalListData) {
+      return (
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          ai="center"
+          jc="center"
+          flex={1}
+        >
+          <Spinner size="large" />
+        </YStack>
+      );
     }
 
-    if (undistributedListData.length === 0 && totalListData.length === 0) {
+    if (undistributedListData?.length === 0 && totalListData?.length === 0) {
       return (
         <YStack>
           {ListHeaderComponent}
@@ -515,8 +523,8 @@ export default function EarnReward() {
     ListHeaderComponent,
     isLoading,
     tabs,
-    totalListData.length,
-    undistributedListData.length,
+    totalListData,
+    undistributedListData,
   ]);
 
   return (
