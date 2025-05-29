@@ -144,7 +144,7 @@ export default function HardwareSalesReward() {
     }) => {
       const isPositiveAmount = Number(item.amount) >= 0;
       return (
-        <YStack px="$5" mb="$2.5">
+        <YStack px="$5" py="$2.5">
           <XStack jc="space-between" gap="$4">
             <YStack flexShrink={1}>
               <XStack flexShrink={1}>
@@ -308,7 +308,7 @@ export default function HardwareSalesReward() {
             }
             sections={sections}
             renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={44}
+            estimatedItemSize={60}
             renderItem={renderItem}
             onEndReached={fetchMore}
           />
