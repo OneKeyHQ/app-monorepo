@@ -10,6 +10,7 @@ import {
   Spinner,
   Stack,
   Tab,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -78,14 +79,18 @@ function HardwareSales() {
             {intl.formatMessage({ id: ETranslations.referral_order_info })}
           </SizableText>
           {items.map((item, key) => (
-            <YStack key={key} py="$3">
+            <XStack key={key} py="$3" ai="center" jc="space-between">
               <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                {item.title}
+                {item.orderName}
               </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {item.createdAt ? formatDate(item.createdAt) : ''}
+                {item.createdAt
+                  ? formatDate(item.createdAt, {
+                      formatTemplate: 'yyyy-LL-dd HH:mm',
+                    })
+                  : ''}
               </SizableText>
-            </YStack>
+            </XStack>
           ))}
         </YStack>
       )}
