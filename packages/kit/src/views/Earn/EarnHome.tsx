@@ -704,10 +704,14 @@ function BasicEarnHome() {
       }
 
       const fetchAndUpdateAction = async () => {
+        if (!account) {
+          return;
+        }
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
             accountId: account?.id ?? '',
             networkId: allNetworkId,
+            indexedAccountId: account?.indexedAccountId,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -719,11 +723,15 @@ function BasicEarnHome() {
         });
       };
       const fetchAndUpdateOverview = async () => {
+        if (!account) {
+          return;
+        }
         const overviewData =
           await backgroundApiProxy.serviceStaking.fetchAccountOverview({
             assets,
             accountId: account?.id ?? '',
             networkId: allNetworkId,
+            indexedAccountId: account?.indexedAccountId,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -748,7 +756,7 @@ function BasicEarnHome() {
       }
       return { loaded: true };
     },
-    [actions, account?.id, allNetworkId],
+    [actions, account, allNetworkId],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),

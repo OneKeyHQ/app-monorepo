@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 
+import { Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
@@ -30,6 +36,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const { isReady: isAuthReady, user } = usePrimeAuthV2();
 
   const [, setPrimePersistAtom] = usePrimePersistAtom();
+  const intl = useIntl();
 
   // TODO move to jotai context
   useEffect(() => {
@@ -44,6 +51,41 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       setIsPaymentReady(true);
     })();
   }, []);
+
+  const restorePurchases = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceApp.showDialogLoading({
+        title: intl.formatMessage({
+          id: ETranslations.prime_restoring_previous_purchases,
+        }),
+      });
+      console.log('restorePurchases >>>>>>');
+      const customerInfo = await Purchases.restorePurchases();
+      console.log('restorePurchases >>>>>> customerInfo', customerInfo);
+      const localIsActive = customerInfo?.entitlements?.active?.Prime?.isActive;
+      if (localIsActive) {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.prime_restore_successful,
+          }),
+        });
+      } else {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.prime_no_purchases_found,
+          }),
+        });
+      }
+    } catch (e) {
+      console.error('restorePurchases >>>>>> error', e);
+      Toast.message({
+        title: (e as Error)?.message || 'Restore purchases failed',
+      });
+    } finally {
+      await backgroundApiProxy.serviceApp.hideDialogLoading();
+    }
+  }, [intl]);
 
   const isReady = isPaymentReady && isAuthReady;
 
@@ -92,14 +134,32 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
-      const { subscriptionPeriod, pricePerMonthString, pricePerYearString } =
-        p.product;
+      const {
+        subscriptionPeriod,
+        pricePerYear,
+        pricePerYearString,
+        pricePerMonth,
+        pricePerMonthString,
+      } = p.product;
+
+      const unit = '';
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
-        pricePerMonthString,
+        pricePerYear,
         pricePerYearString,
+        pricePerMonth,
+        pricePerMonthString,
+        priceTotalPerYearString:
+          subscriptionPeriod === 'P1M'
+            ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
+            : `${unit}${pricePerYearString}`,
       });
+    });
+
+    console.log('userPrimePaymentMethods >>>>>> packages', {
+      packages,
+      offerings,
     });
 
     return packages;
@@ -131,7 +191,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
         return makePurchaseResult;
       } catch (error) {
-        errorToastUtils.toastIfError(error);
+        const e = error as Error | undefined;
+        if (e?.message && !['Purchase was cancelled.'].includes(e?.message)) {
+          errorToastUtils.toastIfError(error);
+        }
         throw error;
       }
     },
@@ -142,6 +205,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     isReady,
     getPackagesNative,
     purchasePackageNative,
+    restorePurchases,
     getPackagesWeb: undefined,
     purchasePackageWeb: undefined,
     getCustomerInfo,

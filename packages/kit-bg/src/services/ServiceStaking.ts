@@ -735,13 +735,16 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccountsParams({
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const accounts = await this.getEarnAvailableAccounts({
       accountId,
       networkId,
+      indexedAccountId,
     });
     const accountParams: {
       networkId: string;
@@ -775,6 +778,7 @@ class ServiceStaking extends ServiceBase {
   async fetchAccountOverview(params: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
     assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccountsParams(params);
@@ -829,13 +833,16 @@ class ServiceStaking extends ServiceBase {
   async fetchAllNetworkAssets({
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const accounts = await this.getEarnAvailableAccountsParams({
       accountId,
       networkId,
+      indexedAccountId,
     });
     return this.getAccountAsset(accounts);
   }
@@ -1142,12 +1149,14 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccounts(params: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const { accountId, networkId } = params;
     const { accountsInfo } =
       await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
         accountId,
         networkId,
+        indexedAccountId: params.indexedAccountId,
         fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
           ? undefined
           : true,

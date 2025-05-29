@@ -153,10 +153,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {postConfig.locales.Earn.for_tou.title}
+                  {postConfig.locales?.Earn?.for_you?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {postConfig.locales.Earn.for_tou.subtitle}
+                  {postConfig.locales?.Earn?.for_you?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -166,10 +166,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {postConfig.locales.Earn.for_your_friend.title}
+                  {postConfig.locales?.Earn?.for_your_friend?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {postConfig.locales.Earn.for_your_friend.subtitle}
+                  {postConfig.locales?.Earn?.for_your_friend?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
