@@ -215,6 +215,7 @@ export default function HardwareSalesReward() {
             refreshControl={
               <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
             }
+            contentContainerStyle={{ pb: '$5' }}
             ListEmptyComponent={
               <Empty
                 icon="GiftOutline"
