@@ -1,5 +1,4 @@
 import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
-import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';

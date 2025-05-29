@@ -169,7 +169,7 @@ function TokenListViewCmp(props: IProps) {
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
 
-  const [isInRequest, setIsInRequest] = useState(false);
+  const [, setIsInRequest] = useState(false);
   useEffect(() => {
     if (!platformEnv.isNativeAndroid) {
       return;

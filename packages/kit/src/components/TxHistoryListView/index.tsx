@@ -98,7 +98,6 @@ function BaseTxHistoryListView(props: IProps) {
   const {
     data,
     isLoading,
-    showHeader,
     ListHeaderComponent,
     showIcon,
     onPressHistory,

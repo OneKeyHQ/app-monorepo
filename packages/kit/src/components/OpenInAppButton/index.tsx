@@ -29,7 +29,7 @@ export function OpenInAppButton({
   buildFullUrl: () => Promise<string>;
 }) {
   const intl = useIntl();
-  const { result: deepLinkUrl } = usePromiseResult(async () => {
+  usePromiseResult(async () => {
     if (platformEnv.isWeb || platformEnv.isExtension) {
       const url = buildDeepLinkUrl();
       if (await openUrlUtils.linkingCanOpenURL(url)) {
@@ -38,19 +38,6 @@ export function OpenInAppButton({
     }
     return '';
   }, [buildDeepLinkUrl]);
-
-  const openByAppButtonLabel = useMemo<string | undefined>(() => {
-    if (!platformEnv.isWebMobile) {
-      return 'Open by OneKey Desktop';
-    }
-    if (platformEnv.isWebMobileAndroid) {
-      return 'Open by OneKey Android';
-    }
-
-    if (platformEnv.isWebMobileIOS) {
-      return 'Open by OneKey iOS';
-    }
-  }, []);
 
   const handlePress = useCallback(async () => {
     const text: string = await buildFullUrl();
