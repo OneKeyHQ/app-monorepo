@@ -73,7 +73,7 @@ function HardwareSales() {
       {total === 0 && !isLoading ? (
         <EmptyData />
       ) : (
-        <YStack px="$5" pt="$5">
+        <YStack px="$5" pt="$5" pb="$10">
           <SizableText size="$headingSm" color="$textSubdued" py="$2">
             {intl.formatMessage({ id: ETranslations.referral_order_info })}
           </SizableText>
@@ -132,7 +132,7 @@ function WalletList() {
       {total === 0 && !isLoading ? (
         <EmptyData />
       ) : (
-        <YStack pt="$5">
+        <YStack pt="$5" pb="$10">
           <SizableText size="$headingSm" color="$textSubdued" px="$5" py="$2">
             {intl.formatMessage({
               id: ETranslations.referral_your_referred_wallets_details,
