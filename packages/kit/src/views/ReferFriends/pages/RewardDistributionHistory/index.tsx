@@ -215,7 +215,7 @@ export default function RewardDistributionHistory() {
             }
             sections={sections}
             renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={44}
+            estimatedItemSize={60}
             renderItem={renderItem}
             // onEndReached={fetchMore}
           />

@@ -182,7 +182,6 @@ export interface IHardwareSalesRecord {
   items: IHardwareSalesRecordItem[];
 }
 
-
 export interface IInvitePaidItem {
   _id: string;
   networkId: string;

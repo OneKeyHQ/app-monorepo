@@ -31,10 +31,6 @@ type ISectionListItem = {
   data: number[];
 };
 
-function ItemSeparatorComponent() {
-  return <Stack h="$2.5" />;
-}
-
 const formatSections = (items: IHardwareSalesRecord['items']) => {
   const groupedData: Record<string, IHardwareSalesRecord['items']> =
     items.reduce<Record<string, any[]>>((acc, item) => {
@@ -314,7 +310,6 @@ export default function HardwareSalesReward() {
             renderSectionHeader={renderSectionHeader}
             estimatedItemSize={44}
             renderItem={renderItem}
-            ItemSeparatorComponent={ItemSeparatorComponent}
             onEndReached={fetchMore}
           />
         )}
