@@ -156,9 +156,7 @@ export default function RewardDistributionHistory() {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.referral_referred_type_3,
-        })}
+        title="Reward Distribution History"
       />
       <Page.Body>
         {sections === undefined ? (
