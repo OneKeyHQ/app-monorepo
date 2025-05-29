@@ -23,7 +23,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
 import type {
@@ -101,7 +100,7 @@ function List({
   vaultAmount?: IVaultAmount;
 }) {
   const intl = useIntl();
-  return (
+  return listData.length > 0 ? (
     <YStack px="$5" py="$2">
       <ListHeader />
       <YStack>
@@ -238,6 +237,8 @@ function List({
         </Accordion>
       </YStack>
     </YStack>
+  ) : (
+    <EmptyData />
   );
 }
 
@@ -340,8 +341,6 @@ export default function EarnReward() {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  const [settings] = useSettingsPersistAtom();
-
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.earnRewardAlert,
   );
@@ -364,7 +363,9 @@ export default function EarnReward() {
     ]);
     if (salesResult.status === 'fulfilled') {
       const data = salesResult.value;
-      setUndistributedListData(formatSections(data.items));
+      setUndistributedListData(
+        data.items?.length ? formatSections(data.items) : [],
+      );
       setAmount({
         available: '0',
         pending: BigNumber(data.fiatValue).toFixed(2) || '0',
@@ -372,7 +373,7 @@ export default function EarnReward() {
     }
     if (totalResult.status === 'fulfilled') {
       const data = totalResult.value;
-      setTotalListData(formatSections(data.items));
+      setTotalListData(data.items?.length ? formatSections(data.items) : []);
     }
     const accounts: {
       accountAddress: string;
@@ -446,63 +447,82 @@ export default function EarnReward() {
     [intl, totalListData, undistributedListData, vaultAmount],
   );
 
+  const ListHeaderComponent = useMemo(() => {
+    return (
+      <YStack>
+        {tourTimes === 0 ? (
+          <Alert
+            closable
+            description={intl.formatMessage({
+              id: ETranslations.referral_earn_reward_tips,
+            })}
+            type="info"
+            mx="$5"
+            mb="$2.5"
+            onClose={tourVisited}
+          />
+        ) : null}
+        <YStack px="$5" py="$2.5">
+          <SizableText size="$bodyLg">
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_undistributed,
+            })}
+          </SizableText>
+          <Currency sourceCurrency="usd" size="$heading5xl" formatter="value">
+            {amount?.pending || 0}
+          </Currency>
+        </YStack>
+      </YStack>
+    );
+  }, [amount?.pending, intl, tourTimes, tourVisited]);
+
+  const Content = useMemo(() => {
+    if (isLoading) {
+      <YStack
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        ai="center"
+        jc="center"
+        flex={1}
+      >
+        <Spinner size="large" />
+      </YStack>;
+    }
+
+    if (undistributedListData.length === 0 && totalListData.length === 0) {
+      return (
+        <YStack>
+          {ListHeaderComponent}
+          <EmptyData />
+        </YStack>
+      );
+    }
+
+    return (
+      <ScrollView contentContainerStyle={{ pb: '$10' }}>
+        <Tab.Page
+          ListHeaderComponent={ListHeaderComponent}
+          data={tabs}
+          initialScrollIndex={0}
+          showsVerticalScrollIndicator={false}
+        />
+      </ScrollView>
+    );
+  }, [
+    ListHeaderComponent,
+    isLoading,
+    tabs,
+    totalListData.length,
+    undistributedListData.length,
+  ]);
+
   return (
     <Page>
       <Page.Header title={title} />
-      <Page.Body>
-        {isLoading ? (
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-            flex={1}
-          >
-            <Spinner size="large" />
-          </YStack>
-        ) : (
-          <ScrollView contentContainerStyle={{ pb: '$10' }}>
-            <Tab.Page
-              ListHeaderComponent={
-                <YStack>
-                  {tourTimes === 0 ? (
-                    <Alert
-                      closable
-                      description={intl.formatMessage({
-                        id: ETranslations.referral_earn_reward_tips,
-                      })}
-                      type="info"
-                      mx="$5"
-                      mb="$2.5"
-                      onClose={tourVisited}
-                    />
-                  ) : null}
-                  <YStack px="$5" py="$2.5">
-                    <SizableText size="$bodyLg">
-                      {intl.formatMessage({
-                        id: ETranslations.referral_reward_undistributed,
-                      })}
-                    </SizableText>
-                    <Currency
-                      sourceCurrency="usd"
-                      size="$heading5xl"
-                      formatter="value"
-                    >
-                      {amount?.pending || 0}
-                    </Currency>
-                  </YStack>
-                </YStack>
-              }
-              data={tabs}
-              initialScrollIndex={0}
-              showsVerticalScrollIndicator={false}
-            />
-          </ScrollView>
-        )}
-      </Page.Body>
+      <Page.Body>{Content}</Page.Body>
     </Page>
   );
 }
