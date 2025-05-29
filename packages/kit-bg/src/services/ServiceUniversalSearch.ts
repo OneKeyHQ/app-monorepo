@@ -502,6 +502,13 @@ class ServiceUniversalSearch extends ServiceBase {
             accountId: accountItem.accountId,
             networkId: networkId || '',
           });
+          if (account?.id) {
+            accountsValue = (
+              await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+                accounts: [{ accountId: account?.id }],
+              })
+            )?.[0];
+          }
         } else {
           indexedAccount = await serviceAccount.getIndexedAccount({
             id: accountItem.accountId,
@@ -513,6 +520,15 @@ class ServiceUniversalSearch extends ServiceBase {
               networkIds: [networkId || ''],
             })
           )?.[0]?.account;
+          if (account?.id) {
+            accountsValue = (
+              await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+                {
+                  accounts: [{ accountId: account?.id }],
+                },
+              )
+            )?.[0];
+          }
         }
 
         const walletId = accountUtils.getWalletIdFromAccountId({
@@ -521,13 +537,6 @@ class ServiceUniversalSearch extends ServiceBase {
         wallet = await serviceAccount.getWalletSafe({
           walletId,
         });
-        if (account?.id) {
-          accountsValue = (
-            await this.backgroundApi.serviceAccountProfile.getAccountsValue({
-              accounts: [{ accountId: account?.id }],
-            })
-          )?.[0];
-        }
       } catch (e) {
         console.error('Failed to get account or indexedAccount:', e);
         // if get account or indexedAccount failed, skip current account, continue to next
@@ -676,7 +685,7 @@ class ServiceUniversalSearch extends ServiceBase {
             walletId: i.item.walletId,
           });
           const accountsValue = (
-            await serviceAccountProfile.getAccountsValue({
+            await serviceAccountProfile.getAllNetworkAccountsValue({
               accounts: [{ accountId: i.item.id }],
             })
           )?.[0];
