@@ -327,19 +327,13 @@ export default function EarnReward() {
   const { title } = route.params;
   const intl = useIntl();
 
+  const [lists, setLists] = useState<(ISectionData[] | undefined)[]>([]);
   const [amount, setAmount] = useState<
     | {
-        available: string;
         pending: string;
       }
     | undefined
   >();
-  const [undistributedListData, setUndistributedListData] = useState<
-    ISectionData[] | undefined
-  >(undefined);
-  const [totalListData, setTotalListData] = useState<
-    ISectionData[] | undefined
-  >(undefined);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -363,19 +357,16 @@ export default function EarnReward() {
       fetchSales(),
       fetchTotalList(),
     ]);
+    const listBundles = [];
+    let pending = '0';
     if (salesResult.status === 'fulfilled') {
       const data = salesResult.value;
-      setUndistributedListData(
-        data.items?.length ? formatSections(data.items) : [],
-      );
-      setAmount({
-        available: '0',
-        pending: BigNumber(data.fiatValue).toFixed(2) || '0',
-      });
+      listBundles.push(data.items?.length ? formatSections(data.items) : []);
+      pending = BigNumber(data.fiatValue).toFixed(2) || '0';
     }
     if (totalResult.status === 'fulfilled') {
       const data = totalResult.value;
-      setTotalListData(data.items?.length ? formatSections(data.items) : []);
+      listBundles.push(data.items?.length ? formatSections(data.items) : []);
     }
     const accounts: {
       accountAddress: string;
@@ -402,7 +393,6 @@ export default function EarnReward() {
     if (totalResult.status === 'fulfilled' && totalResult.value.items) {
       processItems(totalResult.value.items);
     }
-    setIsLoading(false);
     const response = await backgroundApiProxy.serviceReferralCode.getPositions(
       accounts,
     );
@@ -421,6 +411,11 @@ export default function EarnReward() {
         item.deposited;
     }
     setVaultAmount(newVaultAmount);
+    setAmount({ pending });
+    setLists(listBundles);
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 80);
   }, [fetchSales, fetchTotalList]);
 
   useEffect(() => {
@@ -435,8 +430,8 @@ export default function EarnReward() {
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
         page: () =>
-          undistributedListData ? (
-            <List listData={undistributedListData} vaultAmount={vaultAmount} />
+          lists[0] ? (
+            <List listData={lists[0]} vaultAmount={vaultAmount} />
           ) : null,
       },
       {
@@ -445,12 +440,12 @@ export default function EarnReward() {
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
         page: () =>
-          totalListData ? (
-            <List listData={totalListData} vaultAmount={vaultAmount} />
+          lists[1] ? (
+            <List listData={lists[1]} vaultAmount={vaultAmount} />
           ) : null,
       },
     ],
-    [intl, totalListData, undistributedListData, vaultAmount],
+    [intl, lists, vaultAmount],
   );
 
   const ListHeaderComponent = useMemo(() => {
@@ -483,24 +478,7 @@ export default function EarnReward() {
   }, [amount?.pending, intl, tourTimes, tourVisited]);
 
   const Content = useMemo(() => {
-    if (isLoading || !undistributedListData || !totalListData) {
-      return (
-        <YStack
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          ai="center"
-          jc="center"
-          flex={1}
-        >
-          <Spinner size="large" />
-        </YStack>
-      );
-    }
-
-    if (undistributedListData?.length === 0 && totalListData?.length === 0) {
+    if (lists[0]?.length === 0 && lists[1]?.length === 0) {
       return (
         <YStack>
           {ListHeaderComponent}
@@ -519,18 +497,29 @@ export default function EarnReward() {
         />
       </ScrollView>
     );
-  }, [
-    ListHeaderComponent,
-    isLoading,
-    tabs,
-    totalListData,
-    undistributedListData,
-  ]);
+  }, [ListHeaderComponent, lists, tabs]);
 
   return (
     <Page>
       <Page.Header title={title} />
-      <Page.Body>{Content}</Page.Body>
+      <Page.Body>
+        {Content}
+        {isLoading || !lists[0] || !lists[1] ? (
+          <YStack
+            bg="$bgApp"
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            ai="center"
+            jc="center"
+            flex={1}
+          >
+            <Spinner size="large" />
+          </YStack>
+        ) : null}
+      </Page.Body>
     </Page>
   );
 }
