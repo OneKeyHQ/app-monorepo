@@ -12,7 +12,6 @@ import {
   Divider,
   Icon,
   Image,
-  NumberSizeableText,
   Page,
   Popover,
   SizableText,
@@ -21,7 +20,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
@@ -41,6 +39,7 @@ import type {
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import { EarnText } from '../ProtocolDetails/EarnText';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
@@ -283,7 +282,7 @@ export const UniversalWithdraw = ({
       items.push(
         <CalculationListItem>
           <CalculationListItem.Label
-            size="$bodyMd"
+            size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
               transactionConfirmation.receive.tooltip.type === 'text'
@@ -294,12 +293,10 @@ export const UniversalWithdraw = ({
             {transactionConfirmation.receive.title.text}
           </CalculationListItem.Label>
           <CalculationListItem.Value>
-            <FormatHyperlinkText
+            <EarnText
+              text={transactionConfirmation.receive.description}
               size="$bodyMdMedium"
-              color={transactionConfirmation.receive.description.color}
-            >
-              {transactionConfirmation.receive.description.text}
-            </FormatHyperlinkText>
+            />
           </CalculationListItem.Value>
         </CalculationListItem>,
       );
@@ -376,30 +373,23 @@ export const UniversalWithdraw = ({
         borderColor="$borderSubdued"
       >
         <YStack gap="$2">
-          <SizableText
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
             size="$bodyMd"
-            color={transactionConfirmation?.title.color || '$textSubdued'}
-          >
-            {transactionConfirmation?.title.text || ' '}
-          </SizableText>
+          />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
                 <XStack gap="$1">
-                  <FormatHyperlinkText
+                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.description}
                     size={textSize}
-                    color={reward.title.color}
-                  >
-                    {reward.title.text}
-                  </FormatHyperlinkText>
-                  <FormatHyperlinkText
-                    size={textSize}
-                    color={reward.description.color || '$textSubdued'}
-                  >
-                    {reward.description.text}
-                  </FormatHyperlinkText>
+                    color="$textSubdued"
+                  />
                 </XStack>
                 {hasTooltip ? (
                   <Popover.Tooltip

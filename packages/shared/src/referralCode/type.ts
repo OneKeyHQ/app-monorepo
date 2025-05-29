@@ -182,6 +182,31 @@ export interface IHardwareSalesRecord {
   items: IHardwareSalesRecordItem[];
 }
 
+
+export interface IInvitePaidItem {
+  _id: string;
+  networkId: string;
+  address: string;
+  token: {
+    networkId: string;
+    address: string;
+    logoURI: string;
+    name: string;
+    symbol: string;
+  };
+  version: number;
+  rebateAmount: string;
+  tx: string;
+  updatedAt: string;
+  createdAt: string;
+  paidAmount: string;
+}
+
+export interface IInvitePaidHistory {
+  total: number;
+  items: IInvitePaidItem[];
+}
+
 export interface IInviteHistory {
   total: number;
   items: IHardwareSalesRecordItem[];

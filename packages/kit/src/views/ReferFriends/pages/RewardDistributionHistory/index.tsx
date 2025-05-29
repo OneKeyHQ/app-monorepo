@@ -60,13 +60,13 @@ export default function RewardDistributionHistory() {
   const [sections, setSections] = useState<
     { title: string; data: IHardwareSalesRecord['items'] }[] | undefined
   >(undefined);
-  const fetchSales = useCallback((cursor?: string) => {
-    return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
+  const fetchInvitePaidList = useCallback(() => {
+    return backgroundApiProxy.serviceReferralCode.getInvitePaidList();
   }, []);
 
   const onRefresh = useCallback(() => {
     setIsLoading(true);
-    void Promise.allSettled([fetchSales()]).then(([salesResult]) => {
+    void Promise.allSettled([fetchInvitePaidList()]).then(([salesResult]) => {
       if (salesResult.status === 'fulfilled') {
         const data = salesResult.value;
         setSections(formatSections(data.items));
@@ -75,11 +75,11 @@ export default function RewardDistributionHistory() {
 
       setIsLoading(false);
     });
-  }, [fetchSales]);
+  }, [fetchInvitePaidList]);
 
   useEffect(() => {
     onRefresh();
-  }, [fetchSales, onRefresh]);
+  }, [fetchInvitePaidList, onRefresh]);
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
@@ -89,18 +89,16 @@ export default function RewardDistributionHistory() {
     [],
   );
 
-  const fetchMore = useCallback(async () => {
-    if (originalData.current.length < 1) {
-      return;
-    }
-    const data = await fetchSales(
-      originalData.current[originalData.current.length - 1]._id,
-    );
-    if (data.items.length > 0) {
-      originalData.current.push(...data.items);
-      setSections(formatSections(originalData.current));
-    }
-  }, [fetchSales]);
+  // const fetchMore = useCallback(async () => {
+  //   if (originalData.current.length < 1) {
+  //     return;
+  //   }
+  //   const data = await fetchInvitePaidList();
+  //   if (data.items.length > 0) {
+  //     originalData.current.push(...data.items);
+  //     setSections(formatSections(originalData.current));
+  //   }
+  // }, [fetchInvitePaidList]);
 
   const intl = useIntl();
   const renderItem = useCallback(
@@ -194,7 +192,7 @@ export default function RewardDistributionHistory() {
             renderSectionHeader={renderSectionHeader}
             estimatedItemSize={44}
             renderItem={renderItem}
-            onEndReached={fetchMore}
+            // onEndReached={fetchMore}
           />
         )}
       </Page.Body>
