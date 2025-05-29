@@ -18,11 +18,13 @@ function DeviceBasicInfoSection({
   onPressHomescreen,
   onPressAuthRequest,
   onPressCheckForUpdates,
+  onPressTroubleshooting,
 }: {
   data: IHwQrWalletWithDevice;
   onPressHomescreen: () => void;
   onPressAuthRequest: () => void;
   onPressCheckForUpdates: () => void;
+  onPressTroubleshooting: () => void;
 }) {
   const { wallet, device } = data;
   const intl = useIntl();
@@ -147,6 +149,13 @@ function DeviceBasicInfoSection({
             })}
             drillIn
             onPress={onPressCheckForUpdates}
+          />
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.global_hardware_troubleshooting,
+            })}
+            drillIn
+            onPress={onPressTroubleshooting}
           />
         </YStack>
       )}

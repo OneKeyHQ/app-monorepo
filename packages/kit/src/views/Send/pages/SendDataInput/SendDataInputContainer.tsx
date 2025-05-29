@@ -179,6 +179,7 @@ function SendDataInputContainer() {
   }, []);
 
   const [isHexTxMessage, setIsHexTxMessage] = useState(false);
+  const [ensureAddressValid, setEnsureAddressValid] = useState(false);
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
@@ -834,6 +835,24 @@ function SendDataInputContainer() {
     [isLightningNetwork, isUseFiat, lnUnit],
   );
 
+  const selectedTokenSymbol = useMemo(() => {
+    if (isNFT) {
+      return nft?.metadata?.name;
+    }
+
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      return 'BTC';
+    }
+
+    return tokenInfo?.symbol;
+  }, [
+    isLightningNetwork,
+    isNFT,
+    lnUnit,
+    nft?.metadata?.name,
+    tokenInfo?.symbol,
+  ]);
+
   const renderTokenDataInputForm = useCallback(
     () => (
       <>
@@ -951,9 +970,7 @@ function SendDataInputContainer() {
                 : tokenInfo?.logoURI,
               selectedNetworkImageUri: network?.logoURI,
               selectedNetworkName: network?.name,
-              selectedTokenSymbol: isNFT
-                ? nft?.metadata?.name
-                : tokenInfo?.symbol,
+              selectedTokenSymbol,
               isCustomNetwork: network?.isCustomNetwork,
               onPress: isNFT ? undefined : handleOnSelectToken,
               disabled: isSelectTokenDisabled,
@@ -1003,11 +1020,10 @@ function SendDataInputContainer() {
       network?.logoURI,
       network?.name,
       nft?.metadata?.image,
-      nft?.metadata?.name,
+      selectedTokenSymbol,
       showPercentToolbar,
       tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
-      tokenInfo?.symbol,
       tokenSymbol,
     ],
   );
@@ -1398,6 +1414,30 @@ function SendDataInputContainer() {
 
   const inputAddressFieldState = form.getFieldState('to');
 
+  const shouldShowRecentRecipients = useMemo(() => {
+    return (
+      !ensureAddressValid &&
+      (!inputAddressFieldState.isDirty ||
+        inputAddressFieldState.invalid ||
+        toPending)
+    );
+  }, [
+    ensureAddressValid,
+    inputAddressFieldState.isDirty,
+    inputAddressFieldState.invalid,
+    toPending,
+  ]);
+
+  useEffect(() => {
+    if (inputAddressFieldState.isDirty && inputAddressFieldState.invalid) {
+      setEnsureAddressValid(false);
+    }
+  }, [
+    inputAddressFieldState.isDirty,
+    inputAddressFieldState.invalid,
+    setEnsureAddressValid,
+  ]);
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -1480,15 +1520,14 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               hideNonBackedUpWallet
             />
-            {!inputAddressFieldState.isDirty ||
-            inputAddressFieldState.invalid ||
-            toPending ? (
+            {shouldShowRecentRecipients ? (
               <RecentRecipients
                 accountId={currentAccount.accountId}
                 networkId={currentAccount.networkId}
                 searchKey={toAddressRaw}
                 isSearchMode={!form.formState.isValid}
                 onSelect={({ address: selectedAddress }) => {
+                  setEnsureAddressValid(true);
                   form.setValue('to', {
                     raw: selectedAddress,
                   });
@@ -1500,23 +1539,25 @@ function SendDataInputContainer() {
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      <Page.Footer>
-        <Page.FooterActions
-          onConfirm={form.submit}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.send_preview_button,
-          })}
-          confirmButtonProps={{
-            disabled: isSubmitDisabled,
-            loading: isSubmitting,
-          }}
-        />
-        {isShowPercentToolbar ? (
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
+      {shouldShowRecentRecipients ? null : (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirm={form.submit}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.send_preview_button,
+            })}
+            confirmButtonProps={{
+              disabled: isSubmitDisabled,
+              loading: isSubmitting,
+            }}
           />
-        ) : null}
-      </Page.Footer>
+          {isShowPercentToolbar ? (
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          ) : null}
+        </Page.Footer>
+      )}
     </Page>
   );
 }

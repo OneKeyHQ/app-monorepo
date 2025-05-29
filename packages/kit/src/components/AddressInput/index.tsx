@@ -156,6 +156,7 @@ export type IAddressQueryResult = {
   addressBookId?: string;
   addressBookName?: string;
   resolveAddress?: string;
+  validAddress?: string;
   resolveOptions?: string[];
   addressInteractionStatus?: EAddressInteractionStatus;
   isContract?: boolean;
@@ -464,7 +465,10 @@ export function AddressInput(props: IAddressInputProps) {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
-        resolved: queryResult.resolveAddress ?? queryResult.input?.trim(),
+        resolved:
+          queryResult.resolveAddress ??
+          queryResult.validAddress ??
+          queryResult.input?.trim(),
         pending: false,
         isContract: queryResult.isContract,
       });

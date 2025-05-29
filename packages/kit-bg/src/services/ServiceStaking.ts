@@ -550,6 +550,8 @@ class ServiceStaking extends ServiceBase {
     amount: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const amountNumber = BigNumber(params.amount);
+    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
     const resp = await client.get<{
       data: IStakeTransactionConfirmation;
     }>(`/earn/v1/transaction-confirmation`, {
@@ -912,6 +914,7 @@ class ServiceStaking extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+    const amountNumber = BigNumber(amount || 0);
     const result = await client.get<
       ICheckAmountResponse,
       IAxiosResponse<ICheckAmountResponse>
@@ -922,7 +925,7 @@ class ServiceStaking extends ServiceBase {
         symbol,
         provider: provider || '',
         action,
-        amount,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
         vault: morphoVault,
         withdrawAll,
       },

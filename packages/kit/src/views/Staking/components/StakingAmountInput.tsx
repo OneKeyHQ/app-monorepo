@@ -42,6 +42,7 @@ export function StakingAmountInput({
       setPercentageInputStageShow(false);
     }, 200);
   }, []);
+
   return (
     <YStack
       borderRadius="$3"

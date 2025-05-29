@@ -266,6 +266,7 @@ export interface IEarnText {
 }
 
 export type IProtocolInfo = {
+  stakeTag: string;
   // account with Earn
   earnAccount?:
     | {
@@ -323,6 +324,7 @@ export interface IEarnTokenInfo {
   nativeToken?: IFetchTokenDetailItem;
   balanceParsed: string;
   token: IEarnToken;
+  price: string;
 }
 
 interface ISubscriptionValue {
@@ -330,7 +332,10 @@ interface ISubscriptionValue {
   fiatValue: string;
   formattedValue: string;
   balance: string;
-  token: IEarnToken;
+  token: {
+    info: IEarnToken;
+    price: string;
+  };
 }
 
 interface IEarnBadge {
@@ -342,9 +347,21 @@ interface IEarnBadge {
 }
 
 interface IRewardToken {
-  token: IEarnToken;
+  token: {
+    info: IEarnToken;
+    price: string;
+  };
   title: IEarnText;
   description: IEarnText;
+  button: {
+    type: 'claim';
+    text: string;
+    disabled: boolean;
+    data: {
+      balance: string;
+      token: IEarnToken;
+    };
+  };
 }
 
 interface IRewards {
@@ -370,7 +387,10 @@ export interface IEarnPopupActionIcon {
     }[];
     items?: {
       icon?: IEarnIcon;
-      token?: IEarnToken;
+      token?: {
+        info: IEarnToken;
+        price: string;
+      };
       title: IEarnText;
       value: string;
     }[];
@@ -524,7 +544,10 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: {
       type: 'default';
-      token: IEarnToken;
+      token: {
+        info: IEarnToken;
+        price: string;
+      };
       fiatValue: string;
       formattedValue: string;
       title: IEarnText;
@@ -533,6 +556,11 @@ export interface IStakeEarnDetail {
       tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];
     }[];
+    button?: {
+      type: 'portfolio';
+      disabled: boolean;
+      text: IEarnText;
+    };
   };
   timeline: {
     title: IEarnText;

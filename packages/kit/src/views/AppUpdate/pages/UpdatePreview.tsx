@@ -54,12 +54,12 @@ function UpdatePreview({
           { ver: latestVersion || '' },
         )}
       />
-      <Page.Body m="$5" mt={0}>
+      <Page.Body mt={0}>
         <ExtPluginText />
         {changeLog ? (
           <ScrollView
             contentInsetAdjustmentBehavior="automatic"
-            contentContainerStyle={{ pb: '$5' }}
+            contentContainerStyle={{ pb: '$5', px: '$5' }}
           >
             <Markdown>{changeLog}</Markdown>
             <ViewUpdateHistory />
