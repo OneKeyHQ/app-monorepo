@@ -156,13 +156,5 @@ export function SwapPanel(props: ISwapPanelProps) {
     );
   }
 
-  return (
-    <>
-      {swapPanelContent}
-
-      <Button onPress={() => checkTokenApproveAllowance('100')}>
-        checkTokenApproveAllowance
-      </Button>
-    </>
-  );
+  return <>{swapPanelContent}</>;
 }

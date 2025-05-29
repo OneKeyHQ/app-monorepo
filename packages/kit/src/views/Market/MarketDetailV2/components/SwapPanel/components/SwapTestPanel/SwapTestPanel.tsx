@@ -36,6 +36,12 @@ export function SwapTestPanel({
     );
   };
 
+  const handleTestApproveAllowance = () => {
+    console.log('checkTokenApproveAllowance test button clicked');
+    // This is a placeholder for the test functionality
+    // In a real implementation, you would need access to the actual function
+  };
+
   if (testNetworks.length === 0) {
     return <SizableText>No test networks available.</SizableText>;
   }
@@ -64,6 +70,13 @@ export function SwapTestPanel({
         onPress={() => console.log(swapPanel)}
       >
         Print swapPanel
+      </Button>
+      <Button
+        size="small"
+        variant="secondary"
+        onPress={handleTestApproveAllowance}
+      >
+        checkTokenApproveAllowance
       </Button>
     </Stack>
   );
