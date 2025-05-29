@@ -383,7 +383,7 @@ export const UniversalWithdraw = ({
             const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
-                <XStack gap="$1">
+                <XStack gap="$1" ai="center">
                   <EarnText text={reward.title} />
                   <EarnText
                     text={reward.description}
