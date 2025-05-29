@@ -366,7 +366,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
             } else if (
-           
+              !platformEnv.isDev &&
               (platformEnv.isNative || platformEnv.isDesktop) &&
               response?.isShowUpdateDialog &&
               isFirstLaunch

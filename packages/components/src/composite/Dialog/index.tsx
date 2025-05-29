@@ -278,7 +278,6 @@ function DialogFrame({
             zIndex={floatingPanelProps?.zIndex || zIndex}
           >
             <TMDialog.Overlay
-              testID="dialog-overlay"
               key="overlay"
               backgroundColor="$bgBackdrop"
               animateOnly={['opacity']}
