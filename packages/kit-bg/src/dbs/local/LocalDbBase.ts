@@ -1990,7 +1990,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
     });
-    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, device.id);
+    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+      deviceId: device.id,
+    });
   }
 
   async updateDeviceFeaturesLabel({
