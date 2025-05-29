@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { reverse } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -139,7 +138,7 @@ function WalletList() {
               id: ETranslations.referral_your_referred_wallets_details,
             })}
           </SizableText>
-          {reverse(items).map((item, index) => (
+          {items.map((item, index) => (
             <>
               <ListItem
                 drillIn
