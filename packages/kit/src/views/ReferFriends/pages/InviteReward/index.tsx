@@ -128,6 +128,8 @@ function ShareCode({
                 icon="Copy3Outline"
                 size="large"
                 iconColor="$iconSubdued"
+                hoverStyle={undefined}
+                pressStyle={undefined}
                 onPress={handleCopy}
               />
             </XStack>
