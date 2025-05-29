@@ -1,5 +1,3 @@
-import type { FC } from 'react';
-
 import {
   Icon,
   ScrollView,
@@ -20,9 +18,11 @@ type ITokenSecurityAlertDialogContentProps = {
   loading: boolean;
 };
 
-const TokenSecurityAlertDialogContent: FC<
-  ITokenSecurityAlertDialogContentProps
-> = ({ securityData, error, loading }) => {
+function TokenSecurityAlertDialogContent({
+  securityData,
+  error,
+  loading,
+}: ITokenSecurityAlertDialogContentProps) {
   const formattedData = formatSecurityData(securityData);
   const warningCount = formattedData.filter((item) => item.isWarning).length;
 
@@ -86,6 +86,6 @@ const TokenSecurityAlertDialogContent: FC<
       </Stack>
     </ScrollView>
   );
-};
+}
 
 export { TokenSecurityAlertDialogContent };

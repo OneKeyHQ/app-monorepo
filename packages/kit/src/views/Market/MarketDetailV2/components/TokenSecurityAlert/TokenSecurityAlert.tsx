@@ -1,5 +1,3 @@
-import type { FC } from 'react';
-
 import {
   ButtonFrame,
   Dialog,
@@ -16,10 +14,10 @@ type ITokenSecurityAlertProps = {
   networkId: string;
 };
 
-const TokenSecurityAlert: FC<ITokenSecurityAlertProps> = ({
+function TokenSecurityAlert({
   tokenAddress,
   networkId,
-}) => {
+}: ITokenSecurityAlertProps) {
   const { securityData, securityStatus, warningCount, error, loading } =
     useTokenSecurity({
       tokenAddress,
@@ -56,6 +54,6 @@ const TokenSecurityAlert: FC<ITokenSecurityAlertProps> = ({
       </XStack>
     </ButtonFrame>
   );
-};
+}
 
 export { TokenSecurityAlert };

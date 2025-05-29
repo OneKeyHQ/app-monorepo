@@ -1,5 +1,3 @@
-import type { FC } from 'react';
-
 import { SizableText, XStack } from '@onekeyhq/components';
 
 import { TokenSecurityAlertDialogContentIcon } from './TokenSecurityAlertDialogContentIcon';
@@ -13,9 +11,9 @@ type ITokenSecurityAlertDialogContentItemProps = {
   };
 };
 
-const TokenSecurityAlertDialogContentItem: FC<
-  ITokenSecurityAlertDialogContentItemProps
-> = ({ item }) => {
+function TokenSecurityAlertDialogContentItem({
+  item,
+}: ITokenSecurityAlertDialogContentItemProps) {
   return (
     <XStack
       key={item.key}
@@ -47,6 +45,6 @@ const TokenSecurityAlertDialogContentItem: FC<
       </XStack>
     </XStack>
   );
-};
+}
 
 export { TokenSecurityAlertDialogContentItem };
