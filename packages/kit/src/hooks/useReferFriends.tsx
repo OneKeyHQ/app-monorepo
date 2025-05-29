@@ -13,7 +13,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ONEKEY_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -111,16 +111,17 @@ export const useReferFriends = () => {
       };
       const dialog = Dialog.show({
         icon: 'GiftOutline',
-        title: intl.formatMessage({ id: ETranslations.earn_referral_title }),
+        title: postConfig.locales.Earn.title,
         description: (
-          <HyperlinkText
+          <FormatHyperlinkText
             size="$bodyMd"
-            translationId={ETranslations.earn_referral_subtitle}
             underlineTextProps={{ color: '$textInfo' }}
             onAction={() => {
               void dialog.close();
             }}
-          />
+          >
+            {postConfig.locales.Earn.subtitle}
+          </FormatHyperlinkText>
         ),
         renderContent: isLogin ? (
           <YStack gap="$5">
@@ -152,25 +153,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_intro_for_you,
-                  })}
+                  {postConfig.locales.Earn.for_tou.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.earn_referral_for_you_reward,
-                    },
-                    {
-                      RebateRate: (
-                        <SizableText size="$bodyMd" color="$textSuccess">
-                          {`${postConfig?.commissionRate.amount || ''}${
-                            postConfig?.commissionRate.unit || ''
-                          }`}
-                        </SizableText>
-                      ),
-                    },
-                  )}
+                  {postConfig.locales.Earn.for_tou.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -180,21 +166,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_intro_for_your_friend,
-                  })}
+                  {postConfig.locales.Earn.for_your_friend.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.earn_referral_for_your_friend_reward,
-                    },
-                    {
-                      number: `${postConfig?.friendDiscount.unit || ''}${
-                        postConfig?.friendDiscount.amount || ''
-                      }`,
-                    },
-                  )}
+                  {postConfig.locales.Earn.for_your_friend.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
