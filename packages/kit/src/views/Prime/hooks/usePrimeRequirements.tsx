@@ -9,9 +9,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
+import { usePrimePurchaseCallback } from '../components/PrimePurchaseDialog/PrimePurchaseDialog';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
+
+import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../components/PrimePurchaseDialog/PrimePurchaseDialog'),
@@ -22,6 +25,8 @@ const PrimePurchaseDialog = LazyLoadPage(
 export function usePrimeRequirements() {
   const { user, isLoggedIn, logout } = usePrimeAuthV2();
   const { loginOneKeyId } = useLoginOneKeyId();
+
+  const { purchase } = usePrimePurchaseCallback();
 
   const intl = useIntl();
   const ensureOneKeyIDLoggedIn = useCallback(
@@ -67,8 +72,10 @@ export function usePrimeRequirements() {
   const ensurePrimeSubscriptionActive = useCallback(
     async ({
       skipDialogConfirm,
+      selectedSubscriptionPeriod,
     }: {
       skipDialogConfirm?: boolean;
+      selectedSubscriptionPeriod?: ISubscriptionPeriod;
     } = {}) => {
       await ensureOneKeyIDLoggedIn({
         skipDialogConfirm,
@@ -89,15 +96,21 @@ export function usePrimeRequirements() {
               title: 'Your account is not eligible for sandbox payment',
             });
           }
-          const purchaseDialog = Dialog.show({
-            renderContent: (
-              <PrimePurchaseDialog
-                onPurchase={() => {
-                  void purchaseDialog.close();
-                }}
-              />
-            ),
-          });
+          if (selectedSubscriptionPeriod) {
+            await purchase({
+              selectedSubscriptionPeriod,
+            });
+          } else {
+            const purchaseDialog = Dialog.show({
+              renderContent: (
+                <PrimePurchaseDialog
+                  onPurchase={() => {
+                    void purchaseDialog.close();
+                  }}
+                />
+              ),
+            });
+          }
         };
         if (!skipDialogConfirm) {
           const dialog = Dialog.show({
@@ -121,7 +134,7 @@ export function usePrimeRequirements() {
         throw new Error('Prime subscription is not active');
       }
     },
-    [ensureOneKeyIDLoggedIn, intl, user.isEnableSandboxPay],
+    [ensureOneKeyIDLoggedIn, intl, purchase, user.isEnableSandboxPay],
   );
 
   return {
