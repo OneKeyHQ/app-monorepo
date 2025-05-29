@@ -2,6 +2,7 @@ import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
 import type { INetworkAccount } from './account';
 import type { IFetchTokenDetailItem, IToken } from './token';
+import type { FontSizeTokens } from 'tamagui';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -263,6 +264,7 @@ export type IEarnTokenItem = {
 export interface IEarnText {
   text: string;
   color?: string;
+  size?: FontSizeTokens;
 }
 
 export type IProtocolInfo = {
@@ -353,15 +355,7 @@ interface IRewardToken {
   };
   title: IEarnText;
   description: IEarnText;
-  button: {
-    type: 'claim';
-    text: string;
-    disabled: boolean;
-    data: {
-      balance: string;
-      token: IEarnToken;
-    };
-  };
+  button?: IEarnClaimActionIcon;
 }
 
 interface IRewards {
@@ -434,10 +428,35 @@ export interface IEarnRebateTooltip {
   };
 }
 
-export type IEarnTooltip = IEarnTextTooltip | IEarnRebateTooltip;
+export interface IEarnWithdrawTooltip {
+  type: 'withdraw';
+  data: {
+    title: string;
+    description: string;
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
+  };
+}
+
+export type IEarnTooltip =
+  | IEarnTextTooltip
+  | IEarnRebateTooltip
+  | IEarnWithdrawTooltip;
 
 export interface IEarnClaimActionIcon {
   type: 'claim';
+  text: string | IEarnText;
+  disabled: boolean;
+  data: {
+    balance: string;
+    token: IEarnToken;
+  };
+}
+
+export interface IEarnPortfolioActionIcon {
+  type: 'portfolio';
   disabled: boolean;
   text: IEarnText;
 }
@@ -446,9 +465,10 @@ export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
   | IEarnClaimActionIcon
-  | IEarnHistoryActionIcon;
+  | IEarnHistoryActionIcon
+  | IEarnPortfolioActionIcon;
 
-interface IEarnCell {
+interface IEarnGridItem {
   title: IEarnText;
   description: IEarnText;
   button?: IEarnActionIcon;
@@ -458,7 +478,7 @@ interface IEarnCell {
 
 interface IEarnProfit {
   title: IEarnText;
-  items: IEarnCell[];
+  items: IEarnGridItem[];
 }
 
 export interface IEarnFAQItem {
@@ -556,11 +576,7 @@ export interface IStakeEarnDetail {
       tooltip?: IEarnTooltip;
       buttons?: IEarnActionIcon[];
     }[];
-    button?: {
-      type: 'portfolio';
-      disabled: boolean;
-      text: IEarnText;
-    };
+    button?: IEarnPortfolioActionIcon;
   };
   timeline: {
     title: IEarnText;
@@ -575,7 +591,7 @@ export interface IStakeEarnDetail {
   profit: IEarnProfit;
   provider: {
     title: IEarnText;
-    items: IEarnCell[];
+    items: IEarnGridItem[];
   };
   alerts: string[];
   faqs: {

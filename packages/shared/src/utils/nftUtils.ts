@@ -107,7 +107,7 @@ export const compressNFT = async (
     `width: ${width}, height: ${height}, originW: ${originW}, originH: ${originH}`,
   );
   const aspectRatioLonger = originW > originH;
-  const aspectRatioEqueal = originW === originH;
+  const aspectRatioEqual = originW === originH;
 
   const actions: Action[] = [];
   if (!isThumbnail) {
@@ -123,7 +123,7 @@ export const compressNFT = async (
     });
   }
 
-  if (isThumbnail && !aspectRatioEqueal) {
+  if (isThumbnail && !aspectRatioEqual) {
     if (aspectRatioLonger) {
       const originX = getOriginX(originW, originH, width, height);
       if (originX !== null) {

@@ -30,14 +30,12 @@ class ServiceReferralCode extends ServiceBase {
     const summary = await client.get<{
       data: IInviteSummary;
     }>('/rebate/v1/invite/summary');
+    if (summary.data.data.inviteCode) {
+      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+        summary.data.data.inviteCode,
+      );
+    }
     return summary.data.data;
-  }
-
-  @backgroundMethod()
-  async getInviteCode() {
-    const inviteCode =
-      await this.backgroundApi.simpleDb.referralCode.getInviteCode();
-    return inviteCode;
   }
 
   @backgroundMethod()
@@ -165,25 +163,10 @@ class ServiceReferralCode extends ServiceBase {
   async getMyReferralCode() {
     const myReferralCode =
       await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+    setTimeout(() => {
+      void this.getSummaryInfo();
+    });
     return myReferralCode;
-  }
-
-  @backgroundMethod()
-  async isBindInviteCode() {
-    const inviteCode =
-      await this.backgroundApi.simpleDb.referralCode.getInviteCode();
-    return inviteCode !== '';
-  }
-
-  @backgroundMethod()
-  async bindInviteCode(code: string) {
-    const valid = await this.backgroundApi.serviceStaking.checkInviteCode(code);
-    if (valid) {
-      await this.backgroundApi.simpleDb.referralCode.updateCode({
-        inviteCode: code,
-      });
-    }
-    return valid;
   }
 
   @backgroundMethod()
@@ -239,7 +222,13 @@ class ServiceReferralCode extends ServiceBase {
   async getPostConfig() {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
-    return postConfig;
+    if (postConfig) {
+      setTimeout(() => {
+        void this.fetchPostConfig();
+      });
+      return postConfig;
+    }
+    return this.fetchPostConfig();
   }
 
   @backgroundMethod()
