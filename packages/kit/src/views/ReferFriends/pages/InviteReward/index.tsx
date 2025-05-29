@@ -177,6 +177,8 @@ function ShareCode({
                   size="medium"
                   iconColor="$iconSubdued"
                   onPress={copyLink}
+                  hoverStyle={undefined}
+                  pressStyle={undefined}
                 />
               )}
             </XStack>
@@ -400,6 +402,7 @@ function Dashboard({
           </SizableText>
           <XStack gap="$2">
             <Popover
+              placement="top"
               title={intl.formatMessage({
                 id: ETranslations.referral_total_reward,
               })}
@@ -441,6 +444,9 @@ function Dashboard({
               iconColor="$iconSubdued"
               icon="ClockTimeHistoryOutline"
               size="small"
+              iconSize="$5"
+              px="$1.5"
+              mr="$-2"
               onPress={toRewardDistributionHistoryPage}
             />
           </XStack>
