@@ -301,7 +301,7 @@ export function EnterPin({
       return <Icon size="$8" name="XBackspaceOutline" color="$iconStrong" />;
     }
     if (num === 'confirm') {
-      return <Icon size="$5" name="CheckLargeOutline" color="$iconOnColor" />;
+      return <Icon size="$5" name="CheckLargeOutline" color="$iconInverse" />;
     }
     return <Stack w="$2.5" h="$2.5" borderRadius="$full" bg="$text" />;
   }, []);
