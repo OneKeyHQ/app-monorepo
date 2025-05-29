@@ -24,6 +24,7 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   FIRMWARE_CONTACT_US_URL,
+  HELP_CENTER_COMMON_FAQ_URL,
   HELP_CENTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -198,7 +199,7 @@ function HardwareTroubleshootingModal() {
 
   const renderContent = useCallback(() => {
     return (
-      <YStack pt="$3" pb="$5">
+      <YStack pt="$3" pb="$2">
         {renderHeader()}
         <Divider mt="$5" borderBottomWidth="$2" borderColor="$bgSubdued" />
         <YStack pt="$5" pb="$3" px="$5">
@@ -208,14 +209,25 @@ function HardwareTroubleshootingModal() {
                 id: ETranslations.global_faqs,
               })}
             </SizableText>
-            <Button variant="tertiary" size="small" iconAfter="OpenOutline">
+            <Button
+              variant="tertiary"
+              size="small"
+              iconAfter="OpenOutline"
+              onPress={() => openUrlExternal(HELP_CENTER_COMMON_FAQ_URL)}
+            >
               {intl.formatMessage({
                 id: ETranslations.global_more,
               })}
             </Button>
           </XStack>
 
-          <XStack flexWrap="wrap" ml={-10} mt={-10} mb="$3">
+          <XStack
+            alignItems="stretch"
+            flexWrap="wrap"
+            ml={-10}
+            mt={-10}
+            mb="$3"
+          >
             {hardwareTroubleshootingQuestions.map((_, i) => (
               <Stack
                 key={i}
@@ -225,6 +237,7 @@ function HardwareTroubleshootingModal() {
                 height="auto"
               >
                 <YStack
+                  flex={1}
                   role="button"
                   px={media.gtMd ? '$5' : '$3'}
                   py="$4"
@@ -287,7 +300,7 @@ function HardwareTroubleshootingModal() {
   ]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_hardware_troubleshooting,
