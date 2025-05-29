@@ -14,7 +14,6 @@ import {
   Dialog,
   Divider,
   Icon,
-  IconButton,
   Image,
   Page,
   Popover,
@@ -24,7 +23,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
@@ -66,6 +64,7 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import { EarnText } from '../ProtocolDetails/EarnText';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
@@ -854,7 +853,7 @@ export function UniversalStake({
       items.push(
         <CalculationListItem>
           <CalculationListItem.Label
-            size="$bodyMd"
+            size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
               transactionConfirmation.receive.tooltip.type === 'text'
@@ -865,12 +864,10 @@ export function UniversalStake({
             {transactionConfirmation.receive.title.text}
           </CalculationListItem.Label>
           <CalculationListItem.Value>
-            <FormatHyperlinkText
+            <EarnText
+              text={transactionConfirmation.receive.description}
               size="$bodyMdMedium"
-              color={transactionConfirmation.receive.description.color}
-            >
-              {transactionConfirmation.receive.description.text}
-            </FormatHyperlinkText>
+            />
           </CalculationListItem.Value>
         </CalculationListItem>,
       );
@@ -1033,12 +1030,11 @@ export function UniversalStake({
       >
         {protocolInfo?.apyDetail ? (
           <XStack gap="$1" ai="center">
-            <SizableText
-              color={protocolInfo.apyDetail.description.color || '$textSuccess'}
+            <EarnText
+              text={protocolInfo.apyDetail.description}
               size="$headingLg"
-            >
-              {protocolInfo.apyDetail.description.text}
-            </SizableText>
+              color="$textSuccess"
+            />
             <EarnActionIcon
               title={protocolInfo.apyDetail.title.text}
               actionIcon={protocolInfo.apyDetail.button}
@@ -1046,30 +1042,23 @@ export function UniversalStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <SizableText
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
             size="$bodyMd"
-            color={transactionConfirmation?.title.color || '$textSubdued'}
-          >
-            {transactionConfirmation?.title.text || ' '}
-          </SizableText>
+          />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
                 <XStack gap="$1">
-                  <FormatHyperlinkText
+                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.description}
                     size={textSize}
-                    color={reward.title.color}
-                  >
-                    {reward.title.text}
-                  </FormatHyperlinkText>
-                  <FormatHyperlinkText
-                    size={textSize}
-                    color={reward.description.color || '$textSubdued'}
-                  >
-                    {reward.description.text}
-                  </FormatHyperlinkText>
+                    color="$textSubdued"
+                  />
                 </XStack>
                 {hasTooltip ? (
                   <Popover.Tooltip

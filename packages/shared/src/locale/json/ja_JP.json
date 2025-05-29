@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "EVMアドレスのみ",
   "referral.reward_empty": "今日から稼ぎ始めましょう",
   "referral.reward_empty_desc": "紹介コードを共有して報酬を獲得し始めましょう",
+  "referral.reward_history": "報酬分配履歴",
+  "referral.reward_history_reward_title": "報酬",
   "referral.reward_received_address": "受取アドレス",
   "referral.reward_received_address_notset": "まだ設定されていません",
   "referral.reward_undistributed": "未分配報酬",

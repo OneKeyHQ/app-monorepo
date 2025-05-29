@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "Adresse EVM uniquement",
   "referral.reward_empty": "Commencez à gagner dès aujourd'hui",
   "referral.reward_empty_desc": "Partagez votre code de parrainage pour commencer à gagner des récompenses",
+  "referral.reward_history": "Historique de distribution des récompenses",
+  "referral.reward_history_reward_title": "Récompense",
   "referral.reward_received_address": "Adresse de réception",
   "referral.reward_received_address_notset": "Pas encore défini",
   "referral.reward_undistributed": "Récompense non distribuée",

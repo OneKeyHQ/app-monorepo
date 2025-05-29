@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "ที่อยู่ EVM เท่านั้น",
   "referral.reward_empty": "เริ่มต้นหารายได้วันนี้",
   "referral.reward_empty_desc": "แชร์รหัสแนะนำของคุณเพื่อเริ่มรับรางวัล",
+  "referral.reward_history": "ประวัติการแจกจ่ายรางวัล",
+  "referral.reward_history_reward_title": "รางวัล",
   "referral.reward_received_address": "ที่อยู่รับ",
   "referral.reward_received_address_notset": "ยังไม่ได้ตั้งค่า",
   "referral.reward_undistributed": "รางวัลที่ยังไม่ได้แจกจ่าย",

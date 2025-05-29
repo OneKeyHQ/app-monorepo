@@ -8,7 +8,6 @@ import {
   Badge,
   Button,
   Divider,
-  Icon,
   Image,
   Page,
   XStack,
@@ -44,6 +43,7 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnIcon } from '../../components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
@@ -408,10 +408,10 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                       bg="$bgCaution"
                       borderRadius="$1"
                     >
-                      <Icon
-                        name={item.icon.icon}
+                      <EarnIcon
+                        icon={item.icon}
                         size="$4"
-                        color={item.icon.color || '$iconCaution'}
+                        color="$iconCaution"
                       />
                     </XStack>
                     <EarnText text={item.title} size="$bodyMdMedium" />
@@ -432,11 +432,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                 <YStack gap="$1">
                   {item.list.map((i, indexOfList) => (
                     <XStack key={indexOfList} gap="$1">
-                      <Icon
-                        name={i.icon.icon}
-                        size="$4"
-                        color={i.icon.color || '$iconCaution'}
-                      />
+                      <EarnIcon icon={i.icon} size="$4" color="$iconCaution" />
                       <EarnText
                         text={i.title}
                         size="$bodySm"

@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "EVM 주소만",
   "referral.reward_empty": "오늘부터 수익을 올리세요",
   "referral.reward_empty_desc": "추천 코드를 공유하여 보상을 받기 시작하세요",
+  "referral.reward_history": "보상 분배 내역",
+  "referral.reward_history_reward_title": "보상",
   "referral.reward_received_address": "수신 주소",
   "referral.reward_received_address_notset": "아직 설정되지 않음",
   "referral.reward_undistributed": "분배되지 않은 보상",

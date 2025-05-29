@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "केवल EVM पता",
   "referral.reward_empty": "आज ही कमाना शुरू करें",
   "referral.reward_empty_desc": "अपने रेफरल कोड को साझा करें और पुरस्कार अर्जित करना शुरू करें",
+  "referral.reward_history": "इनाम वितरण इतिहास",
+  "referral.reward_history_reward_title": "इनाम",
   "referral.reward_received_address": "प्राप्ति पता",
   "referral.reward_received_address_notset": "अभी तक सेट नहीं किया गया",
   "referral.reward_undistributed": "अवितरित इनाम",

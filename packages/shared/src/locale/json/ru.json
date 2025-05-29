@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "Только адрес EVM",
   "referral.reward_empty": "Начните зарабатывать сегодня",
   "referral.reward_empty_desc": "Поделитесь своим реферальным кодом, чтобы начать зарабатывать награды",
+  "referral.reward_history": "История распределения наград",
+  "referral.reward_history_reward_title": "Награда",
   "referral.reward_received_address": "Адрес получения",
   "referral.reward_received_address_notset": "Еще не установлено",
   "referral.reward_undistributed": "Нераспределённая награда",

@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "Тільки адреса EVM",
   "referral.reward_empty": "Почніть заробляти сьогодні",
   "referral.reward_empty_desc": "Поділіться своїм реферальним кодом, щоб почати заробляти винагороди",
+  "referral.reward_history": "Історія розподілу винагород",
+  "referral.reward_history_reward_title": "Винагорода",
   "referral.reward_received_address": "Адреса отримання",
   "referral.reward_received_address_notset": "Ще не встановлено",
   "referral.reward_undistributed": "Нерозподілена винагорода",

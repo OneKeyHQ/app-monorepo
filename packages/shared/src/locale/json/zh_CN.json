@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "仅限 EVM 地址",
   "referral.reward_empty": "从今天开始",
   "referral.reward_empty_desc": "分享您的邀请码以开始赚取奖励",
+  "referral.reward_history": "奖励发放历史",
+  "referral.reward_history_reward_title": "奖励",
   "referral.reward_received_address": "接收地址",
   "referral.reward_received_address_notset": "尚未设置",
   "referral.reward_undistributed": "待分发奖励",

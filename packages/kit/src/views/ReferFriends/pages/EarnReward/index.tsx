@@ -451,7 +451,7 @@ export default function EarnReward() {
             <Spinner size="large" />
           </YStack>
         ) : (
-          <ScrollView>
+          <ScrollView contentContainerStyle={{ pb: '$5' }}>
             <Tab.Page
               ListHeaderComponent={
                 <YStack>

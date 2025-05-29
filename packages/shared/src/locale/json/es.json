@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "Solo dirección EVM",
   "referral.reward_empty": "Comienza a ganar hoy",
   "referral.reward_empty_desc": "Comparte tu código de referencia para comenzar a ganar recompensas",
+  "referral.reward_history": "Historial de distribución de recompensas",
+  "referral.reward_history_reward_title": "Recompensa",
   "referral.reward_received_address": "Dirección de recepción",
   "referral.reward_received_address_notset": "Aún no establecido",
   "referral.reward_undistributed": "Recompensa no distribuida",

@@ -2,13 +2,14 @@ import { useMemo } from 'react';
 
 import { reverse } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
-  Divider,
   Empty,
   Page,
   SizableText,
   Spinner,
+  Stack,
   Tab,
   YStack,
 } from '@onekeyhq/components';
@@ -166,7 +167,12 @@ function WalletList() {
                   )}
                 </SizableText>
               </ListItem>
-              <Divider mx="$5" borderBottomColor="$borderSubdued" />
+              <Stack
+                mx="$5"
+                h={StyleSheet.hairlineWidth}
+                bg="$borderSubdued"
+                w="100%"
+              />
             </>
           ))}
         </YStack>
