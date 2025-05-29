@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -31,6 +31,7 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -75,16 +76,17 @@ const hasPositiveReward = ({
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const [{ earnAccount }] = useEarnAtom();
+  const [EarnData] = useEarnAtom();
+  const earnAccount = EarnData.earnAccount;
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
-
+  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
   const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
     () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
         accountInfo.activeAccount?.account?.id,
-        accountInfo.activeAccount?.network?.id,
+        allNetworkId,
       );
       const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
       return list.length
@@ -101,8 +103,8 @@ function BasicInvestmentDetails() {
     },
     [
       accountInfo.activeAccount?.account?.id,
-      accountInfo.activeAccount?.network?.id,
       actions,
+      allNetworkId,
       earnAccount,
     ],
     {
