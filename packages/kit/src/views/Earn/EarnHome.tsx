@@ -77,6 +77,7 @@ const BANNER_TITLE_OFFSET = {
 };
 
 const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
+const useAllNetworkId = () => useMemo(() => getNetworkIdsMap().onekeyall, []);
 const getNumberColor = (
   value: string | number,
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
@@ -298,7 +299,7 @@ function Recommended({
 }: {
   isFetchingAccounts: boolean;
 }) {
-  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
+  const allNetworkId = useAllNetworkId();
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
@@ -382,7 +383,7 @@ function Overview({
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
+  const allNetworkId = useAllNetworkId();
   const totalFiatMapKey = useMemo(
     () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
     [account?.id, actions, allNetworkId],
@@ -679,7 +680,7 @@ function BasicEarnHome() {
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
-  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
+  const allNetworkId = useAllNetworkId();
   const {
     isLoading: isFetchingAccounts,
     result,
