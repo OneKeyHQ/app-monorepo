@@ -24,6 +24,7 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   FIRMWARE_CONTACT_US_URL,
+  HELP_CENTER_COMMON_FAQ_URL,
   HELP_CENTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -208,7 +209,12 @@ function HardwareTroubleshootingModal() {
                 id: ETranslations.global_faqs,
               })}
             </SizableText>
-            <Button variant="tertiary" size="small" iconAfter="OpenOutline">
+            <Button
+              variant="tertiary"
+              size="small"
+              iconAfter="OpenOutline"
+              onPress={() => openUrlExternal(HELP_CENTER_COMMON_FAQ_URL)}
+            >
               {intl.formatMessage({
                 id: ETranslations.global_more,
               })}
