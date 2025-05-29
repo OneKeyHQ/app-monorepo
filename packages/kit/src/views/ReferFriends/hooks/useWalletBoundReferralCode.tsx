@@ -20,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { FIRST_EVM_ADDRESS_PATH } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -92,9 +93,11 @@ function useGetReferralCodeWalletInfo() {
 }
 
 function InviteCode({
+  entry,
   wallet,
   onSuccess,
 }: {
+  entry?: 'tab' | 'modal';
   wallet?: IDBWallet;
   onSuccess?: () => void;
 }) {
@@ -131,15 +134,28 @@ function InviteCode({
           throw new OneKeyPlainTextError('Invalid Wallet');
         }
         const { referralCode } = form.getValues();
-        let unsignedMessage =
-          await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
-            {
-              address: walletInfo.address,
-              networkId: walletInfo.networkId,
-              inviteCode: referralCode,
-            },
-          );
-        console.log('===>>> unsignedMessage: ', unsignedMessage);
+        let unsignedMessage: string | undefined;
+        try {
+          unsignedMessage =
+            await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
+              {
+                address: walletInfo.address,
+                networkId: walletInfo.networkId,
+                inviteCode: referralCode,
+              },
+            );
+          console.log('===>>> unsignedMessage: ', unsignedMessage);
+        } catch (e) {
+          if (
+            (e as OneKeyError).className === 'OneKeyServerApiError' &&
+            (e as OneKeyError).message
+          ) {
+            form.setError('referralCode', {
+              message: (e as OneKeyError).message,
+            });
+          }
+          throw e;
+        }
         if (walletInfo.networkId === getNetworkIdsMap().eth) {
           unsignedMessage = autoFixPersonalSignMessage({
             message: unsignedMessage,
@@ -249,7 +265,10 @@ function InviteCode({
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
         onCancelText={intl.formatMessage({
-          id: ETranslations.global_skip,
+          id:
+            entry === 'tab'
+              ? ETranslations.global_skip
+              : ETranslations.global_cancel,
         })}
       />
     </YStack>
@@ -314,10 +333,12 @@ export function useWalletBoundReferralCode({
         title: intl.formatMessage({
           id: ETranslations.referral_wallet_code_title,
         }),
-        renderContent: <InviteCode wallet={wallet} onSuccess={onSuccess} />,
+        renderContent: (
+          <InviteCode wallet={wallet} onSuccess={onSuccess} entry={entry} />
+        ),
       });
     },
-    [dialog, intl],
+    [dialog, intl, entry],
   );
 
   return {
