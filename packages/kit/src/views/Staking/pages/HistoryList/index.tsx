@@ -219,7 +219,7 @@ function HistoryList() {
     morphoVault,
     filterType: defaultFilterType,
   } = route.params;
-  const [filterType, setFilterType] = useState(defaultFilterType);
+  const [filterType, setFilterType] = useState(defaultFilterType || 'all');
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       // remote history items

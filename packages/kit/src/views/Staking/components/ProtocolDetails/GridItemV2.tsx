@@ -72,7 +72,7 @@ export function ActionPopupContent({
             <PopupItemLine
               key={title.text}
               icon={icon}
-              token={token}
+              token={token?.info}
               title={title}
               value={value}
             />

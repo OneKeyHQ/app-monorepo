@@ -162,29 +162,11 @@ function MoreActionContentFooterItem({ onPress, ...props }: IIconButtonProps) {
 
 function MoreActionContentFooter() {
   const intl = useIntl();
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
-  const scanQrCode = useScanQrCode();
   const onLock = useOnLock();
   const handleLock = useCallback(async () => {
     await onLock();
   }, [onLock]);
-  const handleScan = useCallback(async () => {
-    await scanQrCode.start({
-      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
-      account,
-      network,
-      tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
-        map,
-      },
-    });
-  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
+
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       const routeInfo = {
@@ -237,13 +219,6 @@ function MoreActionContentFooter() {
     return [
       ...popupMenu,
       {
-        title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
-        icon: 'ScanOutline' as const,
-        onPress: handleScan,
-        testID: 'scan-qr-code',
-        trackID: 'wallet-scan',
-      },
-      {
         title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
         icon: 'LockOutline' as const,
         onPress: handleLock,
@@ -251,7 +226,7 @@ function MoreActionContentFooter() {
         trackID: 'wallet-lock-now',
       },
     ];
-  }, [handleLock, handleScan, intl, popupMenu]);
+  }, [handleLock, intl, popupMenu]);
   return (
     <XStack jc="flex-end" gap="$5">
       {items.map((item) => (
@@ -428,6 +403,27 @@ function MoreActionContentGrid() {
 
   const { toReferFriendsPage } = useReferFriends();
 
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const scanQrCode = useScanQrCode();
+
+  const handleScan = useCallback(async () => {
+    await scanQrCode.start({
+      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+      autoHandleResult: true,
+      account,
+      network,
+      tokens: {
+        data: allTokens.tokens,
+        keys: allTokens.keys,
+        map,
+      },
+    });
+  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
+
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
@@ -463,6 +459,13 @@ function MoreActionContentGrid() {
         onPress: handleSettings,
         trackID: 'wallet-settings',
       },
+      {
+        title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+        icon: 'ScanOutline' as const,
+        onPress: handleScan,
+        testID: 'scan-qr-code',
+        trackID: 'wallet-scan',
+      },
       gtMd
         ? undefined
         : {
@@ -482,6 +485,7 @@ function MoreActionContentGrid() {
     firstTimeGuideOpened,
     gtMd,
     handleDeviceManagement,
+    handleScan,
     handleSettings,
     intl,
     openAddressBook,
