@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -25,13 +25,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { PrimeUserInfo } from './PrimeUserInfo';
+
+import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../../components/PrimePurchaseDialog/PrimePurchaseDialog'),
@@ -102,11 +107,24 @@ export default function PrimeDashboard() {
     authenticated,
     // logout,
   } = usePrimeAuthV2();
+
+  const {
+    purchasePackageNative,
+    getPackagesNative,
+    purchasePackageWeb,
+    getPackagesWeb,
+  } = usePrimePayment();
+
+  const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
+    useState<ISubscriptionPeriod>('P1Y');
+
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
   const mobileTopValue = isMobile ? top + 25 : '$10';
-  const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
+    usePrimeRequirements();
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -134,11 +152,56 @@ export default function PrimeDashboard() {
     return false;
   }, [isLoggedIn, isPrimeSubscriptionActive]);
 
+  const shouldShowSubscriptionPlans = useMemo(() => {
+    if (!shouldShowConfirmButton) {
+      return false;
+    }
+    if (isPrimeSubscriptionActive) {
+      return false;
+    }
+    return true;
+  }, [isPrimeSubscriptionActive, shouldShowConfirmButton]);
+
+  const { result: packages, isLoading: isPackagesLoading } = usePromiseResult(
+    async () => {
+      if (!shouldShowSubscriptionPlans) {
+        return [];
+      }
+      return platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.();
+    },
+    [getPackagesNative, getPackagesWeb, shouldShowSubscriptionPlans],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
+  const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
+  isSubscribeLazyLoadingRef.current = isSubscribeLazyLoading;
   const subscribe = useCallback(async () => {
+    if (isPackagesLoading) {
+      return;
+    }
+    if (isSubscribeLazyLoadingRef.current) {
+      return;
+    }
+    setIsSubscribeLazyLoading(true);
+    setTimeout(() => {
+      setIsSubscribeLazyLoading(false);
+    }, 2000);
+
+    // await ensureOneKeyIDLoggedIn({
+    //   skipDialogConfirm: true,
+    // });
     await ensurePrimeSubscriptionActive({
       skipDialogConfirm: true,
+      selectedSubscriptionPeriod,
     });
-  }, [ensurePrimeSubscriptionActive]);
+  }, [
+    ensurePrimeSubscriptionActive,
+    isPackagesLoading,
+    selectedSubscriptionPeriod,
+  ]);
 
   const isLoggedInMaybe =
     authenticated ||
@@ -171,6 +234,16 @@ export default function PrimeDashboard() {
               {isLoggedInMaybe ? <PrimeUserInfo /> : null}
             </Stack>
 
+            {shouldShowSubscriptionPlans ? (
+              <Stack p="$5">
+                <PrimeSubscriptionPlans
+                  packages={packages}
+                  selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                  onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
+                />
+              </Stack>
+            ) : null}
+
             {isReady ? <PrimeBenefitsList /> : <Spinner my="$10" />}
 
             {platformEnv.isDev ? (
@@ -180,12 +253,7 @@ export default function PrimeDashboard() {
             ) : null}
           </Page.Body>
 
-          <Page.Footer
-            onConfirm={shouldShowConfirmButton ? subscribe : undefined}
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.prime_subscribe,
-            })}
-          >
+          <Page.Footer>
             <Stack
               flexDirection="row"
               justifyContent="space-between"
@@ -203,6 +271,10 @@ export default function PrimeDashboard() {
                 p="$0"
                 $md={{
                   width: '100%',
+                }}
+                confirmButtonProps={{
+                  loading: isSubscribeLazyLoading,
+                  disabled: isPackagesLoading,
                 }}
                 onConfirm={shouldShowConfirmButton ? subscribe : undefined}
                 onConfirmText={intl.formatMessage({

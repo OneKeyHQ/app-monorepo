@@ -29,7 +29,7 @@ export type IUsePrimePayment = {
     | (({
         subscriptionPeriod,
       }: {
-        subscriptionPeriod: ISubscriptionPeriod;
+        subscriptionPeriod: ISubscriptionPeriod | undefined;
       }) => Promise<MakePurchaseResult>)
     | undefined;
   purchasePackageWeb:

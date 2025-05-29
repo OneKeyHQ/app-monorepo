@@ -3,7 +3,14 @@ import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  SizableText,
+  Skeleton,
+  Theme,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type {
@@ -78,22 +85,25 @@ function PrimeSubscriptionPlanItem({
 
 export function PrimeSubscriptionPlans({
   packages,
+  selectedSubscriptionPeriod,
   onSubscriptionPeriodSelected,
 }: {
   packages?: IPackage[];
+  selectedSubscriptionPeriod: ISubscriptionPeriod;
   onSubscriptionPeriodSelected: (
     subscriptionPeriod: ISubscriptionPeriod,
   ) => void;
 }) {
-  const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
-    useState<ISubscriptionPeriod>('P1Y');
-
-  useEffect(() => {
-    if (selectedSubscriptionPeriod) {
-      onSubscriptionPeriodSelected(selectedSubscriptionPeriod);
-    }
-  }, [onSubscriptionPeriodSelected, selectedSubscriptionPeriod]);
-
+  if (!packages?.length) {
+    return (
+      <Theme name="dark">
+        <YStack gap="$2.5">
+          <Skeleton width="100%" height={100} />
+          <Skeleton width="100%" height={100} />
+        </YStack>
+      </Theme>
+    );
+  }
   return (
     <YStack gap="$2.5">
       {packages?.map((p) => {
@@ -106,7 +116,7 @@ export function PrimeSubscriptionPlans({
             pricePerMonthString={p.pricePerMonthString}
             pricePerYearString={p.pricePerYearString}
             onPress={() => {
-              setSelectedSubscriptionPeriod(p.subscriptionPeriod);
+              onSubscriptionPeriodSelected(p.subscriptionPeriod);
             }}
           />
         );
