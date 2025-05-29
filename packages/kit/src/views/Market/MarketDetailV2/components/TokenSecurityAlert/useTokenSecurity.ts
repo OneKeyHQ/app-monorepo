@@ -18,6 +18,114 @@ type IUseTokenSecurityResult = {
   loading: boolean;
 };
 
+export type ISecurityKeyValue = {
+  key: string;
+  label: string;
+  value: string;
+  isWarning: boolean;
+};
+
+// Helper function to format security data into key-value pairs
+export const formatSecurityData = (
+  data: IMarketTokenSecurity | null,
+): ISecurityKeyValue[] => {
+  if (!data) return [];
+
+  const formatPercentage = (value: string | undefined): string => {
+    if (!value || value === '0') return '0%';
+    return `${value}%`;
+  };
+
+  const isWarningValue = (value: string | undefined): boolean => {
+    return value === '1' || value === 'true';
+  };
+
+  const items: ISecurityKeyValue[] = [];
+
+  // Always show tax information
+  items.push({
+    key: 'buyTax',
+    label: 'Buy Tax',
+    value: formatPercentage(data.buyTax),
+    isWarning: parseFloat(data.buyTax || '0') > 10,
+  });
+
+  items.push({
+    key: 'sellTax',
+    label: 'Sell Tax',
+    value: formatPercentage(data.sellTax),
+    isWarning: parseFloat(data.sellTax || '0') > 10,
+  });
+
+  // Always show holder count
+  items.push({
+    key: 'holderCount',
+    label: 'Holder Count',
+    value: data.holderCount || '0',
+    isWarning: parseInt(data.holderCount || '0', 10) < 100,
+  });
+
+  // Always show ownership percentages
+  items.push({
+    key: 'ownerPercentage',
+    label: 'Owner Percentage',
+    value: formatPercentage(data.ownerPercentage),
+    isWarning: parseFloat(data.ownerPercentage || '0') > 50,
+  });
+
+  items.push({
+    key: 'creatorPercentage',
+    label: 'Creator Percentage',
+    value: formatPercentage(data.creatorPercentage),
+    isWarning: parseFloat(data.creatorPercentage || '0') > 50,
+  });
+
+  // Show all boolean security flags
+  const securityFlags = [
+    { key: 'isHoneypot', label: 'Honeypot', value: data.isHoneypot },
+    { key: 'isProxy', label: 'Proxy Contract', value: data.isProxy },
+    {
+      key: 'cannotSellAll',
+      label: 'Cannot Sell All',
+      value: data.cannotSellAll,
+    },
+    { key: 'isAntiWhale', label: 'Anti-Whale', value: data.isAntiWhale },
+    { key: 'isBlacklisted', label: 'Blacklisted', value: data.isBlacklisted },
+    { key: 'externalCall', label: 'External Call', value: data.externalCall },
+    { key: 'hiddenOwner', label: 'Hidden Owner', value: data.hiddenOwner },
+    // eslint-disable-next-line spellcheck/spell-checker
+    { key: 'isMintable', label: 'Mintable', value: data.isMintable },
+    {
+      key: 'canTakeBackOwnership',
+      label: 'Can Take Back Ownership',
+      value: data.canTakeBackOwnership,
+    },
+    {
+      key: 'ownerChangeBalance',
+      label: 'Owner Change Balance',
+      value: data.ownerChangeBalance,
+    },
+    { key: 'cannotBuy', label: 'Cannot Buy', value: data.cannotBuy },
+    { key: 'isOpenSource', label: 'Open Source', value: data.isOpenSource },
+  ];
+
+  securityFlags.forEach((flag) => {
+    const isWarning =
+      flag.key === 'isOpenSource'
+        ? !isWarningValue(flag.value) // Warning if NOT open source
+        : isWarningValue(flag.value); // Warning if true for other flags
+
+    items.push({
+      key: flag.key,
+      label: flag.label,
+      value: '', // No text value, just icon
+      isWarning,
+    });
+  });
+
+  return items;
+};
+
 export const useTokenSecurity = ({
   tokenAddress,
   networkId,
@@ -42,16 +150,14 @@ export const useTokenSecurity = ({
     const warningChecks = [
       data.isHoneypot,
       data.isProxy,
-      data.hasHighTax,
       data.cannotSellAll,
       data.isAntiWhale,
       data.isBlacklisted,
-      data.hasExternalCall,
-      data.hasHiddenOwner,
-      data.hasMintFunction,
+      data.externalCall,
+      data.hiddenOwner,
+      data.isMintable,
       data.canTakeBackOwnership,
       data.ownerChangeBalance,
-      data.hiddenOwner,
       data.cannotBuy,
     ];
 
