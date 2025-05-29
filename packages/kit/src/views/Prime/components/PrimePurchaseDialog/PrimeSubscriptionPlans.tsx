@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,9 +7,11 @@ import {
   Badge,
   SizableText,
   Skeleton,
+  Stack,
   Theme,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -106,6 +108,44 @@ export function PrimeSubscriptionPlans({
     subscriptionPeriod: ISubscriptionPeriod,
   ) => void;
 }) {
+  const intl = useIntl();
+
+  const { gtMd } = useMedia();
+
+  const autoRenewText = useMemo(() => {
+    const selectedPackage = packages?.find(
+      (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+    );
+    const isMonthly = selectedPackage?.subscriptionPeriod === 'P1M';
+    let text = intl.formatMessage(
+      {
+        id: ETranslations.prime_subscription_auto_renew_price_year,
+      },
+      {
+        price: selectedPackage?.pricePerYearString,
+      },
+    );
+    if (isMonthly) {
+      text = intl.formatMessage(
+        {
+          id: ETranslations.prime_subscription_auto_renew_price_month,
+        },
+        {
+          price: selectedPackage?.pricePerMonthString,
+        },
+      );
+    }
+    return (
+      <SizableText
+        size="$bodyMd"
+        textAlign={gtMd ? 'left' : 'center'}
+        alignSelf={gtMd ? 'flex-start' : 'center'}
+      >
+        {text}
+      </SizableText>
+    );
+  }, [intl, packages, selectedSubscriptionPeriod, gtMd]);
+
   if (!packages?.length) {
     return (
       <Theme name="dark">
@@ -116,6 +156,7 @@ export function PrimeSubscriptionPlans({
       </Theme>
     );
   }
+
   return (
     <YStack gap="$2.5">
       {packages?.map((p) => {
@@ -133,6 +174,7 @@ export function PrimeSubscriptionPlans({
           />
         );
       })}
+      <Stack>{autoRenewText}</Stack>
     </YStack>
   );
 }

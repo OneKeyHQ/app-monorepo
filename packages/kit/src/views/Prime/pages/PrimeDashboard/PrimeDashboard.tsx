@@ -13,15 +13,12 @@ import {
   Stack,
   Theme,
   YStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
@@ -32,6 +29,7 @@ import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
+import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
@@ -59,52 +57,6 @@ function PrimeBanner() {
   );
 }
 
-function PrimeTerms() {
-  const termsTag = useCallback(
-    () => (
-      <SizableText
-        size="$bodyMd"
-        color="$textInteractive"
-        cursor="pointer"
-        onPress={() => {
-          openUrlExternal('https://help.onekey.so/hc/articles/11967482818831');
-        }}
-      >
-        OneKey Prime Terms
-      </SizableText>
-    ),
-    [],
-  );
-  const privacyTag = useCallback(
-    () => (
-      <SizableText
-        size="$bodyMd"
-        color="$textInteractive"
-        cursor="pointer"
-        onPress={() => {
-          openUrlExternal(
-            'https://help.onekey.so/hc/articles/360002003315-Privacy-Policy',
-          );
-        }}
-      >
-        OneKey Prime Terms
-      </SizableText>
-    ),
-    [],
-  );
-  return (
-    <HyperlinkText
-      size="$bodyMd"
-      values={{
-        termsTag,
-        privacyTag,
-      }}
-      translationId={ETranslations.prime_agree_to_terms_privacy}
-      defaultMessage={ETranslations.prime_agree_to_terms_privacy}
-    />
-  );
-}
-
 export default function PrimeDashboard() {
   const intl = useIntl();
   // const isReady = false;
@@ -118,15 +70,8 @@ export default function PrimeDashboard() {
     // logout,
   } = usePrimeAuthV2();
 
-  const { gtMd } = useMedia();
-
-  const {
-    purchasePackageNative,
-    getPackagesNative,
-    purchasePackageWeb,
-    restorePurchases,
-    getPackagesWeb,
-  } = usePrimePayment();
+  const { getPackagesNative, restorePurchases, getPackagesWeb } =
+    usePrimePayment();
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
@@ -228,50 +173,6 @@ export default function PrimeDashboard() {
   //   return isPrimeSubscriptionActive && platformEnv.isNativeIOS;
   // }, [isPrimeSubscriptionActive]);
 
-  const autoRenewText = useMemo(() => {
-    if (!shouldShowConfirmButton || isPackagesLoading) {
-      return null;
-    }
-    const selectedPackage = packages?.find(
-      (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
-    );
-    const isMonthly = selectedPackage?.subscriptionPeriod === 'P1M';
-    let text = intl.formatMessage(
-      {
-        id: ETranslations.prime_subscription_auto_renew_price_year,
-      },
-      {
-        price: selectedPackage?.pricePerYearString,
-      },
-    );
-    if (isMonthly) {
-      text = intl.formatMessage(
-        {
-          id: ETranslations.prime_subscription_auto_renew_price_month,
-        },
-        {
-          price: selectedPackage?.pricePerMonthString,
-        },
-      );
-    }
-    return (
-      <SizableText
-        size="$bodyMd"
-        textAlign={gtMd ? 'left' : 'center'}
-        alignSelf={gtMd ? 'flex-start' : 'center'}
-      >
-        {text}
-      </SizableText>
-    );
-  }, [
-    intl,
-    isPackagesLoading,
-    packages,
-    selectedSubscriptionPeriod,
-    shouldShowConfirmButton,
-    gtMd,
-  ]);
-
   return (
     <>
       <Theme name="dark">
@@ -298,7 +199,7 @@ export default function PrimeDashboard() {
             </Stack>
 
             {shouldShowSubscriptionPlans ? (
-              <Stack p="$5">
+              <Stack p="$5" gap="$2">
                 <PrimeSubscriptionPlans
                   packages={packages}
                   selectedSubscriptionPeriod={selectedSubscriptionPeriod}
@@ -307,10 +208,15 @@ export default function PrimeDashboard() {
               </Stack>
             ) : null}
 
-            {isReady ? <PrimeBenefitsList /> : <Spinner my="$10" />}
+            {isReady ? (
+              <>
+                <PrimeBenefitsList />
+              </>
+            ) : (
+              <Spinner my="$10" />
+            )}
 
             <YStack px="$5" py="$4" gap="$4">
-              {gtMd ? autoRenewText : null}
               {platformEnv.isNativeIOS ? (
                 <>
                   <Stack>
@@ -359,7 +265,7 @@ export default function PrimeDashboard() {
                 flexDirection: 'column',
               }}
             >
-              {shouldShowConfirmButton ? <PrimeTerms /> : null}
+              {shouldShowConfirmButton ? <PrimeTermsAndPrivacy /> : null}
 
               <Page.FooterActions
                 p="$0"
@@ -375,8 +281,6 @@ export default function PrimeDashboard() {
                   id: ETranslations.prime_subscribe,
                 })}
               />
-
-              {!gtMd ? autoRenewText : null}
             </Stack>
           </Page.Footer>
         </Page>
