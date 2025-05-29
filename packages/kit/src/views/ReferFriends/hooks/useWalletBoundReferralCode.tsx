@@ -93,9 +93,11 @@ function useGetReferralCodeWalletInfo() {
 }
 
 function InviteCode({
+  entry,
   wallet,
   onSuccess,
 }: {
+  entry?: 'tab' | 'modal';
   wallet?: IDBWallet;
   onSuccess?: () => void;
 }) {
@@ -263,7 +265,10 @@ function InviteCode({
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
         onCancelText={intl.formatMessage({
-          id: ETranslations.global_skip,
+          id:
+            entry === 'tab'
+              ? ETranslations.global_skip
+              : ETranslations.global_cancel,
         })}
       />
     </YStack>
@@ -328,10 +333,12 @@ export function useWalletBoundReferralCode({
         title: intl.formatMessage({
           id: ETranslations.referral_wallet_code_title,
         }),
-        renderContent: <InviteCode wallet={wallet} onSuccess={onSuccess} />,
+        renderContent: (
+          <InviteCode wallet={wallet} onSuccess={onSuccess} entry={entry} />
+        ),
       });
     },
-    [dialog, intl],
+    [dialog, intl, entry],
   );
 
   return {
