@@ -64,7 +64,7 @@ const formatSections = (items: IInvitePaidHistory['items']) => {
 export default function RewardDistributionHistory() {
   const originalData = useRef<IInvitePaidHistory['items']>([]);
   const [isLoading, setIsLoading] = useState(false);
-  let [sections, setSections] = useState<
+  const [sections, setSections] = useState<
     { title: string; data: IInvitePaidHistory['items'] }[] | undefined
   >(undefined);
   const fetchInvitePaidList = useCallback(() => {

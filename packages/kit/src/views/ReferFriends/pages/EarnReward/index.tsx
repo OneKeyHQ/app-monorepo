@@ -130,7 +130,7 @@ function List({
                       textAlign="left"
                       flex={1}
                       size="$bodyLgMedium"
-                      color={open ? '$text' : '$textSubdued'}
+                      color="$text"
                     >
                       {title}
                     </SizableText>
