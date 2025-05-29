@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "Nur EVM-Adresse",
   "referral.reward_empty": "Beginnen Sie noch heute zu verdienen",
   "referral.reward_empty_desc": "Teilen Sie Ihren Empfehlungscode, um Belohnungen zu verdienen",
+  "referral.reward_history": "Verlauf der Prämienverteilung",
+  "referral.reward_history_reward_title": "Belohnung",
   "referral.reward_received_address": "Empfangsadresse",
   "referral.reward_received_address_notset": "Noch nicht festgelegt",
   "referral.reward_undistributed": "Unverteilter Lohn",

@@ -2110,6 +2110,8 @@
   referral_reward_edit_address_error = 'referral.reward_edit_address_error',
   referral_reward_empty = 'referral.reward_empty',
   referral_reward_empty_desc = 'referral.reward_empty_desc',
+  referral_reward_history = 'referral.reward_history',
+  referral_reward_history_reward_title = 'referral.reward_history_reward_title',
   referral_reward_received_address = 'referral.reward_received_address',
   referral_reward_received_address_notset = 'referral.reward_received_address_notset',
   referral_reward_undistributed = 'referral.reward_undistributed',

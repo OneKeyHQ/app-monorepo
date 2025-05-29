@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "Hanya alamat EVM",
   "referral.reward_empty": "Mulai menghasilkan hari ini",
   "referral.reward_empty_desc": "Bagikan kode referensi Anda untuk mulai mendapatkan hadiah",
+  "referral.reward_history": "Riwayat distribusi hadiah",
+  "referral.reward_history_reward_title": "Hadiah",
   "referral.reward_received_address": "Alamat penerima",
   "referral.reward_received_address_notset": "Belum ditetapkan",
   "referral.reward_undistributed": "Hadiah yang Belum Didistribusikan",

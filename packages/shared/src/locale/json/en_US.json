@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "EVM address only",
   "referral.reward_empty": "Start earning today",
   "referral.reward_empty_desc": "Share your referral code to start earning rewards",
+  "referral.reward_history": "Reward distribution history",
+  "referral.reward_history_reward_title": "Reward",
   "referral.reward_received_address": "Receiving address",
   "referral.reward_received_address_notset": "Not yet set",
   "referral.reward_undistributed": "Undistributed Reward",

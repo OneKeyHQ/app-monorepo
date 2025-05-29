@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "Solo indirizzo EVM",
   "referral.reward_empty": "Inizia a guadagnare oggi",
   "referral.reward_empty_desc": "Condividi il tuo codice di riferimento per iniziare a guadagnare ricompense",
+  "referral.reward_history": "Cronologia distribuzione ricompense",
+  "referral.reward_history_reward_title": "Ricompensa",
   "referral.reward_received_address": "Indirizzo di ricezione",
   "referral.reward_received_address_notset": "Non ancora impostato",
   "referral.reward_undistributed": "Ricompensa Non Distribuita",

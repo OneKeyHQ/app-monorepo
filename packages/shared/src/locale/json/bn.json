@@ -2105,6 +2105,8 @@
   "referral.reward_edit_address_error": "শুধুমাত্র EVM ঠিকানা",
   "referral.reward_empty": "আজই উপার্জন শুরু করুন",
   "referral.reward_empty_desc": "আপনার রেফারেল কোড শেয়ার করুন পুরস্কার অর্জন শুরু করতে",
+  "referral.reward_history": "পুরস্কার বিতরণের ইতিহাস",
+  "referral.reward_history_reward_title": "পুরস্কার",
   "referral.reward_received_address": "প্রাপ্তির ঠিকানা",
   "referral.reward_received_address_notset": "এখনও নির্ধারণ করা হয়নি",
   "referral.reward_undistributed": "অবণ্টিত পুরস্কার",
