@@ -64,7 +64,7 @@ const formatSections = (items: IInvitePaidHistory['items']) => {
 export default function RewardDistributionHistory() {
   const originalData = useRef<IInvitePaidHistory['items']>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sections, setSections] = useState<
+  let [sections, setSections] = useState<
     { title: string; data: IInvitePaidHistory['items'] }[] | undefined
   >(undefined);
   const fetchInvitePaidList = useCallback(() => {
@@ -204,12 +204,10 @@ export default function RewardDistributionHistory() {
             contentContainerStyle={{ pb: '$5' }}
             ListEmptyComponent={
               <Empty
-                icon="GiftOutline"
+                mt={34}
+                icon="SearchOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty_desc,
+                  id: ETranslations.global_no_data,
                 })}
               />
             }
