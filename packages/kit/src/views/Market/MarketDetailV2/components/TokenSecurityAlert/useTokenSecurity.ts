@@ -125,6 +125,34 @@ export const formatSecurityData = (
   return items;
 };
 
+// Helper function to determine security status and count warnings from security data
+const analyzeSecurityData = (
+  data: IMarketTokenSecurity | null,
+): { status: ISecurityStatus | null; count: number } => {
+  if (!data) return { status: null, count: 0 };
+
+  // List of warning indicators to check
+  const warningChecks = [
+    data.isHoneypot,
+    data.isProxy,
+    data.cannotSellAll,
+    data.isAntiWhale,
+    data.isBlacklisted,
+    data.externalCall,
+    data.hiddenOwner,
+    data.isMintable,
+    data.canTakeBackOwnership,
+    data.ownerChangeBalance,
+    data.cannotBuy,
+  ];
+
+  // Count the number of true warning flags
+  const count = warningChecks.filter(Boolean).length;
+  const status = count > 0 ? 'warning' : 'safe';
+
+  return { status, count };
+};
+
 export const useTokenSecurity = ({
   tokenAddress,
   networkId,
@@ -138,34 +166,6 @@ export const useTokenSecurity = ({
   const [warningCount, setWarningCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // Helper function to determine security status and count warnings from security data
-  const analyzeSecurityData = (
-    data: IMarketTokenSecurity | null,
-  ): { status: ISecurityStatus | null; count: number } => {
-    if (!data) return { status: null, count: 0 };
-
-    // List of warning indicators to check
-    const warningChecks = [
-      data.isHoneypot,
-      data.isProxy,
-      data.cannotSellAll,
-      data.isAntiWhale,
-      data.isBlacklisted,
-      data.externalCall,
-      data.hiddenOwner,
-      data.isMintable,
-      data.canTakeBackOwnership,
-      data.ownerChangeBalance,
-      data.cannotBuy,
-    ];
-
-    // Count the number of true warning flags
-    const count = warningChecks.filter(Boolean).length;
-    const status = count > 0 ? 'warning' : 'safe';
-
-    return { status, count };
-  };
 
   useEffect(() => {
     const fetchTokenSecurity = async () => {
