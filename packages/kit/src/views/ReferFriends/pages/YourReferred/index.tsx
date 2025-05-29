@@ -168,6 +168,7 @@ function WalletList() {
                 </SizableText>
               </ListItem>
               <Stack
+                mx="$5"
                 h={StyleSheet.hairlineWidth}
                 bg="$borderSubdued"
                 w="100%"
