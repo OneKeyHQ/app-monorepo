@@ -150,7 +150,7 @@ function HardwareTroubleshootingModal() {
 
   const renderHeader = useCallback(() => {
     return (
-      <XStack flex={1} ai="center">
+      <XStack ai="center" px="$5">
         <XStack h="$16" w="$16" ai="center" jc="center">
           <WalletAvatar
             size={50}
@@ -159,7 +159,7 @@ function HardwareTroubleshootingModal() {
             badge={deviceInfo.walletAvatarBadge}
           />
         </XStack>
-        <YStack flex={1}>
+        <YStack>
           <XStack pr="$5" ai="center">
             <SizableText size="$headingMd" color="$text">
               {wallet.name}
@@ -198,10 +198,10 @@ function HardwareTroubleshootingModal() {
 
   const renderContent = useCallback(() => {
     return (
-      <YStack px="$5" pt="$3" pb="$5">
+      <YStack pt="$3" pb="$5">
         {renderHeader()}
         <Divider mt="$5" borderBottomWidth="$2" borderColor="$bgSubdued" />
-        <YStack pt="$5" pb="$3">
+        <YStack pt="$5" pb="$3" px="$5">
           <XStack pt="$2" pb="$4" jc="space-between" ai="center">
             <SizableText size="$headingMd" color="$text">
               {intl.formatMessage({
@@ -225,20 +225,22 @@ function HardwareTroubleshootingModal() {
                 height="auto"
               >
                 <YStack
-                  f={1}
+                  role="button"
                   px={media.gtMd ? '$5' : '$3'}
                   py="$4"
                   borderWidth={StyleSheet.hairlineWidth}
-                  borderColor="$borderSubdued"
+                  borderColor={
+                    media.gtMd ? '$borderDisabled' : '$borderSubdued'
+                  }
                   borderRadius="$3"
                   bg="$bgSubdued"
+                  hoverStyle={{
+                    bg: '$bgActive',
+                  }}
+                  transition="background-color 0.2s"
+                  cursor="pointer"
                   ai="center"
                   jc="center"
-                  shadowColor="$shadowColor"
-                  shadowOffset={{ width: 0, height: 1 }}
-                  shadowOpacity={0.04}
-                  shadowRadius={2}
-                  elevation={1}
                   gap="$2"
                   onPress={() =>
                     handleFaqItemPress(hardwareTroubleshootingQuestions[i].link)
