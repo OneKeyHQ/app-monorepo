@@ -48,7 +48,6 @@ export function SwapPanel(props: ISwapPanelProps) {
     useSpeedSwapInit(networkIdProp ?? '');
 
   const {
-    checkTokenApproveAllowance,
     speedSwapBuildTx,
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
