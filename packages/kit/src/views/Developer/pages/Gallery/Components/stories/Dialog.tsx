@@ -45,6 +45,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const TRACK_ID = 'demo-dialog';
 
@@ -318,7 +319,7 @@ const DialogGallery = () => {
                         borderCurve="continuous"
                         borderWidth={StyleSheet.hairlineWidth}
                         borderColor="$borderSubdued"
-                        elevation={0.5}
+                        elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
                         overflow="hidden"
                       >
                         <LottieView
