@@ -378,11 +378,11 @@ export function UniversalStake({
     debouncedFetchTransactionConfirmation,
   ]);
 
-  const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
-    providerName,
-    eventEndTime: protocolInfo?.eventEndTime,
-    // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
-  });
+  // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
+  //   providerName,
+  //   eventEndTime: protocolInfo?.eventEndTime,
+  //   // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
+  // });
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -575,7 +575,7 @@ export function UniversalStake({
       onConfirm?.({ amount: amountValue, ...permitSignatureParams });
 
     // Wait for the dialog confirmation if it's shown
-    await showFalconEventEndedDialog();
+    // await showFalconEventEndedDialog();
 
     if (estimateFeeResp) {
       const daySpent =
@@ -602,7 +602,6 @@ export function UniversalStake({
   }, [
     usePermit2Approve,
     approveType,
-    showFalconEventEndedDialog,
     estimateFeeResp,
     shouldApprove,
     onConfirm,
