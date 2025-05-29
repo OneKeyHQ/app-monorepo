@@ -229,7 +229,7 @@ export interface IInvitePostConfig {
     Earn: {
       title: string;
       subtitle: string;
-      for_tou: {
+      for_you: {
         title: string;
         subtitle: string;
       };
