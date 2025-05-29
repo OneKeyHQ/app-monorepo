@@ -166,7 +166,7 @@ function WalletList() {
                   )}
                 </SizableText>
               </ListItem>
-              <Divider mx="$5" />
+              <Divider mx="$5" borderBottomColor="$borderSubdued" />
             </>
           ))}
         </YStack>
