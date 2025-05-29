@@ -97,6 +97,7 @@ interface IHardwareSalesRecordItem {
   orderTotalAmount: string;
   payReceipt: string | null;
   payTime: string | null;
+  orderName: string | null;
   receivceAddress: string | null;
   heading: string;
   title: string;

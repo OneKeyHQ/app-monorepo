@@ -144,7 +144,7 @@ export default function HardwareSalesReward() {
     }) => {
       const isPositiveAmount = Number(item.amount) >= 0;
       return (
-        <YStack px="$5">
+        <YStack px="$5" mb="$2.5">
           <XStack jc="space-between" gap="$4">
             <YStack flexShrink={1}>
               <XStack flexShrink={1}>
@@ -161,7 +161,7 @@ export default function HardwareSalesReward() {
                 {`${formatTime(new Date(item.createdAt), {
                   hideSeconds: true,
                   hideMilliseconds: true,
-                })} ${item.title}`}
+                })} ${item.orderName || item.title || ''}`}
               </SizableText>
             </YStack>
             <XStack>
