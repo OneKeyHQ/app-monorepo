@@ -17,7 +17,6 @@ import type {
   IMarketTokenDetail,
   IMarketWatchListItem,
 } from '@onekeyhq/shared/types/market';
-import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 
