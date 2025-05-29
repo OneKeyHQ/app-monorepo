@@ -22,13 +22,13 @@ function PrimeSubscriptionPlanItem({
   selected,
   periodDuration,
   pricePerMonthString,
-  pricePerYearString,
+  priceTotalPerYearString,
   ...rest
 }: {
   selected?: boolean;
   periodDuration: 'P1Y' | 'P1M';
   pricePerMonthString: string;
-  pricePerYearString: string;
+  priceTotalPerYearString: string;
 } & IXStackProps) {
   const isYearly = periodDuration === 'P1Y';
   const intl = useIntl();
@@ -64,19 +64,31 @@ function PrimeSubscriptionPlanItem({
           </Badge.Text>
         </Badge>
       ) : null}
-      <SizableText size="$headingXl" mr="$2">
-        Prime {title}
+      <SizableText size="$headingLg" mr="$2">
+        {title}
       </SizableText>
 
       <XStack flex={1} justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingXl">
-          {isYearly ? pricePerYearString : pricePerMonthString}
+        <SizableText size="$headingLg">
+          {intl.formatMessage(
+            {
+              id: ETranslations.prime_prime_price_per_month,
+            },
+            {
+              price: pricePerMonthString,
+            },
+          )}
         </SizableText>
 
         <SizableText ml="$2" size="$bodyMd" color="$textSubdued">
-          {`${pricePerMonthString}/${intl.formatMessage({
-            id: ETranslations.prime_per_month,
-          })}`}
+          {intl.formatMessage(
+            {
+              id: ETranslations.prime_prime_price_per_year,
+            },
+            {
+              price: priceTotalPerYearString,
+            },
+          )}
         </SizableText>
       </XStack>
     </YStack>
@@ -114,7 +126,7 @@ export function PrimeSubscriptionPlans({
             selected={selected}
             periodDuration={p.subscriptionPeriod}
             pricePerMonthString={p.pricePerMonthString}
-            pricePerYearString={p.pricePerYearString}
+            priceTotalPerYearString={p.priceTotalPerYearString}
             onPress={() => {
               onSubscriptionPeriodSelected(p.subscriptionPeriod);
             }}

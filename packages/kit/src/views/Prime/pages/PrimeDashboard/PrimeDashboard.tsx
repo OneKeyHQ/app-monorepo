@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Dialog,
   Icon,
   IconButton,
   Page,
@@ -14,18 +13,17 @@ import {
   Stack,
   Theme,
   YStack,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -37,12 +35,6 @@ import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
-
-const PrimePurchaseDialog = LazyLoadPage(
-  () => import('../../components/PrimePurchaseDialog/PrimePurchaseDialog'),
-  100,
-  true,
-);
 
 function PrimeBanner() {
   const intl = useIntl();
@@ -68,7 +60,7 @@ function PrimeBanner() {
 }
 
 function PrimeTerms() {
-  const linkView = useCallback(
+  const termsTag = useCallback(
     () => (
       <SizableText
         size="$bodyMd"
@@ -83,14 +75,32 @@ function PrimeTerms() {
     ),
     [],
   );
+  const privacyTag = useCallback(
+    () => (
+      <SizableText
+        size="$bodyMd"
+        color="$textInteractive"
+        cursor="pointer"
+        onPress={() => {
+          openUrlExternal(
+            'https://help.onekey.so/hc/articles/360002003315-Privacy-Policy',
+          );
+        }}
+      >
+        OneKey Prime Terms
+      </SizableText>
+    ),
+    [],
+  );
   return (
     <HyperlinkText
       size="$bodyMd"
       values={{
-        link: linkView,
+        termsTag,
+        privacyTag,
       }}
-      translationId={ETranslations.prime_agree_to_terms}
-      defaultMessage={ETranslations.prime_agree_to_terms}
+      translationId={ETranslations.prime_agree_to_terms_privacy}
+      defaultMessage={ETranslations.prime_agree_to_terms_privacy}
     />
   );
 }
@@ -108,10 +118,13 @@ export default function PrimeDashboard() {
     // logout,
   } = usePrimeAuthV2();
 
+  const { gtMd } = useMedia();
+
   const {
     purchasePackageNative,
     getPackagesNative,
     purchasePackageWeb,
+    restorePurchases,
     getPackagesWeb,
   } = usePrimePayment();
 
@@ -209,6 +222,56 @@ export default function PrimeDashboard() {
     user?.isLoggedIn ||
     user?.isLoggedInOnServer ||
     isLoggedIn;
+
+  // const shouldShowIOSAppStoreHint = useMemo(() => {
+  //   // return true;
+  //   return isPrimeSubscriptionActive && platformEnv.isNativeIOS;
+  // }, [isPrimeSubscriptionActive]);
+
+  const autoRenewText = useMemo(() => {
+    if (!shouldShowConfirmButton || isPackagesLoading) {
+      return null;
+    }
+    const selectedPackage = packages?.find(
+      (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+    );
+    const isMonthly = selectedPackage?.subscriptionPeriod === 'P1M';
+    let text = intl.formatMessage(
+      {
+        id: ETranslations.prime_subscription_auto_renew_price_year,
+      },
+      {
+        price: selectedPackage?.pricePerYearString,
+      },
+    );
+    if (isMonthly) {
+      text = intl.formatMessage(
+        {
+          id: ETranslations.prime_subscription_auto_renew_price_month,
+        },
+        {
+          price: selectedPackage?.pricePerMonthString,
+        },
+      );
+    }
+    return (
+      <SizableText
+        size="$bodyMd"
+        textAlign={gtMd ? 'left' : 'center'}
+        alignSelf={gtMd ? 'flex-start' : 'center'}
+      >
+        {text}
+      </SizableText>
+    );
+  }, [
+    intl,
+    isPackagesLoading,
+    packages,
+    selectedSubscriptionPeriod,
+    shouldShowConfirmButton,
+    gtMd,
+  ]);
+
   return (
     <>
       <Theme name="dark">
@@ -246,6 +309,37 @@ export default function PrimeDashboard() {
 
             {isReady ? <PrimeBenefitsList /> : <Spinner my="$10" />}
 
+            <YStack px="$5" py="$4" gap="$4">
+              {gtMd ? autoRenewText : null}
+              {platformEnv.isNativeIOS ? (
+                <>
+                  <Stack>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.prime_subscription_manage_app_store,
+                      })}
+                    </SizableText>
+                  </Stack>
+                </>
+              ) : null}
+              {!isPrimeSubscriptionActive && platformEnv.isNative ? (
+                <Stack>
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textInteractive"
+                    cursor="pointer"
+                    onPress={() => {
+                      restorePurchases?.();
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.prime_restore_purchases,
+                    })}
+                  </SizableText>
+                </Stack>
+              ) : null}
+            </YStack>
+
             {platformEnv.isDev ? (
               <PrimeDebugPanel
                 shouldShowConfirmButton={shouldShowConfirmButton}
@@ -281,6 +375,8 @@ export default function PrimeDashboard() {
                   id: ETranslations.prime_subscribe,
                 })}
               />
+
+              {!gtMd ? autoRenewText : null}
             </Stack>
           </Page.Footer>
         </Page>

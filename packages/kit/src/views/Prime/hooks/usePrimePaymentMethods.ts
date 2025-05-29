@@ -102,20 +102,56 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       offerings?.current?.availablePackages?.map((p) => {
         const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
 
-        const pricePerMonth =
+        let unit = '';
+        if (
+          currentPrice.formattedPrice.startsWith('$') ||
+          currentPrice.formattedPrice.startsWith('US$')
+        ) {
+          unit = '$';
+        }
+
+        let pricePerMonthString =
           normalPeriodDuration === 'P1M'
             ? currentPrice.formattedPrice
-            : `$${new BigNumber(currentPrice.amountMicros)
+            : `${new BigNumber(currentPrice.amountMicros)
                 .div(12)
                 .div(1_000_000)
                 .toFixed(2)}`;
+        pricePerMonthString = pricePerMonthString.replace(/^\$/, '');
+        pricePerMonthString = pricePerMonthString.replace(/^US\$/, '');
+
+        let pricePerYearString = currentPrice.formattedPrice;
+        pricePerYearString = pricePerYearString.replace(/^\$/, '');
+        pricePerYearString = pricePerYearString.replace(/^US\$/, '');
+
+        const pricePerYear = new BigNumber(currentPrice.amountMicros)
+          .div(1_000_000)
+          .toFixed(2);
+        const pricePerMonth =
+          normalPeriodDuration === 'P1M'
+            ? new BigNumber(currentPrice.amountMicros).div(1_000_000).toFixed(2)
+            : new BigNumber(currentPrice.amountMicros)
+                .div(12)
+                .div(1_000_000)
+                .toFixed(2);
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
-          pricePerMonthString: pricePerMonth,
-          pricePerYearString: currentPrice.formattedPrice,
+          pricePerYear: Number(pricePerYear),
+          pricePerYearString: `${unit}${pricePerYearString}`,
+          pricePerMonth: Number(pricePerMonth),
+          pricePerMonthString: `${unit}${pricePerMonthString}`,
+          priceTotalPerYearString:
+            normalPeriodDuration === 'P1M'
+              ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
+              : `${unit}${pricePerYearString}`,
         };
       }) || [];
+
+    console.log('userPrimePaymentMethods >>>>>> packages', {
+      packages,
+      offerings,
+    });
 
     return packages;
   }, [isReady]);
@@ -188,6 +224,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     isReady,
     purchasePackageNative: undefined,
     getPackagesNative: undefined,
+    restorePurchases: undefined,
     getPackagesWeb,
     purchasePackageWeb,
     getCustomerInfo,

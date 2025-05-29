@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -43,6 +44,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       });
       setIsPaymentReady(true);
     })();
+  }, []);
+
+  const restorePurchases = useCallback(() => {
+    void Purchases.restorePurchases();
   }, []);
 
   const isReady = isPaymentReady && isAuthReady;
@@ -92,14 +97,32 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
-      const { subscriptionPeriod, pricePerMonthString, pricePerYearString } =
-        p.product;
+      const {
+        subscriptionPeriod,
+        pricePerYear,
+        pricePerYearString,
+        pricePerMonth,
+        pricePerMonthString,
+      } = p.product;
+
+      const unit = '';
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
-        pricePerMonthString,
+        pricePerYear,
         pricePerYearString,
+        pricePerMonth,
+        pricePerMonthString,
+        priceTotalPerYearString:
+          subscriptionPeriod === 'P1M'
+            ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
+            : `${unit}${pricePerYearString}`,
       });
+    });
+
+    console.log('userPrimePaymentMethods >>>>>> packages', {
+      packages,
+      offerings,
     });
 
     return packages;
@@ -142,6 +165,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     isReady,
     getPackagesNative,
     purchasePackageNative,
+    restorePurchases,
     getPackagesWeb: undefined,
     purchasePackageWeb: undefined,
     getCustomerInfo,
