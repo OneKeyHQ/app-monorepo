@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import type { IMarketTokenSecurity } from '@onekeyhq/shared/types/marketV2';
 
+import TokenSecurityAlertDialogContentOverview from './TokenSecurityAlertDialogContentOverview';
 import { formatSecurityData } from './useTokenSecurity';
 
 type ITokenSecurityAlertDialogContentProps = {
@@ -22,10 +23,19 @@ const TokenSecurityAlertDialogContent: FC<
   ITokenSecurityAlertDialogContentProps
 > = ({ securityData, error, loading }) => {
   const formattedData = formatSecurityData(securityData);
+  const warningCount = formattedData.filter((item) => item.isWarning).length;
 
   return (
     <ScrollView maxHeight="$96">
-      <Stack gap="$4" p="$4">
+      <Stack gap="$4">
+        {/* Overview section with warning count */}
+        <TokenSecurityAlertDialogContentOverview
+          warningCount={warningCount}
+          totalChecks={formattedData.length}
+          loading={loading}
+          error={error}
+        />
+
         {loading ? (
           <XStack gap="$2" alignItems="center" justifyContent="center" py="$4">
             <Icon name="LoaderSolid" size="$4" color="$iconSubdued" />
@@ -54,10 +64,10 @@ const TokenSecurityAlertDialogContent: FC<
           <YStack gap="$3">
             {formattedData.map((item) => {
               const iconName = item.isWarning
-                ? 'InfoCircleOutline'
-                : 'CheckLargeOutline';
+                ? 'XCircleOutline'
+                : 'CheckRadioSolid';
               const iconColor = item.isWarning
-                ? '$iconCaution'
+                ? '$iconCritical'
                 : '$iconSuccess';
 
               return (
@@ -66,7 +76,6 @@ const TokenSecurityAlertDialogContent: FC<
                   justifyContent="space-between"
                   alignItems="center"
                   p="$2"
-                  bg={item.isWarning ? '$bgCautionSubdued' : '$bgStrong'}
                   borderRadius="$1"
                 >
                   <SizableText
@@ -87,7 +96,8 @@ const TokenSecurityAlertDialogContent: FC<
                         {item.value}
                       </SizableText>
                     ) : null}
-                    <Icon name={iconName} size="$3" color={iconColor} />
+
+                    <Icon name={iconName} size="$4" color={iconColor} />
                   </XStack>
                 </XStack>
               );
@@ -97,7 +107,8 @@ const TokenSecurityAlertDialogContent: FC<
 
         {securityData && !loading && formattedData.length === 0 ? (
           <XStack gap="$2" alignItems="center" justifyContent="center" py="$4">
-            <Icon name="CheckLargeOutline" size="$4" color="$iconSuccess" />
+            <Icon name="CheckRadioSolid" size="$4" color="$iconSuccess" />
+
             <SizableText color="$textSuccess">
               No security issues detected
             </SizableText>
