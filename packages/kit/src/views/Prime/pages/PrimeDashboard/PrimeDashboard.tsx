@@ -228,14 +228,16 @@ export default function PrimeDashboard() {
                   </Stack>
                 </>
               ) : null}
-              {!isPrimeSubscriptionActive && platformEnv.isNative ? (
+              {!isPrimeSubscriptionActive &&
+              isLoggedIn &&
+              platformEnv.isNative ? (
                 <Stack>
                   <SizableText
                     size="$bodyMd"
                     color="$textInteractive"
                     cursor="pointer"
                     onPress={() => {
-                      restorePurchases?.();
+                      void restorePurchases?.();
                     }}
                   >
                     {intl.formatMessage({

@@ -138,13 +138,13 @@ export function PrimeSubscriptionPlans({
     return (
       <SizableText
         size="$bodyMd"
-        textAlign={gtMd ? 'left' : 'center'}
-        alignSelf={gtMd ? 'flex-start' : 'center'}
+        // textAlign={gtMd ? 'left' : 'center'}
+        // alignSelf={gtMd ? 'flex-start' : 'center'}
       >
         {text}
       </SizableText>
     );
-  }, [intl, packages, selectedSubscriptionPeriod, gtMd]);
+  }, [intl, packages, selectedSubscriptionPeriod]);
 
   if (!packages?.length) {
     return (

@@ -28,7 +28,7 @@ export type IUsePrimePayment = {
   >;
   getPackagesNative: (() => Promise<IPackage[]>) | undefined;
   getPackagesWeb: (() => Promise<IPackage[]>) | undefined;
-  restorePurchases: (() => void) | undefined;
+  restorePurchases: (() => Promise<void>) | undefined;
   purchasePackageNative:
     | (({
         subscriptionPeriod,
