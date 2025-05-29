@@ -366,7 +366,8 @@ interface IRewards {
 
 export interface IEarnIcon {
   icon: IKeyOfIcons;
-  color: ColorTokens;
+  color?: ColorTokens;
+  size?: string;
 }
 
 export interface IEarnPopupActionIcon {

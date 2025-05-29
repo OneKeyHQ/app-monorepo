@@ -97,6 +97,7 @@ interface IHardwareSalesRecordItem {
   orderTotalAmount: string;
   payReceipt: string | null;
   payTime: string | null;
+  orderName: string | null;
   receivceAddress: string | null;
   heading: string;
   title: string;
@@ -182,6 +183,30 @@ export interface IHardwareSalesRecord {
   items: IHardwareSalesRecordItem[];
 }
 
+export interface IInvitePaidItem {
+  _id: string;
+  networkId: string;
+  address: string;
+  token: {
+    networkId: string;
+    address: string;
+    logoURI: string;
+    name: string;
+    symbol: string;
+  };
+  version: number;
+  rebateAmount: string;
+  tx: string;
+  updatedAt: string;
+  createdAt: string;
+  paidAmount: string;
+}
+
+export interface IInvitePaidHistory {
+  total: number;
+  items: IInvitePaidItem[];
+}
+
 export interface IInviteHistory {
   total: number;
   items: IHardwareSalesRecordItem[];
@@ -204,7 +229,7 @@ export interface IInvitePostConfig {
     Earn: {
       title: string;
       subtitle: string;
-      for_tou: {
+      for_you: {
         title: string;
         subtitle: string;
       };

@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -425,14 +426,13 @@ export default function PagePrimeCloudSync() {
         <AppDataSection />
         <Divider mt="$5" mb="$2" />
         <WalletSection />
-        <Button
-          mt="$5"
+        <MultipleClickStack
           onPress={() => {
             navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
           }}
         >
-          数据调试页面
-        </Button>
+          <Stack h="$32" />
+        </MultipleClickStack>
       </Page.Body>
     </Page>
   );

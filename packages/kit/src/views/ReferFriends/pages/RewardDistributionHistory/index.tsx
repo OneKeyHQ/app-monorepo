@@ -4,44 +4,51 @@ import { useIntl } from 'react-intl';
 
 import {
   Empty,
+  IconButton,
+  NumberSizeableText,
   Page,
   RefreshControl,
   SectionList,
   SizableText,
   Spinner,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
-import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import type {
+  IInvitePaidHistory,
+  IInvitePaidItem,
+} from '@onekeyhq/shared/src/referralCode/type';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 type ISectionListItem = {
   title?: string;
   data: number[];
 };
 
-const formatSections = (items: IHardwareSalesRecord['items']) => {
-  const groupedData: Record<string, IHardwareSalesRecord['items']> =
-    items.reduce<Record<string, any[]>>((acc, item) => {
-      const date = new Date(item.createdAt);
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day
-        .toString()
-        .padStart(2, '0')}`;
+const formatSections = (items: IInvitePaidHistory['items']) => {
+  const groupedData: Record<string, IInvitePaidHistory['items']> = items.reduce<
+    Record<string, any[]>
+  >((acc, item) => {
+    const date = new Date(item.createdAt);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day
+      .toString()
+      .padStart(2, '0')}`;
 
-      if (!acc[dateKey]) {
-        acc[dateKey] = [];
-      }
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
 
-      acc[dateKey].push(item);
-      return acc;
-    }, {} as Record<string, IHardwareSalesRecord['items']>);
+    acc[dateKey].push(item);
+    return acc;
+  }, {} as Record<string, IInvitePaidHistory['items']>);
 
   return Object.keys(groupedData).map((dateKey) => {
     const date = new Date(groupedData[dateKey][0].createdAt);
@@ -55,31 +62,31 @@ const formatSections = (items: IHardwareSalesRecord['items']) => {
 };
 
 export default function RewardDistributionHistory() {
-  const originalData = useRef<IHardwareSalesRecord['items']>([]);
+  const originalData = useRef<IInvitePaidHistory['items']>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sections, setSections] = useState<
-    { title: string; data: IHardwareSalesRecord['items'] }[] | undefined
+    { title: string; data: IInvitePaidHistory['items'] }[] | undefined
   >(undefined);
-  const fetchSales = useCallback((cursor?: string) => {
-    return backgroundApiProxy.serviceReferralCode.getHardwareSales(cursor);
+  const fetchInvitePaidList = useCallback(() => {
+    return backgroundApiProxy.serviceReferralCode.getInvitePaidList();
   }, []);
 
   const onRefresh = useCallback(() => {
     setIsLoading(true);
-    void Promise.allSettled([fetchSales()]).then(([salesResult]) => {
-      if (salesResult.status === 'fulfilled') {
-        const data = salesResult.value;
+    void Promise.allSettled([fetchInvitePaidList()]).then(([list]) => {
+      if (list.status === 'fulfilled') {
+        const data = list.value;
         setSections(formatSections(data.items));
         originalData.current.push(...data.items);
       }
 
       setIsLoading(false);
     });
-  }, [fetchSales]);
+  }, [fetchInvitePaidList]);
 
   useEffect(() => {
     onRefresh();
-  }, [fetchSales, onRefresh]);
+  }, [fetchInvitePaidList, onRefresh]);
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
@@ -89,74 +96,91 @@ export default function RewardDistributionHistory() {
     [],
   );
 
-  const fetchMore = useCallback(async () => {
-    if (originalData.current.length < 1) {
-      return;
-    }
-    const data = await fetchSales(
-      originalData.current[originalData.current.length - 1]._id,
-    );
-    if (data.items.length > 0) {
-      originalData.current.push(...data.items);
-      setSections(formatSections(originalData.current));
-    }
-  }, [fetchSales]);
+  // const fetchMore = useCallback(async () => {
+  //   if (originalData.current.length < 1) {
+  //     return;
+  //   }
+  //   const data = await fetchInvitePaidList();
+  //   if (data.items.length > 0) {
+  //     originalData.current.push(...data.items);
+  //     setSections(formatSections(originalData.current));
+  //   }
+  // }, [fetchInvitePaidList]);
 
   const intl = useIntl();
   const renderItem = useCallback(
-    ({
-      item,
-    }: {
-      item: IHardwareSalesRecord['items'][0];
-      section: ISectionListItem;
-    }) => {
-      const isPositiveAmount = Number(item.amount) >= 0;
+    ({ item }: { item: IInvitePaidItem; section: ISectionListItem }) => {
       return (
         <YStack px="$5" py="$2.5">
           <XStack jc="space-between" ai="center" gap="$4">
-            <YStack flexShrink={1}>
-              <XStack flexShrink={1}>
-                <SizableText size="$bodyLgMedium" flexShrink={1}>
-                  {item.heading || '-'}
-                </SizableText>
-              </XStack>
-              <SizableText
-                color="$textSubdued"
-                size="$bodyMd"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {`${formatTime(new Date(item.createdAt), {
-                  hideSeconds: true,
-                  hideMilliseconds: true,
-                })} ${item.title}`}
-              </SizableText>
-            </YStack>
+            <XStack gap="$3" flexShrink={1}>
+              <Token size="lg" tokenImageUri={item.token.logoURI} />
+              <YStack flexShrink={1}>
+                <XStack flexShrink={1}>
+                  <SizableText size="$bodyLgMedium" flexShrink={1}>
+                    {intl.formatMessage({
+                      id: ETranslations.referral_reward_history_reward_title,
+                    })}
+                  </SizableText>
+                </XStack>
+                <XStack ai="center" flexShrink={1} gap="$1">
+                  <SizableText
+                    color="$textSubdued"
+                    size="$bodyMd"
+                    numberOfLines={1}
+                    flexShrink={1}
+                  >
+                    {item.tx
+                      ? accountUtils.shortenAddress({
+                          address: item.tx,
+                          leadingLength: 8,
+                          trailingLength: 6,
+                        })
+                      : '-'}
+                  </SizableText>
+                  {item.tx ? (
+                    <IconButton
+                      variant="tertiary"
+                      icon="OpenOutline"
+                      size="small"
+                      onPress={() => {
+                        void openTransactionDetailsUrl({
+                          networkId: item.networkId,
+                          txid: item.tx,
+                        });
+                      }}
+                    />
+                  ) : null}
+                </XStack>
+              </YStack>
+            </XStack>
             <XStack>
-              <Currency
-                sourceCurrency="usd"
+              <NumberSizeableText
                 numberOfLines={1}
                 formatter="balance"
                 formatterOptions={{
                   showPlusMinusSigns: true,
+                  tokenSymbol: item.token.symbol,
                 }}
-                color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
+                color="$textSuccess"
                 size="$bodyLgMedium"
                 pr="$0.5"
               >
-                {item.amount}
-              </Currency>
+                {item.paidAmount}
+              </NumberSizeableText>
             </XStack>
           </XStack>
         </YStack>
       );
     },
-    [],
+    [intl],
   );
   return (
     <Page>
       <Page.Header
-        title="Reward Distribution History"
+        title={intl.formatMessage({
+          id: ETranslations.referral_reward_history,
+        })}
       />
       <Page.Body>
         {sections === undefined ? (
@@ -177,6 +201,7 @@ export default function RewardDistributionHistory() {
             refreshControl={
               <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
             }
+            contentContainerStyle={{ pb: '$5' }}
             ListEmptyComponent={
               <Empty
                 icon="GiftOutline"
@@ -190,9 +215,9 @@ export default function RewardDistributionHistory() {
             }
             sections={sections}
             renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={44}
+            estimatedItemSize={60}
             renderItem={renderItem}
-            onEndReached={fetchMore}
+            // onEndReached={fetchMore}
           />
         )}
       </Page.Body>
