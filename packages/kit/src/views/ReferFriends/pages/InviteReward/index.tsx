@@ -484,13 +484,17 @@ function Dashboard({
         </YStack>
       </YStack>
       <YStack
-        px="$5"
-        py="$4"
+        pb="$4"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
       >
-        <YStack onPress={toHardwareSalesRewardPage}>
+        <YStack
+          pt="$4"
+          px="$5"
+          onPress={toHardwareSalesRewardPage}
+          cursor="pointer"
+        >
           <XStack ai="center" jc="space-between">
             <SizableText size="$headingMd">{hardwareSales.title}</SizableText>
             <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
@@ -499,7 +503,7 @@ function Dashboard({
             {hardwareSales.description}
           </SizableText>
         </YStack>
-        <YStack pt="$4">
+        <YStack pt="$4" px="$5">
           <YStack gap="$2">
             <XStack>
               <XStack>
@@ -595,59 +599,61 @@ function Dashboard({
         </YStack>
       </YStack>
       <YStack
-        px="$5"
-        py="$4"
+        pb="$4"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        onPress={toEarnRewardPage}
       >
-        <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">{onChain.title}</SizableText>
-          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
-        </XStack>
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-          {onChain.description}
-        </SizableText>
-        {showEarnSalesAvailableFiat ? (
-          <YStack gap="$2" pt="$4">
-            {onChain.available?.map(({ token, fiatValue, amount }, index) => {
-              return (
-                <Fragment key={index}>
-                  <XStack gap="$2" py={5}>
-                    <Token size="xs" tokenImageUri={token.logoURI} />
-                    <NumberSizeableText
-                      formatter="balance"
-                      size="$bodyMd"
-                      formatterOptions={{
-                        tokenSymbol: token.symbol,
-                      }}
-                    >
-                      {amount}
-                    </NumberSizeableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      (
-                      <Currency
-                        formatter="value"
+        <YStack pt="$4" px="$5" onPress={toEarnRewardPage} cursor="pointer">
+          <XStack ai="center" jc="space-between">
+            <SizableText size="$headingMd">{onChain.title}</SizableText>
+            <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
+          </XStack>
+          <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+            {onChain.description}
+          </SizableText>
+        </YStack>
+        <YStack px="$5">
+          {showEarnSalesAvailableFiat ? (
+            <YStack gap="$2" pt="$4">
+              {onChain.available?.map(({ token, fiatValue, amount }, index) => {
+                return (
+                  <Fragment key={index}>
+                    <XStack gap="$2" py={5}>
+                      <Token size="xs" tokenImageUri={token.logoURI} />
+                      <NumberSizeableText
+                        formatter="balance"
                         size="$bodyMd"
-                        sourceCurrency="usd"
-                        color="$textSubdued"
+                        formatterOptions={{
+                          tokenSymbol: token.symbol,
+                        }}
                       >
-                        {fiatValue}
-                      </Currency>
-                      )
-                    </SizableText>
-                  </XStack>
-                  {index !== (onChain.available?.length || 1) - 1 ? (
-                    <Divider bg="$borderSubdued" />
-                  ) : null}
-                </Fragment>
-              );
-            })}
-          </YStack>
-        ) : (
-          <NoRewardYet />
-        )}
+                        {amount}
+                      </NumberSizeableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        (
+                        <Currency
+                          formatter="value"
+                          size="$bodyMd"
+                          sourceCurrency="usd"
+                          color="$textSubdued"
+                        >
+                          {fiatValue}
+                        </Currency>
+                        )
+                      </SizableText>
+                    </XStack>
+                    {index !== (onChain.available?.length || 1) - 1 ? (
+                      <Divider bg="$borderSubdued" />
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </YStack>
+          ) : (
+            <NoRewardYet />
+          )}
+        </YStack>
       </YStack>
     </YStack>
   );
