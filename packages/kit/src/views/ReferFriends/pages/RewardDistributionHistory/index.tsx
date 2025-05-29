@@ -201,7 +201,7 @@ export default function RewardDistributionHistory() {
             refreshControl={
               <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
             }
-            contentContainerStyle={{ pb: '$5' }}
+            contentContainerStyle={{ pb: '$10' }}
             ListEmptyComponent={
               <Empty
                 mt={34}
