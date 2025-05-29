@@ -47,7 +47,21 @@ export function SwapTestPanel({
   }
 
   return (
-    <Stack gap="$1">
+    <Stack
+      gap="$1"
+      position="absolute"
+      $platform-web={{
+        position: 'fixed',
+      }}
+      top={70}
+      left={220}
+      backgroundColor="$bgApp"
+      padding="$3"
+      borderRadius="$3"
+      borderWidth={1}
+      borderColor="$borderSubdued"
+      zIndex={1000}
+    >
       {selectedTestNetworkId ? (
         <Select
           title="Select Test Network"
