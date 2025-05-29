@@ -16,6 +16,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
   NativeSyntheticEvent,
+  StyleProp,
+  TextStyle,
   TextInputFocusEventData,
 } from 'react-native';
 
