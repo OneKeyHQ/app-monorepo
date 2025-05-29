@@ -6,12 +6,12 @@ import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
+  Image,
   Popover,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -48,7 +48,9 @@ function PopupItemLine({
     <XStack gap="$2" alignItems="center" justifyContent="space-between">
       <XStack gap="$2" alignItems="center">
         <EarnIcon icon={icon} size="$4" color="$iconSubdued" />
-        {token ? <Token tokenImageUri={token.logoURI ?? ''} size="xs" /> : null}
+        {token?.logoURI ? (
+          <Image src={token.logoURI ?? ''} w="$4" h="$4" />
+        ) : null}
         <SizableText color={title.color} size={title?.size || '$bodyMd'}>
           {title.text}
         </SizableText>
@@ -85,7 +87,7 @@ export function ActionPopupContent({
       {bulletList?.length ? (
         <YStack pt="$2" gap="$2">
           {bulletList.map((text, index) => (
-            <XStack key={index} gap="$2" ai="center">
+            <XStack key={index} gap="$1" ai="center">
               <XStack
                 h="$1"
                 w="$1"
