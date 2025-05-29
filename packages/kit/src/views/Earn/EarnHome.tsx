@@ -33,6 +33,7 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
@@ -297,13 +298,14 @@ function Recommended({
 }: {
   isFetchingAccounts: boolean;
 }) {
+  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
   const {
-    activeAccount: { account, network },
+    activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
-    [account?.id, actions, network?.id],
+    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
+    [account?.id, actions, allNetworkId],
   );
   const [{ earnAccount }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
@@ -377,12 +379,13 @@ function Overview({
   onRefresh: () => void;
 }) {
   const {
-    activeAccount: { account, network },
+    activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
+  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
-    [account?.id, actions, network?.id],
+    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
+    [account?.id, actions, allNetworkId],
   );
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
@@ -671,11 +674,12 @@ function AvailableAssets() {
 
 function BasicEarnHome() {
   const {
-    activeAccount: { account, network, indexedAccount },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
+  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
   const {
     isLoading: isFetchingAccounts,
     result,
@@ -684,7 +688,7 @@ function BasicEarnHome() {
     async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
         account?.id,
-        network?.id,
+        allNetworkId,
       );
       let assets = actions.current.getAvailableAssets();
       if (assets.length === 0) {
@@ -702,7 +706,7 @@ function BasicEarnHome() {
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
             accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
+            networkId: allNetworkId,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -718,7 +722,7 @@ function BasicEarnHome() {
           await backgroundApiProxy.serviceStaking.fetchAccountOverview({
             assets,
             accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
+            networkId: allNetworkId,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -743,7 +747,7 @@ function BasicEarnHome() {
       }
       return { loaded: true };
     },
-    [actions, account?.id, network?.id],
+    [actions, account?.id, allNetworkId],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
@@ -894,7 +898,7 @@ function BasicEarnHome() {
   return (
     <Page fullPage>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.swap}
+        sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
       >
         {/* {headerRight} */}
@@ -1015,7 +1019,7 @@ export default function EarnHome() {
         sceneName: EAccountSelectorSceneName.swap,
         sceneUrl: '',
       }}
-      enabledNum={[0, 1]}
+      enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.swap}>
         <BasicEarnHome />
