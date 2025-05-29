@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -9,13 +9,8 @@ import {
   Button,
   Divider,
   Icon,
-  IconButton,
   Image,
-  NumberSizeableText,
   Page,
-  Popover,
-  SizableText,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -23,36 +18,37 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import {
   PageFrame,
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnText } from '../../components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
+import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
@@ -61,10 +57,8 @@ import {
   useHandleStake,
   useHandleWithdraw,
 } from '../ProtocolDetails/useHandleActions';
-import { useHandleClaim } from '../ProtocolDetails/useHandleClaim';
 
 import { FAQSection } from './FAQSection';
-import { ShareEventsContext } from './ShareEventsProvider';
 
 function ManagersSection({
   managers,
@@ -74,25 +68,18 @@ function ManagersSection({
   return managers?.items?.length ? (
     <XStack pt="$1" pb="$4" gap="$1" px="$5">
       {managers.items.map((item, index) => (
-        <>
-          <XStack key={item.title.text} gap="$1" alignItems="center">
+        <Fragment key={index}>
+          <XStack gap="$1" alignItems="center">
             <Image size="$4" borderRadius="$1" src={item.logoURI} />
-            <SizableText size="$bodySm" color={item.title.color}>
-              {item.title.text}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color={item.description.color || '$textSubdued'}
-            >
-              {item.description.text}
-            </SizableText>
+            <EarnText text={item.title} size="$bodySm" />
+            <EarnText text={item.description} size="$bodySm" />
           </XStack>
           {index !== managers.items.length - 1 ? (
             <XStack w="$4" h="$4" ai="center" jc="center">
               <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
             </XStack>
           ) : null}
-        </>
+        </Fragment>
       ))}
     </XStack>
   ) : null;
@@ -112,6 +99,7 @@ function SubscriptionSection({
   cancelButtonProps: IPageFooterProps['cancelButtonProps'];
 }) {
   const media = useMedia();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const renderActionButtons = useCallback(() => {
     if (!media.gtMd) {
       return null;
@@ -138,35 +126,34 @@ function SubscriptionSection({
     onCancelText,
     onConfirmText,
   ]);
+  const isZero = useMemo(() => {
+    return !subscriptionValue.fiatValue || subscriptionValue.fiatValue === '0';
+  }, [subscriptionValue.fiatValue]);
   return subscriptionValue ? (
     <YStack gap="$8">
       <YStack>
-        <SizableText size="$headingLg" pt="$2">
-          {subscriptionValue.title.text}
-        </SizableText>
-        <XStack gap="$2" pt="$2" pb="$1">
-          <NumberSizeableText
-            flex={1}
+        <EarnText text={subscriptionValue.title} size="$headingLg" pt="$2" />
+        <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
+          <EarnText
+            text={{
+              text: isZero
+                ? `${currencyInfo.symbol} 0.00`
+                : subscriptionValue.fiatValue,
+            }}
             size="$heading4xl"
-            color={
-              subscriptionValue.fiatValue === '0' ? '$textDisabled' : '$text'
-            }
-            formatter="value"
-          >
-            {subscriptionValue.fiatValue || 0}
-          </NumberSizeableText>
+            color={isZero ? '$textDisabled' : '$text'}
+          />
           {renderActionButtons()}
         </XStack>
-        <NumberSizeableText
-          size="$bodyLgMedium"
-          formatter="balance"
-          color="$textSubdued"
-          formatterOptions={{
-            tokenSymbol: subscriptionValue.token.info.symbol,
+        <EarnText
+          text={{
+            text: `${subscriptionValue.formattedValue || 0} ${
+              subscriptionValue.token.info.symbol
+            }`,
           }}
-        >
-          {subscriptionValue.formattedValue || 0}
-        </NumberSizeableText>
+          size="$bodyLgMedium"
+          color="$textSubdued"
+        />
       </YStack>
     </YStack>
   ) : null;
@@ -184,9 +171,10 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
         px="$4"
       >
         {alerts.map((text, index) => (
-          <SizableText key={index} size="$bodyMd" color="$textSubdued">
-            {text}
-          </SizableText>
+          <EarnText
+            key={index}
+            text={{ text, size: '$bodyMd', color: '$textSubdued' }}
+          />
         ))}
       </YStack>
     );
@@ -203,41 +191,6 @@ function ProtocolRewards({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
-  const intl = useIntl();
-  const handleClaim = useHandleClaim({
-    accountId: protocolInfo?.earnAccount?.accountId || '',
-    networkId: tokenInfo?.networkId || '',
-  });
-  const tooltipElement = useMemo(() => {
-    if (rewards?.tooltip) {
-      switch (rewards.tooltip.type) {
-        case 'text':
-        default:
-          return (
-            <Popover
-              title={rewards.title.text}
-              placement="top"
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <Stack p="$5">
-                  <SizableText color="$text" size="$bodyLg">
-                    {rewards.tooltip.data?.text}
-                  </SizableText>
-                </Stack>
-              }
-            />
-          );
-      }
-    }
-    return null;
-  }, [rewards?.title?.text, rewards?.tooltip]);
   return rewards ? (
     <YStack
       gap="$2.5"
@@ -249,17 +202,12 @@ function ProtocolRewards({
       bg="$bgSubdued"
     >
       <XStack alignItems="center" gap="$1">
-        <SizableText
-          color={rewards.title.color || '$textSubdued'}
-          size="$bodyMd"
-        >
-          {rewards.title.text}
-        </SizableText>
-        {tooltipElement}
+        <EarnText text={rewards.title} size="$bodyMd" color="$textSubdued" />
+        <EarnTooltip title={rewards?.title?.text} tooltip={rewards?.tooltip} />
       </XStack>
       {rewards?.tokens?.map((token, index) => {
         return (
-          <>
+          <Fragment key={index}>
             <YStack gap="$2.5">
               <XStack
                 alignItems="center"
@@ -274,75 +222,29 @@ function ProtocolRewards({
                     tokenImageUri={token.token.info.logoURI}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
-                    <SizableText size="$bodyLgMedium" color={token.title.color}>
-                      {token.title.text}
-                    </SizableText>
+                    <EarnText text={token.title} size="$bodyLgMedium" />
                   </XStack>
                 </XStack>
-                {token?.button.type === 'claim' ? (
-                  <Button
-                    size="small"
-                    variant="primary"
-                    disabled={token?.button?.disabled}
-                    onPress={async () => {
-                      // TODO: need fiatValue
-                      const claimAmount =
-                        token?.title?.text?.split(' ')?.[0] || '0';
-                      const isMorphoClaim = !!(
-                        tokenInfo?.provider &&
-                        earnUtils.isMorphoProvider({
-                          providerName: tokenInfo?.provider,
-                        })
-                      );
-                      const newRewardToken = token.token.info;
-                      await handleClaim({
-                        symbol: protocolInfo?.symbol || '',
-                        protocolInfo,
-                        tokenInfo: tokenInfo
-                          ? {
-                              ...tokenInfo,
-                              token: newRewardToken,
-                            }
-                          : undefined,
-                        claimAmount,
-                        claimTokenAddress: newRewardToken.address,
-                        isMorphoClaim,
-                        stakingInfo: {
-                          label: EEarnLabels.Claim,
-                          protocol: earnUtils.getEarnProviderName({
-                            providerName: tokenInfo?.provider || '',
-                          }),
-                          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                          receive: {
-                            token: newRewardToken,
-                            amount: claimAmount,
-                          },
-                          tags: protocolInfo?.stakeTag
-                            ? [protocolInfo.stakeTag]
-                            : [],
-                        },
-                      });
-                    }}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.earn_claim,
-                    })}
-                  </Button>
-                ) : null}
+                <EarnActionIcon
+                  title={token.title.text}
+                  actionIcon={token.button}
+                  protocolInfo={protocolInfo}
+                  tokenInfo={tokenInfo}
+                  token={token.token.info}
+                />
               </XStack>
               <XStack>
-                <SizableText
+                <EarnText
+                  text={token.description}
                   size="$bodyMd"
-                  color={token.description.color || '$textSubdued'}
-                >
-                  {token.description.text}
-                </SizableText>
+                  color="$textSubdued"
+                />
               </XStack>
             </YStack>
             {rewards?.tokens.length !== index + 1 ? (
               <Divider my="$1.5" />
             ) : null}
-          </>
+          </Fragment>
         );
       })}
     </YStack>
@@ -360,26 +262,6 @@ function PortfolioSection({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
-  const intl = useIntl();
-  const appNavigation = useAppNavigation();
-  const onPortfolioDetails = useCallback(() => {
-    appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
-      accountId: protocolInfo?.earnAccount?.accountId || '',
-      networkId: tokenInfo?.networkId || '',
-      symbol: protocolInfo?.symbol || '',
-      provider: protocolInfo?.provider || '',
-    });
-  }, [
-    appNavigation,
-    protocolInfo?.earnAccount?.accountId,
-    protocolInfo?.provider,
-    protocolInfo?.symbol,
-    tokenInfo?.networkId,
-  ]);
-  const handleClaim = useHandleClaim({
-    accountId: protocolInfo?.earnAccount?.accountId || '',
-    networkId: tokenInfo?.networkId || '',
-  });
   const renderItem = useCallback(
     (item: IStakeEarnDetail['portfolios']['items'][0]) => {
       switch (item.type) {
@@ -394,18 +276,8 @@ function PortfolioSection({
             >
               <XStack alignItems="center" gap="$1.5">
                 <Token size="sm" tokenImageUri={item.token.info.logoURI} />
-                <FormatHyperlinkText
-                  size="$bodyLgMedium"
-                  color={item.title.color}
-                >
-                  {item.title.text}
-                </FormatHyperlinkText>
-                <SizableText
-                  size="$bodyLgMedium"
-                  color={item.description?.color}
-                >
-                  {item.description?.text}
-                </SizableText>
+                <EarnText text={item.title} size="$bodyLgMedium" />
+                <EarnText text={item.description} size="$bodyLgMedium" />
                 {item?.badge ? (
                   <Badge
                     badgeType={item.badge.badgeType}
@@ -414,94 +286,40 @@ function PortfolioSection({
                     <Badge.Text>{item.badge.text.text}</Badge.Text>
                   </Badge>
                 ) : null}
-                {item?.tooltip && item?.tooltip.type === 'text' ? (
-                  <Popover
-                    placement="top"
-                    title={item?.description?.text || ''}
-                    renderTrigger={
-                      <IconButton
-                        iconColor="$iconSubdued"
-                        size="small"
-                        icon="InfoCircleOutline"
-                        variant="tertiary"
-                      />
-                    }
-                    renderContent={
-                      <Stack p="$5">
-                        <SizableText color={item.tooltip.data.color}>
-                          {item.tooltip.data.text}
-                        </SizableText>
-                      </Stack>
-                    }
-                  />
-                ) : null}
+                <EarnTooltip
+                  title={item?.description?.text}
+                  tooltip={item?.tooltip}
+                />
               </XStack>
-              {item?.buttons?.[0]?.type === 'claim' ? (
-                <Button
-                  size="small"
-                  disabled={item?.buttons?.[0]?.disabled}
-                  variant="primary"
-                  onPress={async () => {
-                    const claimAmount = protocolInfo?.claimable || '0';
-                    const newTokenInfo = {
-                      ...tokenInfo,
-                      token: item.token.info,
-                    };
-                    await handleClaim({
-                      symbol: item.token.info.symbol,
-                      protocolInfo,
-                      tokenInfo: newTokenInfo as IEarnTokenInfo,
-                      claimAmount,
-                      claimTokenAddress: newTokenInfo?.token.address,
-                      isMorphoClaim: !!(
-                        newTokenInfo?.provider &&
-                        earnUtils.isMorphoProvider({
-                          providerName: newTokenInfo.provider,
-                        })
-                      ),
-                      stakingInfo: {
-                        label: EEarnLabels.Claim,
-                        protocol: earnUtils.getEarnProviderName({
-                          providerName: newTokenInfo?.provider || '',
-                        }),
-                        protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                        receive: {
-                          token: item.token.info,
-                          amount: claimAmount,
-                        },
-                        tags: protocolInfo?.stakeTag
-                          ? [protocolInfo.stakeTag]
-                          : [],
-                      },
-                    });
-                  }}
-                >
-                  {item?.buttons?.[0]?.text.text}
-                </Button>
-              ) : null}
+              <XStack gap="$1">
+                {item.buttons?.map((button, index) => (
+                  <EarnActionIcon
+                    key={index}
+                    title={item.title.text}
+                    actionIcon={button}
+                    protocolInfo={protocolInfo}
+                    tokenInfo={tokenInfo}
+                    token={item.token.info}
+                  />
+                ))}
+              </XStack>
             </XStack>
           );
       }
     },
-    [handleClaim, protocolInfo, tokenInfo],
+    [protocolInfo, tokenInfo],
   );
   return portfolios?.items?.length || rewards?.tokens?.length ? (
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <SizableText size="$headingLg" color={portfolios.title.color}>
-            {portfolios.title.text}
-          </SizableText>
-          {portfolios.button && portfolios.button.type === 'portfolio' ? (
-            <Button
-              disabled={portfolios.button.disabled}
-              variant="tertiary"
-              iconAfter="ChevronRightOutline"
-              onPress={onPortfolioDetails}
-            >
-              {portfolios?.button.text.text}
-            </Button>
-          ) : null}
+          <EarnText text={portfolios.title} size="$headingLg" />
+          <EarnActionIcon
+            title={portfolios.title.text}
+            actionIcon={portfolios.button}
+            protocolInfo={protocolInfo}
+            tokenInfo={tokenInfo}
+          />
         </XStack>
         <YStack gap="$3">
           {portfolios?.items.length ? (
@@ -525,7 +343,7 @@ function ProfitSection({ profit }: { profit: IStakeEarnDetail['profit'] }) {
   return profit ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg">{profit.title.text}</SizableText>
+        <EarnText text={profit.title} size="$headingLg" />
         <XStack flexWrap="wrap" m="$-5" p="$2">
           {profit.items.map((cell) => (
             <GridItem
@@ -552,9 +370,7 @@ function ProviderSection({
   return provider ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg" color={provider.title.color}>
-          {provider.title.text}
-        </SizableText>
+        <EarnText text={provider.title} size="$headingLg" />
         <XStack flexWrap="wrap" m="$-5" p="$2">
           {provider.items.map((cell) => (
             <GridItem
@@ -577,9 +393,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
   return risk ? (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg" color={risk.title.color}>
-          {risk.title.text}
-        </SizableText>
+        <EarnText text={risk.title} size="$headingLg" />
         <YStack gap="$3">
           {risk.items?.map((item) => (
             <>
@@ -600,28 +414,18 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                         color={item.icon.color || '$iconCaution'}
                       />
                     </XStack>
-                    <SizableText size="$bodyMdMedium" color={item.title.color}>
-                      {item.title.text}
-                    </SizableText>
+                    <EarnText text={item.title} size="$bodyMdMedium" />
                   </XStack>
-                  <SizableText
+                  <EarnText
+                    text={item.description}
                     size="$bodyMd"
                     color={item.description.color || '$textSubdued'}
-                  >
-                    {item.description.text}
-                  </SizableText>
-                </YStack>
-                {item?.actionButton?.type === 'link' ? (
-                  <IconButton
-                    icon="OpenOutline"
-                    color="$iconSubdued"
-                    size="small"
-                    bg="transparent"
-                    onPress={() => {
-                      openUrlExternal(item?.actionButton?.data?.link);
-                    }}
                   />
-                ) : null}
+                </YStack>
+                <EarnActionIcon
+                  title={item.title.text}
+                  actionIcon={item.actionButton}
+                />
               </XStack>
 
               {item.list?.length ? (
@@ -633,12 +437,11 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                         size="$4"
                         color={i.icon.color || '$iconCaution'}
                       />
-                      <FormatHyperlinkText
+                      <EarnText
+                        text={i.title}
                         size="$bodySm"
-                        color={i.title.color || '$textCaution'}
-                      >
-                        {i.title.text}
-                      </FormatHyperlinkText>
+                        color="$textCaution"
+                      />
                     </XStack>
                   ))}
                 </YStack>
@@ -985,6 +788,7 @@ const ProtocolDetailsPage = () => {
               description={detailInfo.countDownAlert.description.text}
               descriptionTextProps={{
                 color: detailInfo.countDownAlert.description.color,
+                size: detailInfo.countDownAlert.description.size,
               }}
               effectiveTimeAt={detailInfo.countDownAlert.endTime}
             />

@@ -93,6 +93,11 @@ interface IBasicDialogProps extends TMDialogProps {
   testID?: string;
   onConfirm?: IOnDialogConfirm;
   onCancel?: (close: () => Promise<void>) => void;
+  /**
+   * When dialog's modal is not true and it's not a sheet, overlay won't show by default.
+   * forceMount controls whether to force show the overlay in this case.
+   */
+  forceMount?: boolean;
 }
 
 export type IDialogProps = IBasicDialogProps &

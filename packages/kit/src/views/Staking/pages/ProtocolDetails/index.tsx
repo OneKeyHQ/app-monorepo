@@ -33,12 +33,12 @@ import {
 import { ProtocolDetails } from '../../components/ProtocolDetails';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
 import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSection';
+import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
-import { ShareEventsContext } from '../ProtocolDetailsV2/ShareEventsProvider';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
 import { useHandleClaim } from './useHandleClaim';

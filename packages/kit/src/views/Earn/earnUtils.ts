@@ -11,12 +11,14 @@ export const EarnNavigation = {
       indexedAccountId,
       symbol,
       provider,
+      vault,
     }: {
       accountId?: string;
       networkId: string;
       indexedAccountId?: string;
       symbol: string;
       provider: string;
+      vault?: string;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -27,6 +29,7 @@ export const EarnNavigation = {
         indexedAccountId,
         symbol,
         provider,
+        vault,
       },
     });
   },

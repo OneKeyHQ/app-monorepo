@@ -200,4 +200,18 @@ export interface IInvitePostConfig {
     amount: number;
     unit: string;
   };
+  locales: {
+    Earn: {
+      title: string;
+      subtitle: string;
+      for_tou: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
+  };
 }
