@@ -17,8 +17,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   NativeSyntheticEvent,
   StyleProp,
-  TextStyle,
   TextInputFocusEventData,
+  TextStyle,
 } from 'react-native';
 
 export const stakingInputAccessoryViewID =
