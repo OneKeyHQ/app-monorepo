@@ -5,7 +5,6 @@ import { StyleSheet } from 'react-native';
 import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
-  Icon,
   IconButton,
   Popover,
   SizableText,
@@ -32,6 +31,8 @@ import type {
 
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
+import { EarnIcon } from './EarnIcon';
+
 function PopupItemLine({
   icon,
   title,
@@ -46,13 +47,7 @@ function PopupItemLine({
   return (
     <XStack gap="$2" alignItems="center" justifyContent="space-between">
       <XStack gap="$2" alignItems="center">
-        {icon ? (
-          <Icon
-            name={icon.icon}
-            size="$4"
-            color={icon.color || '$iconSubdued'}
-          />
-        ) : null}
+        <EarnIcon icon={icon} size="$4" color="$iconSubdued" />
         {token ? <Token tokenImageUri={token.logoURI ?? ''} size="xs" /> : null}
         <SizableText color={title.color} size={title?.size || '$bodyMd'}>
           {title.text}
