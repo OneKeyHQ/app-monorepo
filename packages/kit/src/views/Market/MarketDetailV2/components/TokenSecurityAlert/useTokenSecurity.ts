@@ -93,7 +93,6 @@ export const formatSecurityData = (
     { key: 'isBlacklisted', label: 'Blacklisted', value: data.isBlacklisted },
     { key: 'externalCall', label: 'External Call', value: data.externalCall },
     { key: 'hiddenOwner', label: 'Hidden Owner', value: data.hiddenOwner },
-    // eslint-disable-next-line spellcheck/spell-checker
     { key: 'isMintable', label: 'Mintable', value: data.isMintable },
     {
       key: 'canTakeBackOwnership',

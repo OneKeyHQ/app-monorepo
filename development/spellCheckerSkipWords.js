@@ -381,6 +381,7 @@ module.exports = [
   'Ipc',
   'iphone',
   'ipld',
+  'isMintable',
   'isXprvt',
   'itms',
   'izari',

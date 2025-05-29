@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import type { IMarketTokenSecurity } from '@onekeyhq/shared/types/marketV2';
 
+import { TokenSecurityAlertDialogContentItem } from './TokenSecurityAlertDialogContentItem';
 import TokenSecurityAlertDialogContentOverview from './TokenSecurityAlertDialogContentOverview';
 import { formatSecurityData } from './useTokenSecurity';
 
@@ -63,43 +64,11 @@ const TokenSecurityAlertDialogContent: FC<
         {formattedData.length > 0 ? (
           <YStack gap="$3">
             {formattedData.map((item) => {
-              const iconName = item.isWarning
-                ? 'XCircleOutline'
-                : 'CheckRadioSolid';
-              const iconColor = item.isWarning
-                ? '$iconCritical'
-                : '$iconSuccess';
-
               return (
-                <XStack
+                <TokenSecurityAlertDialogContentItem
                   key={item.key}
-                  justifyContent="space-between"
-                  alignItems="center"
-                  p="$2"
-                  borderRadius="$1"
-                >
-                  <SizableText
-                    size="$bodyMd"
-                    color={item.isWarning ? '$textCaution' : '$text'}
-                    flex={1}
-                  >
-                    {item.label}
-                  </SizableText>
-
-                  <XStack gap="$2" alignItems="center">
-                    {item.value ? (
-                      <SizableText
-                        size="$bodyMdMedium"
-                        color={item.isWarning ? '$textCaution' : '$textSuccess'}
-                        textAlign="right"
-                      >
-                        {item.value}
-                      </SizableText>
-                    ) : null}
-
-                    <Icon name={iconName} size="$4" color={iconColor} />
-                  </XStack>
-                </XStack>
+                  item={item}
+                />
               );
             })}
           </YStack>
