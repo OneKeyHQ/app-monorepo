@@ -37,6 +37,7 @@ const settings: IVaultSettings = {
   ],
 
   dappInteractionEnabled: true,
+  preCheckDappTxFeeInfoRequired: true,
 
   defaultFeePresetIndex: 0,
 

@@ -73,7 +73,7 @@ test-report.html
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
 
-# Ignore tamagui config file 
+# Ignore tamagui config file
 .tamagui
 
 # Ignore copy inject files

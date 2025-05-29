@@ -4,9 +4,14 @@ import { BFC_TYPE_ARG, isValidBenfenAddress } from '@benfen/bfc.js/utils';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -22,6 +27,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -552,5 +558,34 @@ export default class Vault extends VaultBase {
       sender: params.okxTx.from,
     };
     return Promise.resolve(encodedTx);
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const unSignedEncodedTx = params.encodedTx as IEncodedTxBfc;
+    const blockData = TransactionBlock.from(unSignedEncodedTx.rawTx).blockData;
+    const { payment, budget } = blockData.gasConfig;
+
+    const budgetValue = new BigNumber(budget?.toString() ?? '0');
+    if (payment && payment.length > 0 && budgetValue.gt(0)) {
+      const client = await this.getClient();
+      const gasPrice = await client.getObject({
+        id: payment[0]?.objectId,
+        options: {
+          showContent: true,
+          showType: true,
+        },
+      });
+      if (
+        gasPrice.data?.type ===
+        '0x2::coin::Coin<0x00000000000000000000000000000000000000000000000000000000000000c8::busd::BUSD>'
+      ) {
+        return Promise.resolve('');
+      }
+    }
+
+    return unSignedEncodedTx;
   }
 }

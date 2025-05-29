@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -13,6 +14,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
+import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -44,7 +46,7 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_APTOS, IMPL_BFC } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -386,6 +388,22 @@ function TxFeeInfo(props: IProps) {
                 gasLimit: feeInfo.gas?.gasLimit ?? '1',
               };
             }
+          }
+
+          if (network && network.impl === IMPL_BFC && unsignedTxs.length > 0) {
+            const { rawTx } = unsignedTxs[0].encodedTx as IEncodedTxBfc;
+            const blockData = TransactionBlock.from(rawTx).blockData;
+            // const { budget, price } = blockData.gasConfig;
+
+            // TODO: remove
+            feeInfo.common.nativeDecimals = 9;
+            feeInfo.common.nativeSymbol = 'BUSD';
+
+            // feeInfo.gas = {
+            //   ...feeInfo.gas,
+            //   gasPrice: price?.toString() ?? '0',
+            //   gasLimit: budget?.toString() ?? '1',
+            // };
           }
         }
 

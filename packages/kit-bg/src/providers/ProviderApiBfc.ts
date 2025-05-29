@@ -188,6 +188,10 @@ class ProviderApiBfc extends ProviderApiBase {
       rawTx: TransactionBlock.from(params.blockSerialize).serialize(),
       sender: address ?? '',
     };
+    console.log(
+      '======>>>>> benfen blockData',
+      TransactionBlock.from(params.blockSerialize).blockData,
+    );
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
