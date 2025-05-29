@@ -38,9 +38,7 @@ const ClaimPage = () => {
   const provider = protocolInfo?.provider || '';
   const info = tokenInfo?.token;
   const symbol = info?.symbol || '';
-  const price = tokenInfo?.nativeToken?.price
-    ? String(tokenInfo?.nativeToken?.price)
-    : '0';
+  const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
   const actionTag = protocolInfo?.stakeTag || '';
   const vault = protocolInfo?.approve?.approveTarget || '';
   const appNavigation = useAppNavigation();

@@ -80,7 +80,7 @@ const isNaN = (num: string) =>
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
 
-export const UniversalWithdraw = ({
+export function UniversalWithdraw({
   accountAddress,
   balance,
   price: inputPrice,
@@ -97,7 +97,7 @@ export const UniversalWithdraw = ({
   estimateFeeResp,
 
   onConfirm,
-}: PropsWithChildren<IUniversalWithdrawProps>) => {
+}: PropsWithChildren<IUniversalWithdrawProps>) {
   const isMorphoProvider = useMemo(
     () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
     [providerName],
@@ -513,4 +513,4 @@ export const UniversalWithdraw = ({
       </Page.Footer>
     </StakingFormWrapper>
   );
-};
+}
