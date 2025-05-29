@@ -131,7 +131,10 @@ export const ProtectionSection = ({
   return (
     <>
       <YStack>
-        <SizableText size="$headingLg" color={protection.title.color}>
+        <SizableText
+          size={protection.title.size || '$headingLg'}
+          color={protection.title.color}
+        >
           {protection.title.text}
         </SizableText>
         <XStack mx="$-5" mt="$4">
@@ -160,10 +163,16 @@ export const ProtectionSection = ({
                     color={item.icon.color || '$iconSuccess'}
                   />
                   <YStack flex={1}>
-                    <SizableText size="$bodyMdMedium" color={item.title.color}>
+                    <SizableText
+                      size={item.title.size || '$bodyMdMedium'}
+                      color={item.title.color}
+                    >
                       {item.title.text}
                     </SizableText>
-                    <SizableText size="$bodyMd" color={item.description?.color}>
+                    <SizableText
+                      size={item.description?.size || '$bodyMd'}
+                      color={item.description?.color}
+                    >
                       {item.description?.text}
                     </SizableText>
                   </YStack>

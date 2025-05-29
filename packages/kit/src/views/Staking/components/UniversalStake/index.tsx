@@ -65,7 +65,7 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { ActionPopupContent } from '../ProtocolDetails/GridItemV2';
+import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
@@ -157,7 +157,7 @@ export function UniversalStake({
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
-  const isLegacyApprove = approveType === EApproveType.Legacy;
+  const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
   const isFocus = useIsFocused();
@@ -173,10 +173,10 @@ export function UniversalStake({
     tokenAddress: approveTarget.token?.address || '',
     spenderAddress: approveTarget.spenderAddress,
     initialValue: currentAllowance ?? '0',
-    approveType: approveType ?? EApproveType.Legacy,
+    approveType,
   });
   const shouldApprove = useMemo(() => {
-    if (isLegacyApprove) {
+    if (!useApprove) {
       return false;
     }
 
@@ -202,7 +202,7 @@ export function UniversalStake({
 
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
-    isLegacyApprove,
+    useApprove,
     isFocus,
     amountValue,
     allowance,
@@ -252,12 +252,15 @@ export function UniversalStake({
 
   const fetchEstimateFeeResp = useCallback(
     async (amount?: string) => {
+      if (shouldApprove && usePermit2Approve) {
+        return undefined;
+      }
       if (!amount) {
-        return Promise.resolve(undefined);
+        return undefined;
       }
       const amountNumber = BigNumber(amount);
       if (amountNumber.isZero() || amountNumber.isNaN()) {
-        return Promise.resolve(undefined);
+        return undefined;
       }
 
       const permitParams: {
@@ -911,12 +914,12 @@ export function UniversalStake({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
   const isShowStakeProgress =
-    !isLegacyApprove &&
+    useApprove &&
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
   const onConfirmText = useMemo(() => {
-    if (isLegacyApprove) {
+    if (!useApprove) {
       return intl.formatMessage({ id: ETranslations.global_continue });
     }
     if (shouldApprove) {
@@ -931,7 +934,7 @@ export function UniversalStake({
     }
     return intl.formatMessage({ id: ETranslations.earn_deposit });
   }, [
-    isLegacyApprove,
+    useApprove,
     shouldApprove,
     intl,
     usePermit2Approve,
@@ -1036,29 +1039,10 @@ export function UniversalStake({
             >
               {protocolInfo.apyDetail.description.text}
             </SizableText>
-            {protocolInfo?.apyDetail.button.type === 'popup' ? (
-              <Popover
-                floatingPanelProps={{
-                  w: 320,
-                }}
-                title={protocolInfo.apyDetail.title.text}
-                renderTrigger={
-                  <IconButton
-                    icon="CoinsAddOutline"
-                    size="small"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <ActionPopupContent
-                    bulletList={protocolInfo.apyDetail.button.data.bulletList}
-                    items={protocolInfo.apyDetail.button.data.items}
-                    panel={protocolInfo.apyDetail.button.data.panel}
-                  />
-                }
-                placement="top"
-              />
-            ) : null}
+            <EarnActionIcon
+              title={protocolInfo.apyDetail.title.text}
+              actionIcon={protocolInfo.apyDetail.button}
+            />
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
@@ -1274,7 +1258,7 @@ export function UniversalStake({
           <Stack pl="$5" $md={{ pt: '$5' }}>
             {isShowStakeProgress ? (
               <StakeProgress
-                approveType={approveType ?? EApproveType.Legacy}
+                approveType={approveType}
                 currentStep={
                   isDisable || shouldApprove
                     ? EStakeProgressStep.approve

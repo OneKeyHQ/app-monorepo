@@ -369,6 +369,10 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
   }, [navigation]);
 
+  const toRewardDistributionHistoryPage = useCallback(() => {
+    navigation.push(EModalReferFriendsRoutes.RewardDistributionHistory);
+  }, [navigation]);
+
   const showEarnSalesAvailableFiat = (onChain.available?.length || 0) > 0;
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
@@ -390,43 +394,52 @@ function Dashboard({
               id: ETranslations.referral_total_reward,
             })}
           </SizableText>
-          <Popover
-            title={intl.formatMessage({
-              id: ETranslations.referral_total_reward,
-            })}
-            renderTrigger={
-              <Currency
-                pb={1}
-                sourceCurrency="usd"
-                color="$textSuccess"
-                formatter="value"
-                size="$bodyLgMedium"
-                cursor="pointer"
-                textDecorationLine="underline"
-                textDecorationColor="$textSuccess"
-                textDecorationStyle="dotted"
-                style={{
-                  textUnderlineOffset: 4,
-                }}
-              >
-                {totalRewards}
-              </Currency>
-            }
-            renderContent={
-              <Stack gap="$2.5" p="$5">
-                <PopoverLine>
-                  {intl.formatMessage({
-                    id: ETranslations.referral_total_reward_pop1,
-                  })}
-                </PopoverLine>
-                <PopoverLine>
-                  {intl.formatMessage({
-                    id: ETranslations.referral_total_reward_pop2,
-                  })}
-                </PopoverLine>
-              </Stack>
-            }
-          />
+          <XStack gap="$2">
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.referral_total_reward,
+              })}
+              renderTrigger={
+                <Currency
+                  pb={1}
+                  sourceCurrency="usd"
+                  color="$textSuccess"
+                  formatter="value"
+                  size="$bodyLgMedium"
+                  cursor="pointer"
+                  textDecorationLine="underline"
+                  textDecorationColor="$textSuccess"
+                  textDecorationStyle="dotted"
+                  style={{
+                    textUnderlineOffset: 4,
+                  }}
+                >
+                  {totalRewards}
+                </Currency>
+              }
+              renderContent={
+                <Stack gap="$2.5" p="$5">
+                  <PopoverLine>
+                    {intl.formatMessage({
+                      id: ETranslations.referral_total_reward_pop1,
+                    })}
+                  </PopoverLine>
+                  <PopoverLine>
+                    {intl.formatMessage({
+                      id: ETranslations.referral_total_reward_pop2,
+                    })}
+                  </PopoverLine>
+                </Stack>
+              }
+            />
+            <IconButton
+              variant="tertiary"
+              iconColor="$iconSubdued"
+              icon="ClockTimeHistoryOutline"
+              size="small"
+              onPress={toRewardDistributionHistoryPage}
+            />
+          </XStack>
         </XStack>
         <YStack gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
