@@ -29,6 +29,7 @@ import type {
   ISwapApproveTransaction,
   ISwapQuoteEvent,
   ISwapToken,
+  ISwapTokenBase,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
@@ -63,6 +64,10 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.SwapSpeedApprovingReset]: {
     approvedSwapInfo: ISwapApproveTransaction;
+  };
+  [EAppEventBusNames.SwapSpeedBalanceUpdate]: {
+    orderFromToken: ISwapTokenBase;
+    orderToToken: ISwapTokenBase;
   };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;

@@ -36,6 +36,7 @@ import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetw
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
+import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
@@ -216,4 +217,8 @@ export class SimpleDbProxy
   addressInfo = this._createProxyService(
     'addressInfo',
   ) as SimpleDbEntityAddressInfo;
+
+  recentRecipients = this._createProxyService(
+    'recentRecipients',
+  ) as SimpleDbEntityRecentRecipients;
 }

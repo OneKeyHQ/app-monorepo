@@ -281,5 +281,3 @@ export const Form = withStaticProperties(FormWrapper, {
   Field,
   FieldDescription,
 });
-
-export * from './formInstances';

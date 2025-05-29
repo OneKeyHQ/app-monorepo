@@ -151,7 +151,6 @@ function HomeOverviewContainer() {
         });
       } else {
         const accountValueId = account.indexedAccountId as string;
-
         if (!network.isAllNetworks) {
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {

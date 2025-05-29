@@ -306,10 +306,15 @@ class ServiceAccountProfile extends ServiceBase {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     skipValidateAddress,
+    enableAddressDeriveInfo,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
     let address = rawAddress.trim();
+
+    const result: IAddressQueryResult = {
+      input: rawAddress,
+    };
 
     try {
       const { displayAddress, isValid } =
@@ -319,14 +324,12 @@ class ServiceAccountProfile extends ServiceBase {
         });
       if (isValid) {
         address = displayAddress;
+        result.validAddress = address;
       }
     } catch (e) {
       // noop
     }
 
-    const result: IAddressQueryResult = {
-      input: rawAddress,
-    };
     if (!networkId) {
       return result;
     }
@@ -454,6 +457,23 @@ class ServiceAccountProfile extends ServiceBase {
         }
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
+        if (enableAddressDeriveInfo) {
+          const account =
+            await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId,
+                indexedAccountId: item.accountId,
+                excludeEmptyAccount: true,
+              },
+            );
+          const matchedAccount = account.networkAccounts?.find(
+            (a) => a.account?.address === resolveAddress,
+          );
+          if (matchedAccount) {
+            result.addressDeriveInfo = matchedAccount.deriveInfo;
+            result.addressDeriveType = matchedAccount.deriveType;
+          }
+        }
       }
     }
     if (

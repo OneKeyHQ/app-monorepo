@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -10,6 +10,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  Image,
   NumberSizeableText,
   Page,
   Popover,
@@ -27,7 +28,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,9 +39,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
-  IEarnToken,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -67,6 +65,38 @@ import { useHandleClaim } from '../ProtocolDetails/useHandleClaim';
 
 import { FAQSection } from './FAQSection';
 import { ShareEventsContext } from './ShareEventsProvider';
+
+function ManagersSection({
+  managers,
+}: {
+  managers: IStakeEarnDetail['managers'] | undefined;
+}) {
+  return managers?.items?.length ? (
+    <XStack pt="$1" pb="$4" gap="$1" px="$5">
+      {managers.items.map((item, index) => (
+        <>
+          <XStack key={item.title.text} gap="$1" alignItems="center">
+            <Image size="$4" borderRadius="$1" src={item.logoURI} />
+            <SizableText size="$bodySm" color={item.title.color}>
+              {item.title.text}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color={item.description.color || '$textSubdued'}
+            >
+              {item.description.text}
+            </SizableText>
+          </XStack>
+          {index !== managers.items.length - 1 ? (
+            <XStack w="$4" h="$4" ai="center" jc="center">
+              <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
+            </XStack>
+          ) : null}
+        </>
+      ))}
+    </XStack>
+  ) : null;
+}
 
 function SubscriptionSection({
   subscriptionValue,
@@ -131,7 +161,9 @@ function SubscriptionSection({
           size="$bodyLgMedium"
           formatter="balance"
           color="$textSubdued"
-          formatterOptions={{ tokenSymbol: subscriptionValue.token.symbol }}
+          formatterOptions={{
+            tokenSymbol: subscriptionValue.token.info.symbol,
+          }}
         >
           {subscriptionValue.formattedValue || 0}
         </NumberSizeableText>
@@ -163,12 +195,10 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
 }
 
 function ProtocolRewards({
-  rewardToken,
   rewards,
   tokenInfo,
   protocolInfo,
 }: {
-  rewardToken: IEarnToken;
   rewards: IStakeEarnDetail['rewards'];
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
@@ -198,7 +228,7 @@ function ProtocolRewards({
               renderContent={
                 <Stack p="$5">
                   <SizableText color="$text" size="$bodyLg">
-                    {rewards.tooltip.data.text}
+                    {rewards.tooltip.data?.text}
                   </SizableText>
                 </Stack>
               }
@@ -241,7 +271,7 @@ function ProtocolRewards({
                   <Token
                     mr="$1.5"
                     size="sm"
-                    tokenImageUri={token.token.logoURI}
+                    tokenImageUri={token.token.info.logoURI}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
                     <SizableText size="$bodyLgMedium" color={token.title.color}>
@@ -249,56 +279,56 @@ function ProtocolRewards({
                     </SizableText>
                   </XStack>
                 </XStack>
-                <Button
-                  size="small"
-                  variant="primary"
-                  onPress={async () => {
-                    // TODO: need fiatValue
-                    const claimAmount =
-                      token?.title?.text?.split(' ')?.[0] || '0';
-                    const isMorphoClaim = !!(
-                      tokenInfo?.provider &&
-                      earnUtils.isMorphoProvider({
-                        providerName: tokenInfo?.provider,
-                      })
-                    );
-                    const newRewardToken = token.token;
-                    await handleClaim({
-                      symbol: rewardToken.symbol,
-                      protocolInfo,
-                      tokenInfo: tokenInfo
-                        ? {
-                            ...tokenInfo,
-                            token: newRewardToken,
-                          }
-                        : undefined,
-                      claimAmount,
-                      claimTokenAddress: newRewardToken.address,
-                      isMorphoClaim,
-                      stakingInfo: {
-                        label: EEarnLabels.Claim,
-                        protocol: earnUtils.getEarnProviderName({
-                          providerName: tokenInfo?.provider || '',
-                        }),
-                        protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                        receive: {
-                          token: newRewardToken,
-                          amount: claimAmount,
-                        },
-                        tags: [
-                          buildLocalTxStatusSyncId({
+                {token?.button.type === 'claim' ? (
+                  <Button
+                    size="small"
+                    variant="primary"
+                    disabled={token?.button?.disabled}
+                    onPress={async () => {
+                      // TODO: need fiatValue
+                      const claimAmount =
+                        token?.title?.text?.split(' ')?.[0] || '0';
+                      const isMorphoClaim = !!(
+                        tokenInfo?.provider &&
+                        earnUtils.isMorphoProvider({
+                          providerName: tokenInfo?.provider,
+                        })
+                      );
+                      const newRewardToken = token.token.info;
+                      await handleClaim({
+                        symbol: protocolInfo?.symbol || '',
+                        protocolInfo,
+                        tokenInfo: tokenInfo
+                          ? {
+                              ...tokenInfo,
+                              token: newRewardToken,
+                            }
+                          : undefined,
+                        claimAmount,
+                        claimTokenAddress: newRewardToken.address,
+                        isMorphoClaim,
+                        stakingInfo: {
+                          label: EEarnLabels.Claim,
+                          protocol: earnUtils.getEarnProviderName({
                             providerName: tokenInfo?.provider || '',
-                            tokenSymbol: newRewardToken.symbol,
                           }),
-                        ],
-                      },
-                    });
-                  }}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.earn_claim,
-                  })}
-                </Button>
+                          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+                          receive: {
+                            token: newRewardToken,
+                            amount: claimAmount,
+                          },
+                          tags: protocolInfo?.stakeTag
+                            ? [protocolInfo.stakeTag]
+                            : [],
+                        },
+                      });
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.earn_claim,
+                    })}
+                  </Button>
+                ) : null}
               </XStack>
               <XStack>
                 <SizableText
@@ -330,6 +360,22 @@ function PortfolioSection({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
 }) {
+  const intl = useIntl();
+  const appNavigation = useAppNavigation();
+  const onPortfolioDetails = useCallback(() => {
+    appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
+      accountId: protocolInfo?.earnAccount?.accountId || '',
+      networkId: tokenInfo?.networkId || '',
+      symbol: protocolInfo?.symbol || '',
+      provider: protocolInfo?.provider || '',
+    });
+  }, [
+    appNavigation,
+    protocolInfo?.earnAccount?.accountId,
+    protocolInfo?.provider,
+    protocolInfo?.symbol,
+    tokenInfo?.networkId,
+  ]);
   const handleClaim = useHandleClaim({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
@@ -347,7 +393,7 @@ function PortfolioSection({
               justifyContent="space-between"
             >
               <XStack alignItems="center" gap="$1.5">
-                <Token size="sm" tokenImageUri={item.token.logoURI} />
+                <Token size="sm" tokenImageUri={item.token.info.logoURI} />
                 <FormatHyperlinkText
                   size="$bodyLgMedium"
                   color={item.title.color}
@@ -356,9 +402,9 @@ function PortfolioSection({
                 </FormatHyperlinkText>
                 <SizableText
                   size="$bodyLgMedium"
-                  color={item.description.color}
+                  color={item.description?.color}
                 >
-                  {item.description.text}
+                  {item.description?.text}
                 </SizableText>
                 {item?.badge ? (
                   <Badge
@@ -371,7 +417,7 @@ function PortfolioSection({
                 {item?.tooltip && item?.tooltip.type === 'text' ? (
                   <Popover
                     placement="top"
-                    title={item.description.text}
+                    title={item?.description?.text || ''}
                     renderTrigger={
                       <IconButton
                         iconColor="$iconSubdued"
@@ -399,10 +445,10 @@ function PortfolioSection({
                     const claimAmount = protocolInfo?.claimable || '0';
                     const newTokenInfo = {
                       ...tokenInfo,
-                      token: item.token,
+                      token: item.token.info,
                     };
                     await handleClaim({
-                      symbol: item.token.symbol,
+                      symbol: item.token.info.symbol,
                       protocolInfo,
                       tokenInfo: newTokenInfo as IEarnTokenInfo,
                       claimAmount,
@@ -420,15 +466,12 @@ function PortfolioSection({
                         }),
                         protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                         receive: {
-                          token: item.token,
+                          token: item.token.info,
                           amount: claimAmount,
                         },
-                        tags: [
-                          buildLocalTxStatusSyncId({
-                            providerName: newTokenInfo?.provider || '',
-                            tokenSymbol: item.token.symbol,
-                          }),
-                        ],
+                        tags: protocolInfo?.stakeTag
+                          ? [protocolInfo.stakeTag]
+                          : [],
                       },
                     });
                   }}
@@ -449,6 +492,16 @@ function PortfolioSection({
           <SizableText size="$headingLg" color={portfolios.title.color}>
             {portfolios.title.text}
           </SizableText>
+          {portfolios.button && portfolios.button.type === 'portfolio' ? (
+            <Button
+              disabled={portfolios.button.disabled}
+              variant="tertiary"
+              iconAfter="ChevronRightOutline"
+              onPress={onPortfolioDetails}
+            >
+              {portfolios?.button.text.text}
+            </Button>
+          ) : null}
         </XStack>
         <YStack gap="$3">
           {portfolios?.items.length ? (
@@ -456,7 +509,6 @@ function PortfolioSection({
           ) : null}
           {rewards?.tokens.length ? (
             <ProtocolRewards
-              rewardToken={portfolios.items?.[0]?.token}
               rewards={rewards}
               tokenInfo={tokenInfo}
               protocolInfo={protocolInfo}
@@ -528,48 +580,72 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
         <SizableText size="$headingLg" color={risk.title.color}>
           {risk.title.text}
         </SizableText>
-        {risk.items.map((item) => (
-          <XStack ai="center" gap="$3" key={item.title.text}>
-            <YStack flex={1} gap="$2">
-              <XStack ai="center" gap="$2">
-                <XStack
-                  ai="center"
-                  jc="center"
-                  w="$6"
-                  h="$6"
-                  bg="$bgCaution"
-                  borderRadius="$1"
-                >
-                  <Icon
-                    name={item.icon.icon}
-                    size="$4"
-                    color={item.icon.color || '$iconCaution'}
+        <YStack gap="$3">
+          {risk.items?.map((item) => (
+            <>
+              <XStack ai="center" gap="$3" key={item.title.text}>
+                <YStack flex={1} gap="$2">
+                  <XStack ai="center" gap="$2">
+                    <XStack
+                      ai="center"
+                      jc="center"
+                      w="$6"
+                      h="$6"
+                      bg="$bgCaution"
+                      borderRadius="$1"
+                    >
+                      <Icon
+                        name={item.icon.icon}
+                        size="$4"
+                        color={item.icon.color || '$iconCaution'}
+                      />
+                    </XStack>
+                    <SizableText size="$bodyMdMedium" color={item.title.color}>
+                      {item.title.text}
+                    </SizableText>
+                  </XStack>
+                  <SizableText
+                    size="$bodyMd"
+                    color={item.description.color || '$textSubdued'}
+                  >
+                    {item.description.text}
+                  </SizableText>
+                </YStack>
+                {item?.actionButton?.type === 'link' ? (
+                  <IconButton
+                    icon="OpenOutline"
+                    color="$iconSubdued"
+                    size="small"
+                    bg="transparent"
+                    onPress={() => {
+                      openUrlExternal(item?.actionButton?.data?.link);
+                    }}
                   />
-                </XStack>
-                <SizableText size="$bodyMdMedium" color={item.title.color}>
-                  {item.title.text}
-                </SizableText>
+                ) : null}
               </XStack>
-              <SizableText
-                size="$bodyMd"
-                color={item.description.color || '$textSubdued'}
-              >
-                {item.description.text}
-              </SizableText>
-            </YStack>
-            {item?.actionButton?.type === 'link' ? (
-              <IconButton
-                icon="OpenOutline"
-                color="$iconSubdued"
-                size="small"
-                bg="transparent"
-                onPress={() => {
-                  openUrlExternal(item?.actionButton?.data?.link);
-                }}
-              />
-            ) : null}
-          </XStack>
-        ))}
+
+              {item.list?.length ? (
+                <YStack gap="$1">
+                  {item.list.map((i, indexOfList) => (
+                    <XStack key={indexOfList} gap="$1">
+                      <Icon
+                        name={i.icon.icon}
+                        size="$4"
+                        color={i.icon.color || '$iconCaution'}
+                      />
+                      <FormatHyperlinkText
+                        size="$bodySm"
+                        color={i.title.color || '$textCaution'}
+                      >
+                        {i.title.text}
+                      </FormatHyperlinkText>
+                    </XStack>
+                  ))}
+                </YStack>
+              ) : null}
+            </>
+          ))}
+        </YStack>
       </YStack>
       <Divider />
     </>
@@ -585,20 +661,6 @@ const ProtocolDetailsPage = () => {
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
-
-  const { result: resultV1, run: runV1 } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getProtocolDetails({
-        accountId,
-        networkId,
-        indexedAccountId,
-        symbol,
-        provider,
-        vault,
-      }),
-    [accountId, networkId, indexedAccountId, symbol, provider, vault],
-    { revalidateOnFocus: true },
-  );
 
   const { result: earnAccount, run: refreshAccount } = usePromiseResult(
     async () =>
@@ -622,10 +684,10 @@ const ProtocolDetailsPage = () => {
           vault,
         });
 
-      const tokens = response?.subscriptionValue?.token.address
+      const tokens = response?.subscriptionValue?.token.info.address
         ? await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
             networkId,
-            contractList: [response.subscriptionValue.token.address],
+            contractList: [response.subscriptionValue.token.info.address],
           })
         : undefined;
       return {
@@ -645,7 +707,8 @@ const ProtocolDetailsPage = () => {
       ? {
           nativeToken,
           balanceParsed: detailInfo.subscriptionValue.balance,
-          token: detailInfo.subscriptionValue.token,
+          token: detailInfo.subscriptionValue.token.info,
+          price: detailInfo.subscriptionValue.token.price,
           networkId,
           provider,
           vault,
@@ -662,20 +725,6 @@ const ProtocolDetailsPage = () => {
     accountId,
   ]);
 
-  const { result: unbondingDelegationList } = usePromiseResult(
-    () =>
-      earnAccount?.accountAddress
-        ? backgroundApiProxy.serviceStaking.getUnbondingDelegationList({
-            accountAddress: earnAccount?.accountAddress,
-            symbol,
-            networkId,
-            provider,
-          })
-        : Promise.resolve([]),
-    [earnAccount?.accountAddress, symbol, networkId, provider],
-    { watchLoading: true, initResult: [], revalidateOnFocus: true },
-  );
-
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     void run();
@@ -684,70 +733,79 @@ const ProtocolDetailsPage = () => {
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
-  const { result: trackingResp, run: refreshTracking } = usePromiseResult(
-    async () => {
-      if (
-        provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase() ||
-        !earnAccount
-      ) {
-        return [];
-      }
-      const items =
-        await backgroundApiProxy.serviceStaking.getBabylonTrackingItems({
-          accountId: earnAccount.accountId,
-          networkId: earnAccount.networkId,
-        });
-      return items;
-    },
-    [provider, earnAccount],
-    { initResult: [] },
-  );
+  // const { result: trackingResp, run: refreshTracking } = usePromiseResult(
+  //   async () => {
+  //     if (
+  //       provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase() ||
+  //       !earnAccount
+  //     ) {
+  //       return [];
+  //     }
+  //     const items =
+  //       await backgroundApiProxy.serviceStaking.getBabylonTrackingItems({
+  //         accountId: earnAccount.accountId,
+  //         networkId: earnAccount.networkId,
+  //       });
+  //     return items;
+  //   },
+  //   [provider, earnAccount],
+  //   { initResult: [] },
+  // );
 
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isFocused) {
-      void refreshTracking();
-    }
-  }, [isFocused, refreshTracking]);
+  // const isFocused = useIsFocused();
+  // useEffect(() => {
+  //   if (isFocused) {
+  //     void refreshTracking();
+  //   }
+  // }, [isFocused, refreshTracking]);
 
-  const onRefreshTracking = useCallback(async () => {
-    void run();
-    void runV1();
-    void refreshTracking();
-  }, [run, runV1, refreshTracking]);
+  // const onRefreshTracking = useCallback(async () => {
+  //   void run();
+  //   void refreshTracking();
+  // }, [run, refreshTracking]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
-    return detailInfo?.protocol && resultV1
+    const withdrawAction = detailInfo?.actions.find(
+      (i) => i.type === 'withdraw',
+    );
+    return detailInfo?.protocol
       ? {
           ...detailInfo.protocol,
+          apyDetail: detailInfo.apyDetail,
           earnAccount,
-          apys: resultV1.provider.apys,
-          activeBalance: resultV1.active,
-          overflowBalance: resultV1.overflow,
-          rewardAssets: resultV1.rewardAssets,
-          poolFee: resultV1.provider.poolFee,
-          aprWithoutFee: resultV1.provider.aprWithoutFee,
-          minStakeAmount: resultV1.provider.minStakeAmount,
-          lidoStTokenRate: resultV1.provider.lidoStTokenRate,
-          morphoTokenRate: resultV1.provider.morphoTokenRate,
-          eventEndTime: resultV1.provider.eventEndTime,
-          minStakeTerm: resultV1.provider.minStakeTerm,
-          maxStakeAmount: resultV1.provider.maxStakeAmount,
-          maxStakeTerm: resultV1.provider.maxStakeTerm,
-          stakeDisable: resultV1.provider.stakeDisable,
-          stakingTime: resultV1.provider.stakingTime,
-          nextLaunchLeft: resultV1.provider.nextLaunchLeft,
-          minStakeBlocks: resultV1.provider.minStakeBlocks,
-          minTransactionFee: resultV1.provider.minTransactionFee,
-          unstakingTime: resultV1.provider.unstakingTime,
-          unstakingPeriod: resultV1.unstakingPeriod,
-          maxUnstakeAmount: resultV1.provider.maxUnstakeAmount,
-          minUnstakeAmount: resultV1.provider.minUnstakeAmount,
-          // --- claim
-          claimable: resultV1.claimable,
+          activeBalance: withdrawAction?.data?.balance,
+          eventEndTime: detailInfo?.countDownAlert?.endTime,
+          stakeTag: buildLocalTxStatusSyncId({
+            providerName: provider,
+            tokenSymbol: symbol,
+          }),
+
+          // withdraw
+          overflowBalance: detailInfo.nums?.overflow,
+          maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
+          minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
+
+          // staking
+          minTransactionFee: detailInfo.nums?.minTransactionFee,
+
+          // claim
+          claimable: detailInfo.nums?.claimable,
         }
       : undefined;
-  }, [detailInfo?.protocol, earnAccount, resultV1]);
+  }, [
+    detailInfo?.actions,
+    detailInfo?.apyDetail,
+    detailInfo?.countDownAlert?.endTime,
+    detailInfo?.nums?.claimable,
+    detailInfo?.nums?.maxUnstakeAmount,
+    detailInfo?.nums?.minTransactionFee,
+    detailInfo?.nums?.minUnstakeAmount,
+    detailInfo?.nums?.overflow,
+    detailInfo?.protocol,
+    earnAccount,
+    provider,
+    symbol,
+  ]);
 
   const onStake = useCallback(async () => {
     await handleStake({
@@ -758,10 +816,9 @@ const ProtocolDetailsPage = () => {
       indexedAccountId,
       setStakeLoading,
       onSuccess: async () => {
-        if (networkUtils.isBTCNetwork(networkId)) {
-          await run();
-          await refreshTracking();
-        }
+        // if (networkUtils.isBTCNetwork(networkId)) {
+        //   await run();
+        // }
       },
     });
   }, [
@@ -771,8 +828,6 @@ const ProtocolDetailsPage = () => {
     earnAccount?.accountId,
     networkId,
     indexedAccountId,
-    run,
-    refreshTracking,
   ]);
 
   const onWithdraw = useCallback(async () => {
@@ -784,9 +839,9 @@ const ProtocolDetailsPage = () => {
       symbol,
       provider,
       onSuccess: async () => {
-        if (networkUtils.isBTCNetwork(networkId)) {
-          await run();
-        }
+        // if (networkUtils.isBTCNetwork(networkId)) {
+        //   await run();
+        // }
       },
     });
   }, [
@@ -795,28 +850,15 @@ const ProtocolDetailsPage = () => {
     networkId,
     protocolInfo,
     provider,
-    run,
     symbol,
     tokenInfo,
   ]);
 
-  const onPortfolioDetails = useMemo(
-    () =>
-      networkUtils.isBTCNetwork(networkId) && earnAccount?.accountId
-        ? () => {
-            appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
-              accountId: earnAccount?.accountId,
-              networkId,
-              symbol,
-              provider,
-            });
-          }
-        : undefined,
-    [appNavigation, earnAccount?.accountId, networkId, symbol, provider],
-  );
+  const historyAction = useMemo(() => {
+    return detailInfo?.actions.find((i) => i.type === 'history');
+  }, [detailInfo?.actions]);
 
   const onHistory = useMemo(() => {
-    const historyAction = detailInfo?.actions.find((i) => i.type === 'history');
     if (historyAction?.disabled || !earnAccount?.accountId) {
       return undefined;
     }
@@ -827,38 +869,34 @@ const ProtocolDetailsPage = () => {
         networkId,
         symbol,
         provider,
-        stakeTag: buildLocalTxStatusSyncId({
-          providerName: tokenInfo?.provider || '',
-          tokenSymbol: tokenInfo?.token.symbol || '',
-        }),
+        stakeTag: protocolInfo?.stakeTag || '',
         morphoVault: vault,
         filterType,
       });
     };
   }, [
     appNavigation,
-    detailInfo?.actions,
     earnAccount?.accountId,
+    historyAction?.disabled,
     networkId,
+    protocolInfo?.stakeTag,
     provider,
     symbol,
-    tokenInfo?.provider,
-    tokenInfo?.token.symbol,
     vault,
   ]);
 
   const intl = useIntl();
   const media = useMedia();
 
-  const falconUSDfRegister = useFalconUSDfRegister();
-  const shouldRegisterBeforeStake = useMemo(() => {
-    // if (
-    //   earnUtils.isFalconProvider({ providerName: detailInfo?.provider.name ?? '' })
-    // ) {
-    //   return !detailInfo?.hasRegister;
-    // }
-    return false;
-  }, []);
+  // const falconUSDfRegister = useFalconUSDfRegister();
+  // const shouldRegisterBeforeStake = useMemo(() => {
+  //   // if (
+  //   //   earnUtils.isFalconProvider({ providerName: detailInfo?.provider.name ?? '' })
+  //   // ) {
+  //   //   return !detailInfo?.hasRegister;
+  //   // }
+  //   return false;
+  // }, []);
 
   const depositButtonProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
@@ -875,7 +913,9 @@ const ProtocolDetailsPage = () => {
   }, [detailInfo?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
 
   const withdrawButtonProps = useMemo(() => {
-    const item = detailInfo?.actions?.find((i) => i.type === 'withdraw');
+    const item = detailInfo?.actions?.find(
+      (i) => i.type === 'withdraw' || i.type === 'withdrawOrder',
+    );
     return {
       text: item?.text.text,
       props: {
@@ -935,6 +975,7 @@ const ProtocolDetailsPage = () => {
         )}
       />
       <Page.Body pb="$5">
+        <ManagersSection managers={detailInfo?.managers} />
         {detailInfo?.countDownAlert?.startTime &&
         detailInfo?.countDownAlert?.endTime &&
         now > detailInfo.countDownAlert.startTime &&
@@ -998,10 +1039,8 @@ const ProtocolDetailsPage = () => {
                 <StakingTransactionIndicator
                   accountId={earnAccount?.accountId ?? ''}
                   networkId={networkId}
-                  stakeTag={buildLocalTxStatusSyncId({
-                    providerName: tokenInfo?.provider || '',
-                    tokenSymbol: tokenInfo?.token.symbol || '',
-                  })}
+                  stakeTag={protocolInfo?.stakeTag || ''}
+                  historyAction={historyAction}
                   onRefresh={run}
                   onPress={onHistory}
                 />

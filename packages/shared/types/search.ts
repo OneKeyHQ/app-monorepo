@@ -26,22 +26,24 @@ export enum ESearchStatus {
 export type IUniversalSearchAccountInfo = {
   accountId: string;
   formattedName: string;
+  accountName?: string;
 };
 
 export type IUniversalSearchAddress = {
   type: EUniversalSearchType.Address;
   payload: {
     wallet: IDBWallet | undefined;
-    account: INetworkAccount;
-    indexedAccount: IDBIndexedAccount;
-    network: IServerNetwork;
-    addressInfo: IAddressValidation;
+    account?: INetworkAccount;
+    indexedAccount?: IDBIndexedAccount;
+    network?: IServerNetwork;
+    addressInfo?: IAddressValidation;
     accountInfo?: IUniversalSearchAccountInfo;
     accountsValue?: {
       accountId: string;
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     };
+    isSearchedByAccountName?: boolean;
   };
 };
 
@@ -97,7 +99,7 @@ export interface IIUniversalRecentSearchItem {
   text: string;
   timestamp: number;
   type: EUniversalSearchType;
-  extra?: Record<string, string>;
+  extra?: Record<string, string | boolean>;
 }
 
 export type IUniversalSearchAtomData = {

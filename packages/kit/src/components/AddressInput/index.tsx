@@ -20,6 +20,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
@@ -152,6 +156,7 @@ export type IAddressQueryResult = {
   addressBookId?: string;
   addressBookName?: string;
   resolveAddress?: string;
+  validAddress?: string;
   resolveOptions?: string[];
   addressInteractionStatus?: EAddressInteractionStatus;
   isContract?: boolean;
@@ -161,6 +166,8 @@ export type IAddressQueryResult = {
   isScam?: boolean;
   isCex?: boolean;
   addressBadges?: IAddressBadge[];
+  addressDeriveInfo?: IAccountDeriveInfo;
+  addressDeriveType?: IAccountDeriveTypes;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -458,7 +465,10 @@ export function AddressInput(props: IAddressInputProps) {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
-        resolved: queryResult.resolveAddress ?? queryResult.input?.trim(),
+        resolved:
+          queryResult.resolveAddress ??
+          queryResult.validAddress ??
+          queryResult.input?.trim(),
         pending: false,
         isContract: queryResult.isContract,
       });
