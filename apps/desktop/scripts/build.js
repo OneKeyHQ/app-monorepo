@@ -57,6 +57,27 @@ build({
     ),
     'process.env.DESK_CHANNEL': JSON.stringify(process.env.DESK_CHANNEL || ''),
     'process.env.COMMITHASH': JSON.stringify(gitRevision),
+    'process.env.SENTRY_DSN_EXT': JSON.stringify(
+      process.env.SENTRY_DSN_EXT || '',
+    ),
+    'process.env.SENTRY_DSN_DESKTOP': JSON.stringify(
+      process.env.SENTRY_DSN_DESKTOP || '',
+    ),
+    'process.env.SENTRY_DSN_MAS': JSON.stringify(
+      process.env.SENTRY_DSN_MAS || '',
+    ),
+    'process.env.SENTRY_DSN_SNAP': JSON.stringify(
+      process.env.SENTRY_DSN_SNAP || '',
+    ),
+    'process.env.SENTRY_DSN_WINMS': JSON.stringify(
+      process.env.SENTRY_DSN_WINMS || '',
+    ),
+    'process.env.SENTRY_DSN_REACT_NATIVE': JSON.stringify(
+      process.env.SENTRY_DSN_REACT_NATIVE || '',
+    ),
+    'process.env.SENTRY_DSN_WEB': JSON.stringify(
+      process.env.SENTRY_DSN_WEB || '',
+    ),
   },
 })
   .then(() => {
