@@ -953,7 +953,6 @@ export function UniversalStake({
           value={amountValue}
           onChange={onChangeAmountValue}
           onBlur={onBlurAmountValue}
-          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
