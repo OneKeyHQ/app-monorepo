@@ -150,6 +150,8 @@ export interface IAppEventBusPayload {
     deriveType?: string | IAccountDeriveTypes;
     error?: IOneKeyError;
   };
+  [EAppEventBusNames.SDKGetAllNetworkAddressesStart]: undefined;
+  [EAppEventBusNames.SDKGetAllNetworkAddressesEnd]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;
