@@ -82,6 +82,7 @@ function BasicInvestmentDetails() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
+
   const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
     async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
@@ -96,14 +97,6 @@ function BasicInvestmentDetails() {
             networkId: allNetworkId,
             indexedAccountId: accountInfo.activeAccount?.indexedAccount?.id,
           });
-        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-        actions.current.updateEarnAccounts({
-          key: totalFiatMapKey,
-          earnAccount: {
-            ...earnAccountData,
-            ...earnAccountOnNetwork,
-          },
-        });
         list = earnAccountOnNetwork.accounts;
       }
 
