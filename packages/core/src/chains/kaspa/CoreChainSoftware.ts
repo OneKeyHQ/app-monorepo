@@ -63,7 +63,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       return privateKeyFromBuffer(
         await decryptAsync({ password, data: privateKeyRaw }),
         chainId,
-      ).toWIF();
+      ).toString();
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
   }
