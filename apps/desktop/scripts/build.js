@@ -1,3 +1,5 @@
+require('../../../development/env');
+
 const path = require('path');
 const childProcess = require('child_process');
 const { build } = require('esbuild');
