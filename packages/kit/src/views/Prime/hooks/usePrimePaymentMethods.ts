@@ -18,6 +18,7 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
+import primePaymentUtils from './primePaymentUtils';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
@@ -103,30 +104,17 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
 
         let unit = '';
-        if (
-          currentPrice.formattedPrice.startsWith('$') ||
-          currentPrice.formattedPrice.startsWith('US$')
-        ) {
-          unit = '$';
-        }
-
-        let pricePerMonthString =
-          normalPeriodDuration === 'P1M'
-            ? currentPrice.formattedPrice
-            : `${new BigNumber(currentPrice.amountMicros)
-                .div(12)
-                .div(1_000_000)
-                .toFixed(2)}`;
-        pricePerMonthString = pricePerMonthString.replace(/^\$/, '');
-        pricePerMonthString = pricePerMonthString.replace(/^US\$/, '');
-
-        let pricePerYearString = currentPrice.formattedPrice;
-        pricePerYearString = pricePerYearString.replace(/^\$/, '');
-        pricePerYearString = pricePerYearString.replace(/^US\$/, '');
+        unit = primePaymentUtils.extractCurrencySymbol(
+          currentPrice.formattedPrice,
+          {
+            useShortUSSymbol: true,
+          },
+        );
 
         const pricePerYear = new BigNumber(currentPrice.amountMicros)
           .div(1_000_000)
           .toFixed(2);
+
         const pricePerMonth =
           normalPeriodDuration === 'P1M'
             ? new BigNumber(currentPrice.amountMicros).div(1_000_000).toFixed(2)
@@ -138,13 +126,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
           pricePerYear: Number(pricePerYear),
-          pricePerYearString: `${unit}${pricePerYearString}`,
+          pricePerYearString: `${unit}${pricePerYear}`,
           pricePerMonth: Number(pricePerMonth),
-          pricePerMonthString: `${unit}${pricePerMonthString}`,
+          pricePerMonthString: `${unit}${pricePerMonth}`,
           priceTotalPerYearString:
             normalPeriodDuration === 'P1M'
               ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
-              : `${unit}${pricePerYearString}`,
+              : `${unit}${pricePerYear}`,
         };
       }) || [];
 

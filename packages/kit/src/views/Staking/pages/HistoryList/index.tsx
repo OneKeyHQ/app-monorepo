@@ -242,7 +242,7 @@ function HistoryList() {
       const tokenMap = { ...historyResp.tokenMap };
 
       // local history items
-      if (stakeTag) {
+      if (filterType !== 'rebate' && stakeTag) {
         // refresh account history
         await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -276,11 +276,25 @@ function HistoryList() {
           };
         });
         if (localNormalizedItems.length > 0) {
-          sections.unshift({
-            title: intl.formatMessage({ id: ETranslations.global_pending }),
-            data: localNormalizedItems,
-            isPending: true,
-          } as IHistorySectionItem);
+          let direction = '';
+          if (filterType === 'stake') {
+            direction = 'send';
+          } else if (filterType === 'withdraw') {
+            direction = 'receive';
+          }
+          const pendingItems =
+            filterType === 'all'
+              ? localNormalizedItems
+              : localNormalizedItems.filter(
+                  (item) => item.direction === direction,
+                );
+          if (pendingItems.length > 0) {
+            sections.unshift({
+              title: intl.formatMessage({ id: ETranslations.global_pending }),
+              data: localNormalizedItems,
+              isPending: true,
+            } as IHistorySectionItem);
+          }
         }
       }
       return {

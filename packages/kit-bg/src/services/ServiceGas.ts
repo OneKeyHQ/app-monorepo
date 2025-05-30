@@ -172,6 +172,15 @@ class ServiceGas extends ServiceBase {
       }));
     }
 
+    if (feeInfo.feeAlgo) {
+      feeResult.feeAlgo = feeResult.feeAlgo.map((item) => {
+        return {
+          ...item,
+          baseFee: item.minFee,
+        };
+      });
+    }
+
     return feeResult;
   }
 

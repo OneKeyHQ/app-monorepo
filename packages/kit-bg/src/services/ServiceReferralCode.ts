@@ -216,6 +216,11 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async resetPostConfig() {
+    await this.backgroundApi.simpleDb.referralCode.resetPostConfig();
+  }
+
+  @backgroundMethod()
   async reset() {
     await this.backgroundApi.simpleDb.referralCode.reset();
   }
