@@ -87,6 +87,16 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     );
   }
 
+  async resetPostConfig() {
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          postConfig: undefined,
+        } as IReferralCodeData),
+    );
+  }
+
   async reset() {
     return this.setRawData({
       myReferralCode: '',

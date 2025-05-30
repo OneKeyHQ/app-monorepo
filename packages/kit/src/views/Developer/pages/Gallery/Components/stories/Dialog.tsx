@@ -35,6 +35,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EGalleryRoutes,
   EModalRoutes,
@@ -318,7 +319,9 @@ const DialogGallery = () => {
                         borderCurve="continuous"
                         borderWidth={StyleSheet.hairlineWidth}
                         borderColor="$borderSubdued"
-                        elevation={0.5}
+                        elevation={
+                          platformEnv.isNativeAndroid ? undefined : 0.5
+                        }
                         overflow="hidden"
                       >
                         <LottieView
@@ -1127,6 +1130,17 @@ const DialogGallery = () => {
                 }}
               >
                 ErrorOutline(destructive)
+              </Button>
+              <Button
+                icon="CheckLargeOutline"
+                onPress={() => {
+                  Dialog.show({
+                    icon: 'CheckLargeOutline',
+                    tone: 'success',
+                  });
+                }}
+              >
+                CheckLargeOutline(success)
               </Button>
             </YStack>
           ),

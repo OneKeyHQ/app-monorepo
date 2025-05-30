@@ -441,6 +441,12 @@ const SwapQuoteResult = ({
                 rate={quoteResult?.instantRate}
                 quoting={quoting}
                 fromToken={fromToken}
+                isFreeOneKeyFee={
+                  new BigNumber(
+                    quoteResult?.fee?.percentageFee ?? '0',
+                  ).isZero() ||
+                  new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isNaN()
+                }
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
@@ -500,6 +506,14 @@ const SwapQuoteResult = ({
                   providerName={quoteResult?.info.providerName ?? ''}
                   isLoading={swapQuoteLoading}
                   isBest={quoteResult.isBest}
+                  isFreeOneKeyFee={
+                    new BigNumber(
+                      quoteResult?.fee?.percentageFee ?? '0',
+                    ).isZero() ||
+                    new BigNumber(
+                      quoteResult?.fee?.percentageFee ?? '0',
+                    ).isNaN()
+                  }
                   fromToken={fromToken}
                   onekeyFee={quoteResult?.fee?.percentageFee}
                   toToken={toToken}
