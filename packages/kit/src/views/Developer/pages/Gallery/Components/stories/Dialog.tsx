@@ -1131,6 +1131,17 @@ const DialogGallery = () => {
               >
                 ErrorOutline(destructive)
               </Button>
+              <Button
+                icon="CheckLargeOutline"
+                onPress={() => {
+                  Dialog.show({
+                    icon: 'CheckLargeOutline',
+                    tone: 'success',
+                  });
+                }}
+              >
+                CheckLargeOutline(success)
+              </Button>
             </YStack>
           ),
         },
