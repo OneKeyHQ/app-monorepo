@@ -380,6 +380,10 @@ const SwapQuoteResult = ({
           <SwapProviderInfoItem
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
+            isFreeOneKeyFee={
+              new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isZero() ||
+              new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isNaN()
+            }
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
             onekeyFee={quoteResult?.fee?.percentageFee}
