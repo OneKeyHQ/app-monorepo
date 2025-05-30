@@ -24,7 +24,34 @@ inputs:
     required: true
     type: string
     description: "Sentry Auth Token"
-
+  sentry_dsn_ext:
+    required: true
+    type: string
+    description: "Sentry External DSN of Chrome Extension"
+  sentry_dsn_desktop:
+    required: true
+    type: string
+    description: "Sentry DSN of Desktop"
+  sentry_dsn_mas:
+    required: true
+    type: string
+    description: "Sentry DSN of Mac App Store"
+  sentry_dsn_snap:
+    required: true
+    type: string
+    description: "Sentry DSN of Snap"
+  sentry_dsn_winms:
+    required: true
+    type: string
+    description: "Sentry DSN of Microsoft Store"
+  sentry_dsn_react_native:
+    required: true
+    type: string
+    description: "Sentry DSN of React Native"
+  sentry_dsn_web:
+    required: true
+    type: string
+    description: "Sentry DSN of Web"
 
 runs:
   using: "composite"
@@ -138,6 +165,13 @@ runs:
         SENTRY_TOKEN: ${{ inputs.sentry_token }}
         SENTRY_PROJECT: ${{ inputs.sentry_project || '' }}
         TARGET_ENV_FILE: ${{ inputs.env_file_name || '.env' }}
+        SENTRY_DSN_EXT: ${{ inputs.sentry_dsn_ext }}
+        SENTRY_DSN_DESKTOP: ${{ inputs.sentry_dsn_desktop }}
+        SENTRY_DSN_MAS: ${{ inputs.sentry_dsn_mas }}
+        SENTRY_DSN_SNAP: ${{ inputs.sentry_dsn_snap }}
+        SENTRY_DSN_WINMS: ${{ inputs.sentry_dsn_winms }}
+        SENTRY_DSN_REACT_NATIVE: ${{ inputs.sentry_dsn_react_native }}
+        SENTRY_DSN_WEB: ${{ inputs.sentry_dsn_web }}
 
       run: |
         echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> ${TARGET_ENV_FILE}
@@ -151,7 +185,14 @@ runs:
         echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}
-
+        echo "SENTRY_RELEASE_NAME=${{ env.GITHUB_TAG }}-${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_EXT=${{ env.SENTRY_DSN_EXT }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_DESKTOP=${{ env.SENTRY_DSN_DESKTOP }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_MAS=${{ env.SENTRY_DSN_MAS }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_SNAP=${{ env.SENTRY_DSN_SNAP }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_WINMS=${{ env.SENTRY_DSN_WINMS }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_REACT_NATIVE=${{ env.SENTRY_DSN_REACT_NATIVE }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_WEB=${{ env.SENTRY_DSN_WEB }}" >> ${TARGET_ENV_FILE}
         if [[ ! -z "${{ inputs.additional_env }}" ]]; then
           echo "${{ inputs.additional_env }}" >> ${TARGET_ENV_FILE}
         fi 
