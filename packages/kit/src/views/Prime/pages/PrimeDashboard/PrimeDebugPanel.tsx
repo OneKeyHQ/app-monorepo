@@ -15,6 +15,7 @@ import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuth
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function CloudSyncDebugTest() {
   return (
@@ -180,6 +181,7 @@ export function PrimeDebugPanel({
   const navigation = useAppNavigation();
   const [isHidden, setIsHidden] = useState(false);
   const { loginOneKeyId } = useLoginOneKeyId();
+  const [primePersistAtomData] = usePrimePersistAtom();
 
   if (isHidden) {
     return null;
@@ -220,7 +222,7 @@ export function PrimeDebugPanel({
             void getCustomerInfo().then(showDebugMessageByDialog);
           }}
         >
-          CustomerInfo
+          sdk.CustomerInfo
         </Button>
         <Button
           onPress={() => {
@@ -231,6 +233,15 @@ export function PrimeDebugPanel({
         >
           ServerPrimeUserInfo
         </Button>
+
+        <Button
+          onPress={() => {
+            showDebugMessageByDialog(primePersistAtomData);
+          }}
+        >
+          primePersistAtomData
+        </Button>
+
         <Button
           onPress={() => {
             void backgroundApiProxy.servicePrime
