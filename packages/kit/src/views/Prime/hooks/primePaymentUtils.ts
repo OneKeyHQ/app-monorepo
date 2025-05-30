@@ -1,14 +1,15 @@
 function extractCurrencySymbol(
-  priceString: string,
+  priceString: string | undefined,
   {
     useShortUSSymbol,
   }: {
     useShortUSSymbol?: boolean;
   } = {},
 ): string {
-  const cleanString = priceString.replace(/^-/, '');
+  const cleanString = (priceString || '').replace(/^-/, '');
   const match = cleanString.match(/^[^0-9.-]*/);
-  const r = match ? match[0] : '';
+  let r = match ? match?.[0] : '';
+  r = r || '';
   if (useShortUSSymbol && r === 'US$') {
     return '$';
   }
