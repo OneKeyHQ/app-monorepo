@@ -55,6 +55,7 @@ build({
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'development',
     ),
+    'process.env.GITHUB_SHA': JSON.stringify(process.env.GITHUB_SHA || ''),
     'process.env.DESK_CHANNEL': JSON.stringify(process.env.DESK_CHANNEL || ''),
     'process.env.COMMITHASH': JSON.stringify(gitRevision),
     'process.env.SENTRY_DSN_EXT': JSON.stringify(
