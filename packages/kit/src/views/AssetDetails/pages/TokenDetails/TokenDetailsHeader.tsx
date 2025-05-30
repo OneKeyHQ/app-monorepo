@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { type IProps } from '.';
 
@@ -46,6 +46,7 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useModalExitPrevent } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateHooks';
 import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
 
 import ActionBuy from './ActionBuy';
@@ -90,9 +91,12 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
-
+  const initRef = useRef(true);
   const { result: tokenDetailsResult } = usePromiseResult(
     async () => {
+      if (initRef.current) {
+        initRef.current = false;
+      }
       updateIsLoadingTokenDetails({
         accountId,
         isLoading: true,
@@ -129,7 +133,7 @@ function TokenDetailsHeader(props: IProps) {
     ],
     {
       overrideIsFocused: (isPageFocused) =>
-        isPageFocused && (isTabView ? isFocused : true),
+        initRef.current || (isPageFocused && (isTabView ? isFocused : true)),
     },
   );
 
