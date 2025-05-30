@@ -22,6 +22,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
@@ -34,11 +35,14 @@ export default function OneKeyId() {
   }, [navigation]);
   const { isPrimeAvailable } = usePrimeAvailable();
 
-  const toPrimePage = useCallback(() => {
-    if (isPrimeAvailable)
+  const toPrimePage = useCallback(async () => {
+    if (isPrimeAvailable) {
+      navigation.popStack();
+      await timerUtils.wait(600);
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
       });
+    }
   }, [navigation, isPrimeAvailable]);
 
   return (

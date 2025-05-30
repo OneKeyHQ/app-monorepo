@@ -14,6 +14,7 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
+import primePaymentUtils from './primePaymentUtils';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
@@ -140,20 +141,32 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         pricePerYearString,
         pricePerMonth,
         pricePerMonthString,
+        priceString,
       } = p.product;
 
-      const unit = '';
+      const unit =
+        primePaymentUtils.extractCurrencySymbol(priceString, {
+          useShortUSSymbol: true,
+        }) ||
+        primePaymentUtils.extractCurrencySymbol(pricePerYearString, {
+          useShortUSSymbol: true,
+        }) ||
+        primePaymentUtils.extractCurrencySymbol(pricePerMonthString, {
+          useShortUSSymbol: true,
+        });
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
         pricePerYear,
-        pricePerYearString,
+        pricePerYearString: `${unit}${new BigNumber(pricePerYear).toFixed(2)}`,
         pricePerMonth,
-        pricePerMonthString,
+        pricePerMonthString: `${unit}${new BigNumber(pricePerMonth).toFixed(
+          2,
+        )}`,
         priceTotalPerYearString:
           subscriptionPeriod === 'P1M'
             ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
-            : `${unit}${pricePerYearString}`,
+            : `${unit}${new BigNumber(pricePerYear).toFixed(2)}`,
       });
     });
 
