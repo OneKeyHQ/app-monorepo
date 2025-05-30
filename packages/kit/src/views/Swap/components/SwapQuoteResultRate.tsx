@@ -140,7 +140,7 @@ const SwapQuoteResultRate = ({
             opacity={openResult ? 0 : 1}
             // gap="$2"
           >
-            {isBest ? (
+            {isBest && !isFreeOneKeyFee ? (
               <Badge badgeSize="sm" marginRight="$2" badgeType="success">
                 {intl.formatMessage({
                   id: ETranslations.global_best,
@@ -148,7 +148,7 @@ const SwapQuoteResultRate = ({
               </Badge>
             ) : null}
             {isFreeOneKeyFee ? (
-              <Badge badgeSize="sm" marginRight="$2" badgeType="success">
+              <Badge badgeSize="sm" marginRight="$2" badgeType="info">
                 {intl.formatMessage({
                   id: ETranslations.swap_stablecoin_0_fee,
                 })}

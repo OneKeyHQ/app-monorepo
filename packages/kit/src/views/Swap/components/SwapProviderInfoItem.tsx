@@ -97,7 +97,7 @@ const SwapProviderInfoItem = ({
                 </Badge>
               ) : null}
               {isFreeOneKeyFee ? (
-                <Badge badgeSize="sm" marginRight="$2" badgeType="success">
+                <Badge badgeSize="sm" marginRight="$2" badgeType="info">
                   {intl.formatMessage({
                     id: ETranslations.swap_stablecoin_0_fee,
                   })}
