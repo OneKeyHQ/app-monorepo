@@ -19,6 +19,7 @@ import { SwapServiceFeeOverview } from './SwapServiceFeeOverview';
 interface ISwapProviderInfoItemProps {
   fromToken?: ISwapToken;
   isBest?: boolean;
+  isFreeOneKeyFee?: boolean;
   toToken?: ISwapToken;
   onekeyFee?: number;
   providerIcon: string;
@@ -60,6 +61,7 @@ const SwapProviderInfoItem = ({
   fromToken,
   isBest,
   onekeyFee,
+  isFreeOneKeyFee,
   toToken,
   providerIcon,
   providerName,
@@ -91,6 +93,13 @@ const SwapProviderInfoItem = ({
                 <Badge badgeSize="sm" badgeType="success" marginRight="$2">
                   {intl.formatMessage({
                     id: ETranslations.global_best,
+                  })}
+                </Badge>
+              ) : null}
+              {isFreeOneKeyFee ? (
+                <Badge badgeSize="sm" marginRight="$2" badgeType="success">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_stablecoin_0_fee,
                   })}
                 </Badge>
               ) : null}
