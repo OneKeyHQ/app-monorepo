@@ -416,10 +416,9 @@ function ReceiveToken() {
         height={264}
         p="$5"
         borderRadius="$3"
-        borderCurve="continuous"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
-        elevation={0.5}
+        borderCurve="continuous"
         alignItems="center"
         justifyContent="center"
         {...(!shouldShowQRCode && {

@@ -13,9 +13,9 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function CloudSyncDebugTest() {
   return (
