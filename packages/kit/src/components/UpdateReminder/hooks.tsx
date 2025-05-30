@@ -373,7 +373,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               isFirstLaunch
             ) {
               await whenAppUnlocked();
-              showUpdateDialog(false, response);
+              setTimeout(() => {
+                showUpdateDialog(false, response);
+              }, 200);
             }
           }
           isFirstLaunch = false;
