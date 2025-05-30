@@ -8,6 +8,7 @@ import type {
   IEarnWalletHistory,
   IHardwareSalesRecord,
   IInviteHistory,
+  IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -36,6 +37,15 @@ class ServiceReferralCode extends ServiceBase {
       );
     }
     return summary.data.data;
+  }
+
+  @backgroundMethod()
+  async getInvitePaidList() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInvitePaidHistory;
+    }>('/rebate/v1/invite/paid');
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -225,7 +235,7 @@ class ServiceReferralCode extends ServiceBase {
   async getPostConfig() {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
-    if (postConfig) {
+    if (postConfig?.locales) {
       setTimeout(() => {
         void this.fetchPostConfig();
       });

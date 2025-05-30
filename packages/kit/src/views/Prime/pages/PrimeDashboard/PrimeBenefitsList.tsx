@@ -5,6 +5,7 @@ import { Badge, Icon, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -56,50 +57,21 @@ export function PrimeBenefitsList() {
   return (
     <Stack py="$2">
       <PrimeBenefitsItem
-        icon="RepeatOutline"
-        title="OneKey Cloud"
-        subtitle="Automatically back up app usage data, sync across devices."
+        icon="CloudSyncOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_onekey_cloud,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_onekey_cloud_desc,
+        })}
         onPress={() => {
           navigation.navigate(EPrimePages.PrimeCloudSync);
         }}
       />
       <PrimeBenefitsItem
-        isComingSoon
-        icon="BezierNodesOutline"
-        title="Premium RPC"
-        subtitle="Enjoy rapid and secure blockchain access."
-        onPress={() => {
-          Toast.success({
-            title: 'Premium RPC',
-          });
-        }}
-      />
-      <PrimeBenefitsItem
-        isComingSoon
-        icon="BellOutline"
-        title="Account Activity"
-        subtitle="Subscribe to activities from up to 100 accounts."
-        onPress={() => {
-          Toast.success({
-            title: 'Account Activity',
-          });
-        }}
-      />
-      <PrimeBenefitsItem
-        isComingSoon
-        icon="FileTextOutline"
-        title="Analytics"
-        subtitle="sint occaecat cupidatat non proident"
-        onPress={() => {
-          Toast.success({
-            title: 'Analytics',
-          });
-        }}
-      />
-      <PrimeBenefitsItem
         icon="PhoneOutline"
         title={intl.formatMessage({
-          id: ETranslations.prime_device_management,
+          id: ETranslations.global_device_management,
         })}
         subtitle={intl.formatMessage({
           id: ETranslations.prime_device_management_desc,
@@ -111,6 +83,84 @@ export function PrimeBenefitsList() {
           });
         }}
       />
+      <PrimeBenefitsItem
+        isComingSoon
+        icon="BezierNodesOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_bulk_copy_addresses,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_bulk_copy_addresses_desc,
+        })}
+        onPress={() => {
+          if (process.env.NODE_ENV !== 'production') {
+            Toast.success({
+              title: 'Bulk Copy Addresses',
+            });
+          }
+        }}
+      />
+      <PrimeBenefitsItem
+        isComingSoon
+        icon="BezierNodesOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_bulk_revoke,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.global_bulk_revoke_desc,
+        })}
+        onPress={() => {
+          if (process.env.NODE_ENV !== 'production') {
+            Toast.success({
+              title: 'Bulk Revoke',
+            });
+          }
+        }}
+      />
+
+      {platformEnv.isDev ? (
+        <>
+          <PrimeBenefitsItem
+            isComingSoon
+            icon="BezierNodesOutline"
+            title="Premium RPC"
+            subtitle="Enjoy rapid and secure blockchain access."
+            onPress={() => {
+              if (process.env.NODE_ENV !== 'production') {
+                Toast.success({
+                  title: 'Premium RPC',
+                });
+              }
+            }}
+          />
+          <PrimeBenefitsItem
+            isComingSoon
+            icon="BellOutline"
+            title="Account Activity"
+            subtitle="Subscribe to activities from up to 100 accounts."
+            onPress={() => {
+              if (process.env.NODE_ENV !== 'production') {
+                Toast.success({
+                  title: 'Account Activity',
+                });
+              }
+            }}
+          />
+          <PrimeBenefitsItem
+            isComingSoon
+            icon="FileTextOutline"
+            title="Analytics"
+            subtitle="sint occaecat cupidatat non proident"
+            onPress={() => {
+              if (process.env.NODE_ENV !== 'production') {
+                Toast.success({
+                  title: 'Analytics',
+                });
+              }
+            }}
+          />
+        </>
+      ) : null}
     </Stack>
   );
 }

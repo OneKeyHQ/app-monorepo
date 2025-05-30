@@ -22,6 +22,117 @@ import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
+export function usePrimePurchaseCallback({
+  onPurchase,
+}: {
+  onPurchase?: () => void;
+} = {}) {
+  const {
+    purchasePackageNative,
+    getPackagesNative,
+    purchasePackageWeb,
+    getPackagesWeb,
+  } = usePrimePayment();
+  const { user } = usePrimeAuthV2();
+  const intl = useIntl();
+
+  const purchasePackageWebview = usePurchasePackageWebview();
+
+  const handleNativePurchase = useCallback(
+    async ({
+      selectedSubscriptionPeriod,
+    }: {
+      selectedSubscriptionPeriod: ISubscriptionPeriod;
+    }) => {
+      void purchasePackageNative?.({
+        subscriptionPeriod: selectedSubscriptionPeriod,
+      });
+    },
+    [purchasePackageNative],
+  );
+
+  // TODO move to jotai context method
+  const purchase = useCallback(
+    async ({
+      selectedSubscriptionPeriod,
+    }: {
+      selectedSubscriptionPeriod: ISubscriptionPeriod;
+    }) => {
+      try {
+        onPurchase?.();
+
+        if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
+          void handleNativePurchase({
+            selectedSubscriptionPeriod,
+          });
+          return;
+        }
+
+        if (platformEnv.isNativeAndroid) {
+          ActionList.show({
+            title: intl.formatMessage({
+              id: ETranslations.prime_subscribe,
+            }),
+            onClose: () => {},
+            sections: [
+              {
+                items: [
+                  {
+                    label: 'Purchase by AppStore/GooglePlay',
+                    onPress: () => {
+                      void handleNativePurchase({
+                        selectedSubscriptionPeriod,
+                      });
+                    },
+                  },
+                  {
+                    label: 'Purchase by Webview',
+                    onPress: () => {
+                      void purchasePackageWebview({
+                        selectedSubscriptionPeriod,
+                      });
+                    },
+                  },
+                ],
+              },
+            ],
+          });
+          return;
+        }
+
+        if (selectedSubscriptionPeriod) {
+          await purchasePackageWeb?.({
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            email: user?.email || '',
+            locale: intl.locale,
+          });
+          // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
+          //   privyUserId: user.privyUserId || '',
+          // });
+          // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
+          //   packageId: selectedPackageId,
+          //   email: user?.email || '',
+          // });
+        }
+      } finally {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      }
+    },
+    [
+      handleNativePurchase,
+      intl,
+      onPurchase,
+      purchasePackageWeb,
+      purchasePackageWebview,
+      user?.email,
+    ],
+  );
+
+  return {
+    purchase,
+  };
+}
+
 export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   const { onPurchase } = props;
   const intl = useIntl();
@@ -36,90 +147,21 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     getPackagesWeb,
   } = usePrimePayment();
 
-  const purchasePackageWebview = usePurchasePackageWebview({
-    selectedSubscriptionPeriod,
-  });
-
-  const handleNativePurchase = useCallback(async () => {
-    void purchasePackageNative?.({
-      subscriptionPeriod: selectedSubscriptionPeriod,
-    });
-  }, [purchasePackageNative, selectedSubscriptionPeriod]);
-
-  // TODO move to jotai context method
-  const purchase = useCallback(async () => {
-    try {
-      onPurchase?.();
-
-      if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
-        void handleNativePurchase();
-        return;
-      }
-
-      if (platformEnv.isNativeAndroid) {
-        ActionList.show({
-          title: intl.formatMessage({
-            id: ETranslations.prime_subscribe,
-          }),
-          onClose: () => {},
-          sections: [
-            {
-              items: [
-                {
-                  label: 'Purchase by AppStore/GooglePlay',
-                  onPress: handleNativePurchase,
-                },
-                {
-                  label: 'Purchase by Webview',
-                  onPress: () => {
-                    void purchasePackageWebview();
-                  },
-                },
-              ],
-            },
-          ],
-        });
-        return;
-      }
-
-      if (selectedSubscriptionPeriod) {
-        await purchasePackageWeb?.({
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          email: user?.email || '',
-          locale: intl.locale,
-        });
-        // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
-        //   privyUserId: user.privyUserId || '',
-        // });
-        // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
-        //   packageId: selectedPackageId,
-        //   email: user?.email || '',
-        // });
-      }
-    } finally {
-      await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-    }
-  }, [
-    handleNativePurchase,
-    intl,
-    onPurchase,
-    purchasePackageWeb,
-    purchasePackageWebview,
-    selectedSubscriptionPeriod,
-    user?.email,
-  ]);
-
   const { result: packages } = usePromiseResult(
     async () =>
       platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.(),
     [getPackagesNative, getPackagesWeb],
   );
 
+  const { purchase } = usePrimePurchaseCallback({
+    onPurchase,
+  });
   return (
     <Stack mt="$8">
       {packages ? (
         <PrimeSubscriptionPlans
           packages={packages}
+          selectedSubscriptionPeriod={selectedSubscriptionPeriod}
           onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
         />
       ) : (
@@ -137,7 +179,11 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         confirmButtonProps={{
           disabled: !packages,
         }}
-        onConfirm={purchase}
+        onConfirm={() => {
+          return purchase({
+            selectedSubscriptionPeriod,
+          });
+        }}
       />
     </Stack>
   );
