@@ -79,16 +79,7 @@ export function useSpeedSwapActions(props: {
   const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] =
     useState(false);
 
-  const [baseToken, setBaseToken] = useState<ISwapTokenBase>(() => {
-    return {
-      name: marketToken?.name,
-      symbol: marketToken?.symbol,
-      decimals: marketToken?.decimals,
-      networkId: marketToken?.networkId,
-      contractAddress: marketToken?.contractAddress,
-      logoURI: marketToken?.logoURI,
-    };
-  });
+  const [baseToken, setBaseToken] = useState<ISwapTokenBase | undefined>();
   const [balance, setBalance] = useState<BigNumber | undefined>(
     new BigNumber(0),
   );
@@ -114,16 +105,16 @@ export function useSpeedSwapActions(props: {
     if (tradeType === ESwapDirection.BUY) {
       return {
         fromToken: tradeToken,
-        toToken: baseToken,
+        toToken: baseToken ?? marketToken,
         balanceToken: tradeToken,
       };
     }
     return {
-      fromToken: baseToken,
+      fromToken: baseToken ?? marketToken,
       toToken: defaultTradeTokens?.find((item) => item.isNative) ?? tradeToken,
-      balanceToken: baseToken,
+      balanceToken: baseToken ?? marketToken,
     };
-  }, [tradeType, baseToken, defaultTradeTokens, tradeToken]);
+  }, [tradeType, baseToken, marketToken, defaultTradeTokens, tradeToken]);
 
   // --- build tx
 
