@@ -83,6 +83,7 @@ export function SwapPanel(props: ISwapPanelProps) {
     shouldApprove,
     balance,
     balanceToken,
+    fetchBalanceLoading,
   } = speedSwapActions;
 
   useEffect(() => {

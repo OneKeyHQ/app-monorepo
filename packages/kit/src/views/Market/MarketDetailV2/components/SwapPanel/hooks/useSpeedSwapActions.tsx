@@ -80,6 +80,7 @@ export function useSpeedSwapActions(props: {
     useState(false);
 
   const [baseToken, setBaseToken] = useState<ISwapTokenBase | undefined>();
+  const [fetchBalanceLoading, setFetchBalanceLoading] = useState(false);
   const [balance, setBalance] = useState<BigNumber | undefined>(
     new BigNumber(0),
   );
@@ -615,15 +616,21 @@ export function useSpeedSwapActions(props: {
             },
           }))
       ) {
-        const tokenDetail =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: balanceToken?.networkId ?? '',
-            contractAddress: balanceToken?.contractAddress ?? '',
-            accountId: netAccountRes.result?.id ?? '',
-            accountAddress: netAccountRes.result?.address ?? '',
-          });
-        if (tokenDetail?.length) {
-          setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
+        setFetchBalanceLoading(true);
+        try {
+          const tokenDetail =
+            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              networkId: balanceToken?.networkId ?? '',
+              contractAddress: balanceToken?.contractAddress ?? '',
+              accountId: netAccountRes.result?.id ?? '',
+              accountAddress: netAccountRes.result?.address ?? '',
+            });
+          if (tokenDetail?.length) {
+            setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
+          }
+          setFetchBalanceLoading(false);
+        } catch (e) {
+          setFetchBalanceLoading(false);
         }
       }
     },
@@ -722,5 +729,6 @@ export function useSpeedSwapActions(props: {
     shouldApprove,
     balance,
     balanceToken,
+    fetchBalanceLoading,
   };
 }
