@@ -85,7 +85,7 @@ export function PrimeBenefitsList() {
       />
       <PrimeBenefitsItem
         isComingSoon
-        icon="BezierNodesOutline"
+        icon="Copy3Outline"
         title={intl.formatMessage({
           id: ETranslations.global_bulk_copy_addresses,
         })}
@@ -102,7 +102,7 @@ export function PrimeBenefitsList() {
       />
       <PrimeBenefitsItem
         isComingSoon
-        icon="BezierNodesOutline"
+        icon="UndoOutline"
         title={intl.formatMessage({
           id: ETranslations.global_bulk_revoke,
         })}

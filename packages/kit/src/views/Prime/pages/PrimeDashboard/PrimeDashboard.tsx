@@ -187,7 +187,7 @@ export default function PrimeDashboard() {
             <Stack
               px="$5"
               pt={mobileTopValue}
-              pb={isMobile ? '$10' : '$5'}
+              pb={isMobile ? '$5' : '$5'}
               gap="$5"
               overflow="hidden"
               borderBottomWidth={StyleSheet.hairlineWidth}
@@ -255,36 +255,42 @@ export default function PrimeDashboard() {
             ) : null}
           </Page.Body>
 
-          <Page.Footer>
-            <Stack
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-              gap="$2.5"
-              p="$5"
-              $md={{
-                alignItems: 'flex-start',
-                flexDirection: 'column',
-              }}
-            >
-              {shouldShowConfirmButton ? <PrimeTermsAndPrivacy /> : null}
-
-              <Page.FooterActions
-                p="$0"
+          {shouldShowConfirmButton ? (
+            <Page.Footer>
+              <Stack
+                flexDirection="row"
+                justifyContent="space-between"
+                alignItems="center"
+                gap="$2.5"
+                p="$5"
                 $md={{
-                  width: '100%',
+                  alignItems: 'flex-start',
+                  flexDirection: 'column',
                 }}
-                confirmButtonProps={{
-                  loading: isSubscribeLazyLoading,
-                  disabled: isPackagesLoading,
-                }}
-                onConfirm={shouldShowConfirmButton ? subscribe : undefined}
-                onConfirmText={intl.formatMessage({
-                  id: ETranslations.prime_subscribe,
-                })}
-              />
-            </Stack>
-          </Page.Footer>
+              >
+                {shouldShowConfirmButton ? <PrimeTermsAndPrivacy /> : null}
+
+                <Page.FooterActions
+                  p="$0"
+                  $md={{
+                    width: '100%',
+                  }}
+                  confirmButtonProps={
+                    shouldShowConfirmButton
+                      ? {
+                          loading: isSubscribeLazyLoading,
+                          disabled: isPackagesLoading,
+                        }
+                      : undefined
+                  }
+                  onConfirm={shouldShowConfirmButton ? subscribe : undefined}
+                  onConfirmText={intl.formatMessage({
+                    id: ETranslations.prime_subscribe,
+                  })}
+                />
+              </Stack>
+            </Page.Footer>
+          ) : null}
         </Page>
       </Theme>
     </>

@@ -999,7 +999,10 @@ function TxFeeEditor(props: IProps) {
         form.setValue(filedName, valueBN.toFixed(0));
       } else if (!value?.includes('.')) {
         form.setValue(filedName, valueBN.toFixed());
-      } else if (value?.includes('.')) {
+      } else if (
+        value?.includes('.') &&
+        !vaultSettings?.skipFixFeeInfoDecimal
+      ) {
         const dp = valueBN.decimalPlaces();
         if (dp && dp > feeDecimals) {
           form.setValue(
@@ -1010,7 +1013,7 @@ function TxFeeEditor(props: IProps) {
         }
       }
     },
-    [feeDecimals, form],
+    [feeDecimals, form, vaultSettings?.skipFixFeeInfoDecimal],
   );
 
   const handleValidateDotExtraTip = useCallback(

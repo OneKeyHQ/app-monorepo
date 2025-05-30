@@ -449,6 +449,7 @@ export function UniversalSearch({
             ListEmptyComponent={<ListEmptyComponent />}
             estimatedItemSize="$16"
             ListFooterComponent={<Stack h="$16" />}
+            keyboardShouldPersistTaps="handled"
           />
         );
 
@@ -500,6 +501,7 @@ export function UniversalSearch({
               renderItem={renderItem}
               estimatedItemSize="$16"
               ListFooterComponent={<Stack h="$16" />}
+              keyboardShouldPersistTaps="handled"
             />
           </>
         );
