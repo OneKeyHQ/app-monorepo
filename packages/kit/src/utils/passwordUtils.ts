@@ -42,10 +42,9 @@ export const whenAppUnlocked = () => {
           setTimeout(() => {
             resolve();
           }, 100);
-          appEventBus.off(EAppEventBusNames.UnlockApp, callback);
         }
       };
-      appEventBus.on(EAppEventBusNames.UnlockApp, callback);
+      appEventBus.once(EAppEventBusNames.UnlockApp, callback);
       await backgroundApiProxy.serviceApp.addUnlockJob(unlockJobId);
     });
   });
