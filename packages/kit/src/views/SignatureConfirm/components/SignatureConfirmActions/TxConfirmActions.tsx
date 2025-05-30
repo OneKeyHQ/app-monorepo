@@ -310,17 +310,20 @@ function TxConfirmActions(props: IProps) {
       }
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
-      if (transferPayload?.originalRecipient) {
-        let addressToSave: undefined | string =
-          transferPayload.originalRecipient;
 
-        const isLightningNetwork =
-          networkUtils.isLightningNetworkByNetworkId(networkId);
+      const isLightningNetwork =
+        networkUtils.isLightningNetworkByNetworkId(networkId);
+      if (isLightningNetwork || transferPayload?.originalRecipient) {
+        let addressToSave: undefined | string | null =
+          transferPayload?.originalRecipient;
 
         if (isLightningNetwork) {
-          addressToSave = (
-            result[0]?.signedTx?.encodedTx as IEncodedTxLightning
-          )?.lightningAddress;
+          addressToSave = (unsignedTxs[0].encodedTx as IEncodedTxLightning)
+            ?.lightningAddress;
+
+          if (!addressToSave) {
+            addressToSave = transferInfo?.lnurl;
+          }
         }
 
         if (addressToSave) {
