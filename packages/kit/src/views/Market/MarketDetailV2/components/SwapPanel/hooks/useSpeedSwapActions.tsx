@@ -596,27 +596,44 @@ export function useSpeedSwapActions(props: {
       orderToToken?: ISwapTokenBase;
     }) => {
       if (
-        orderFromToken?.networkId === account?.network?.id &&
+        netAccountRes.result?.id &&
+        netAccountRes.result?.address &&
+        orderFromToken?.networkId ===
+          netAccountRes.result?.addressDetail.networkId &&
         (equalTokenNoCaseSensitive({
           token1: orderFromToken,
-          token2: balanceToken,
+          token2: {
+            networkId: balanceToken?.networkId,
+            contractAddress: balanceToken?.contractAddress,
+          },
         }) ||
           equalTokenNoCaseSensitive({
             token1: orderToToken,
-            token2: balanceToken,
+            token2: {
+              networkId: balanceToken?.networkId,
+              contractAddress: balanceToken?.contractAddress,
+            },
           }))
       ) {
         const tokenDetail =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: balanceToken.networkId ?? '',
-            contractAddress: balanceToken.contractAddress ?? '',
+            networkId: balanceToken?.networkId ?? '',
+            contractAddress: balanceToken?.contractAddress ?? '',
+            accountId: netAccountRes.result?.id ?? '',
+            accountAddress: netAccountRes.result?.address ?? '',
           });
-        if (tokenDetail) {
+        if (tokenDetail?.length) {
           setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
         }
       }
     },
-    [account?.network?.id, balanceToken],
+    [
+      balanceToken?.networkId,
+      balanceToken?.contractAddress,
+      netAccountRes.result?.address,
+      netAccountRes.result?.id,
+      netAccountRes.result?.addressDetail.networkId,
+    ],
   );
 
   useEffect(() => {
@@ -672,9 +689,28 @@ export function useSpeedSwapActions(props: {
     })();
   }, [marketToken?.contractAddress, marketToken?.networkId]);
 
-  // useEffect(() => {
-  //   void syncTokensBalance({ orderFromToken: balanceToken });
-  // }, [balanceToken, syncTokensBalance]);
+  useEffect(() => {
+    void syncTokensBalance({
+      orderFromToken: {
+        networkId: balanceToken?.networkId,
+        contractAddress: balanceToken?.contractAddress,
+        symbol: balanceToken?.symbol,
+        decimals: balanceToken?.decimals,
+        logoURI: balanceToken?.logoURI,
+        name: balanceToken?.name,
+        isNative: balanceToken?.isNative,
+      },
+    });
+  }, [
+    balanceToken?.contractAddress,
+    balanceToken?.decimals,
+    balanceToken?.isNative,
+    balanceToken?.logoURI,
+    balanceToken?.name,
+    balanceToken?.networkId,
+    balanceToken?.symbol,
+    syncTokensBalance,
+  ]);
 
   return {
     speedSwapBuildTx,
