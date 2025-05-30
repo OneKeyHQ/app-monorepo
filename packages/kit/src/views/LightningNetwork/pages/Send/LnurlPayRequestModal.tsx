@@ -12,7 +12,10 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 // TODO: Move lightning utils to shared module
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { isLightningAddress } from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
+import {
+  findLnurl,
+  isLightningAddress,
+} from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -166,6 +169,7 @@ function LnurlPayRequestModal() {
           });
         }
         const transferInfo = transfersInfo[0];
+        const lnurl = findLnurl(transferInfo.to ?? '');
         const newTransfersInfo: ITransferInfo[] = [
           {
             ...transferInfo,
@@ -174,6 +178,7 @@ function LnurlPayRequestModal() {
             lightningAddress: isLightningAddress(transferInfo.to)
               ? transferInfo.to
               : undefined,
+            lnurl: lnurl ?? undefined,
           },
         ];
         await signatureConfirm.normalizeTxConfirm({
