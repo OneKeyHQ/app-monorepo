@@ -201,15 +201,13 @@ export default function RewardDistributionHistory() {
             refreshControl={
               <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
             }
-            contentContainerStyle={{ pb: '$5' }}
+            contentContainerStyle={{ pb: '$10' }}
             ListEmptyComponent={
               <Empty
-                icon="GiftOutline"
+                mt={34}
+                icon="SearchOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty_desc,
+                  id: ETranslations.global_no_data,
                 })}
               />
             }

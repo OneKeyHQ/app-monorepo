@@ -85,6 +85,9 @@ class ServiceSetting extends ServiceBase {
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
+
+    // clear i18nText cache
+    await this.backgroundApi.serviceReferralCode.resetPostConfig();
   }
 
   @backgroundMethod()

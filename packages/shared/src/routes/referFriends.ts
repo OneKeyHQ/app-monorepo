@@ -39,6 +39,8 @@ export type IModalReferFriendsParamList = {
       networkId: string;
     }) => void;
   };
-  [EModalReferFriendsRoutes.EarnReward]: undefined;
+  [EModalReferFriendsRoutes.EarnReward]: {
+    title: string;
+  };
   [EModalReferFriendsRoutes.RewardDistributionHistory]: undefined;
 };
