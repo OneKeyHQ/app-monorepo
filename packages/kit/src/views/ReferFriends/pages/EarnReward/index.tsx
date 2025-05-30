@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Accordion,
   Alert,
+  Divider,
   Empty,
   Icon,
   NumberSizeableText,
@@ -482,6 +483,7 @@ export default function EarnReward() {
       return (
         <YStack>
           {ListHeaderComponent}
+          <Divider mx="$5" />
           <EmptyData />
         </YStack>
       );
