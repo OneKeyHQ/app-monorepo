@@ -144,35 +144,32 @@ function WalletList() {
             })}
           </SizableText>
           {items.map((item, index) => (
-            <>
-              <ListItem
-                drillIn
-                py="$3"
-                key={index}
-                title={`Wallet ${items.length - index}`}
-                onPress={() => {
-                  navigation.push(
-                    EModalReferFriendsRoutes.YourReferredWalletAddresses,
-                    {
-                      items: item.items,
-                      networks,
-                    },
-                  );
-                }}
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.referral_your_referred_wallets_more_address,
-                    },
-                    {
-                      amount: item.total > 999 ? '999+' : item.total,
-                    },
-                  )}
-                </SizableText>
-              </ListItem>
-              <Stack mx="$5" h={StyleSheet.hairlineWidth} bg="$borderSubdued" />
-            </>
+            <ListItem
+              drillIn
+              py="$3"
+              key={index}
+              title={`Wallet ${items.length - index}`}
+              onPress={() => {
+                navigation.push(
+                  EModalReferFriendsRoutes.YourReferredWalletAddresses,
+                  {
+                    items: item.items,
+                    networks,
+                  },
+                );
+              }}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.referral_your_referred_wallets_more_address,
+                  },
+                  {
+                    amount: item.total > 999 ? '999+' : item.total,
+                  },
+                )}
+              </SizableText>
+            </ListItem>
           ))}
         </YStack>
       )}
