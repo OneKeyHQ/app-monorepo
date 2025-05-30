@@ -22,20 +22,15 @@ export function PrimeTermsAndPrivacy() {
       // Due to bugs such as the onPress event of the Text component,
       //  only the last of multiple Anchors will take effect.
       platformEnv.isNative ? (
-        <View
+        <SizableText
           onPress={() => {
             openUrlExternal(link);
           }}
+          size="$bodyMd"
+          color="$textInteractive"
         >
-          <SizableText
-            size="$bodyMd"
-            color="$textInteractive"
-            left={platformEnv.isNativeIOS ? 20.5 : undefined}
-            top={platformEnv.isNativeIOS ? 2.5 : 3.5}
-          >
-            {chunks[0]}
-          </SizableText>
-        </View>
+          {chunks[0]}
+        </SizableText>
       ) : (
         <Anchor
           href={link}

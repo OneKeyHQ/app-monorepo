@@ -44,9 +44,14 @@ export function usePrimePurchaseCallback({
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
     }) => {
-      void purchasePackageNative?.({
-        subscriptionPeriod: selectedSubscriptionPeriod,
-      });
+      try {
+        const result = await purchasePackageNative?.({
+          subscriptionPeriod: selectedSubscriptionPeriod,
+        });
+        console.log('purchasePackageNative result >>>>>>', result);
+      } finally {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      }
     },
     [purchasePackageNative],
   );

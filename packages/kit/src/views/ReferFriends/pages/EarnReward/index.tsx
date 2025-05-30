@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -22,11 +23,16 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnRewardItem } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
+} from '@onekeyhq/shared/src/routes/referFriends';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
@@ -94,7 +100,7 @@ function List({
   vaultAmount?: IVaultAmount;
 }) {
   const intl = useIntl();
-  return (
+  return listData.length > 0 ? (
     <YStack px="$5" py="$2">
       <ListHeader />
       <YStack>
@@ -124,7 +130,7 @@ function List({
                       textAlign="left"
                       flex={1}
                       size="$bodyLgMedium"
-                      color={open ? '$text' : '$textSubdued'}
+                      color="$text"
                     >
                       {title}
                     </SizableText>
@@ -231,6 +237,8 @@ function List({
         </Accordion>
       </YStack>
     </YStack>
+  ) : (
+    <EmptyData />
   );
 }
 
@@ -308,24 +316,26 @@ const buildAccountNetworkKey = (item: IEarnRewardItem) =>
   `${item.accountAddress}-${item.networkId}`;
 
 export default function EarnReward() {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EarnReward
+      >
+    >();
+
+  const { title } = route.params;
   const intl = useIntl();
 
+  const [lists, setLists] = useState<(ISectionData[] | undefined)[]>([]);
   const [amount, setAmount] = useState<
     | {
-        available: string;
         pending: string;
       }
     | undefined
   >();
-  const [undistributedListData, setUndistributedListData] = useState<
-    ISectionData[]
-  >([]);
-  const [totalListData, setTotalListData] = useState<ISectionData[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
-
-  const [settings] = useSettingsPersistAtom();
-  const currencySymbol = settings.currencyInfo.symbol;
 
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.earnRewardAlert,
@@ -347,17 +357,16 @@ export default function EarnReward() {
       fetchSales(),
       fetchTotalList(),
     ]);
+    const listBundles = [];
+    let pending = '0';
     if (salesResult.status === 'fulfilled') {
       const data = salesResult.value;
-      setUndistributedListData(formatSections(data.items));
-      setAmount({
-        available: '0',
-        pending: BigNumber(data.fiatValue).toFixed(2) || '0',
-      });
+      listBundles.push(data.items?.length ? formatSections(data.items) : []);
+      pending = BigNumber(data.fiatValue).toFixed(2) || '0';
     }
     if (totalResult.status === 'fulfilled') {
       const data = totalResult.value;
-      setTotalListData(formatSections(data.items));
+      listBundles.push(data.items?.length ? formatSections(data.items) : []);
     }
     const accounts: {
       accountAddress: string;
@@ -384,7 +393,6 @@ export default function EarnReward() {
     if (totalResult.status === 'fulfilled' && totalResult.value.items) {
       processItems(totalResult.value.items);
     }
-    setIsLoading(false);
     const response = await backgroundApiProxy.serviceReferralCode.getPositions(
       accounts,
     );
@@ -403,6 +411,11 @@ export default function EarnReward() {
         item.deposited;
     }
     setVaultAmount(newVaultAmount);
+    setAmount({ pending });
+    setLists(listBundles);
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 80);
   }, [fetchSales, fetchTotalList]);
 
   useEffect(() => {
@@ -416,29 +429,84 @@ export default function EarnReward() {
           id: ETranslations.earn_referral_undistributed,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => (
-          <List listData={undistributedListData} vaultAmount={vaultAmount} />
-        ),
+        page: () =>
+          lists[0] ? (
+            <List listData={lists[0]} vaultAmount={vaultAmount} />
+          ) : null,
       },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_referred_total,
         }),
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => <List listData={totalListData} vaultAmount={vaultAmount} />,
+        page: () =>
+          lists[1] ? (
+            <List listData={lists[1]} vaultAmount={vaultAmount} />
+          ) : null,
       },
     ],
-    [intl, totalListData, undistributedListData, vaultAmount],
+    [intl, lists, vaultAmount],
   );
+
+  const ListHeaderComponent = useMemo(() => {
+    return (
+      <YStack>
+        {tourTimes === 0 ? (
+          <Alert
+            closable
+            description={intl.formatMessage({
+              id: ETranslations.referral_earn_reward_tips,
+            })}
+            type="info"
+            mx="$5"
+            mb="$2.5"
+            onClose={tourVisited}
+          />
+        ) : null}
+        <YStack px="$5" py="$2.5">
+          <SizableText size="$bodyLg">
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_undistributed,
+            })}
+          </SizableText>
+          <Currency sourceCurrency="usd" size="$heading5xl" formatter="value">
+            {amount?.pending || 0}
+          </Currency>
+        </YStack>
+      </YStack>
+    );
+  }, [amount?.pending, intl, tourTimes, tourVisited]);
+
+  const Content = useMemo(() => {
+    if (lists[0]?.length === 0 && lists[1]?.length === 0) {
+      return (
+        <YStack>
+          {ListHeaderComponent}
+          <EmptyData />
+        </YStack>
+      );
+    }
+
+    return (
+      <ScrollView contentContainerStyle={{ pb: '$10' }}>
+        <Tab.Page
+          ListHeaderComponent={ListHeaderComponent}
+          data={tabs}
+          initialScrollIndex={0}
+          showsVerticalScrollIndicator={false}
+        />
+      </ScrollView>
+    );
+  }, [ListHeaderComponent, lists, tabs]);
 
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.referral_earn_reward })}
-      />
+      <Page.Header title={title} />
       <Page.Body>
-        {isLoading ? (
+        {Content}
+        {isLoading || !lists[0] || !lists[1] ? (
           <YStack
+            bg="$bgApp"
             position="absolute"
             top={0}
             left={0}
@@ -450,45 +518,7 @@ export default function EarnReward() {
           >
             <Spinner size="large" />
           </YStack>
-        ) : (
-          <ScrollView contentContainerStyle={{ pb: '$5' }}>
-            <Tab.Page
-              ListHeaderComponent={
-                <YStack>
-                  {tourTimes === 0 ? (
-                    <Alert
-                      closable
-                      description={intl.formatMessage({
-                        id: ETranslations.referral_earn_reward_tips,
-                      })}
-                      type="info"
-                      mx="$5"
-                      mb="$2.5"
-                      onClose={tourVisited}
-                    />
-                  ) : null}
-                  <YStack px="$5" py="$2.5">
-                    <SizableText size="$bodyLg">
-                      {intl.formatMessage({
-                        id: ETranslations.referral_reward_undistributed,
-                      })}
-                    </SizableText>
-                    <Currency
-                      sourceCurrency="usd"
-                      size="$heading5xl"
-                      formatter="value"
-                    >
-                      {amount?.pending || 0}
-                    </Currency>
-                  </YStack>
-                </YStack>
-              }
-              data={tabs}
-              initialScrollIndex={0}
-              showsVerticalScrollIndicator={false}
-            />
-          </ScrollView>
-        )}
+        ) : null}
       </Page.Body>
     </Page>
   );
