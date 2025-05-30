@@ -827,6 +827,7 @@ export default class ServicePassword extends ServiceBase {
       unLock: true,
       manualLocking: false,
     }));
+    await this.backgroundApi.serviceApp.dispatchUnlockJob();
   }
 
   @backgroundMethod()

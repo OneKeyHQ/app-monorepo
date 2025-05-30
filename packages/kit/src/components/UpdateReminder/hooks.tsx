@@ -34,6 +34,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
@@ -371,6 +372,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {
+              await whenAppUnlocked();
               showUpdateDialog(false, response);
             }
           }
