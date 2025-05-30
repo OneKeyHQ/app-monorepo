@@ -33,6 +33,8 @@ export enum EAppEventBusNames {
   SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
   UpdateWalletAvatarByDeviceSerialNo = 'UpdateWalletAvatarByDeviceSerialNo',
   BatchCreateAccount = 'BatchCreateAccount',
+  SDKGetAllNetworkAddressesStart = 'SDKGetAllNetworkAddressesStart',
+  SDKGetAllNetworkAddressesEnd = 'SDKGetAllNetworkAddressesEnd',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
