@@ -47,16 +47,7 @@ export function SwapPanel(props: ISwapPanelProps) {
   const { isLoading, speedConfig, supportSpeedSwap, defaultTokens, provider } =
     useSpeedSwapInit(networkIdProp ?? '');
 
-  const {
-    speedSwapBuildTx,
-    speedSwapBuildTxLoading,
-    checkTokenAllowanceLoading,
-    speedSwapApproveHandler,
-    speedSwapApproveLoading,
-    shouldApprove,
-    balance,
-    balanceToken,
-  } = useSpeedSwapActions({
+  const useSpeedSwapActionsParams = {
     slippage,
     spenderAddress: speedConfig.spenderAddress,
     marketToken: {
@@ -79,7 +70,20 @@ export function SwapPanel(props: ISwapPanelProps) {
     tradeType: tradeType ?? ESwapDirection.BUY,
     account: activeAccount,
     fromTokenAmount: paymentAmount.toFixed(),
-  });
+  };
+
+  const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
+
+  const {
+    speedSwapBuildTx,
+    speedSwapBuildTxLoading,
+    checkTokenAllowanceLoading,
+    speedSwapApproveHandler,
+    speedSwapApproveLoading,
+    shouldApprove,
+    balance,
+    balanceToken,
+  } = speedSwapActions;
 
   useEffect(() => {
     if (defaultTokens.length > 0 && !paymentToken) {
@@ -160,7 +164,13 @@ export function SwapPanel(props: ISwapPanelProps) {
       {swapPanelContent}
 
       {/* Test - Only in Dev Mode */}
-      {platformEnv.isDev ? <SwapTestPanel swapPanel={swapPanel} /> : null}
+      {platformEnv.isDev ? (
+        <SwapTestPanel
+          useSpeedSwapActionsParams={useSpeedSwapActionsParams}
+          speedSwapActions={speedSwapActions}
+          swapPanel={swapPanel}
+        />
+      ) : null}
     </>
   );
 }

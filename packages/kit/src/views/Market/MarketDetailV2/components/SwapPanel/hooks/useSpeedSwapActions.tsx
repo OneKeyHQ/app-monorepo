@@ -243,19 +243,21 @@ export function useSpeedSwapActions(props: {
   const speedSwapBuildTx = useCallback(async () => {
     setSpeedSwapBuildTxLoading(true);
     const userAddress = netAccountRes.result?.address ?? '';
+    const buildParams = {
+      fromToken,
+      toToken,
+      fromTokenAmount: fromTokenAmountDebounced,
+      provider,
+      userAddress,
+      receivingAddress: userAddress,
+      slippagePercentage: slippage,
+      accountId: netAccountRes.result?.id ?? '',
+      protocol: EProtocolOfExchange.SWAP,
+      kind: ESwapQuoteKind.SELL,
+    };
+    console.log('buildParams', buildParams);
     const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx(
-      {
-        fromToken,
-        toToken,
-        fromTokenAmount: fromTokenAmountDebounced,
-        provider,
-        userAddress,
-        receivingAddress: userAddress,
-        slippagePercentage: slippage,
-        accountId: netAccountRes.result?.id ?? '',
-        protocol: EProtocolOfExchange.SWAP,
-        kind: ESwapQuoteKind.SELL,
-      },
+      buildParams,
     );
     if (!buildRes) {
       setSpeedSwapBuildTxLoading(false);
@@ -682,9 +684,9 @@ export function useSpeedSwapActions(props: {
     })();
   }, [marketToken?.contractAddress, marketToken?.networkId]);
 
-  useEffect(() => {
-    void syncTokensBalance({ orderFromToken: balanceToken });
-  }, [balanceToken, syncTokensBalance]);
+  // useEffect(() => {
+  //   void syncTokensBalance({ orderFromToken: balanceToken });
+  // }, [balanceToken, syncTokensBalance]);
 
   return {
     speedSwapBuildTx,
