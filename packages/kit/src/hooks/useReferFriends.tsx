@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +6,6 @@ import {
   Dialog,
   Icon,
   IconButton,
-  OTPInput,
   SizableText,
   XStack,
   YStack,
@@ -14,7 +13,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ONEKEY_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -28,55 +27,6 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import useAppNavigation from './useAppNavigation';
 import { useLoginOneKeyId } from './useLoginOneKeyId';
-
-const NUMBER_OF_DIGITS = 6;
-function InviteCode({
-  onSuccess,
-  onFail,
-}: {
-  onSuccess?: () => void;
-  onFail?: () => void;
-}) {
-  const intl = useIntl();
-  const [verificationCode, setVerificationCode] = useState('');
-  const handleConfirm = useCallback(async () => {
-    try {
-      await backgroundApiProxy.serviceReferralCode.bindInviteCode(
-        verificationCode,
-      );
-      onSuccess?.();
-    } catch {
-      onFail?.();
-    }
-  }, [onFail, onSuccess, verificationCode]);
-  return (
-    <YStack>
-      <OTPInput
-        type="alphanumeric"
-        autoFocus
-        status="normal"
-        numberOfDigits={NUMBER_OF_DIGITS}
-        value={verificationCode}
-        onTextChange={(value) => {
-          setVerificationCode(value);
-        }}
-      />
-      <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage({
-          id: ETranslations.earn_referral_enter_invite_code_note,
-        })}
-      </SizableText>
-      <Dialog.Footer
-        showCancelButton={false}
-        confirmButtonProps={{
-          disabled: verificationCode.length !== NUMBER_OF_DIGITS,
-        }}
-        onConfirm={handleConfirm}
-        onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
-      />
-    </YStack>
-  );
-}
 
 // use rootNavigationRef to navigate
 export function useToReferFriendsModalByRootNavigation() {
@@ -138,41 +88,6 @@ export const useReferFriends = () => {
       });
     }
   }, [navigation]);
-  const bindInviteCode = useCallback(
-    (onSuccess?: () => void, onFail?: () => void) => {
-      Dialog.confirm({
-        showExitButton: false,
-        icon: 'InputOutline',
-        title: intl.formatMessage({
-          id: ETranslations.earn_referral_enter_invite_code_title,
-        }),
-        description: intl.formatMessage(
-          {
-            id: ETranslations.earn_referral_enter_invite_code_subtitle,
-          },
-          {
-            number: '3%',
-          },
-        ),
-        renderContent: <InviteCode onSuccess={onSuccess} onFail={onFail} />,
-      });
-    },
-    [intl],
-  );
-
-  const changeInviteCode = useCallback(
-    (onSuccess?: () => void, onFail?: () => void) => {
-      Dialog.confirm({
-        showExitButton: false,
-        icon: 'InputOutline',
-        title: intl.formatMessage({
-          id: ETranslations.earn_referral_change_invite_code_title,
-        }),
-        renderContent: <InviteCode onSuccess={onSuccess} onFail={onFail} />,
-      });
-    },
-    [intl],
-  );
 
   const { copyText } = useClipboard();
 
@@ -182,15 +97,8 @@ export const useReferFriends = () => {
       const myReferralCode =
         await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
-      let postConfig =
+      const postConfig =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
-
-      if (!postConfig) {
-        postConfig =
-          await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
-      } else {
-        void backgroundApiProxy.serviceReferralCode.fetchPostConfig();
-      }
 
       const handleConfirm = () => {
         if (isLogin) {
@@ -203,16 +111,17 @@ export const useReferFriends = () => {
       };
       const dialog = Dialog.show({
         icon: 'GiftOutline',
-        title: intl.formatMessage({ id: ETranslations.earn_referral_title }),
+        title: postConfig.locales.Earn.title,
         description: (
-          <HyperlinkText
+          <FormatHyperlinkText
             size="$bodyMd"
-            translationId={ETranslations.earn_referral_subtitle}
             underlineTextProps={{ color: '$textInfo' }}
             onAction={() => {
               void dialog.close();
             }}
-          />
+          >
+            {postConfig.locales.Earn.subtitle}
+          </FormatHyperlinkText>
         ),
         renderContent: isLogin ? (
           <YStack gap="$5">
@@ -244,25 +153,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_intro_for_you,
-                  })}
+                  {postConfig.locales?.Earn?.for_you?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.earn_referral_for_you_reward,
-                    },
-                    {
-                      RebateRate: (
-                        <SizableText size="$bodyMd" color="$textSuccess">
-                          {`${postConfig?.commissionRate.amount || ''}${
-                            postConfig?.commissionRate.unit || ''
-                          }`}
-                        </SizableText>
-                      ),
-                    },
-                  )}
+                  {postConfig.locales?.Earn?.for_you?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -272,21 +166,10 @@ export const useReferFriends = () => {
               </XStack>
               <YStack flexShrink={1}>
                 <SizableText size="$headingMd">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_intro_for_your_friend,
-                  })}
+                  {postConfig.locales?.Earn?.for_your_friend?.title}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.earn_referral_for_your_friend_reward,
-                    },
-                    {
-                      number: `${postConfig?.friendDiscount.unit || ''}${
-                        postConfig?.friendDiscount.amount || ''
-                      }`,
-                    },
-                  )}
+                  {postConfig.locales?.Earn?.for_your_friend?.subtitle}
                 </SizableText>
               </YStack>
             </XStack>
@@ -312,33 +195,12 @@ export const useReferFriends = () => {
     [copyText, intl, loginOneKeyId, navigation],
   );
 
-  const bindOrChangeInviteCode = useCallback(
-    async (onSuccess?: () => void, onFail?: () => void) => {
-      const isBindInviteCode =
-        await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
-      if (isBindInviteCode) {
-        changeInviteCode(onSuccess, onFail);
-      } else {
-        void bindInviteCode(onSuccess, onFail);
-      }
-    },
-    [bindInviteCode, changeInviteCode],
-  );
-
   return useMemo(
     () => ({
       toReferFriendsPage,
-      bindInviteCode,
       shareReferRewards,
-      bindOrChangeInviteCode,
       toInviteRewardPage,
     }),
-    [
-      toReferFriendsPage,
-      bindInviteCode,
-      shareReferRewards,
-      bindOrChangeInviteCode,
-      toInviteRewardPage,
-    ],
+    [toReferFriendsPage, shareReferRewards, toInviteRewardPage],
   );
 };

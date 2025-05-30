@@ -13,7 +13,6 @@ export interface IWalletReferralCode {
 
 export interface IReferralCodeData {
   myReferralCode: string;
-  inviteCode: string;
   postConfig?: IInvitePostConfig;
   walletReferralCode?: Record<string, IWalletReferralCode>;
 }
@@ -53,11 +52,6 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     return rawData?.myReferralCode ?? '';
   }
 
-  async getInviteCode(): Promise<string> {
-    const rawData = await this.getRawData();
-    return rawData?.inviteCode ?? '';
-  }
-
   async getWalletReferralCode({
     walletId,
   }: {
@@ -93,10 +87,19 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     );
   }
 
+  async resetPostConfig() {
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          postConfig: undefined,
+        } as IReferralCodeData),
+    );
+  }
+
   async reset() {
     return this.setRawData({
       myReferralCode: '',
-      inviteCode: '',
       postConfig: undefined,
       walletReferralCode: {},
     });

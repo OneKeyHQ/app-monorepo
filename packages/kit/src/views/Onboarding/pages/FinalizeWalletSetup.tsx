@@ -307,6 +307,12 @@ function FinalizeWalletSetupPage({
               wallet,
             });
           }}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.referral_onboard_bind_code_finish,
+          })}
+          onCancel={() => {
+            closePage();
+          }}
         />
       ) : null}
     </Page>

@@ -526,8 +526,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     swapInfo,
   } = props;
 
-  const { networkId } = decodedTx;
-
   const {
     sends,
     receives,
@@ -540,10 +538,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     ...props,
     intl,
   });
-
-  const { vaultSettings } = useAccountData({ networkId });
-
-  const isUTXO = vaultSettings?.isUtxo;
 
   const sendsBlock = buildTransfersBlock(
     groupBy(sends, 'to'),

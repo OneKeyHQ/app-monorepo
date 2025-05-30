@@ -111,6 +111,10 @@ function useFirmwareVerifyBase({
             ? EFirmwareAuthenticationDialogContentType.verification_verify
             : EFirmwareAuthenticationDialogContentType.verification_successful,
         );
+      } else if (authResult.result?.code === 10_104) {
+        setResult('unknown');
+        setErrorObj({ code: authResult.result?.code || -99_999 });
+        setContentType(EFirmwareAuthenticationDialogContentType.network_error);
       } else {
         setResult('unofficial');
         setErrorObj({ code: authResult.result?.code || -99_999 });

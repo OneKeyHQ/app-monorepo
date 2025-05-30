@@ -306,7 +306,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             borderCurve="continuous"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
-            elevation={0.5}
+            elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
             overflow="hidden"
           >
             <LottieView
@@ -367,6 +367,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               toUpdatePreviewPage(true, response);
             } else if (
               !platformEnv.isDev &&
+              (platformEnv.isNative || platformEnv.isDesktop) &&
               response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {

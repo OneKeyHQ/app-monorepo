@@ -3,16 +3,19 @@ import { useCallback, useEffect, useRef } from 'react';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { isEqual } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
 // eslint-disable-next-line import/order
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
-
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
@@ -33,6 +36,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
   const configureDonePromise = useRef(createPromiseTarget<boolean>());
+  const intl = useIntl();
 
   const getCustomerInfo = useCallback(async () => {
     const { apiKey } = await getPrimePaymentApiKey({
@@ -98,20 +102,56 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       offerings?.current?.availablePackages?.map((p) => {
         const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
 
-        const pricePerMonth =
+        let unit = '';
+        if (
+          currentPrice.formattedPrice.startsWith('$') ||
+          currentPrice.formattedPrice.startsWith('US$')
+        ) {
+          unit = '$';
+        }
+
+        let pricePerMonthString =
           normalPeriodDuration === 'P1M'
             ? currentPrice.formattedPrice
-            : `$${new BigNumber(currentPrice.amountMicros)
+            : `${new BigNumber(currentPrice.amountMicros)
                 .div(12)
                 .div(1_000_000)
                 .toFixed(2)}`;
+        pricePerMonthString = pricePerMonthString.replace(/^\$/, '');
+        pricePerMonthString = pricePerMonthString.replace(/^US\$/, '');
+
+        let pricePerYearString = currentPrice.formattedPrice;
+        pricePerYearString = pricePerYearString.replace(/^\$/, '');
+        pricePerYearString = pricePerYearString.replace(/^US\$/, '');
+
+        const pricePerYear = new BigNumber(currentPrice.amountMicros)
+          .div(1_000_000)
+          .toFixed(2);
+        const pricePerMonth =
+          normalPeriodDuration === 'P1M'
+            ? new BigNumber(currentPrice.amountMicros).div(1_000_000).toFixed(2)
+            : new BigNumber(currentPrice.amountMicros)
+                .div(12)
+                .div(1_000_000)
+                .toFixed(2);
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
-          pricePerMonthString: pricePerMonth,
-          pricePerYearString: currentPrice.formattedPrice,
+          pricePerYear: Number(pricePerYear),
+          pricePerYearString: `${unit}${pricePerYearString}`,
+          pricePerMonth: Number(pricePerMonth),
+          pricePerMonthString: `${unit}${pricePerMonthString}`,
+          priceTotalPerYearString:
+            normalPeriodDuration === 'P1M'
+              ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
+              : `${unit}${pricePerYearString}`,
         };
       }) || [];
+
+    console.log('userPrimePaymentMethods >>>>>> packages', {
+      packages,
+      offerings,
+    });
 
     return packages;
   }, [isReady]);
@@ -130,6 +170,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         if (!isReady) {
           throw new Error('PrimeAuth Not ready');
         }
+
+        // will block stripe modal
+        // await backgroundApiProxy.serviceApp.showDialogLoading({
+        //   title: intl.formatMessage({
+        //     id: ETranslations.global_processing,
+        //   }),
+        // });
 
         const offerings = await Purchases.getSharedInstance().getOfferings({
           currency: 'USD',
@@ -165,6 +212,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       } catch (error) {
         errorToastUtils.toastIfError(error);
         throw error;
+      } finally {
+        // will block stripe modal
+        // void backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
     [isReady],
@@ -174,6 +224,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     isReady,
     purchasePackageNative: undefined,
     getPackagesNative: undefined,
+    restorePurchases: undefined,
     getPackagesWeb,
     purchasePackageWeb,
     getCustomerInfo,

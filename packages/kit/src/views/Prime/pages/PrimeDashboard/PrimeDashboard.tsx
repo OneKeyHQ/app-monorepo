@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Dialog,
   Icon,
   IconButton,
   Page,
@@ -17,27 +16,23 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
+import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
-const PrimePurchaseDialog = LazyLoadPage(
-  () => import('../../components/PrimePurchaseDialog/PrimePurchaseDialog'),
-  100,
-  true,
-);
+import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
 function PrimeBanner() {
   const intl = useIntl();
@@ -62,34 +57,6 @@ function PrimeBanner() {
   );
 }
 
-function PrimeTerms() {
-  const linkView = useCallback(
-    () => (
-      <SizableText
-        size="$bodyMd"
-        color="$textInteractive"
-        cursor="pointer"
-        onPress={() => {
-          openUrlExternal('https://help.onekey.so/hc/articles/11967482818831');
-        }}
-      >
-        OneKey Prime Terms
-      </SizableText>
-    ),
-    [],
-  );
-  return (
-    <HyperlinkText
-      size="$bodyMd"
-      values={{
-        link: linkView,
-      }}
-      translationId={ETranslations.prime_agree_to_terms}
-      defaultMessage={ETranslations.prime_agree_to_terms}
-    />
-  );
-}
-
 export default function PrimeDashboard() {
   const intl = useIntl();
   // const isReady = false;
@@ -102,11 +69,20 @@ export default function PrimeDashboard() {
     authenticated,
     // logout,
   } = usePrimeAuthV2();
+
+  const { getPackagesNative, restorePurchases, getPackagesWeb } =
+    usePrimePayment();
+
+  const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
+    useState<ISubscriptionPeriod>('P1Y');
+
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
   const mobileTopValue = isMobile ? top + 25 : '$10';
-  const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
+    usePrimeRequirements();
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -134,11 +110,56 @@ export default function PrimeDashboard() {
     return false;
   }, [isLoggedIn, isPrimeSubscriptionActive]);
 
+  const shouldShowSubscriptionPlans = useMemo(() => {
+    if (!shouldShowConfirmButton) {
+      return false;
+    }
+    if (isPrimeSubscriptionActive) {
+      return false;
+    }
+    return true;
+  }, [isPrimeSubscriptionActive, shouldShowConfirmButton]);
+
+  const { result: packages, isLoading: isPackagesLoading } = usePromiseResult(
+    async () => {
+      if (!shouldShowSubscriptionPlans) {
+        return [];
+      }
+      return platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.();
+    },
+    [getPackagesNative, getPackagesWeb, shouldShowSubscriptionPlans],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
+  const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
+  isSubscribeLazyLoadingRef.current = isSubscribeLazyLoading;
   const subscribe = useCallback(async () => {
+    if (isPackagesLoading) {
+      return;
+    }
+    if (isSubscribeLazyLoadingRef.current) {
+      return;
+    }
+    setIsSubscribeLazyLoading(true);
+    setTimeout(() => {
+      setIsSubscribeLazyLoading(false);
+    }, 2000);
+
+    // await ensureOneKeyIDLoggedIn({
+    //   skipDialogConfirm: true,
+    // });
     await ensurePrimeSubscriptionActive({
       skipDialogConfirm: true,
+      selectedSubscriptionPeriod,
     });
-  }, [ensurePrimeSubscriptionActive]);
+  }, [
+    ensurePrimeSubscriptionActive,
+    isPackagesLoading,
+    selectedSubscriptionPeriod,
+  ]);
 
   const isLoggedInMaybe =
     authenticated ||
@@ -146,6 +167,12 @@ export default function PrimeDashboard() {
     user?.isLoggedIn ||
     user?.isLoggedInOnServer ||
     isLoggedIn;
+
+  // const shouldShowIOSAppStoreHint = useMemo(() => {
+  //   // return true;
+  //   return isPrimeSubscriptionActive && platformEnv.isNativeIOS;
+  // }, [isPrimeSubscriptionActive]);
+
   return (
     <>
       <Theme name="dark">
@@ -171,7 +198,55 @@ export default function PrimeDashboard() {
               {isLoggedInMaybe ? <PrimeUserInfo /> : null}
             </Stack>
 
-            {isReady ? <PrimeBenefitsList /> : <Spinner my="$10" />}
+            {shouldShowSubscriptionPlans ? (
+              <Stack p="$5" gap="$2">
+                <PrimeSubscriptionPlans
+                  packages={packages}
+                  selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                  onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
+                />
+              </Stack>
+            ) : null}
+
+            {isReady ? (
+              <>
+                <PrimeBenefitsList />
+              </>
+            ) : (
+              <Spinner my="$10" />
+            )}
+
+            <YStack px="$5" py="$4" gap="$4">
+              {platformEnv.isNativeIOS ? (
+                <>
+                  <Stack>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.prime_subscription_manage_app_store,
+                      })}
+                    </SizableText>
+                  </Stack>
+                </>
+              ) : null}
+              {!isPrimeSubscriptionActive &&
+              isLoggedIn &&
+              platformEnv.isNative ? (
+                <Stack>
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textInteractive"
+                    cursor="pointer"
+                    onPress={() => {
+                      void restorePurchases?.();
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.prime_restore_purchases,
+                    })}
+                  </SizableText>
+                </Stack>
+              ) : null}
+            </YStack>
 
             {platformEnv.isDev ? (
               <PrimeDebugPanel
@@ -180,12 +255,7 @@ export default function PrimeDashboard() {
             ) : null}
           </Page.Body>
 
-          <Page.Footer
-            onConfirm={shouldShowConfirmButton ? subscribe : undefined}
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.prime_subscribe,
-            })}
-          >
+          <Page.Footer>
             <Stack
               flexDirection="row"
               justifyContent="space-between"
@@ -197,12 +267,16 @@ export default function PrimeDashboard() {
                 flexDirection: 'column',
               }}
             >
-              {shouldShowConfirmButton ? <PrimeTerms /> : null}
+              {shouldShowConfirmButton ? <PrimeTermsAndPrivacy /> : null}
 
               <Page.FooterActions
                 p="$0"
                 $md={{
                   width: '100%',
+                }}
+                confirmButtonProps={{
+                  loading: isSubscribeLazyLoading,
+                  disabled: isPackagesLoading,
                 }}
                 onConfirm={shouldShowConfirmButton ? subscribe : undefined}
                 onConfirmText={intl.formatMessage({
