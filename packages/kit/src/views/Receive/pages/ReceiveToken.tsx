@@ -17,6 +17,7 @@ import {
   YStack,
   useClipboard,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   EHardwareUiStateAction,
@@ -62,6 +63,8 @@ function ReceiveToken() {
       networkId,
       walletId,
     });
+
+  const { bottom } = useSafeAreaInsets();
 
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,
@@ -349,6 +352,7 @@ function ReceiveToken() {
         borderColor="$borderSubdued"
         backgroundColor="$bgSubdued"
         padding="$5"
+        pb={bottom || '$5'}
         gap="$5"
       >
         <YStack gap="$1.5">
@@ -396,6 +400,7 @@ function ReceiveToken() {
     account,
     addressState,
     addressType,
+    bottom,
     intl,
     network,
     renderAddress,
@@ -415,12 +420,22 @@ function ReceiveToken() {
         width={264}
         height={264}
         p="$5"
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderCurve="continuous"
         alignItems="center"
         justifyContent="center"
+        bg="white"
+        borderRadius="$3"
+        borderCurve="continuous"
+        $platform-native={{
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: '$borderSubdued',
+        }}
+        $platform-web={{
+          outlineWidth: 1,
+          outlineColor: '$neutral3',
+          outlineStyle: 'solid',
+          outlineOffset: 0,
+        }}
+        elevation={0.5}
         {...(!shouldShowQRCode && {
           onPress: handleVerifyOnDevicePress,
           userSelect: 'none',
@@ -482,7 +497,7 @@ function ReceiveToken() {
   ]);
 
   return (
-    <Page safeAreaEnabled>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />

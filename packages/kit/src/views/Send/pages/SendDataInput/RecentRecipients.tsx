@@ -115,9 +115,8 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         ))
       ) : (
         <AddressListItem
-          address=""
-          showAccount
-          accountName={intl.formatMessage({
+          isLocal
+          address={intl.formatMessage({
             id: ETranslations.transfer_recent_transfers_empty,
           })}
         />
