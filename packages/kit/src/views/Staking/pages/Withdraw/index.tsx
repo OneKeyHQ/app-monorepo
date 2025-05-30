@@ -20,7 +20,6 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const WithdrawPage = () => {
   const intl = useIntl();
@@ -43,14 +42,9 @@ const WithdrawPage = () => {
   const providerName = protocolInfo?.provider || '';
   const active = protocolInfo?.activeBalance;
   const overflow = protocolInfo?.overflowBalance;
-  const price = tokenInfo?.nativeToken?.price
-    ? String(tokenInfo?.nativeToken?.price)
-    : '0';
+  const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
   const vault = protocolInfo?.approve?.approveTarget || '';
-  const actionTag = buildLocalTxStatusSyncId({
-    providerName,
-    tokenSymbol,
-  });
+  const actionTag = protocolInfo?.stakeTag || '';
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(

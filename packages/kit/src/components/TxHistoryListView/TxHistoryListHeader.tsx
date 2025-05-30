@@ -8,7 +8,6 @@ import {
   Popover,
   Stack,
   Switch,
-  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -32,9 +31,9 @@ const filterScamHistorySupportedNetworks =
 const filterScamHistorySupportedNetworkIds =
   filterScamHistorySupportedNetworks.map((n) => n.id);
 
-function TxHistoryListHeader({ filteredHistory }: IProps) {
+function TxHistoryListHeader({ filteredHistory: _filteredHistory }: IProps) {
   const intl = useIntl();
-  const media = useMedia();
+
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const handleFilterScamHistoryOnChange = useCallback(

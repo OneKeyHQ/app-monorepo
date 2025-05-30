@@ -79,14 +79,23 @@ function TokenManagerModal() {
 
   const isEditRef = useRef(false);
   const onAddCustomToken = useCallback(
-    (token?: ICustomTokenItem) => {
+    async (token?: ICustomTokenItem) => {
+      let currentNetworkDeriveType = deriveType;
+
+      if (token?.networkId) {
+        currentNetworkDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: token.networkId,
+          });
+      }
+
       navigation.push(EModalAssetListRoutes.AddCustomTokenModal, {
         walletId,
         isOthersWallet,
         indexedAccountId,
         networkId,
         accountId,
-        deriveType,
+        deriveType: currentNetworkDeriveType,
         token,
         onSuccess: () => {
           void refreshTokenLists();
@@ -109,12 +118,21 @@ function TokenManagerModal() {
   const { findAccountInfoForNetwork } = useAccountInfoForManageToken();
   const onHiddenToken = useCallback(
     async (token: IAccountToken) => {
+      let currentNetworkDeriveType = deriveType;
+
+      if (token?.networkId) {
+        currentNetworkDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: token.networkId,
+          });
+      }
+
       const { accountIdForNetwork } = await findAccountInfoForNetwork({
         accountId,
         networkId,
         isOthersWallet,
         indexedAccountId,
-        deriveType,
+        deriveType: currentNetworkDeriveType,
         selectedNetworkId: token.networkId ?? networkId,
       });
       const accountXpubOrAddress =

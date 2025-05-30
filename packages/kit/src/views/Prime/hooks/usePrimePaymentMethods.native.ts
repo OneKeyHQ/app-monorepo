@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
 
+import { Dialog, Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
+import primePaymentUtils from './primePaymentUtils';
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
@@ -19,9 +26,9 @@ import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
 
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
-    await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+    await PurchasesReactNative.setLogLevel(LOG_LEVEL.VERBOSE);
     // TODO VPN required
-    await Purchases.setProxyURL('https://api.rc-backup.com/');
+    await PurchasesReactNative.setProxyURL('https://api.rc-backup.com/');
   }
 })();
 
@@ -30,6 +37,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const { isReady: isAuthReady, user } = usePrimeAuthV2();
 
   const [, setPrimePersistAtom] = usePrimePersistAtom();
+  const intl = useIntl();
 
   // TODO move to jotai context
   useEffect(() => {
@@ -37,13 +45,48 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       const { apiKey } = await getPrimePaymentApiKey({
         apiKeyType: 'native',
       });
-      Purchases.configure({
+      PurchasesReactNative.configure({
         apiKey,
         // useAmazon: true
       });
       setIsPaymentReady(true);
     })();
   }, []);
+
+  const restorePurchases = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceApp.showDialogLoading({
+        title: intl.formatMessage({
+          id: ETranslations.prime_restoring_previous_purchases,
+        }),
+      });
+      console.log('restorePurchases >>>>>>');
+      const customerInfo = await PurchasesReactNative.restorePurchases();
+      console.log('restorePurchases >>>>>> customerInfo', customerInfo);
+      const localIsActive = customerInfo?.entitlements?.active?.Prime?.isActive;
+      if (localIsActive) {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.prime_restore_successful,
+          }),
+        });
+      } else {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.prime_no_purchases_found,
+          }),
+        });
+      }
+    } catch (e) {
+      console.error('restorePurchases >>>>>> error', e);
+      Toast.message({
+        title: (e as Error)?.message || 'Restore purchases failed',
+      });
+    } finally {
+      await backgroundApiProxy.serviceApp.hideDialogLoading();
+    }
+  }, [intl]);
 
   const isReady = isPaymentReady && isAuthReady;
 
@@ -57,21 +100,22 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
     if (user?.privyUserId) {
       try {
-        await Purchases.logIn(user.privyUserId);
+        await PurchasesReactNative.logIn(user.privyUserId);
       } catch (e) {
         console.error(e);
       }
       try {
-        await Purchases.logIn(user.privyUserId);
+        await PurchasesReactNative.logIn(user.privyUserId);
       } catch (e) {
         console.error(e);
       }
     }
-    const appUserId = await Purchases.getAppUserID();
+    const appUserId = await PurchasesReactNative.getAppUserID();
     if (appUserId !== user?.privyUserId) {
       throw new Error('AppUserId not match');
     }
-    const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
+    const customerInfo: CustomerInfo =
+      await PurchasesReactNative.getCustomerInfo();
 
     setPrimePersistAtom(
       (prev): IPrimeUserInfo =>
@@ -88,18 +132,48 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     if (!isReady) {
       throw new Error('PrimeAuth native not ready, please try again later');
     }
-    const offerings = await Purchases.getOfferings();
+    const offerings = await PurchasesReactNative.getOfferings();
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
-      const { subscriptionPeriod, pricePerMonthString, pricePerYearString } =
-        p.product;
+      const {
+        subscriptionPeriod,
+        pricePerYear,
+        pricePerYearString,
+        pricePerMonth,
+        pricePerMonthString,
+        priceString,
+      } = p.product;
+
+      const unit =
+        primePaymentUtils.extractCurrencySymbol(priceString, {
+          useShortUSSymbol: true,
+        }) ||
+        primePaymentUtils.extractCurrencySymbol(pricePerYearString, {
+          useShortUSSymbol: true,
+        }) ||
+        primePaymentUtils.extractCurrencySymbol(pricePerMonthString, {
+          useShortUSSymbol: true,
+        });
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
-        pricePerMonthString,
-        pricePerYearString,
+        pricePerYear,
+        pricePerYearString: `${unit}${new BigNumber(pricePerYear).toFixed(2)}`,
+        pricePerMonth,
+        pricePerMonthString: `${unit}${new BigNumber(pricePerMonth).toFixed(
+          2,
+        )}`,
+        priceTotalPerYearString:
+          subscriptionPeriod === 'P1M'
+            ? `${unit}${new BigNumber(pricePerMonth).times(12).toFixed(2)}`
+            : `${unit}${new BigNumber(pricePerYear).toFixed(2)}`,
       });
+    });
+
+    console.log('userPrimePaymentMethods >>>>>> packages', {
+      packages,
+      offerings,
     });
 
     return packages;
@@ -117,7 +191,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           throw new Error('PrimeAuth native not ready!');
         }
 
-        const offerings = await Purchases.getOfferings();
+        // await backgroundApiProxy.serviceApp.showDialogLoading({
+        //   title: intl.formatMessage({
+        //     id: ETranslations.global_processing,
+        //   }),
+        // });
+
+        const offerings = await PurchasesReactNative.getOfferings();
 
         const offering = offerings.current?.availablePackages.find(
           (p) => p.product.subscriptionPeriod === subscriptionPeriod,
@@ -127,21 +207,49 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           throw new Error('Offering not found');
         }
 
-        const makePurchaseResult = await Purchases.purchasePackage(offering);
+        const makePurchaseResult = await PurchasesReactNative.purchasePackage(
+          offering,
+        );
 
+        if (
+          makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
+            ?.isActive
+        ) {
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+          void Dialog.confirm({
+            dismissOnOverlayPress: false,
+            icon: 'CheckLargeOutline',
+            tone: 'success',
+            title: intl.formatMessage({
+              id: ETranslations.prime_payment_successful,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_payment_successful_description,
+            }),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_ok,
+            }),
+          });
+        }
         return makePurchaseResult;
       } catch (error) {
-        errorToastUtils.toastIfError(error);
+        const e = error as Error | undefined;
+        if (e?.message && !['Purchase was cancelled.'].includes(e?.message)) {
+          errorToastUtils.toastIfError(error);
+        }
         throw error;
+      } finally {
+        await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady],
+    [isReady, intl],
   );
 
   return {
     isReady,
     getPackagesNative,
     purchasePackageNative,
+    restorePurchases,
     getPackagesWeb: undefined,
     purchasePackageWeb: undefined,
     getCustomerInfo,

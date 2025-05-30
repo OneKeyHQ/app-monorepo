@@ -105,7 +105,7 @@ const getPresetIndex = (
 
   if (feeSelectorItem) {
     if (feeSelectorItem.type === EFeeType.Custom) {
-      return feeSelectorItems.length - 1;
+      return Math.max(0, feeSelectorItems.length - 2);
     }
     return sendSelectedFee.presetIndex;
   }
@@ -393,7 +393,7 @@ function TxFeeEditor(props: IProps) {
       let maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
 
       if (maxFeeInfo?.type === EFeeType.Custom) {
-        maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 2];
+        maxFeeInfo = feeSelectorItems[Math.max(0, feeSelectorItems.length - 2)];
         maxFeeInfo = maxFeeInfo || minFeeInfo;
       }
 
@@ -999,7 +999,10 @@ function TxFeeEditor(props: IProps) {
         form.setValue(filedName, valueBN.toFixed(0));
       } else if (!value?.includes('.')) {
         form.setValue(filedName, valueBN.toFixed());
-      } else if (value?.includes('.')) {
+      } else if (
+        value?.includes('.') &&
+        !vaultSettings?.skipFixFeeInfoDecimal
+      ) {
         const dp = valueBN.decimalPlaces();
         if (dp && dp > feeDecimals) {
           form.setValue(
@@ -1010,7 +1013,7 @@ function TxFeeEditor(props: IProps) {
         }
       }
     },
-    [feeDecimals, form],
+    [feeDecimals, form, vaultSettings?.skipFixFeeInfoDecimal],
   );
 
   const handleValidateDotExtraTip = useCallback(
@@ -2085,9 +2088,7 @@ function TxFeeEditor(props: IProps) {
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$80">
         <Stack gap="$5">
           {renderFeeTypeSelector()}
-          {isDappSuggestedFeeInfo &&
-          defaultCustomFeeInfo?.enabled &&
-          defaultCustomFeeInfo.feeInfo ? (
+          {currentFeeType === EFeeType.Custom && isDappSuggestedFeeInfo ? (
             <Alert
               icon="GasOutline"
               type="info"

@@ -3,7 +3,14 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EAppEventBusNames,
@@ -64,6 +71,13 @@ function AllNetworksManagerTrigger({
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
     return null;
+  }
+
+  if (
+    !enabledNetworksCompatibleWithWalletId ||
+    enabledNetworksCompatibleWithWalletId.length === 0
+  ) {
+    return <Skeleton h={20} w={120} />;
   }
 
   return (

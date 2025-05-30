@@ -15,6 +15,9 @@ const EarnReward = LazyLoadPage(() => import('../pages/EarnReward'));
 const YourReferredWalletAddresses = LazyLoadPage(
   () => import('../pages/YourReferredWalletAddresses'),
 );
+const RewardDistributionHistory = LazyLoadPage(
+  () => import('../pages/RewardDistributionHistory'),
+);
 
 export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
@@ -53,5 +56,9 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.EarnReward,
     component: EarnReward,
+  },
+  {
+    name: EModalReferFriendsRoutes.RewardDistributionHistory,
+    component: RewardDistributionHistory,
   },
 ];

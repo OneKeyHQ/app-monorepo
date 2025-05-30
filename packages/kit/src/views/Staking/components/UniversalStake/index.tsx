@@ -14,7 +14,6 @@ import {
   Dialog,
   Divider,
   Icon,
-  IconButton,
   Image,
   Page,
   Popover,
@@ -24,7 +23,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
@@ -33,7 +31,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -65,9 +63,13 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { ActionPopupContent } from '../ProtocolDetails/GridItemV2';
+import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import { EarnText } from '../ProtocolDetails/EarnText';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import { StakingAmountInput } from '../StakingAmountInput';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
@@ -75,7 +77,6 @@ import { formatStakingDistanceToNowStrict } from '../utils';
 type IUniversalStakeProps = {
   accountId: string;
   networkId: string;
-  price: string;
   balance: string;
 
   tokenImageUri?: string;
@@ -112,7 +113,6 @@ type IUniversalStakeProps = {
 export function UniversalStake({
   accountId,
   networkId,
-  price,
   balance,
   decimals,
   minTransactionFee = '0',
@@ -159,7 +159,7 @@ export function UniversalStake({
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
-  const isLegacyApprove = approveType === EApproveType.Legacy;
+  const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
   const isFocus = useIsFocused();
@@ -175,10 +175,10 @@ export function UniversalStake({
     tokenAddress: approveTarget.token?.address || '',
     spenderAddress: approveTarget.spenderAddress,
     initialValue: currentAllowance ?? '0',
-    approveType: approveType ?? EApproveType.Legacy,
+    approveType,
   });
   const shouldApprove = useMemo(() => {
-    if (isLegacyApprove) {
+    if (!useApprove) {
       return false;
     }
 
@@ -204,7 +204,7 @@ export function UniversalStake({
 
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
-    isLegacyApprove,
+    useApprove,
     isFocus,
     amountValue,
     allowance,
@@ -225,7 +225,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: !isLegacyApprove
+          vault: isMorphoProvider
             ? protocolInfo?.approve?.approveTarget || ''
             : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
@@ -238,7 +238,7 @@ export function UniversalStake({
       networkId,
       providerName,
       tokenInfo?.token.symbol,
-      isLegacyApprove,
+      isMorphoProvider,
       protocolInfo?.approve?.approveTarget,
       protocolInfo?.earnAccount?.accountAddress,
     ],
@@ -252,55 +252,65 @@ export function UniversalStake({
     350,
   );
 
-  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    if (!amount) {
-      setEstimateFeeResp(undefined);
-      return;
-    }
-    const amountNumber = BigNumber(amount);
-    if (amountNumber.isZero() || amountNumber.isNaN()) {
-      return;
-    }
-
-    const permitParams: {
-      approveType?: 'permit';
-      permitSignature?: string;
-    } = {};
-
-    if (usePermit2Approve) {
-      if (shouldApprove) {
+  const fetchEstimateFeeResp = useCallback(
+    async (amount?: string) => {
+      if (shouldApprove && usePermit2Approve) {
+        return undefined;
+      }
+      if (!amount) {
+        return undefined;
+      }
+      const amountNumber = BigNumber(amount);
+      if (amountNumber.isZero() || amountNumber.isNaN()) {
         return undefined;
       }
 
-      permitParams.approveType = EApproveType.Permit;
+      const permitParams: {
+        approveType?: 'permit';
+        permitSignature?: string;
+      } = {};
 
-      if (permitSignatureRef.current) {
-        const amountBN = BigNumber(amount);
-        const allowanceBN = BigNumber(allowance);
-        if (amountBN.gt(allowanceBN)) {
-          permitParams.permitSignature = permitSignatureRef.current;
+      if (usePermit2Approve && !shouldApprove) {
+        permitParams.approveType = EApproveType.Permit;
+        if (permitSignatureRef.current) {
+          const amountBN = BigNumber(amount);
+          const allowanceBN = BigNumber(allowance);
+          if (amountBN.gt(allowanceBN)) {
+            permitParams.permitSignature = permitSignatureRef.current;
+          }
         }
       }
-    }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId,
+        provider: providerName,
+        symbol: tokenInfo?.token.symbol || '',
+        action: shouldApprove ? 'approve' : 'stake',
+        amount: amountNumber.toFixed(),
+        morphoVault: isMorphoProvider
+          ? protocolInfo?.approve?.approveTarget
+          : undefined,
+        accountAddress: account?.address,
+        ...permitParams,
+      });
+      return resp;
+    },
+    [
       accountId,
+      allowance,
+      isMorphoProvider,
       networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: tokenInfo?.token.symbol || '',
-      action: shouldApprove ? 'approve' : 'stake',
-      amount: amountNumber.toFixed(),
-      morphoVault: isMorphoProvider
-        ? protocolInfo?.approve?.approveTarget
-        : undefined,
-      accountAddress: account?.address,
-      ...permitParams,
-    });
-    return resp;
-  }, 350);
+      protocolInfo?.approve?.approveTarget,
+      providerName,
+      shouldApprove,
+      tokenInfo?.token.symbol,
+      usePermit2Approve,
+    ],
+  );
 
   const debouncedFetchEstimateFeeResp = useDebouncedCallback(
     async (amount?: string) => {
@@ -371,11 +381,11 @@ export function UniversalStake({
     debouncedFetchTransactionConfirmation,
   ]);
 
-  const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
-    providerName,
-    eventEndTime: protocolInfo?.eventEndTime,
-    // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
-  });
+  // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
+  //   providerName,
+  //   eventEndTime: protocolInfo?.eventEndTime,
+  //   // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
+  // });
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -406,7 +416,7 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
@@ -433,6 +443,8 @@ export function UniversalStake({
     [decimals, debouncedFetchEstimateFeeResp, checkAmount],
   );
 
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
+
   const onMax = useCallback(() => {
     const balanceBN = new BigNumber(balance);
     const remainBN = balanceBN.minus(minTransactionFee);
@@ -457,12 +469,12 @@ export function UniversalStake({
   );
 
   const currentValue = useMemo<string | undefined>(() => {
-    if (Number(amountValue) > 0 && Number(price) > 0) {
+    if (Number(amountValue) > 0 && Number(tokenInfo?.price) > 0) {
       const amountValueBn = new BigNumber(amountValue);
-      return amountValueBn.multipliedBy(price).toFixed();
+      return amountValueBn.multipliedBy(tokenInfo?.price ?? '0').toFixed();
     }
     return undefined;
-  }, [amountValue, price]);
+  }, [amountValue, tokenInfo?.price]);
 
   const isInsufficientBalance = useMemo<boolean>(
     () => new BigNumber(amountValue).gt(balance),
@@ -568,7 +580,7 @@ export function UniversalStake({
       onConfirm?.({ amount: amountValue, ...permitSignatureParams });
 
     // Wait for the dialog confirmation if it's shown
-    await showFalconEventEndedDialog();
+    // await showFalconEventEndedDialog();
 
     if (estimateFeeResp) {
       const daySpent =
@@ -595,7 +607,6 @@ export function UniversalStake({
   }, [
     usePermit2Approve,
     approveType,
-    showFalconEventEndedDialog,
     estimateFeeResp,
     shouldApprove,
     onConfirm,
@@ -846,7 +857,7 @@ export function UniversalStake({
       items.push(
         <CalculationListItem>
           <CalculationListItem.Label
-            size="$bodyMd"
+            size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
               transactionConfirmation.receive.tooltip.type === 'text'
@@ -857,12 +868,10 @@ export function UniversalStake({
             {transactionConfirmation.receive.title.text}
           </CalculationListItem.Label>
           <CalculationListItem.Value>
-            <FormatHyperlinkText
+            <EarnText
+              text={transactionConfirmation.receive.description}
               size="$bodyMdMedium"
-              color={transactionConfirmation.receive.description.color}
-            >
-              {transactionConfirmation.receive.description.text}
-            </FormatHyperlinkText>
+            />
           </CalculationListItem.Value>
         </CalculationListItem>,
       );
@@ -906,12 +915,12 @@ export function UniversalStake({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
   const isShowStakeProgress =
-    !isLegacyApprove &&
+    useApprove &&
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
   const onConfirmText = useMemo(() => {
-    if (isLegacyApprove) {
+    if (!useApprove) {
       return intl.formatMessage({ id: ETranslations.global_continue });
     }
     if (shouldApprove) {
@@ -926,7 +935,7 @@ export function UniversalStake({
     }
     return intl.formatMessage({ id: ETranslations.earn_deposit });
   }, [
-    isLegacyApprove,
+    useApprove,
     shouldApprove,
     intl,
     usePermit2Approve,
@@ -943,6 +952,7 @@ export function UniversalStake({
           hasError={isInsufficientBalance || isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
@@ -1025,62 +1035,35 @@ export function UniversalStake({
       >
         {protocolInfo?.apyDetail ? (
           <XStack gap="$1" ai="center">
-            <SizableText
-              color={protocolInfo.apyDetail.description.color || '$textSuccess'}
+            <EarnText
+              text={protocolInfo.apyDetail.description}
               size="$headingLg"
-            >
-              {protocolInfo.apyDetail.description.text}
-            </SizableText>
-            {protocolInfo?.apyDetail.button.type === 'popup' ? (
-              <Popover
-                floatingPanelProps={{
-                  w: 320,
-                }}
-                title={protocolInfo.apyDetail.title.text}
-                renderTrigger={
-                  <IconButton
-                    icon="CoinsAddOutline"
-                    size="small"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <ActionPopupContent
-                    bulletList={protocolInfo.apyDetail.button.data.bulletList}
-                    items={protocolInfo.apyDetail.button.data.items}
-                    panel={protocolInfo.apyDetail.button.data.panel}
-                  />
-                }
-                placement="top"
-              />
-            ) : null}
+              color="$textSuccess"
+            />
+            <EarnActionIcon
+              title={protocolInfo.apyDetail.title.text}
+              actionIcon={protocolInfo.apyDetail.button}
+            />
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <SizableText
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
             size="$bodyMd"
-            color={transactionConfirmation?.title.color || '$textSubdued'}
-          >
-            {transactionConfirmation?.title.text || ' '}
-          </SizableText>
+          />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
                 <XStack gap="$1">
-                  <FormatHyperlinkText
+                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.description}
                     size={textSize}
-                    color={reward.title.color}
-                  >
-                    {reward.title.text}
-                  </FormatHyperlinkText>
-                  <FormatHyperlinkText
-                    size={textSize}
-                    color={reward.description.color || '$textSubdued'}
-                  >
-                    {reward.description.text}
-                  </FormatHyperlinkText>
+                    color="$textSubdued"
+                  />
                 </XStack>
                 {hasTooltip ? (
                   <Popover.Tooltip
@@ -1269,7 +1252,7 @@ export function UniversalStake({
           <Stack pl="$5" $md={{ pt: '$5' }}>
             {isShowStakeProgress ? (
               <StakeProgress
-                approveType={approveType ?? EApproveType.Legacy}
+                approveType={approveType}
                 currentStep={
                   isDisable || shouldApprove
                     ? EStakeProgressStep.approve
