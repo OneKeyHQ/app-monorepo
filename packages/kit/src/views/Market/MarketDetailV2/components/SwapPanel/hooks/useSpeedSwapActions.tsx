@@ -676,10 +676,7 @@ export function useSpeedSwapActions(props: {
           contractAddress: marketToken?.contractAddress,
         });
       if (tokenInfo?.length) {
-        setBaseToken((prev) => ({
-          ...prev,
-          isNative: tokenInfo[0].isNative,
-        }));
+        setBaseToken(tokenInfo[0]);
       }
     })();
   }, [marketToken?.contractAddress, marketToken?.networkId]);
