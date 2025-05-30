@@ -32,6 +32,7 @@ export const whenAppUnlocked = () => {
     void backgroundApiProxy.serviceApp.isAppLocked().then(async (isLock) => {
       if (!isLock) {
         resolve();
+        return;
       }
       const unlockJobId = uuid.v1().toString();
       const callback = (
