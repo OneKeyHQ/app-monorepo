@@ -20,7 +20,7 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -31,7 +31,10 @@ import {
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
-import { StakingAmountInput } from '../StakingAmountInput';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -119,7 +122,7 @@ export const UniversalClaim = ({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
@@ -163,6 +166,8 @@ export const UniversalClaim = ({
     }
     return false;
   }, [minAmount, amountValue]);
+
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -234,6 +239,7 @@ export const UniversalClaim = ({
           }
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
