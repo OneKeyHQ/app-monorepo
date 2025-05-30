@@ -10,6 +10,7 @@ import {
   Spinner,
   Stack,
   Tab,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -73,19 +74,23 @@ function HardwareSales() {
       {total === 0 && !isLoading ? (
         <EmptyData />
       ) : (
-        <YStack px="$5" pt="$5">
+        <YStack px="$5" pt="$5" pb="$10">
           <SizableText size="$headingSm" color="$textSubdued" py="$2">
             {intl.formatMessage({ id: ETranslations.referral_order_info })}
           </SizableText>
           {items.map((item, key) => (
-            <YStack key={key} py="$3">
+            <XStack key={key} py="$3" ai="center" jc="space-between">
               <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                {item.title}
+                {item.orderName}
               </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {item.createdAt ? formatDate(item.createdAt) : ''}
+                {item.createdAt
+                  ? formatDate(item.createdAt, {
+                      formatTemplate: 'yyyy-LL-dd HH:mm',
+                    })
+                  : ''}
               </SizableText>
-            </YStack>
+            </XStack>
           ))}
         </YStack>
       )}
@@ -132,47 +137,39 @@ function WalletList() {
       {total === 0 && !isLoading ? (
         <EmptyData />
       ) : (
-        <YStack pt="$5">
+        <YStack pt="$5" pb="$10">
           <SizableText size="$headingSm" color="$textSubdued" px="$5" py="$2">
             {intl.formatMessage({
               id: ETranslations.referral_your_referred_wallets_details,
             })}
           </SizableText>
           {items.map((item, index) => (
-            <>
-              <ListItem
-                drillIn
-                py="$3"
-                key={index}
-                title={`Wallet ${items.length - index}`}
-                onPress={() => {
-                  navigation.push(
-                    EModalReferFriendsRoutes.YourReferredWalletAddresses,
-                    {
-                      items: item.items,
-                      networks,
-                    },
-                  );
-                }}
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.referral_your_referred_wallets_more_address,
-                    },
-                    {
-                      amount: item.total > 999 ? '999+' : item.total,
-                    },
-                  )}
-                </SizableText>
-              </ListItem>
-              <Stack
-                mx="$5"
-                h={StyleSheet.hairlineWidth}
-                bg="$borderSubdued"
-                w="100%"
-              />
-            </>
+            <ListItem
+              drillIn
+              py="$3"
+              key={index}
+              title={`Wallet ${items.length - index}`}
+              onPress={() => {
+                navigation.push(
+                  EModalReferFriendsRoutes.YourReferredWalletAddresses,
+                  {
+                    items: item.items,
+                    networks,
+                  },
+                );
+              }}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.referral_your_referred_wallets_more_address,
+                  },
+                  {
+                    amount: item.total > 999 ? '999+' : item.total,
+                  },
+                )}
+              </SizableText>
+            </ListItem>
           ))}
         </YStack>
       )}

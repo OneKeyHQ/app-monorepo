@@ -471,7 +471,11 @@ const ProtocolDetailsPage = () => {
       }),
     [accountId, indexedAccountId, networkId],
   );
-  const { result, isLoading, run } = usePromiseResult(
+  const {
+    result: detailInfo,
+    isLoading,
+    run,
+  } = usePromiseResult(
     async () => {
       const response =
         await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
@@ -482,29 +486,16 @@ const ProtocolDetailsPage = () => {
           provider,
           vault,
         });
-
-      const tokens = response?.subscriptionValue?.token.info.address
-        ? await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-            networkId,
-            contractList: [response.subscriptionValue.token.info.address],
-          })
-        : undefined;
-      return {
-        detailInfo: response,
-        nativeToken: tokens?.[0],
-      };
+      return response;
     },
     [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
 
-  const { detailInfo, nativeToken } = result || {};
-
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     return detailInfo?.subscriptionValue?.token &&
       detailInfo?.subscriptionValue?.balance
       ? {
-          nativeToken,
           balanceParsed: detailInfo.subscriptionValue.balance,
           token: detailInfo.subscriptionValue.token.info,
           price: detailInfo.subscriptionValue.token.price,
@@ -517,7 +508,6 @@ const ProtocolDetailsPage = () => {
   }, [
     detailInfo?.subscriptionValue?.token,
     detailInfo?.subscriptionValue.balance,
-    nativeToken,
     networkId,
     provider,
     vault,

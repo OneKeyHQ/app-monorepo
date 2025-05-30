@@ -271,6 +271,9 @@ export interface IAppEventBusPayload {
     index: number;
     tabId: string;
   };
+  [EAppEventBusNames.HardwareFeaturesUpdate]: {
+    deviceId: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

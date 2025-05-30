@@ -181,6 +181,7 @@ export function PrimeDebugPanel({
   const navigation = useAppNavigation();
   const [isHidden, setIsHidden] = useState(false);
   const { loginOneKeyId } = useLoginOneKeyId();
+  const [primePersistAtomData] = usePrimePersistAtom();
 
   if (isHidden) {
     return null;
@@ -221,7 +222,7 @@ export function PrimeDebugPanel({
             void getCustomerInfo().then(showDebugMessageByDialog);
           }}
         >
-          CustomerInfo
+          sdk.CustomerInfo
         </Button>
         <Button
           onPress={() => {
@@ -232,6 +233,15 @@ export function PrimeDebugPanel({
         >
           ServerPrimeUserInfo
         </Button>
+
+        <Button
+          onPress={() => {
+            showDebugMessageByDialog(primePersistAtomData);
+          }}
+        >
+          primePersistAtomData
+        </Button>
+
         <Button
           onPress={() => {
             void backgroundApiProxy.servicePrime
