@@ -372,13 +372,13 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {
+              isFirstLaunch = false;
               await whenAppUnlocked();
               setTimeout(() => {
                 showUpdateDialog(false, response);
               }, 200);
             }
           }
-          isFirstLaunch = false;
         },
       );
     }
