@@ -271,6 +271,8 @@ export type IVaultSettings = {
   createAllDeriveTypeAccountsByDefault?: boolean;
 
   shouldFixMaxSendAmount?: boolean;
+
+  skipFixFeeInfoDecimal?: boolean;
 };
 
 export type IVaultFactoryOptions = {
