@@ -1,4 +1,4 @@
-import { Stack, useIsHorizontalLayout } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
@@ -6,7 +6,6 @@ import { WalletActions } from '../components/WalletActions';
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 function HomeHeaderContainer() {
-  const isHorizontal = useIsHorizontalLayout();
   return (
     <HomeTokenListProviderMirror>
       <>

@@ -6,7 +6,6 @@ import { isEqual, isString, merge } from 'lodash';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
-import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { atomsConfig } from './atomNames';
 import { JOTAI_RESET } from './types';
@@ -159,72 +158,6 @@ export function atomWithStorage<Value>(
 
       set(baseAtom, newValue);
       return storage.setItem(key, newValue);
-    },
-  );
-
-  // TODO : A component suspended while responding to synchronous input. This will cause the UI to be replaced with a loading indicator. To fix, updates that suspend should be wrapped with startTransition.
-  // error muted by withSentryHOC
-  const anAtom8888 = atom(
-    (get) => get(baseAtom),
-    async (
-      get,
-      set,
-      update: IJotaiSetStateActionWithReset<Value | Promise<Value>>,
-    ) => {
-      jotaiVerify.ensureNotPromise(update);
-      const p = createPromiseTarget<boolean>();
-
-      set(baseAtom, async (prevValue) => {
-        const value = (async () => {
-          if (prevValue instanceof Promise) {
-            // eslint-disable-next-line no-param-reassign
-            prevValue = await prevValue;
-          }
-          jotaiVerify.ensureNotPromise(prevValue);
-
-          let nextValue =
-            typeof update === 'function'
-              ? (
-                  update as (
-                    prev: Value | Promise<Value>,
-                  ) => Value | Promise<Value> | typeof JOTAI_RESET
-                )(prevValue)
-              : update;
-
-          if (nextValue instanceof Promise) {
-            // eslint-disable-next-line no-param-reassign
-            nextValue = await nextValue;
-          }
-          jotaiVerify.ensureNotPromise(nextValue);
-
-          if (nextValue === JOTAI_RESET) {
-            await storage.removeItem(key);
-            return initialValue;
-          }
-
-          const newValue = merge({}, initialValue, nextValue) as Value;
-
-          const shouldDeepCompare =
-            atomsConfig?.[storageName as any as IAtomNameKeys]?.deepCompare ??
-            false;
-
-          if (shouldDeepCompare) {
-            if (isEqual(newValue, prevValue)) {
-              await storage.setItem(key, prevValue);
-              return prevValue;
-            }
-          }
-
-          await storage.setItem(key, newValue);
-          return newValue;
-        })();
-
-        p.resolveTarget(true, 5000);
-        return value;
-      });
-
-      const v = await p.ready;
-      return v;
     },
   );
 

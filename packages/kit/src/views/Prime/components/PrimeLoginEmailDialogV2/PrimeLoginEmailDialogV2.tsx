@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react';
 
-import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';

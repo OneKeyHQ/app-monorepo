@@ -12,7 +12,6 @@ import {
   SectionList,
   SizableText,
   Spinner,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';

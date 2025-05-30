@@ -25,7 +25,6 @@ export function AccountRemoveDialog({
   account?: IDBAccount;
   accountsCount: number;
 }) {
-  const intl = useIntl();
   const actions = useAccountSelectorActions();
   const [loading, setLoading] = useState(false);
   return (

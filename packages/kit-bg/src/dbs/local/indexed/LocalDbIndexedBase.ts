@@ -18,11 +18,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedToBucketsMigration from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
-import {
-  INDEXED_DB_NAME,
-  INDEXED_DB_VERSION,
-  storeNameSupportCreatedAt,
-} from '../consts';
+import { INDEXED_DB_VERSION, storeNameSupportCreatedAt } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import {
@@ -63,8 +59,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       'versionchange'
     >;
   }): null {
-    const { db, transaction, newVersion, bucketName, nativeDB } = options;
-    const currentStoreNames = db.objectStoreNames;
+    const { db, transaction, bucketName, nativeDB } = options;
 
     // create new stores
     const storeNamesToAdd = Object.values(ELocalDBStoreNames);
@@ -324,7 +319,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     >;
     storeName: T;
   }): IDBObjectStore {
-    const { db, tx, storeName, nativeDB } = params;
+    const { storeName, nativeDB } = params;
     return nativeDB.createObjectStore(storeName, { keyPath: 'id' });
   }
 
