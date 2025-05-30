@@ -362,7 +362,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           if (needUpdate) {
             if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
