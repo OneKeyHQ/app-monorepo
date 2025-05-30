@@ -439,6 +439,7 @@ function ReceiveToken() {
         {...(!shouldShowQRCode && {
           onPress: handleVerifyOnDevicePress,
           userSelect: 'none',
+          bg: '$bg',
           hoverStyle: {
             bg: '$bgHover',
           },
