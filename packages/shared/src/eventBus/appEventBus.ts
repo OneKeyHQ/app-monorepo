@@ -274,6 +274,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
+  [EAppEventBusNames.UnlockApp]: {
+    jobId: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

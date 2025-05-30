@@ -85,6 +85,7 @@ export enum EAppEventBusNames {
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   HomeTabsChanged = 'HomeTabsChanged',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
+  UnlockApp = 'UnlockApp',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',

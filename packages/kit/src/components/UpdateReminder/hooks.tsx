@@ -34,6 +34,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
@@ -361,7 +362,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           if (needUpdate) {
             if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
@@ -371,7 +372,10 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {
-              showUpdateDialog(false, response);
+              await whenAppUnlocked();
+              setTimeout(() => {
+                showUpdateDialog(false, response);
+              }, 200);
             }
           }
           isFirstLaunch = false;
