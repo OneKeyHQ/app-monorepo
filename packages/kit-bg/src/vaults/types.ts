@@ -476,6 +476,7 @@ export type ITransferInfo = {
   // Lightning network
   lnurlPaymentInfo?: ILNURLPaymentInfo;
   lightningAddress?: string;
+  lnurl?: string;
 
   paymentId?: string; // Dynex chain paymentId
 
