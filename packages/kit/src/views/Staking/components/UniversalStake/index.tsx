@@ -31,7 +31,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -66,7 +66,10 @@ import {
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import { StakingAmountInput } from '../StakingAmountInput';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
@@ -413,7 +416,7 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
@@ -439,6 +442,8 @@ export function UniversalStake({
     },
     [decimals, debouncedFetchEstimateFeeResp, checkAmount],
   );
+
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
   const onMax = useCallback(() => {
     const balanceBN = new BigNumber(balance);
@@ -947,6 +952,7 @@ export function UniversalStake({
           hasError={isInsufficientBalance || isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
