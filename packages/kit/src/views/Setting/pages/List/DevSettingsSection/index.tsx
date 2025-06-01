@@ -789,8 +789,14 @@ export const DevSettingsSection = () => {
         title="Device Info"
         subtitle="设备信息"
         onPress={async () => {
+          const deviceInfo = await appDeviceInfo.getDeviceInfo();
           Dialog.debugMessage({
-            debugMessage: await appDeviceInfo.getDeviceInfo(),
+            debugMessage: {
+              ...deviceInfo,
+              react_native_dsn: platformEnv.isNative
+                ? process.env.SENTRY_DSN_REACT_NATIVE
+                : '',
+            },
           });
         }}
       />
