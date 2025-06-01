@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Popover,
@@ -179,6 +179,19 @@ function AccountSelectorPopoverContent({
     async () => closePopover?.(),
     [closePopover],
   );
+
+  // Safety check: only render if we actually have multiple accounts
+  if (!accountsInfo || accountsInfo.length <= 1) {
+    return null;
+  }
+
+  const availableNetworksMap = accountsInfo.reduce((acc, account) => {
+    if (Array.isArray(account.availableNetworkIds)) {
+      acc[account.num] = { networkIds: account.availableNetworkIds };
+    }
+    return acc;
+  }, {} as Record<number, { networkIds: string[] }>);
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -186,12 +199,7 @@ function AccountSelectorPopoverContent({
         sceneUrl: origin,
       }}
       enabledNum={accountsInfo.map((account) => account.num)}
-      availableNetworksMap={accountsInfo.reduce((acc, account) => {
-        if (Array.isArray(account.availableNetworkIds)) {
-          acc[account.num] = { networkIds: account.availableNetworkIds };
-        }
-        return acc;
-      }, {} as Record<number, { networkIds: string[] }>)}
+      availableNetworksMap={availableNetworksMap}
     >
       <YStack p="$5" gap="$2">
         {accountsInfo.map((account) => (
@@ -222,6 +230,13 @@ function HeaderRightToolBar() {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const origin = tab?.url ? new URL(tab.url).origin : null;
+
+  // Use ref to always get the latest value in callbacks
+  const connectedAccountsInfoRef = useRef<
+    IConnectionAccountInfoWithNum[] | null
+  >(null);
+  const originRef = useRef<string | null>(null);
+
   const {
     result: connectedAccountsInfo,
     isLoading,
@@ -236,7 +251,6 @@ function HeaderRightToolBar() {
           origin,
         );
 
-      console.log('====>>>connectedAccount: ', connectedAccount);
       return connectedAccount;
     },
     [origin],
@@ -248,6 +262,12 @@ function HeaderRightToolBar() {
   const afterChangeAccount = useCallback(() => {
     void run();
   }, [run]);
+
+  // Update refs with latest values
+  useEffect(() => {
+    connectedAccountsInfoRef.current = connectedAccountsInfo || null;
+    originRef.current = origin;
+  }, [connectedAccountsInfo, origin]);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.DAppConnectUpdate, afterChangeAccount);
@@ -265,14 +285,35 @@ function HeaderRightToolBar() {
     [setIsOpen],
   );
 
+  const renderPopoverContent = useCallback(() => {
+    const currentAccountsInfo = connectedAccountsInfoRef.current;
+    const currentOrigin = originRef.current;
+
+    if (
+      !currentAccountsInfo ||
+      currentAccountsInfo.length <= 1 ||
+      !currentOrigin
+    ) {
+      return null;
+    }
+
+    return (
+      <AccountSelectorPopoverContent
+        origin={currentOrigin}
+        accountsInfo={currentAccountsInfo}
+        afterChangeAccount={afterChangeAccount}
+      />
+    );
+  }, [afterChangeAccount]);
+
   const content = useMemo(() => {
-    console.log('=====> DesktopBrowserHeaderRightCmp: memo renderer');
     if (isLoading) {
       return <Spinner />;
     }
     if (!connectedAccountsInfo || !origin) {
       return <ShortcutsActionButton />;
     }
+
     if (connectedAccountsInfo.length === 1) {
       return (
         <Stack
@@ -317,20 +358,16 @@ function HeaderRightToolBar() {
     return (
       <Stack ml="$6">
         <Popover
+          key={`popover-${connectedAccountsInfo.length}-${connectedAccountsInfo
+            .map((a) => a.num)
+            .join('-')}`}
           title="Connected Accounts"
-          keepChildrenMounted
           open={isOpen}
           onOpenChange={handleOpenChange}
           renderTrigger={
             <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
           }
-          renderContent={
-            <AccountSelectorPopoverContent
-              origin={origin}
-              accountsInfo={connectedAccountsInfo}
-              afterChangeAccount={afterChangeAccount}
-            />
-          }
+          renderContent={renderPopoverContent}
         />
       </Stack>
     );
@@ -341,6 +378,7 @@ function HeaderRightToolBar() {
     isOpen,
     handleOpenChange,
     afterChangeAccount,
+    renderPopoverContent,
   ]);
 
   return <>{content}</>;
