@@ -227,7 +227,7 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
-        modal={modal}
+        modal={!platformEnv.isNative && modal === undefined ? true : modal}
         {...sheetProps}
       >
         <Sheet.Overlay
