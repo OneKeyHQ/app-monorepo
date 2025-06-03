@@ -248,7 +248,6 @@ function ImportAddress() {
     }
   }, [
     accountNameDebounced,
-    setValue,
     inputTextDebounced,
     networkIdText,
     form,
