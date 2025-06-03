@@ -99,9 +99,7 @@ export function HeaderLeft({
     return (
       <XStack gap="$3" ai="center">
         {accountSelectorTrigger}
-        {(sceneName === EAccountSelectorSceneName.homeUrlAccount ||
-          tabRoute === ETabRoutes.Home) &&
-        gtMd ? (
+        {tabRoute === ETabRoutes.Home && gtMd ? (
           <NetworkSelectorTriggerHome
             num={0}
             recordNetworkHistoryEnabled
