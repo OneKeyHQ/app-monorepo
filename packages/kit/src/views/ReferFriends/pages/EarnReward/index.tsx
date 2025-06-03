@@ -137,7 +137,6 @@ function List({
                     </SizableText>
                     <XStack ai="center" gap="$2">
                       <Currency
-                        sourceCurrency="usd"
                         color="$textSuccess"
                         formatter="value"
                         size="$bodyLgMedium"
@@ -216,11 +215,7 @@ function List({
                             <SizableText size="$bodyMd" color="$textSubdued">
                               (
                             </SizableText>
-                            <Currency
-                              sourceCurrency="usd"
-                              formatter="value"
-                              size="$bodyMd"
-                            >
+                            <Currency formatter="value" size="$bodyMd">
                               {item.token.fiatAmount}
                             </Currency>
                             <SizableText size="$bodyMd" color="$textSubdued">
@@ -470,7 +465,7 @@ export default function EarnReward() {
               id: ETranslations.referral_reward_undistributed,
             })}
           </SizableText>
-          <Currency sourceCurrency="usd" size="$heading5xl" formatter="value">
+          <Currency size="$heading5xl" formatter="value">
             {amount?.pending || 0}
           </Currency>
         </YStack>
