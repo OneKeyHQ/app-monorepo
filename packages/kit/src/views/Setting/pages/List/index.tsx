@@ -22,7 +22,9 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import openUrlUtils, {
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { handleOpenDevMode } from '../../utils/devMode';
 
@@ -37,12 +39,22 @@ type ISocialButtonProps = {
   icon: ComponentProps<typeof IconButton>['icon'];
   url: string;
   text: string;
+  openInApp?: boolean;
 };
 
-const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
+const SocialButton: FC<ISocialButtonProps> = ({
+  icon,
+  url,
+  text,
+  openInApp = false,
+}) => {
   const onPress = useCallback(() => {
-    openUrlExternal(url);
-  }, [url]);
+    if (openInApp) {
+      openUrlUtils.openUrlInApp(url, text);
+    } else {
+      openUrlExternal(url);
+    }
+  }, [url, text, openInApp]);
   return (
     <Tooltip
       renderTrigger={
@@ -100,6 +112,14 @@ const SocialButtonGroup = () => {
             icon="GithubBrand"
             url={GITHUB_URL}
             text={intl.formatMessage({ id: ETranslations.global_github })}
+          />
+          <SocialButton
+            icon="HelpSupportOutline"
+            url="https://intercom-test-beryl.vercel.app/"
+            text={intl.formatMessage({
+              id: ETranslations.global_support,
+            })}
+            openInApp
           />
         </XStack>
       </XStack>
