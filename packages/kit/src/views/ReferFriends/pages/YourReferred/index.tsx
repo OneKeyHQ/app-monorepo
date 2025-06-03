@@ -148,7 +148,7 @@ function WalletList() {
               drillIn
               py="$3"
               key={index}
-              title={`Wallet ${items.length - index}`}
+              title={`Wallet ${index + 1}`}
               onPress={() => {
                 navigation.push(
                   EModalReferFriendsRoutes.YourReferredWalletAddresses,

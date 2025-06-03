@@ -7,11 +7,14 @@ import {
   Icon,
   Progress,
   SizableText,
+  Spinner,
   Stack,
+  XStack,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { setGlobalShowDeviceProgressDialogEnabled } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/HardwareUiStateContainer';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -32,6 +35,11 @@ function ProcessingDialogContent({
   allNetworkInfo?: IBatchCreateAccountAllNetworkInfo;
 }) {
   const intl = useIntl();
+
+  const [
+    sdkGetAllNetworkAddressProcessing,
+    setSdkGetAllNetworkAddressProcessing,
+  ] = useState(false);
 
   const [state, setState] = useState<
     IAppEventBusPayload[EAppEventBusNames.BatchCreateAccount] | undefined
@@ -56,6 +64,31 @@ function ProcessingDialogContent({
       appEventBus.off(EAppEventBusNames.BatchCreateAccount, cb);
     };
   }, []);
+
+  useEffect(() => {
+    const cb = () => {
+      setSdkGetAllNetworkAddressProcessing(true);
+    };
+    appEventBus.on(EAppEventBusNames.SDKGetAllNetworkAddressesStart, cb);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SDKGetAllNetworkAddressesStart, cb);
+    };
+  }, []);
+
+  useEffect(() => {
+    const cb = () => {
+      setSdkGetAllNetworkAddressProcessing(false);
+    };
+    appEventBus.on(EAppEventBusNames.SDKGetAllNetworkAddressesEnd, cb);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SDKGetAllNetworkAddressesEnd, cb);
+    };
+  }, []);
+
+  const shouldShowCheckingDeviceLoading = useMemo(
+    () => sdkGetAllNetworkAddressProcessing && !state?.progressCurrent,
+    [sdkGetAllNetworkAddressProcessing, state?.progressCurrent],
+  );
 
   const isFlowEnded = isDone || isCancelled || isError;
   return (
@@ -97,22 +130,34 @@ function ProcessingDialogContent({
             />
           ) : null}
 
-          <SizableText mt="$5" size="$bodyLg" textAlign="center">
-            {intl.formatMessage(
-              {
-                id: ETranslations.global_bulk_accounts_loading,
-              },
-              {
-                // amount: state?.createdCount ?? 0,
-                amount: state?.progressCurrent ?? 0,
-              },
-            )}
-          </SizableText>
+          <XStack mt="$5" alignItems="center" gap="$2">
+            <SizableText size="$bodyLg" textAlign="center">
+              {(() => {
+                if (shouldShowCheckingDeviceLoading) {
+                  return intl.formatMessage({
+                    id: ETranslations.global_checking_device,
+                  });
+                }
+                return intl.formatMessage(
+                  {
+                    // "{amount} address(es) added",
+                    id: ETranslations.global_bulk_accounts_loading,
+                  },
+                  {
+                    // amount: state?.createdCount ?? 0,
+                    amount: state?.progressCurrent ?? 0,
+                  },
+                );
+              })()}
+            </SizableText>
+            {shouldShowCheckingDeviceLoading ? <Spinner size="small" /> : null}
+          </XStack>
 
           {allNetworkInfo ? (
             <SizableText size="$bodyLg" textAlign="center">
               {intl.formatMessage(
                 {
+                  //  "({amount} accounts)",
                   id: ETranslations.global_bulk_accounts_loading_subtitle,
                 },
                 {
@@ -171,13 +216,16 @@ export function showBatchCreateAccountProcessingDialog({
   navigation?: IAppNavigation;
   allNetworkInfo?: IBatchCreateAccountAllNetworkInfo;
 }) {
+  setGlobalShowDeviceProgressDialogEnabled(false);
   Dialog.show({
     showExitButton: false,
     dismissOnOverlayPress: false,
     onCancel() {
+      setGlobalShowDeviceProgressDialogEnabled(true);
       void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
     onClose() {
+      setGlobalShowDeviceProgressDialogEnabled(true);
       void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
     // title: '',

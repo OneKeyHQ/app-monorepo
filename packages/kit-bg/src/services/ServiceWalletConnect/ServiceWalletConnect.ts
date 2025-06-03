@@ -310,12 +310,24 @@ class ServiceWalletConnect extends ServiceBase {
 
         const filteredChains =
           chains?.filter((chain) => !notSupportedChains.includes(chain)) ?? [];
+
+        // Merge with existing chains instead of overwriting
+        const existingNamespace = supportedNamespaces[namespace];
+        const mergedChains = existingNamespace
+          ? [
+              ...new Set([
+                ...(existingNamespace.chains || []),
+                ...filteredChains,
+              ]),
+            ]
+          : filteredChains;
+
         supportedNamespaces[namespace] = {
-          chains: filteredChains,
+          chains: mergedChains,
           methods: supportMethodsMap[namespace] ?? [],
           events: supportEventsMap[namespace],
           accounts:
-            filteredChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
+            mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
         };
       }
     };

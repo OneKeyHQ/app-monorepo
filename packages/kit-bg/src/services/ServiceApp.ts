@@ -9,6 +9,10 @@ import {
   isAvailable,
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { exitApp } from '@onekeyhq/shared/src/modules3rdParty/react-native-exit';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,6 +41,8 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
+  unlockJobIds: string[] = [];
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -268,6 +274,21 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async isAppLocked() {
     return appIsLocked.get();
+  }
+
+  @backgroundMethod()
+  async addUnlockJob(jobId: string) {
+    this.unlockJobIds.push(jobId);
+  }
+
+  @backgroundMethod()
+  async dispatchUnlockJob() {
+    while (this.unlockJobIds.length > 0) {
+      const jobId = this.unlockJobIds.pop();
+      if (jobId) {
+        appEventBus.emit(EAppEventBusNames.UnlockApp, { jobId });
+      }
+    }
   }
 
   @backgroundMethod()

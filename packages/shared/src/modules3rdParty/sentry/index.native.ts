@@ -25,7 +25,7 @@ export const initSentry = () => {
     return;
   }
   init({
-    dsn: 'https://efa7cea7131f10dc294bd2c64bd636bf@o4508208799809536.ingest.de.sentry.io/4508208802627664',
+    dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
         appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
