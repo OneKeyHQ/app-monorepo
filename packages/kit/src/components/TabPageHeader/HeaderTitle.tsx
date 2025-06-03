@@ -5,6 +5,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import {
+  AccountSelectorActiveAccountHome,
   AccountSelectorProviderMirror,
   NetworkSelectorTriggerHome,
 } from '../AccountSelector';
@@ -28,6 +29,13 @@ export function HeaderTitle({
               hideOnNoAccount
             />
           ) : null}
+          <AccountSelectorActiveAccountHome
+            num={0}
+            showAccountAddress={false}
+            showCopyButton
+            showCreateAddressButton={false}
+            showNoAddressTip={false}
+          />
         </XStack>
       );
     }
