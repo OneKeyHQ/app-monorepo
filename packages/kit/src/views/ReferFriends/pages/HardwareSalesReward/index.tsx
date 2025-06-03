@@ -100,8 +100,8 @@ export default function HardwareSalesReward() {
         if (summaryResult.status === 'fulfilled') {
           const data = summaryResult.value;
           setAmount({
-            available: data.HardwareSales.available?.[0]?.amount || '0',
-            pending: data.HardwareSales.pending?.[0]?.amount || '0',
+            available: data.HardwareSales.available?.[0]?.fiatValue || '0',
+            pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
           });
         }
         setIsLoading(false);
