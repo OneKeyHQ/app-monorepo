@@ -34,6 +34,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
@@ -306,7 +307,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             borderCurve="continuous"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
-            elevation={0.5}
+            elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
             overflow="hidden"
           >
             <LottieView
@@ -361,19 +362,23 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           if (needUpdate) {
             if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
             } else if (
               !platformEnv.isDev &&
+              (platformEnv.isNative || platformEnv.isDesktop) &&
               response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {
-              showUpdateDialog(false, response);
+              isFirstLaunch = false;
+              await whenAppUnlocked();
+              setTimeout(() => {
+                showUpdateDialog(false, response);
+              }, 200);
             }
           }
-          isFirstLaunch = false;
         },
       );
     }

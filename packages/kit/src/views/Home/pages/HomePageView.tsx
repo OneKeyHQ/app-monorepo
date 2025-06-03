@@ -175,6 +175,14 @@ export function HomePageView({
   );
 
   const prevPageIndex = useRef<number | undefined>();
+
+  // OK-38433
+  useMemo(() => {
+    appEventBus.emit(EAppEventBusNames.HomeTabsChanged, {
+      index: 0,
+      tabId: tabs[0].id,
+    });
+  }, [tabs]);
   const handleSelectPageIndexChange = useCallback(
     (pageIndex: number) => {
       if (

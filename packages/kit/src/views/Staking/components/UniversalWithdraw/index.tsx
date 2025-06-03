@@ -12,7 +12,6 @@ import {
   Divider,
   Icon,
   Image,
-  NumberSizeableText,
   Page,
   Popover,
   SizableText,
@@ -21,13 +20,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -41,7 +39,11 @@ import type {
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
-import { StakingAmountInput } from '../StakingAmountInput';
+import { EarnText } from '../ProtocolDetails/EarnText';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
 type IUniversalWithdrawProps = {
@@ -81,7 +83,7 @@ const isNaN = (num: string) =>
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
 
-export const UniversalWithdraw = ({
+export function UniversalWithdraw({
   accountAddress,
   balance,
   price: inputPrice,
@@ -98,7 +100,7 @@ export const UniversalWithdraw = ({
   estimateFeeResp,
 
   onConfirm,
-}: PropsWithChildren<IUniversalWithdrawProps>) => {
+}: PropsWithChildren<IUniversalWithdrawProps>) {
   const isMorphoProvider = useMemo(
     () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
     [providerName],
@@ -194,7 +196,7 @@ export const UniversalWithdraw = ({
 
   const onChangeAmountValue = useCallback(
     (value: string, isMax = false) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
@@ -243,6 +245,7 @@ export const UniversalWithdraw = ({
     }
     return false;
   }, [minAmount, amountValue, balance]);
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance, true);
@@ -283,7 +286,7 @@ export const UniversalWithdraw = ({
       items.push(
         <CalculationListItem>
           <CalculationListItem.Label
-            size="$bodyMd"
+            size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
               transactionConfirmation.receive.tooltip.type === 'text'
@@ -294,12 +297,10 @@ export const UniversalWithdraw = ({
             {transactionConfirmation.receive.title.text}
           </CalculationListItem.Label>
           <CalculationListItem.Value>
-            <FormatHyperlinkText
+            <EarnText
+              text={transactionConfirmation.receive.description}
               size="$bodyMdMedium"
-              color={transactionConfirmation.receive.description.color}
-            >
-              {transactionConfirmation.receive.description.text}
-            </FormatHyperlinkText>
+            />
           </CalculationListItem.Value>
         </CalculationListItem>,
       );
@@ -325,6 +326,7 @@ export const UniversalWithdraw = ({
           hasError={isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
@@ -376,30 +378,23 @@ export const UniversalWithdraw = ({
         borderColor="$borderSubdued"
       >
         <YStack gap="$2">
-          <SizableText
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
             size="$bodyMd"
-            color={transactionConfirmation?.title.color || '$textSubdued'}
-          >
-            {transactionConfirmation?.title.text || ' '}
-          </SizableText>
+          />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
-                <XStack gap="$1">
-                  <FormatHyperlinkText
+                <XStack gap="$1" ai="center">
+                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.description}
                     size={textSize}
-                    color={reward.title.color}
-                  >
-                    {reward.title.text}
-                  </FormatHyperlinkText>
-                  <FormatHyperlinkText
-                    size={textSize}
-                    color={reward.description.color || '$textSubdued'}
-                  >
-                    {reward.description.text}
-                  </FormatHyperlinkText>
+                    color="$textSubdued"
+                  />
                 </XStack>
                 {hasTooltip ? (
                   <Popover.Tooltip
@@ -523,4 +518,4 @@ export const UniversalWithdraw = ({
       </Page.Footer>
     </StakingFormWrapper>
   );
-};
+}

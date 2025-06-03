@@ -64,7 +64,7 @@ import {
   convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
 } from './utils/transaction';
-import { transfer as xUDTTransafer } from './utils/xudt';
+import { transfer as xUDTTransfer } from './utils/xudt';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -240,7 +240,7 @@ export default class Vault extends VaultBase {
         .toFixed();
       // token transfer
       // support XUDT
-      txSkeleton = await xUDTTransafer(
+      txSkeleton = await xUDTTransfer(
         txSkeleton,
         from,
         tokenInfo,

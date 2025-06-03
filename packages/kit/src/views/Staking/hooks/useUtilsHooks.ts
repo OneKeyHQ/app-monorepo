@@ -73,7 +73,7 @@ export function useTrackTokenAllowance({
   initialValue: string;
   tokenAddress: string;
   spenderAddress: string;
-  approveType: EApproveType;
+  approveType?: EApproveType;
 }) {
   const isLegacyApprove = approveType === EApproveType.Legacy;
   const isExistApproveTarget = !!spenderAddress;

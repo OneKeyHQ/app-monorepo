@@ -113,6 +113,7 @@ function DialogFrame({
   testID,
   isAsync,
   trackID,
+  forceMount,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -281,6 +282,7 @@ function DialogFrame({
               backgroundColor="$bgBackdrop"
               animateOnly={['opacity']}
               animation="quick"
+              forceMount={forceMount || undefined}
               enterStyle={{
                 opacity: 0,
               }}
@@ -685,6 +687,7 @@ const useInPageDialog = (type: EInPageDialogType) => {
     () => ({
       testID: portalId,
       modal: false,
+      forceMount: platformEnv.isNative ? undefined : true,
       portalContainer: portalId,
     }),
     [portalId],

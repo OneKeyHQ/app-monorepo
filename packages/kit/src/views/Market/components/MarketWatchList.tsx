@@ -28,7 +28,7 @@ import {
 
 import { MarketHomeList } from './MarketHomeList';
 import { MarketTokenIcon } from './MarketTokenIcon';
-import { useWatchListAction } from './wachListHooks';
+import { useWatchListAction } from './watchListHooks';
 
 function RecommendItem({
   icon,
