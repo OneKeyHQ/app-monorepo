@@ -1,4 +1,5 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum ESendFeeStatus {
   Loading = 'Loading',
