@@ -91,7 +91,6 @@ interface IHardwareSalesRecordItem {
   side: 'in' | 'out';
   subject: string;
   userId: string;
-  amount: string;
   createdAt: string;
   effectiveTime: string | null;
   orderTotalAmount: string;
