@@ -1337,7 +1337,7 @@ class ServiceDApp extends ServiceBase {
       return connectedAccountInfo;
     }
 
-    const { simpleDb, serviceAccount } = this.backgroundApi;
+    const { simpleDb, serviceAccount, serviceNetwork } = this.backgroundApi;
     // 1. get home account
     const homeAccountSelectorInfo =
       await simpleDb.accountSelector.getSelectedAccount({
@@ -1360,10 +1360,13 @@ class ServiceDApp extends ServiceBase {
 
     // 3. build primary account
     let networkAccountWithHomeAccountSelectorInfo: INetworkAccount;
+    const globalDeriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId: connectedAccountInfo.networkId ?? '',
+    });
     const deriveType =
       (networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
         ? connectedAccountInfo.deriveType
-        : homeAccountSelectorInfo?.deriveType) ?? 'default';
+        : globalDeriveType ?? homeAccountSelectorInfo?.deriveType) ?? 'default';
     try {
       networkAccountWithHomeAccountSelectorInfo =
         await serviceAccount.getNetworkAccount({
