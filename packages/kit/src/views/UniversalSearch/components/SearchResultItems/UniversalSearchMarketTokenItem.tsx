@@ -42,14 +42,18 @@ export function UniversalSearchMarketTokenItem({
         from:
           searchStatus === ESearchStatus.init ? 'trendingList' : 'searchList',
       });
-      setTimeout(() => {
-        universalSearchActions.current.addIntoRecentSearchList({
-          id: coingeckoId,
-          text: symbol,
-          type: item.type,
-          timestamp: Date.now(),
-        });
-      }, 10);
+      
+      // Only add to recent search list when not in trending section
+      if (searchStatus !== ESearchStatus.init) {
+        setTimeout(() => {
+          universalSearchActions.current.addIntoRecentSearchList({
+            id: coingeckoId,
+            text: symbol,
+            type: item.type,
+            timestamp: Date.now(),
+          });
+        }, 10);
+      }
     }, 80);
   }, [
     coingeckoId,

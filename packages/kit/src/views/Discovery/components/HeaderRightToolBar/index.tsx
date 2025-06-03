@@ -362,6 +362,7 @@ function HeaderRightToolBar() {
             .map((a) => a.num)
             .join('-')}`}
           title="Connected Accounts"
+          keepChildrenMounted
           open={isOpen}
           onOpenChange={handleOpenChange}
           renderTrigger={
