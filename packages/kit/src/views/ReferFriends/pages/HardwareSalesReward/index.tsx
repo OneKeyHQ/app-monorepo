@@ -142,7 +142,7 @@ export default function HardwareSalesReward() {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
     }) => {
-      const isPositiveAmount = Number(item.amount) >= 0;
+      const isPositiveAmount = Number(item.fiatValue) >= 0;
       return (
         <YStack px="$5" py="$2.5">
           <XStack jc="space-between" gap="$4">
