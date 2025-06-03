@@ -10,7 +10,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useReviewControl } from '../../../components/ReviewControl';
 
 import { useLazyMarketTradeActions } from './tradeHook';
-import { useWatchListAction } from './wachListHooks';
+import { useWatchListAction } from './watchListHooks';
 
 function BasicMarketMore({
   coingeckoId,
