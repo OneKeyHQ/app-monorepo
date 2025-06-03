@@ -227,7 +227,10 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
-        modal={modal}
+        // OK-36893 OK-38624
+        // When modal is false, multiple Tamagui sheets may collapse into position:relative
+        // which causes z-index stacking issues
+        modal={!platformEnv.isNative && modal === undefined ? true : modal}
         {...sheetProps}
       >
         <Sheet.Overlay
