@@ -104,6 +104,7 @@ export type IEstimateGasParams = {
   networkId: string;
   accountAddress: string;
   encodedTx?: IEncodedTx;
+  transfersInfo?: ITransferInfo[];
 };
 
 export type IFeesInfoUnit = {
