@@ -933,4 +933,5 @@ module.exports = [
   "ttf'",
   "xmr'",
   "xrp'",
+  'sidepanel',
 ];
