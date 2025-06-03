@@ -82,13 +82,24 @@ function BasicInvestmentDetails() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
+
   const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
-    () => {
+    async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
         accountInfo.activeAccount?.account?.id,
         allNetworkId,
       );
-      const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
+      let list = earnAccount?.[totalFiatMapKey]?.accounts || [];
+      if (list.length === 0) {
+        const earnAccountOnNetwork =
+          await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
+            accountId: accountInfo.activeAccount?.account?.id ?? '',
+            networkId: allNetworkId,
+            indexedAccountId: accountInfo.activeAccount?.indexedAccount?.id,
+          });
+        list = earnAccountOnNetwork.accounts;
+      }
+
       return list.length
         ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
             list.map(({ networkId, accountAddress, publicKey }) => ({
@@ -103,6 +114,7 @@ function BasicInvestmentDetails() {
     },
     [
       accountInfo.activeAccount?.account?.id,
+      accountInfo.activeAccount?.indexedAccount?.id,
       actions,
       allNetworkId,
       earnAccount,

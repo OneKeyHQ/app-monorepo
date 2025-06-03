@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -24,6 +25,8 @@ export function UniversalSearchMarketTokenItem({
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
   const navigation = useAppNavigation();
+  // Ensure market watch list atom is initialized
+  const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
   const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
 
@@ -56,6 +59,10 @@ export function UniversalSearchMarketTokenItem({
     symbol,
     universalSearchActions,
   ]);
+
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <ListItem
