@@ -175,7 +175,7 @@ export default function HardwareSalesReward() {
                 size="$bodyLgMedium"
                 pr="$0.5"
               >
-                {item.amount}
+                {item.fiatValue}
               </Currency>
             </XStack>
           </XStack>
