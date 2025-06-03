@@ -261,7 +261,6 @@ function RewardLevelMoney({
       />
       {threshold ? (
         <Currency
-          sourceCurrency="usd"
           formatter="balance"
           textAlign={isRight ? 'right' : undefined}
           size="$bodySmMedium"
@@ -409,7 +408,6 @@ function Dashboard({
               renderTrigger={
                 <Currency
                   pb={1}
-                  sourceCurrency="usd"
                   color="$textSuccess"
                   formatter="value"
                   size="$bodyLgMedium"
@@ -635,7 +633,6 @@ function Dashboard({
                         <Currency
                           formatter="value"
                           size="$bodyMd"
-                          sourceCurrency="usd"
                           color="$textSubdued"
                         >
                           {fiatValue}
