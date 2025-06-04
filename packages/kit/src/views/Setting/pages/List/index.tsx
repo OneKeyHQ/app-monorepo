@@ -21,6 +21,7 @@ import {
   TWITTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils, {
   openUrlExternal,
@@ -73,6 +74,31 @@ const SocialButton: FC<ISocialButtonProps> = ({
   );
 };
 
+// Special Support Button component that uses showIntercom
+const SupportButton: FC<{ text: string }> = ({ text }) => {
+  const onPress = useCallback(() => {
+    // Then show intercom support
+    showIntercom();
+  }, []);
+
+  return (
+    <Tooltip
+      renderTrigger={
+        <IconButton
+          bg="$bgSubdued"
+          width="$14"
+          height="$14"
+          icon="HelpSupportOutline"
+          borderRadius="$full"
+          onPress={onPress}
+        />
+      }
+      renderContent={text}
+      placement="top"
+    />
+  );
+};
+
 const SocialButtonGroup = () => {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -113,13 +139,10 @@ const SocialButtonGroup = () => {
             url={GITHUB_URL}
             text={intl.formatMessage({ id: ETranslations.global_github })}
           />
-          <SocialButton
-            icon="HelpSupportOutline"
-            url="https://intercom-test-beryl.vercel.app/"
+          <SupportButton
             text={intl.formatMessage({
               id: ETranslations.global_support,
             })}
-            openInApp
           />
         </XStack>
       </XStack>

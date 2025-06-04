@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { BackHandler, Keyboard } from 'react-native';
+import { BackHandler } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import {
