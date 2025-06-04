@@ -42,7 +42,7 @@ export function UniversalSearchMarketTokenItem({
         from:
           searchStatus === ESearchStatus.init ? 'trendingList' : 'searchList',
       });
-      
+
       // Only add to recent search list when not in trending section
       if (searchStatus !== ESearchStatus.init) {
         setTimeout(() => {
