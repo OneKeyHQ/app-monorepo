@@ -26,7 +26,10 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IStakeHistory } from '@onekeyhq/shared/types/staking';
+import type {
+  IStakeHistoriesResponse,
+  IStakeHistory,
+} from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -41,11 +44,7 @@ import { capitalizeString } from '../../utils/utils';
 type IHistoryItemProps = {
   item: IStakeHistory;
   network?: { networkId: string; name: string; logoURI: string };
-  networks?: {
-    networkId: string;
-    name: string;
-    logoURI: string;
-  }[];
+  networks?: IStakeHistoriesResponse['networks'];
   token?: IToken;
   provider?: string;
 };
@@ -91,7 +90,7 @@ const HistoryItem = ({
       onPress={onPress}
     >
       <YStack>
-        {item.amount && Number(item.amount) > 0 ? (
+        {item.amount !== undefined ? (
           <NumberSizeableText
             size="$bodyLgMedium"
             formatter="balance"
@@ -101,7 +100,7 @@ const HistoryItem = ({
               showPlusMinusSigns: true,
             }}
           >
-            {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
+            {`${item.direction === 'send' ? '-' : ''}${item.amount}`}
           </NumberSizeableText>
         ) : null}
       </YStack>
@@ -120,13 +119,8 @@ type IHistoryContentProps = {
   sections: IHistorySectionItem[];
   filterType?: string;
   onFilterTypeChange: (type: string) => void;
-  tokenMap: Record<string, IToken>;
   network?: { networkId: string; name: string; logoURI: string };
-  networks?: {
-    networkId: string;
-    name: string;
-    logoURI: string;
-  }[];
+  networks?: IStakeHistoriesResponse['networks'];
   provider?: string;
 };
 
@@ -138,7 +132,6 @@ const keyExtractor = (item: unknown) => {
 const HistoryContent = ({
   sections,
   network,
-  tokenMap,
   provider,
   filter,
   filterType,
@@ -150,12 +143,12 @@ const HistoryContent = ({
       <HistoryItem
         item={item}
         network={network}
-        networks={networks}
-        token={tokenMap[item.tokenAddress]}
+        token={item.token?.info}
         provider={provider}
+        networks={networks}
       />
     ),
-    [network, networks, tokenMap, provider],
+    [network, networks, provider],
   );
 
   const renderSectionHeader = useCallback(
@@ -262,11 +255,22 @@ function HistoryList() {
       const listMap = groupBy(historyResp.list, (item) =>
         formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
       );
-      const sections = Object.entries(listMap)
-        .map(([title, data]) => ({ title, data }))
+      const sections: {
+        title: string;
+        data: IStakeHistory[];
+      }[] = Object.entries(listMap)
+        .map(([title, data]) => ({
+          title,
+          data: data.map((i) => ({
+            ...i,
+            token: historyResp.tokens.find(
+              (token) =>
+                token?.info?.address === i.tokenAddress &&
+                token?.info?.networkId === i.networkId,
+            ),
+          })),
+        }))
         .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
-
-      const tokenMap = { ...historyResp.tokenMap };
 
       // local history items
       if (filterType !== 'rebate' && stakeTag) {
@@ -281,16 +285,6 @@ function HistoryList() {
             networkId,
             stakeTag,
           });
-        localItems.forEach((o) => {
-          if (o.stakingInfo.receive) {
-            const receive = o.stakingInfo.receive;
-            tokenMap[receive.token.address] = receive.token;
-          }
-          if (o.stakingInfo.send) {
-            const send = o.stakingInfo.send;
-            tokenMap[send.token.address] = send.token;
-          }
-        });
         const localNormalizedItems = localItems.map<IStakeHistory>((o) => {
           const action = o.stakingInfo.send ?? o.stakingInfo.receive;
           return {
@@ -299,6 +293,12 @@ function HistoryList() {
             title: labelFn(o.stakingInfo.label),
             direction: o.stakingInfo.send ? 'send' : 'receive',
             amount: action?.amount,
+            networkId: o.stakingInfo?.receive?.token?.networkId ?? '',
+            token: historyResp.tokens.find(
+              (i) =>
+                i?.info?.address === o.stakingInfo?.receive?.token?.address &&
+                i?.info?.networkId === o.stakingInfo?.receive?.token?.networkId,
+            ),
             tokenAddress: action?.token.address ?? '',
           };
         });
@@ -328,7 +328,6 @@ function HistoryList() {
         network: historyResp.network,
         networks: historyResp.networks,
         sections,
-        tokenMap,
         filter: historyResp.filter || {},
       };
     },
@@ -363,7 +362,6 @@ function HistoryList() {
               sections={result.sections}
               network={result.network}
               networks={result.networks}
-              tokenMap={result.tokenMap}
               filter={result.filter}
               provider={provider}
               onFilterTypeChange={setFilterType}
