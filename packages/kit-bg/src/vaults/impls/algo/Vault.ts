@@ -10,7 +10,11 @@ import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   ManageTokenInsufficientBalanceError,
   OneKeyInternalError,
@@ -471,6 +475,17 @@ export default class Vault extends VaultBase {
 
     unsignedTx.encodedTx = encodedTxNew;
     return unsignedTx;
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const unSignedEncodedTx = params.encodedTx as IEncodedTxAlgo;
+    if (isArray(unSignedEncodedTx)) {
+      return Promise.resolve('');
+    }
+    return unSignedEncodedTx;
   }
 
   async _attachFeeInfoToEncodedTx({
