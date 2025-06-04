@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { Fragment, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Share, StyleSheet } from 'react-native';
 
@@ -261,7 +262,6 @@ function RewardLevelMoney({
       />
       {threshold ? (
         <Currency
-          sourceCurrency="usd"
           formatter="balance"
           textAlign={isRight ? 'right' : undefined}
           size="$bodySmMedium"
@@ -409,7 +409,6 @@ function Dashboard({
               renderTrigger={
                 <Currency
                   pb={1}
-                  sourceCurrency="usd"
                   color="$textSuccess"
                   formatter="value"
                   size="$bodyLgMedium"
@@ -520,8 +519,10 @@ function Dashboard({
                     id: ETranslations.referral_hw_sales_title,
                   })}: `}
                 </SizableText>
-                <Currency size="$bodyMd" sourceCurrency="usd">
-                  {hardwareSales?.monthlySales || 0}
+                <Currency size="$bodyMd" formatter="value">
+                  {hardwareSales?.monthlySalesFiatValue
+                    ? BigNumber(hardwareSales.monthlySalesFiatValue).toFixed(2)
+                    : 0}
                 </Currency>
               </XStack>
             </XStack>
@@ -537,7 +538,7 @@ function Dashboard({
                       isRight={index === rebateLevels.length - 1}
                       threshold={
                         rebateLevel.level === rebateConfig.level + 1
-                          ? String(rebateLevel.threshold)
+                          ? String(rebateLevel.thresholdFiatValue)
                           : ''
                       }
                     />
@@ -635,7 +636,6 @@ function Dashboard({
                         <Currency
                           formatter="value"
                           size="$bodyMd"
-                          sourceCurrency="usd"
                           color="$textSubdued"
                         >
                           {fiatValue}

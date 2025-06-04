@@ -177,7 +177,8 @@ export function PrimeDebugPanel({
   shouldShowConfirmButton: boolean;
 }) {
   const { getAccessToken, logout, isReady, authenticated } = usePrimeAuthV2();
-  const { getCustomerInfo } = usePrimePayment();
+  const { getCustomerInfo, getPackagesNative, getPackagesWeb } =
+    usePrimePayment();
   const navigation = useAppNavigation();
   const [isHidden, setIsHidden] = useState(false);
   const { loginOneKeyId } = useLoginOneKeyId();
@@ -240,6 +241,30 @@ export function PrimeDebugPanel({
           }}
         >
           primePersistAtomData
+        </Button>
+
+        <Button
+          onPress={() => {
+            // GooglePlay not login?
+            // Error: There was a problem with the store.
+            console.log('getPackagesNative');
+            void getPackagesNative?.()
+              .then(showDebugMessageByDialog)
+              .catch(console.error);
+          }}
+        >
+          getPackagesNative
+        </Button>
+
+        <Button
+          onPress={() => {
+            console.log('getPackagesWeb');
+            void getPackagesWeb?.()
+              .then(showDebugMessageByDialog)
+              .catch(console.error);
+          }}
+        >
+          getPackagesWeb
         </Button>
 
         <Button

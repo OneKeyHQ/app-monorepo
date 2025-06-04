@@ -627,22 +627,33 @@ class ServiceBatchCreateAccount extends ServiceBase {
               async () => {
                 // throw new NewFirmwareForceUpdate({ payload: {} });
 
-                const sdkAllNetworkGetAddressResponse =
-                  await sdk.allNetworkGetAddress(
-                    deviceParams.dbDevice?.connectId || '',
-                    deviceParams.dbDevice?.deviceId || '',
-                    {
-                      ...deviceParams.deviceCommonParams,
-                      bundle: bundleParams,
-                    },
+                appEventBus.emit(
+                  EAppEventBusNames.SDKGetAllNetworkAddressesStart,
+                  undefined,
+                );
+                try {
+                  const sdkAllNetworkGetAddressResponse =
+                    await sdk.allNetworkGetAddress(
+                      deviceParams.dbDevice?.connectId || '',
+                      deviceParams.dbDevice?.deviceId || '',
+                      {
+                        ...deviceParams.deviceCommonParams,
+                        bundle: bundleParams,
+                      },
+                    );
+
+                  console.log('sdk.allNetworkGetAddress response', {
+                    bundle: bundleParams,
+                    response: sdkAllNetworkGetAddressResponse,
+                  });
+
+                  return sdkAllNetworkGetAddressResponse;
+                } finally {
+                  appEventBus.emit(
+                    EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
+                    undefined,
                   );
-
-                console.log('sdk.allNetworkGetAddress response', {
-                  bundle: bundleParams,
-                  response: sdkAllNetworkGetAddressResponse,
-                });
-
-                return sdkAllNetworkGetAddressResponse;
+                }
               },
             )) as any; // TODO sdk type error
           }
