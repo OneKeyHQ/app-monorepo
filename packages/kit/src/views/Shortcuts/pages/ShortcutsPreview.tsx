@@ -44,16 +44,24 @@ const sections = [
         shortcutKey: EShortcutEvents.TabWallet,
       },
       {
-        titleId: ETranslations.shortcuts_go_to_earn_tab,
-        shortcutKey: EShortcutEvents.TabEarn,
+        titleId: ETranslations.shortcuts_go_to_market_tab,
+        shortcutKey: EShortcutEvents.TabMarket,
       },
       {
         titleId: ETranslations.shortcuts_go_to_swap_tab,
         shortcutKey: EShortcutEvents.TabSwap,
       },
       {
-        titleId: ETranslations.shortcuts_go_to_market_tab,
-        shortcutKey: EShortcutEvents.TabMarket,
+        titleId: ETranslations.shortcuts_go_to_earn_tab,
+        shortcutKey: EShortcutEvents.TabEarn,
+      },
+      {
+        titleId: ETranslations.shortcuts_go_to_referral_tab,
+        shortcutKey: EShortcutEvents.TabReferAFriend,
+      },
+      {
+        titleId: ETranslations.shortcuts_go_to_myonekey_tab,
+        shortcutKey: EShortcutEvents.TabMyOneKey,
       },
       {
         titleId: ETranslations.shortcuts_go_to_browser_tab,

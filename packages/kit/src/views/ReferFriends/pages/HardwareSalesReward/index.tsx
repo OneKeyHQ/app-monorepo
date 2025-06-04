@@ -166,7 +166,6 @@ export default function HardwareSalesReward() {
             </YStack>
             <XStack>
               <Currency
-                sourceCurrency="usd"
                 numberOfLines={1}
                 formatter="balance"
                 formatterOptions={{
@@ -245,12 +244,7 @@ export default function HardwareSalesReward() {
                   </SizableText>
                   <XStack gap="$2" ai="center">
                     {Number(amount.available) > 0 ? (
-                      <Currency
-                        sourceCurrency="usd"
-                        formatter="value"
-                        size="$heading5xl"
-                        pr="$0.5"
-                      >
+                      <Currency formatter="value" size="$heading5xl" pr="$0.5">
                         {amount.available}
                       </Currency>
                     ) : (
@@ -271,7 +265,6 @@ export default function HardwareSalesReward() {
                   {Number(amount.pending) > 0 ? (
                     <XStack gap="$1">
                       <Currency
-                        sourceCurrency="usd"
                         formatter="value"
                         formatterOptions={{
                           currency: settings.currencyInfo.symbol,

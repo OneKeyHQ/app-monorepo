@@ -94,7 +94,23 @@ const SwapQuoteResult = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
-
+  const isFreeOneKeyFee = useMemo(() => {
+    if (
+      (quoteResult?.toAmount && quoteResult.kind === ESwapQuoteKind.SELL) ||
+      (quoteResult?.fromAmount && quoteResult.kind === ESwapQuoteKind.BUY)
+    ) {
+      return (
+        new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isZero() ||
+        new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isNaN()
+      );
+    }
+    return false;
+  }, [
+    quoteResult?.fee?.percentageFee,
+    quoteResult?.fromAmount,
+    quoteResult?.toAmount,
+    quoteResult?.kind,
+  ]);
   const swapRecipientAddress = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -380,10 +396,7 @@ const SwapQuoteResult = ({
           <SwapProviderInfoItem
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
-            isFreeOneKeyFee={
-              new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isZero() ||
-              new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isNaN()
-            }
+            isFreeOneKeyFee={isFreeOneKeyFee ?? false}
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
             onekeyFee={quoteResult?.fee?.percentageFee}
@@ -445,12 +458,7 @@ const SwapQuoteResult = ({
                 rate={quoteResult?.instantRate}
                 quoting={quoting}
                 fromToken={fromToken}
-                isFreeOneKeyFee={
-                  new BigNumber(
-                    quoteResult?.fee?.percentageFee ?? '0',
-                  ).isZero() ||
-                  new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isNaN()
-                }
+                isFreeOneKeyFee={isFreeOneKeyFee ?? false}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
@@ -510,14 +518,7 @@ const SwapQuoteResult = ({
                   providerName={quoteResult?.info.providerName ?? ''}
                   isLoading={swapQuoteLoading}
                   isBest={quoteResult.isBest}
-                  isFreeOneKeyFee={
-                    new BigNumber(
-                      quoteResult?.fee?.percentageFee ?? '0',
-                    ).isZero() ||
-                    new BigNumber(
-                      quoteResult?.fee?.percentageFee ?? '0',
-                    ).isNaN()
-                  }
+                  isFreeOneKeyFee={isFreeOneKeyFee ?? false}
                   fromToken={fromToken}
                   onekeyFee={quoteResult?.fee?.percentageFee}
                   toToken={toToken}
