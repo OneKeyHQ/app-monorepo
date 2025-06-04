@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
@@ -21,6 +21,7 @@ import {
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { isSameUnsignedTxs } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -72,13 +73,15 @@ function TxAdvancedSettings(props: IProps) {
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [settings] = useSettingsPersistAtom();
-  const { updateTxAdvancedSettings } = useSignatureConfirmActions().current;
+  const { updateTxAdvancedSettings, updateUnsignedTxs } =
+    useSignatureConfirmActions().current;
   const [selectedFee] = useSendSelectedFeeInfoAtom();
   const vaultSettings = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
     [networkId],
   ).result;
+  const latestUnsignedTxs = useRef(unsignedTxs);
 
   const isInternalSwapTx = useMemo(
     () => unsignedTxs.length === 1 && unsignedTxs[0].swapInfo,
@@ -97,6 +100,8 @@ function TxAdvancedSettings(props: IProps) {
 
     let txString = '';
 
+    const unsignedTxsWithFeeInfo = [];
+
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const unsignedTx = unsignedTxs[i];
       const unsignedTxWithFeeInfo =
@@ -106,6 +111,8 @@ function TxAdvancedSettings(props: IProps) {
           networkId,
           accountId,
         });
+
+      unsignedTxsWithFeeInfo.push(unsignedTxWithFeeInfo);
 
       const encodedTx = unsignedTxWithFeeInfo.encodedTx as IEncodedTxEvm;
 
@@ -121,8 +128,24 @@ function TxAdvancedSettings(props: IProps) {
       }
     }
 
+    if (
+      !isSameUnsignedTxs({
+        unsignedTxs: latestUnsignedTxs.current,
+        unsignedTxsWithFeeInfo,
+      })
+    ) {
+      latestUnsignedTxs.current = unsignedTxsWithFeeInfo;
+      updateUnsignedTxs(unsignedTxsWithFeeInfo);
+    }
+
     return txString;
-  }, [unsignedTxs, selectedFee?.feeInfos, accountId, networkId]);
+  }, [
+    unsignedTxs,
+    selectedFee?.feeInfos,
+    networkId,
+    accountId,
+    updateUnsignedTxs,
+  ]);
 
   const abiContent = useMemo(() => {
     if (!decodedTxs || decodedTxs.length === 0) {

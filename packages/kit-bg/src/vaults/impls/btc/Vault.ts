@@ -568,6 +568,7 @@ export default class VaultBtc extends VaultBase {
     }
 
     unsignedTx.encodedTx = encodedTxNew;
+    unsignedTx.txSize = encodedTxNew.txSize;
 
     return Promise.resolve(unsignedTx);
   }

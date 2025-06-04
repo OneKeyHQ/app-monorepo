@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -483,4 +484,19 @@ export function calculateTxExtraFee({ decodedTx }: { decodedTx: IDecodedTx }) {
   }
 
   return extraFeeNative;
+}
+
+export function isSameUnsignedTxs({
+  unsignedTxs,
+  unsignedTxsWithFeeInfo,
+}: {
+  unsignedTxs: IUnsignedTxPro[];
+  unsignedTxsWithFeeInfo: IUnsignedTxPro[];
+}) {
+  return unsignedTxs.every((unsignedTx, index) => {
+    if (unsignedTx.txSize) {
+      return unsignedTx.txSize === unsignedTxsWithFeeInfo[index]?.txSize;
+    }
+    return true;
+  });
 }
