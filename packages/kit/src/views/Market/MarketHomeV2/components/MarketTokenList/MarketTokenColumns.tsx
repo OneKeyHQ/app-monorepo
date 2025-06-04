@@ -1,12 +1,9 @@
 import { SizableText } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 
-import { RiskIndicator } from './components/RiskIndicator';
 import { TokenIdentityItem } from './components/TokenIdentityItem';
 import { Txns } from './components/Txns';
 import { type IMarketToken } from './MarketTokenData';
-
-import type { IRiskIndicatorType } from './components/RiskIndicator';
 
 export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
   {
@@ -107,13 +104,6 @@ export const marketTokenColumns: ITableColumn<IMarketToken>[] = [
     dataIndex: 'tokenAge',
     columnWidth: 100,
     render: (text: string) => <SizableText size="$bodyMd">{text}</SizableText>,
-    align: 'center',
-  },
-  {
-    title: 'Audit',
-    dataIndex: 'audit',
-    columnWidth: 100,
-    render: (type: IRiskIndicatorType) => <RiskIndicator type={type} />,
     align: 'center',
   },
 ];
