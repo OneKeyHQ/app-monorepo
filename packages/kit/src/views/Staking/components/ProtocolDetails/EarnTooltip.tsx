@@ -112,6 +112,9 @@ export function EarnTooltip({
               text={{ text: tooltip.data.description }}
               size="$bodySm"
               color="$textSubdued"
+              boldTextProps={{
+                size: '$bodyMdMedium',
+              }}
             />
           ) : null}
         </YStack>
