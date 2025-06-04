@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "清除本地歷史記錄中處理中的數據",
   "settings.clear_successful": "清除成功",
   "settings.connected_sites": "dApp 連接管理",
+  "settings.contact_us": "聯繫我們",
   "settings.create_remove_wallets": "創建/刪除錢包時無需密碼",
   "settings.create_remove_wallets_desc": "創建/刪除錢包時無需輸入密碼",
   "settings.create_transactions": "創建交易時無需密碼",

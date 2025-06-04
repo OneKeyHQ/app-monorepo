@@ -140,11 +140,9 @@ const SocialButtonGroup = () => {
             text={intl.formatMessage({ id: ETranslations.global_github })}
           />
           <SupportButton
-            text={`${intl.formatMessage({
-              id: ETranslations.global_contact,
-            })} ${intl.formatMessage({
-              id: ETranslations.global_support,
-            })}`}
+            text={intl.formatMessage({
+              id: ETranslations.settings_contact_us,
+            })}
           />
         </XStack>
       </XStack>

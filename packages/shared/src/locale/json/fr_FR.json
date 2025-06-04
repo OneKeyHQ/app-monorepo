@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "Effacez les données en attente dans l'enregistrement de l'historique local.",
   "settings.clear_successful": "Effacement réussi",
   "settings.connected_sites": "Sites connectés",
+  "settings.contact_us": "Contactez-nous",
   "settings.create_remove_wallets": "Créer/supprimer des portefeuilles sans mot de passe",
   "settings.create_remove_wallets_desc": "Aucun mot de passe n'est nécessaire pour créer/supprimer des portefeuilles",
   "settings.create_transactions": "Créer une transaction sans mot de passe",

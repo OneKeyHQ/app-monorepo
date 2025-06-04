@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "Limpe os dados pendentes no registro do histórico local.",
   "settings.clear_successful": "Limpeza bem-sucedida",
   "settings.connected_sites": "Sites conectados",
+  "settings.contact_us": "Fale conosco",
   "settings.create_remove_wallets": "Criar/remover carteiras sem senha",
   "settings.create_remove_wallets_desc": "Não é necessária senha para criar/remover carteiras",
   "settings.create_transactions": "Criar transação sem senha",

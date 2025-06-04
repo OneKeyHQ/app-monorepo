@@ -457,11 +457,9 @@ function MoreActionContentGrid() {
         trackID: 'wallet-settings',
       },
       {
-        title: `${intl.formatMessage({
-          id: ETranslations.global_contact,
-        })} ${intl.formatMessage({
-          id: ETranslations.global_support,
-        })}`,
+        title: intl.formatMessage({
+          id: ETranslations.settings_contact_us,
+        }),
         icon: 'HelpSupportOutline',
         onPress: handleCustomerSupport,
         testID: 'customer-support',

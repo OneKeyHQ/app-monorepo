@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "Xóa dữ liệu đang chờ xử lý trong bản ghi lịch sử cục bộ.",
   "settings.clear_successful": "Xóa thành công",
   "settings.connected_sites": "Các trang web đã kết nối",
+  "settings.contact_us": "Liên hệ với chúng tôi",
   "settings.create_remove_wallets": "Tạo / xóa ví không cần mật mã",
   "settings.create_remove_wallets_desc": "Không cần mật mã để tạo/xóa ví",
   "settings.create_transactions": "Tạo giao dịch không cần mật khẩu",

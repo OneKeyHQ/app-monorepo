@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "Очистіть дані, що очікують на розгляд, у записі локальної історії.",
   "settings.clear_successful": "Успішно очищено",
   "settings.connected_sites": "Підключені сайти",
+  "settings.contact_us": "Зв'яжіться з нами",
   "settings.create_remove_wallets": "Створення/видалення гаманців без пароля",
   "settings.create_remove_wallets_desc": "Пароль не потрібен для створення/видалення гаманців",
   "settings.create_transactions": "Створіть транзакцію без пароля",

@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "Cancella i dati in sospeso nel record della cronologia locale.",
   "settings.clear_successful": "Cancellazione riuscita",
   "settings.connected_sites": "Siti collegati",
+  "settings.contact_us": "Contattaci",
   "settings.create_remove_wallets": "Crea/rimuovi portafogli senza passcode",
   "settings.create_remove_wallets_desc": "Non è necessario alcun codice di accesso per creare/rimuovere i portafogli",
   "settings.create_transactions": "Crea transazione senza passwcode",

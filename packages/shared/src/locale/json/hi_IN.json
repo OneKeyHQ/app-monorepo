@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "स्थानीय इतिहास रिकॉर्ड में लंबित डेटा साफ़ करें।",
   "settings.clear_successful": "सफलतापूर्वक साफ करें",
   "settings.connected_sites": "जुड़े हुए साइट",
+  "settings.contact_us": "हमसे संपर्क करें",
   "settings.create_remove_wallets": "पासकोड के बिना वॉलेट बनाएं / हटाएं",
   "settings.create_remove_wallets_desc": "वॉलेट बनाने/हटाने के लिए किसी पासकोड की आवश्यकता नहीं",
   "settings.create_transactions": "बिना पासवर्ड के लेनदेन बनाएं",

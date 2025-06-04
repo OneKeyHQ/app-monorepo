@@ -2292,6 +2292,7 @@
   "settings.clear_pending_transactions_desc": "Borre los datos pendientes en el registro del historial local.",
   "settings.clear_successful": "Eliminación exitosa",
   "settings.connected_sites": "Sitios conectados",
+  "settings.contact_us": "Contáctanos",
   "settings.create_remove_wallets": "Crear/eliminar billeteras sin contraseña",
   "settings.create_remove_wallets_desc": "No se necesita contraseña para crear o eliminar billeteras",
   "settings.create_transactions": "Crear transacción sin contraseña",

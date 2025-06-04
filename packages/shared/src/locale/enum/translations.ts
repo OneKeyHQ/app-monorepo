@@ -2297,6 +2297,7 @@
   settings_clear_pending_transactions_desc = 'settings.clear_pending_transactions_desc',
   settings_clear_successful = 'settings.clear_successful',
   settings_connected_sites = 'settings.connected_sites',
+  settings_contact_us = 'settings.contact_us',
   settings_create_remove_wallets = 'settings.create_remove_wallets',
   settings_create_remove_wallets_desc = 'settings.create_remove_wallets_desc',
   settings_create_transactions = 'settings.create_transactions',
