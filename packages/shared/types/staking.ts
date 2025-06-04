@@ -179,6 +179,7 @@ export type IStakeHistory = {
   amount?: string;
   timestamp: number;
   tokenAddress: string;
+  networkId?: string;
   direction: 'receive' | 'send';
 };
 
@@ -192,6 +193,11 @@ export type IStakeHistoriesResponse = {
     name: string;
     logoURI: string;
   };
+  networks: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  }[];
 };
 
 export enum EStakeTxType {

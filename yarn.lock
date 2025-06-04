@@ -7034,7 +7034,7 @@ __metadata:
     natsort: "npm:^2.0.3"
     node-gyp: "npm:^10.2.0"
     node-notifier: "npm:^10.0.1"
-    openpgp: "npm:^5.11.2"
+    openpgp: "npm:5.11.3"
     p-limit: "npm:^6.2.0"
     p-retry: "npm:^6.2.1"
     patch-package: "npm:^7.0.0"
@@ -32850,12 +32850,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"openpgp@npm:^5.11.2":
-  version: 5.11.2
-  resolution: "openpgp@npm:5.11.2"
+"openpgp@npm:5.11.3":
+  version: 5.11.3
+  resolution: "openpgp@npm:5.11.3"
   dependencies:
     asn1.js: "npm:^5.0.0"
-  checksum: 10/75052f8b89aa946d2b927f2a679d57671b2da5bf3dab1a223b9ba54305635ce37a86cb2ea274d0dcd830511e3fe1bae16d85259e907f56ec31219c4367c311a8
+  checksum: 10/4163fce21d57a578f402b7ae1e3aee489207faad2fcc908f92fdd5f65e1d5b1ec5860477291986991caad1772fc863d4c0593955e68486ef9404dc47afe40d91
   languageName: node
   linkType: hard
 
