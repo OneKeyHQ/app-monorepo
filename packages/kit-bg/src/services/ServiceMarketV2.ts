@@ -63,6 +63,8 @@ class ServiceMarketV2 extends ServiceBase {
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
+      code: number;
+      message: string;
       data: IMarketTokenListResponse;
     }>('/utility/v2/market/token/list', {
       params: {

@@ -27,7 +27,7 @@ function transformApiDataToComponentData(
     marketCap: parseFloat(item.marketCap || '0'),
     liquidity: parseFloat(item.tvl || '0'),
     transactions: parseInt(item.trade24hCount || '0', 10),
-    uniqueTraders: Math.floor(parseInt(item.trade24hCount || '0', 10) / 2),
+    uniqueTraders: parseInt(item.uniqueWallet24h || '0', 10),
     holders: item.holders || 0,
     turnover: parseFloat(item.volume24h || '0'),
     tokenAge: '0Y',

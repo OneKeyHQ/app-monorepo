@@ -62,7 +62,8 @@ function MarketTokenList({
           />
         </Stack>
       </Stack>
-      {!isLoading && totalPages > 1 ? (
+
+      {totalPages > 1 ? (
         <XStack justifyContent="center" py="$4">
           <Pagination
             current={currentPage}
