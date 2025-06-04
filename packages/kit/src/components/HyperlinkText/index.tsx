@@ -154,8 +154,8 @@ export function HyperlinkText({
               bold: ([string]) => (
                 <SizableText
                   {...basicTextProps}
-                  {...boldTextProps}
                   size="$headingLg"
+                  {...boldTextProps}
                 >
                   {string}
                 </SizableText>
