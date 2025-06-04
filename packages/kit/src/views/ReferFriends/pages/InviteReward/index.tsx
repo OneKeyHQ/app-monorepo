@@ -557,8 +557,8 @@ function Dashboard({
                 <Token
                   size="xs"
                   tokenImageUri={
-                    hardwareSales.available?.[0].token.logoURI ||
-                    hardwareSales.pending?.[0].token.logoURI
+                    hardwareSales.available?.[0]?.token?.logoURI ||
+                    hardwareSales.pending?.[0]?.token?.logoURI
                   }
                 />
               ) : null}
