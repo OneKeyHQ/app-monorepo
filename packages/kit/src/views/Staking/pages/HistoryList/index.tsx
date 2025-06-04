@@ -360,6 +360,7 @@ function HistoryList() {
             <HistoryContent
               sections={result.sections}
               network={result.network}
+              networks={result.networks}
               filter={result.filter}
               provider={provider}
               onFilterTypeChange={setFilterType}
