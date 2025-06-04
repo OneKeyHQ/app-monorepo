@@ -76,16 +76,23 @@ class ServiceValidator extends ServiceBase {
   public serverValidateAddress = memoizee(
     async (params: { networkId: string; address: string }) => {
       const { networkId, address } = params;
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{
-        data: IAddressValidation;
-      }>('/wallet/v1/account/validate-address', {
-        params: { networkId, accountAddress: address },
-      });
-      return resp;
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Wallet);
+        const resp = await client.get<{
+          data: IAddressValidation;
+        }>('/wallet/v1/account/validate-address', {
+          params: { networkId, accountAddress: address },
+        });
+        return resp;
+      } catch (error) {
+        // Clear cache on network errors to allow retry when network recovers
+        this.serverValidateAddress.clear();
+        throw error;
+      }
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+      promise: true,
     },
   );
 
@@ -95,27 +102,34 @@ class ServiceValidator extends ServiceBase {
       accountAddress: string;
     }): Promise<{ isValid: boolean; networkIds: string[] }> => {
       const { networkIdList, accountAddress } = params;
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.post<{
-        data: Record<string, IAddressValidation>;
-      }>('/wallet/v1/account/validate-address-batch', {
-        networkIdList,
-        accountAddress,
-      });
-      const validateResult = resp.data.data || {};
-      const validItems = Object.entries(validateResult)
-        .map(([networkId, validation]) => ({
-          networkId,
-          validation,
-        }))
-        .filter(({ validation }) => validation.isValid);
-      return {
-        isValid: validItems.length > 0,
-        networkIds: validItems.map(({ networkId }) => networkId),
-      };
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Wallet);
+        const resp = await client.post<{
+          data: Record<string, IAddressValidation>;
+        }>('/wallet/v1/account/validate-address-batch', {
+          networkIdList,
+          accountAddress,
+        });
+        const validateResult = resp.data.data || {};
+        const validItems = Object.entries(validateResult)
+          .map(([networkId, validation]) => ({
+            networkId,
+            validation,
+          }))
+          .filter(({ validation }) => validation.isValid);
+        return {
+          isValid: validItems.length > 0,
+          networkIds: validItems.map(({ networkId }) => networkId),
+        };
+      } catch (error) {
+        // Clear cache on network errors to allow retry when network recovers
+        this.serverBatchValidateAddress.clear();
+        throw error;
+      }
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      promise: true,
     },
   );
 

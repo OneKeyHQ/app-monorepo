@@ -103,8 +103,7 @@ export function UniversalSearchAddressItem({
       if (!network || !addressInfo) {
         return;
       }
-      navigation.switchTab(ETabRoutes.Home);
-      await urlAccountNavigation.pushUrlAccountPage(navigation, {
+      await urlAccountNavigation.pushOrReplaceUrlAccountPage(navigation, {
         address: addressInfo.displayAddress,
         networkId: network.id,
         contextNetworkId,
