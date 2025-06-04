@@ -33,7 +33,7 @@ export const earnAtom = memoizee(() =>
         void backgroundApiProxy.simpleDb.earn.getEarnData().then((data) => {
           set(basicEarnAtom(), {
             ...data,
-            earnAccount: {},
+            earnAccount: data.earnAccount || {},
           });
           set(earnStorageReadyAtom(), true);
         });

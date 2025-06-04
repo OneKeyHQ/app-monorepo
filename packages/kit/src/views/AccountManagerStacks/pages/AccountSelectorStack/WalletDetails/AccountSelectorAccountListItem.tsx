@@ -176,7 +176,6 @@ export function AccountSelectorAccountListItem({
       !networkUtils.isAllNetwork({
         networkId: network.id,
       }) &&
-      !networkUtils.isLightningNetworkByNetworkId(network.id) &&
       indexedAccount?.id
     ) {
       const [deriveType, vaultSettings] = await Promise.all([

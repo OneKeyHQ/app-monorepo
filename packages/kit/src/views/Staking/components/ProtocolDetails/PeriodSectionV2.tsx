@@ -86,7 +86,10 @@ export function PeriodSection({
   return (
     <>
       <YStack gap="$6">
-        <SizableText size="$headingLg" color={timeline.title.color}>
+        <SizableText
+          size={timeline.title.size || '$headingLg'}
+          color={timeline.title.color}
+        >
           {timeline.title.text}
         </SizableText>
         <YStack>

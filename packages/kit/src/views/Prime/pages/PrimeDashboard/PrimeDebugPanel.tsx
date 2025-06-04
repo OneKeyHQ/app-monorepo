@@ -13,6 +13,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -176,10 +177,12 @@ export function PrimeDebugPanel({
   shouldShowConfirmButton: boolean;
 }) {
   const { getAccessToken, logout, isReady, authenticated } = usePrimeAuthV2();
-  const { getCustomerInfo } = usePrimePayment();
+  const { getCustomerInfo, getPackagesNative, getPackagesWeb } =
+    usePrimePayment();
   const navigation = useAppNavigation();
   const [isHidden, setIsHidden] = useState(false);
   const { loginOneKeyId } = useLoginOneKeyId();
+  const [primePersistAtomData] = usePrimePersistAtom();
 
   if (isHidden) {
     return null;
@@ -220,7 +223,7 @@ export function PrimeDebugPanel({
             void getCustomerInfo().then(showDebugMessageByDialog);
           }}
         >
-          CustomerInfo
+          sdk.CustomerInfo
         </Button>
         <Button
           onPress={() => {
@@ -231,6 +234,39 @@ export function PrimeDebugPanel({
         >
           ServerPrimeUserInfo
         </Button>
+
+        <Button
+          onPress={() => {
+            showDebugMessageByDialog(primePersistAtomData);
+          }}
+        >
+          primePersistAtomData
+        </Button>
+
+        <Button
+          onPress={() => {
+            // GooglePlay not login?
+            // Error: There was a problem with the store.
+            console.log('getPackagesNative');
+            void getPackagesNative?.()
+              .then(showDebugMessageByDialog)
+              .catch(console.error);
+          }}
+        >
+          getPackagesNative
+        </Button>
+
+        <Button
+          onPress={() => {
+            console.log('getPackagesWeb');
+            void getPackagesWeb?.()
+              .then(showDebugMessageByDialog)
+              .catch(console.error);
+          }}
+        >
+          getPackagesWeb
+        </Button>
+
         <Button
           onPress={() => {
             void backgroundApiProxy.servicePrime

@@ -3,7 +3,6 @@ import type {
   IProtocolInfo,
   IStakeProtocolDetails,
 } from '../../types/staking';
-import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',

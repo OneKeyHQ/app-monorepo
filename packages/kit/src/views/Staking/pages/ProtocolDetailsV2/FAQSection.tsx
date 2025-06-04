@@ -26,6 +26,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { EarnText } from '../../components/ProtocolDetails/EarnText';
+
 export function FAQSection({
   faqs,
   tokenInfo,
@@ -91,9 +93,7 @@ export function FAQSection({
   );
   return faqs?.items?.length ? (
     <YStack gap="$6">
-      <SizableText size="$headingLg" color={faqs.title.color}>
-        {faqs.title.text}
-      </SizableText>
+      <EarnText text={faqs.title} size="$headingLg" />
       <YStack>
         <Accordion type="multiple" gap="$2">
           {faqs.items.map(({ title, description }, index) => (

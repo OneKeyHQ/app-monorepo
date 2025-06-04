@@ -313,11 +313,11 @@ export async function transfer(
   );
 
   if (changeCapacity.gte(minimalChangeCellWithoutSudtCapacity)) {
-    const minimalChangeCellCapcaity = BI.from(
+    const minimalChangeCellCapacity = BI.from(
       minimalCellCapacityCompatible(changeCell),
     );
 
-    changeCell.cellOutput.capacity = `0x${minimalChangeCellCapcaity.toString(
+    changeCell.cellOutput.capacity = `0x${minimalChangeCellCapacity.toString(
       16,
     )}`;
     if (changeAmount.gt(0)) {

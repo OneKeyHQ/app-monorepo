@@ -71,7 +71,10 @@ import type {
   IFirmwareAuthenticateParams,
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
-import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type {
+  IHardwareUiPayload,
+  IHardwareUiState,
+} from '../../states/jotai/atoms';
 import type { IServiceBaseProps } from '../ServiceBase';
 import type { IUpdateFirmwareWorkflowParams } from '../ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import type {
@@ -402,12 +405,17 @@ class ServiceHardware extends ServiceBase {
               undefined,
             );
           } else {
+            if (newUiRequestType === ('ui-device_progress' as any)) {
+              console.log('ui-device_progress', originEvent);
+            }
             // show hardware ui dialog
-            await hardwareUiStateAtom.set({
-              action: newUiRequestType,
-              connectId,
-              payload: newPayload,
-            });
+            await hardwareUiStateAtom.set(
+              (): IHardwareUiState => ({
+                action: newUiRequestType,
+                connectId,
+                payload: newPayload,
+              }),
+            );
           }
         }
         await hardwareUiStateCompletedAtom.set({

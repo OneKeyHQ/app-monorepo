@@ -18,14 +18,18 @@ import { contextAtomMethod, earnAtom, earnPermitCacheAtom } from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
 
-class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
+class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   syncToDb = contextAtomMethod((get, set, payload: IEarnAtomData) => {
     const atom = earnAtom();
     if (!get(atom).isMounted) {
       return;
     }
-    void this.syncToJotai.call(set, payload);
-    void backgroundApiProxy.simpleDb.earn.setRawData(payload);
+    const data = {
+      ...get(atom),
+      ...payload,
+    };
+    void this.syncToJotai.call(set, data);
+    void backgroundApiProxy.simpleDb.earn.setRawData(data);
   });
 
   syncToJotai = contextAtomMethod((get, set, payload: IEarnAtomData) => {
@@ -33,10 +37,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     if (!get(atom).isMounted) {
       return;
     }
-    set(atom, (prev: IEarnAtomData) => ({
-      ...prev,
-      ...payload,
-    }));
+    set(atom, () => payload);
   });
 
   getAvailableAssets = contextAtomMethod((get) => {
@@ -70,7 +71,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       },
     ) => {
       const earnData = get(earnAtom());
-      this.syncToJotai.call(set, {
+      this.syncToDb.call(set, {
         earnAccount: {
           ...earnData.earnAccount,
           [key]: earnAccount,
@@ -124,7 +125,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
   );
 }
 
-const createActions = memoFn(() => new ContextJotaiActionsMarket());
+const createActions = memoFn(() => new ContextJotaiActionsEarn());
 
 export function useEarnActions() {
   const actions = createActions();

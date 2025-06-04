@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
 
 import {
@@ -13,12 +14,35 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { StyleProp, TextStyle } from 'react-native';
+import type {
+  NativeSyntheticEvent,
+  StyleProp,
+  TextInputFocusEventData,
+  TextStyle,
+} from 'react-native';
 
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
 
 export const StakingPercentageInputStage = [25, 50, 100];
+
+export const useOnBlurAmountValue = (
+  amountValue: string,
+  setAmountValue: (value: string) => void,
+) => {
+  const amountValueRef = useRef<string | undefined>(undefined);
+  amountValueRef.current = amountValue;
+  return useCallback(() => {
+    if (amountValueRef.current) {
+      const value = BigNumber(amountValueRef.current);
+      if (value.isNaN()) {
+        setAmountValue('');
+      } else {
+        setAmountValue(value.toFixed());
+      }
+    }
+  }, [setAmountValue]);
+};
 
 export function StakingAmountInput({
   title,
@@ -26,6 +50,7 @@ export function StakingAmountInput({
   disabled,
   onSelectPercentageStage,
   value,
+  onBlur,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
@@ -37,11 +62,15 @@ export function StakingAmountInput({
     setPercentageInputStageShow(true);
   }, []);
 
-  const onFromInputBlur = useCallback(() => {
-    setTimeout(() => {
-      setPercentageInputStageShow(false);
-    }, 200);
-  }, []);
+  const onFromInputBlur = useCallback(
+    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      setTimeout(() => {
+        setPercentageInputStageShow(false);
+      }, 200);
+      onBlur?.(e as any);
+    },
+    [onBlur],
+  );
 
   return (
     <YStack

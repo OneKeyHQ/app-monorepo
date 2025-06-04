@@ -8,6 +8,7 @@ import type {
   IEarnWalletHistory,
   IHardwareSalesRecord,
   IInviteHistory,
+  IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -30,14 +31,21 @@ class ServiceReferralCode extends ServiceBase {
     const summary = await client.get<{
       data: IInviteSummary;
     }>('/rebate/v1/invite/summary');
+    if (summary.data.data.inviteCode) {
+      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+        summary.data.data.inviteCode,
+      );
+    }
     return summary.data.data;
   }
 
   @backgroundMethod()
-  async getInviteCode() {
-    const inviteCode =
-      await this.backgroundApi.simpleDb.referralCode.getInviteCode();
-    return inviteCode;
+  async getInvitePaidList() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInvitePaidHistory;
+    }>('/rebate/v1/invite/paid');
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -165,25 +173,13 @@ class ServiceReferralCode extends ServiceBase {
   async getMyReferralCode() {
     const myReferralCode =
       await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+    setTimeout(async () => {
+      const isLogin = await this.backgroundApi.servicePrime.isLoggedIn();
+      if (isLogin) {
+        void this.getSummaryInfo();
+      }
+    });
     return myReferralCode;
-  }
-
-  @backgroundMethod()
-  async isBindInviteCode() {
-    const inviteCode =
-      await this.backgroundApi.simpleDb.referralCode.getInviteCode();
-    return inviteCode !== '';
-  }
-
-  @backgroundMethod()
-  async bindInviteCode(code: string) {
-    const valid = await this.backgroundApi.serviceStaking.checkInviteCode(code);
-    if (valid) {
-      await this.backgroundApi.simpleDb.referralCode.updateCode({
-        inviteCode: code,
-      });
-    }
-    return valid;
   }
 
   @backgroundMethod()
@@ -220,6 +216,11 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async resetPostConfig() {
+    await this.backgroundApi.simpleDb.referralCode.resetPostConfig();
+  }
+
+  @backgroundMethod()
   async reset() {
     await this.backgroundApi.simpleDb.referralCode.reset();
   }
@@ -239,7 +240,13 @@ class ServiceReferralCode extends ServiceBase {
   async getPostConfig() {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
-    return postConfig;
+    if (postConfig?.locales) {
+      setTimeout(() => {
+        void this.fetchPostConfig();
+      });
+      return postConfig;
+    }
+    return this.fetchPostConfig();
   }
 
   @backgroundMethod()

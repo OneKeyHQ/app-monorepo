@@ -1,4 +1,5 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum ESendFeeStatus {
   Loading = 'Loading',
@@ -104,6 +105,7 @@ export type IEstimateGasParams = {
   networkId: string;
   accountAddress: string;
   encodedTx?: IEncodedTx;
+  transfersInfo?: ITransferInfo[];
 };
 
 export type IFeesInfoUnit = {

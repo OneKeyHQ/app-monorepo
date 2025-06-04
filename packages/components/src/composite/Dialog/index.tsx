@@ -113,6 +113,7 @@ function DialogFrame({
   testID,
   isAsync,
   trackID,
+  forceMount,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -226,7 +227,10 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
-        modal={modal}
+        // OK-36893 OK-38624
+        // When modal is false, multiple Tamagui sheets may collapse into position:relative
+        // which causes z-index stacking issues
+        modal={!platformEnv.isNative && modal === undefined ? true : modal}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -281,6 +285,7 @@ function DialogFrame({
               backgroundColor="$bgBackdrop"
               animateOnly={['opacity']}
               animation="quick"
+              forceMount={forceMount || undefined}
               enterStyle={{
                 opacity: 0,
               }}
@@ -685,6 +690,7 @@ const useInPageDialog = (type: EInPageDialogType) => {
     () => ({
       testID: portalId,
       modal: false,
+      forceMount: platformEnv.isNative ? undefined : true,
       portalContainer: portalId,
     }),
     [portalId],

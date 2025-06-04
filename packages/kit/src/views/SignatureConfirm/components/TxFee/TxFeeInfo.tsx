@@ -253,6 +253,7 @@ function TxFeeInfo(props: IProps) {
           networkId,
           encodedTx,
           accountAddress,
+          transfersInfo: unsignedTxs[0].transfersInfo,
         });
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
