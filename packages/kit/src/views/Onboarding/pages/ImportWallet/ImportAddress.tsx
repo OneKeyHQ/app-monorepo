@@ -219,7 +219,6 @@ function ImportAddress() {
       form.clearErrors('accountName');
     }
 
-    setValue('deriveType', undefined);
     if (inputTextDebounced && networkIdText) {
       const input =
         await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -249,7 +248,6 @@ function ImportAddress() {
     }
   }, [
     accountNameDebounced,
-    setValue,
     inputTextDebounced,
     networkIdText,
     form,
