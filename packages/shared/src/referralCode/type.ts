@@ -1,7 +1,7 @@
 interface IReward {
   title: string;
   description: string;
-  monthlySales: string;
+  monthlySalesFiatValue: string;
   available?: {
     token: {
       networkId: string;
@@ -55,7 +55,7 @@ export interface IInviteSummary {
     level: number;
     rebate: number;
     discount: number;
-    threshold: number;
+    thresholdFiatValue: string;
     emoji: string;
     labelKey: string;
     label: string;
@@ -91,7 +91,6 @@ interface IHardwareSalesRecordItem {
   side: 'in' | 'out';
   subject: string;
   userId: string;
-  amount: string;
   createdAt: string;
   effectiveTime: string | null;
   orderTotalAmount: string;

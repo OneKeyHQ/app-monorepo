@@ -123,6 +123,13 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
       });
     },
   );
+
+  resetEarnCacheData = contextAtomMethod((_, set) => {
+    this.syncToDb.call(set, {
+      availableAssets: [],
+      earnAccount: {},
+    });
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsEarn());

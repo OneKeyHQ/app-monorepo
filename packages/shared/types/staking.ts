@@ -203,6 +203,11 @@ export type IStakeHistoriesResponse = {
     name: string;
     logoURI: string;
   };
+  networks: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  }[];
 };
 
 export enum EStakeTxType {

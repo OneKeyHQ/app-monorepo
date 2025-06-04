@@ -41,17 +41,37 @@ import { capitalizeString } from '../../utils/utils';
 type IHistoryItemProps = {
   item: IStakeHistory;
   network?: { networkId: string; name: string; logoURI: string };
+  networks?: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  }[];
   token?: IToken;
   provider?: string;
 };
 
-const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => {
+const HistoryItem = ({
+  item,
+  provider,
+  token,
+  network,
+  networks,
+}: IHistoryItemProps) => {
   const navigation = useAppNavigation();
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.HistoryList
   >();
   const { accountId, networkId } = route.params;
+  const logoURI = useMemo(() => {
+    if (token?.logoURI) {
+      return token.logoURI;
+    }
+    if (networks?.length) {
+      return networks.find((o) => o.networkId === item.networkId)?.logoURI;
+    }
+    return network?.logoURI;
+  }, [token?.logoURI, networks, network?.logoURI, item.networkId]);
   const onPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
       networkId,
@@ -64,7 +84,7 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => {
   return (
     <ListItem
       avatarProps={{
-        src: token?.logoURI,
+        src: logoURI,
       }}
       title={item.title}
       subtitle={provider ? capitalizeString(provider) : undefined}
@@ -115,6 +135,7 @@ const HistoryContent = ({
   provider,
   filter,
   filterType,
+  networks,
   onFilterTypeChange,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
@@ -304,6 +325,7 @@ function HistoryList() {
       }
       return {
         network: historyResp.network,
+        networks: historyResp.networks,
         sections,
         filter: historyResp.filter || {},
       };

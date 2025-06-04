@@ -272,10 +272,19 @@ export default class Vault extends VaultBase {
         }
       }
 
-      if (
-        isToContract === false ||
-        checkIsEvmNativeTransfer({ tx: nativeTx })
-      ) {
+      if (isToContract || !checkIsEvmNativeTransfer({ tx: nativeTx })) {
+        const actionFromContract = await this._buildTxActionFromContract({
+          encodedTx,
+          transferPayload,
+        });
+        if (actionFromContract) {
+          action = actionFromContract;
+        }
+
+        if (isToContract) {
+          extraNativeTransferAction = undefined;
+        }
+      } else {
         const actionFromNativeTransfer =
           await this._buildTxTransferNativeTokenAction({
             encodedTx,
@@ -284,14 +293,6 @@ export default class Vault extends VaultBase {
           action = actionFromNativeTransfer;
         }
         extraNativeTransferAction = undefined;
-      } else {
-        const actionFromContract = await this._buildTxActionFromContract({
-          encodedTx,
-          transferPayload,
-        });
-        if (actionFromContract) {
-          action = actionFromContract;
-        }
       }
     }
 
