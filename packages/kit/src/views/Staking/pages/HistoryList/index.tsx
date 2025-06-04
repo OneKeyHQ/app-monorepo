@@ -71,7 +71,7 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => {
       onPress={onPress}
     >
       <YStack>
-        {item.amount && Number(item.amount) > 0 ? (
+        {item.amount !== undefined ? (
           <NumberSizeableText
             size="$bodyLgMedium"
             formatter="balance"
@@ -81,7 +81,7 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => {
               showPlusMinusSigns: true,
             }}
           >
-            {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
+            {`${item.direction === 'send' ? '-' : ''}${item.amount}`}
           </NumberSizeableText>
         ) : null}
       </YStack>
@@ -101,7 +101,6 @@ type IHistoryContentProps = {
   filterType?: string;
   onFilterTypeChange: (type: string) => void;
   network?: { networkId: string; name: string; logoURI: string };
-  tokenMap: Record<string, IToken>;
   provider?: string;
 };
 
@@ -113,7 +112,6 @@ const keyExtractor = (item: unknown) => {
 const HistoryContent = ({
   sections,
   network,
-  tokenMap,
   provider,
   filter,
   filterType,
@@ -124,11 +122,11 @@ const HistoryContent = ({
       <HistoryItem
         item={item}
         network={network}
-        token={tokenMap[item.tokenAddress]}
+        token={item.token?.info}
         provider={provider}
       />
     ),
-    [network, tokenMap, provider],
+    [network, provider],
   );
 
   const renderSectionHeader = useCallback(
@@ -235,11 +233,22 @@ function HistoryList() {
       const listMap = groupBy(historyResp.list, (item) =>
         formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
       );
-      const sections = Object.entries(listMap)
-        .map(([title, data]) => ({ title, data }))
+      const sections: {
+        title: string;
+        data: IStakeHistory[];
+      }[] = Object.entries(listMap)
+        .map(([title, data]) => ({
+          title,
+          data: data.map((i) => ({
+            ...i,
+            token: historyResp.tokens.find(
+              (token) =>
+                token?.info?.address === i.tokenAddress &&
+                token?.info?.networkId === i.networkId,
+            ),
+          })),
+        }))
         .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
-
-      const tokenMap = { ...historyResp.tokenMap };
 
       // local history items
       if (filterType !== 'rebate' && stakeTag) {
@@ -254,16 +263,6 @@ function HistoryList() {
             networkId,
             stakeTag,
           });
-        localItems.forEach((o) => {
-          if (o.stakingInfo.receive) {
-            const receive = o.stakingInfo.receive;
-            tokenMap[receive.token.address] = receive.token;
-          }
-          if (o.stakingInfo.send) {
-            const send = o.stakingInfo.send;
-            tokenMap[send.token.address] = send.token;
-          }
-        });
         const localNormalizedItems = localItems.map<IStakeHistory>((o) => {
           const action = o.stakingInfo.send ?? o.stakingInfo.receive;
           return {
@@ -272,6 +271,12 @@ function HistoryList() {
             title: labelFn(o.stakingInfo.label),
             direction: o.stakingInfo.send ? 'send' : 'receive',
             amount: action?.amount,
+            networkId: o.stakingInfo?.receive?.token?.networkId ?? '',
+            token: historyResp.tokens.find(
+              (i) =>
+                i?.info?.address === o.stakingInfo?.receive?.token?.address &&
+                i?.info?.networkId === o.stakingInfo?.receive?.token?.networkId,
+            ),
             tokenAddress: action?.token.address ?? '',
           };
         });
@@ -300,7 +305,6 @@ function HistoryList() {
       return {
         network: historyResp.network,
         sections,
-        tokenMap,
         filter: historyResp.filter || {},
       };
     },
@@ -334,7 +338,6 @@ function HistoryList() {
             <HistoryContent
               sections={result.sections}
               network={result.network}
-              tokenMap={result.tokenMap}
               filter={result.filter}
               provider={provider}
               onFilterTypeChange={setFilterType}
