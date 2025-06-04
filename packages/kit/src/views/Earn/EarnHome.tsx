@@ -1030,7 +1030,7 @@ export default function EarnHome() {
       }}
       enabledNum={[0]}
     >
-      <EarnProviderMirror storeName={EJotaiContextStoreNames.swap}>
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
         <BasicEarnHome />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
