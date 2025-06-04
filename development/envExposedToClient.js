@@ -23,6 +23,13 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'WORKFLOW_GITHUB_SHA',
     'STORYBOOK_ENABLED',
     'WALLETCONNECT_PROJECT_ID',
+    'SENTRY_DSN_EXT',
+    'SENTRY_DSN_DESKTOP',
+    'SENTRY_DSN_MAS',
+    'SENTRY_DSN_SNAP',
+    'SENTRY_DSN_WINMS',
+    'SENTRY_DSN_REACT_NATIVE',
+    'SENTRY_DSN_WEB',
   ];
   // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 

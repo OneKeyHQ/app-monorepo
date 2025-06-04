@@ -12,6 +12,7 @@ import {
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -22,6 +23,8 @@ import {
   AccountSelectorTriggerHome,
 } from '../AccountSelector';
 import { useSpotlight } from '../Spotlight';
+
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderLeftCloseButton() {
   return (
@@ -63,7 +66,12 @@ export function HeaderLeft({
       return customHeaderLeftItems;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return <HeaderLeftCloseButton />;
+      return (
+        <XStack gap="$1.5">
+          <HeaderLeftCloseButton />
+          {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
+        </XStack>
+      );
     }
 
     const accountSelectorTrigger = (

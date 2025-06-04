@@ -504,6 +504,8 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
+    const settings = await this.getVaultSettings();
+    result.deriveInfoItems = Object.values(settings.accountDeriveInfo);
     return result;
   }
 

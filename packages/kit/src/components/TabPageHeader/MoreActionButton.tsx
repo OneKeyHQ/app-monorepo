@@ -274,7 +274,7 @@ function MoreActionContentGridItem({
       testID={testID}
       onPress={handlePress}
       group
-      flexBasis="25%"
+      flexBasis="33.33%"
       ai="center"
       gap="$2"
       py="$2.5"
@@ -449,13 +449,6 @@ function MoreActionContentGrid() {
         testID: 'my-onekey',
       },
       {
-        title: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
-        lottieSrc:
-          themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
-        testID: 'referral',
-        onPress: toReferFriendsPage,
-      },
-      {
         title: intl.formatMessage({
           id: ETranslations.settings_settings,
         }),
@@ -473,6 +466,13 @@ function MoreActionContentGrid() {
         onPress: handleCustomerSupport,
         testID: 'customer-support',
         trackID: 'wallet-customer-support',
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
+        lottieSrc:
+          themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
+        testID: 'referral',
+        onPress: toReferFriendsPage,
       },
       {
         title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),

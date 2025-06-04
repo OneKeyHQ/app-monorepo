@@ -38,13 +38,15 @@ export class KeyringImported extends KeyringImportedBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(params);
+    const addressEncoding = await this.vault.getAddressEncoding();
+    return this.baseSignTransaction({ ...params, addressEncoding });
   }
 
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     // throw new NotImplemented();
-    return this.baseSignMessage(params);
+    const addressEncoding = await this.vault.getAddressEncoding();
+    return this.baseSignMessage({ ...params, addressEncoding });
   }
 }
