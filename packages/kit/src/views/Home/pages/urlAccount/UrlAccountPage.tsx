@@ -227,14 +227,14 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   if (urlAccountStatus === 'invalid') {
     return (
       <Page>
-        <Page.Header headerLeft={renderHeaderLeft} />
+        {/* <Page.Header headerLeft={renderHeaderLeft} /> */}
         <Stack flex={1} ai="center" jc="center">
           <SizableText size="$headingXl">
             {intl.formatMessage({ id: ETranslations.global_404_message })}
           </SizableText>
-          {process.env.NODE_ENV !== 'production' ? (
+          {/* {process.env.NODE_ENV !== 'production' ? (
             <SizableText my="$6">{JSON.stringify(routeParams)}</SizableText>
-          ) : null}
+          ) : null} */}
         </Stack>
       </Page>
     );
