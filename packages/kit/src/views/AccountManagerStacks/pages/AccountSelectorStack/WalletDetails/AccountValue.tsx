@@ -28,8 +28,6 @@ function AccountValue(accountValue: {
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
 
-  console.log('accountValue', accountValue);
-
   const accountValueString = useMemo(() => {
     if (typeof value === 'string') {
       return value;
