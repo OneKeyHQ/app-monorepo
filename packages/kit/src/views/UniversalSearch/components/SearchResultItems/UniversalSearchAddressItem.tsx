@@ -4,6 +4,7 @@ import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
@@ -27,6 +28,10 @@ export function UniversalSearchAddressItem({
   const navigation = useAppNavigation();
   const accountSelectorActions = useAccountSelectorActions();
   const universalSearchActions = useUniversalSearchActions();
+
+  const { vaultSettings } = useAccountData({
+    networkId: item.payload.network?.id,
+  });
 
   const handleAccountPress = useCallback(async () => {
     navigation.pop();
@@ -143,6 +148,8 @@ export function UniversalSearchAddressItem({
           accountValue={item.payload.accountsValue}
           linkedAccountId={item.payload.account?.id}
           linkedNetworkId={item.payload.network?.id}
+          indexedAccountId={item.payload.indexedAccount?.id}
+          mergeDeriveAssetsEnabled={vaultSettings?.mergeDeriveAssetsEnabled}
         />
         {item.payload.addressInfo?.displayAddress ? (
           <Stack
@@ -156,10 +163,12 @@ export function UniversalSearchAddressItem({
       </>
     );
   }, [
-    item.payload.accountsValue,
-    item.payload.addressInfo?.displayAddress,
     item.payload.account?.id,
+    item.payload.accountsValue,
     item.payload.network?.id,
+    item.payload.indexedAccount?.id,
+    item.payload.addressInfo?.displayAddress,
+    vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
   if (item.payload.account || item.payload.isSearchedByAccountName) {

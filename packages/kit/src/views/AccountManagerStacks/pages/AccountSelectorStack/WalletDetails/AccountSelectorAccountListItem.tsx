@@ -204,6 +204,7 @@ export function AccountSelectorAccountListItem({
                 })
               : '',
           accountId: currentNetworkAccounts[0].id,
+          mergeDeriveAssetsEnabled: vaultSettings.mergeDeriveAssetsEnabled,
         };
       }
     }
@@ -320,12 +321,16 @@ export function AccountSelectorAccountListItem({
           isOthersUniversal={isOthersUniversal}
           index={index}
           accountValue={accountValue}
+          indexedAccountId={indexedAccount?.id}
           linkedAccountId={
             indexedAccount?.associateAccount?.id ??
             currentNetworkAccount?.accountId ??
             item.id
           }
           linkedNetworkId={avatarNetworkId ?? network?.id}
+          mergeDeriveAssetsEnabled={
+            currentNetworkAccount?.mergeDeriveAssetsEnabled
+          }
         />
         {currentNetworkAccount?.address || subTitleInfo.address ? (
           <Stack
@@ -342,10 +347,12 @@ export function AccountSelectorAccountListItem({
     linkNetwork,
     currentNetworkAccount?.address,
     currentNetworkAccount?.accountId,
+    currentNetworkAccount?.mergeDeriveAssetsEnabled,
     subTitleInfo.address,
     isOthersUniversal,
     index,
     accountValue,
+    indexedAccount?.id,
     indexedAccount?.associateAccount?.id,
     item.id,
     avatarNetworkId,
