@@ -1027,12 +1027,12 @@ export default function EarnHome() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.swap,
+        sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
       }}
       enabledNum={[0]}
     >
-      <EarnProviderMirror storeName={EJotaiContextStoreNames.swap}>
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
         <BasicEarnHome />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
