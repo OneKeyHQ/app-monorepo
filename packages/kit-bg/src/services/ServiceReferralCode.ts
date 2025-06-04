@@ -165,7 +165,7 @@ class ServiceReferralCode extends ServiceBase {
     }
     const response = await client.get<{
       data: IEarnRewardResponse;
-    }>('/rebate/v1/invite/records', { params });
+    }>('/rebate/v1/invite/earn-records', { params });
     return response.data.data;
   }
 

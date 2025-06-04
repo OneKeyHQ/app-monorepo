@@ -116,7 +116,6 @@ interface IHardwareSalesRecordItem {
 export interface IEarnRewardItem {
   amount: string;
   networkId: string;
-  orderTotalAmount: string;
   token: {
     networkId: string;
     address: string;
@@ -124,18 +123,19 @@ export interface IEarnRewardItem {
     logoURI: string;
     symbol: string;
   };
-  accountAddress: string;
   vaultName: string;
   vaultAddress: string;
   provider: string;
   fiatValue: string;
-  status: string;
-  symbol: string;
 }
 
 export interface IEarnRewardResponse {
   fiatValue: string;
-  items: IEarnRewardItem[];
+  items: {
+    accountAddress: string;
+    fiatValue: string;
+    items: IEarnRewardItem[];
+  }[];
   total: number;
 }
 
