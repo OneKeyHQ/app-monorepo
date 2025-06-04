@@ -674,9 +674,8 @@ function AvailableAssets() {
 }
 
 function BasicEarnHome() {
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount } = activeAccount;
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
@@ -687,8 +686,11 @@ function BasicEarnHome() {
     run: refreshOverViewData,
   } = usePromiseResult(
     async () => {
+      if (!account) {
+        return;
+      }
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
-        account?.id,
+        account.id,
         allNetworkId,
       );
       let assets = actions.current.getAvailableAssets();

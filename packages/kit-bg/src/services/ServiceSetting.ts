@@ -220,6 +220,7 @@ class ServiceSetting extends ServiceBase {
       return;
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+    await this.backgroundApi.serviceStaking.resetEarnCache();
   }
 
   @backgroundMethod()
