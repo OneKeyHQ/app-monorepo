@@ -34,7 +34,7 @@ export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
       networkId={networkId}
       // Cast the networks data. This resolves the TS error but may hide runtime issues
       // if the component requires full IServerNetwork properties not present in swapNetworksIncludeAllNetwork.
-      networks={networksForListView}
+      networks={networksForListView || []}
       onPressItem={onPressItem}
     />
   );

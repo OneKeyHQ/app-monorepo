@@ -1,5 +1,3 @@
-import type { IRiskIndicatorType } from './components/RiskIndicator';
-
 export interface IMarketToken {
   id: string;
   name: string;
@@ -14,7 +12,6 @@ export interface IMarketToken {
   holders: number;
   turnover: number;
   tokenAge: string;
-  audit: IRiskIndicatorType;
   tokenImageUri: string;
   networkLogoUri: string;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;

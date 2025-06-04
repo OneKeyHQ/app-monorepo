@@ -16,7 +16,7 @@ type IMarketTokenListProps = {
 };
 
 function MarketTokenList({
-  networkId = 'sol--101', // 默认使用 Solana 网络，实际应该从上层组件传入
+  networkId = 'sol--101',
   sortBy,
   sortType,
   onItemPress,
@@ -24,22 +24,13 @@ function MarketTokenList({
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
-  const { data, isLoading, currentPage, setCurrentPage } = useMarketTokenList({
-    networkId,
-    sortBy,
-    sortType,
-    pageSize,
-  });
-
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return data.slice(startIndex, startIndex + pageSize);
-  }, [data, currentPage, pageSize]);
-
-  const actualTotalPages = useMemo(
-    () => Math.ceil(data.length / pageSize),
-    [data.length, pageSize],
-  );
+  const { data, isLoading, currentPage, setCurrentPage, totalPages } =
+    useMarketTokenList({
+      networkId,
+      sortBy,
+      sortType,
+      pageSize,
+    });
 
   return (
     <>
@@ -53,7 +44,7 @@ function MarketTokenList({
         <Stack width={1500}>
           <Table<IMarketToken>
             columns={marketTokenColumns}
-            dataSource={isLoading ? [] : paginatedData}
+            dataSource={isLoading ? [] : data}
             keyExtractor={(item) => item.id}
             onRow={
               onItemPress
@@ -71,11 +62,11 @@ function MarketTokenList({
           />
         </Stack>
       </Stack>
-      {!isLoading && actualTotalPages > 1 ? (
+      {!isLoading && totalPages > 1 ? (
         <XStack justifyContent="center" py="$4">
           <Pagination
             current={currentPage}
-            total={actualTotalPages}
+            total={totalPages}
             onChange={setCurrentPage}
           />
         </XStack>

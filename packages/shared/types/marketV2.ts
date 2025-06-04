@@ -112,5 +112,5 @@ export interface IMarketTokenListItem {
 
 export interface IMarketTokenListResponse {
   list: IMarketTokenListItem[];
-  hasNext: boolean;
+  total: number;
 }
