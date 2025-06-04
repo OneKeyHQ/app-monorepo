@@ -1,10 +1,8 @@
-import { useMemo } from 'react';
-
 import { Pagination, Stack, Table, XStack } from '@onekeyhq/components';
 
+import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToDetailPage';
-import { marketTokenColumns } from './MarketTokenColumns';
 import { type IMarketToken } from './MarketTokenData';
 
 type IMarketTokenListProps = {
@@ -23,6 +21,7 @@ function MarketTokenList({
   pageSize = 10,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
+  const marketTokenColumns = useMarketTokenColumns();
 
   const { data, isLoading, currentPage, setCurrentPage, totalPages } =
     useMarketTokenList({
