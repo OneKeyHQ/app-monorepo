@@ -2,14 +2,9 @@ import Intercom, { show, update } from '@intercom/messenger-js-sdk';
 
 import { getOneKeyIdUserEmail } from './utils';
 
-interface IIntercomSettings {
-  app_id: string;
-  user_id?: string;
-  email?: string;
-  name?: string;
-}
+import type { InitType } from '@intercom/messenger-js-sdk/dist/types';
 
-export const initIntercom = async (settings?: IIntercomSettings) => {
+export const initIntercom = async (settings?: InitType) => {
   const APP_ID = settings?.app_id || process.env.INTERCOM_APP_ID || 'vbbj4ssb';
 
   // Check if user is logged in to OneKey ID and get email
