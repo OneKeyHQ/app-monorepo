@@ -151,12 +151,9 @@ class ServiceReferralCode extends ServiceBase {
   async getEarnReward(cursor?: string, available?: boolean) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
-      subject: string;
       cursor?: string;
       status?: string;
-    } = {
-      subject: 'Earn',
-    };
+    } = {};
     if (cursor) {
       params.cursor = cursor;
     }
