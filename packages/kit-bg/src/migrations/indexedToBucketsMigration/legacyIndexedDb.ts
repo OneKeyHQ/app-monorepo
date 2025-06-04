@@ -126,10 +126,7 @@ class LegacyIndexedDb {
       'versionchange'
     >;
   }) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { db, transaction, newVersion } = options;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const currentStoreNames = db.objectStoreNames;
+    const { db, transaction } = options;
 
     // create new stores
     const storeNamesToAdd = Object.values(ELocalDBStoreNames);
