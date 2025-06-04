@@ -19,10 +19,12 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -92,6 +94,60 @@ function BasicSidebarBanner() {
       </Stack>
     </Stack>
   ) : null;
+}
+
+function _NotificationButton() {
+  const appNavigation = useAppNavigation();
+  const openNotificationsModal = useCallback(async () => {
+    appNavigation.pushModal(EModalRoutes.NotificationsModal, {
+      screen: EModalNotificationsRoutes.NotificationList,
+    });
+  }, [appNavigation]);
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
+  return (
+    <DesktopTabItem
+      key="notifications"
+      testID="headerRightNotificationsButton"
+      onPress={openNotificationsModal}
+      trackId="wallet-notification"
+    >
+      <Icon name="BellOutline" size="$5" color="$iconSubdued" />
+      {!firstTimeGuideOpened || badge ? (
+        <Stack
+          position="absolute"
+          right="$-0.5"
+          top="$-0.5"
+          p="$0.5"
+          pointerEvents="none"
+          bg="$bgApp"
+          borderRadius="$full"
+        >
+          <Stack
+            alignItems="center"
+            justifyContent="center"
+            minWidth="$4"
+            h="$4"
+            px="$1"
+            bg="$bgCriticalStrong"
+            borderRadius="$full"
+          >
+            {!firstTimeGuideOpened ? (
+              <Stack
+                width="$1"
+                height="$1"
+                backgroundColor="white"
+                borderRadius="$full"
+              />
+            ) : (
+              <SizableText color="$textOnColor" size="$headingXxs">
+                {badge && badge > 99 ? '99+' : badge}
+              </SizableText>
+            )}
+          </Stack>
+        </Stack>
+      ) : null}
+    </DesktopTabItem>
+  );
 }
 
 function DownloadButton() {
