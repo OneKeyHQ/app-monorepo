@@ -100,8 +100,8 @@ export default function HardwareSalesReward() {
         if (summaryResult.status === 'fulfilled') {
           const data = summaryResult.value;
           setAmount({
-            available: data.HardwareSales.available?.[0]?.amount || '0',
-            pending: data.HardwareSales.pending?.[0]?.amount || '0',
+            available: data.HardwareSales.available?.[0]?.fiatValue || '0',
+            pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
           });
         }
         setIsLoading(false);
@@ -142,7 +142,7 @@ export default function HardwareSalesReward() {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
     }) => {
-      const isPositiveAmount = Number(item.amount) >= 0;
+      const isPositiveAmount = Number(item.fiatValue) >= 0;
       return (
         <YStack px="$5" py="$2.5">
           <XStack jc="space-between" gap="$4">
@@ -175,7 +175,7 @@ export default function HardwareSalesReward() {
                 size="$bodyLgMedium"
                 pr="$0.5"
               >
-                {item.amount}
+                {item.fiatValue}
               </Currency>
             </XStack>
           </XStack>
