@@ -1,7 +1,7 @@
-export const initIntercom = () => {
+export const initIntercom = async () => {
   console.log('initIntercom');
 };
 
-export const showIntercom = () => {
+export const showIntercom = async () => {
   console.log('showIntercom');
 };

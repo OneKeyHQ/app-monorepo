@@ -427,7 +427,7 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
 export const useIntercomInit = () => {
   useEffect(() => {
     // 初始化 Intercom
-    initIntercom();
+    void initIntercom();
   }, []);
 };
 

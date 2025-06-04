@@ -78,7 +78,7 @@ const SocialButton: FC<ISocialButtonProps> = ({
 const SupportButton: FC<{ text: string }> = ({ text }) => {
   const onPress = useCallback(() => {
     // Then show intercom support
-    showIntercom();
+    void showIntercom();
   }, []);
 
   return (

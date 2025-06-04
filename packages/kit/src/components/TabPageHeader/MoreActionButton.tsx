@@ -396,7 +396,7 @@ function MoreActionContentGrid() {
   }, [navigation]);
 
   const handleCustomerSupport = useCallback(() => {
-    showIntercom();
+    void showIntercom();
   }, []);
 
   const openNotificationsModal = useCallback(async () => {

@@ -20,7 +20,7 @@ import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 initSentry();
 
-initIntercom();
+void initIntercom();
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
