@@ -79,6 +79,7 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
+    const { transfersInfo, ...rest } = params;
     const controller = new AbortController();
     this._estimateFeeController = controller;
 
@@ -86,7 +87,7 @@ class ServiceGas extends ServiceBase {
       networkId: params.networkId,
       accountId: params.accountId,
     });
-    const resp = await vault.estimateFee(params);
+    const resp = await vault.estimateFee(rest);
 
     this._estimateFeeController = null;
 
@@ -172,7 +173,7 @@ class ServiceGas extends ServiceBase {
       }));
     }
 
-    if (feeInfo.feeAlgo) {
+    if (transfersInfo && transfersInfo.length === 1 && feeInfo.feeAlgo) {
       feeResult.feeAlgo = feeResult.feeAlgo.map((item) => {
         return {
           ...item,
