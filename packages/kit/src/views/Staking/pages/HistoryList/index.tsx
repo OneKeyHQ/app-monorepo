@@ -26,7 +26,10 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IStakeHistory } from '@onekeyhq/shared/types/staking';
+import type {
+  IStakeHistoriesResponse,
+  IStakeHistory,
+} from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -41,11 +44,7 @@ import { capitalizeString } from '../../utils/utils';
 type IHistoryItemProps = {
   item: IStakeHistory;
   network?: { networkId: string; name: string; logoURI: string };
-  networks?: {
-    networkId: string;
-    name: string;
-    logoURI: string;
-  }[];
+  networks?: IStakeHistoriesResponse['networks'];
   token?: IToken;
   provider?: string;
 };
@@ -121,6 +120,7 @@ type IHistoryContentProps = {
   filterType?: string;
   onFilterTypeChange: (type: string) => void;
   network?: { networkId: string; name: string; logoURI: string };
+  networks?: IStakeHistoriesResponse['networks'];
   provider?: string;
 };
 
@@ -145,9 +145,10 @@ const HistoryContent = ({
         network={network}
         token={item.token?.info}
         provider={provider}
+        networks={networks}
       />
     ),
-    [network, provider],
+    [network, networks, provider],
   );
 
   const renderSectionHeader = useCallback(
