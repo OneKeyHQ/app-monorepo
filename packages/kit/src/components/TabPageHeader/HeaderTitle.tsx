@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderTitle({
   sceneName,
@@ -11,8 +13,11 @@ export function HeaderTitle({
   sceneName: EAccountSelectorSceneName;
 }) {
   const item = useMemo(() => {
-    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return <UrlAccountNavHeader.Address key="urlAccountNavHeaderAddress" />;
+    if (
+      !platformEnv.isNativeIOS &&
+      sceneName === EAccountSelectorSceneName.homeUrlAccount
+    ) {
+      return <UrlAccountPageHeader />;
     }
   }, [sceneName]);
   return (

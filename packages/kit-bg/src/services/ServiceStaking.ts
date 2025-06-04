@@ -1440,6 +1440,11 @@ class ServiceStaking extends ServiceBase {
     const v = await simpleDb.appStatus.getRawData();
     return v?.falconDepositDoNotShowAgain ?? false;
   }
+
+  @backgroundMethod()
+  async resetEarnCache() {
+    await this.backgroundApi.simpleDb.earn.resetEarnData();
+  }
 }
 
 export default ServiceStaking;
