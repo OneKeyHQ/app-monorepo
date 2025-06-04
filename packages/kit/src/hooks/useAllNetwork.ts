@@ -422,6 +422,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkRequests,
     ],
     {
+      revalidateOnFocus: true,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       // debounced: 0,
       overrideIsFocused: (isPageFocused) =>
