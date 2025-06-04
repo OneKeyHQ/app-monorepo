@@ -1,4 +1,4 @@
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
@@ -7,7 +7,7 @@ export function EarnText({
   color,
   size,
   ...props
-}: { text?: IEarnText } & ISizableTextProps) {
+}: { text?: IEarnText } & IHyperlinkTextProps) {
   return text ? (
     <FormatHyperlinkText
       color={text.color || color}

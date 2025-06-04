@@ -39,7 +39,12 @@ function RewardAmountPopoverContent({
       </XStack>
       <XStack pt="$2">
         <EarnText
-          text={tooltip?.data.text}
+          text={{
+            text: '奖励将在<bold>下个月 10 号</bold>之前分发到您的钱包。',
+          }}
+          boldTextProps={{
+            size: '$bodyLgMedium',
+          }}
           size="$bodySm"
           color="$textSubdued"
         />
