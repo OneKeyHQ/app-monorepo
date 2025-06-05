@@ -77,7 +77,12 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {symbol}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        <SizableText
+          fontFamily="$monoRegular"
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
           {shortened}
         </SizableText>
       </Stack>

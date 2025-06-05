@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,9 +10,10 @@ import { GradientMask } from './GradientMask';
 import { MoreButton } from './MoreButton';
 import { NetworksFilterItem } from './NetworksFilterItem';
 
+import type { ScrollView as ScrollViewType } from 'react-native';
+
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
-  moreNetworksCount?: number;
   moreNetworks?: ISwapNetwork[];
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
@@ -20,78 +21,122 @@ interface ISwapNetworkToggleGroupProps {
   onMoreNetworkSelect: (network: ISwapNetwork) => void;
 }
 
-const MarketNetworkFilter = ({
-  networks,
-  selectedNetwork,
-  onSelectNetwork,
-  moreNetworksCount,
-  moreNetworks,
-  onMoreNetworkSelect,
-  onMoreNetwork,
-}: ISwapNetworkToggleGroupProps) => {
-  const intl = useIntl();
-  const [scrollX, setScrollX] = useState(0);
+export interface IMarketNetworkFilterRef {
+  scrollToNetwork: (networkId: string) => void;
+}
 
-  // 控制左侧渐变遮罩的显示，滚动超过10px后显示
-  const shouldShowLeftGradient = scrollX > 2;
+const MarketNetworkFilter = forwardRef<
+  IMarketNetworkFilterRef,
+  ISwapNetworkToggleGroupProps
+>(
+  (
+    {
+      networks,
+      selectedNetwork,
+      onSelectNetwork,
+      moreNetworks,
+      onMoreNetworkSelect,
+      onMoreNetwork,
+    },
+    ref,
+  ) => {
+    const intl = useIntl();
+    const [scrollX, setScrollX] = useState(0);
+    const scrollViewRef = useRef<ScrollViewType>(null);
 
-  return (
-    <XStack
-      position="relative"
-      p="$1"
-      maxWidth="100%"
-      overflow="hidden"
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      borderRadius="$2"
-    >
-      <XStack flex={1} position="relative">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          onScroll={(event) => {
-            const currentScrollX = event.nativeEvent.contentOffset.x;
-            setScrollX(currentScrollX);
-          }}
-          scrollEventThrottle={16}
-        >
-          <XStack gap="$2" pr="$4">
-            {networks.map((network) => (
-              <NetworksFilterItem
-                key={network.networkId}
-                networkName={network.name}
-                networkImageUri={network.logoURI}
-                tooltipContent={
-                  network.isAllNetworks
-                    ? intl.formatMessage({
-                        id: ETranslations.global_all_networks,
-                      })
-                    : network.name
-                }
-                isSelected={network?.networkId === selectedNetwork?.networkId}
-                onPress={() => onSelectNetwork(network)}
-              />
-            ))}
-          </XStack>
-        </ScrollView>
+    // 控制左侧渐变遮罩的显示，滚动超过10px后显示
+    const shouldShowLeftGradient = scrollX > 2;
 
-        <GradientMask
-          opacity={shouldShowLeftGradient ? 1 : 0}
-          position="left"
-        />
-        <GradientMask position="right" />
-      </XStack>
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToNetwork: (networkId: string) => {
+          const networkIndex = networks.findIndex(
+            (network) => network.networkId === networkId,
+          );
+          if (networkIndex !== -1 && scrollViewRef.current) {
+            // 估算每个网络项的宽度 (参考 NetworksFilterItem 的 px="$3")
+            // px="$3" = 12px * 2, 图标宽度 $6 = 24px (mobile) 或 $5 = 20px (desktop)
+            // gap="$2" = 8px, 文字宽度估算 40-60px
+            const itemWidth = 24 + 24 + 8 + 50; // 约106px
+            const gap = 8; // $2 gap between items
+            const containerPadding = 4; // p="$1" = 4px
 
-      {moreNetworksCount && moreNetworksCount > 0 ? (
+            // 计算滚动位置，让选中的项目稍微偏左显示，确保完全可见
+            const scrollToX = Math.max(
+              0,
+              networkIndex * (itemWidth + gap) - containerPadding - 20,
+            );
+
+            scrollViewRef.current.scrollTo({
+              x: scrollToX,
+              animated: true,
+            });
+          }
+        },
+      }),
+      [networks],
+    );
+
+    return (
+      <XStack
+        position="relative"
+        p="$1"
+        maxWidth="100%"
+        overflow="hidden"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        borderRadius="$2"
+      >
+        <XStack flex={1} position="relative">
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onScroll={(event) => {
+              const currentScrollX = event.nativeEvent.contentOffset.x;
+              setScrollX(currentScrollX);
+            }}
+            scrollEventThrottle={16}
+          >
+            <XStack gap="$2" pr="$4">
+              {networks.map((network) => (
+                <NetworksFilterItem
+                  key={network.networkId}
+                  networkName={network.name}
+                  networkImageUri={network.logoURI}
+                  tooltipContent={
+                    network.isAllNetworks
+                      ? intl.formatMessage({
+                          id: ETranslations.global_all_networks,
+                        })
+                      : network.name
+                  }
+                  isSelected={network?.networkId === selectedNetwork?.networkId}
+                  onPress={() => onSelectNetwork(network)}
+                />
+              ))}
+            </XStack>
+          </ScrollView>
+
+          <GradientMask
+            opacity={shouldShowLeftGradient ? 1 : 0}
+            position="left"
+          />
+          <GradientMask position="right" />
+        </XStack>
+
         <MoreButton
           networks={moreNetworks}
           selectedNetworkId={selectedNetwork?.networkId}
           onNetworkSelect={onMoreNetworkSelect}
           onPress={onMoreNetwork}
         />
-      ) : null}
-    </XStack>
-  );
-};
+      </XStack>
+    );
+  },
+);
+
+MarketNetworkFilter.displayName = 'MarketNetworkFilter';
 
 export default memo(MarketNetworkFilter);

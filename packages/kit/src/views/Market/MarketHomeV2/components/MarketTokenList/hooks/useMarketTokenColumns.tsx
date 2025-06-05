@@ -81,7 +81,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
       render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
-          formatter="value"
+          formatter="marketCap"
           formatterOptions={{ currency }}
         >
           {text}

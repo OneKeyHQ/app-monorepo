@@ -1,7 +1,10 @@
 import type { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Popover } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { NetworksSearchPanel } from './NetworksSearchPanel';
 
@@ -18,33 +21,37 @@ const MoreButton: FC<IMoreButtonProps> = ({
   selectedNetworkId,
   onNetworkSelect,
   ...rest
-}) => (
-  <Popover
-    title="Select Network"
-    renderContent={
-      <NetworksSearchPanel
-        networks={networks}
-        networkId={selectedNetworkId}
-        onNetworkSelect={onNetworkSelect}
-      />
-    }
-    renderTrigger={
-      <Button
-        variant="tertiary"
-        size="medium"
-        iconAfter="ChevronDownSmallOutline"
-        iconColor="$iconSubdued"
-        $platform-native={{
-          px: '$2',
-          py: '$1',
-        }}
-        color="$textSubdued"
-        {...rest}
-      >
-        More
-      </Button>
-    }
-  />
-);
+}) => {
+  const intl = useIntl();
+
+  return (
+    <Popover
+      title="Select Network"
+      renderContent={
+        <NetworksSearchPanel
+          networks={networks}
+          networkId={selectedNetworkId}
+          onNetworkSelect={onNetworkSelect}
+        />
+      }
+      renderTrigger={
+        <Button
+          variant="tertiary"
+          size="medium"
+          iconAfter="ChevronDownSmallOutline"
+          iconColor="$iconSubdued"
+          $platform-native={{
+            px: '$2',
+            py: '$1',
+          }}
+          color="$textSubdued"
+          {...rest}
+        >
+          {intl.formatMessage({ id: ETranslations.global_more })}
+        </Button>
+      }
+    />
+  );
+};
 
 export { MoreButton };

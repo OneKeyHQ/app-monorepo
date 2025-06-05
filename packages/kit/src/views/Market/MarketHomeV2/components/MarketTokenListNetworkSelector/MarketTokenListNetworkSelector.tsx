@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -7,6 +7,8 @@ import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import MarketNetworkFilter from './MarketNetworkFilter';
 import MarketTokenListNetworkSelectorSkeleton from './MarketTokenListNetworkSelectorSkeleton';
+
+import type { IMarketNetworkFilterRef } from './MarketNetworkFilter';
 
 interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
@@ -22,6 +24,7 @@ function MarketTokenListNetworkSelector({
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >();
+  const marketNetworkFilterRef = useRef<IMarketNetworkFilterRef>(null);
 
   const { result: marketChainsData, isLoading } = usePromiseResult(
     () => backgroundApiProxy.serviceMarketV2.fetchMarketChains(),
@@ -41,21 +44,6 @@ function MarketTokenListNetworkSelector({
         } as ISwapNetwork),
     );
   }, [marketChainsData]);
-
-  // Calculate the number of networks to show in the filter vs more networks
-  const { visibleNetworks, moreNetworksCount } = useMemo(() => {
-    const maxVisible = 8; // Show up to 8 networks in the filter
-    if (marketNetworks.length <= maxVisible) {
-      return {
-        visibleNetworks: marketNetworks,
-        moreNetworksCount: 0,
-      };
-    }
-    return {
-      visibleNetworks: marketNetworks.slice(0, maxVisible),
-      moreNetworksCount: marketNetworks.length - maxVisible,
-    };
-  }, [marketNetworks]);
 
   // Set default selected network when networks are loaded
   useEffect(() => {
@@ -79,6 +67,11 @@ function MarketTokenListNetworkSelector({
   const handleMoreNetworkSelect = useCallback(
     (network: ISwapNetwork) => {
       onSelectCurrentNetwork(network);
+
+      // 使用 setTimeout 确保状态更新后再滚动
+      setTimeout(() => {
+        marketNetworkFilterRef.current?.scrollToNetwork(network.networkId);
+      }, 100);
     },
     [onSelectCurrentNetwork],
   );
@@ -89,10 +82,10 @@ function MarketTokenListNetworkSelector({
         <MarketTokenListNetworkSelectorSkeleton />
       ) : (
         <MarketNetworkFilter
-          networks={visibleNetworks}
+          ref={marketNetworkFilterRef}
+          networks={marketNetworks}
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
-          moreNetworksCount={moreNetworksCount}
           moreNetworks={marketNetworks}
           onMoreNetworkSelect={handleMoreNetworkSelect}
           onMoreNetwork={() => {}}
