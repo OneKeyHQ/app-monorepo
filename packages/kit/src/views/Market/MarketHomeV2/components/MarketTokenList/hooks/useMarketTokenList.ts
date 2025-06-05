@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -14,8 +15,15 @@ interface IUseMarketTokenListParams {
   pageSize?: number;
 }
 
+function getNetworkLogoUri(networkId: string): string {
+  const networks = getPresetNetworks();
+  const network = networks.find((n) => n.id === networkId);
+  return network?.logoURI || '';
+}
+
 function transformApiDataToComponentData(
   apiData: IMarketTokenListItem[],
+  networkLogoUri: string,
 ): IMarketToken[] {
   return apiData.map((item, index) => ({
     id: item.address || `${index}`,
@@ -31,8 +39,11 @@ function transformApiDataToComponentData(
     holders: item.holders || 0,
     turnover: parseFloat(item.volume24h || '0'),
     tokenImageUri: item.logoUrl || '',
-    networkLogoUri: '',
-    walletInfo: undefined,
+    networkLogoUri,
+    walletInfo: {
+      buy: parseInt(item.buy24hCount || '0', 10),
+      sell: parseInt(item.sell24hCount || '0', 10),
+    },
   }));
 }
 
@@ -69,8 +80,9 @@ export function useMarketTokenList({
 
   const transformedData = useMemo(() => {
     if (!apiResult?.list) return [];
-    return transformApiDataToComponentData(apiResult.list);
-  }, [apiResult?.list]);
+    const networkLogoUri = getNetworkLogoUri(networkId);
+    return transformApiDataToComponentData(apiResult.list, networkLogoUri);
+  }, [apiResult?.list, networkId]);
 
   const totalCount = apiResult?.total || 0;
 

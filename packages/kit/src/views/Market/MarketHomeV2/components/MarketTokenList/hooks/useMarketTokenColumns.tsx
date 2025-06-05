@@ -104,7 +104,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
       columnWidth: 100,
       render: (text: number) => (
         <NumberSizeableText size="$bodyMd" formatter="balance">
-          {text * 1000}
+          {text}
         </NumberSizeableText>
       ),
       align: 'right',

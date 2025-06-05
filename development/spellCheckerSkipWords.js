@@ -232,6 +232,7 @@ module.exports = [
   'devtool',
   'dex',
   'Dex',
+  'dexmarket',
   'Dexs',
   'dgb',
   'distro',
