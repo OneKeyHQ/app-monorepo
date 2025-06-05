@@ -1990,6 +1990,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
     });
+    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+      deviceId: device.id,
+    });
   }
 
   async updateDeviceFeaturesLabel({
@@ -3544,6 +3547,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: IDBWalletIdSingleton;
   }): Promise<{
     accounts: IDBAccount[];
+    removedAccountIds?: string[];
   }> {
     const wallet = await this.getWalletSafe({ walletId });
     if (!wallet || !wallet?.accounts?.length) {
@@ -3554,7 +3558,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ids: wallet.accounts, // // filter by ids for better performance
     });
 
+    let removedAccountIds: string[] = [];
+    if (
+      wallet?.accounts?.length &&
+      wallet?.accounts?.length !== accounts?.length
+    ) {
+      removedAccountIds = wallet.accounts.filter(
+        (id) => !accounts.some((item) => item.id === id),
+      );
+    }
+
     return {
+      removedAccountIds,
       accounts: accounts
         .filter(
           (item) =>
@@ -3848,15 +3863,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
+  async removeAccountsByIds({ ids }: { ids: string[] }) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
 
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Account,
-        ids: accounts.map((item) => {
-          const accountId = item.id;
+        ignoreNotFound: true,
+        ids: ids.map((id) => {
+          const accountId = id;
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId,
           });
@@ -3893,6 +3909,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       });
     }
+  }
+
+  async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
+    return this.removeAccountsByIds({
+      ids: accounts.map((item) => item.id),
+    });
   }
 
   async removeAccount({

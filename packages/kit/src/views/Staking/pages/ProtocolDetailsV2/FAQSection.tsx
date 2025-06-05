@@ -8,11 +8,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
@@ -25,6 +24,8 @@ import {
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
+
+import { EarnText } from '../../components/ProtocolDetails/EarnText';
 
 export function FAQSection({
   faqs,
@@ -91,9 +92,7 @@ export function FAQSection({
   );
   return faqs?.items?.length ? (
     <YStack gap="$6">
-      <SizableText size="$headingLg" color={faqs.title.color}>
-        {faqs.title.text}
-      </SizableText>
+      <EarnText text={faqs.title} size="$headingLg" />
       <YStack>
         <Accordion type="multiple" gap="$2">
           {faqs.items.map(({ title, description }, index) => (
@@ -145,16 +144,16 @@ export function FAQSection({
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >
-                  <HyperlinkText
+                  <FormatHyperlinkText
                     size="$bodyMd"
                     color={description.color}
-                    translationId={description.text as ETranslations}
-                    defaultMessage={description.text}
                     onAction={handleAction}
                     underlineTextProps={{
                       color: '$textInfo',
                     }}
-                  />
+                  >
+                    {description.text}
+                  </FormatHyperlinkText>
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>

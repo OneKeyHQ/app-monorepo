@@ -413,6 +413,7 @@ function TokenListContainer(_props: ITabPageProps) {
       overrideIsFocused: (isPageFocused) =>
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
+      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
@@ -1285,11 +1286,15 @@ function TokenListContainer(_props: ITabPageProps) {
         }
       } else {
         updateAccountWorth({
-          accountId,
+          accountId: mergeDeriveAddressData
+            ? indexedAccount?.id ?? ''
+            : account?.id ?? '',
           initialized: true,
           worth: {
             [accountUtils.buildAccountValueKey({
-              accountId,
+              accountId: mergeDeriveAddressData
+                ? indexedAccount?.id ?? ''
+                : account?.id ?? '',
               networkId,
             })]: tokenListValue,
           },
@@ -1488,6 +1493,7 @@ function TokenListContainer(_props: ITabPageProps) {
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
+      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );

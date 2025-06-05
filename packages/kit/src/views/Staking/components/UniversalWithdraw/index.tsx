@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -12,7 +12,6 @@ import {
   Divider,
   Icon,
   Image,
-  NumberSizeableText,
   Page,
   Popover,
   SizableText,
@@ -26,18 +25,29 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
+import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnEstimateFeeResp,
+  IEarnTextTooltip,
+  IStakeTransactionConfirmation,
+} from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
-import { StakingAmountInput } from '../StakingAmountInput';
+import { EarnText } from '../ProtocolDetails/EarnText';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
 type IUniversalWithdrawProps = {
+  accountAddress: string;
   balance: string;
   price: string;
 
@@ -54,8 +64,6 @@ type IUniversalWithdrawProps = {
   tokenSymbol?: string;
 
   minAmount?: string;
-  showDetailWithdrawalRequested: boolean;
-  unstakingPeriod?: number;
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
@@ -75,7 +83,8 @@ const isNaN = (num: string) =>
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
 
-export const UniversalWithdraw = ({
+export function UniversalWithdraw({
+  accountAddress,
   balance,
   price: inputPrice,
   accountId,
@@ -86,14 +95,16 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
-  showDetailWithdrawalRequested,
-  unstakingPeriod,
   decimals,
   morphoVault,
   estimateFeeResp,
 
   onConfirm,
-}: PropsWithChildren<IUniversalWithdrawProps>) => {
+}: PropsWithChildren<IUniversalWithdrawProps>) {
+  const isMorphoProvider = useMemo(
+    () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
+    [providerName],
+  );
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
@@ -105,10 +116,6 @@ export const UniversalWithdraw = ({
   ] = useSettingsPersistAtom();
 
   const intl = useIntl();
-
-  const isMorphoProvider = earnUtils.isMorphoProvider({
-    providerName: providerName ?? '',
-  });
 
   const network = usePromiseResult(
     () =>
@@ -140,7 +147,7 @@ export const UniversalWithdraw = ({
       networkId,
       symbol: tokenSymbol,
       provider: providerName,
-      action: 'unstake',
+      action: ECheckAmountActionType.UNSTAKING,
       amount,
       morphoVault,
       withdrawAll: withdrawAllRef.current,
@@ -148,9 +155,48 @@ export const UniversalWithdraw = ({
     setCheckoutAmountMessage(message);
   }, 300);
 
+  const [transactionConfirmation, setTransactionConfirmation] = useState<
+    IStakeTransactionConfirmation | undefined
+  >();
+  const fetchTransactionConfirmation = useCallback(
+    async (amount: string) => {
+      const resp =
+        await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
+          networkId: networkId || '',
+          provider: providerName || '',
+          symbol: tokenSymbol || '',
+          vault: isMorphoProvider ? morphoVault || '' : '',
+          accountAddress,
+          action: ECheckAmountActionType.UNSTAKING,
+          amount,
+        });
+      return resp;
+    },
+    [
+      accountAddress,
+      isMorphoProvider,
+      morphoVault,
+      networkId,
+      providerName,
+      tokenSymbol,
+    ],
+  );
+
+  const debouncedFetchTransactionConfirmation = useDebouncedCallback(
+    async (amount?: string) => {
+      const resp = await fetchTransactionConfirmation(amount || '0');
+      setTransactionConfirmation(resp);
+    },
+    350,
+  );
+
+  useEffect(() => {
+    void debouncedFetchTransactionConfirmation(amountValue);
+  }, [amountValue, debouncedFetchTransactionConfirmation]);
+
   const onChangeAmountValue = useCallback(
     (value: string, isMax = false) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
@@ -199,6 +245,7 @@ export const UniversalWithdraw = ({
     }
     return false;
   }, [minAmount, amountValue, balance]);
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance, true);
@@ -230,15 +277,33 @@ export const UniversalWithdraw = ({
 
   const editable = initialAmount === undefined;
 
-  const fiatValue = useMemo(
-    () =>
-      amountValue ? BigNumber(amountValue).multipliedBy(price).toFixed() : 0,
-    [amountValue, price],
-  );
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {
       return items;
+    }
+    if (transactionConfirmation?.receive) {
+      items.push(
+        <CalculationListItem>
+          <CalculationListItem.Label
+            size={transactionConfirmation.receive.title.size || '$bodyMd'}
+            color={transactionConfirmation.receive.title.color}
+            tooltip={
+              transactionConfirmation.receive.tooltip.type === 'text'
+                ? transactionConfirmation.receive.tooltip.data.title.text
+                : undefined
+            }
+          >
+            {transactionConfirmation.receive.title.text}
+          </CalculationListItem.Label>
+          <CalculationListItem.Value>
+            <EarnText
+              text={transactionConfirmation.receive.description}
+              size="$bodyMdMedium"
+            />
+          </CalculationListItem.Value>
+        </CalculationListItem>,
+      );
     }
     if (estimateFeeResp) {
       items.push(
@@ -249,7 +314,7 @@ export const UniversalWithdraw = ({
       );
     }
     return items;
-  }, [amountValue, estimateFeeResp]);
+  }, [amountValue, estimateFeeResp, transactionConfirmation?.receive]);
   const isAccordionTriggerDisabled = !amountValue;
 
   return (
@@ -261,6 +326,7 @@ export const UniversalWithdraw = ({
           hasError={isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
@@ -312,64 +378,36 @@ export const UniversalWithdraw = ({
         borderColor="$borderSubdued"
       >
         <YStack gap="$2">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.earn_receive,
-            })}
-          </SizableText>
-          <SizableText>
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol: tokenSymbol ?? '' }}
-            >
-              {amountValue || 0}
-            </NumberSizeableText>
-            {fiatValue ? (
-              <SizableText color="$textSubdued">
-                <SizableText color="$textSubdued">{' ('}</SizableText>
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="value"
-                  color="$textSubdued"
-                  formatterOptions={{ currency: symbol }}
-                >
-                  {fiatValue}
-                </NumberSizeableText>
-                <SizableText color="$textSubdued">)</SizableText>
-              </SizableText>
-            ) : null}
-          </SizableText>
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
+            size="$bodyMd"
+          />
+          {transactionConfirmation?.rewards.map((reward) => {
+            const hasTooltip = reward.tooltip?.type === 'text';
+            const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
+            return (
+              <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
+                <XStack gap="$1" ai="center">
+                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.description}
+                    size={textSize}
+                    color="$textSubdued"
+                  />
+                </XStack>
+                {hasTooltip ? (
+                  <Popover.Tooltip
+                    iconSize="$5"
+                    title={reward.title.text}
+                    tooltip={(reward.tooltip as IEarnTextTooltip)?.data.text}
+                    placement="top"
+                  />
+                ) : null}
+              </XStack>
+            );
+          })}
         </YStack>
-        {unstakingPeriod ? (
-          <XStack pt="$3.5" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.earn_unstaking_period,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage(
-                {
-                  id: showDetailWithdrawalRequested
-                    ? ETranslations.earn_claim_available_in_number_days
-                    : ETranslations.earn_up_to_number_days,
-                },
-                { number: unstakingPeriod },
-              )}
-            </SizableText>
-            <Popover.Tooltip
-              iconSize="$5"
-              title={intl.formatMessage({
-                id: ETranslations.earn_unstaking_period,
-              })}
-              tooltip={intl.formatMessage({
-                id: ETranslations.earn_unstaking_period_tooltip,
-              })}
-              placement="top"
-            />
-          </XStack>
-        ) : null}
         <Divider my="$5" />
         <Accordion
           overflow="hidden"
@@ -480,4 +518,4 @@ export const UniversalWithdraw = ({
       </Page.Footer>
     </StakingFormWrapper>
   );
-};
+}

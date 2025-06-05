@@ -3,7 +3,6 @@ import type {
   IProtocolInfo,
   IStakeProtocolDetails,
 } from '../../types/staking';
-import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
@@ -13,7 +12,6 @@ export enum EModalStakingRoutes {
   ProtocolDetails = 'ProtocolDetails',
   ProtocolDetailsV2 = 'ProtocolDetailsV2',
   AssetProtocolList = 'AssetProtocolList',
-  ApproveBaseStake = 'ApproveBaseStake',
   ClaimOptions = 'ClaimOptions',
   WithdrawOptions = 'WithdrawOptions',
   PortfolioDetails = 'PortfolioDetails',
@@ -45,9 +43,6 @@ export type IModalStakingParamList = {
     vault?: string;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
-    onSuccess?: () => void;
-  };
-  [EModalStakingRoutes.ApproveBaseStake]: IDetailPageInfoParams & {
     currentAllowance: string;
     onSuccess?: () => void;
   };

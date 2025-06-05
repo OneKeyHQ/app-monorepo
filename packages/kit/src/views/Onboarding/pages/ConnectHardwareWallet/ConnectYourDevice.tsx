@@ -50,7 +50,10 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  FIRMWARE_CONTACT_US_URL,
+  HARDWARE_BRIDGE_DOWNLOAD_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -1051,7 +1054,7 @@ function ConnectByUSBOrBLE() {
         {
           tag: (chunks: ReactNode[]) => (
             <Anchor
-              href="https://help.onekey.so/hc/requests/new"
+              href={FIRMWARE_CONTACT_US_URL}
               target="_blank"
               size="$bodyMd"
               color="$textInfo"

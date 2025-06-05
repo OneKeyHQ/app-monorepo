@@ -29,6 +29,7 @@ import type {
   ISwapApproveTransaction,
   ISwapQuoteEvent,
   ISwapToken,
+  ISwapTokenBase,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
@@ -63,6 +64,10 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.SwapSpeedApprovingReset]: {
     approvedSwapInfo: ISwapApproveTransaction;
+  };
+  [EAppEventBusNames.SwapSpeedBalanceUpdate]: {
+    orderFromToken: ISwapTokenBase;
+    orderToToken: ISwapTokenBase;
   };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
@@ -145,6 +150,8 @@ export interface IAppEventBusPayload {
     deriveType?: string | IAccountDeriveTypes;
     error?: IOneKeyError;
   };
+  [EAppEventBusNames.SDKGetAllNetworkAddressesStart]: undefined;
+  [EAppEventBusNames.SDKGetAllNetworkAddressesEnd]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;
@@ -265,6 +272,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HomeTabsChanged]: {
     index: number;
     tabId: string;
+  };
+  [EAppEventBusNames.HardwareFeaturesUpdate]: {
+    deviceId: string;
+  };
+  [EAppEventBusNames.UnlockApp]: {
+    jobId: string;
   };
 }
 

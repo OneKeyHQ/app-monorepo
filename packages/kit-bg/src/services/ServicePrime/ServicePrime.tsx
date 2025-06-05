@@ -175,6 +175,7 @@ class ServicePrime extends ServiceBase {
   async apiFetchPrimeUserInfo(): Promise<{
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
+    primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
     console.log('call servicePrime.apiFetchPrimeUserInfo');
     await this.loginMutex.waitForUnlock();
@@ -189,6 +190,7 @@ class ServicePrime extends ServiceBase {
       return {
         userInfo: localUserInfo,
         serverUserInfo: undefined,
+        primeSubscription: undefined,
       };
     }
     const serverUserInfo = await this.callApiFetchPrimeUserInfo();
@@ -231,6 +233,7 @@ class ServicePrime extends ServiceBase {
     return {
       userInfo: localUserInfo,
       serverUserInfo,
+      primeSubscription,
     };
   }
 

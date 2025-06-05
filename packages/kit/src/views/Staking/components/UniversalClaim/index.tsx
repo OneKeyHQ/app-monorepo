@@ -2,7 +2,9 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNaN } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
@@ -18,19 +20,26 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
+import {
+  ECheckAmountActionType,
+  type IEarnEstimateFeeResp,
+} from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
-import { StakingAmountInput } from '../StakingAmountInput';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalClaimProps = {
+  accountId: string;
   networkId: string;
 
   balance: string;
@@ -52,6 +61,7 @@ type IUniversalClaimProps = {
 };
 
 export const UniversalClaim = ({
+  accountId,
   networkId,
   balance,
   price: inputPrice,
@@ -93,9 +103,26 @@ export const UniversalClaim = ({
     }
   }, [amountValue, onConfirm]);
 
+  const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const checkAmount = useDebouncedCallback(async (amount: string) => {
+    if (isNaN(amount)) {
+      return;
+    }
+    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+      accountId,
+      networkId,
+      symbol: tokenSymbol,
+      provider: providerName,
+      action: ECheckAmountActionType.CLAIM,
+      amount,
+      withdrawAll: false,
+    });
+    setCheckoutAmountMessage(message);
+  }, 300);
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
@@ -115,8 +142,9 @@ export const UniversalClaim = ({
       } else {
         setAmountValue(value);
       }
+      void checkAmount(value);
     },
-    [decimals],
+    [decimals, checkAmount],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -139,6 +167,8 @@ export const UniversalClaim = ({
     return false;
   }, [minAmount, amountValue]);
 
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
+
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
@@ -156,13 +186,22 @@ export const UniversalClaim = ({
     [balance, decimals, onChangeAmountValue],
   );
 
+  const isCheckAmountMessageError =
+    amountValue?.length > 0 && !!checkAmountMessage;
+
   const isDisable = useMemo(
     () =>
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
+      isLessThanMinAmount ||
+      isCheckAmountMessageError,
+    [
+      amountValue,
+      isCheckAmountMessageError,
+      isInsufficientBalance,
       isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
+    ],
   );
 
   const receiving = useMemo(() => {
@@ -193,9 +232,14 @@ export const UniversalClaim = ({
         <StakingAmountInput
           title={intl.formatMessage({ id: ETranslations.earn_claim })}
           disabled={!editable}
-          hasError={isInsufficientBalance || isLessThanMinAmount}
+          hasError={
+            isInsufficientBalance ||
+            isLessThanMinAmount ||
+            isCheckAmountMessageError
+          }
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
@@ -219,23 +263,11 @@ export const UniversalClaim = ({
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
-      {isLessThanMinAmount ? (
+      {isCheckAmountMessageError ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
-          title={intl.formatMessage(
-            { id: ETranslations.earn_minimum_amount },
-            { number: `${minAmount} ${tokenSymbol ?? ''}` },
-          )}
-        />
-      ) : null}
-      {isInsufficientBalance ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_claimable_balance,
-          })}
+          title={checkAmountMessage}
         />
       ) : null}
       <CalculationList>

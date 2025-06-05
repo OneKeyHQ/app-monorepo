@@ -31,10 +31,6 @@ type ISectionListItem = {
   data: number[];
 };
 
-function ItemSeparatorComponent() {
-  return <Stack h="$2.5" />;
-}
-
 const formatSections = (items: IHardwareSalesRecord['items']) => {
   const groupedData: Record<string, IHardwareSalesRecord['items']> =
     items.reduce<Record<string, any[]>>((acc, item) => {
@@ -104,8 +100,8 @@ export default function HardwareSalesReward() {
         if (summaryResult.status === 'fulfilled') {
           const data = summaryResult.value;
           setAmount({
-            available: data.HardwareSales.available?.[0]?.amount || '0',
-            pending: data.HardwareSales.pending?.[0]?.amount || '0',
+            available: data.HardwareSales.available?.[0]?.fiatValue || '0',
+            pending: data.HardwareSales.pending?.[0]?.fiatValue || '0',
           });
         }
         setIsLoading(false);
@@ -146,9 +142,9 @@ export default function HardwareSalesReward() {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
     }) => {
-      const isPositiveAmount = Number(item.amount) >= 0;
+      const isPositiveAmount = Number(item.fiatValue) >= 0;
       return (
-        <YStack px="$5">
+        <YStack px="$5" py="$2.5">
           <XStack jc="space-between" gap="$4">
             <YStack flexShrink={1}>
               <XStack flexShrink={1}>
@@ -165,12 +161,11 @@ export default function HardwareSalesReward() {
                 {`${formatTime(new Date(item.createdAt), {
                   hideSeconds: true,
                   hideMilliseconds: true,
-                })} ${item.title}`}
+                })} ${item.orderName || item.title || ''}`}
               </SizableText>
             </YStack>
             <XStack>
               <Currency
-                sourceCurrency="usd"
                 numberOfLines={1}
                 formatter="balance"
                 formatterOptions={{
@@ -180,7 +175,7 @@ export default function HardwareSalesReward() {
                 size="$bodyLgMedium"
                 pr="$0.5"
               >
-                {item.amount}
+                {item.fiatValue}
               </Currency>
             </XStack>
           </XStack>
@@ -215,6 +210,7 @@ export default function HardwareSalesReward() {
             refreshControl={
               <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
             }
+            contentContainerStyle={{ pb: '$5' }}
             ListEmptyComponent={
               <Empty
                 icon="GiftOutline"
@@ -248,12 +244,7 @@ export default function HardwareSalesReward() {
                   </SizableText>
                   <XStack gap="$2" ai="center">
                     {Number(amount.available) > 0 ? (
-                      <Currency
-                        sourceCurrency="usd"
-                        formatter="value"
-                        size="$heading5xl"
-                        pr="$0.5"
-                      >
+                      <Currency formatter="value" size="$heading5xl" pr="$0.5">
                         {amount.available}
                       </Currency>
                     ) : (
@@ -274,7 +265,6 @@ export default function HardwareSalesReward() {
                   {Number(amount.pending) > 0 ? (
                     <XStack gap="$1">
                       <Currency
-                        sourceCurrency="usd"
                         formatter="value"
                         formatterOptions={{
                           currency: settings.currencyInfo.symbol,
@@ -311,9 +301,8 @@ export default function HardwareSalesReward() {
             }
             sections={sections}
             renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={44}
+            estimatedItemSize={60}
             renderItem={renderItem}
-            ItemSeparatorComponent={ItemSeparatorComponent}
             onEndReached={fetchMore}
           />
         )}

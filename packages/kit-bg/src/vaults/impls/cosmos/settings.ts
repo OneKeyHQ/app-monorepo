@@ -64,6 +64,8 @@ const settings: IVaultSettings = {
 
   customRpcEnabled: true,
 
+  skipFixFeeInfoDecimal: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
@@ -124,6 +126,11 @@ const settings: IVaultSettings = {
       addressPrefix: 'bbn',
       curve: 'secp256k1',
       nativeTokenAddress: 'ubbn',
+    },
+    'cosmos--noble-1': {
+      addressPrefix: 'noble',
+      curve: 'secp256k1',
+      nativeTokenAddress: 'uusdc',
     },
   },
 

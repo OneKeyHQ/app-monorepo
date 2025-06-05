@@ -13,11 +13,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type {
-  IStakeEarnDetail,
-  IStakeProtocolDetails,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
 
 function AutoRiskControlContent() {
   const intl = useIntl();
@@ -135,7 +131,10 @@ export const ProtectionSection = ({
   return (
     <>
       <YStack>
-        <SizableText size="$headingLg" color={protection.title.color}>
+        <SizableText
+          size={protection.title.size || '$headingLg'}
+          color={protection.title.color}
+        >
           {protection.title.text}
         </SizableText>
         <XStack mx="$-5" mt="$4">
@@ -164,11 +163,17 @@ export const ProtectionSection = ({
                     color={item.icon.color || '$iconSuccess'}
                   />
                   <YStack flex={1}>
-                    <SizableText size="$bodyMdMedium" color={item.title.color}>
+                    <SizableText
+                      size={item.title.size || '$bodyMdMedium'}
+                      color={item.title.color}
+                    >
                       {item.title.text}
                     </SizableText>
-                    <SizableText size="$bodyMd" color={item.description.color}>
-                      {item.description.text}
+                    <SizableText
+                      size={item.description?.size || '$bodyMd'}
+                      color={item.description?.color}
+                    >
+                      {item.description?.text}
                     </SizableText>
                   </YStack>
                 </XStack>

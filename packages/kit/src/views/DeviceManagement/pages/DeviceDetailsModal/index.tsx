@@ -18,12 +18,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalDeviceManagementRoutes,
-  IModalDeviceManagementParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalDeviceManagementParamList } from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
+  EModalDeviceManagementRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -81,9 +79,11 @@ function DeviceDetailsModalCmp() {
       void refreshData();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
     appEventBus.on(EAppEventBusNames.FinishFirmwareUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+      appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
       appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
     };
   }, [refreshData]);
@@ -124,6 +124,12 @@ function DeviceDetailsModalCmp() {
       connectId: result?.device?.connectId,
     });
   }, [result?.device?.connectId, actions]);
+
+  const onPressTroubleshooting = useCallback(() => {
+    navigation.push(EModalDeviceManagementRoutes.HardwareTroubleshootingModal, {
+      walletWithDevice: result,
+    });
+  }, [navigation, result]);
 
   // Advance Section
   const inputPinOnSoftwareSupport = [
@@ -263,6 +269,7 @@ function DeviceDetailsModalCmp() {
                 onPressHomescreen={onPressHomescreen}
                 onPressAuthRequest={onPressAuthRequest}
                 onPressCheckForUpdates={onPressCheckForUpdates}
+                onPressTroubleshooting={onPressTroubleshooting}
               />
               {renderContent()}
             </>

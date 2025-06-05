@@ -38,8 +38,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EReplaceTxType,
@@ -308,11 +310,30 @@ function TxConfirmActions(props: IProps) {
       }
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
-      if (transferPayload?.originalRecipient) {
-        void backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients({
-          networkId,
-          address: transferPayload.originalRecipient,
-        });
+
+      const isLightningNetwork =
+        networkUtils.isLightningNetworkByNetworkId(networkId);
+      if (isLightningNetwork || transferPayload?.originalRecipient) {
+        let addressToSave: undefined | string | null =
+          transferPayload?.originalRecipient;
+
+        if (isLightningNetwork) {
+          addressToSave = (unsignedTxs[0].encodedTx as IEncodedTxLightning)
+            ?.lightningAddress;
+
+          if (!addressToSave) {
+            addressToSave = transferInfo?.lnurl;
+          }
+        }
+
+        if (addressToSave) {
+          void backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients(
+            {
+              networkId,
+              address: addressToSave,
+            },
+          );
+        }
       }
     } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });

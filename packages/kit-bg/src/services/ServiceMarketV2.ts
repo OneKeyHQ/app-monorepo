@@ -52,13 +52,13 @@ class ServiceMarketV2 extends ServiceBase {
     networkId,
     sortBy,
     sortType,
-    offset = 0,
-    limit = 50,
+    page = 1,
+    limit = 20,
   }: {
     networkId: string;
     sortBy?: string;
     sortType?: 'asc' | 'desc';
-    offset?: number;
+    page?: number;
     limit?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -69,7 +69,7 @@ class ServiceMarketV2 extends ServiceBase {
         networkId,
         sortBy,
         sortType,
-        offset,
+        page,
         limit,
       },
     });

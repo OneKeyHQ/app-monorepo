@@ -27,7 +27,6 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const ClaimOptions = () => {
   const appRoute = useAppRoute<
@@ -72,12 +71,7 @@ const ClaimOptions = () => {
             token: tokenInfo?.token as IEarnToken,
             amount: item.amount,
           },
-          tags: [
-            buildLocalTxStatusSyncId({
-              providerName: provider,
-              tokenSymbol: symbol,
-            }),
-          ],
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
         onSuccess: async (txs) => {
           const tx = txs[0];
@@ -114,6 +108,7 @@ const ClaimOptions = () => {
       provider,
       protocolInfo?.approve?.approveTarget,
       protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.stakeTag,
       tokenInfo?.token,
       appNavigation,
       accountId,

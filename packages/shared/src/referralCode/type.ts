@@ -1,7 +1,7 @@
 interface IReward {
   title: string;
   description: string;
-  monthlySales: string;
+  monthlySalesFiatValue: string;
   available?: {
     token: {
       networkId: string;
@@ -55,7 +55,7 @@ export interface IInviteSummary {
     level: number;
     rebate: number;
     discount: number;
-    threshold: number;
+    thresholdFiatValue: string;
     emoji: string;
     labelKey: string;
     label: string;
@@ -91,12 +91,12 @@ interface IHardwareSalesRecordItem {
   side: 'in' | 'out';
   subject: string;
   userId: string;
-  amount: string;
   createdAt: string;
   effectiveTime: string | null;
   orderTotalAmount: string;
   payReceipt: string | null;
   payTime: string | null;
+  orderName: string | null;
   receivceAddress: string | null;
   heading: string;
   title: string;
@@ -115,7 +115,6 @@ interface IHardwareSalesRecordItem {
 export interface IEarnRewardItem {
   amount: string;
   networkId: string;
-  orderTotalAmount: string;
   token: {
     networkId: string;
     address: string;
@@ -123,18 +122,19 @@ export interface IEarnRewardItem {
     logoURI: string;
     symbol: string;
   };
-  accountAddress: string;
   vaultName: string;
   vaultAddress: string;
   provider: string;
   fiatValue: string;
-  status: string;
-  symbol: string;
 }
 
 export interface IEarnRewardResponse {
   fiatValue: string;
-  items: IEarnRewardItem[];
+  items: {
+    accountAddress: string;
+    fiatValue: string;
+    items: IEarnRewardItem[];
+  }[];
   total: number;
 }
 
@@ -182,6 +182,30 @@ export interface IHardwareSalesRecord {
   items: IHardwareSalesRecordItem[];
 }
 
+export interface IInvitePaidItem {
+  _id: string;
+  networkId: string;
+  address: string;
+  token: {
+    networkId: string;
+    address: string;
+    logoURI: string;
+    name: string;
+    symbol: string;
+  };
+  version: number;
+  rebateAmount: string;
+  tx: string;
+  updatedAt: string;
+  createdAt: string;
+  paidAmount: string;
+}
+
+export interface IInvitePaidHistory {
+  total: number;
+  items: IInvitePaidItem[];
+}
+
 export interface IInviteHistory {
   total: number;
   items: IHardwareSalesRecordItem[];
@@ -199,5 +223,19 @@ export interface IInvitePostConfig {
   friendDiscount: {
     amount: number;
     unit: string;
+  };
+  locales: {
+    Earn: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
   };
 }

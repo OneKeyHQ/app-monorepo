@@ -24,6 +24,7 @@ import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discover
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
@@ -38,6 +39,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
@@ -116,6 +118,12 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
+  const [searchValue, setSearchValue] = useState('');
+
+  const [isFocusInMarketTab, setIsFocusInMarketTab] = useState(false);
+  useListenTabFocusState(ETabRoutes.Market, (isFocus) => {
+    setIsFocusInMarketTab(isFocus);
+  });
 
   const tabTitles = useMemo(() => {
     return [
@@ -268,7 +276,7 @@ export function UniversalSearch({
         searchResultSections.push({
           tabIndex: 1,
           title: intl.formatMessage({
-            id: ETranslations.global_wallets,
+            id: ETranslations.global_universal_search_tabs_wallets,
           }),
           ...generateDataFn(data),
         });
@@ -317,10 +325,22 @@ export function UniversalSearch({
     }
   }, 1200);
 
-  const handleChangeText = useCallback(() => {
+  const handleChangeText = useCallback((val: string) => {
     console.log('[universalSearch] handleChangeText');
+    setSearchValue(val); // Update search value state immediately
     setSearchStatus(ESearchStatus.loading);
   }, []);
+
+  const handleSearchTextFill = useCallback(
+    (text: string) => {
+      setSearchValue(text);
+      // Set loading status to show skeleton screen
+      setSearchStatus(ESearchStatus.loading);
+      // Trigger search with the filled text
+      void handleTextChange(text);
+    },
+    [handleTextChange],
+  );
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
@@ -411,13 +431,29 @@ export function UniversalSearch({
 
   const filterSections = useMemo(() => {
     if (isInAllTab) {
-      return sections.map((i) => ({
+      const sectionsWithSliceData = sections.map((i) => ({
         ...i,
         data: i.sliceData,
       }));
+
+      // When focused in Market tab, prioritize tokens section
+      if (isFocusInMarketTab) {
+        const tokensSection = sectionsWithSliceData.find(
+          (section) => section.tabIndex === 2, // tokens tab index
+        );
+        const otherSections = sectionsWithSliceData.filter(
+          (section) => section.tabIndex !== 2,
+        );
+
+        return tokensSection
+          ? [tokensSection, ...otherSections]
+          : sectionsWithSliceData;
+      }
+
+      return sectionsWithSliceData;
     }
     return sections.filter((i) => i.title === filterType);
-  }, [filterType, isInAllTab, sections]);
+  }, [filterType, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
@@ -427,10 +463,16 @@ export function UniversalSearch({
             renderSectionHeader={renderSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
-            ListHeaderComponent={<RecentSearched filterTypes={filterTypes} />}
+            ListHeaderComponent={
+              <RecentSearched
+                filterTypes={filterTypes}
+                onSearchTextFill={handleSearchTextFill}
+              />
+            }
             ListEmptyComponent={<ListEmptyComponent />}
             estimatedItemSize="$16"
             ListFooterComponent={<Stack h="$16" />}
+            keyboardShouldPersistTaps="handled"
           />
         );
 
@@ -463,6 +505,7 @@ export function UniversalSearch({
               />
             </XStack>
             <SectionList
+              key={`search-results-${isInAllTab ? 'all' : filterType}`}
               stickySectionHeadersEnabled
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
@@ -481,6 +524,7 @@ export function UniversalSearch({
               renderItem={renderItem}
               estimatedItemSize="$16"
               ListFooterComponent={<Stack h="$16" />}
+              keyboardShouldPersistTaps="handled"
             />
           </>
         );
@@ -489,9 +533,12 @@ export function UniversalSearch({
     }
   }, [
     filterSections,
+    filterType,
     filterTypes,
     handleTabSelectedPageIndex,
+    handleSearchTextFill,
     intl,
+    isInAllTab,
     recommendSections,
     renderItem,
     renderSectionHeader,
@@ -506,9 +553,13 @@ export function UniversalSearch({
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
       <Page.Body>
-        <View px="$5">
+        <View px="$5" pb="$2">
           <SearchBar
             autoFocus
+            value={searchValue}
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_universal_search_placeholder,
+            })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />

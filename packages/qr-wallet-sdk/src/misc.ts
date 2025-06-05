@@ -1,4 +1,4 @@
-enum EURType {
+export enum EURType {
   CryptoPSBT = 'crypto-psbt',
   CryptoMultiAccounts = 'crypto-multi-accounts',
   CryptoHDKey = 'crypto-hdkey',
@@ -22,7 +22,7 @@ enum EURType {
   TonSignature = 'ton-signature',
 }
 
-function parsePath(path: string) {
+export function parsePath(path: string) {
   const chunks = path.replace(/^m\//i, '').split('/');
   return chunks.map((chunk) => {
     const hardened = chunk.endsWith("'");

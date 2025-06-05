@@ -334,7 +334,7 @@ class ServiceAppUpdate extends ServiceBase {
           releaseInfo?.version && releaseInfo.version !== prev.latestVersion
             ? EAppUpdateStatus.notify
             : prev.status,
-        isShowUpdateDialog: prev.latestVersion !== releaseInfo.version,
+        isShowUpdateDialog: platformEnv.version !== releaseInfo.version,
       }));
     } else {
       await this.reset();

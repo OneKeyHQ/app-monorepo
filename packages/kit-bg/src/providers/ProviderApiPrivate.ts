@@ -286,7 +286,7 @@ class ProviderApiPrivate extends ProviderApiBase {
             id: ETranslations.dapp_connect_verified_site,
           }),
           unknown: appLocale.intl.formatMessage({
-            id: ETranslations.global_unknown,
+            id: ETranslations.browser_risk_detection_unknown,
           }),
         },
       };
@@ -353,7 +353,7 @@ class ProviderApiPrivate extends ProviderApiBase {
             id: ETranslations.dapp_connect_verified_site,
           }),
           unknown: appLocale.intl.formatMessage({
-            id: ETranslations.global_unknown,
+            id: ETranslations.browser_risk_detection_unknown,
           }),
           lastVerifiedAt: appLocale.intl.formatMessage({
             id: ETranslations.browser_last_verified_at,

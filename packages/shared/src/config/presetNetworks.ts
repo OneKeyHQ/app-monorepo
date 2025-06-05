@@ -1783,6 +1783,90 @@ const unichain: IServerNetwork = {
   'backendIndex': false,
 };
 
+const worldChain: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '480',
+  'id': 'evm--480',
+  'name': 'World Chain',
+  'symbol': 'ETH',
+  'code': 'worldchain',
+  'shortcode': 'worldchain',
+  'shortname': 'worldchain',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/world-chain.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const hyperEvm: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '999',
+  'id': 'evm--999',
+  'name': 'HyperEVM',
+  'symbol': 'HYPE',
+  'code': 'hyperevm',
+  'shortcode': 'hyperevm',
+  'shortname': 'hyperevm',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hyper-evm.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const monadTestnet: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '10143',
+  'id': 'evm--10143',
+  'name': 'Monad Testnet',
+  'symbol': 'TMON',
+  'code': 'tmon',
+  'shortcode': 'tmon',
+  'shortname': 'tmon',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/monad-testnet.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2145,6 +2229,26 @@ const bbnTestnet: IServerNetwork = {
   'feeMeta': {
     'decimals': 6,
     'symbol': 'UBBN',
+  },
+  'defaultEnabled': false,
+  'status': ENetworkStatus.LISTED,
+};
+
+const noble: IServerNetwork = {
+  'chainId': 'noble-1',
+  'code': 'noble',
+  'decimals': 6,
+  'id': 'cosmos--noble-1',
+  'impl': 'cosmos',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/noble.png',
+  'name': 'Noble',
+  'shortcode': 'noble',
+  'shortname': 'Noble',
+  'symbol': 'USDC',
+  'feeMeta': {
+    'decimals': 6,
+    'symbol': 'UUSDC',
   },
   'defaultEnabled': false,
   'status': ENetworkStatus.LISTED,
@@ -2796,6 +2900,8 @@ export const presetNetworksMap = {
   akash,
   osmosis,
   cosmoshub,
+  noble,
+
   // polkadot
   polkadot,
   astar,
@@ -2975,6 +3081,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     berachain,
     sei,
     unichain,
+    worldChain,
+    hyperEvm,
+    monadTestnet,
 
     // cosmos
     celestia,
@@ -2987,6 +3096,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     cosmoshub,
     bbn,
     bbnTestnet,
+    noble,
 
     // polkadot
     polkadot,

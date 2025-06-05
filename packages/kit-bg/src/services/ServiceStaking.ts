@@ -26,6 +26,7 @@ import type {
   IChangedPendingTxInfo,
 } from '@onekeyhq/shared/types/history';
 import type {
+  ECheckAmountActionType,
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
@@ -53,6 +54,7 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTransactionConfirmation,
   IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
@@ -230,6 +232,9 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new Error('Staking config not found');
     }
+    const isMorphoProvider = earnUtils.isMorphoProvider({
+      providerName: provider,
+    });
     const paramsToSend: Record<string, any> = {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
@@ -238,7 +243,6 @@ class ServiceStaking extends ServiceBase {
       networkId,
       symbol,
       provider,
-      vault: morphoVault,
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
@@ -247,6 +251,10 @@ class ServiceStaking extends ServiceBase {
         approveType === EApproveType.Permit ? permitSignature : undefined,
       ...rest,
     };
+
+    if (isMorphoProvider) {
+      paramsToSend.vault = morphoVault;
+    }
 
     const walletReferralCode =
       await this.backgroundApi.serviceReferralCode.checkAndUpdateReferralCode({
@@ -276,6 +284,9 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new Error('Staking config not found');
     }
+    const isMorphoProvider = earnUtils.isMorphoProvider({
+      providerName: params.provider,
+    });
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v2/unstake`, {
@@ -285,7 +296,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: morphoVault,
+      vault: isMorphoProvider ? morphoVault : '',
       ...rest,
     });
     return resp.data.data;
@@ -438,13 +449,18 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-
+    const isMorphoProvider = earnUtils.isMorphoProvider({
+      providerName: params.provider,
+    });
     const data: Record<string, string | undefined> & { type?: string } = {
       accountAddress,
       networkId,
-      vault: morphoVault,
       ...rest,
     };
+
+    if (isMorphoProvider) {
+      data.vault = morphoVault;
+    }
     if (type) {
       data.type = params.type;
     }
@@ -535,6 +551,27 @@ class ServiceStaking extends ServiceBase {
       isV2: true,
     });
     return result as unknown as IStakeEarnDetail;
+  }
+
+  @backgroundMethod()
+  async getTransactionConfirmation(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault: string;
+    accountAddress: string;
+    action: 'stake' | 'unstake' | 'claim';
+    amount: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const amountNumber = BigNumber(params.amount);
+    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
+    const resp = await client.get<{
+      data: IStakeTransactionConfirmation;
+    }>(`/earn/v1/transaction-confirmation`, {
+      params,
+    });
+    return resp.data.data;
   }
 
   _getProtocolList = memoizee(
@@ -712,13 +749,16 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccountsParams({
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const accounts = await this.getEarnAvailableAccounts({
       accountId,
       networkId,
+      indexedAccountId,
     });
     const accountParams: {
       networkId: string;
@@ -752,6 +792,7 @@ class ServiceStaking extends ServiceBase {
   async fetchAccountOverview(params: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
     assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccountsParams(params);
@@ -806,13 +847,16 @@ class ServiceStaking extends ServiceBase {
   async fetchAllNetworkAssets({
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const accounts = await this.getEarnAvailableAccountsParams({
       accountId,
       networkId,
+      indexedAccountId,
     });
     return this.getAccountAsset(accounts);
   }
@@ -880,7 +924,7 @@ class ServiceStaking extends ServiceBase {
     networkId?: string;
     symbol?: string;
     provider?: string;
-    action: 'stake' | 'unstake' | 'claim';
+    action: ECheckAmountActionType;
     withdrawAll: boolean;
     amount?: string;
     morphoVault?: string;
@@ -888,9 +932,13 @@ class ServiceStaking extends ServiceBase {
     if (!networkId || !accountId || !provider) {
       throw new Error('networkId or accountId or provider not found');
     }
+    const isMorphoProvider = earnUtils.isMorphoProvider({
+      providerName: provider,
+    });
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+    const amountNumber = BigNumber(amount || 0);
     const result = await client.get<
       ICheckAmountResponse,
       IAxiosResponse<ICheckAmountResponse>
@@ -901,17 +949,12 @@ class ServiceStaking extends ServiceBase {
         symbol,
         provider: provider || '',
         action,
-        amount,
-        vault: morphoVault,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+        vault: isMorphoProvider ? morphoVault : '',
         withdrawAll,
       },
     });
     const { code, message } = result.data;
-    this.handleServerError({
-      code,
-      message,
-      requestId: result.$requestId,
-    });
     return Number(code) === 0 ? '' : message;
   }
 
@@ -1123,12 +1166,14 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccounts(params: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const { accountId, networkId } = params;
     const { accountsInfo } =
       await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
         accountId,
         networkId,
+        indexedAccountId: params.indexedAccountId,
         fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
           ? undefined
           : true,
@@ -1394,6 +1439,11 @@ class ServiceStaking extends ServiceBase {
   async getFalconDepositDoNotShowAgain() {
     const v = await simpleDb.appStatus.getRawData();
     return v?.falconDepositDoNotShowAgain ?? false;
+  }
+
+  @backgroundMethod()
+  async resetEarnCache() {
+    await this.backgroundApi.simpleDb.earn.resetEarnData();
   }
 }
 

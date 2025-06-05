@@ -85,6 +85,9 @@ class ServiceSetting extends ServiceBase {
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
+
+    // clear i18nText cache
+    await this.backgroundApi.serviceReferralCode.resetPostConfig();
   }
 
   @backgroundMethod()
@@ -217,6 +220,7 @@ class ServiceSetting extends ServiceBase {
       return;
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+    await this.backgroundApi.serviceStaking.resetEarnCache();
   }
 
   @backgroundMethod()

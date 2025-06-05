@@ -33,6 +33,7 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
@@ -76,6 +77,7 @@ const BANNER_TITLE_OFFSET = {
 };
 
 const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
+const useAllNetworkId = () => useMemo(() => getNetworkIdsMap().onekeyall, []);
 const getNumberColor = (
   value: string | number,
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
@@ -297,13 +299,14 @@ function Recommended({
 }: {
   isFetchingAccounts: boolean;
 }) {
+  const allNetworkId = useAllNetworkId();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
-    [account?.id, actions, network?.id],
+    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
+    [account?.id, actions, allNetworkId],
   );
   const [{ earnAccount }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
@@ -377,12 +380,13 @@ function Overview({
   onRefresh: () => void;
 }) {
   const {
-    activeAccount: { account, network },
+    activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
+  const allNetworkId = useAllNetworkId();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
-    [account?.id, actions, network?.id],
+    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
+    [account?.id, actions, allNetworkId],
   );
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
@@ -670,21 +674,24 @@ function AvailableAssets() {
 }
 
 function BasicEarnHome() {
-  const {
-    activeAccount: { account, network, indexedAccount },
-  } = useActiveAccount({ num: 0 });
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount } = activeAccount;
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
+  const allNetworkId = useAllNetworkId();
   const {
     isLoading: isFetchingAccounts,
     result,
     run: refreshOverViewData,
   } = usePromiseResult(
     async () => {
+      if (!account) {
+        return;
+      }
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
-        account?.id,
-        network?.id,
+        account.id,
+        allNetworkId,
       );
       let assets = actions.current.getAvailableAssets();
       if (assets.length === 0) {
@@ -699,10 +706,14 @@ function BasicEarnHome() {
       }
 
       const fetchAndUpdateAction = async () => {
+        if (!account) {
+          return;
+        }
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
             accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
+            networkId: allNetworkId,
+            indexedAccountId: account?.indexedAccountId,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -714,11 +725,15 @@ function BasicEarnHome() {
         });
       };
       const fetchAndUpdateOverview = async () => {
+        if (!account) {
+          return;
+        }
         const overviewData =
           await backgroundApiProxy.serviceStaking.fetchAccountOverview({
             assets,
             accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
+            networkId: allNetworkId,
+            indexedAccountId: account?.indexedAccountId,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -743,7 +758,7 @@ function BasicEarnHome() {
       }
       return { loaded: true };
     },
-    [actions, account?.id, network?.id],
+    [actions, account, allNetworkId],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
@@ -832,6 +847,7 @@ function BasicEarnHome() {
           const symbol = paths.pop();
           const params = new URLSearchParams(query);
           const networkId = params.get('networkId');
+          const vault = params.get('vault');
           if (provider && symbol && networkId) {
             void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
               accountId: account?.id ?? '',
@@ -839,6 +855,7 @@ function BasicEarnHome() {
               provider,
               symbol,
               networkId,
+              vault: vault ?? '',
             });
           }
           return;
