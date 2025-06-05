@@ -5,17 +5,27 @@ import type { IButtonProps } from '@onekeyhq/components';
 
 import { NetworksSearchPanel } from './NetworksSearchPanel';
 
-type IMoreButtonProps = Omit<IButtonProps, 'children'>;
+import type { INetworksSearchPanelProps } from './NetworksSearchPanel';
 
-const MoreButton: FC<IMoreButtonProps> = ({ ...rest }) => (
+interface IMoreButtonProps
+  extends Omit<IButtonProps, 'children'>,
+    Omit<INetworksSearchPanelProps, 'networkId'> {
+  selectedNetworkId?: string;
+}
+
+const MoreButton: FC<IMoreButtonProps> = ({
+  networks = [],
+  selectedNetworkId,
+  onNetworkSelect,
+  ...rest
+}) => (
   <Popover
     title="Select Network"
     renderContent={
       <NetworksSearchPanel
-        networkId={undefined}
-        onPressItem={(item) => {
-          console.log('Network selected:', item);
-        }}
+        networks={networks}
+        networkId={selectedNetworkId}
+        onNetworkSelect={onNetworkSelect}
       />
     }
     renderTrigger={

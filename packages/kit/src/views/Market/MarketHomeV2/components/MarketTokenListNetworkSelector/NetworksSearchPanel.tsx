@@ -4,38 +4,84 @@ import type { ComponentProps, FC } from 'react';
 import { ChainSelectorListView } from '@onekeyhq/kit/src/views/ChainSelector/components/PureChainSelector/ChainSelectorListView';
 import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-// TODO: check IServerNetworkMatch type usage from ChainSelectorListView
-// The default swapNetworksIncludeAllNetwork data structure is NOT IServerNetworkMatch[]
-// and might cause runtime issues if ChainSelectorListView relies on full IServerNetwork properties.
+// Convert ISwapNetwork to IServerNetwork format
+// Note: Many properties are redundant for ChainSelectorListView usage but required by IServerNetwork type
+const convertSwapNetworkToServerNetwork = (
+  swapNetwork: ISwapNetwork,
+): IServerNetwork => ({
+  // Essential properties actually used by ChainSelectorListView
+  id: swapNetwork.networkId,
+  name: swapNetwork.name,
+  symbol: swapNetwork.symbol,
+  logoURI: swapNetwork.logoURI || '',
+  isAllNetworks: swapNetwork.isAllNetworks,
+  // Required by IServerNetwork type but mostly unused in this context
+  impl: 'evm',
+  chainId: swapNetwork.networkId, // Duplicates id but required
+  code: swapNetwork.shortcode || swapNetwork.name.toLowerCase(),
+  shortname: swapNetwork.name, // Duplicates name but required
+  shortcode: swapNetwork.shortcode || swapNetwork.name.toLowerCase(), // Duplicates code but required
+  decimals: 18,
+  feeMeta: { symbol: swapNetwork.symbol, decimals: 18 },
+  defaultEnabled: true,
+  status: 'LISTED' as any,
+  isTestnet: false,
+  explorerURL: '',
+  isCustomNetwork: false,
+});
+
 export interface INetworksSearchPanelProps
   extends Omit<ComponentProps<typeof ChainSelectorListView>, 'networks'> {
-  // Allow networks prop to be potentially undefined or IServerNetwork[]
-  networks?: IServerNetwork[];
+  // Only support ISwapNetwork[]
+  networks?: ISwapNetwork[];
+  // Add callback for network selection
+  onNetworkSelect?: (network: ISwapNetwork) => void;
 }
 
 export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
-  // Use imported data as default for networks prop
-  networks: networksProp, // Rename prop to avoid conflict
+  networks: networksProp,
   networkId,
   onPressItem,
+  onNetworkSelect,
 }) => {
-  // Use the prop if provided, otherwise use the default swap data
-  const networksData = networksProp;
+  // Convert ISwapNetwork[] to IServerNetwork[] format for ChainSelectorListView
+  const networksForListView = useMemo(() => {
+    if (!networksProp || networksProp.length === 0) {
+      return [];
+    }
 
-  // Memoize the cast to avoid unnecessary recalculations
-  const networksForListView = useMemo(
-    () => networksData as IServerNetworkMatch[],
-    [networksData],
+    // Convert ISwapNetwork[] to IServerNetwork[]
+    return networksProp.map(convertSwapNetworkToServerNetwork);
+  }, [networksProp]);
+
+  // Cast to IServerNetworkMatch[] for ChainSelectorListView
+  const networksAsMatches = useMemo(
+    () => networksForListView as IServerNetworkMatch[],
+    [networksForListView],
   );
+
+  const handleNetworkPress = (network: IServerNetworkMatch) => {
+    // Find the original ISwapNetwork data to pass back
+    if (networksProp && onNetworkSelect) {
+      const originalNetwork = networksProp.find(
+        (n) => n.networkId === network.id,
+      );
+      if (originalNetwork) {
+        onNetworkSelect(originalNetwork);
+      }
+    }
+
+    // Also call the original onPressItem if provided
+    onPressItem?.(network);
+  };
 
   return (
     <ChainSelectorListView
       networkId={networkId}
-      // Cast the networks data. This resolves the TS error but may hide runtime issues
-      // if the component requires full IServerNetwork properties not present in swapNetworksIncludeAllNetwork.
-      networks={networksForListView || []}
-      onPressItem={onPressItem}
+      networks={networksAsMatches}
+      onPressItem={handleNetworkPress}
     />
   );
 };

@@ -3,7 +3,7 @@ import { memo, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
-import { ScrollView, Stack, XStack } from '@onekeyhq/components';
+import { ScrollView, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
@@ -15,9 +15,11 @@ interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
   disableNetworks?: string[];
   moreNetworksCount?: number;
+  moreNetworks?: ISwapNetwork[];
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
   onMoreNetwork: () => void;
+  onMoreNetworkSelect: (network: ISwapNetwork) => void;
 }
 
 const MarketNetworkFilter = ({
@@ -26,6 +28,8 @@ const MarketNetworkFilter = ({
   onSelectNetwork,
   disableNetworks,
   moreNetworksCount,
+  moreNetworks,
+  onMoreNetworkSelect,
   onMoreNetwork,
 }: ISwapNetworkToggleGroupProps) => {
   const { width } = useWindowDimensions();
@@ -94,7 +98,12 @@ const MarketNetworkFilter = ({
       </XStack>
 
       {moreNetworksCount && moreNetworksCount > 0 ? (
-        <MoreButton onPress={onMoreNetwork} />
+        <MoreButton
+          networks={moreNetworks}
+          selectedNetworkId={selectedNetwork?.networkId}
+          onNetworkSelect={onMoreNetworkSelect}
+          onPress={onMoreNetwork}
+        />
       ) : null}
     </XStack>
   );

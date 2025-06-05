@@ -45,6 +45,21 @@ function MarketTokenListNetworkSelector({
     );
   }, [marketChainsData]);
 
+  // Calculate the number of networks to show in the filter vs more networks
+  const { visibleNetworks, moreNetworksCount } = useMemo(() => {
+    const maxVisible = 8; // Show up to 8 networks in the filter
+    if (marketNetworks.length <= maxVisible) {
+      return {
+        visibleNetworks: marketNetworks,
+        moreNetworksCount: 0,
+      };
+    }
+    return {
+      visibleNetworks: marketNetworks.slice(0, maxVisible),
+      moreNetworksCount: marketNetworks.length - maxVisible,
+    };
+  }, [marketNetworks]);
+
   // Set default selected network when networks are loaded
   useEffect(() => {
     if (marketNetworks.length > 0 && !currentSelectNetwork) {
@@ -60,18 +75,27 @@ function MarketTokenListNetworkSelector({
     [onSelectNetworkId],
   );
 
+  const handleMoreNetworkSelect = useCallback(
+    (network: ISwapNetwork) => {
+      onSelectCurrentNetwork(network);
+    },
+    [onSelectCurrentNetwork],
+  );
+
   return (
     <Stack paddingVertical="$3" paddingHorizontal="$5">
       {isLoading || forceLoading ? (
         <MarketTokenListNetworkSelectorSkeleton />
       ) : (
         <MarketNetworkFilter
-          networks={marketNetworks}
+          networks={visibleNetworks}
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
-          moreNetworksCount={2}
+          moreNetworksCount={moreNetworksCount}
+          moreNetworks={marketNetworks}
+          onMoreNetworkSelect={handleMoreNetworkSelect}
           onMoreNetwork={() => {
-            console.log('TODO: onMoreNetwork');
+            console.log('More network button clicked');
           }}
         />
       )}
