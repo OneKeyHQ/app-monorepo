@@ -10,6 +10,9 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import type { GestureResponderEvent } from 'react-native';
 
 interface ITokenIdentityItemProps {
   /**
@@ -42,13 +45,6 @@ interface ITokenIdentityItemProps {
   onCopied?: (address: string) => void;
 }
 
-// Display helpers ----------------------------------------------------------
-const truncateAddress = (address: string, chunk = 4) => {
-  if (!address) return '';
-  if (address.length <= chunk * 2 + 2) return address;
-  return `${address.slice(0, 2 + chunk)}...${address.slice(-chunk)}`;
-};
-
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   symbol,
   address,
@@ -58,9 +54,18 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
 }) => {
   const { copyText } = useClipboard();
 
-  const shortened = useMemo(() => truncateAddress(address), [address]);
+  const shortened = useMemo(
+    () =>
+      accountUtils.shortenAddress({
+        address,
+        leadingLength: 6,
+        trailingLength: 4,
+      }),
+    [address],
+  );
 
-  const handleCopy = () => {
+  const handleCopy = (e: GestureResponderEvent) => {
+    e.stopPropagation();
     copyText(address);
     onCopied?.(address);
   };
