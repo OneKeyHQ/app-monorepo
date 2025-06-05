@@ -14,10 +14,8 @@ import type { ScrollView as ScrollViewType } from 'react-native';
 
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
-  moreNetworks?: ISwapNetwork[];
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
-  onMoreNetwork: () => void;
   onMoreNetworkSelect: (network: ISwapNetwork) => void;
 }
 
@@ -30,14 +28,7 @@ const MarketNetworkFilter = forwardRef<
   ISwapNetworkToggleGroupProps
 >(
   (
-    {
-      networks,
-      selectedNetwork,
-      onSelectNetwork,
-      moreNetworks,
-      onMoreNetworkSelect,
-      onMoreNetwork,
-    },
+    { networks, selectedNetwork, onSelectNetwork, onMoreNetworkSelect },
     ref,
   ) => {
     const intl = useIntl();
@@ -127,10 +118,9 @@ const MarketNetworkFilter = forwardRef<
         </XStack>
 
         <MoreButton
-          networks={moreNetworks}
+          networks={networks}
           selectedNetworkId={selectedNetwork?.networkId}
           onNetworkSelect={onMoreNetworkSelect}
-          onPress={onMoreNetwork}
         />
       </XStack>
     );

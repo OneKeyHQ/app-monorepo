@@ -7,24 +7,28 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 // Convert ISwapNetwork to IServerNetwork format with minimal required properties
-const convertSwapNetworkToServerNetwork = (
-  swapNetwork: ISwapNetwork,
-): IServerNetwork => ({
-  // Essential properties for ChainSelectorListView
-  id: swapNetwork.networkId,
-  name: swapNetwork.name,
-  symbol: swapNetwork.symbol || swapNetwork.name.toUpperCase(),
-  logoURI: swapNetwork.logoURI || '',
-  isAllNetworks: swapNetwork.isAllNetworks,
-  // Minimal required properties for type compatibility
-  impl: 'evm',
-  chainId: swapNetwork.networkId,
-  code: swapNetwork.shortcode || swapNetwork.name.toLowerCase(),
-  shortname: swapNetwork.name,
-  shortcode: swapNetwork.shortcode || swapNetwork.name.toLowerCase(),
+const convertSwapNetworkToServerNetwork = ({
+  networkId,
+  name,
+  symbol,
+  logoURI,
+  isAllNetworks,
+  shortcode,
+}: ISwapNetwork): IServerNetwork => ({
+  id: networkId,
+  name,
+  symbol: symbol || name.toUpperCase(),
+  logoURI: logoURI || '',
+  isAllNetworks,
+  // Required properties with minimal defaults
+  impl: 'evm' as any,
+  chainId: networkId,
+  code: shortcode || name.toLowerCase(),
+  shortname: name,
+  shortcode: shortcode || name.toLowerCase(),
   decimals: 18,
   feeMeta: {
-    symbol: swapNetwork.symbol || swapNetwork.name.toUpperCase(),
+    symbol: symbol || name.toUpperCase(),
     decimals: 18,
   },
   defaultEnabled: true,

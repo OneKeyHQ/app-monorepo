@@ -86,9 +86,7 @@ function MarketTokenListNetworkSelector({
           networks={marketNetworks}
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
-          moreNetworks={marketNetworks}
           onMoreNetworkSelect={handleMoreNetworkSelect}
-          onMoreNetwork={() => {}}
         />
       )}
     </Stack>
