@@ -30,6 +30,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   errorText?: ETranslations;
   downloadedEvent?: IUpdateDownloadedEvent;
   isShowUpdateDialog?: boolean;
+  summary?: string;
 }
 
 export enum EAppUpdateStatus {

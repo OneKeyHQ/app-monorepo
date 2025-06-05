@@ -297,6 +297,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       params?: {
         latestVersion?: string;
         isForceUpdate?: boolean;
+        summary?: string;
       },
     ) => {
       dialog.show({
@@ -325,9 +326,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         title: intl.formatMessage({
           id: ETranslations.update_notification_dialog_title,
         }),
-        description: intl.formatMessage({
-          id: ETranslations.update_notification_dialog_desc,
-        }),
+        description:
+          params?.summary ||
+          intl.formatMessage({
+            id: ETranslations.update_notification_dialog_desc,
+          }),
         onConfirmText: intl.formatMessage({
           id: ETranslations.update_update_now,
         }),

@@ -278,6 +278,7 @@ class ServiceAppUpdate extends ServiceBase {
       latestVersion: '0.0.0',
       isForceUpdate: false,
       updateAt: 0,
+      summary: '',
       status: EAppUpdateStatus.done,
       isShowUpdateDialog: false,
     });
