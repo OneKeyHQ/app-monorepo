@@ -24,6 +24,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../NetworkAvatar';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function AllNetworksManagerTrigger({
   num,
@@ -70,6 +71,11 @@ function AllNetworksManagerTrigger({
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
+    // TODO: remove this after native android layout reset fix
+    if (platformEnv.isNativeAndroid) {
+      return <Stack height={5} />;
+    }
+
     return null;
   }
 
