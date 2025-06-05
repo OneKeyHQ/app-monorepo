@@ -1,9 +1,12 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import MarketNetworkFilter from './MarketNetworkFilter';
+import MarketTokenListNetworkSelectorSkeleton from './MarketTokenListNetworkSelectorSkeleton';
 
 export const swapNetworksCommonCount = 10;
 export const swapNetworksCommonCountMD = 5;
@@ -11,35 +14,43 @@ export const swapNetworksCommonCountMD = 5;
 interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
   onSelectNetworkId?: (networkId: string) => void;
+  forceLoading?: boolean;
 }
 
 function MarketTokenListNetworkSelector({
   selectedNetworkId: _selectedNetworkId,
   onSelectNetworkId,
+  forceLoading,
 }: IMarketTokenListNetworkSelectorProps) {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >();
-  const [marketNetworks, setMarketNetworks] = useState<ISwapNetwork[]>([]);
 
+  const { result: marketChainsData, isLoading } = usePromiseResult(
+    () => backgroundApiProxy.serviceMarketV2.fetchMarketChains(),
+    [],
+  );
+
+  const marketNetworks = useMemo(() => {
+    if (!marketChainsData?.list) return [];
+    return marketChainsData.list.map(
+      (chain) =>
+        ({
+          networkId: chain.networkId,
+          name: chain.name,
+          logoURI: chain.logoUrl,
+          symbol: chain.name.toUpperCase(),
+          shortcode: chain.name.toLowerCase(),
+        } as ISwapNetwork),
+    );
+  }, [marketChainsData]);
+
+  // Set default selected network when networks are loaded
   useEffect(() => {
-    void backgroundApiProxy.serviceMarketV2.fetchMarketChains().then((data) => {
-      const networks = (data?.list || []).map(
-        (chain) =>
-          ({
-            networkId: chain.networkId,
-            name: chain.name,
-            logoURI: chain.logoUrl,
-            symbol: chain.name.toUpperCase(),
-            shortcode: chain.name.toLowerCase(),
-          } as ISwapNetwork),
-      );
-      setMarketNetworks(networks);
-      if (networks.length > 0) {
-        setCurrentSelectNetwork(networks[0]);
-      }
-    });
-  }, []);
+    if (marketNetworks.length > 0 && !currentSelectNetwork) {
+      setCurrentSelectNetwork(marketNetworks[0]);
+    }
+  }, [marketNetworks, currentSelectNetwork]);
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
@@ -50,15 +61,21 @@ function MarketTokenListNetworkSelector({
   );
 
   return (
-    <MarketNetworkFilter
-      networks={marketNetworks}
-      selectedNetwork={currentSelectNetwork}
-      onSelectNetwork={onSelectCurrentNetwork}
-      moreNetworksCount={2}
-      onMoreNetwork={() => {
-        console.log('TODO: onMoreNetwork');
-      }}
-    />
+    <Stack paddingVertical="$3" paddingHorizontal="$5">
+      {isLoading || forceLoading ? (
+        <MarketTokenListNetworkSelectorSkeleton />
+      ) : (
+        <MarketNetworkFilter
+          networks={marketNetworks}
+          selectedNetwork={currentSelectNetwork}
+          onSelectNetwork={onSelectCurrentNetwork}
+          moreNetworksCount={2}
+          onMoreNetwork={() => {
+            console.log('TODO: onMoreNetwork');
+          }}
+        />
+      )}
+    </Stack>
   );
 }
 

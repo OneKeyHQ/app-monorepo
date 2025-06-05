@@ -46,6 +46,7 @@ function MarketHome() {
       />
       <Page.Body>
         <MarketTokenListNetworkSelector
+          forceLoading
           selectedNetworkId={selectedNetworkId}
           onSelectNetworkId={setSelectedNetworkId}
         />
