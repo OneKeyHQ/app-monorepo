@@ -17,6 +17,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -24,7 +25,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../NetworkAvatar';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function AllNetworksManagerTrigger({
   num,
