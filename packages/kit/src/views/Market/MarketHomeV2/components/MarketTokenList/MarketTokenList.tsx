@@ -23,12 +23,17 @@ function MarketTokenList({
   const toDetailPage = useToDetailPage();
   const marketTokenColumns = useMarketTokenColumns();
 
-  const { data, currentPage, setCurrentPage, totalPages } = useMarketTokenList({
-    networkId,
-    sortBy,
-    sortType,
-    pageSize,
-  });
+  const { data, isLoading, currentPage, setCurrentPage, totalPages } =
+    useMarketTokenList({
+      networkId,
+      sortBy,
+      sortType,
+      pageSize,
+    });
+
+  // Show skeleton only on initial load (when there's no data yet)
+  // This provides better UX by avoiding skeleton flash during pagination
+  const showSkeleton = isLoading && data.length === 0;
 
   return (
     <>
@@ -39,29 +44,34 @@ function MarketTokenList({
         }}
         width="100%"
       >
-        <Stack width={1500}>
-          <Table<IMarketToken>
-            columns={marketTokenColumns}
-            dataSource={data}
-            keyExtractor={(item) => item.id}
-            onRow={
-              onItemPress
-                ? (item) => ({
-                    onPress: () => onItemPress(item),
-                  })
-                : (item) => ({
-                    onPress: () =>
-                      toDetailPage({
-                        tokenAddress: item.address,
-                        networkId,
-                      }),
-                  })
-            }
-          />
+        <Stack width={1200}>
+          {showSkeleton ? (
+            <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
+          ) : (
+            <Table<IMarketToken>
+              columns={marketTokenColumns}
+              dataSource={data}
+              keyExtractor={(item) => item.id}
+              onRow={
+                onItemPress
+                  ? (item) => ({
+                      onPress: () => onItemPress(item),
+                    })
+                  : (item) => ({
+                      onPress: () =>
+                        toDetailPage({
+                          tokenAddress: item.address,
+                          networkId,
+                        }),
+                    })
+              }
+            />
+          )}
         </Stack>
       </Stack>
 
-      {totalPages > 1 ? (
+      {/* Hide pagination during skeleton loading */}
+      {!showSkeleton && totalPages > 1 ? (
         <XStack justifyContent="center" py="$4">
           <Pagination
             current={currentPage}

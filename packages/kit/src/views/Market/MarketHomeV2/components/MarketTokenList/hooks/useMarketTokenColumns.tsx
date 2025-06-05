@@ -1,6 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +32,25 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           address={record.address}
         />
       ),
+      renderSkeleton: () => (
+        <XStack alignItems="center" space="$3">
+          <XStack position="relative">
+            <Skeleton width={32} height={32} borderRadius="$full" />
+            <Skeleton
+              width={16}
+              height={16}
+              borderRadius="$full"
+              position="absolute"
+              right={-4}
+              bottom={-4}
+            />
+          </XStack>
+          <YStack space="$1">
+            <Skeleton width={80} height={16} />
+            <Skeleton width={60} height={12} />
+          </YStack>
+        </XStack>
+      ),
     },
     {
       title: intl.formatMessage({ id: ETranslations.global_price }),
@@ -41,6 +65,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
+      renderSkeleton: () => <Skeleton width={70} height={16} />,
       align: 'right',
     },
     {
@@ -57,6 +82,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
+      renderSkeleton: () => <Skeleton width={60} height={16} />,
       align: 'right',
     },
     {
@@ -72,6 +98,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
+      renderSkeleton: () => <Skeleton width={80} height={16} />,
       align: 'right',
     },
     {
@@ -87,6 +114,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
+      renderSkeleton: () => <Skeleton width={100} height={16} />,
       align: 'right',
     },
     {
@@ -95,6 +123,15 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
       columnWidth: 100,
       render: (text: number, record) => (
         <Txns transactions={text} walletInfo={record.walletInfo} />
+      ),
+      renderSkeleton: () => (
+        <YStack space="$1" alignItems="flex-end">
+          <Skeleton width={50} height={14} />
+          <XStack space="$1">
+            <Skeleton width={20} height={12} />
+            <Skeleton width={20} height={12} />
+          </XStack>
+        </YStack>
       ),
       align: 'right',
     },
@@ -107,6 +144,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
+      renderSkeleton: () => <Skeleton width={60} height={16} />,
       align: 'right',
     },
     {
@@ -118,6 +156,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
+      renderSkeleton: () => <Skeleton width={60} height={16} />,
       align: 'right',
     },
     {
@@ -133,6 +172,7 @@ export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
+      renderSkeleton: () => <Skeleton width={120} height={16} />,
       align: 'right',
     },
   ];
