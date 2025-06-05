@@ -71,7 +71,7 @@ function AllNetworksManagerTrigger({
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
-    // TODO: remove this after native android layout reset fix
+    // TODO: Remove this after the native Android layout reset fixed.
     if (platformEnv.isNativeAndroid) {
       return <Stack height={5} />;
     }
