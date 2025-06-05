@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -54,6 +54,7 @@ export function useMarketTokenList({
   pageSize = 10,
 }: IUseMarketTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
 
   const {
     result: apiResult,
@@ -78,11 +79,18 @@ export function useMarketTokenList({
     },
   );
 
-  const transformedData = useMemo(() => {
-    if (!apiResult?.list) return [];
+  useEffect(() => {
+    if (!apiResult || !apiResult.list || apiResult.list.length <= 0) {
+      return;
+    }
+
     const networkLogoUri = getNetworkLogoUri(networkId);
-    return transformApiDataToComponentData(apiResult.list, networkLogoUri);
-  }, [apiResult?.list, networkId]);
+    const transformed = transformApiDataToComponentData(
+      apiResult.list,
+      networkLogoUri,
+    );
+    setTransformedData(transformed);
+  }, [apiResult, networkId]);
 
   const totalCount = apiResult?.total || 0;
 

@@ -23,13 +23,12 @@ function MarketTokenList({
   const toDetailPage = useToDetailPage();
   const marketTokenColumns = useMarketTokenColumns();
 
-  const { data, isLoading, currentPage, setCurrentPage, totalPages } =
-    useMarketTokenList({
-      networkId,
-      sortBy,
-      sortType,
-      pageSize,
-    });
+  const { data, currentPage, setCurrentPage, totalPages } = useMarketTokenList({
+    networkId,
+    sortBy,
+    sortType,
+    pageSize,
+  });
 
   return (
     <>
@@ -43,7 +42,7 @@ function MarketTokenList({
         <Stack width={1500}>
           <Table<IMarketToken>
             columns={marketTokenColumns}
-            dataSource={isLoading ? [] : data}
+            dataSource={data}
             keyExtractor={(item) => item.id}
             onRow={
               onItemPress
