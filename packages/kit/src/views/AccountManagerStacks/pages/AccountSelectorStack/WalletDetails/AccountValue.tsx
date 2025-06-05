@@ -14,6 +14,8 @@ function AccountValue(accountValue: {
   value: Record<string, string> | string;
   linkedAccountId?: string;
   linkedNetworkId?: string;
+  indexedAccountId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
@@ -31,13 +33,27 @@ function AccountValue(accountValue: {
       return value;
     }
 
-    const { linkedAccountId, linkedNetworkId } = accountValue;
+    const {
+      linkedAccountId,
+      linkedNetworkId,
+      indexedAccountId,
+      mergeDeriveAssetsEnabled,
+    } = accountValue;
 
     if (
       linkedAccountId &&
       linkedNetworkId &&
       !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
     ) {
+      if (mergeDeriveAssetsEnabled && indexedAccountId) {
+        return value[
+          accountUtils.buildAccountValueKey({
+            accountId: indexedAccountId,
+            networkId: linkedNetworkId,
+          })
+        ];
+      }
+
       return value[
         accountUtils.buildAccountValueKey({
           accountId: linkedAccountId,
@@ -79,6 +95,8 @@ function AccountValueWithSpotlight({
   accountValue,
   linkedAccountId,
   linkedNetworkId,
+  indexedAccountId,
+  mergeDeriveAssetsEnabled,
 }: {
   accountValue:
     | {
@@ -91,6 +109,8 @@ function AccountValueWithSpotlight({
   index: number;
   linkedAccountId?: string;
   linkedNetworkId?: string;
+  indexedAccountId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
@@ -99,6 +119,8 @@ function AccountValueWithSpotlight({
       value={accountValue.value ?? ''}
       linkedAccountId={linkedAccountId}
       linkedNetworkId={linkedNetworkId}
+      indexedAccountId={indexedAccountId}
+      mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
     />
   ) : (
     <NumberSizeableTextWrapper

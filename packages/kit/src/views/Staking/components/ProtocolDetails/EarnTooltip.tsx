@@ -40,6 +40,9 @@ function RewardAmountPopoverContent({
       <XStack pt="$2">
         <EarnText
           text={tooltip?.data.text}
+          boldTextProps={{
+            size: '$bodyMdMedium',
+          }}
           size="$bodySm"
           color="$textSubdued"
         />
@@ -109,6 +112,9 @@ export function EarnTooltip({
               text={{ text: tooltip.data.description }}
               size="$bodySm"
               color="$textSubdued"
+              boldTextProps={{
+                size: '$bodyMdMedium',
+              }}
             />
           ) : null}
         </YStack>

@@ -555,10 +555,14 @@ function Dashboard({
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
             <XStack pt="$4" gap="$2">
-              {hardwareSales.available?.[0]?.token?.networkId ? (
+              {hardwareSales.available?.[0]?.token?.networkId ||
+              hardwareSales.pending?.[0]?.token?.networkId ? (
                 <Token
                   size="xs"
-                  tokenImageUri={hardwareSales.available?.[0].token.logoURI}
+                  tokenImageUri={
+                    hardwareSales.available?.[0]?.token?.logoURI ||
+                    hardwareSales.pending?.[0]?.token?.logoURI
+                  }
                 />
               ) : null}
               <SizableText size="$bodyMd">

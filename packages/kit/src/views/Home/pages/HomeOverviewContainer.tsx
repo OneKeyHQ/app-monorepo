@@ -135,7 +135,8 @@ function HomeOverviewContainer() {
       account &&
       network &&
       accountWorth.initialized &&
-      account.id === accountWorth.accountId
+      (account.id === accountWorth.accountId ||
+        account.indexedAccountId === accountWorth.accountId)
     ) {
       if (accountUtils.isOthersAccount({ accountId: account.id })) {
         if (!network.isAllNetworks && account.createAtNetwork !== network.id)

@@ -1051,6 +1051,9 @@ export function UniversalStake({
             text={transactionConfirmation?.title}
             color="$textSubdued"
             size="$bodyMd"
+            boldTextProps={{
+              size: '$bodyMdMedium',
+            }}
           />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';

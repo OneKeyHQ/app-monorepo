@@ -170,7 +170,6 @@ export async function buildDefaultAddAccountNetworks(
     evm: true,
     tron: true,
     sol: true,
-    ltc: true,
   });
   return networks;
 }
