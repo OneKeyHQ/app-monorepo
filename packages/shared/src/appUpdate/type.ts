@@ -10,6 +10,7 @@ export interface IBasicAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: string;
+  summary?: string;
 }
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {

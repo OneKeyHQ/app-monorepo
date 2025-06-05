@@ -20,6 +20,7 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   downloadASC as NativeDownloadASC,
   downloadPackage as NativeDownloadPackage,
@@ -35,7 +36,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
