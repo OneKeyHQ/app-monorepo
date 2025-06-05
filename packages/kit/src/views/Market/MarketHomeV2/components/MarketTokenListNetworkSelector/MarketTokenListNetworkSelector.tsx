@@ -8,9 +8,6 @@ import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import MarketNetworkFilter from './MarketNetworkFilter';
 import MarketTokenListNetworkSelectorSkeleton from './MarketTokenListNetworkSelectorSkeleton';
 
-export const swapNetworksCommonCount = 10;
-export const swapNetworksCommonCountMD = 5;
-
 interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
   onSelectNetworkId?: (networkId: string) => void;
@@ -18,7 +15,7 @@ interface IMarketTokenListNetworkSelectorProps {
 }
 
 function MarketTokenListNetworkSelector({
-  selectedNetworkId: _selectedNetworkId,
+  selectedNetworkId,
   onSelectNetworkId,
   forceLoading,
 }: IMarketTokenListNetworkSelectorProps) {
@@ -63,9 +60,13 @@ function MarketTokenListNetworkSelector({
   // Set default selected network when networks are loaded
   useEffect(() => {
     if (marketNetworks.length > 0 && !currentSelectNetwork) {
-      setCurrentSelectNetwork(marketNetworks[0]);
+      const defaultNetwork = selectedNetworkId
+        ? marketNetworks.find((n) => n.networkId === selectedNetworkId) ||
+          marketNetworks[0]
+        : marketNetworks[0];
+      setCurrentSelectNetwork(defaultNetwork);
     }
-  }, [marketNetworks, currentSelectNetwork]);
+  }, [marketNetworks, currentSelectNetwork, selectedNetworkId]);
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
@@ -94,9 +95,7 @@ function MarketTokenListNetworkSelector({
           moreNetworksCount={moreNetworksCount}
           moreNetworks={marketNetworks}
           onMoreNetworkSelect={handleMoreNetworkSelect}
-          onMoreNetwork={() => {
-            console.log('More network button clicked');
-          }}
+          onMoreNetwork={() => {}}
         />
       )}
     </Stack>

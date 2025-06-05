@@ -6,25 +6,27 @@ import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-// Convert ISwapNetwork to IServerNetwork format
-// Note: Many properties are redundant for ChainSelectorListView usage but required by IServerNetwork type
+// Convert ISwapNetwork to IServerNetwork format with minimal required properties
 const convertSwapNetworkToServerNetwork = (
   swapNetwork: ISwapNetwork,
 ): IServerNetwork => ({
-  // Essential properties actually used by ChainSelectorListView
+  // Essential properties for ChainSelectorListView
   id: swapNetwork.networkId,
   name: swapNetwork.name,
-  symbol: swapNetwork.symbol,
+  symbol: swapNetwork.symbol || swapNetwork.name.toUpperCase(),
   logoURI: swapNetwork.logoURI || '',
   isAllNetworks: swapNetwork.isAllNetworks,
-  // Required by IServerNetwork type but mostly unused in this context
+  // Minimal required properties for type compatibility
   impl: 'evm',
-  chainId: swapNetwork.networkId, // Duplicates id but required
+  chainId: swapNetwork.networkId,
   code: swapNetwork.shortcode || swapNetwork.name.toLowerCase(),
-  shortname: swapNetwork.name, // Duplicates name but required
-  shortcode: swapNetwork.shortcode || swapNetwork.name.toLowerCase(), // Duplicates code but required
+  shortname: swapNetwork.name,
+  shortcode: swapNetwork.shortcode || swapNetwork.name.toLowerCase(),
   decimals: 18,
-  feeMeta: { symbol: swapNetwork.symbol, decimals: 18 },
+  feeMeta: {
+    symbol: swapNetwork.symbol || swapNetwork.name.toUpperCase(),
+    decimals: 18,
+  },
   defaultEnabled: true,
   status: 'LISTED' as any,
   isTestnet: false,
@@ -34,9 +36,7 @@ const convertSwapNetworkToServerNetwork = (
 
 export interface INetworksSearchPanelProps
   extends Omit<ComponentProps<typeof ChainSelectorListView>, 'networks'> {
-  // Only support ISwapNetwork[]
   networks?: ISwapNetwork[];
-  // Add callback for network selection
   onNetworkSelect?: (network: ISwapNetwork) => void;
 }
 
@@ -46,24 +46,16 @@ export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
   onPressItem,
   onNetworkSelect,
 }) => {
-  // Convert ISwapNetwork[] to IServerNetwork[] format for ChainSelectorListView
+  // Convert ISwapNetwork[] to IServerNetworkMatch[] for ChainSelectorListView
   const networksForListView = useMemo(() => {
-    if (!networksProp || networksProp.length === 0) {
-      return [];
-    }
-
-    // Convert ISwapNetwork[] to IServerNetwork[]
-    return networksProp.map(convertSwapNetworkToServerNetwork);
+    if (!networksProp?.length) return [];
+    return networksProp.map(
+      convertSwapNetworkToServerNetwork,
+    ) as IServerNetworkMatch[];
   }, [networksProp]);
 
-  // Cast to IServerNetworkMatch[] for ChainSelectorListView
-  const networksAsMatches = useMemo(
-    () => networksForListView as IServerNetworkMatch[],
-    [networksForListView],
-  );
-
   const handleNetworkPress = (network: IServerNetworkMatch) => {
-    // Find the original ISwapNetwork data to pass back
+    // Find the original ISwapNetwork to pass back
     if (networksProp && onNetworkSelect) {
       const originalNetwork = networksProp.find(
         (n) => n.networkId === network.id,
@@ -72,15 +64,13 @@ export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
         onNetworkSelect(originalNetwork);
       }
     }
-
-    // Also call the original onPressItem if provided
     onPressItem?.(network);
   };
 
   return (
     <ChainSelectorListView
       networkId={networkId}
-      networks={networksAsMatches}
+      networks={networksForListView}
       onPressItem={handleNetworkPress}
     />
   );
