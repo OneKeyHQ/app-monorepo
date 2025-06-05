@@ -28,7 +28,7 @@ export function NetworksFilterItem({
       borderRadius="$2"
       userSelect="none"
       borderWidth={StyleSheet.hairlineWidth}
-      borderColor={isSelected ? '$borderActive' : '$border'}
+      borderColor={isSelected ? '$borderActive' : '$transparent'}
       {...(!isSelected &&
         !disabled && {
           focusable: true,

@@ -73,6 +73,7 @@ const MarketNetworkFilter = forwardRef<
       <XStack
         position="relative"
         p="$1"
+        gap="$1"
         maxWidth="100%"
         overflow="hidden"
         borderWidth={1}

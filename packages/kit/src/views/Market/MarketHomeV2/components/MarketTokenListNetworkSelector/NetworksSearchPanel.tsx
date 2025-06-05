@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { ComponentProps, FC } from 'react';
 
+import { Stack } from '@onekeyhq/components';
 import { ChainSelectorListView } from '@onekeyhq/kit/src/views/ChainSelector/components/PureChainSelector/ChainSelectorListView';
 import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -72,10 +73,12 @@ export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
   };
 
   return (
-    <ChainSelectorListView
-      networkId={networkId}
-      networks={networksForListView}
-      onPressItem={handleNetworkPress}
-    />
+    <Stack pt="$4">
+      <ChainSelectorListView
+        networkId={networkId}
+        networks={networksForListView}
+        onPressItem={handleNetworkPress}
+      />
+    </Stack>
   );
 };

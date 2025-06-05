@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Button, Popover } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { NetworksSearchPanel } from './NetworksSearchPanel';
 
@@ -26,6 +27,11 @@ const MoreButton: FC<IMoreButtonProps> = ({
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
 
+  const handleNetworkSelect = (network: ISwapNetwork) => {
+    onNetworkSelect?.(network);
+    setIsOpen(false);
+  };
+
   return (
     <Popover
       title="Select Network"
@@ -34,21 +40,18 @@ const MoreButton: FC<IMoreButtonProps> = ({
         <NetworksSearchPanel
           networks={networks}
           networkId={selectedNetworkId}
-          onNetworkSelect={onNetworkSelect}
+          onNetworkSelect={handleNetworkSelect}
         />
       }
       renderTrigger={
         <Button
+          m="$0.5"
+          size="small"
           variant="tertiary"
-          size="medium"
           iconAfter={
             isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
           }
           iconColor="$iconSubdued"
-          $platform-native={{
-            px: '$2',
-            py: '$1',
-          }}
           color="$textSubdued"
           {...rest}
         >
