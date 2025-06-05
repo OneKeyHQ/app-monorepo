@@ -10,6 +10,7 @@ import { useSendSelectedFeeInfoAtom } from '@onekeyhq/kit/src/states/jotai/conte
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+import ResourceRental from './ResourceRental';
 
 function ExtraInfoTron({
   accountId,
@@ -89,11 +90,7 @@ function ExtraInfoTron({
           },
         )}
       </SignatureConfirmItem.Value>
-      <SizableText color="$textSubdued" size="$bodySm">
-        {intl.formatMessage({
-          id: ETranslations.global_energy_bandwidth_transaction_desc,
-        })}
-      </SizableText>
+      <ResourceRental />
     </SignatureConfirmItem>
   );
 }
