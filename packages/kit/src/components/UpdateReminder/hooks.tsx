@@ -35,6 +35,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
@@ -335,10 +336,15 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           id: ETranslations.update_update_now,
         }),
         showCancelButton: false,
+        onHeaderCloseButtonPress: () => {
+          console.log('onHeaderCloseButtonPress');
+          defaultLogger.app.component.closedInUpdateDialog();
+        },
         onConfirm: () => {
           setTimeout(() => {
             toUpdatePreviewPage(isFull, params);
           }, 120);
+          defaultLogger.app.component.confirmedInUpdateDialog();
         },
       });
     },
