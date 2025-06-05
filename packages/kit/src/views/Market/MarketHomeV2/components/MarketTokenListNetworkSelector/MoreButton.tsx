@@ -35,6 +35,7 @@ const MoreButton: FC<IMoreButtonProps> = ({
   return (
     <Popover
       title="Select Network"
+      open={isOpen}
       onOpenChange={setIsOpen}
       renderContent={
         <NetworksSearchPanel

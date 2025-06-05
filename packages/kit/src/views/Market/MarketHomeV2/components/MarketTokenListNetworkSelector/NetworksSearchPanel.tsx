@@ -48,7 +48,6 @@ export interface INetworksSearchPanelProps
 export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
   networks: networksProp,
   networkId,
-  onPressItem,
   onNetworkSelect,
 }) => {
   // Convert ISwapNetwork[] to IServerNetworkMatch[] for ChainSelectorListView
@@ -69,7 +68,6 @@ export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
         onNetworkSelect(originalNetwork);
       }
     }
-    onPressItem?.(network);
   };
 
   return (
