@@ -206,7 +206,7 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
-        useGeckoView={platformEnv.isNativeAndroid}
+        useGeckoView={false}
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
