@@ -18,7 +18,7 @@ import { contextAtomMethod, earnAtom, earnPermitCacheAtom } from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
 
-class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
+class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   syncToDb = contextAtomMethod((get, set, payload: IEarnAtomData) => {
     const atom = earnAtom();
     if (!get(atom).isMounted) {
@@ -123,9 +123,16 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       });
     },
   );
+
+  resetEarnCacheData = contextAtomMethod((_, set) => {
+    this.syncToDb.call(set, {
+      availableAssets: [],
+      earnAccount: {},
+    });
+  });
 }
 
-const createActions = memoFn(() => new ContextJotaiActionsMarket());
+const createActions = memoFn(() => new ContextJotaiActionsEarn());
 
 export function useEarnActions() {
   const actions = createActions();

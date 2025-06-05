@@ -1,7 +1,7 @@
 interface IReward {
   title: string;
   description: string;
-  monthlySales: string;
+  monthlySalesFiatValue: string;
   available?: {
     token: {
       networkId: string;
@@ -55,7 +55,7 @@ export interface IInviteSummary {
     level: number;
     rebate: number;
     discount: number;
-    threshold: number;
+    thresholdFiatValue: string;
     emoji: string;
     labelKey: string;
     label: string;
@@ -91,7 +91,6 @@ interface IHardwareSalesRecordItem {
   side: 'in' | 'out';
   subject: string;
   userId: string;
-  amount: string;
   createdAt: string;
   effectiveTime: string | null;
   orderTotalAmount: string;
@@ -116,7 +115,6 @@ interface IHardwareSalesRecordItem {
 export interface IEarnRewardItem {
   amount: string;
   networkId: string;
-  orderTotalAmount: string;
   token: {
     networkId: string;
     address: string;
@@ -124,18 +122,19 @@ export interface IEarnRewardItem {
     logoURI: string;
     symbol: string;
   };
-  accountAddress: string;
   vaultName: string;
   vaultAddress: string;
   provider: string;
   fiatValue: string;
-  status: string;
-  symbol: string;
 }
 
 export interface IEarnRewardResponse {
   fiatValue: string;
-  items: IEarnRewardItem[];
+  items: {
+    accountAddress: string;
+    fiatValue: string;
+    items: IEarnRewardItem[];
+  }[];
   total: number;
 }
 

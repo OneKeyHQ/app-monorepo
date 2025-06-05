@@ -16,6 +16,7 @@ alwaysApply: true
 ## React Components
 - Avoid default React import; use named imports only
 - Prefer functional components over class components
+- Use pure functions to create components; avoid importing `import type { FC } from 'react'`
 - Follow React hooks rules (dependencies array, call only at top level)
 - Use the `usePromiseResult` and `useAsyncCall` hooks with proper dependency arrays
 

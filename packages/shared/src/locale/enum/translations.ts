@@ -2400,6 +2400,8 @@
   shortcuts_go_to_browser_tab = 'shortcuts.go_to_browser_tab',
   shortcuts_go_to_earn_tab = 'shortcuts.go_to_earn_tab',
   shortcuts_go_to_market_tab = 'shortcuts.go_to_market_tab',
+  shortcuts_go_to_myonekey_tab = 'shortcuts.go_to_myonekey_tab',
+  shortcuts_go_to_referral_tab = 'shortcuts.go_to_referral_tab',
   shortcuts_go_to_swap_tab = 'shortcuts.go_to_swap_tab',
   shortcuts_go_to_wallet_tab = 'shortcuts.go_to_wallet_tab',
   shortcuts_network_selector = 'shortcuts.network_selector',

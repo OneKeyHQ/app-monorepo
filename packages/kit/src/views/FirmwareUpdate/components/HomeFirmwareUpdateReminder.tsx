@@ -37,16 +37,14 @@ export function FirmwareUpdateReminderAlert({
   const intl = useIntl();
   return (
     <XStack
-      pl="$3"
-      pr="$2"
-      py="$1.5"
-      borderWidth={StyleSheet.hairlineWidth}
+      px="$5"
+      py="$2"
+      borderTopWidth="$px"
+      borderBottomWidth="$px"
       bg="$bgInfoSubdued"
       borderColor="$borderInfoSubdued"
       alignItems="center"
       gap="$2"
-      borderRadius="$2"
-      borderCurve="continuous"
       flex={1}
       {...containerProps}
     >
@@ -116,6 +114,14 @@ function HomeFirmwareUpdateReminderCmp() {
       }
       return (
         <FirmwareUpdateReminderAlert
+          containerProps={{
+            pl: '$3',
+            pr: '$2',
+            py: '$1.5',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderRadius: '$2',
+            borderCurve: 'continuous',
+          }}
           message={message}
           onPress={async () => {
             await closePopover?.();
