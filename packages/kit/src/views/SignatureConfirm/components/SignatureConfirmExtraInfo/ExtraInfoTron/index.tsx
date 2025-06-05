@@ -10,6 +10,7 @@ import { useSendSelectedFeeInfoAtom } from '@onekeyhq/kit/src/states/jotai/conte
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+
 import ResourceRental from './ResourceRental';
 
 function ExtraInfoTron({

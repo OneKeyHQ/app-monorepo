@@ -16,9 +16,9 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 const showResourceRentalDetailsDialog = ({
   title,
