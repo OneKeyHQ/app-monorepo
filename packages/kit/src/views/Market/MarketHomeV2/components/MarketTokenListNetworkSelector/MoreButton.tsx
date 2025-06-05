@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,10 +24,12 @@ const MoreButton: FC<IMoreButtonProps> = ({
   ...rest
 }) => {
   const intl = useIntl();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Popover
       title="Select Network"
+      onOpenChange={setIsOpen}
       renderContent={
         <NetworksSearchPanel
           networks={networks}
@@ -38,7 +41,9 @@ const MoreButton: FC<IMoreButtonProps> = ({
         <Button
           variant="tertiary"
           size="medium"
-          iconAfter="ChevronDownSmallOutline"
+          iconAfter={
+            isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+          }
           iconColor="$iconSubdued"
           $platform-native={{
             px: '$2',
