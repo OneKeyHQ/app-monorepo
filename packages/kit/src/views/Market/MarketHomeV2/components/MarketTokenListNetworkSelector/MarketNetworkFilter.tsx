@@ -1,9 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
-import { ScrollView, XStack, YStack } from '@onekeyhq/components';
+import { ScrollView, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
@@ -30,68 +30,73 @@ const MarketNetworkFilter = ({
 }: ISwapNetworkToggleGroupProps) => {
   const { width } = useWindowDimensions();
   const intl = useIntl();
+  const [scrollX, setScrollX] = useState(0);
   const isWiderScreen = width > 680;
   const filteredNetworks = useMemo(
     () => (isWiderScreen ? networks : networks.slice(0, 20)),
     [networks, isWiderScreen],
   );
+
+  // 控制左侧渐变遮罩的显示，滚动超过10px后显示
+  const shouldShowLeftGradient = scrollX > 2;
   return (
-    <YStack
+    <XStack
       position="relative"
-      px="$5"
-      pt="$1"
-      pb="$3"
+      p="$1"
       maxWidth="100%"
       overflow="hidden"
       borderWidth={1}
       borderColor="$borderSubdued"
       borderRadius="$2"
     >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        pr={moreNetworksCount && moreNetworksCount > 0 ? '$12' : '$0'}
-      >
-        <XStack gap="$2">
-          {filteredNetworks.map((network) => (
-            <NetworksFilterItem
-              key={network.networkId}
-              networkName={network.name}
-              disabled={Boolean(disableNetworks?.includes(network.networkId))}
-              networkImageUri={network.logoURI}
-              tooltipContent={
-                network.isAllNetworks
-                  ? intl.formatMessage({
-                      id: ETranslations.global_all_networks,
-                    })
-                  : network.name
-              }
-              isSelected={network?.networkId === selectedNetwork?.networkId}
-              onPress={
-                disableNetworks?.includes(network.networkId)
-                  ? undefined
-                  : () => {
-                      onSelectNetwork(network);
-                    }
-              }
-            />
-          ))}
-        </XStack>
-      </ScrollView>
+      <XStack flex={1} position="relative">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          onScroll={(event) => {
+            const currentScrollX = event.nativeEvent.contentOffset.x;
+            setScrollX(currentScrollX);
+          }}
+          scrollEventThrottle={16}
+        >
+          <XStack gap="$2" pr="$4">
+            {filteredNetworks.map((network) => (
+              <NetworksFilterItem
+                key={network.networkId}
+                networkName={network.name}
+                disabled={Boolean(disableNetworks?.includes(network.networkId))}
+                networkImageUri={network.logoURI}
+                tooltipContent={
+                  network.isAllNetworks
+                    ? intl.formatMessage({
+                        id: ETranslations.global_all_networks,
+                      })
+                    : network.name
+                }
+                isSelected={network?.networkId === selectedNetwork?.networkId}
+                onPress={
+                  disableNetworks?.includes(network.networkId)
+                    ? undefined
+                    : () => {
+                        onSelectNetwork(network);
+                      }
+                }
+              />
+            ))}
+          </XStack>
+        </ScrollView>
 
-      {/* 添加左右渐变遮罩 */}
-      <GradientMask position="left" />
-      <GradientMask position="right" />
+        <GradientMask
+          opacity={shouldShowLeftGradient ? 1 : 0}
+          position="left"
+        />
+        <GradientMask position="right" />
+      </XStack>
 
       {moreNetworksCount && moreNetworksCount > 0 ? (
-        <MoreButton
-          position="absolute"
-          right="$5"
-          top="$1"
-          onPress={onMoreNetwork}
-        />
+        <MoreButton onPress={onMoreNetwork} />
       ) : null}
-    </YStack>
+    </XStack>
   );
 };
 
