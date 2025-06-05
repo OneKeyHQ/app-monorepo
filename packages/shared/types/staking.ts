@@ -179,7 +179,12 @@ export type IStakeHistory = {
   amount?: string;
   timestamp: number;
   tokenAddress: string;
-  networkId?: string;
+  networkId: string;
+  token?: {
+    price?: string;
+    price24h?: string;
+    info?: IToken;
+  };
   direction: 'receive' | 'send';
 };
 
@@ -187,6 +192,11 @@ export type IStakeHistoriesResponse = {
   filter: Record<string, string>;
   list: IStakeHistory[];
   tokenMap: Record<string, IToken>;
+  tokens: {
+    price?: string;
+    price24h?: string;
+    info?: IToken;
+  }[];
   nextKey?: string;
   network?: {
     networkId: string;

@@ -1286,11 +1286,15 @@ function TokenListContainer(_props: ITabPageProps) {
         }
       } else {
         updateAccountWorth({
-          accountId,
+          accountId: mergeDeriveAddressData
+            ? indexedAccount?.id ?? ''
+            : account?.id ?? '',
           initialized: true,
           worth: {
             [accountUtils.buildAccountValueKey({
-              accountId,
+              accountId: mergeDeriveAddressData
+                ? indexedAccount?.id ?? ''
+                : account?.id ?? '',
               networkId,
             })]: tokenListValue,
           },
