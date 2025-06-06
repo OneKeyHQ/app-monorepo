@@ -696,11 +696,11 @@ function BasicEarnHome() {
     run: refreshOverViewData,
   } = usePromiseResult(
     async () => {
-      if (!account) {
+      if (!account && !indexedAccount) {
         return;
       }
       const totalFiatMapKey = actions.current.buildEarnAccountsKey({
-        accountId: account.id,
+        accountId: account?.id,
         indexAccountId: indexedAccount?.id,
         networkId: allNetworkId,
       });
@@ -717,14 +717,14 @@ function BasicEarnHome() {
       }
 
       const fetchAndUpdateAction = async () => {
-        if (!account) {
+        if (!account && !indexedAccount) {
           return;
         }
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
             accountId: account?.id ?? '',
             networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId,
+            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -736,7 +736,7 @@ function BasicEarnHome() {
         });
       };
       const fetchAndUpdateOverview = async () => {
-        if (!account) {
+        if (!account && !indexedAccount) {
           return;
         }
         const overviewData =
@@ -744,7 +744,7 @@ function BasicEarnHome() {
             assets,
             accountId: account?.id ?? '',
             networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId,
+            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -769,7 +769,7 @@ function BasicEarnHome() {
       }
       return { loaded: true };
     },
-    [actions, account, allNetworkId],
+    [actions, account, allNetworkId, indexedAccount],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
