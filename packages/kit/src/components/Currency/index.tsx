@@ -34,16 +34,16 @@ function BasicCurrency({
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const sourceCurrencyInfo = useMemo(
-    () => currencyMap[sourceCurrency ?? currencyInfo.id],
-    [currencyInfo.id, currencyMap, sourceCurrency],
+    () => currencyMap[sourceCurrency ?? currencyInfo?.id],
+    [currencyInfo?.id, currencyMap, sourceCurrency],
   );
   const targetCurrencyInfo = useMemo(
-    () => currencyMap[targetCurrency ?? currencyInfo.id],
-    [currencyInfo.id, currencyMap, targetCurrency],
+    () => currencyMap[targetCurrency ?? currencyInfo?.id],
+    [currencyInfo?.id, currencyMap, targetCurrency],
   );
 
   const value = useMemo(() => {
-    if (sourceCurrencyInfo.id === targetCurrencyInfo.id) {
+    if (sourceCurrencyInfo?.id === targetCurrencyInfo?.id) {
       return BigNumber(String(children)).toFixed();
     }
     return sourceCurrencyInfo && targetCurrencyInfo

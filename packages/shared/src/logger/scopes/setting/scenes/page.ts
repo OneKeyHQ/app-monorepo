@@ -102,6 +102,11 @@ export class PageScene extends BaseScene {
     return { isSuccess };
   }
 
+  @LogToLocal({ level: 'info' })
+  public clearDataStep(stepName: string) {
+    return { stepName };
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public clearData({

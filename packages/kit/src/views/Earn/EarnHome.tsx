@@ -301,12 +301,17 @@ function Recommended({
 }) {
   const allNetworkId = useAllNetworkId();
   const {
-    activeAccount: { account },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
-    [account?.id, actions, allNetworkId],
+    () =>
+      actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
+        networkId: allNetworkId,
+      }),
+    [account?.id, actions, allNetworkId, indexedAccount?.id],
   );
   const [{ earnAccount }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
@@ -380,13 +385,18 @@ function Overview({
   onRefresh: () => void;
 }) {
   const {
-    activeAccount: { account },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   const allNetworkId = useAllNetworkId();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
-    [account?.id, actions, allNetworkId],
+    () =>
+      actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
+        networkId: allNetworkId,
+      }),
+    [account?.id, actions, allNetworkId, indexedAccount?.id],
   );
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
@@ -686,13 +696,14 @@ function BasicEarnHome() {
     run: refreshOverViewData,
   } = usePromiseResult(
     async () => {
-      if (!account) {
+      if (!account && !indexedAccount) {
         return;
       }
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
-        account.id,
-        allNetworkId,
-      );
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
+        networkId: allNetworkId,
+      });
       let assets = actions.current.getAvailableAssets();
       if (assets.length === 0) {
         assets = await backgroundApiProxy.serviceStaking.getAvailableAssets();
@@ -706,14 +717,14 @@ function BasicEarnHome() {
       }
 
       const fetchAndUpdateAction = async () => {
-        if (!account) {
+        if (!account && !indexedAccount) {
           return;
         }
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
             accountId: account?.id ?? '',
             networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId,
+            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -725,7 +736,7 @@ function BasicEarnHome() {
         });
       };
       const fetchAndUpdateOverview = async () => {
-        if (!account) {
+        if (!account && !indexedAccount) {
           return;
         }
         const overviewData =
@@ -733,7 +744,7 @@ function BasicEarnHome() {
             assets,
             accountId: account?.id ?? '',
             networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId,
+            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -758,7 +769,7 @@ function BasicEarnHome() {
       }
       return { loaded: true };
     },
-    [actions, account, allNetworkId],
+    [actions, account, allNetworkId, indexedAccount],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
