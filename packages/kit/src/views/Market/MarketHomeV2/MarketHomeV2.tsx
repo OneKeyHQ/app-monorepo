@@ -16,12 +16,15 @@ import { MarketFilterBar } from './components/MarketFilterBar';
 import { MarketTokenList } from './components/MarketTokenList';
 import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
 
+import type { ILiquidityFilter } from './types';
+
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
 function MarketHome() {
   const { pageWidth } = useHomePageWidth();
   const [selectedNetworkId, setSelectedNetworkId] =
     useState<string>('sol--101'); // 默认选择 Solana
+  const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({});
 
   if (CONTENT_ITEM_WIDTH == null) {
     CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
@@ -50,9 +53,15 @@ function MarketHome() {
           onSelectNetworkId={setSelectedNetworkId}
         />
 
-        <MarketFilterBar />
+        <MarketFilterBar
+          liquidityFilter={liquidityFilter}
+          onLiquidityFilterChange={setLiquidityFilter}
+        />
 
-        <MarketTokenList networkId={selectedNetworkId} />
+        <MarketTokenList
+          networkId={selectedNetworkId}
+          liquidityFilter={liquidityFilter}
+        />
       </Page.Body>
     </Page>
   );

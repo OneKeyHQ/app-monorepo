@@ -1,9 +1,13 @@
 import { Pagination, Stack, Table, XStack } from '@onekeyhq/components';
 
+import { parseValueToNumber } from '../../utils';
+
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToDetailPage';
 import { type IMarketToken } from './MarketTokenData';
+
+import type { ILiquidityFilter } from '../../types';
 
 type IMarketTokenListProps = {
   networkId?: string;
@@ -11,6 +15,7 @@ type IMarketTokenListProps = {
   sortType?: 'asc' | 'desc';
   onItemPress?: (item: IMarketToken) => void;
   pageSize?: number;
+  liquidityFilter?: ILiquidityFilter;
 };
 
 function MarketTokenList({
@@ -19,9 +24,18 @@ function MarketTokenList({
   sortType,
   onItemPress,
   pageSize = 10,
+  liquidityFilter,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
   const marketTokenColumns = useMarketTokenColumns();
+
+  // Convert string values to numbers for the API
+  const minLiquidity = liquidityFilter?.min
+    ? parseValueToNumber(liquidityFilter.min)
+    : undefined;
+  const maxLiquidity = liquidityFilter?.max
+    ? parseValueToNumber(liquidityFilter.max)
+    : undefined;
 
   const { data, isLoading, currentPage, setCurrentPage, totalPages } =
     useMarketTokenList({
@@ -29,6 +43,8 @@ function MarketTokenList({
       sortBy,
       sortType,
       pageSize,
+      minLiquidity,
+      maxLiquidity,
     });
 
   // Show skeleton only on initial load (when there's no data yet)

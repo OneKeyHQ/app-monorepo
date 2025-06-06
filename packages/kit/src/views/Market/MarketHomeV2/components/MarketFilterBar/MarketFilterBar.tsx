@@ -15,9 +15,18 @@ import CustomFiltersDialog from './CustomFiltersDialog';
 import FilterButton from './FilterButton';
 
 import type { IFilterOptions } from './CustomFiltersDialog';
+import type { ILiquidityFilter } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
-export function MarketFilterBar() {
+interface IMarketFilterBarProps {
+  liquidityFilter?: ILiquidityFilter;
+  onLiquidityFilterChange?: (filter: ILiquidityFilter) => void;
+}
+
+export function MarketFilterBar({
+  liquidityFilter,
+  onLiquidityFilterChange,
+}: IMarketFilterBarProps) {
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('24h');
   const [filterOption, setFilterOption] = useState<EFilterOption>(
     EFilterOption.Trending,
@@ -30,6 +39,10 @@ export function MarketFilterBar() {
 
   const handleFilterOptionChange = (value: EFilterOption) => {
     setFilterOption(value);
+  };
+
+  const handleLiquidityFilterApply = (filter: ILiquidityFilter) => {
+    onLiquidityFilterChange?.(filter);
   };
 
   const handleOpenDialog = () => {
@@ -60,7 +73,10 @@ export function MarketFilterBar() {
           onChange={handleFilterOptionChange}
         />
 
-        <LiquidityFilterControl />
+        <LiquidityFilterControl
+          value={liquidityFilter}
+          onApply={handleLiquidityFilterApply}
+        />
 
         <FilterButton onPress={handleOpenDialog} />
       </XStack>
