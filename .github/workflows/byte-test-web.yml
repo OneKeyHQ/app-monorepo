@@ -1,4 +1,4 @@
-name: release-web
+name: byte-test-web
 
 on:
   workflow_run:
