@@ -81,13 +81,14 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('appStorage.clear() error');
     }
+    defaultLogger.setting.page.clearDataStep('appStorage-clear');
 
     try {
       appStorage.syncStorage.clearAll();
     } catch {
       console.error('syncStorage.clear() error');
     }
-
+    defaultLogger.setting.page.clearDataStep('syncStorage-clearAll');
     await timerUtils.wait(100);
 
     try {
@@ -95,7 +96,7 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('v4appStorage.clear() error');
     }
-
+    defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
 
     try {
@@ -104,74 +105,70 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('localDb.reset() error');
     }
-
+    defaultLogger.setting.page.clearDataStep('localDb-reset');
     await timerUtils.wait(100);
 
-    try {
-      const storageBuckets = (globalThis.navigator as INavigator)
-        .storageBuckets;
-      const names = await storageBuckets?.keys();
-      if (names) {
-        for (const name of names) {
-          try {
-            await storageBuckets?.delete(name);
-          } catch (error) {
-            console.error('storageBuckets.delete() error', error);
-          }
-        }
-      }
-    } catch {
-      console.error('storageBuckets.delete() error');
-    }
-
-    await timerUtils.wait(100);
-
-    const shouldDeleteAllOtherIndexedDBs = true;
-
-    try {
-      if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
-        const indexedDB = globalThis?.indexedDB;
-        const deleteAllIndexedDBs = async () => {
-          const dbNames: IDBDatabaseInfo[] =
-            (await indexedDB?.databases?.()) || [];
-          for (const { name } of dbNames) {
-            if (name) {
-              try {
-                await new Promise<void>((resolve, reject) => {
-                  const timer = setTimeout(() => {
-                    reject(new Error(`deleteIndexedDB timeout: ${name}`));
-                  }, 1000);
-
-                  const deleteRequest = indexedDB?.deleteDatabase(name);
-                  deleteRequest.onsuccess = () => {
-                    clearTimeout(timer);
-                    resolve();
-                  };
-                  deleteRequest.onerror = () => {
-                    clearTimeout(timer);
-                    reject(new Error(`deleteIndexedDB error: ${name}`));
-                  };
-                });
-              } catch (error) {
-                console.error('deleteIndexedDB error', error);
-              }
+    if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
+      try {
+        const storageBuckets = (globalThis.navigator as INavigator)
+          .storageBuckets;
+        const names = await storageBuckets?.keys();
+        if (names) {
+          for (const name of names) {
+            try {
+              await storageBuckets?.delete(name);
+            } catch (error) {
+              console.error('storageBuckets.delete() error', error);
             }
           }
-        };
-
-        await deleteAllIndexedDBs();
+        }
+      } catch {
+        console.error('storageBuckets.delete() error');
       }
-    } catch (error) {
-      console.error('deleteAllIndexedDBs error', error);
     }
-
+    defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
     await timerUtils.wait(100);
 
-    // await this.backgroundApi.serviceV4Migration.saveAppStorageV4migrationAutoStartDisabled(
-    //   {
-    //     v4migrationAutoStartDisabled,
-    //   },
-    // );
+    if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
+      const shouldDeleteAllOtherIndexedDBs = true;
+      try {
+        if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
+          const indexedDB = globalThis?.indexedDB;
+          const deleteAllIndexedDBs = async () => {
+            const dbNames: IDBDatabaseInfo[] =
+              (await indexedDB?.databases?.()) || [];
+            for (const { name } of dbNames) {
+              if (name) {
+                try {
+                  await new Promise<void>((resolve, reject) => {
+                    const timer = setTimeout(() => {
+                      reject(new Error(`deleteIndexedDB timeout: ${name}`));
+                    }, 1000);
+
+                    const deleteRequest = indexedDB?.deleteDatabase(name);
+                    deleteRequest.onsuccess = () => {
+                      clearTimeout(timer);
+                      resolve();
+                    };
+                    deleteRequest.onerror = () => {
+                      clearTimeout(timer);
+                      reject(new Error(`deleteIndexedDB error: ${name}`));
+                    };
+                  });
+                } catch (error) {
+                  console.error('deleteIndexedDB error', error);
+                }
+              }
+            }
+          };
+          await deleteAllIndexedDBs();
+        }
+      } catch (error) {
+        console.error('deleteAllIndexedDBs error', error);
+      }
+    }
+    defaultLogger.setting.page.clearDataStep('shouldDeleteAllOtherIndexedDBs');
+    await timerUtils.wait(100);
 
     try {
       const isV4DbExist: boolean =
@@ -183,7 +180,7 @@ class ServiceApp extends ServiceBase {
     } catch (error) {
       //
     }
-
+    defaultLogger.setting.page.clearDataStep('v4localDb-reset');
     await timerUtils.wait(1500);
 
     if (platformEnv.isRuntimeBrowser) {
@@ -235,20 +232,29 @@ class ServiceApp extends ServiceBase {
   async resetApp() {
     // logout privy is called in UI hooks
     void this.backgroundApi.servicePrime.apiLogout();
+    defaultLogger.setting.page.clearDataStep('servicePrime-apiLogout');
     void this.backgroundApi.serviceNotification.unregisterClient();
+    defaultLogger.setting.page.clearDataStep(
+      'serviceNotification-unregisterClient',
+    );
     // logout from Google Drive
     if (platformEnv.isNativeAndroid && (await isAvailable())) {
       void logoutFromGoogleDrive(true);
+      defaultLogger.setting.page.clearDataStep('logoutFromGoogleDrive');
     }
     await timerUtils.wait(1000);
 
     resetUtils.startResetting();
+    defaultLogger.setting.page.clearDataStep('startResetting');
     try {
+      defaultLogger.setting.page.clearDataStep('resetData-start');
       await this.resetData();
+      defaultLogger.setting.page.clearDataStep('resetData-end');
     } catch (e) {
       console.error('resetData error', e);
     } finally {
       resetUtils.endResetting();
+      defaultLogger.setting.page.clearDataStep('endResetting');
     }
 
     if (platformEnv.isWeb || platformEnv.isDesktop) {
