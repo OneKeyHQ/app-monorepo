@@ -28,9 +28,7 @@ export const marketNavigation = {
     },
   ) {
     await timerUtils.wait(80);
-
     navigation.switchTab(ETabRoutes.Market);
-
     await timerUtils.wait(100);
 
     // Then navigate to the detail page
