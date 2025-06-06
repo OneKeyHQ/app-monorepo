@@ -83,6 +83,7 @@ export default function OneKeyId() {
           <YStack>
             <ListItem
               userSelect="none"
+              drillIn={isPrimeAvailable}
               renderAvatar={
                 <XStack
                   borderRadius="$3"
@@ -101,13 +102,7 @@ export default function OneKeyId() {
               })}
               onPress={toPrimePage}
             >
-              {isPrimeAvailable ? (
-                <IconButton
-                  icon="ChevronRightSmallOutline"
-                  variant="tertiary"
-                  size="small"
-                />
-              ) : (
+              {isPrimeAvailable ? null : (
                 <Badge badgeSize="sm">
                   <Badge.Text>
                     {intl.formatMessage({
@@ -118,6 +113,7 @@ export default function OneKeyId() {
               )}
             </ListItem>
             <ListItem
+              drillIn
               userSelect="none"
               renderAvatar={
                 <XStack
@@ -138,13 +134,7 @@ export default function OneKeyId() {
                 id: ETranslations.id_refer_a_friend_desc,
               })}
               onPress={toInviteRewardPage}
-            >
-              <IconButton
-                icon="ChevronRightSmallOutline"
-                variant="tertiary"
-                size="small"
-              />
-            </ListItem>
+            />
           </YStack>
         </YStack>
       </Page.Body>
