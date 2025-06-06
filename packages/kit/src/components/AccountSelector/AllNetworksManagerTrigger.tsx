@@ -17,6 +17,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -70,6 +71,11 @@ function AllNetworksManagerTrigger({
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
+    // TODO: Remove this after the native Android layout reset fixed.
+    if (platformEnv.isNativeAndroid) {
+      return <Stack height={5} />;
+    }
+
     return null;
   }
 
