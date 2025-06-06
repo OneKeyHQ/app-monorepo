@@ -81,13 +81,14 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('appStorage.clear() error');
     }
+    defaultLogger.setting.page.clearDataStep('appStorage-clear');
 
     try {
       appStorage.syncStorage.clearAll();
     } catch {
       console.error('syncStorage.clear() error');
     }
-
+    defaultLogger.setting.page.clearDataStep('syncStorage-clearAll');
     await timerUtils.wait(100);
 
     try {
@@ -95,7 +96,7 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('v4appStorage.clear() error');
     }
-
+    defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
 
     try {
@@ -104,7 +105,7 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('localDb.reset() error');
     }
-
+    defaultLogger.setting.page.clearDataStep('localDb-reset');
     await timerUtils.wait(100);
 
     try {
@@ -123,7 +124,7 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('storageBuckets.delete() error');
     }
-
+    defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
     await timerUtils.wait(100);
 
     const shouldDeleteAllOtherIndexedDBs = true;
@@ -165,6 +166,7 @@ class ServiceApp extends ServiceBase {
       console.error('deleteAllIndexedDBs error', error);
     }
 
+    defaultLogger.setting.page.clearDataStep('shouldDeleteAllOtherIndexedDBs');
     await timerUtils.wait(100);
 
     // await this.backgroundApi.serviceV4Migration.saveAppStorageV4migrationAutoStartDisabled(
@@ -183,7 +185,7 @@ class ServiceApp extends ServiceBase {
     } catch (error) {
       //
     }
-
+    defaultLogger.setting.page.clearDataStep('v4localDb-reset');
     await timerUtils.wait(1500);
 
     if (platformEnv.isRuntimeBrowser) {
@@ -235,20 +237,29 @@ class ServiceApp extends ServiceBase {
   async resetApp() {
     // logout privy is called in UI hooks
     void this.backgroundApi.servicePrime.apiLogout();
+    defaultLogger.setting.page.clearDataStep('servicePrime-apiLogout');
     void this.backgroundApi.serviceNotification.unregisterClient();
+    defaultLogger.setting.page.clearDataStep(
+      'serviceNotification-unregisterClient',
+    );
     // logout from Google Drive
     if (platformEnv.isNativeAndroid && (await isAvailable())) {
       void logoutFromGoogleDrive(true);
+      defaultLogger.setting.page.clearDataStep('logoutFromGoogleDrive');
     }
     await timerUtils.wait(1000);
 
     resetUtils.startResetting();
+    defaultLogger.setting.page.clearDataStep('startResetting');
     try {
+      defaultLogger.setting.page.clearDataStep('resetData-start');
       await this.resetData();
+      defaultLogger.setting.page.clearDataStep('resetData-end');
     } catch (e) {
       console.error('resetData error', e);
     } finally {
       resetUtils.endResetting();
+      defaultLogger.setting.page.clearDataStep('endResetting');
     }
 
     if (platformEnv.isWeb || platformEnv.isDesktop) {
