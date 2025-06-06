@@ -1711,6 +1711,11 @@ class ServiceAccount extends ServiceBase {
     return this.getAccountNameFromAddressMemo({ networkId, address });
   }
 
+  @backgroundMethod()
+  async clearAccountNameFromAddressCache() {
+    this.getAccountNameFromAddressMemo.clear();
+  }
+
   getAccountNameFromAddressMemo = memoizee(
     async ({ networkId, address }: { networkId: string; address: string }) => {
       const vault = await vaultFactory.getChainOnlyVault({

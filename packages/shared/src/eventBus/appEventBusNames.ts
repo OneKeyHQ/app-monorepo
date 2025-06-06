@@ -95,4 +95,5 @@ export enum EAppEventBusNames {
   // StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   // Unlocked = 'Unlocked',
   // HttpServerRequest = 'HttpServerRequest',
+  AddressBookUpdate = 'AddressBookUpdate',
 }

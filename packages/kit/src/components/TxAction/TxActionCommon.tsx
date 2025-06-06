@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +14,10 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -163,7 +169,7 @@ function TxActionCommonDescription({
 }) {
   const [addressesInfo] = useAddressesInfoAtom();
 
-  const addressLocalLabel = usePromiseResult(async () => {
+  const { result: addressLocalLabel, run } = usePromiseResult(async () => {
     if (!description?.originalAddress) {
       return null;
     }
@@ -176,8 +182,26 @@ function TxActionCommonDescription({
         enableWalletName: true,
         skipValidateAddress: true,
       });
+
     return result.walletAccountName || result.addressBookName;
-  }, [description?.originalAddress, networkId]).result;
+  }, [description?.originalAddress, networkId]);
+
+  useEffect(() => {
+    const refresh = async () => {
+      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+      await backgroundApiProxy.serviceAccountProfile.clearQueryAddressCache();
+      await run({ alwaysSetState: true });
+    };
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AddressBookUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AddressBookUpdate, refresh);
+    };
+  }, [run]);
 
   if (description?.originalAddress) {
     const addressInfoKey = buildAddressMapInfoKey({
