@@ -24,6 +24,7 @@ import type {
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
 import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -131,7 +132,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getPackagesNative = useCallback(async () => {
     if (!isReady) {
-      throw new Error('PrimeAuth native not ready, please try again later');
+      throw new OneKeyPlainTextError('PrimeAuth native not ready, please try again later');
     }
     const offerings = await PurchasesReactNative.getOfferings();
     const packages: IPackage[] = [];
@@ -194,7 +195,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }) => {
       try {
         if (!isReady) {
-          throw new Error('PrimeAuth native not ready!');
+          throw new OneKeyPlainTextError('PrimeAuth native not ready!');
         }
 
         // await backgroundApiProxy.serviceApp.showDialogLoading({
