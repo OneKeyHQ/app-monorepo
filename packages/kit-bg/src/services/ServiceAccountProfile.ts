@@ -5,6 +5,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
@@ -42,6 +44,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -517,6 +520,27 @@ class ServiceAccountProfile extends ServiceBase {
     }
     return result;
   }
+
+  @backgroundMethod()
+  public async clearQueryAddressCache() {
+    this._queryAddressWithCache.clear();
+  }
+
+  @backgroundMethod()
+  public async queryAddressWithCache(params: IQueryCheckAddressArgs) {
+    return this._queryAddressWithCache(params);
+  }
+
+  _queryAddressWithCache = memoizee(
+    async (params: IQueryCheckAddressArgs) => {
+      return this.queryAddress(params);
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      max: 30,
+    },
+  );
 
   private async handleNameSolve(
     networkId: string,
