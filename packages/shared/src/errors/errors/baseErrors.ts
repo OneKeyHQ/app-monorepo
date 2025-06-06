@@ -112,6 +112,8 @@ export class OneKeyError<
     }
     if (name) {
       this.name = name;
+    } else if (!name && className) {
+      this.name = className;
     }
   }
 
