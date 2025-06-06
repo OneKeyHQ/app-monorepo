@@ -6,6 +6,7 @@ import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -24,7 +25,6 @@ import type {
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
 import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -132,7 +132,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getPackagesNative = useCallback(async () => {
     if (!isReady) {
-      throw new OneKeyPlainTextError('PrimeAuth native not ready, please try again later');
+      throw new OneKeyPlainTextError(
+        'PrimeAuth native not ready, please try again later',
+      );
     }
     const offerings = await PurchasesReactNative.getOfferings();
     const packages: IPackage[] = [];
