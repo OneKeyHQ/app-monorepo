@@ -54,12 +54,16 @@ class ServiceMarketV2 extends ServiceBase {
     sortType,
     page = 1,
     limit = 20,
+    minLiquidity,
+    maxLiquidity,
   }: {
     networkId: string;
     sortBy?: string;
     sortType?: 'asc' | 'desc';
     page?: number;
     limit?: number;
+    minLiquidity?: number;
+    maxLiquidity?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
@@ -73,6 +77,8 @@ class ServiceMarketV2 extends ServiceBase {
         sortType,
         page,
         limit,
+        minLiquidity,
+        maxLiquidity,
       },
     });
     const { data } = response.data;

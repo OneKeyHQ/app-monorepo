@@ -13,6 +13,8 @@ interface IUseMarketTokenListParams {
   sortBy?: string;
   sortType?: 'asc' | 'desc';
   pageSize?: number;
+  minLiquidity?: number;
+  maxLiquidity?: number;
 }
 
 function getNetworkLogoUri(networkId: string): string {
@@ -52,6 +54,8 @@ export function useMarketTokenList({
   sortBy,
   sortType,
   pageSize = 10,
+  minLiquidity,
+  maxLiquidity,
 }: IUseMarketTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
@@ -69,10 +73,20 @@ export function useMarketTokenList({
           sortType,
           page: currentPage,
           limit: pageSize,
+          minLiquidity,
+          maxLiquidity,
         });
       return response;
     },
-    [networkId, sortBy, sortType, currentPage, pageSize],
+    [
+      networkId,
+      sortBy,
+      sortType,
+      currentPage,
+      pageSize,
+      minLiquidity,
+      maxLiquidity,
+    ],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
