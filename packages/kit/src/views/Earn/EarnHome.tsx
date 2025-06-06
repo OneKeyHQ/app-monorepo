@@ -101,12 +101,18 @@ const toTokenProviderListPage = async (
   },
 ) => {
   defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
+  const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+    accountId,
+    indexedAccountId,
+    networkId,
+  });
   navigation.pushModal(EModalRoutes.StakingModal, {
     screen: EModalStakingRoutes.AssetProtocolList,
     params: {
       networkId,
-      accountId,
-      indexedAccountId,
+      accountId: earnAccount?.accountId || accountId,
+      indexedAccountId:
+        earnAccount?.account.indexedAccountId || indexedAccountId,
       symbol,
     },
   });
