@@ -863,7 +863,7 @@ function BasicEarnHome() {
       useSystemBrowser: boolean;
       theme?: 'light' | 'dark';
     }) => {
-      if (account) {
+      if (account || indexedAccount) {
         if (href.includes('/earn/staking')) {
           const [path, query] = href.split('?');
           const paths = path.split('/');
@@ -873,9 +873,16 @@ function BasicEarnHome() {
           const networkId = params.get('networkId');
           const vault = params.get('vault');
           if (provider && symbol && networkId) {
+            const earnAccount =
+              await backgroundApiProxy.serviceStaking.getEarnAccount({
+                indexedAccountId: indexedAccount?.id,
+                accountId: account?.id ?? '',
+                networkId,
+              });
             void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
-              accountId: account?.id ?? '',
-              indexedAccountId: indexedAccount?.id,
+              accountId: earnAccount?.accountId || account?.id || '',
+              indexedAccountId:
+                earnAccount?.account.indexedAccountId || indexedAccount?.id,
               provider,
               symbol,
               networkId,
