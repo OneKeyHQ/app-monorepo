@@ -281,6 +281,33 @@ export function AccountSelectorAccountListItem({
     selectedAccount.deriveType,
   ]);
 
+  const renderCheckMark = useMemo(() => {
+    // Don't show checkmark in edit mode
+    if (editMode) {
+      return null;
+    }
+    if (isCreatingAddress) {
+      return null;
+    }
+    // show CreateAddress Button here, hide checkMark
+    if (shouldShowCreateAddressButton) {
+      return null;
+    }
+    const isSelected = isOthersUniversal
+      ? selectedAccount.othersWalletAccountId === item.id
+      : selectedAccount.indexedAccountId === item.id;
+
+    return isSelected ? <ListItem.CheckMark /> : null;
+  }, [
+    isCreatingAddress,
+    isOthersUniversal,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.indexedAccountId,
+    item.id,
+    shouldShowCreateAddressButton,
+    editMode,
+  ]);
+
   const avatarNetworkId: string | undefined = useMemo(() => {
     let _avatarNetworkId: string | undefined;
     if (isOthersUniversal && account) {
@@ -375,6 +402,7 @@ export function AccountSelectorAccountListItem({
         <ListItem.Text
           {...textProps}
           flex={1}
+          pr="$8"
           primary={
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {item.name}
@@ -386,7 +414,12 @@ export function AccountSelectorAccountListItem({
               <AccountAddress
                 num={num}
                 linkedNetworkId={subTitleInfo.linkedNetworkId}
-                address={currentNetworkAccount?.address || subTitleInfo.address}
+                address={accountUtils.shortenAddress({
+                  address:
+                    currentNetworkAccount?.address || subTitleInfo.address,
+                  leadingLength: 6,
+                  trailingLength: 4,
+                })}
                 isEmptyAddress={subTitleInfo.isEmptyAddress}
               />
             </XStack>
@@ -429,23 +462,14 @@ export function AccountSelectorAccountListItem({
             }
           : undefined,
         isLoading: isCreatingAddress,
-        // TODO useMemo
-        checkMark: (() => {
-          if (isCreatingAddress) {
-            return undefined;
-          }
-          // show CreateAddress Button here, hide checkMark
-          if (shouldShowCreateAddressButton) {
-            return undefined;
-          }
-          return isOthersUniversal
-            ? selectedAccount.othersWalletAccountId === item.id
-            : selectedAccount.indexedAccountId === item.id;
-        })(),
         userSelect: 'none',
       })}
     >
-      {actionButton}
+      {/* The value of top should be change if the height of the item is changed, since we can not use percentage value in translateY for keeping the Icon central aligned in React Native */}
+      <Stack position="absolute" right="$3" top={18}>
+        {renderCheckMark}
+        {actionButton}
+      </Stack>
     </ListItem>
   );
 }
