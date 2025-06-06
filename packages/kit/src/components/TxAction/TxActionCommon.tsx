@@ -18,7 +18,9 @@ import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils'
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useAddressesInfoAtom } from '../../states/jotai/contexts/historyList';
 import {
@@ -161,6 +163,21 @@ function TxActionCommonDescription({
 }) {
   const [addressesInfo] = useAddressesInfoAtom();
 
+  const addressLocalLabel = usePromiseResult(async () => {
+    if (!description?.originalAddress) {
+      return null;
+    }
+
+    const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+      networkId,
+      address: description?.originalAddress,
+      enableAddressBook: true,
+      enableWalletName: true,
+      skipValidateAddress: true,
+    });
+    return result.walletAccountName || result.addressBookName;
+  }, [description?.originalAddress, networkId]).result;
+
   if (description?.originalAddress) {
     const addressInfoKey = buildAddressMapInfoKey({
       networkId,
@@ -191,8 +208,13 @@ function TxActionCommonDescription({
           name={description.icon}
         />
       ) : null}
-      <SizableText size="$bodyMd" color="$textSubdued" minWidth={0}>
-        {description?.children}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        minWidth={0}
+        numberOfLines={addressLocalLabel ? 1 : undefined}
+      >
+        {addressLocalLabel || description?.children}
       </SizableText>
     </XStack>
   );
