@@ -169,10 +169,17 @@ function RecommendedItem({
     const {
       activeAccount: { account, indexedAccount },
     } = accountInfo;
-    if (account && token) {
+    if ((account || indexedAccount) && token) {
+      const earnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          indexedAccountId: indexedAccount?.id,
+          accountId: account?.id ?? '',
+          networkId: token.account.networkId,
+        });
       await toTokenProviderListPage(navigation, {
-        indexedAccountId: indexedAccount?.id,
-        accountId: account?.id ?? '',
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccount?.id,
+        accountId: earnAccount?.accountId || account?.id || '',
         networkId: token.account.networkId,
         symbol: token.symbol,
       });
