@@ -185,49 +185,49 @@ class ServiceApp extends ServiceBase {
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');
     await timerUtils.wait(1500);
 
-    // if (platformEnv.isRuntimeBrowser) {
-    //   try {
-    //     globalThis.localStorage.clear();
-    //   } catch {
-    //     console.error('window.localStorage.clear() error');
-    //   }
-    //   try {
-    //     globalThis.sessionStorage.clear();
-    //   } catch {
-    //     console.error('window.sessionStorage.clear() error');
-    //   }
-    // }
+    if (platformEnv.isRuntimeBrowser) {
+      try {
+        globalThis.localStorage.clear();
+      } catch {
+        console.error('window.localStorage.clear() error');
+      }
+      try {
+        globalThis.sessionStorage.clear();
+      } catch {
+        console.error('window.sessionStorage.clear() error');
+      }
+    }
 
-    // if (platformEnv.isExtension) {
-    //   try {
-    //     await globalThis.chrome.storage.local.clear();
-    //   } catch {
-    //     console.error('chrome.storage.local.clear() error');
-    //   }
-    //   // try {
-    //   //   await globalThis.chrome.storage.sync.clear();
-    //   // } catch {
-    //   //   console.error('chrome.storage.sync.clear() error');
-    //   // }
-    //   try {
-    //     await globalThis.chrome.storage.session.clear();
-    //   } catch {
-    //     console.error('chrome.storage.session.clear() error');
-    //   }
-    //   // try {
-    //   //   await globalThis.chrome.storage.managed.clear();
-    //   // } catch {
-    //   //   console.error('chrome.storage.managed.clear() error');
-    //   // }
-    // }
+    if (platformEnv.isExtension) {
+      try {
+        await globalThis.chrome.storage.local.clear();
+      } catch {
+        console.error('chrome.storage.local.clear() error');
+      }
+      // try {
+      //   await globalThis.chrome.storage.sync.clear();
+      // } catch {
+      //   console.error('chrome.storage.sync.clear() error');
+      // }
+      try {
+        await globalThis.chrome.storage.session.clear();
+      } catch {
+        console.error('chrome.storage.session.clear() error');
+      }
+      // try {
+      //   await globalThis.chrome.storage.managed.clear();
+      // } catch {
+      //   console.error('chrome.storage.managed.clear() error');
+      // }
+    }
 
-    // if (platformEnv.isDesktop) {
-    //   try {
-    //     await globalThis.desktopApi?.storeClear();
-    //   } catch (error) {
-    //     console.error('desktopApi.storeClear() error', error);
-    //   }
-    // }
+    if (platformEnv.isDesktop) {
+      try {
+        await globalThis.desktopApi?.storeClear();
+      } catch (error) {
+        console.error('desktopApi.storeClear() error', error);
+      }
+    }
   }
 
   @backgroundMethod()
