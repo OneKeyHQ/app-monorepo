@@ -898,7 +898,7 @@ function BasicEarnHome() {
         }
       }
     },
-    [account, indexedAccount?.id, navigation],
+    [account, indexedAccount, navigation],
   );
 
   const banners = useMemo(() => {
