@@ -91,7 +91,12 @@ function RawCheckbox({
       </YStack>
 
       {label || description ? (
-        <YStack pl="$2" py="$2" my="$-2">
+        <YStack
+          pl="$2"
+          py="$2"
+          my="$-2"
+          flex={platformEnv.isNative ? undefined : 1}
+        >
           {label ? (
             <Label
               pointerEvents="none"

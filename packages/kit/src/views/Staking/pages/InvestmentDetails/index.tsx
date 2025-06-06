@@ -85,10 +85,11 @@ function BasicInvestmentDetails() {
 
   const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
     async () => {
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
-        accountInfo.activeAccount?.account?.id,
-        allNetworkId,
-      );
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
+        accountId: accountInfo.activeAccount?.account?.id,
+        indexAccountId: accountInfo.activeAccount?.indexedAccount?.id,
+        networkId: allNetworkId,
+      });
       let list = earnAccount?.[totalFiatMapKey]?.accounts || [];
       if (list.length === 0) {
         const earnAccountOnNetwork =
