@@ -24,6 +24,7 @@ import type { IDAppConnectionModalParamList } from '@onekeyhq/shared/src/routes'
 import {
   EDAppConnectionModal,
   EModalRoutes,
+  EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
@@ -80,6 +81,12 @@ function CurrentConnectionModal() {
     shouldRefreshWhenPageGoBack.current = true;
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
       screen: EDAppConnectionModal.ConnectionList,
+    });
+  }, [navigation]);
+
+  const onPressAlignAccountSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingAlignPrimaryAccount,
     });
   }, [navigation]);
 
@@ -174,6 +181,16 @@ function CurrentConnectionModal() {
             <SizableText size="$bodyMd">
               {intl.formatMessage({
                 id: ETranslations.explore_manage_dapp_connections,
+              })}
+            </SizableText>
+          </ListItem>
+          <ListItem
+            key="manage-connection"
+            onPress={onPressAlignAccountSettings}
+          >
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.settings_account_sync_modal_title,
               })}
             </SizableText>
           </ListItem>
