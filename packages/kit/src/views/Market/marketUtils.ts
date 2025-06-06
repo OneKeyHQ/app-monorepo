@@ -27,15 +27,9 @@ export const marketNavigation = {
       coinGeckoId: string;
     },
   ) {
-    await timerUtils.wait(100);
+    await timerUtils.wait(80);
 
-    // First navigate to Market tab
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Market,
-      params: {
-        screen: ETabMarketRoutes.TabMarket,
-      },
-    });
+    navigation.switchTab(ETabRoutes.Market);
 
     await timerUtils.wait(100);
 
