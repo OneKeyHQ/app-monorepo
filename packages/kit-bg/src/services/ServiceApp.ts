@@ -99,13 +99,13 @@ class ServiceApp extends ServiceBase {
     defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
 
-    // try {
-    //   // clean local db
-    //   await localDb.reset();
-    // } catch {
-    //   console.error('localDb.reset() error');
-    // }
-    // defaultLogger.setting.page.clearDataStep('localDb-reset');
+    try {
+      // clean local db
+      // await localDb.reset();
+    } catch {
+      console.error('localDb.reset() error');
+    }
+    defaultLogger.setting.page.clearDataStep('localDb-reset');
 
     defaultLogger.setting.page.clearDataStep('localDb-reset-wait-start');
     await timerUtils.wait(100);
