@@ -107,81 +107,81 @@ class ServiceApp extends ServiceBase {
     // }
     // defaultLogger.setting.page.clearDataStep('localDb-reset');
 
-    // defaultLogger.setting.page.clearDataStep('localDb-reset-wait-start');
-    // await timerUtils.wait(100);
-    // defaultLogger.setting.page.clearDataStep('localDb-reset-wait-end');
-    // if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
-    //   try {
-    //     const storageBuckets = (globalThis.navigator as INavigator)
-    //       .storageBuckets;
-    //     const names = await storageBuckets?.keys();
-    //     if (names) {
-    //       for (const name of names) {
-    //         try {
-    //           await storageBuckets?.delete(name);
-    //         } catch (error) {
-    //           console.error('storageBuckets.delete() error', error);
-    //         }
-    //       }
-    //     }
-    //   } catch {
-    //     console.error('storageBuckets.delete() error');
-    //   }
-    // }
-    // defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
-    // await timerUtils.wait(100);
+    defaultLogger.setting.page.clearDataStep('localDb-reset-wait-start');
+    await timerUtils.wait(100);
+    defaultLogger.setting.page.clearDataStep('localDb-reset-wait-end');
+    if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
+      try {
+        const storageBuckets = (globalThis.navigator as INavigator)
+          .storageBuckets;
+        const names = await storageBuckets?.keys();
+        if (names) {
+          for (const name of names) {
+            try {
+              await storageBuckets?.delete(name);
+            } catch (error) {
+              console.error('storageBuckets.delete() error', error);
+            }
+          }
+        }
+      } catch {
+        console.error('storageBuckets.delete() error');
+      }
+    }
+    defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
+    await timerUtils.wait(100);
 
-    // if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
-    //   const shouldDeleteAllOtherIndexedDBs = true;
-    //   try {
-    //     if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
-    //       const indexedDB = globalThis?.indexedDB;
-    //       const deleteAllIndexedDBs = async () => {
-    //         const dbNames: IDBDatabaseInfo[] =
-    //           (await indexedDB?.databases?.()) || [];
-    //         for (const { name } of dbNames) {
-    //           if (name) {
-    //             try {
-    //               await new Promise<void>((resolve, reject) => {
-    //                 const timer = setTimeout(() => {
-    //                   reject(new Error(`deleteIndexedDB timeout: ${name}`));
-    //                 }, 1000);
+    if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
+      const shouldDeleteAllOtherIndexedDBs = true;
+      try {
+        if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
+          const indexedDB = globalThis?.indexedDB;
+          const deleteAllIndexedDBs = async () => {
+            const dbNames: IDBDatabaseInfo[] =
+              (await indexedDB?.databases?.()) || [];
+            for (const { name } of dbNames) {
+              if (name) {
+                try {
+                  await new Promise<void>((resolve, reject) => {
+                    const timer = setTimeout(() => {
+                      reject(new Error(`deleteIndexedDB timeout: ${name}`));
+                    }, 1000);
 
-    //                 const deleteRequest = indexedDB?.deleteDatabase(name);
-    //                 deleteRequest.onsuccess = () => {
-    //                   clearTimeout(timer);
-    //                   resolve();
-    //                 };
-    //                 deleteRequest.onerror = () => {
-    //                   clearTimeout(timer);
-    //                   reject(new Error(`deleteIndexedDB error: ${name}`));
-    //                 };
-    //               });
-    //             } catch (error) {
-    //               console.error('deleteIndexedDB error', error);
-    //             }
-    //           }
-    //         }
-    //       };
-    //       await deleteAllIndexedDBs();
-    //     }
-    //   } catch (error) {
-    //     console.error('deleteAllIndexedDBs error', error);
-    //   }
-    // }
-    // defaultLogger.setting.page.clearDataStep('shouldDeleteAllOtherIndexedDBs');
-    // await timerUtils.wait(100);
+                    const deleteRequest = indexedDB?.deleteDatabase(name);
+                    deleteRequest.onsuccess = () => {
+                      clearTimeout(timer);
+                      resolve();
+                    };
+                    deleteRequest.onerror = () => {
+                      clearTimeout(timer);
+                      reject(new Error(`deleteIndexedDB error: ${name}`));
+                    };
+                  });
+                } catch (error) {
+                  console.error('deleteIndexedDB error', error);
+                }
+              }
+            }
+          };
+          await deleteAllIndexedDBs();
+        }
+      } catch (error) {
+        console.error('deleteAllIndexedDBs error', error);
+      }
+    }
+    defaultLogger.setting.page.clearDataStep('shouldDeleteAllOtherIndexedDBs');
+    await timerUtils.wait(100);
 
-    // try {
-    //   const isV4DbExist: boolean =
-    //     await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
-    //   if (isV4DbExist) {
-    //     await v4dbHubs.v4localDb.reset();
-    //     await timerUtils.wait(600);
-    //   }
-    // } catch (error) {
-    //   //
-    // }
+    try {
+      const isV4DbExist: boolean =
+        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
+      if (isV4DbExist) {
+        await v4dbHubs.v4localDb.reset();
+        await timerUtils.wait(600);
+      }
+    } catch (error) {
+      //
+    }
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');
     await timerUtils.wait(1500);
 
