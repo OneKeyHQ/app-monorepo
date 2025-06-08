@@ -271,10 +271,9 @@ class ServiceApp extends ServiceBase {
       } catch {
         console.error('reset route error');
       }
+      defaultLogger.setting.page.clearData({ action: 'ResetApp' });
+      await timerUtils.wait(600);
     }
-
-    defaultLogger.setting.page.clearData({ action: 'ResetApp' });
-    await timerUtils.wait(600);
 
     this.restartApp();
   }
