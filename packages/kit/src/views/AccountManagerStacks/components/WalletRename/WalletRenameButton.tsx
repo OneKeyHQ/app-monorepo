@@ -1,3 +1,5 @@
+import { type ComponentProps, useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
@@ -14,9 +16,23 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabelSetDialog';
 
-export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
+export function WalletRenameButton({
+  wallet,
+  editable,
+  ...rest
+}: ComponentProps<typeof XStack> & {
+  wallet: IDBWallet;
+  editable: boolean | undefined;
+}) {
   const { serviceAccount } = backgroundApiProxy;
   const intl = useIntl();
+
+  const canRename = useMemo(() => {
+    if (accountUtils.isOthersWallet({ walletId: wallet?.id || '' })) {
+      return false;
+    }
+    return !!editable;
+  }, [editable, wallet?.id]);
 
   return (
     <XStack
@@ -40,6 +56,9 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
         outlineStyle: 'solid',
       }}
       onPress={async () => {
+        if (!canRename) {
+          return;
+        }
         if (
           wallet &&
           wallet?.id &&
@@ -81,11 +100,19 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
           });
         }
       }}
+      {...rest}
     >
       <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>
         {wallet?.name}
       </SizableText>
-      <Icon flexShrink={0} name="PencilSolid" size="$4" color="$iconSubdued" />
+      {canRename ? (
+        <Icon
+          flexShrink={0}
+          name="PencilSolid"
+          size="$4"
+          color="$iconSubdued"
+        />
+      ) : null}
       {wallet.type === WALLET_TYPE_HD && !wallet.backuped ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$1">
           <Badge.Text>

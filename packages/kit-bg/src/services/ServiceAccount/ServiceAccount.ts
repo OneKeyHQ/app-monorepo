@@ -2451,7 +2451,12 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async createHWWalletBase(params: IDBCreateHwWalletParams) {
-    const { features, passphraseState, fillingXfpByCallingSdk } = params;
+    const {
+      features,
+      passphraseState,
+      fillingXfpByCallingSdk,
+      isMockedStandardHwWallet,
+    } = params;
     if (!features) {
       throw new Error('createHWWalletBase ERROR: features is required');
     }
@@ -2469,7 +2474,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     let xfp: string | undefined;
-    if (fillingXfpByCallingSdk) {
+    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
         connectId,
         deviceId,
@@ -2482,8 +2487,11 @@ class ServiceAccount extends ServiceBase {
       ...params,
       xfp,
       passphraseState: passphraseState || '',
-      getFirstEvmAddressFn: async () => {
-        const r =
+      getFirstEvmAddressFn: async (): Promise<string | null> => {
+        if (isMockedStandardHwWallet) {
+          return '';
+        }
+        const r: string | null =
           await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
             {
               connectId,
@@ -2805,18 +2813,24 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async removeWallet({
     walletId,
     skipBackupWalletRemove,
+    isRemoveToMocked,
   }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
     if (!walletId) {
       throw new Error('walletId is required');
+    }
+    if (accountUtils.isOthersWallet({ walletId })) {
+      throw new Error('Remove non-hd and non-hw wallet is not allowed');
     }
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
     });
     const result = await localDb.removeWallet({
       walletId,
+      isRemoveToMocked,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({

@@ -525,7 +525,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
 
     const networksParamsFiltered: IBatchBuildAccountsBaseParams[] = [];
+    const evmNetworksMap: {
+      [implDeriveTypeWalletId: string]: boolean;
+    } = {};
     for (const p of networksParams) {
+      const isEvm = networkUtils.isEvmNetwork({ networkId: p.networkId });
+      if (isEvm) {
+        const impl = networkUtils.getNetworkImpl({ networkId: p.networkId });
+        const mapKey = `${impl}_${p.deriveType}_${p.walletId}`;
+        if (evmNetworksMap[mapKey]) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        evmNetworksMap[mapKey] = true;
+      }
       if (!networkUtils.isAllNetwork({ networkId: p.networkId })) {
         if (accountUtils.isQrWallet({ walletId: params.walletId })) {
           const settings = await getVaultSettings({ networkId: p.networkId });
