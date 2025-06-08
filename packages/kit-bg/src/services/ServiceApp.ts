@@ -96,35 +96,6 @@ class ServiceApp extends ServiceBase {
     await timerUtils.wait(100);
 
     try {
-      // clean local db
-      await localDb.reset();
-    } catch {
-      console.error('localDb.reset() error');
-    }
-    defaultLogger.setting.page.clearDataStep('localDb-reset');
-
-    if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
-      try {
-        const storageBuckets = (globalThis.navigator as INavigator)
-          .storageBuckets;
-        const names = await storageBuckets?.keys();
-        if (names) {
-          for (const name of names) {
-            try {
-              await storageBuckets?.delete(name);
-            } catch (error) {
-              console.error('storageBuckets.delete() error', error);
-            }
-          }
-        }
-      } catch {
-        console.error('storageBuckets.delete() error');
-      }
-      await timerUtils.wait(100);
-      defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
-    }
-
-    try {
       const isV4DbExist: boolean =
         await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
       if (isV4DbExist) {
@@ -136,7 +107,39 @@ class ServiceApp extends ServiceBase {
       //
     }
 
+    // WARNING:
+    // After deleting the realm database on Android, it blocks the thread for about 300ms. Root cause unknown.
+    // Therefore, do not add any Android-specific business logic after cleaning the realm db
+    try {
+      // clean local db
+      await localDb.reset();
+    } catch {
+      console.error('localDb.reset() error');
+    }
+    defaultLogger.setting.page.clearDataStep('localDb-reset');
+
     if (!platformEnv.isNative) {
+      if (platformEnv.isRuntimeBrowser) {
+        try {
+          const storageBuckets = (globalThis.navigator as INavigator)
+            .storageBuckets;
+          const names = await storageBuckets?.keys();
+          if (names) {
+            for (const name of names) {
+              try {
+                await storageBuckets?.delete(name);
+              } catch (error) {
+                console.error('storageBuckets.delete() error', error);
+              }
+            }
+          }
+        } catch {
+          console.error('storageBuckets.delete() error');
+        }
+        await timerUtils.wait(100);
+        defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
+      }
+
       if (platformEnv.isRuntimeBrowser) {
         const shouldDeleteAllOtherIndexedDBs = true;
         try {
