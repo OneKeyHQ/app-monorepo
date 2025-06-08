@@ -104,7 +104,7 @@ class ServiceApp extends ServiceBase {
     defaultLogger.setting.page.clearDataStep('localDb-reset');
 
     defaultLogger.setting.page.clearDataStep('localDb-reset-wait-start');
-    await timerUtils.wait(100);
+
     defaultLogger.setting.page.clearDataStep('localDb-reset-wait-end');
     if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
       try {
