@@ -39,7 +39,7 @@ public class MainApplication extends Application implements ReactApplication {
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new AutoUpdateModulePackage(mReactNativeHost));
         packages.add(new RootViewBackgroundPackage());
-        packages.add(new GeckoViewPackage());
+        // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         return packages;
       }
