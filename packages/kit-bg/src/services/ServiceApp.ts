@@ -253,8 +253,6 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('endResetting');
     }
 
-    defaultLogger.setting.page.clearDataStep(String(platformEnv.isWeb));
-    defaultLogger.setting.page.clearDataStep(String(platformEnv.isDesktop));
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       // reset route/href
       try {
