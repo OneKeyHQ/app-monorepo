@@ -101,12 +101,18 @@ const toTokenProviderListPage = async (
   },
 ) => {
   defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
+  const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+    accountId,
+    indexedAccountId,
+    networkId,
+  });
   navigation.pushModal(EModalRoutes.StakingModal, {
     screen: EModalStakingRoutes.AssetProtocolList,
     params: {
       networkId,
-      accountId,
-      indexedAccountId,
+      accountId: earnAccount?.accountId || accountId,
+      indexedAccountId:
+        earnAccount?.account.indexedAccountId || indexedAccountId,
       symbol,
     },
   });
@@ -163,10 +169,17 @@ function RecommendedItem({
     const {
       activeAccount: { account, indexedAccount },
     } = accountInfo;
-    if (account && token) {
+    if ((account || indexedAccount) && token) {
+      const earnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          indexedAccountId: indexedAccount?.id,
+          accountId: account?.id ?? '',
+          networkId: token.account.networkId,
+        });
       await toTokenProviderListPage(navigation, {
-        indexedAccountId: indexedAccount?.id,
-        accountId: account?.id ?? '',
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccount?.id,
+        accountId: earnAccount?.accountId || account?.id || '',
         networkId: token.account.networkId,
         symbol: token.symbol,
       });
@@ -301,12 +314,17 @@ function Recommended({
 }) {
   const allNetworkId = useAllNetworkId();
   const {
-    activeAccount: { account },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
-    [account?.id, actions, allNetworkId],
+    () =>
+      actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
+        networkId: allNetworkId,
+      }),
+    [account?.id, actions, allNetworkId, indexedAccount?.id],
   );
   const [{ earnAccount }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
@@ -380,13 +398,18 @@ function Overview({
   onRefresh: () => void;
 }) {
   const {
-    activeAccount: { account },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   const allNetworkId = useAllNetworkId();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, allNetworkId),
-    [account?.id, actions, allNetworkId],
+    () =>
+      actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
+        networkId: allNetworkId,
+      }),
+    [account?.id, actions, allNetworkId, indexedAccount?.id],
   );
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
@@ -686,13 +709,14 @@ function BasicEarnHome() {
     run: refreshOverViewData,
   } = usePromiseResult(
     async () => {
-      if (!account) {
+      if (!account && !indexedAccount) {
         return;
       }
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
-        account.id,
-        allNetworkId,
-      );
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
+        networkId: allNetworkId,
+      });
       let assets = actions.current.getAvailableAssets();
       if (assets.length === 0) {
         assets = await backgroundApiProxy.serviceStaking.getAvailableAssets();
@@ -706,14 +730,14 @@ function BasicEarnHome() {
       }
 
       const fetchAndUpdateAction = async () => {
-        if (!account) {
+        if (!account && !indexedAccount) {
           return;
         }
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
             accountId: account?.id ?? '',
             networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId,
+            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -725,7 +749,7 @@ function BasicEarnHome() {
         });
       };
       const fetchAndUpdateOverview = async () => {
-        if (!account) {
+        if (!account && !indexedAccount) {
           return;
         }
         const overviewData =
@@ -733,7 +757,7 @@ function BasicEarnHome() {
             assets,
             accountId: account?.id ?? '',
             networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId,
+            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
           });
         const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
@@ -758,7 +782,7 @@ function BasicEarnHome() {
       }
       return { loaded: true };
     },
-    [actions, account, allNetworkId],
+    [actions, account, allNetworkId, indexedAccount],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
@@ -839,7 +863,7 @@ function BasicEarnHome() {
       useSystemBrowser: boolean;
       theme?: 'light' | 'dark';
     }) => {
-      if (account) {
+      if (account || indexedAccount) {
         if (href.includes('/earn/staking')) {
           const [path, query] = href.split('?');
           const paths = path.split('/');
@@ -849,9 +873,16 @@ function BasicEarnHome() {
           const networkId = params.get('networkId');
           const vault = params.get('vault');
           if (provider && symbol && networkId) {
+            const earnAccount =
+              await backgroundApiProxy.serviceStaking.getEarnAccount({
+                indexedAccountId: indexedAccount?.id,
+                accountId: account?.id ?? '',
+                networkId,
+              });
             void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
-              accountId: account?.id ?? '',
-              indexedAccountId: indexedAccount?.id,
+              accountId: earnAccount?.accountId || account?.id || '',
+              indexedAccountId:
+                earnAccount?.account.indexedAccountId || indexedAccount?.id,
               provider,
               symbol,
               networkId,
@@ -867,7 +898,7 @@ function BasicEarnHome() {
         }
       }
     },
-    [account, indexedAccount?.id, navigation],
+    [account, indexedAccount, navigation],
   );
 
   const banners = useMemo(() => {
