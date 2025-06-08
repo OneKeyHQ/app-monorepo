@@ -103,9 +103,6 @@ class ServiceApp extends ServiceBase {
     }
     defaultLogger.setting.page.clearDataStep('localDb-reset');
 
-    defaultLogger.setting.page.clearDataStep('localDb-reset-wait-start');
-
-    defaultLogger.setting.page.clearDataStep('localDb-reset-wait-end');
     if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
       try {
         const storageBuckets = (globalThis.navigator as INavigator)
