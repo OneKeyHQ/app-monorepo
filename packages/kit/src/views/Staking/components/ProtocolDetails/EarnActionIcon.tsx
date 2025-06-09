@@ -212,6 +212,7 @@ function BasicClaimActionIcon({
           })
         );
         await handleClaim({
+          claimType: actionIcon.type,
           symbol: protocolInfo?.symbol || '',
           protocolInfo,
           tokenInfo: tokenInfo
