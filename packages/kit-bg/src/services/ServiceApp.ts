@@ -95,18 +95,6 @@ class ServiceApp extends ServiceBase {
     defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
 
-    try {
-      const isV4DbExist: boolean =
-        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
-      if (isV4DbExist) {
-        await v4dbHubs.v4localDb.reset();
-        await timerUtils.wait(600);
-      }
-      defaultLogger.setting.page.clearDataStep('v4localDb-reset');
-    } catch (error) {
-      //
-    }
-
     // WARNING:
     // After deleting the realm database on Android, it blocks the thread for about 300ms. Root cause unknown.
     // Therefore, do not add any Android-specific business logic after cleaning the realm db
@@ -117,6 +105,20 @@ class ServiceApp extends ServiceBase {
       console.error('localDb.reset() error');
     }
     defaultLogger.setting.page.clearDataStep('localDb-reset');
+
+    try {
+      const isV4DbExist: boolean =
+        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
+      if (isV4DbExist) {
+        await v4dbHubs.v4localDb.reset();
+        if (!platformEnv.isNativeAndroid) {
+          await timerUtils.wait(600);
+        }
+      }
+    } catch (error) {
+      //
+    }
+    defaultLogger.setting.page.clearDataStep('v4localDb-reset');
 
     if (!platformEnv.isNative) {
       if (platformEnv.isRuntimeBrowser) {
