@@ -2220,11 +2220,10 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async fetchSwapTips() {
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
       const { data } = await client.get<{ data: ISwapTips }>(
-        '/swap/v1/swap-tips',
+        '/utility/v1/swap-tips',
       );
-      console.log('swap__data', data);
       return data?.data;
     } catch (e) {
       console.error(e);
