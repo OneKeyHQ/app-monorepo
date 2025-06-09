@@ -3179,7 +3179,7 @@ export const getNetworksSupportMevProtection = memoFn(
       logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
     },
     [sui.id]: {
-      name: 'shio',
+      name: 'Shio',
       logoURI: 'https://uni.onekey-asset.com/static/logo/shio.png',
     },
   }),
