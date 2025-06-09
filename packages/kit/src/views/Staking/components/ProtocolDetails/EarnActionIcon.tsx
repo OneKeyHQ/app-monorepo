@@ -206,6 +206,9 @@ function BasicClaimActionIcon({
       disabled={loading || actionIcon?.disabled}
       onPress={async () => {
         setLoading(true);
+        setTimeout(() => {
+          setLoading(false);
+        }, 10 * 1000);
         const claimAmount =
           protocolInfo?.claimable || actionIcon.data?.balance || '0';
         const isMorphoClaim = !!(
