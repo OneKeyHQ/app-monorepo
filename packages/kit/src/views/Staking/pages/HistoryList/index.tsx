@@ -65,17 +65,17 @@ const HistoryItem = ({
   >();
   const { accountId } = route.params;
   const logoURI = useMemo(() => {
-    if (item.type === 'stake') {
-      const uri = tokenMap?.[item.tokenAddress]?.logoURI;
-      if (uri) {
-        return uri;
-      }
-    }
     if (token?.logoURI) {
       return token.logoURI;
     }
     if (networks?.length) {
       return networks.find((o) => o.networkId === item.networkId)?.logoURI;
+    }
+    if (item.type === 'stake') {
+      const uri = tokenMap?.[item.tokenAddress]?.logoURI;
+      if (uri) {
+        return uri;
+      }
     }
     return network?.logoURI;
   }, [
