@@ -131,7 +131,11 @@ export const useHandleClaim = ({
         });
         return;
       }
-      if (claimType === EClaimType.Claim) {
+      if (
+        claimType === EClaimType.Claim &&
+        claimAmount &&
+        Number(claimAmount) > 0
+      ) {
         await handleUniversalClaim({
           amount: claimAmount,
           symbol,
