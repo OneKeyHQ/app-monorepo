@@ -39,10 +39,12 @@ export const getHardwareSDKInstance = memoizee(
         return;
       }
 
-      const env =
-        params.hardwareTransportType === EHardwareTransportType.WEBUSB
-          ? ('webusb' as const)
-          : undefined;
+      let env: undefined | ConnectSettings['env'];
+      if (params.hardwareTransportType === EHardwareTransportType.WEBUSB) {
+        env = 'webusb' as const;
+      } else {
+        env = 'desktop-web-ble' as const;
+      }
 
       const settings: Partial<ConnectSettings> = {
         debug: params.debugMode,
@@ -51,7 +53,7 @@ export const getHardwareSDKInstance = memoizee(
       };
 
       HardwareSDK = await importHardwareSDK({
-        hardwareTransportType: params.hardwareTransportType,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
       });
 
       if (!platformEnv.isNative) {
