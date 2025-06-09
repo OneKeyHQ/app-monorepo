@@ -40,6 +40,7 @@ function transformApiDataToComponentData(
     uniqueTraders: parseInt(item.uniqueWallet24h || '0', 10),
     holders: item.holders || 0,
     turnover: parseFloat(item.volume24h || '0'),
+    volume24hChangePercent: parseFloat(item.volume24hChangePercent || '0'),
     tokenImageUri: item.logoUrl || '',
     networkLogoUri,
     walletInfo: {

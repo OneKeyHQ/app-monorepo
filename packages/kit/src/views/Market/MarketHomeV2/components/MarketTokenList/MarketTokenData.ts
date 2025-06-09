@@ -11,6 +11,7 @@ export interface IMarketToken {
   uniqueTraders: number;
   holders: number;
   turnover: number;
+  volume24hChangePercent: number;
   tokenImageUri: string;
   networkLogoUri: string;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;

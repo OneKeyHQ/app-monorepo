@@ -77,7 +77,7 @@ export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
     },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
-      dataIndex: 'change24h',
+      dataIndex: 'priceChange24hPercent',
       columnWidth: 100,
       render: (text: number) => (
         <NumberSizeableText
@@ -169,7 +169,7 @@ export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
       dataIndex: 'turnover',
-      columnWidth: 180,
+      columnWidth: 120,
       render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
@@ -179,7 +179,7 @@ export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
           {text}
         </NumberSizeableText>
       ),
-      renderSkeleton: () => <Skeleton width={120} height={16} />,
+      renderSkeleton: () => <Skeleton width={100} height={16} />,
       align: 'right',
     },
   ];
