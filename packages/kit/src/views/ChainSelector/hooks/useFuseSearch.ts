@@ -13,11 +13,9 @@ export const useFuseSearch = (networks: IServerNetwork[]) => {
     const fuse = buildBaseFuse(networks, {
       keys: ['name', 'impl', 'symbol', 'shortname'],
     });
-    const symbolSet = new Set(
-      networks ? networks.map((o) => o.symbol.toLowerCase()) : [],
-    );
+    const symbolSet = new Set(networks.map((o) => o.symbol.toLowerCase()));
     const shortnameSet = new Set(
-      networks ? networks.map((o) => o.shortname.toLowerCase()) : [],
+      networks.map((o) => o.shortname.toLowerCase()),
     );
     return { fuse, symbolSet, shortnameSet };
   }, [networks]);
@@ -38,12 +36,10 @@ export const useFuseSearch = (networks: IServerNetwork[]) => {
         exp.$or?.push({ shortname: `=${lowerSearchText}` });
       }
       const searchResult = fuse.search(exp);
-      const result = searchResult
-        ? searchResult.map((o) => ({
-            ...o.item,
-            titleMatch: o.matches?.find((i) => i.key === 'name'),
-          }))
-        : [];
+      const result = searchResult.map((o) => ({
+        ...o.item,
+        titleMatch: o.matches?.find((i) => i.key === 'name'),
+      }));
       return result;
     },
     [context],
