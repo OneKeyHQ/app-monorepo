@@ -60,10 +60,7 @@ import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
@@ -847,7 +844,6 @@ function BasicEarnHome() {
   ];
 
   const navigation = useAppNavigation();
-  const accountSelectorActions = useAccountSelectorActions();
 
   const onBannerPress = useCallback(
     async ({
@@ -864,49 +860,40 @@ function BasicEarnHome() {
       useSystemBrowser: boolean;
       theme?: 'light' | 'dark';
     }) => {
-      if (account || indexedAccount) {
-        if (href.includes('/earn/staking')) {
-          const [path, query] = href.split('?');
-          const paths = path.split('/');
-          const provider = paths.pop();
-          const symbol = paths.pop();
-          const params = new URLSearchParams(query);
-          const networkId = params.get('networkId');
-          const vault = params.get('vault');
-          if (provider && symbol && networkId) {
-            const earnAccount =
-              await backgroundApiProxy.serviceStaking.getEarnAccount({
-                indexedAccountId: indexedAccount?.id,
-                accountId: account?.id ?? '',
-                networkId,
-              });
-            void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
-              accountId: earnAccount?.accountId || account?.id || '',
-              indexedAccountId:
-                earnAccount?.account.indexedAccountId || indexedAccount?.id,
-              provider,
-              symbol,
+      if (href.includes('/earn/staking')) {
+        const [path, query] = href.split('?');
+        const paths = path.split('/');
+        const provider = paths.pop();
+        const symbol = paths.pop();
+        const params = new URLSearchParams(query);
+        const networkId = params.get('networkId');
+        const vault = params.get('vault');
+        if (provider && symbol && networkId) {
+          const earnAccount =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              indexedAccountId: indexedAccount?.id,
+              accountId: account?.id ?? '',
               networkId,
-              vault: vault ?? '',
             });
-          }
-          return;
+          void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
+            accountId: earnAccount?.accountId || account?.id || '',
+            indexedAccountId:
+              earnAccount?.account.indexedAccountId || indexedAccount?.id,
+            provider,
+            symbol,
+            networkId,
+            vault: vault ?? '',
+          });
         }
-        if (hrefType === 'external') {
-          openUrlExternal(href);
-        } else {
-          openUrlInApp(href);
-        }
+        return;
+      }
+      if (hrefType === 'external') {
+        openUrlExternal(href);
       } else {
-        await accountSelectorActions.current.showAccountSelector({
-          navigation,
-          activeWallet: undefined,
-          num: 0,
-          sceneName: EAccountSelectorSceneName.home,
-        });
+        openUrlInApp(href);
       }
     },
-    [account, accountSelectorActions, indexedAccount, navigation],
+    [account, indexedAccount, navigation],
   );
 
   const banners = useMemo(() => {
