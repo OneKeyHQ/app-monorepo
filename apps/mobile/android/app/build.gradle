@@ -263,8 +263,8 @@ dependencies {
     implementation("org.bouncycastle:bcpg-jdk18on:1.77")
 
     // geckoview
-    implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")
-    implementation("com.google.code.gson:gson:2.13.1")
+    // implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")
+    // implementation("com.google.code.gson:gson:2.13.1")
 
     // add billing sdk, also update AndroidManifest.xml
     // def billingVersion = 7.0.0

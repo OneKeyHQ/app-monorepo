@@ -134,6 +134,11 @@ function ReferAFriendPage({ postConfig }: { postConfig: IInvitePostConfig }) {
                         },
                       )}
                     </SizableText>
+                    <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.referral_intro_for_you_2,
+                      })}
+                    </SizableText>
                     {/* <SizableText
         size="$bodyMd"
         color="$textSubdued"
@@ -172,6 +177,11 @@ function ReferAFriendPage({ postConfig }: { postConfig: IInvitePostConfig }) {
                           ),
                         },
                       )}
+                    </SizableText>
+                    <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.referral_intro_for_your_friend_2,
+                      })}
                     </SizableText>
                     <SizableText
                       size="$bodyMd"

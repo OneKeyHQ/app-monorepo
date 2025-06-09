@@ -74,6 +74,7 @@ interface IBasicDialogProps extends TMDialogProps {
   /* If true, the content will be rendered later and fit content height. */
   isAsync?: boolean;
   onOpen?: () => void;
+  onHeaderCloseButtonPress?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
   isExist?: () => boolean;
   icon?: IKeyOfIcons;
