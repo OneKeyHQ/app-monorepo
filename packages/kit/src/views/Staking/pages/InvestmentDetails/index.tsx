@@ -152,14 +152,20 @@ function BasicInvestmentDetails() {
       <ListItem
         userSelect="none"
         drillIn
-        onPress={() => {
+        onPress={async () => {
           const {
             activeAccount: { account, indexedAccount },
           } = accountInfo;
-          if (account && tokenInfo) {
-            navigation.push(EModalStakingRoutes.ProtocolDetailsV2, {
+          const pageEarnAccount =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              accountId: account?.id || '',
               indexedAccountId: indexedAccount?.id,
-              accountId: account?.id ?? '',
+              networkId: tokenInfo.networkId,
+            });
+          if ((account || indexedAccount) && tokenInfo) {
+            navigation.push(EModalStakingRoutes.ProtocolDetailsV2, {
+              indexedAccountId: pageEarnAccount?.account.indexedAccountId,
+              accountId: pageEarnAccount?.accountId,
               networkId: tokenInfo.networkId,
               symbol: tokenInfo.symbol,
               provider: providerName,
