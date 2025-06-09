@@ -47,6 +47,12 @@ export function DialogIcon({
           iconColor: '$iconSuccess',
         };
       }
+      case 'info': {
+        return {
+          iconWrapperBg: '$bgInfoSubdued',
+          iconColor: '$iconInfo',
+        };
+      }
       default: {
         return {
           iconWrapperBg: '$bgStrong',
