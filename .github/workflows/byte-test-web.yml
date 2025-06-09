@@ -12,7 +12,7 @@ jobs:
   test-web:
     runs-on: ubuntu-latest
     env:
-      TEST_ENDPOINT: app.onekey.com
+      TEST_ENDPOINT: app.onekey.so
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - name: Checkout Source Code
@@ -53,7 +53,7 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
-          echo "PUBLIC_URL=https://app.onekey.com/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
+          echo "PUBLIC_URL=https://app.onekey.so/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
 
       - name: Install Dependency
         env:
