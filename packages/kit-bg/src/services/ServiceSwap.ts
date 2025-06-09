@@ -64,6 +64,7 @@ import type {
   ISwapCheckSupportResponse,
   ISwapNetwork,
   ISwapNetworkBase,
+  ISwapTips,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxHistory,
@@ -2212,6 +2213,21 @@ export default class ServiceSwap extends ServiceBase {
         title: error?.message,
         message: error?.requestId,
       });
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSwapTips() {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<{ data: ISwapTips }>(
+        '/swap/v1/swap-tips',
+      );
+      console.log('swap__data', data);
+      return data?.data;
+    } catch (e) {
+      console.error(e);
       return undefined;
     }
   }
