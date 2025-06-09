@@ -278,6 +278,7 @@ class ServiceAppUpdate extends ServiceBase {
       latestVersion: '0.0.0',
       isForceUpdate: false,
       updateAt: 0,
+      summary: '',
       status: EAppUpdateStatus.done,
       isShowUpdateDialog: false,
     });
@@ -328,6 +329,7 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
+        summary: releaseInfo?.summary || '',
         latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
         status:

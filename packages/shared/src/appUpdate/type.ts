@@ -10,6 +10,7 @@ export interface IBasicAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: string;
+  summary?: string;
 }
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
@@ -30,6 +31,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   errorText?: ETranslations;
   downloadedEvent?: IUpdateDownloadedEvent;
   isShowUpdateDialog?: boolean;
+  summary?: string;
 }
 
 export enum EAppUpdateStatus {
