@@ -279,7 +279,6 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UnlockApp]: {
     jobId: string;
   };
-  [EAppEventBusNames.AddressBookUpdate]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
