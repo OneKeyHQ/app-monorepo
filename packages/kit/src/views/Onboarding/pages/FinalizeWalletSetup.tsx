@@ -110,21 +110,10 @@ function FinalizeWalletSetupPage({
                 setCurrentStep(EFinalizeWalletSetupSteps.Ready);
                 return;
               }
-
-              const createResult = await actions.current.createHDWallet({
+              await actions.current.createHDWallet({
                 mnemonic,
                 isWalletBackedUp,
               });
-              if (createResult.wallet && createResult.isOverrideWallet) {
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.feedback_wallet_exists_title,
-                  }),
-                  message: intl.formatMessage({
-                    id: ETranslations.feedback_wallet_exists_desc,
-                  }),
-                });
-              }
             },
           });
           created.current = true;
