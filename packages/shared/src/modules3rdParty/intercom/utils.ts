@@ -21,3 +21,16 @@ export const getOneKeyIdUserEmail = async (): Promise<string | undefined> => {
 
   return undefined;
 };
+
+// Shared utility function to build support URL with user email
+export const buildSupportUrl = async (): Promise<string> => {
+  let supportUrl = 'https://intercom-test-beryl.vercel.app/';
+
+  const userEmail = await getOneKeyIdUserEmail();
+
+  if (userEmail) {
+    supportUrl += `?email=${userEmail}`;
+  }
+
+  return supportUrl;
+};
