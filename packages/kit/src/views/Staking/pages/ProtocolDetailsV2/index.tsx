@@ -33,11 +33,11 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EWithdrawType } from '@onekeyhq/shared/types/staking';
 import type {
-  type IEarnTokenInfo,
+  IEarnTokenInfo,
   IEarnWithdrawActionIcon,
   IEarnWithdrawOrderActionIcon,
-  type IProtocolInfo,
-  type IStakeEarnDetail,
+  IProtocolInfo,
+  IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -559,7 +559,7 @@ const ProtocolDetailsPage = () => {
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     const withdrawAction = detailInfo?.actions.find(
       (i) => i.type === 'withdraw',
-    );
+    ) as IEarnWithdrawActionIcon;
     return detailInfo?.protocol
       ? {
           ...detailInfo.protocol,
@@ -623,7 +623,7 @@ const ProtocolDetailsPage = () => {
   ]);
 
   const onWithdraw = useCallback(
-    async (withdrawType: 'withdraw' | 'withdrawOrder') => {
+    async (withdrawType: EWithdrawType) => {
       await handleWithdraw({
         withdrawType,
         protocolInfo,
