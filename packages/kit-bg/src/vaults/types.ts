@@ -219,6 +219,7 @@ export type IVaultSettings = {
   hasFrozenBalance?: boolean;
 
   hasResource?: boolean;
+  hasRewardCenter?: boolean;
   resourceKey?: MessageDescriptor['id'];
 
   withL1BaseFee?: boolean;

@@ -63,6 +63,7 @@ const settings: IVaultSettings = {
   cannotSendToSelf: true,
 
   hasResource: true,
+  hasRewardCenter: true,
   resourceKey: ETranslations.global_energy_bandwidth,
 };
 
