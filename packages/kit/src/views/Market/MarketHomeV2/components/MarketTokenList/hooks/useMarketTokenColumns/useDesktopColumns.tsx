@@ -36,6 +36,7 @@ export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
           networkLogoURI={record.networkLogoUri}
           symbol={record.symbol}
           address={record.address}
+          showCopyButton
         />
       ),
       renderSkeleton: () => (

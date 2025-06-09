@@ -1,11 +1,5 @@
 import type { ITableColumn } from '@onekeyhq/components';
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { NumberSizeableText, XStack, useMedia } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -26,34 +20,13 @@ export const useMobileColumns = (): ITableColumn<IMarketToken>[] => {
       columnWidth: '50%',
       render: (_, record: IMarketToken) => {
         return (
-          <XStack gap="$3" alignItems="center" paddingLeft="$5">
+          <XStack alignItems="center" paddingLeft="$5">
             <TokenIdentityItem
               tokenLogoURI={record.tokenImageUri}
               networkLogoURI={record.networkLogoUri}
               symbol={record.symbol}
               address={record.address}
             />
-            <YStack>
-              <SizableText size="$bodyLgMedium" userSelect="none">
-                {record.symbol.toUpperCase()}
-              </SizableText>
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                userSelect="none"
-              >
-                {`VOL `}
-                <NumberSizeableText
-                  userSelect="none"
-                  size="$bodySm"
-                  formatter="marketCap"
-                  color="$textSubdued"
-                  formatterOptions={{ currency }}
-                >
-                  {record.turnover}
-                </NumberSizeableText>
-              </SizableText>
-            </YStack>
           </XStack>
         );
       },

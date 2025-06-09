@@ -43,6 +43,10 @@ interface ITokenIdentityItemProps {
    * copied. Useful when the parent component needs to react.
    */
   onCopied?: (address: string) => void;
+  /**
+   * Whether to show the copy button. Defaults to false.
+   */
+  showCopyButton?: boolean;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -51,6 +55,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   tokenLogoURI,
   networkLogoURI,
   onCopied,
+  showCopyButton = false,
 }) => {
   const { copyText } = useClipboard();
 
@@ -92,17 +97,19 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         </SizableText>
       </Stack>
 
-      <Stack
-        cursor="pointer"
-        p="$1"
-        borderRadius="$full"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        hitSlop={NATIVE_HIT_SLOP}
-        onPress={handleCopy}
-      >
-        <Icon name="Copy2Outline" size="$5" color="$iconSubdued" />
-      </Stack>
+      {showCopyButton ? (
+        <Stack
+          cursor="pointer"
+          p="$1"
+          borderRadius="$full"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          hitSlop={NATIVE_HIT_SLOP}
+          onPress={handleCopy}
+        >
+          <Icon name="Copy2Outline" size="$5" color="$iconSubdued" />
+        </Stack>
+      ) : null}
     </XStack>
   );
 };
