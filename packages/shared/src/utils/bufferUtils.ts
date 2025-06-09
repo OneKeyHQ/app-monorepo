@@ -7,6 +7,7 @@ import {
 } from '@noble/hashes/utils';
 import { isString } from 'lodash';
 
+import { OneKeyPlainTextError } from '../errors/errors/plainTextError';
 import hexUtils from './hexUtils';
 
 function toBuffer(
@@ -25,7 +26,9 @@ function toBuffer(
     // buffer from hex string in default
     const buff = Buffer.from(data, encoding);
     if (buff.length === 0 && data.length > 0) {
-      throw new Error(`data not matched to encoding: ${encoding}`);
+      throw new OneKeyPlainTextError(
+        `data not matched to encoding: ${encoding}`,
+      );
     }
     return buff;
   }
