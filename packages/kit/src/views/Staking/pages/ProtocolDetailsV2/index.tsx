@@ -148,7 +148,7 @@ function SubscriptionSection({
         <EarnText
           text={{
             text: `${subscriptionValue.formattedValue || 0} ${
-              subscriptionValue.token.info.symbol
+              subscriptionValue?.token?.info?.symbol
             }`,
           }}
           size="$bodyLgMedium"

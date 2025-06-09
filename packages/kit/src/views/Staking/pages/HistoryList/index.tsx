@@ -73,13 +73,13 @@ const HistoryItem = ({
   }, [token?.logoURI, networks, network?.logoURI, item.networkId]);
   const onPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
-      networkId,
+      networkId: item.networkId,
       accountId,
       transactionHash: item.txHash,
       historyTx: undefined,
       isAllNetworks: false,
     });
-  }, [accountId, networkId, item, navigation]);
+  }, [accountId, item, navigation]);
   return (
     <ListItem
       avatarProps={{

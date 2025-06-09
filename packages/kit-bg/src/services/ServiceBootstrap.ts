@@ -31,6 +31,7 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceSetting.fetchReviewControl(),
         this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
         this.backgroundApi.serviceNotification.init(),
+        this.backgroundApi.serviceReferralCode.getPostConfig(),
       ]);
     } catch (error) {
       console.error(error);

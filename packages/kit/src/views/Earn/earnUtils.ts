@@ -1,5 +1,7 @@
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
 export const EarnNavigation = {
@@ -21,12 +23,17 @@ export const EarnNavigation = {
       vault?: string;
     },
   ) {
+    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+      accountId: accountId ?? '',
+      indexedAccountId,
+      networkId,
+    });
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.ProtocolDetailsV2,
       params: {
-        accountId: accountId ?? '',
+        accountId: earnAccount?.accountId || accountId || '',
         networkId,
-        indexedAccountId,
+        indexedAccountId: earnAccount?.account.indexedAccountId,
         symbol,
         provider,
         vault,

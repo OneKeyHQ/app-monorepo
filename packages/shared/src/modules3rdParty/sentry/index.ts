@@ -43,7 +43,13 @@ export const initSentry = () => {
       },
     }),
     ...buildSentryOptions(Sentry),
-    integrations: buildIntegrations(Sentry),
+    integrations: [
+      ...buildIntegrations(Sentry),
+      // https://github.com/getsentry/sentry-javascript/issues/3040
+      Sentry.browserApiErrorsIntegration({
+        eventTarget: false,
+      }),
+    ],
   });
 };
 

@@ -88,6 +88,7 @@ export const FIX_SHEET_PROPS: IStackProps = {
 
 function DialogFrame({
   open,
+  onHeaderCloseButtonPress,
   onClose,
   modal,
   renderContent,
@@ -170,12 +171,17 @@ function DialogFrame({
     }
   }, [trackID, footerRef.props?.onCancel, onCancel, onClose]);
 
+  const handleHeaderCloseButtonPress = useCallback(async () => {
+    onHeaderCloseButtonPress?.();
+    await onClose?.();
+  }, [onClose, onHeaderCloseButtonPress]);
+
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open);
   const renderDialogContent = (
     <Stack>
-      <DialogHeader trackID={trackID} onClose={onClose} />
+      <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
       {/* extra children */}
       <Content
         testID={testID}
