@@ -530,8 +530,13 @@ export interface IEarnWithdrawAction {
   };
 }
 
+export enum EWithdrawType {
+  Withdraw = 'withdraw',
+  WithdrawOrder = 'withdrawOrder',
+}
+
 export interface IEarnWithdrawActionIcon {
-  type: 'withdraw';
+  type: EWithdrawType;
   disabled: boolean;
   text: IEarnText;
   data: {
@@ -541,7 +546,7 @@ export interface IEarnWithdrawActionIcon {
 }
 
 export interface IEarnWithdrawOrderActionIcon {
-  type: 'withdrawOrder';
+  type: EWithdrawType;
   disabled: boolean;
   text: IEarnText;
   data: {
