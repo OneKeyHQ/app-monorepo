@@ -209,7 +209,7 @@ export function HomePageView({
         ListHeaderComponent={<HomeHeaderContainer />}
         onSelectedPageIndex={handleSelectPageIndexChange}
         initialScrollIndex={0}
-        initialHeaderHeight={220}
+        initialHeaderHeight={210}
         contentItemWidth={CONTENT_ITEM_WIDTH}
         contentWidth={screenWidth}
         showsVerticalScrollIndicator={false}

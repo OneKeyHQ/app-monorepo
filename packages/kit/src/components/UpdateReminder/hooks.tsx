@@ -20,6 +20,7 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   downloadASC as NativeDownloadASC,
   downloadPackage as NativeDownloadPackage,
@@ -297,6 +298,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       params?: {
         latestVersion?: string;
         isForceUpdate?: boolean;
+        summary?: string;
       },
     ) => {
       dialog.show({
@@ -325,17 +327,24 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         title: intl.formatMessage({
           id: ETranslations.update_notification_dialog_title,
         }),
-        description: intl.formatMessage({
-          id: ETranslations.update_notification_dialog_desc,
-        }),
+        description:
+          params?.summary ||
+          intl.formatMessage({
+            id: ETranslations.update_notification_dialog_desc,
+          }),
         onConfirmText: intl.formatMessage({
           id: ETranslations.update_update_now,
         }),
         showCancelButton: false,
+        onHeaderCloseButtonPress: () => {
+          console.log('onHeaderCloseButtonPress');
+          defaultLogger.app.component.closedInUpdateDialog();
+        },
         onConfirm: () => {
           setTimeout(() => {
             toUpdatePreviewPage(isFull, params);
           }, 120);
+          defaultLogger.app.component.confirmedInUpdateDialog();
         },
       });
     },

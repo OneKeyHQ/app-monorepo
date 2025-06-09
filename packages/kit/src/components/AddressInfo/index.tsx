@@ -165,6 +165,7 @@ function AddressInfo(props: IProps) {
         <AccountNameContainer
           walletAccountName={addressQueryResult?.walletAccountName}
           accountId={addressQueryResult?.walletAccountId}
+          maxWidth="100%"
         >
           <Badge badgeType="success" badgeSize="sm">
             {addressQueryResult?.walletAccountName}
@@ -190,6 +191,7 @@ function AddressInfo(props: IProps) {
         <AccountNameContainer
           walletAccountName={addressQueryResult?.walletAccountName}
           accountId={addressQueryResult?.walletAccountId}
+          maxWidth="100%"
         >
           <Badge badgeType="success" badgeSize="sm">
             {addressQueryResult?.walletAccountName}

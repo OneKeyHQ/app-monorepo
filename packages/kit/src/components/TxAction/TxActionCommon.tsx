@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,13 +14,19 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useAddressesInfoAtom } from '../../states/jotai/contexts/historyList';
 import {
@@ -161,6 +169,40 @@ function TxActionCommonDescription({
 }) {
   const [addressesInfo] = useAddressesInfoAtom();
 
+  const { result: addressLocalLabel, run } = usePromiseResult(async () => {
+    if (!description?.originalAddress) {
+      return null;
+    }
+
+    const result =
+      await backgroundApiProxy.serviceAccountProfile.queryAddressWithCache({
+        networkId,
+        address: description?.originalAddress,
+        enableAddressBook: true,
+        enableWalletName: true,
+        skipValidateAddress: true,
+      });
+
+    return result.walletAccountName || result.addressBookName;
+  }, [description?.originalAddress, networkId]);
+
+  useEffect(() => {
+    const refresh = async () => {
+      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+      await backgroundApiProxy.serviceAccountProfile.clearQueryAddressCache();
+      await run({ alwaysSetState: true });
+    };
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AddressBookUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AddressBookUpdate, refresh);
+    };
+  }, [run]);
+
   if (description?.originalAddress) {
     const addressInfoKey = buildAddressMapInfoKey({
       networkId,
@@ -191,8 +233,13 @@ function TxActionCommonDescription({
           name={description.icon}
         />
       ) : null}
-      <SizableText size="$bodyMd" color="$textSubdued" minWidth={0}>
-        {description?.children}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        minWidth={0}
+        numberOfLines={addressLocalLabel ? 1 : undefined}
+      >
+        {addressLocalLabel || description?.children}
       </SizableText>
     </XStack>
   );
