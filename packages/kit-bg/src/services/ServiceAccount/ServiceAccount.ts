@@ -1711,6 +1711,11 @@ class ServiceAccount extends ServiceBase {
     return this.getAccountNameFromAddressMemo({ networkId, address });
   }
 
+  @backgroundMethod()
+  async clearAccountNameFromAddressCache() {
+    this.getAccountNameFromAddressMemo.clear();
+  }
+
   getAccountNameFromAddressMemo = memoizee(
     async ({ networkId, address }: { networkId: string; address: string }) => {
       const vault = await vaultFactory.getChainOnlyVault({
@@ -1780,10 +1785,12 @@ class ServiceAccount extends ServiceBase {
     dbAccount,
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }): Promise<INetworkAccount> {
     checkIsDefined(accountId);
     checkIsDefined(networkId);
@@ -1812,12 +1819,13 @@ class ServiceAccount extends ServiceBase {
           networkId: checkIsDefined(realNetworkId),
         });
       }
-      const indexedAccountId =
+      const newIndexedAccountId =
+        indexedAccountId ||
         accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
           accountId,
         });
       const allNetworkAccount = await this.getMockedAllNetworkAccount({
-        indexedAccountId,
+        indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
         throw new Error(
