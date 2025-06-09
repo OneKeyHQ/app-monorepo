@@ -60,7 +60,10 @@ import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
@@ -847,6 +850,7 @@ function BasicEarnHome() {
   ];
 
   const navigation = useAppNavigation();
+  const accountSelectorActions = useAccountSelectorActions();
 
   const onBannerPress = useCallback(
     async ({
@@ -896,9 +900,16 @@ function BasicEarnHome() {
         } else {
           openUrlInApp(href);
         }
+      } else {
+        await accountSelectorActions.current.showAccountSelector({
+          navigation,
+          activeWallet: undefined,
+          num: 0,
+          sceneName: EAccountSelectorSceneName.home,
+        });
       }
     },
-    [account, indexedAccount, navigation],
+    [account, accountSelectorActions, indexedAccount, navigation],
   );
 
   const banners = useMemo(() => {
