@@ -12,6 +12,7 @@ import type {
   IProtocolInfo,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+import { EClaimType } from '@onekeyhq/shared/types/staking';
 
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 
@@ -32,6 +33,7 @@ export const useHandleClaim = ({
   });
   return useCallback(
     async ({
+      claimType,
       protocolInfo,
       tokenInfo,
       symbol,
@@ -42,6 +44,7 @@ export const useHandleClaim = ({
       stakingInfo,
       onSuccess,
     }: {
+      claimType: EClaimType;
       protocolInfo?: IProtocolInfo;
       tokenInfo?: IEarnTokenInfo;
       symbol: string;
@@ -71,7 +74,7 @@ export const useHandleClaim = ({
           provider,
           stakingInfo,
           claimTokenAddress,
-          vault: protocolInfo?.approve?.approveTarget || '',
+          vault,
         });
         return;
       }
@@ -102,17 +105,6 @@ export const useHandleClaim = ({
         });
         return;
       }
-      if (stakingConfig.claimWithTx) {
-        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
-          accountId,
-          networkId,
-          protocolInfo,
-          tokenInfo,
-          symbol,
-          provider,
-        });
-        return;
-      }
       if (
         provider.toLowerCase() === 'everstake' &&
         symbol.toLowerCase() === 'apt'
@@ -124,6 +116,45 @@ export const useHandleClaim = ({
           tokenInfo,
           onSuccess,
           amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
+        });
+        return;
+      }
+
+      if (claimType === EClaimType.ClaimOrder) {
+        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
+          accountId,
+          networkId,
+          protocolInfo,
+          tokenInfo,
+          symbol,
+          provider,
+        });
+        return;
+      }
+      if (
+        claimType === EClaimType.Claim &&
+        claimAmount &&
+        Number(claimAmount) > 0
+      ) {
+        await handleUniversalClaim({
+          amount: claimAmount,
+          symbol,
+          provider,
+          claimTokenAddress,
+          stakingInfo,
+          vault,
+        });
+        return;
+      }
+
+      if (stakingConfig.claimWithTx) {
+        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
+          accountId,
+          networkId,
+          protocolInfo,
+          tokenInfo,
+          symbol,
+          provider,
         });
         return;
       }
