@@ -1,23 +1,29 @@
 import { useIntl } from 'react-intl';
 
+import type { ITableColumn } from '@onekeyhq/components';
 import {
   NumberSizeableText,
   Skeleton,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
-import type { ITableColumn } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { TokenIdentityItem } from '../components/TokenIdentityItem';
-import { Txns } from '../components/Txns';
-import { type IMarketToken } from '../MarketTokenData';
+import { TokenIdentityItem } from '../../components/TokenIdentityItem';
+import { Txns } from '../../components/Txns';
 
-export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
+import type { IMarketToken } from '../../MarketTokenData';
+
+export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
+  const { md } = useMedia();
+
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
+
+  if (md) return [];
 
   return [
     {
