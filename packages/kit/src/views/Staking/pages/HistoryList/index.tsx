@@ -71,8 +71,8 @@ const HistoryItem = ({
     if (networks?.length) {
       return networks.find((o) => o.networkId === item.networkId)?.logoURI;
     }
-    if (item.type === 'stake') {
-      const uri = tokenMap?.[item.tokenAddress]?.logoURI;
+    if (tokenMap && item.type === 'stake') {
+      const uri = tokenMap[item.tokenAddress]?.logoURI;
       if (uri) {
         return uri;
       }
