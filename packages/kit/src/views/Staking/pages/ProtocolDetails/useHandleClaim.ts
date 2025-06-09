@@ -140,6 +140,7 @@ export const useHandleClaim = ({
           stakingInfo,
           vault,
         });
+        return;
       }
 
       if (stakingConfig.claimWithTx) {
