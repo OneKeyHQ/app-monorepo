@@ -8,6 +8,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAddressBookRoutes,
@@ -62,6 +66,7 @@ function EditItemPage() {
             id: ETranslations.address_book_add_address_toast_save_success,
           }),
         });
+        appEventBus.emit(EAppEventBusNames.AddressBookUpdate, undefined);
         navigation.pop();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
