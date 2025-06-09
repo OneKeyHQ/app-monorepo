@@ -712,9 +712,6 @@ function BasicEarnHome() {
     run: refreshOverViewData,
   } = usePromiseResult(
     async () => {
-      if (!account && !indexedAccount) {
-        return;
-      }
       const totalFiatMapKey = actions.current.buildEarnAccountsKey({
         accountId: account?.id,
         indexAccountId: indexedAccount?.id,
