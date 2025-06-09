@@ -3170,5 +3170,17 @@ export const getNetworksSupportMevProtection = memoFn(
       name: 'Block Razor',
       logoURI: 'https://uni.onekey-asset.com/static/logo/block_razor.png',
     },
+    [base.id]: {
+      name: 'Blink',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+    },
+    [sol.id]: {
+      name: 'Blink',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+    },
+    [sui.id]: {
+      name: 'Shio',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/shio.png',
+    },
   }),
 );
