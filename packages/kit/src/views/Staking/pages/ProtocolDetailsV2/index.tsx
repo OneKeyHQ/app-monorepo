@@ -31,8 +31,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EWithdrawType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnTokenInfo,
+  IEarnWithdrawActionIcon,
+  IEarnWithdrawOrderActionIcon,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -556,7 +559,7 @@ const ProtocolDetailsPage = () => {
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     const withdrawAction = detailInfo?.actions.find(
       (i) => i.type === 'withdraw',
-    );
+    ) as IEarnWithdrawActionIcon;
     return detailInfo?.protocol
       ? {
           ...detailInfo.protocol,
@@ -619,29 +622,33 @@ const ProtocolDetailsPage = () => {
     indexedAccountId,
   ]);
 
-  const onWithdraw = useCallback(async () => {
-    await handleWithdraw({
-      protocolInfo,
-      tokenInfo,
-      accountId: earnAccount?.accountId,
+  const onWithdraw = useCallback(
+    async (withdrawType: EWithdrawType) => {
+      await handleWithdraw({
+        withdrawType,
+        protocolInfo,
+        tokenInfo,
+        accountId: earnAccount?.accountId,
+        networkId,
+        symbol,
+        provider,
+        onSuccess: async () => {
+          // if (networkUtils.isBTCNetwork(networkId)) {
+          //   await run();
+          // }
+        },
+      });
+    },
+    [
+      earnAccount?.accountId,
+      handleWithdraw,
       networkId,
-      symbol,
+      protocolInfo,
       provider,
-      onSuccess: async () => {
-        // if (networkUtils.isBTCNetwork(networkId)) {
-        //   await run();
-        // }
-      },
-    });
-  }, [
-    earnAccount?.accountId,
-    handleWithdraw,
-    networkId,
-    protocolInfo,
-    provider,
-    symbol,
-    tokenInfo,
-  ]);
+      symbol,
+      tokenInfo,
+    ],
+  );
 
   const historyAction = useMemo(() => {
     return detailInfo?.actions.find((i) => i.type === 'history');
@@ -702,15 +709,18 @@ const ProtocolDetailsPage = () => {
   }, [detailInfo?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
 
   const withdrawButtonProps = useMemo(() => {
-    const item = detailInfo?.actions?.find(
-      (i) => i.type === 'withdraw' || i.type === 'withdrawOrder',
-    );
+    const item: IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon =
+      detailInfo?.actions?.find(
+        (i) =>
+          i.type === EWithdrawType.Withdraw ||
+          i.type === EWithdrawType.WithdrawOrder,
+      ) as IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon;
     return {
       text: item?.text.text,
       props: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         display: item ? undefined : 'none',
-        onPress: onWithdraw,
+        onPress: () => onWithdraw(item?.type || EWithdrawType.Withdraw),
       } as IButtonProps,
     };
   }, [earnAccount?.accountAddress, onWithdraw, detailInfo?.actions]);
