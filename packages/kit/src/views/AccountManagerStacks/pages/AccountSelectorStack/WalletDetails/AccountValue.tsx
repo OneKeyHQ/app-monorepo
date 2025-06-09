@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -21,6 +24,34 @@ function AccountValue(accountValue: {
   const isActiveAccount =
     activeAccountValue?.accountId === accountValue?.accountId;
 
+  const {
+    linkedAccountId,
+    linkedNetworkId,
+    indexedAccountId,
+    mergeDeriveAssetsEnabled,
+  } = accountValue;
+
+  const networksAccounts = usePromiseResult(
+    async () => {
+      if (!linkedNetworkId || !indexedAccountId || !mergeDeriveAssetsEnabled) {
+        return [];
+      }
+      const { networkAccounts } =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId: linkedNetworkId,
+            indexedAccountId,
+            excludeEmptyAccount: true,
+          },
+        );
+      return networkAccounts;
+    },
+    [indexedAccountId, linkedNetworkId, mergeDeriveAssetsEnabled],
+    {
+      initResult: [],
+    },
+  ).result;
+
   const { currency, value } = useMemo(() => {
     if (activeAccountValue && isActiveAccount) {
       return activeAccountValue;
@@ -33,25 +64,30 @@ function AccountValue(accountValue: {
       return value;
     }
 
-    const {
-      linkedAccountId,
-      linkedNetworkId,
-      indexedAccountId,
-      mergeDeriveAssetsEnabled,
-    } = accountValue;
-
     if (
       linkedAccountId &&
       linkedNetworkId &&
       !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
     ) {
-      if (mergeDeriveAssetsEnabled && indexedAccountId) {
-        return value[
-          accountUtils.buildAccountValueKey({
-            accountId: indexedAccountId,
-            networkId: linkedNetworkId,
-          })
-        ];
+      if (mergeDeriveAssetsEnabled && networksAccounts.length > 0) {
+        let mergedValue = new BigNumber(0);
+        let accountValueExist = false;
+        networksAccounts.forEach((networkAccount) => {
+          if (networkAccount.account) {
+            const networkAccountValue =
+              value[
+                accountUtils.buildAccountValueKey({
+                  accountId: networkAccount.account.id,
+                  networkId: linkedNetworkId,
+                })
+              ];
+            if (!isNil(networkAccountValue)) {
+              accountValueExist = true;
+              mergedValue = mergedValue.plus(networkAccountValue);
+            }
+          }
+        });
+        return accountValueExist ? mergedValue.toFixed() : undefined;
       }
 
       return value[
@@ -66,7 +102,13 @@ function AccountValue(accountValue: {
       (acc, v) => new BigNumber(acc ?? '0').plus(v ?? '0').toFixed(),
       '0',
     );
-  }, [value, accountValue]);
+  }, [
+    value,
+    linkedAccountId,
+    linkedNetworkId,
+    mergeDeriveAssetsEnabled,
+    networksAccounts,
+  ]);
 
   return accountValueString ? (
     <Currency

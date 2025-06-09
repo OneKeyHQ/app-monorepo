@@ -295,6 +295,9 @@ class ServiceToken extends ServiceBase {
       allNetworksNetworkId === currentNetworkId
     );
 
+    resp.data.data.accountId = accountId;
+    resp.data.data.networkId = networkId;
+
     return resp.data.data;
   }
 
@@ -704,6 +707,8 @@ class ServiceToken extends ServiceBase {
       tokenList,
       smallBalanceTokenList,
       riskyTokenList,
+      accountId,
+      networkId,
     };
   }
 }
