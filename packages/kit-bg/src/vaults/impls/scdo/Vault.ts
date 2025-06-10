@@ -10,6 +10,7 @@ import type {
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
@@ -89,12 +90,12 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || !transfersInfo.length) {
-      throw new Error('transfersInfo is required');
+      throw new OneKeyPlainTextError('transfersInfo is required');
     }
     const transfer = transfersInfo[0];
     const tokenInfo = transfer.tokenInfo;
     if (!tokenInfo) {
-      throw new Error('tokenInfo is required');
+      throw new OneKeyPlainTextError('tokenInfo is required');
     }
 
     let amount = new BigNumber(transfer.amount)

@@ -9,7 +9,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -125,7 +128,7 @@ class ProviderApiScdo extends ProviderApiBase {
   ) {
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyPlainTextError('No accounts');
     }
 
     const {
@@ -185,7 +188,7 @@ class ProviderApiScdo extends ProviderApiBase {
   public async scdo_signMessage(request: IJsBridgeMessagePayload) {
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyPlainTextError('No accounts');
     }
 
     const {

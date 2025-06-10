@@ -23,6 +23,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -68,7 +69,7 @@ export function decodeBytesTransaction(txn: any) {
       bcsTxn = bufferUtils.hexToBytes(txn);
     }
   } else {
-    throw new Error('invalidParams');
+    throw new OneKeyPlainTextError('invalidParams');
   }
 
   return bcsTxn;
@@ -199,7 +200,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyPlainTextError('No accounts');
     }
     const { account, accountInfo } = accounts[0];
 
@@ -272,13 +273,13 @@ class ProviderApiAptos extends ProviderApiBase {
       };
     }
 
-    throw new Error(`not support transaction type`);
+    throw new OneKeyPlainTextError(`not support transaction type`);
   }
 
   private async _getAccount(request: IJsBridgeMessagePayload) {
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyPlainTextError('No accounts');
     }
 
     return accounts[0];
@@ -294,7 +295,7 @@ class ProviderApiAptos extends ProviderApiBase {
         hexUtils.stripHexPrefix(address).toLowerCase(),
     );
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyPlainTextError('No accounts');
     }
 
     return accounts[0];
@@ -403,7 +404,7 @@ class ProviderApiAptos extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
     if (params.transactionType === 'multi_agent') {
-      throw new Error('Not implemented MultiAgentTransaction');
+      throw new OneKeyPlainTextError('Not implemented MultiAgentTransaction');
     }
     const txnBsc = params.transaction;
 
@@ -499,7 +500,7 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyPlainTextError('No accounts');
     }
     const { account, accountInfo } = accounts[0];
 

@@ -7,6 +7,8 @@ import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 
@@ -271,7 +273,7 @@ async function getRNLocalImageBase64({
 
   const base64 = base64a || base64a1 || base64b || base64c || base64d;
   if (!base64) {
-    throw new Error('getRNLocalImageBase64 failed');
+    throw new OneKeyPlainTextError('getRNLocalImageBase64 failed');
   }
 
   return base64;
@@ -444,7 +446,7 @@ function htmlImageToCanvas({
 
   const ctx = canvas.getContext('2d');
   if (ctx == null) {
-    throw new Error('2D context is null');
+    throw new OneKeyPlainTextError('2D context is null');
   }
 
   ctx.clearRect(0, 0, width, height);

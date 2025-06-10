@@ -6,6 +6,7 @@ import {
   secp256k1,
   uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -48,7 +49,7 @@ function hashCfxMessage(typedMessage: IUnsignedMessageEth): string {
       return keccak256(getMessage(JSON.parse(message)));
     default:
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(`Invalid messageType: ${type}`);
+      throw new OneKeyPlainTextError(`Invalid messageType: ${type}`);
   }
 }
 
@@ -71,14 +72,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyPlainTextError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return `0x${(
         await decryptAsync({ password, data: privateKeyRaw })
       ).toString('hex')}`;
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(

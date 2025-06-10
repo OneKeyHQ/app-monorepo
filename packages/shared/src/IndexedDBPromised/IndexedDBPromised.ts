@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isString } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import platformEnv from '../platformEnv';
 
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
@@ -76,7 +78,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
 
   constructor(options: IDBInitOptions<DBTypes>) {
     if (!isString(options.name)) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `IndexedDBPromised ERROR: database name must be a string`,
       );
     }
@@ -88,7 +90,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
 
   ensureDBOpened() {
     if (!this.nativeDB) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `IndexedDBPromised ERROR: DB not opened yet: ${this.bucketName} ${this.name}`,
       );
     }
@@ -113,7 +115,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     this.ensureDBOpened();
     const store = this.nativeDB?.createObjectStore(name, optionalParameters);
     if (!store) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `IndexedDBPromised ERROR: Object store create failed: ${this.bucketName} ${this.name} ${name}`,
       );
     }
@@ -149,7 +151,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     const storeNamesArray = Array.from(storeNames) as unknown as string[];
     const tx = this.nativeDB?.transaction(storeNamesArray, mode, options);
     if (!tx) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `IndexedDBPromised ERROR: DB Transaction create failed: ${
           this.bucketName
         } ${this.name} ${storeNamesArray.join(', ')}`,
@@ -450,7 +452,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
       ?.storageBuckets;
     // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
     if (!storageBuckets) {
-      // throw new Error(
+      // throw new OneKeyPlainTextError(
       //   'IndexedDBPromised ERROR: navigator.storageBuckets is not supported',
       // );
       // Firefox、Safari not support storageBuckets, use globalThis.indexedDB as fallback
@@ -458,7 +460,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     }
     const bucket = await storageBuckets?.open(bucketName, bucketOptions);
     if (!bucket?.indexedDB) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `IndexedDBPromised ERROR: Failed to open bucket indexedDB: ${bucketName}`,
       );
     }

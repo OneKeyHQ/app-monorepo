@@ -10,7 +10,10 @@ import {
   WALLET_TYPE_QR,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { IncorrectMasterPassword } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectMasterPassword,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -66,7 +69,9 @@ class CloudSyncItemBuilder {
     accountIndex: number | undefined;
   }) {
     if (!wallet) {
-      throw new Error('buildWalletSyncKey ERROR: wallet is required');
+      throw new OneKeyPlainTextError(
+        'buildWalletSyncKey ERROR: wallet is required',
+      );
     }
     const {
       // use hd exclusive hash, not shared xfp, avoid software and hardware wallets' avatar and name shared
@@ -86,13 +91,13 @@ class CloudSyncItemBuilder {
       deviceType = dbDevice?.deviceType || '';
     }
     if (!keyHash) {
-      throw new Error(`keyHash is required: ${wallet.id}`);
+      throw new OneKeyPlainTextError(`keyHash is required: ${wallet.id}`);
     }
     if (!dataType) {
-      throw new Error(`dataType is required: ${wallet.id}`);
+      throw new OneKeyPlainTextError(`dataType is required: ${wallet.id}`);
     }
     if (!walletType) {
-      throw new Error(`walletType is required: ${wallet.id}`);
+      throw new OneKeyPlainTextError(`walletType is required: ${wallet.id}`);
     }
 
     const rawKey = [
@@ -121,7 +126,7 @@ class CloudSyncItemBuilder {
     syncPassword: string;
   }) {
     if (!primeAccountSalt || !syncPassword) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'buildEncryptPassword ERROR: primeAccountSalt or syncPassword is required',
       );
     }

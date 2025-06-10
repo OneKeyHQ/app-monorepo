@@ -16,7 +16,10 @@ import type {
   IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -184,7 +187,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }): Promise<string> {
     const { message, deviceParams } = params;
     if (!deviceParams) {
-      throw new Error('deviceParams is undefined');
+      throw new OneKeyPlainTextError('deviceParams is undefined');
     }
     const { dbDevice, deviceCommonParams } = deviceParams;
     const { connectId, deviceId } = dbDevice;
@@ -205,7 +208,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))
-          throw new Error('not hex string');
+          throw new OneKeyPlainTextError('not hex string');
 
         messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
       } catch (error) {
@@ -324,7 +327,9 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const sdk = await this.getHardwareSDKInstance();
 

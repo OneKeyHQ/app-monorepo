@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
@@ -18,7 +19,7 @@ export function useFalconUSDfRegister() {
       details: IStakeProtocolDetails | undefined;
     }) => {
       if (!details) {
-        throw new Error('details is required');
+        throw new OneKeyPlainTextError('details is required');
       }
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,

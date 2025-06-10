@@ -1,6 +1,7 @@
 import { isNil } from 'lodash';
 
 import { BLANK_ICON_BASE64 } from '@onekeyhq/shared/src/consts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -104,7 +105,9 @@ export default class NotificationProvider extends NotificationProviderBase {
         permissions: ['notifications'],
       });
     if (!isNotificationsPermissionDefined) {
-      throw new Error('notifications permissions not defined in manifest.json');
+      throw new OneKeyPlainTextError(
+        'notifications permissions not defined in manifest.json',
+      );
     }
   }
 

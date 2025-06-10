@@ -8,6 +8,7 @@ import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -275,7 +276,7 @@ function BasicActionList({
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
       if (platformEnv.isDev && md && !estimatedContentHeight) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'ActionList.estimatedContentHeight is required on Async rendering items',
         );
       }

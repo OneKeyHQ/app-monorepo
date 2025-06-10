@@ -1,4 +1,5 @@
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   ICloudSyncCredential,
   ICloudSyncCredentialForLock,
@@ -22,7 +23,9 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
     syncCredential: ICloudSyncCredential,
   ): ICloudSyncCredentialForLock {
     if (!syncCredential) {
-      throw new Error('syncCredential is required for build flush lock');
+      throw new OneKeyPlainTextError(
+        'syncCredential is required for build flush lock',
+      );
     }
     return {
       primeAccountSalt: syncCredential.primeAccountSalt,

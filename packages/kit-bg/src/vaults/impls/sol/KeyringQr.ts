@@ -24,6 +24,7 @@ import { EAirGapDataTypeSol, getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
 import {
   OneKeyErrorAirGapAccountNotFound,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -84,7 +85,7 @@ export class KeyringQr extends KeyringQrBase {
           const publicKey = airGapAccount?.publicKey;
 
           if (!publicKey) {
-            throw new Error('publicKey not found');
+            throw new OneKeyPlainTextError('publicKey not found');
           }
 
           const addressInfo = await this.coreApi.getAddressFromPublic({
@@ -92,7 +93,7 @@ export class KeyringQr extends KeyringQrBase {
             networkInfo,
           });
           if (!addressInfo) {
-            throw new Error('addressInfo not found');
+            throw new OneKeyPlainTextError('addressInfo not found');
           }
           const { normalizedAddress } = await this.vault.validateAddress(
             addressInfo.address,
@@ -138,7 +139,7 @@ export class KeyringQr extends KeyringQrBase {
     const transaction = parseToNativeTx(encodedTx);
 
     if (!transaction) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         appLocale.intl.formatMessage({
           id: ETranslations.feedback_failed_to_parse_transaction,
         }),
@@ -243,7 +244,7 @@ export class KeyringQr extends KeyringQrBase {
     params: IAirGapGenerateSignRequestParamsSol,
   ): Promise<AirGapUR> {
     if (!params.xfp) {
-      throw new Error('xfp not found');
+      throw new OneKeyPlainTextError('xfp not found');
     }
     const sdk = getAirGapSdk();
     const signRequestUr = sdk.sol.generateSignRequest({

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable spellcheck/spell-checker */
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
@@ -2975,7 +2976,7 @@ function validateNetworkCodes(networks: IServerNetwork[]): void {
   );
 
   if (mismatchedNetworks.length > 0) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `Found networks with mismatched code and shortcode values: ${mismatchedNetworks
         .map((n) => `${n.name} (code: ${n.code}, shortcode: ${n.shortcode})`)
         .join(', ')}`,
@@ -2995,7 +2996,7 @@ function validateNetworkCodes(networks: IServerNetwork[]): void {
   }
 
   if (duplicateCodes.length > 0) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `Found networks with duplicate code values: ${duplicateCodes
         .map((n) => `${n.name} (code: ${n.code})`)
         .join(', ')}`,

@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 
 import type {
@@ -129,7 +131,7 @@ export class IndexedDBStoreCursorPromised<
         ? (undefined as any)
         : async (): Promise<void> => {
             if (!this.nativeCursor) {
-              throw new Error('nativeCursor is null');
+              throw new OneKeyPlainTextError('nativeCursor is null');
             }
             const deleteRequest = this.nativeCursor.delete();
             await indexedDBPromisedUtils.toPromiseResult({
@@ -144,7 +146,7 @@ export class IndexedDBStoreCursorPromised<
             value: StoreValue<DBTypes, StoreName>,
           ): Promise<StoreKey<DBTypes, StoreName>> => {
             if (!this.nativeCursor) {
-              throw new Error('nativeCursor is null');
+              throw new OneKeyPlainTextError('nativeCursor is null');
             }
             const updateRequest = this.nativeCursor.update(
               value,
@@ -184,28 +186,28 @@ export class IndexedDBStoreCursorPromised<
 
   get key(): ICursorKey<DBTypes, StoreName, IndexName> {
     if (!this.nativeCursor) {
-      throw new Error('nativeCursor is null');
+      throw new OneKeyPlainTextError('nativeCursor is null');
     }
     return this.nativeCursor?.key as ICursorKey<DBTypes, StoreName, IndexName>;
   }
 
   get primaryKey(): StoreKey<DBTypes, StoreName> {
     if (!this.nativeCursor) {
-      throw new Error('nativeCursor is null');
+      throw new OneKeyPlainTextError('nativeCursor is null');
     }
     return this.nativeCursor?.primaryKey as StoreKey<DBTypes, StoreName>;
   }
 
   get direction(): IDBCursorDirection {
     if (!this.nativeCursor) {
-      throw new Error('nativeCursor is null');
+      throw new OneKeyPlainTextError('nativeCursor is null');
     }
     return this.nativeCursor.direction;
   }
 
   get request(): IDBRequest<StoreValue<DBTypes, StoreName>> {
     if (!this.nativeCursor) {
-      throw new Error('nativeCursor is null');
+      throw new OneKeyPlainTextError('nativeCursor is null');
     }
     return this.nativeCursor.request as IDBRequest<
       StoreValue<DBTypes, StoreName>
@@ -214,7 +216,7 @@ export class IndexedDBStoreCursorPromised<
 
   get source(): ICursorSource<DBTypes, TxStores, StoreName, IndexName, Mode> {
     if (!this.nativeCursor) {
-      throw new Error('nativeCursor is null');
+      throw new OneKeyPlainTextError('nativeCursor is null');
     }
     return this.nativeCursor.source as unknown as ICursorSource<
       DBTypes,
@@ -275,6 +277,6 @@ export class IndexedDBStoreCursorPromised<
       Mode
     >
   > {
-    throw new Error('Method not implemented.');
+    throw new OneKeyPlainTextError('Method not implemented.');
   }
 }

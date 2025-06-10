@@ -32,6 +32,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -480,12 +481,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         forceSelectToNetworkId,
       } = params;
       if (othersWalletAccount && indexedAccount) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both defined',
         );
       }
       if (!othersWalletAccount && !indexedAccount) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both undefined',
         );
       }
@@ -493,7 +494,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         accountId: indexedAccount?.id || othersWalletAccount?.id || '',
       });
       if (!walletId) {
-        throw new Error('confirmSelectAccount ERROR: walletId is undefined');
+        throw new OneKeyPlainTextError(
+          'confirmSelectAccount ERROR: walletId is undefined',
+        );
       }
 
       const accountNetworkId: string =
@@ -1019,7 +1022,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const qrDevice = params?.qrDevice;
           const airGapAccounts = params?.airGapAccounts;
           if (!qrDevice) {
-            throw new Error('qrDevice is required');
+            throw new OneKeyPlainTextError('qrDevice is required');
           }
           const result = await serviceAccount.createQrWallet({
             qrDevice,

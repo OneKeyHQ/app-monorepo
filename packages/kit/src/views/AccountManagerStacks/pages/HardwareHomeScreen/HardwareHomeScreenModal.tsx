@@ -23,6 +23,7 @@ import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -334,7 +335,7 @@ export default function HardwareHomeScreenModal({
           '';
         console.log('imgUri >>>>>>>>>>>>>>>>>++++++++>>> ', imgUri, item);
         if (!imgUri) {
-          throw new Error('Error imgUri not defined');
+          throw new OneKeyPlainTextError('Error imgUri not defined');
         }
         customHex = await deviceHomeScreenUtils.imagePathToHex(
           imgUri,

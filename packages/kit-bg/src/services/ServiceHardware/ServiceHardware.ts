@@ -11,6 +11,7 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -231,7 +232,7 @@ class ServiceHardware extends ServiceBase {
       };
       const versions = uniq(Object.values(allVersions));
       if (versions.length > 1 || !HARDWARE_SDK_VERSION) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           `Hardware SDK versions not equal: ${JSON.stringify(allVersions)}`,
         );
       }
@@ -548,7 +549,9 @@ class ServiceHardware extends ServiceBase {
   }): Promise<Features | undefined> {
     const { connectId } = device;
     if (!connectId) {
-      throw new Error('hardware connect ERROR: connectId is undefined');
+      throw new OneKeyPlainTextError(
+        'hardware connect ERROR: connectId is undefined',
+      );
     }
 
     if (platformEnv.isNative) {
@@ -693,7 +696,9 @@ class ServiceHardware extends ServiceBase {
     const { connectId, params } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
-      throw new Error('hardware getFeatures ERROR: connectId is undefined');
+      throw new OneKeyPlainTextError(
+        'hardware getFeatures ERROR: connectId is undefined',
+      );
     }
     const hardwareSDK = await this.getSDKInstance();
     const features = await convertDeviceResponse(() =>
@@ -763,7 +768,7 @@ class ServiceHardware extends ServiceBase {
       connectId: params.connectId,
     });
     if (!dbDevice) {
-      throw new Error('device not found');
+      throw new OneKeyPlainTextError('device not found');
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>

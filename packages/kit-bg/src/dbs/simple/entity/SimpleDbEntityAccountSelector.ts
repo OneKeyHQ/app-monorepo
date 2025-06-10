@@ -1,6 +1,7 @@
 import { cloneDeep } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -193,7 +194,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     });
     await this.setRawData((rawData) => {
       if (!rawData) {
-        throw new Error('rawData is undefined');
+        throw new OneKeyPlainTextError('rawData is undefined');
       }
       rawData.globalDeriveTypesMap = rawData?.globalDeriveTypesMap || {};
       rawData.globalDeriveTypesMap[scope] =
