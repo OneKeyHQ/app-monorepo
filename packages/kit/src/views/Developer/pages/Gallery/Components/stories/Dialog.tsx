@@ -1145,6 +1145,32 @@ const DialogGallery = () => {
             </YStack>
           ),
         },
+        {
+          title: 'show toast',
+          element: (
+            <YStack gap="$4">
+              <Button
+                icon="ErrorOutline"
+                onPress={() => {
+                  Dialog.show({
+                    icon: 'ErrorOutline',
+                    tone: 'warning',
+                    title: 'Error',
+                    description: 'This is an error dialog',
+                    onConfirm: async () => {
+                      Toast.error({
+                        title: 'This is an error dialog',
+                      });
+                      throw new Error('test');
+                    },
+                  });
+                }}
+              >
+                ErrorOutline(warning)
+              </Button>
+            </YStack>
+          ),
+        },
       ]}
     />
   );

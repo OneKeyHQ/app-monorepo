@@ -19,6 +19,7 @@ import type {
   ISwapAutoSlippageSuggestedValue,
   ISwapLimitPriceInfo,
   ISwapNetwork,
+  ISwapTips,
   ISwapToken,
   ISwapTokenCatch,
   ISwapTokenMetadata,
@@ -613,3 +614,8 @@ export const {
   atom: swapBuildTxFetchingAtom,
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
+
+// swap tips
+export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
+  ISwapTips | undefined
+>(undefined);

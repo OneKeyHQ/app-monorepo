@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { ActionList, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -10,12 +11,12 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { WalletOptionItem } from './WalletOptionItem';
-
 function WalletBoundReferralCodeButtonView({
   wallet,
+  onClose,
 }: {
   wallet: IDBWallet | undefined;
+  onClose: () => void;
 }) {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
@@ -45,6 +46,9 @@ function WalletBoundReferralCodeButtonView({
     if (isLoading) {
       return;
     }
+    if (!displayReferralCodeButton) {
+      return;
+    }
     try {
       setIsLoading(true);
       const shouldBound = await getReferralCodeBondStatus(wallet?.id);
@@ -60,34 +64,45 @@ function WalletBoundReferralCodeButtonView({
       setIsLoading(false);
     }
   }, [
-    bindWalletInviteCode,
+    isLoading,
+    displayReferralCodeButton,
     getReferralCodeBondStatus,
     wallet,
+    bindWalletInviteCode,
     refreshDisplayReferralCodeButton,
-    isLoading,
   ]);
 
   if (!displayReferralCodeButton) {
-    return null;
+    // return null;
   }
 
   return (
-    <WalletOptionItem
+    <ActionList.Item
       testID="wallet-bound-referral-code-button"
       icon="GiftOutline"
       label={intl.formatMessage({
         id: ETranslations.referral_wallet_edit_code,
       })}
+      extra={
+        displayReferralCodeButton ? undefined : (
+          <SizableText size="$bodyMd" color="$textSuccess">
+            已绑定
+          </SizableText>
+        )
+      }
       onPress={handlePress}
       isLoading={isLoading}
+      onClose={onClose}
     />
   );
 }
 
 export function WalletBoundReferralCodeButton({
   wallet,
+  onClose,
 }: {
   wallet: IDBWallet | undefined;
+  onClose: () => void;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -96,7 +111,7 @@ export function WalletBoundReferralCodeButton({
       }}
       enabledNum={[0]}
     >
-      <WalletBoundReferralCodeButtonView wallet={wallet} />
+      <WalletBoundReferralCodeButtonView wallet={wallet} onClose={onClose} />
     </AccountSelectorProviderMirror>
   );
 }
