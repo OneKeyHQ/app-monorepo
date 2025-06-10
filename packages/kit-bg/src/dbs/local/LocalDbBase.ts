@@ -608,13 +608,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
 
     // get all wallets for account selector
-    let wallets = option?.allWallets || (await this.getAllWallets()).wallets;
+    const allWallets =
+      option?.allWallets || (await this.getAllWallets()).wallets;
+    let wallets = allWallets;
     const allDevices =
       option?.allDevices || (await this.getAllDevices()).devices;
     const hiddenWalletsMap: Partial<{
       [dbDeviceId: string]: IDBWallet[];
     }> = {};
+
+    const hwStandardWalletsMap: Partial<{
+      [dbDeviceId: string]: IDBWallet | null;
+    }> = {};
+
+    // const label = device?.featuresInfo?.label; // standard hw wallet name/label
+
     wallets = wallets.filter((wallet) => {
+      if (
+        accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
+        !accountUtils.isHwHiddenWallet({
+          wallet,
+        })
+      ) {
+        const dbDeviceId = wallet.associatedDevice;
+        if (dbDeviceId) {
+          hwStandardWalletsMap[dbDeviceId] = wallet;
+        }
+      }
+
       if (this.isTempWalletRemoved({ wallet })) {
         return false;
       }
@@ -640,9 +661,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         accountUtils.isHwHiddenWallet({ wallet }) &&
         wallet.associatedDevice
       ) {
-        hiddenWalletsMap[wallet.associatedDevice] =
-          hiddenWalletsMap[wallet.associatedDevice] || [];
-        hiddenWalletsMap[wallet.associatedDevice]?.push(wallet);
+        const dbDeviceId = wallet.associatedDevice;
+        hiddenWalletsMap[dbDeviceId] = hiddenWalletsMap[dbDeviceId] || [];
+        hiddenWalletsMap[dbDeviceId]?.push(wallet);
+        if (hwStandardWalletsMap[dbDeviceId] === undefined) {
+          hwStandardWalletsMap[dbDeviceId] = null;
+        }
         return false;
       }
       return true;
@@ -1509,17 +1533,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: string;
     addedHdAccountIndex: number;
     isOverrideWallet?: boolean;
-  }) {
+  }): Promise<{
+    wallet: IDBWallet;
+    indexedAccount: IDBIndexedAccount | undefined;
+    device: IDBDevice | undefined;
+    isOverrideWallet: boolean | undefined;
+  }> {
     const dbWallet = await this.getWallet({
       walletId,
     });
 
-    const dbIndexedAccount = await this.getIndexedAccount({
-      id: accountUtils.buildIndexedAccountId({
-        walletId,
-        index: addedHdAccountIndex,
-      }),
-    });
+    let dbIndexedAccount: IDBIndexedAccount | undefined;
+
+    if (addedHdAccountIndex >= 0) {
+      dbIndexedAccount = await this.getIndexedAccount({
+        id: accountUtils.buildIndexedAccountId({
+          walletId,
+          index: addedHdAccountIndex,
+        }),
+      });
+    }
 
     let dbDevice: IDBDevice | undefined;
     if (
@@ -1775,9 +1808,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     //
   }
 
-  async createHDWallet(
-    params: IDBCreateHDWalletParams,
-  ): Promise<{ wallet: IDBWallet; indexedAccount: IDBIndexedAccount }> {
+  async createHDWallet(params: IDBCreateHDWalletParams): Promise<{
+    wallet: IDBWallet;
+    indexedAccount: IDBIndexedAccount | undefined;
+  }> {
     const {
       password,
       name,
@@ -2096,15 +2130,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async createQrWallet({
     qrDevice,
     airGapAccounts,
-    fullXfp,
+    fullXfp = '',
+    isMockedStandardHwWallet,
+    existingDeviceId,
   }: IDBCreateQRWalletParams) {
     const { deviceId: rawDeviceId } = qrDevice;
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
     });
-    const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
 
-    if (!fullXfp) {
+    const dbDeviceId =
+      existingDevice?.id || existingDeviceId || accountUtils.buildDeviceDbId();
+
+    if (!fullXfp && !isMockedStandardHwWallet) {
       throw new Error('fullXfp is required');
     }
 
@@ -2130,9 +2168,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const serialNo: string | undefined = deviceNameArr?.[1] || undefined;
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
-      xfpHash = bufferUtils.bytesToHex(
-        sha256(bufferUtils.toBuffer(fullXfp, 'utf8')),
-      );
+      if (fullXfp) {
+        xfpHash = bufferUtils.bytesToHex(
+          sha256(bufferUtils.toBuffer(fullXfp, 'utf8')),
+        );
+      }
       if (qrDevice.xfp) {
         xfpHashLegacy = bufferUtils.bytesToHex(
           sha256(bufferUtils.toBuffer(qrDevice.xfp, 'utf8')),
@@ -2172,18 +2212,44 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     let parentWalletId: string | undefined;
     if (passphraseState) {
-      const hiddenWalletNameInfo = await this.fixHiddenWalletName({
-        dbDeviceId,
-        dbWalletId,
-      });
-      parentWalletId = hiddenWalletNameInfo.parentWalletId;
-      walletName = hiddenWalletNameInfo.hiddenWalletName || deviceName;
-      hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
-      if (!parentWalletId) {
-        // make sure UI loading visible
-        await timerUtils.wait(1000);
-        throw new OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet();
+      const fixHiddenWalletInfo = async () => {
+        const hiddenWalletNameInfo = await this.fixHiddenWalletName({
+          dbDeviceId,
+          dbWalletId,
+        });
+        parentWalletId = hiddenWalletNameInfo.parentWalletId;
+        walletName = hiddenWalletNameInfo.hiddenWalletName || deviceName;
+        hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
+      };
+
+      await fixHiddenWalletInfo();
+
+      if (!parentWalletId && !isMockedStandardHwWallet) {
+        const parentWalletIdToCreate = accountUtils.buildQrWalletId({
+          dbDeviceId,
+          xfpHash: '',
+        });
+
+        const createStandardWalletResult = await this.createQrWallet({
+          qrDevice: {
+            ...qrDevice,
+            name: nameArr[0],
+            xfp: '',
+          },
+          fullXfp: '',
+          airGapAccounts: [],
+          isMockedStandardHwWallet: true,
+          existingDeviceId: dbDeviceId,
+        });
+        parentWalletId = createStandardWalletResult.wallet?.id;
+        if (!parentWalletId) {
+          // make sure UI loading visible
+          await timerUtils.wait(1000);
+          throw new OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet();
+        }
       }
+
+      await fixHiddenWalletInfo();
     }
 
     // TODO parse passphraseState from deviceName
@@ -2222,6 +2288,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       updatedAt: now,
     };
 
+    const existingWallet = await this.getWalletSafe({
+      walletId: dbWalletId,
+    });
+
+    const isExistingHiddenWallet = accountUtils.isHwHiddenWallet({
+      wallet: existingWallet,
+    });
+
     const walletToAdd: IDBWallet = {
       id: dbWalletId,
       name: walletName,
@@ -2239,6 +2313,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       xfp: fullXfp,
 
       deprecated: false,
+      isMocked: isMockedStandardHwWallet ?? false,
     };
 
     const isUsingDefaultName = () => {
@@ -2340,6 +2415,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.isTemp = false;
               item.xfp = fullXfp;
 
+              if (!isMockedStandardHwWallet && !passphraseState) {
+                item.isMocked = false;
+              }
+
               let currentAirGapAccountsInfo:
                 | IQrWalletAirGapAccountsInfo
                 | undefined;
@@ -2368,21 +2447,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
           });
 
-          if (passphraseState && parentWalletId) {
-            await this.txUpdateParentWalletNextIds({
+          if (passphraseState && parentWalletId && !existingWallet) {
+            await this.txIncreaseParentWalletNextHiddenNum({
               parentWalletId,
               tx,
             });
           }
 
           // add first indexed account
-          const { nextIndex } = await this.txAddHDNextIndexedAccount({
-            tx,
-            walletId: dbWalletId,
-            onlyAddFirst: true,
-            skipServerSyncFlow: false,
-          });
-          addedHdAccountIndex = nextIndex;
+          if (!isMockedStandardHwWallet) {
+            const { nextIndex } = await this.txAddHDNextIndexedAccount({
+              tx,
+              walletId: dbWalletId,
+              onlyAddFirst: true,
+              skipServerSyncFlow: false,
+            });
+            addedHdAccountIndex = nextIndex;
+          }
 
           console.log('increase nextWalletNo');
           // increase nextHD
@@ -2404,10 +2485,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this.buildCreateHDAndHWWalletResult({
       walletId: dbWalletId,
       addedHdAccountIndex,
+      isOverrideWallet: Boolean(existingWallet),
+      // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
 
-  async txUpdateParentWalletNextIds({
+  async txIncreaseParentWalletNextHiddenNum({
     tx,
     parentWalletId,
   }: {
@@ -2515,6 +2598,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       passphraseState,
       isFirmwareVerified,
       defaultIsTemp,
+      isMockedStandardHwWallet,
     } = params;
     console.log('createHwWallet', features);
     const { connectId } = device;
@@ -2592,6 +2676,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       backuped: true,
       associatedDevice: dbDeviceId,
       isTemp: defaultIsTemp ?? false,
+      isMocked: isMockedStandardHwWallet ?? false,
       passphraseState,
       nextIds: {
         accountHdIndex: firstAccountIndex,
@@ -2717,25 +2802,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 item.xfp = xfp;
               }
               item.deprecated = false;
+              if (!isMockedStandardHwWallet && !passphraseState) {
+                item.isMocked = false;
+              }
               return item;
             },
           });
 
-          if (passphraseState && parentWalletId) {
-            await this.txUpdateParentWalletNextIds({
+          if (passphraseState && parentWalletId && !existingWallet) {
+            await this.txIncreaseParentWalletNextHiddenNum({
               parentWalletId,
               tx,
             });
           }
 
           // add first indexed account
-          const { nextIndex } = await this.txAddHDNextIndexedAccount({
-            tx,
-            walletId: dbWalletId,
-            onlyAddFirst: true,
-            skipServerSyncFlow: false,
-          });
-          addedHdAccountIndex = nextIndex;
+          if (!isMockedStandardHwWallet) {
+            const { nextIndex } = await this.txAddHDNextIndexedAccount({
+              tx,
+              walletId: dbWalletId,
+              onlyAddFirst: true,
+              skipServerSyncFlow: false,
+            });
+            addedHdAccountIndex = nextIndex;
+          }
 
           console.log('increase nextWalletNo');
           // increase nextHD
@@ -2757,7 +2847,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this.buildCreateHDAndHWWalletResult({
       walletId: dbWalletId,
       addedHdAccountIndex,
-      isOverrideWallet: existingWallet && !isExistingHiddenWallet,
+      isOverrideWallet: Boolean(existingWallet),
+      // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
 
@@ -2793,7 +2884,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // TODO clean wallets which associatedDevice is removed
   // TODO remove associate indexedAccount and account
-  async removeWallet({ walletId }: IDBRemoveWalletParams): Promise<void> {
+  async removeWallet({
+    walletId,
+    isRemoveToMocked,
+  }: IDBRemoveWalletParams): Promise<void> {
     const wallet = await this.getWallet({
       walletId,
     });
@@ -2822,6 +2916,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }) || accountUtils.isQrWallet({ walletId });
       if (isHardware) {
         if (
+          !isRemoveToMocked &&
           wallet.associatedDevice &&
           !accountUtils.isHwHiddenWallet({ wallet })
         ) {
@@ -2869,11 +2964,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
 
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.Wallet,
-        ids: [walletId],
-      });
+      if (
+        isHardware &&
+        !accountUtils.isHwHiddenWallet({ wallet }) &&
+        isRemoveToMocked
+      ) {
+        await this.txUpdateWallet({
+          tx,
+          walletId,
+          updater: (item) => {
+            item.isMocked = true;
+            return item;
+          },
+        });
+      } else {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [walletId],
+        });
+      }
 
       if (accountUtils.isHdWallet({ walletId }) || isHardware) {
         const { recordPairs } = await this.txGetAllRecords({

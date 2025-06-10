@@ -462,11 +462,16 @@ export type IEarnTooltip =
   | IEarnRebateTooltip
   | IEarnWithdrawTooltip;
 
+export enum EClaimType {
+  Claim = 'claim',
+  ClaimOrder = 'claimOrder',
+}
+
 export interface IEarnClaimActionIcon {
-  type: 'claim';
+  type: EClaimType;
   text: string | IEarnText;
   disabled: boolean;
-  data: {
+  data?: {
     balance: string;
     token: IEarnToken;
   };
@@ -530,8 +535,13 @@ export interface IEarnWithdrawAction {
   };
 }
 
+export enum EWithdrawType {
+  Withdraw = 'withdraw',
+  WithdrawOrder = 'withdrawOrder',
+}
+
 export interface IEarnWithdrawActionIcon {
-  type: 'withdraw';
+  type: EWithdrawType;
   disabled: boolean;
   text: IEarnText;
   data: {
@@ -541,7 +551,7 @@ export interface IEarnWithdrawActionIcon {
 }
 
 export interface IEarnWithdrawOrderActionIcon {
-  type: 'withdrawOrder';
+  type: EWithdrawType;
   disabled: boolean;
   text: IEarnText;
   data: {

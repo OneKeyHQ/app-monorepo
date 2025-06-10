@@ -635,6 +635,13 @@ export interface IFetchBuildTxResponse {
   orderId?: string;
 }
 
+export interface ISwapTips {
+  tipsId: string;
+  title: string;
+  detailLink?: string;
+  userCanClose?: boolean;
+}
+
 export interface ISwapInfoSide {
   amount: string;
   token: ISwapToken;

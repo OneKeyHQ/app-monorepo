@@ -124,6 +124,12 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
         />
         <SpecItem
           title={intl.formatMessage({
+            id: ETranslations.global_firmware,
+          })}
+          value={deviceInfo.firmwareVersion}
+        />
+        <SpecItem
+          title={intl.formatMessage({
             id: ETranslations.global_bluetooth,
           })}
           value={deviceInfo.bleName}

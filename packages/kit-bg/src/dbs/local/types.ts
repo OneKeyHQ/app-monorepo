@@ -148,6 +148,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   dbAccounts?: IDBAccount[]; // readonly field
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
   isTemp?: boolean;
+  isMocked?: boolean;
   passphraseState?: string;
   walletNo: number;
   walletOrderSaved?: number; // db field
@@ -176,6 +177,7 @@ export type IDBCreateHwWalletParamsBase = {
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;
   defaultIsTemp?: boolean;
+  isMockedStandardHwWallet?: boolean;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
@@ -188,6 +190,8 @@ export type IDBCreateQRWalletParams = {
   qrDevice: IQrWalletDevice;
   airGapAccounts: IQrWalletAirGapAccount[];
   fullXfp?: string;
+  isMockedStandardHwWallet?: boolean;
+  existingDeviceId?: string;
 };
 export type IDBSetWalletNameAndAvatarParams = {
   walletId: IDBWalletId;
@@ -200,6 +204,7 @@ export type IDBSetWalletNameAndAvatarParams = {
 export type IDBRemoveWalletParams = {
   walletId: string;
   skipBackupWalletRemove?: boolean;
+  isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
 };
 type IDBSetAccountNameParamsBase = {
   shouldCheckDuplicate?: boolean;

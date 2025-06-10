@@ -251,6 +251,7 @@ function ConnectByQrCode() {
                 navigation.pop();
               },
             });
+
             void trackHardwareWalletConnection({
               status: 'success',
               deviceType: EDeviceType.Pro,
@@ -489,7 +490,7 @@ function ConnectByUSBOrBLE() {
   }, []);
 
   const isSearchingRef = useRef(false);
-  const [isChecking, setIsChecking] = useState(false);
+  const [isCheckingDeviceLoading, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [showHelper, setShowHelper] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
@@ -634,7 +635,7 @@ function ConnectByUSBOrBLE() {
 
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
-        const createResult = await actions.current.createHWWalletWithHidden({
+        await actions.current.createHWWalletWithHidden({
           device,
           // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
           hideCheckingDeviceLoading: true,
@@ -650,16 +651,6 @@ function ConnectByUSBOrBLE() {
           isSoftwareWalletOnlyUser,
         });
 
-        if (createResult.wallet && createResult.isOverrideWallet) {
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_wallet_exists_title,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.feedback_wallet_exists_desc,
-            }),
-          });
-        }
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
           deviceId: features.device_id || device.deviceId || '',
@@ -684,13 +675,7 @@ function ConnectByUSBOrBLE() {
         });
       }
     },
-    [
-      navigation,
-      actions,
-      intl,
-      hardwareTransportType,
-      isSoftwareWalletOnlyUser,
-    ],
+    [navigation, actions, hardwareTransportType, isSoftwareWalletOnlyUser],
   );
 
   const handleHwWalletCreateFlow = useCallback(
@@ -1219,7 +1204,7 @@ function ConnectByUSBOrBLE() {
             mx="auto"
             size="large"
             variant="primary"
-            loading={isChecking}
+            loading={isCheckingDeviceLoading}
             onPress={
               hardwareTransportType === EHardwareTransportType.WEBUSB
                 ? onConnectWebDevice

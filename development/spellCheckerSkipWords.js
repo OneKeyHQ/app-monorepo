@@ -23,6 +23,7 @@ module.exports = [
   'ack',
   'aclose',
   'ada',
+  'nums',
   'addr',
   'Addr',
   'addr1',

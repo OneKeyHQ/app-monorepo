@@ -1,9 +1,13 @@
 import { Toast } from '@onekeyhq/components';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-function toastSuccessWhenImportAddressOrPrivateKey({
+export function toastSuccessWhenImportAddressOrPrivateKey({
   isOverrideAccounts,
   accountId,
 }: {
@@ -35,6 +39,21 @@ function toastSuccessWhenImportAddressOrPrivateKey({
   }
 }
 
-export default {
-  toastSuccessWhenImportAddressOrPrivateKey,
+export const toastExistingWalletSwitch = (createResult: {
+  wallet: IDBWallet;
+  indexedAccount: IDBIndexedAccount | undefined;
+  isOverrideWallet: boolean | undefined;
+}) => {
+  if (createResult.wallet && createResult.isOverrideWallet) {
+    setTimeout(() => {
+      Toast.success({
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_wallet_exists_title,
+        }),
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_wallet_exists_desc,
+        }),
+      });
+    }, 1000);
+  }
 };
