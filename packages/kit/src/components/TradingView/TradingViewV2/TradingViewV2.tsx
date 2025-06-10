@@ -4,9 +4,11 @@ import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import WebView from '../WebView';
+import WebView from '../../WebView';
 
-import type { IWebViewRef } from '../WebView/types';
+import { useTradingViewV2 } from './useTradingViewV2';
+
+import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 
 interface IBaseTradingViewProps {
@@ -16,6 +18,11 @@ interface IBaseTradingViewProps {
   targetToken: string;
   onLoadEnd: () => void;
   tradingViewUrl?: string;
+  tokenAddress?: string;
+  networkId?: string;
+  interval?: string;
+  timeFrom?: number;
+  timeTo?: number;
 }
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
@@ -24,25 +31,41 @@ export function TradingViewV2(props: ITradingViewProps & WebViewProps) {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
-  const { onLoadEnd, tradingViewUrl = 'https://tradingview.onekeytest.com/' } =
-    props;
+
+  const {
+    onLoadEnd,
+    tradingViewUrl = 'https://tradingview.onekeytest.com/',
+    tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
+    networkId = 'sol--101',
+    interval = '1s',
+    timeFrom = 1_747_648_323,
+    timeTo = 1_847_649_323,
+  } = props;
+
+  const { kineData } = useTradingViewV2({
+    tokenAddress,
+    networkId,
+    interval,
+    timeFrom,
+    timeTo,
+  });
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const intervalId = setInterval(() => {
       if (webRef.current) {
         webRef.current.sendMessageViaInjectedScript({
           type: 'tradingview',
           payload: {
-            test: 'test',
+            kineData, // Pass kine data to WebView
           },
         });
       }
     }, 1000);
 
     return () => {
-      clearInterval(interval);
+      clearInterval(intervalId);
     };
-  }, []);
+  }, [kineData]);
 
   return (
     <Stack position="relative" flex={1}>
