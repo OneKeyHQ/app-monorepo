@@ -147,3 +147,17 @@ export interface IMarketTokenListResponse {
   list: IMarketTokenListItem[];
   total: number;
 }
+
+export interface IMarketTokenKineDataPoint {
+  o: number; // open price
+  h: number; // high price
+  l: number; // low price
+  c: number; // close price
+  v: number; // volume
+  t: number; // timestamp
+}
+
+export interface IMarketTokenKineResponse {
+  points: IMarketTokenKineDataPoint[];
+  total: number;
+}

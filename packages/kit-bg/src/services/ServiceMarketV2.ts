@@ -6,6 +6,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketChainsResponse,
   IMarketTokenDetail,
+  IMarketTokenKineResponse,
   IMarketTokenListResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -79,6 +80,38 @@ class ServiceMarketV2 extends ServiceBase {
         limit,
         minLiquidity,
         maxLiquidity,
+      },
+    });
+    const { data } = response.data;
+    return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenKine({
+    tokenAddress,
+    networkId,
+    interval,
+    timeFrom,
+    timeTo,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+    interval?: string;
+    timeFrom?: number;
+    timeTo?: number;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenKineResponse;
+    }>('/utility/v2/market/token/kine', {
+      params: {
+        tokenAddress,
+        networkId,
+        interval,
+        timeFrom,
+        timeTo,
       },
     });
     const { data } = response.data;
