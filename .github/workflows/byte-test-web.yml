@@ -53,7 +53,7 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
-          echo "PUBLIC_URL=https://app.onekey.so/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
+          echo "PUBLIC_URL=https://app.onekey.so/${{ github.sha }}/" >> $GITHUB_ENV
 
       - name: Install Dependency
         env:
@@ -72,7 +72,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-monorepo-${{ github.sha }}-${{ env.BUILD_NUMBER }}
+          name: app-monorepo-${{ github.sha }}
           path: |
             ./apps/web/web-build/
 
@@ -82,6 +82,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./apps/web/web-build
           cname: ${{ env.TEST_ENDPOINT }}
+          publish_branch: test-pages
           force_orphan: true
 
       - name: 'Notify to Slack'
