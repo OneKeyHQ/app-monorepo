@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-constructor, @typescript-eslint/no-useless-constructor */
 export class MMKV {
   constructor(options?: { id?: string }) {
     // Mock implementation
