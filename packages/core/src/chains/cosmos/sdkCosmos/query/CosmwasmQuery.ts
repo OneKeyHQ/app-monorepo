@@ -8,6 +8,7 @@ import type {
   IQuery,
 } from './IQuery';
 import type { AxiosInstance } from 'axios';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 interface ICosmosCw20TokenInfoResponse {
   'name': string;
@@ -57,7 +58,7 @@ export class CosmwasmQuery implements IQuery {
     contractAddressArray: string[],
   ): Promise<ICosmosCw20AssetInfo[]> {
     const { axios } = chainInfo;
-    if (!axios) throw new Error('axios is not defined');
+    if (!axios) throw new OneKeyPlainTextError('axios is not defined');
 
     return Promise.all(
       contractAddressArray.map((contractAddress) =>
@@ -79,7 +80,7 @@ export class CosmwasmQuery implements IQuery {
     address: string[],
   ): Promise<ICosmosCw20TokenBalance[]> {
     const { axios } = chainInfo;
-    if (!axios) throw new Error('axios is not defined');
+    if (!axios) throw new OneKeyPlainTextError('axios is not defined');
 
     return Promise.all(
       address.map((i) =>

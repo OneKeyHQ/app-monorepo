@@ -8,6 +8,7 @@ import { UnspentOutput } from './types';
 
 import type { RestAPIClient } from './clientRestApi';
 import type { IKaspaUTXOResponse, IKaspaUnspentOutputInfo } from './types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 type ISortKey = 'daaScore' | 'satoshis';
 
@@ -107,7 +108,7 @@ export function selectUTXOs(
   // Uint64 overflow
   if (totalVal.isGreaterThan(MAX_UINT64_VALUE)) {
     // utxo amount is too large
-    throw new Error('utxo amount is too large');
+    throw new OneKeyPlainTextError('utxo amount is too large');
   }
 
   return {

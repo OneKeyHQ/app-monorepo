@@ -6,6 +6,7 @@ import { isHexString } from 'ethjs-util';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import type { ToBufferInputTypes } from '@ethereumjs/util';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 // https://github.com/MetaMask/eth-sig-util/blob/main/src/utils.ts#L59C13-L59C13
 // import { legacyToBuffer } from '@metamask/eth-sig-util/dist/utils';
@@ -65,7 +66,7 @@ const hashMessage = ({
 
     default:
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(`Invalid messageType: ${messageType}`);
+      throw new OneKeyPlainTextError(`Invalid messageType: ${messageType}`);
   }
 };
 

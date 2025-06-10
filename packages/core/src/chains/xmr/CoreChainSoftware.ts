@@ -12,6 +12,7 @@ import { EMoneroNetTypeEnum } from './sdkXmr/moneroUtil/moneroUtilTypes';
 
 import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 import type {
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
   ICoreApiGetAddressesQueryHd,

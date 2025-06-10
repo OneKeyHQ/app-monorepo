@@ -5,12 +5,13 @@ import elliptic from 'elliptic';
 import { parse256 } from '../bip32';
 
 import type { IBaseCurve, ICurveForKD } from './base';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 type IEllipticBasePoint = elliptic.curve.base.BasePoint;
 
 function checkBufferIsNotEmpty(buff: Buffer) {
   if (buff?.length === 0) {
-    throw new Error('Curve call ERROR: Buffer is empty');
+    throw new OneKeyPlainTextError('Curve call ERROR: Buffer is empty');
   }
 }
 
@@ -33,7 +34,7 @@ class EllipticECWrapper implements ICurveForKD {
     } else if (publicKey.length == 65 && publicKey[0] === 4) {
       toCompressed = true;
     } else {
-      throw new Error('Invalid public key.');
+      throw new OneKeyPlainTextError('Invalid public key.');
     }
 
     return Buffer.from(

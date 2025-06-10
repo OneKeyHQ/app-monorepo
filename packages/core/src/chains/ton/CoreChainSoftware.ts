@@ -28,6 +28,7 @@ import { genAddressFromPublicKey } from './sdkTon';
 import { serializeData, serializeProof } from './sdkTon/tx';
 
 import type { IEncodedTxTon } from './types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'ed25519';
 
@@ -40,14 +41,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyPlainTextError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return (await decryptAsync({ password, data: privateKeyRaw })).toString(
         'hex',
       );
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(

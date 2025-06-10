@@ -14,6 +14,7 @@ import { Verifier } from '../../base/ChainSigner';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import type {
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
   ICoreApiGetAddressQueryPublicKey,
@@ -44,7 +45,7 @@ const pubkeyToAddress = async (
       pubkeyBytes.toString('hex'),
     );
   } else {
-    throw new Error('invalid encoding');
+    throw new OneKeyPlainTextError('invalid encoding');
   }
   return address;
 };
@@ -68,7 +69,7 @@ const buildUnsignedRawTx = (
     !gasPrice ||
     typeof nonce === 'undefined'
   ) {
-    throw new Error('invalid unsignedTx');
+    throw new OneKeyPlainTextError('invalid unsignedTx');
   }
 
   let txPayload: StarcoinTypes.TransactionPayload;

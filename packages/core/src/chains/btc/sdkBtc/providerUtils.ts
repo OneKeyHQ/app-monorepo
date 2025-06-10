@@ -26,6 +26,7 @@ import type {
   IEncodedTxBtc,
 } from '../types';
 import type { Bip32Derivation, TapBip32Derivation } from 'bip174';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export function formatPsbtHex(psbtHex: string) {
   let formatData = '';
@@ -37,7 +38,7 @@ export function formatPsbtHex(psbtHex: string) {
       formatData = psbtHex;
     }
   } catch (e) {
-    throw new Error('invalid psbt');
+    throw new OneKeyPlainTextError('invalid psbt');
   }
   return formatData;
 }
@@ -206,7 +207,7 @@ export async function buildPsbt({
         case EAddressEncodings.P2PKH: {
           if (isInputMixin) {
             if (!txid) {
-              throw new Error('txid is required for p2pkh input');
+              throw new OneKeyPlainTextError('txid is required for p2pkh input');
             }
             const nonWitnessPrevTxs = checkIsDefined(
               btcExtraInfo?.nonWitnessPrevTxs,
@@ -279,7 +280,7 @@ export async function buildPsbt({
 
     const encoding = inputAddressesEncodings[i];
     if (!encoding) {
-      throw new Error(`inputAddressesEncodings missing encoding at index ${i}`);
+      throw new OneKeyPlainTextError(`inputAddressesEncodings missing encoding at index ${i}`);
     }
 
     const inputValue = new BigNumber(input.value).toNumber();

@@ -48,6 +48,7 @@ import type {
   IVerifiedMessagePro,
 } from '../../types';
 import type { IBtcForkNetwork } from '../btc/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -188,7 +189,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       },
     });
     if (!privateKeys[fullPath]) {
-      throw new Error('No private key found.');
+      throw new OneKeyPlainTextError('No private key found.');
     }
     const signer = await this.baseCreateSigner({
       curve,
@@ -276,7 +277,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const hashingKey = root.derivePath(`m/138'/0`);
     const hashingPrivateKey = hashingKey.privateKey;
     if (!hashingPrivateKey) {
-      throw new Error('lnurl-auth: invalid hashing key');
+      throw new OneKeyPlainTextError('lnurl-auth: invalid hashing key');
     }
     const url = new URL(lnurlDetail.url);
 
@@ -291,13 +292,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     if (!linkingKey.privateKey) {
-      throw new Error('lnurl-auth: invalid linking private key');
+      throw new OneKeyPlainTextError('lnurl-auth: invalid linking private key');
     }
 
     const linkingKeyPriv = bufferUtils.bytesToHex(linkingKey.privateKey);
 
     if (!linkingKeyPriv) {
-      throw new Error('Invalid linkingKey');
+      throw new OneKeyPlainTextError('Invalid linkingKey');
     }
 
     const signer = new HashKeySigner(linkingKeyPriv);

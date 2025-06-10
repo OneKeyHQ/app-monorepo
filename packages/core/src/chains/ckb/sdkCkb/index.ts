@@ -5,6 +5,7 @@ import { generateAddress } from '@ckb-lumos/helpers';
 import type { Script } from '@ckb-lumos/base';
 import type { Config } from '@ckb-lumos/config-manager';
 import type { Options } from '@ckb-lumos/helpers';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function blake160(publicKey: string): string {
   return new utils.CKBHasher().update(publicKey).digestHex().slice(0, 42);
@@ -19,7 +20,7 @@ export function getConfig(chainId: string) {
     return config;
   }
 
-  throw new Error('Invalid chainId');
+  throw new OneKeyPlainTextError('Invalid chainId');
 }
 
 export function scriptToAddress(
@@ -42,7 +43,7 @@ export function pubkeyToAddress(
   const template = config.SCRIPTS.SECP256K1_BLAKE160;
 
   if (!template) {
-    throw new Error('SECP256K1_BLAKE160 not found in config');
+    throw new OneKeyPlainTextError('SECP256K1_BLAKE160 not found in config');
   }
 
   const lockScript = {

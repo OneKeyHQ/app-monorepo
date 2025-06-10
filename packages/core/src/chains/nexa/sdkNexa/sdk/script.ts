@@ -5,6 +5,7 @@ import BN from 'bn.js';
 
 import { decodeAddress } from './address';
 import { getBufferFromBN } from './bn';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export enum ENexaOpcode {
   OP_FALSE = 0,
@@ -195,7 +196,7 @@ export function bufferToScripChunk(buffer: Buffer): INexaScriptChunk {
   } else if (len < 2 ** 32) {
     opcodenum = ENexaOpcode.OP_PUSHDATA4;
   } else {
-    throw new Error("You can't push that much data");
+    throw new OneKeyPlainTextError("You can't push that much data");
   }
   return {
     buf: buffer,

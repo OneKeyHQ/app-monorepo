@@ -20,6 +20,7 @@ import type {
 } from './types';
 import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
 import type { Script } from '@onekeyfe/kaspa-core-lib';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export enum SignatureType {
   SIGHASH_ALL = 0x01,

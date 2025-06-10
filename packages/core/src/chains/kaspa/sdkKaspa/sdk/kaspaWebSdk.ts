@@ -9,6 +9,7 @@ import type { IEncodedTxKaspa } from '../../types';
 import type { IKaspaTransaction } from '../types';
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 import type { IScriptPublicKey, ITransactionInput } from '@onekeyfe/kaspa-wasm';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const getKaspaApi = async () => {
   const Loader = await import('@onekeyfe/kaspa-wasm');
@@ -124,7 +125,7 @@ const getKaspaApi = async () => {
         params;
 
       if (!encodedTx.commitScriptHex) {
-        throw new Error('Invalid P2SH commitScriptHex');
+        throw new OneKeyPlainTextError('Invalid P2SH commitScriptHex');
       }
 
       const privateKey = new PrivateKey(tweakedPrivateKey);
@@ -169,7 +170,7 @@ const getKaspaApi = async () => {
       const { accountAddress, encodedTx, isTestnet, signatures } = params;
 
       if (!encodedTx.commitScriptHex) {
-        throw new Error('Invalid P2SH commitScriptHex');
+        throw new OneKeyPlainTextError('Invalid P2SH commitScriptHex');
       }
 
       const revealTx = await createKRC20RevealTx({

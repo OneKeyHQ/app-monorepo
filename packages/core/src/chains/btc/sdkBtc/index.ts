@@ -558,7 +558,7 @@ export function getBip32FromBase58({
   //   network = getBtcForkNetwork('tbtc');
   // }
   // if (!network) {
-  //   throw new Error(`network not support: ${impl}`);
+  //   throw new OneKeyPlainTextError(`network not support: ${impl}`);
   // }
 
   // const accountNameInfoMap = getAccountNameInfoByImpl(IMPL_BTC);

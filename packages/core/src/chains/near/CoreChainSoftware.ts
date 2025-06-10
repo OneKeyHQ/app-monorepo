@@ -28,6 +28,7 @@ import {
 import type { IEncodedTxNear, INativeTxNear } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
   SignedTransaction,
   Transaction,
 } from 'near-api-js/lib/transaction';
@@ -101,7 +102,7 @@ async function signTransaction(
   const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
   const transaction = await parseToNativeTx(encodedTx);
   if (!transaction) {
-    throw new Error('nativeTx is null');
+    throw new OneKeyPlainTextError('nativeTx is null');
   }
 
   const txHash: string = serializeTransaction(transaction, {
@@ -152,14 +153,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyPlainTextError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       const privateKey = await decryptAsync({ password, data: privateKeyRaw });
       const publicKey = ed25519.publicFromPrivate(privateKey);
       return `ed25519:${baseEncode(Buffer.concat([privateKey, publicKey]))}`;
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(

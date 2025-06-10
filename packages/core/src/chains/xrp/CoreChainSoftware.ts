@@ -24,6 +24,7 @@ import {
 
 import type { IEncodedTxXrp } from './types';
 import type { Transaction } from 'xrpl';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -97,7 +98,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyPlainTextError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       if (credentials.hd) {
@@ -111,7 +112,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           .toUpperCase()}`;
       }
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(

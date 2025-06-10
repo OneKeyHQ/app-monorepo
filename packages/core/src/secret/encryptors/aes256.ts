@@ -16,6 +16,7 @@ import {
 } from '../crypto-functions';
 
 import { xorDecrypt, xorEncrypt } from './xor';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
@@ -64,7 +65,7 @@ async function decodePasswordAsync({
   // decode password if it is encoded
   if (isEncodedSensitiveText(password)) {
     if (platformEnv.isExtensionUi) {
-      throw new Error('decodePassword can NOT be called from UI');
+      throw new OneKeyPlainTextError('decodePassword can NOT be called from UI');
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveTextAsync({
@@ -83,7 +84,7 @@ async function decodePasswordAsync({
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
     );
-    throw new Error('Passing raw password is not allowed and not safe.');
+    throw new OneKeyPlainTextError('Passing raw password is not allowed and not safe.');
   }
   return password;
 }
@@ -336,7 +337,7 @@ function checkKeyPassedOnExtUi(key?: string) {
 
 function ensureSensitiveTextEncoded(text: string) {
   if (!isEncodedSensitiveText(text)) {
-    throw new Error('Not encoded sensitive text');
+    throw new OneKeyPlainTextError('Not encoded sensitive text');
   }
 }
 
@@ -433,7 +434,7 @@ async function encodeSensitiveTextAsync({
     return `${ENCODE_TEXT_PREFIX.xor}${encoded}`;
   }
 
-  throw new Error('Unknown SENSITIVE_ENCODE_TYPE type');
+  throw new OneKeyPlainTextError('Unknown SENSITIVE_ENCODE_TYPE type');
 }
 
 function getBgSensitiveTextEncodeKey() {

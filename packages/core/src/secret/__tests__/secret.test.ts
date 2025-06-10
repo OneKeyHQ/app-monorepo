@@ -41,6 +41,7 @@ import {
 import type { ICoreImportedCredential, ICurveName } from '../../types';
 import type { IBip32ExtendedKey } from '../bip32';
 import type { IBip39RevealableSeed } from '../bip39';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 /*
 yarn test packages/core/src/secret/__tests__/secret.test.ts
@@ -473,7 +474,7 @@ describe('Secret Module Tests', () => {
         await mnemonicToSeedAsync({
           mnemonic: 'invalid mnemonic',
         });
-        throw new Error('Should have thrown');
+        throw new OneKeyPlainTextError('Should have thrown');
       } catch (error) {
         expect(error).toBeDefined();
       }

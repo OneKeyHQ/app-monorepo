@@ -31,6 +31,7 @@ import { ENexaSignature } from '../types';
 import type { ISigner } from '../../../base/ChainSigner';
 import type { ISignedTxPro, IUnsignedTxPro } from '../../../types';
 import type {
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
   IEncodedTxNexa,
   INexaInputSignature,
   INexaOutputSignature,
