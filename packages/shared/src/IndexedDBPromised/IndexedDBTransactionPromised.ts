@@ -2,6 +2,7 @@ import storageChecker from '../storageChecker/storageChecker';
 
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { IndexedDBPromised } from './IndexedDBPromised';
 import type {
@@ -80,7 +81,7 @@ export class IndexedDBTransactionPromised<
   get store(): TxStores[1] extends undefined
     ? IDBPObjectStore<DBTypes, TxStores, TxStores[0], Mode>
     : undefined {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'use IndexedDBTransactionPromised.objectStore(name) to get a specific store',
     );
   }

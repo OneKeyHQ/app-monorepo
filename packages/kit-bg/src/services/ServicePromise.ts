@@ -57,13 +57,13 @@ class ServicePromise extends ServiceBase {
   }: IPromiseContainerCallbackCreate): number {
     latestId += 1;
     if (latestId <= 0) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `PromiseContainer ERROR: callback id can NOT negative, id=${latestId}`,
       );
     }
     if (this.callbacks[latestId]) {
       // TODO custom error
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `PromiseContainer ERROR: callback exists, id=${latestId}`,
       );
     }

@@ -723,7 +723,7 @@ function ConnectByUSBOrBLE() {
             existsFirmware,
           });
           console.log('Device is in bootloader mode', device);
-          throw new Error('Device is in bootloader mode');
+          throw new OneKeyPlainTextError('Device is in bootloader mode');
         };
         if (
           await deviceUtils.isBootloaderModeFromSearchDevice({

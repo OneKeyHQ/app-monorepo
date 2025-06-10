@@ -1,4 +1,5 @@
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IWalletAddedEventParams,
   IWalletStartedParams,
@@ -59,7 +60,7 @@ export class WalletScene extends BaseScene {
 
       default: {
         const _exhaustiveCheck: never = params;
-        throw new Error(
+        throw new OneKeyPlainTextError(
           `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
         );
       }
@@ -122,7 +123,7 @@ export class WalletScene extends BaseScene {
 
       default: {
         const _exhaustiveCheck: never = params;
-        throw new Error(
+        throw new OneKeyPlainTextError(
           `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
         );
       }

@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isArray } from 'lodash';
 
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -137,7 +138,7 @@ class ServiceGas extends ServiceBase {
         .filter((item) => !!item),
       feeBudget: feeInfo.feeBudget?.map((item) => {
         if (!item.gasPrice) {
-          throw new Error('gasPrice is undefined');
+          throw new OneKeyPlainTextError('gasPrice is undefined');
         }
         return {
           ...item,

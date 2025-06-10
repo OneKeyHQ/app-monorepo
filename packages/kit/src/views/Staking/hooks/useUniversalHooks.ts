@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -188,7 +189,7 @@ export function useUniversalWithdraw({
           provider,
         });
       if (!stakingConfig) {
-        throw new Error('Staking config not found');
+        throw new OneKeyPlainTextError('Staking config not found');
       }
 
       if (stakingConfig?.unstakeWithSignMessage) {

@@ -20,6 +20,7 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   InvalidAddress,
   LowerTransactionAmountError,
@@ -115,7 +116,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
     }
     const { to, amount, tokenInfo } = transferInfo;
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;

@@ -3,6 +3,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 
 import '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
@@ -109,7 +110,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {
-      throw new Error(`setAtomValue ERROR: atomName not found: ${atomName}`);
+      throw new OneKeyPlainTextError(`setAtomValue ERROR: atomName not found: ${atomName}`);
     }
     await atom.set(value);
   }
@@ -171,7 +172,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const provider: ProviderApiBase | null =
       this.providers[scope as IInjectedProviderNames];
     if (!provider) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `[${scope as string}] ProviderApi instance is not found.`,
       );
     }
@@ -206,11 +207,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const { method, params } = request;
 
     if (!origin) {
-      throw new Error('BackgroundApi [payload.origin] is required.');
+      throw new OneKeyPlainTextError('BackgroundApi [payload.origin] is required.');
     }
 
     if (!internal && !scope) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'BackgroundApi [payload.scope] is required for non-internal method call.',
       );
     }
@@ -276,7 +277,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   sendForProvider(providerName: IInjectedProviderNamesStrings): any {
     if (!providerName) {
-      throw new Error('sendForProvider: providerName is required.');
+      throw new OneKeyPlainTextError('sendForProvider: providerName is required.');
     }
     if (!this.sendForProviderMaps[providerName]) {
       this.sendForProviderMaps[providerName] =

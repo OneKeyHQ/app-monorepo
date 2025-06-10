@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import type { EAddressEncodings, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   InvalidAddress,
   OneKeyInternalError,
@@ -55,7 +56,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       addresses,
     } = params;
     if (!address && !xpub) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'basePrepareUtxoWatchingAccounts ERROR: address and xpub are not defined',
       );
     }
@@ -121,7 +122,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       throw new InvalidAddress();
     }
     if (!createAtNetwork) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'basePrepareSimpleWatchingAccounts ERROR: createAtNetwork is not defined',
       );
     }

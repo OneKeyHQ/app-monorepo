@@ -3,7 +3,10 @@ import { isNil } from 'lodash';
 
 import type { IHardwareHomeScreenName } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/HardwareHomeScreen/hardwareHomeScreenData';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
+import {
+  FirmwareVersionTooLow,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
@@ -193,7 +196,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           }
           if (!imgHex) {
             // empty string will clear the home screen(classic,mini)
-            // throw new Error('Invalid home screen hex');
+            // throw new OneKeyPlainTextError('Invalid home screen hex');
           }
           await this.applySettingsToDevice(device.connectId, {
             homescreen: imgHex,

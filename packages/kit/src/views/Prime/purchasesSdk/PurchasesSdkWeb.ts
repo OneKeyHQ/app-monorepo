@@ -6,6 +6,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { PurchasesSdkWebBase } from './PurchasesSdkWebBase';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export default class PurchasesSdkWeb extends PurchasesSdkWebBase {
   async getApiKey(): Promise<string> {
@@ -16,7 +17,7 @@ export default class PurchasesSdkWeb extends PurchasesSdkWebBase {
       apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
     }
     if (!apiKey) {
-      throw new Error('No REVENUECAT api key found');
+      throw new OneKeyPlainTextError('No REVENUECAT api key found');
     }
     return apiKey;
   }

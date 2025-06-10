@@ -7,6 +7,7 @@ import {
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
@@ -300,7 +301,7 @@ class ServiceSetting extends ServiceBase {
     );
 
     if (networksVaultSettings.length !== networks.length) {
-      throw new Error('failed to get account derivation config');
+      throw new OneKeyPlainTextError('failed to get account derivation config');
     }
 
     networks = networks.filter((o, i) => {

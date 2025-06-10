@@ -2,6 +2,7 @@
 import { cloneDeep } from 'lodash';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   backgroundClass,
   backgroundMethod,
@@ -405,7 +406,7 @@ class ServiceAccountSelector extends ServiceBase {
       focusedWallet: activeAccount?.wallet?.id,
     };
 
-    // throw new Error('Method not implemented.');
+    // throw new OneKeyPlainTextError('Method not implemented.');
     return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
 

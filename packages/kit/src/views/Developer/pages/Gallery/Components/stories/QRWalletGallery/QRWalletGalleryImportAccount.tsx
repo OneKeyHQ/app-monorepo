@@ -4,6 +4,7 @@ import { publicToAddress, toChecksumAddress } from '@ethereumjs/util';
 import HDKey from 'hdkey';
 
 import { Button, Stack, TextArea } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type { IAnimationValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
@@ -131,7 +132,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
             }
 
             if (!xfp) {
-              //   throw new Error(
+              //   throw new OneKeyPlainTextError(
               //     'KeystoneError#invalid_data: invalid crypto-hdkey, cannot get source fingerprint',
               //   );
             }
@@ -201,7 +202,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
                   const address = toChecksumAddress(result);
                   console.log(address);
                 } else {
-                  throw new Error(
+                  throw new OneKeyPlainTextError(
                     `KeystoneError#pubkey_account.no_expected_account`,
                   );
                 }

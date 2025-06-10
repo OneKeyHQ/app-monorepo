@@ -6,6 +6,7 @@ import {
   getPublicKeyFromXpub,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { verifyNexaAddressPrefix } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   decryptAsync,
   encodeSensitiveTextAsync,
@@ -108,7 +109,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
       const networkId = v4CoinTypeToNetworkId[v4account.coinType];
       if (!networkId) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           `Unsupported coinType for migration: ${v4account.coinType}`,
         );
       }
@@ -170,7 +171,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         dbCredentialRaw: credentialImported,
       };
     }
-    throw new Error(`Unsupported credential type: ${v4dbCredential.id}`);
+    throw new OneKeyPlainTextError(`Unsupported credential type: ${v4dbCredential.id}`);
   }
 
   async decryptV4HdCredential({
@@ -201,7 +202,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         dbCredentialRaw: credentialHD,
       };
     }
-    throw new Error(`Unsupported credential type: ${v4dbCredential.id}`);
+    throw new OneKeyPlainTextError(`Unsupported credential type: ${v4dbCredential.id}`);
   }
 
   async getV4Credentials() {

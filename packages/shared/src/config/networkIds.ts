@@ -2,6 +2,7 @@
 import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export type INetworkShortCode =
   | 'onekeyall'
@@ -86,7 +87,7 @@ export const getNetworkIdsMap = memoFn(() => {
     return memo;
   }, {} as Record<INetworkShortCode, string>);
   if (checkErrors.length) {
-    throw new Error(checkErrors.join('\n'));
+    throw new OneKeyPlainTextError(checkErrors.join('\n'));
   }
   return r;
 });

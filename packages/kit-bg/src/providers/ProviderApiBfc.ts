@@ -3,6 +3,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type IVaultBfc from '@onekeyhq/kit-bg/src/vaults/impls/bfc/Vault';
 import {
   backgroundClass,
@@ -170,7 +171,7 @@ class ProviderApiBfc extends ProviderApiBase {
 
     const tx = await vault.waitPendingTransaction(result.txid, params.options);
 
-    if (!tx) throw new Error('Transaction not found');
+    if (!tx) throw new OneKeyPlainTextError('Transaction not found');
 
     return Promise.resolve(tx);
   }

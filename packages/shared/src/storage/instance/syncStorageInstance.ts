@@ -6,6 +6,7 @@ import resetUtils from '../../utils/resetUtils';
 import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const syncStorageWeb = {
   set(key: EAppSyncStorageKeys, value: boolean | string | number) {
@@ -15,7 +16,7 @@ const syncStorageWeb = {
   setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
     resetUtils.checkNotInResetting();
     if (!isPlainObject(value)) {
-      throw new Error('value must be a plain object');
+      throw new OneKeyPlainTextError('value must be a plain object');
     }
     mmkvStorageInstance.set(key, JSON.stringify(value));
   },

@@ -10,6 +10,7 @@ import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   Icon,
   ListView,
@@ -119,7 +120,7 @@ const DeriveTypesAddressItem = ({
 
   const onPress = useCallback(async () => {
     if (!network) {
-      throw new Error('network is empty');
+      throw new OneKeyPlainTextError('network is empty');
     }
     if (item.account) {
       if (actionType === EDeriveAddressActionType.Copy) {

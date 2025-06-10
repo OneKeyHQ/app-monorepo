@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import type { IEncodedTxNeoN3 } from '@onekeyhq/core/src/chains/neo/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -176,7 +177,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
     }
 
     const inputs = await this.buildTransferInputs({
@@ -520,7 +521,7 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     if (!rawTx) {
-      throw new Error('rawTx is empty');
+      throw new OneKeyPlainTextError('rawTx is empty');
     }
 
     const rpcClient = new rpc.RPCClient(rpcUrl);

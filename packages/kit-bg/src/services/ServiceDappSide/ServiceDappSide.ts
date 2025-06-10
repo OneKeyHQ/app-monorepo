@@ -1,4 +1,5 @@
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   backgroundClass,
   backgroundMethod,
@@ -290,7 +291,7 @@ class ServiceDappSide extends ServiceBase {
   }) {
     const connectionInfo = account.connectionInfo;
     if (!connectionInfo) {
-      throw new Error('sendTransaction ERROR: connectionInfo not found');
+      throw new OneKeyPlainTextError('sendTransaction ERROR: connectionInfo not found');
     }
     const ctrl = await externalWalletFactory.getController({
       connectionInfo,

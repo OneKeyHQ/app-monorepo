@@ -14,6 +14,7 @@ import {
   LogLevel,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
 import platformEnv from '../../platformEnv';
@@ -43,7 +44,7 @@ const consoleFunc = (msg: string) => {
 
 const getLogFilePath = async (filename: string) => {
   if (!RNFS) {
-    throw new Error('RNFS is not available');
+    throw new OneKeyPlainTextError('RNFS is not available');
   }
   const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
   if (!isExist) {

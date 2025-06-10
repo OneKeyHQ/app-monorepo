@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -67,7 +68,7 @@ export const useWebAuthActions = () => {
     const checkCachePassword =
       await backgroundApiProxy.servicePassword.getCachedPassword();
     if (!checkCachePassword) {
-      throw new Error('No password cached not support web auth');
+      throw new OneKeyPlainTextError('No password cached not support web auth');
     }
     await checkExtWebAuth(EPassKeyWindowType.unlock);
     // web auth must be called in ui context for extension

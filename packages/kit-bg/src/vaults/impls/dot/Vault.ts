@@ -11,6 +11,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
 
 import { serializeSignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -170,7 +171,7 @@ export default class VaultDot extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || !transfersInfo[0].to) {
-      throw new Error('Invalid transferInfo.to params');
+      throw new OneKeyPlainTextError('Invalid transferInfo.to params');
     }
     const networkInfo = await this.getNetworkInfo();
 

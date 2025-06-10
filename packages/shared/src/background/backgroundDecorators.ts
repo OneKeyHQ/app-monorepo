@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import errorToastUtils from '../errors/utils/errorToastUtils';
 import { formatDateFns } from '../utils/dateUtils';
@@ -145,7 +146,7 @@ function permissionRequired() {
     if (isFunction(fn)) {
       descriptor.value = function (...args: Array<any>): any {
         // if (this.chainId !== '0x1') {
-        //   throw new Error(this.chainId + ' chain not matched');
+        //   throw new OneKeyPlainTextError(this.chainId + ' chain not matched');
         // }
         const result = fn.apply(this, args);
         return result;

@@ -26,6 +26,7 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.aptos.hd;
@@ -81,7 +82,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.aptosGetAddress(connectId, deviceId, {

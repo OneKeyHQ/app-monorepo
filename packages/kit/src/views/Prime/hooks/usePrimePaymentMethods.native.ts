@@ -94,10 +94,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getCustomerInfo = useCallback(async () => {
     if (!isReady) {
-      throw new Error('PrimeAuth Not ready');
+      throw new OneKeyPlainTextError('PrimeAuth Not ready');
     }
     if (!user?.privyUserId) {
-      throw new Error('User not logged in');
+      throw new OneKeyPlainTextError('User not logged in');
     }
 
     if (user?.privyUserId) {
@@ -114,7 +114,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }
     const appUserId = await PurchasesReactNative.getAppUserID();
     if (appUserId !== user?.privyUserId) {
-      throw new Error('AppUserId not match');
+      throw new OneKeyPlainTextError('AppUserId not match');
     }
     const customerInfo: CustomerInfo =
       await PurchasesReactNative.getCustomerInfo();
@@ -213,7 +213,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         );
 
         if (!offering) {
-          throw new Error('Offering not found');
+          throw new OneKeyPlainTextError('Offering not found');
         }
 
         const makePurchaseResult = await PurchasesReactNative.purchasePackage(

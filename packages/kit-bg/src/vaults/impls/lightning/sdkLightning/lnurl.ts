@@ -3,6 +3,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 import axios from 'axios';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IInvoiceDecodedResponse,
@@ -103,14 +104,14 @@ export const getLnurlDetails = memoizee(
       const res = await axios.get<ILNURLDetails | ILNURLError>(url.toString());
       const lnurlDetails = res.data;
       if (isLNURLRequestError(lnurlDetails)) {
-        throw new Error(`LNURL request error: ${lnurlDetails.reason}`);
+        throw new OneKeyPlainTextError(`LNURL request error: ${lnurlDetails.reason}`);
       }
       lnurlDetails.domain = url.hostname;
       lnurlDetails.url = url.toString();
 
       return lnurlDetails;
     } catch (e) {
-      throw new Error(`Invalid LNURL: ${e instanceof Error ? e.message : ''}`);
+      throw new OneKeyPlainTextError(`Invalid LNURL: ${e instanceof Error ? e.message : ''}`);
     }
   },
   {

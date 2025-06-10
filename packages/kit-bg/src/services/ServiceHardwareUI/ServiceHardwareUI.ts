@@ -13,6 +13,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -356,7 +357,7 @@ class ServiceHardwareUI extends ServiceBase {
           this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
         if (isMutexLocked) {
           isBusy = true;
-          throw new Error(
+          throw new OneKeyPlainTextError(
             appLocale.intl.formatMessage({
               id: ETranslations.feedback_hardware_is_busy,
             }),

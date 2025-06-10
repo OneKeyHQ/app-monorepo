@@ -7,6 +7,7 @@ import type {
   IQrcodeDrawType,
 } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -430,7 +431,7 @@ class AppEventBusClass extends CrossEventEmitter {
 
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
-      throw new Error('offscreen or webembed event bus not support yet.');
+      throw new OneKeyPlainTextError('offscreen or webembed event bus not support yet.');
     }
     if (platformEnv.isNative) {
       // requestToWebEmbed

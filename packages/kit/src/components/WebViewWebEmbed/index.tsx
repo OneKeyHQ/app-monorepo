@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SizableText, Stack, View, XStack } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
@@ -66,7 +67,7 @@ export function WebViewWebEmbed({
         apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
       }
       if (!apiKey) {
-        throw new Error('No REVENUECAT api key found');
+        throw new OneKeyPlainTextError('No REVENUECAT api key found');
       }
       setRevenuecatApiKey(apiKey);
     }

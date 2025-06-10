@@ -1,6 +1,7 @@
 import { Metadata, NO_LOG_OUTPUT } from '../types';
 
 import type { IMethodDecoratorMetadata } from '../types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
   return function logMethod(
@@ -10,7 +11,7 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
   ) {
     const originalMethod = descriptor.value as (...args: any[]) => any;
     if (typeof originalMethod !== 'function') {
-      throw new Error('This decorator is only for methods');
+      throw new OneKeyPlainTextError('This decorator is only for methods');
     }
     descriptor.value = function (...args: any[]) {
       let result = originalMethod.apply(this, args);

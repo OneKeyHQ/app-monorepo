@@ -6,15 +6,16 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 
 import { PrimeGlobalEffect } from '../hooks/PrimeGlobalEffect';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
   const appId = PRIVY_APP_ID;
   const clientId = PRIVY_MOBILE_CLIENT_ID;
   if (!appId) {
-    throw new Error('PRIVY_APP_ID is not set');
+    throw new OneKeyPlainTextError('PRIVY_APP_ID is not set');
   }
   if (!clientId) {
-    throw new Error('PRIVY_MOBILE_CLIENT_ID is not set');
+    throw new OneKeyPlainTextError('PRIVY_MOBILE_CLIENT_ID is not set');
   }
 
   // TODO: ext error

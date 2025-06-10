@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showMorphoClaimDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showMorphoClaimDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -62,7 +63,7 @@ export const useHandleClaim = ({
           provider,
         });
       if (!stakingConfig) {
-        throw new Error('Staking config not found');
+        throw new OneKeyPlainTextError('Staking config not found');
       }
       if (isReward) {
         await handleUniversalClaim({

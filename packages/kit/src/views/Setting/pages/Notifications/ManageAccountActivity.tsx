@@ -26,6 +26,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -216,7 +217,7 @@ function AccountNotificationSettingsProvider({
 function useContextAccountNotificationSettings() {
   const context = useContext(AccountNotificationSettingsContext);
   if (context === undefined) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'useAccountNotificationSettings must be used within a NotificationSettingsProvider',
     );
   }

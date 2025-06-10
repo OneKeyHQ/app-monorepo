@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const enUS = {
   'Confirm_password': 'Confirm Password',
@@ -15,7 +16,7 @@ const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
 
 if (platformEnv.isExtensionBackground) {
   // debugger;
-  // throw new Error('packages/shared/src/locale/json is not allowed imported from background');
+  // throw new OneKeyPlainTextError('packages/shared/src/locale/json is not allowed imported from background');
 }
 
 export default LOCALES;

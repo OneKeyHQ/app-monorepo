@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { isEqual } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -122,7 +123,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const webTabs = get(webTabsAtom());
       let newTabs = data;
       if (!Array.isArray(data)) {
-        throw new Error('setWebTabsWriteAtom: payload must be an array');
+        throw new OneKeyPlainTextError('setWebTabsWriteAtom: payload must be an array');
       }
       if (!newTabs || !newTabs.length) {
         newTabs = [];
@@ -507,7 +508,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       if (!Array.isArray(data)) {
-        throw new Error('buildBookmarkData: payload must be an array');
+        throw new OneKeyPlainTextError('buildBookmarkData: payload must be an array');
       }
 
       void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks({
@@ -617,7 +618,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       if (!Array.isArray(data)) {
-        throw new Error('buildHistoryData: payload must be an array');
+        throw new OneKeyPlainTextError('buildHistoryData: payload must be an array');
       }
       void backgroundApiProxy.simpleDb.browserHistory.setRawData({
         data,

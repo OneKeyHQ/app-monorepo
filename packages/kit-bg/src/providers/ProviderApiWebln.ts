@@ -7,6 +7,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -225,7 +226,7 @@ class ProviderApiWebln extends ProviderApiBase {
       });
       console.log('webln.verifyMessage: ', message, signature);
       if (!result.isValid) {
-        throw new Error('Invalid signature');
+        throw new OneKeyPlainTextError('Invalid signature');
       }
       return result.isValid;
     } catch (e) {

@@ -1,4 +1,5 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 class WebEmbedApiTest {
   test1(...params: string[]) {
@@ -17,7 +18,7 @@ class WebEmbedApiTest {
 
   captureException() {
     setTimeout(() => {
-      throw new Error('test webEmbed error');
+      throw new OneKeyPlainTextError('test webEmbed error');
     }, 1000);
   }
 }

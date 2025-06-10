@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -119,7 +120,7 @@ function EditItemPage() {
       const { password } =
         await backgroundApiProxy.servicePassword.promptPasswordVerify();
       if (!password) {
-        throw new Error('No password');
+        throw new OneKeyPlainTextError('No password');
       }
       const addressBookItem =
         await backgroundApiProxy.serviceAddressBook.findItemById({

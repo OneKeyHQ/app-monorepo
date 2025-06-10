@@ -1,4 +1,5 @@
 import { isArray, isEmpty, isFunction, isNil, isPlainObject } from 'lodash';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export const createDelayPromise = <T>(
   delay: number,
@@ -114,7 +115,7 @@ export async function waitForDataLoaded({
   }
   clearTimeout(timer);
   if (timeoutReject) {
-    throw new Error(`waitForDataLoaded: ${logName ?? ''} timeout`);
+    throw new OneKeyPlainTextError(`waitForDataLoaded: ${logName ?? ''} timeout`);
   }
 }
 

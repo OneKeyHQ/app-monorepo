@@ -3,6 +3,7 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IEncodedTxSol,
@@ -93,7 +94,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.solGetAddress(connectId, deviceId, {
@@ -165,7 +166,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const transaction = parseToNativeTx(encodedTx);
 
     if (!transaction) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         appLocale.intl.formatMessage({
           id: ETranslations.feedback_failed_to_parse_transaction,
         }),
@@ -200,7 +201,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       };
     }
 
-    throw new Error(
+    throw new OneKeyPlainTextError(
       appLocale.intl.formatMessage({
         id: ETranslations.feedback_failed_to_sign_transaction,
       }),
@@ -262,7 +263,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
 
-          throw new Error('signMessage not supported on hardware');
+          throw new OneKeyPlainTextError('signMessage not supported on hardware');
         },
       ),
     );

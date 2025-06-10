@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,7 +35,7 @@ export function useBackupEntryStatus() {
             ? openUrlExternal('App-prefs:CASTLE')
             : undefined,
       });
-      throw new Error('cloud service is not available');
+      throw new OneKeyPlainTextError('cloud service is not available');
     }
     try {
       await backgroundApiProxy.serviceCloudBackup.loginIfNeeded(true);

@@ -3,6 +3,7 @@
 import UniversalProvider from '@walletconnect/universal-provider';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type {
   NamespaceConfig,
@@ -28,7 +29,7 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
     expiry?: number | undefined,
   ): Promise<unknown> {
     if (!wcChain) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'WalletConnectDappSideProvider.request ERROR: wcChain is required',
       );
     }

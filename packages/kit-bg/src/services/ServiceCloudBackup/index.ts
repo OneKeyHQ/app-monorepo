@@ -12,6 +12,7 @@ import {
   encryptAsync,
 } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { cloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   backgroundClass,
@@ -267,7 +268,7 @@ class ServiceCloudBackup extends ServiceBase {
     };
     const accountCount = accountCountWithBackup(cloudData.publicData);
     if (!isAvailableBackupWithBackup(cloudData.publicData)) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         appLocale.intl.formatMessage({
           id: ETranslations.backup_no_content_available_for_backup,
         }),
@@ -278,7 +279,7 @@ class ServiceCloudBackup extends ServiceBase {
       if (!RNFS) return;
       const localTempFilePath = this.getTempFilePath(filename);
       if (!localTempFilePath) {
-        throw new Error('Invalid local temp file path.');
+        throw new OneKeyPlainTextError('Invalid local temp file path.');
       }
       await RNFS.writeFile(
         localTempFilePath,

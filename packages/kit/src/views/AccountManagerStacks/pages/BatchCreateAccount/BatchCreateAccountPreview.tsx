@@ -785,7 +785,7 @@ function BatchCreateAccountPreviewPage({
               };
             }
             if (!normalParams && !advancedParams) {
-              throw new Error(
+              throw new OneKeyPlainTextError(
                 'startBatchCreateAccountsFlow params is undefined',
               );
             }

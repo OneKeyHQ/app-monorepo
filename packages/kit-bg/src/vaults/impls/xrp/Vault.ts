@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import { XRPL } from '@onekeyhq/core/src/chains/xrp/sdkXrp';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IDecodedTxExtraXrp,
   IEncodedTxXrp,
@@ -100,7 +101,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
     }
     const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();
@@ -357,10 +358,10 @@ export default class Vault extends VaultBase {
           returnRawData: true,
         });
       if (accountInfo.success === false) {
-        throw new Error(accountInfo.error);
+        throw new OneKeyPlainTextError(accountInfo.error);
       }
       if (accountInfo.result?.error || accountInfo.result?.error_message) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           accountInfo.result.error_message || accountInfo.result.error,
         );
       }

@@ -12,7 +12,7 @@ import type { ICurveName } from '../../../types';
 
 const secp256k1PubkeyToRawAddress = (pubkey: Uint8Array): Uint8Array => {
   if (pubkey.length !== 33) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `Invalid Secp256k1 pubkey length (compressed): ${pubkey.length}`,
     );
   }

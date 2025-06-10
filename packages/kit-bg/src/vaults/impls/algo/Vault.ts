@@ -6,6 +6,7 @@ import type {
   IEncodedTxGroupAlgo,
 } from '@onekeyhq/core/src/chains/algo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
@@ -169,12 +170,12 @@ export default class Vault extends VaultBase {
   }) {
     const { transferInfo, specifiedFeeRate } = params;
     if (!transferInfo.to) {
-      throw new Error('Invalid transferInfo.to params');
+      throw new OneKeyPlainTextError('Invalid transferInfo.to params');
     }
     const { from, to, amount, tokenInfo, note } = transferInfo;
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }

@@ -17,6 +17,7 @@ import { DateLocaleMap } from '../locale/dateLocaleMap';
 import { getDefaultLocale } from '../locale/getDefaultLocale';
 
 import type { Duration } from 'date-fns';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export const parseToDateFnsLocale = (localeSymbol: ILocaleSymbol) => {
   let locale = localeSymbol;
@@ -27,7 +28,7 @@ export const parseToDateFnsLocale = (localeSymbol: ILocaleSymbol) => {
 
   if (dateLocale) return dateLocale;
 
-  throw new Error(`Unhandled localeSymbol: ${localeSymbol}`);
+  throw new OneKeyPlainTextError(`Unhandled localeSymbol: ${localeSymbol}`);
 };
 
 export type IFormatDateOptions = {

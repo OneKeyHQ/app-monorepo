@@ -1,6 +1,7 @@
 import { uniqBy } from 'lodash';
 
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { EV4DecodedTxStatus } from '../../v4types';
@@ -168,7 +169,7 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
       };
     }
 
-    // throw new Error('test');
+    // throw new OneKeyPlainTextError('test');
     items = items
       .sort(
         (b, a) =>

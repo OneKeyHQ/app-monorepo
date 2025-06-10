@@ -56,7 +56,7 @@ function signature(
   const tx = { ...transaction };
 
   if (tx.TxnSignature || tx.Signers) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'txJSON must not contain "TxnSignature" or "Signers" properties',
     );
   }

@@ -17,6 +17,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
@@ -129,13 +130,13 @@ export default class VaultAptos extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || transfersInfo.length === 0 || !transfersInfo[0].to) {
-      throw new Error('Invalid transferInfo.to params');
+      throw new OneKeyPlainTextError('Invalid transferInfo.to params');
     }
     const transferInfo = transfersInfo[0];
     const { to, amount, tokenInfo } = transferInfo;
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'Invalid transferInfo.tokenInfo params, should not be empty',
       );
     }

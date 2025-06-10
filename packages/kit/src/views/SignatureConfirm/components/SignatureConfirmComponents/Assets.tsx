@@ -5,6 +5,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IYStackProps } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   Icon,
   SizableText,
@@ -289,7 +290,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       type="token"
       handleEdit={() => {
         if (isNil(token.info.decimals)) {
-          throw new Error('token decimals is required.');
+          throw new OneKeyPlainTextError('token decimals is required.');
         }
         if (isBuildingDecodedTxs) return;
         showApproveEditor({

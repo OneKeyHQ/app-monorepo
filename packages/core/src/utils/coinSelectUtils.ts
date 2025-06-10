@@ -8,6 +8,7 @@ import coinSelectWitness from '@onekeyfe/coinselect/witness';
 import { isNil } from 'lodash';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { EAddressEncodings } from '../types';
 
@@ -104,7 +105,7 @@ export const coinSelect = ({
     return typeof o.value === 'number' && !Number.isNaN(o.value);
   });
   if (!validAmount) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'coinSelect ERROR: Invalid amount in outputs, you should specify valid value or isMax',
     );
   }
@@ -138,7 +139,7 @@ export const coinSelect = ({
   );
 
   if (isNil(fee)) {
-    throw new Error('coinSelect ERROR: No fee found');
+    throw new OneKeyPlainTextError('coinSelect ERROR: No fee found');
   }
   return { inputs, outputs, fee };
 };
@@ -165,7 +166,7 @@ export const getCoinSelectTxType = (
     case EAddressEncodings.P2WSH:
       return 'p2wsh';
     default:
-      throw new Error('coinSelect ERROR: Invalid encoding');
+      throw new OneKeyPlainTextError('coinSelect ERROR: Invalid encoding');
   }
 };
 

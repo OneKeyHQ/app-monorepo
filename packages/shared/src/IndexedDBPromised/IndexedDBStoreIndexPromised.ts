@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 import { IndexedDBStoreCursorPromised } from './IndexedDBStoreCursorPromised';
 
@@ -109,7 +111,7 @@ export class IndexedDBStoreIndexPromised<
     query?: IndexKey<DBTypes, StoreName, IndexName> | IDBKeyRange | null,
     direction?: IDBCursorDirection,
   ): Promise<IDBPCursor<DBTypes, TxStores, StoreName, IndexName, Mode> | null> {
-    throw new Error('Method not implemented.');
+    throw new OneKeyPlainTextError('Method not implemented.');
   }
 
   iterate(
@@ -124,7 +126,7 @@ export class IndexedDBStoreIndexPromised<
       Mode
     >
   > {
-    throw new Error('Method not implemented.');
+    throw new OneKeyPlainTextError('Method not implemented.');
   }
 
   [Symbol.asyncIterator](): AsyncIterableIterator<
@@ -136,7 +138,7 @@ export class IndexedDBStoreIndexPromised<
       Mode
     >
   > {
-    throw new Error('Method not implemented.');
+    throw new OneKeyPlainTextError('Method not implemented.');
   }
 
   get keyPath(): string | string[] {

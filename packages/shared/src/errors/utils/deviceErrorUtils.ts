@@ -1,6 +1,8 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { isArray, isNil } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
 import {
@@ -214,7 +216,7 @@ export function convertDeviceError(
 
     // TODO not working as HardwareErrorCode is const but not enum
     // const exhaustiveCheck: never = code;
-    // throw new Error(
+    // throw new OneKeyPlainTextError(
     //   `Unhandled hardware error code case: ${exhaustiveCheck as any}`,
     // );
   }

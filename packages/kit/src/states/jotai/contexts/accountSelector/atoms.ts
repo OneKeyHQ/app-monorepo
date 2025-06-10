@@ -7,6 +7,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
@@ -207,7 +208,7 @@ export function useActiveAccount({ num }: { num: number }): {
 export function useAccountSelectorSceneInfo() {
   const { config } = useAccountSelectorContextData();
   if (!config) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'useAccountSelectorSceneInfo ERROR: context config not found',
     );
   }

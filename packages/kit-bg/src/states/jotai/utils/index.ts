@@ -2,6 +2,7 @@
 import { atom, useAtom } from 'jotai';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import {
   atomWithStorage,
@@ -232,7 +233,7 @@ export function globalAtomComputedAll<Value, Args extends unknown[], Result>({
       }),
     );
   }
-  throw new Error('write or read is missing');
+  throw new OneKeyPlainTextError('write or read is missing');
 }
 
 export function globalAtomComputedRW<Value, Args extends unknown[], Result>({

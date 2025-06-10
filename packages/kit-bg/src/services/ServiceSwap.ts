@@ -13,6 +13,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -313,7 +314,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('swap fetch token cancel', {
+        throw new OneKeyPlainTextError('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
       } else {
@@ -574,7 +575,7 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('swap fetch quote cancel', {
+        throw new OneKeyPlainTextError('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
       }
@@ -1012,7 +1013,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('swap check token approve allowance cancel', {
+        throw new OneKeyPlainTextError('swap check token approve allowance cancel', {
           cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
         });
       }

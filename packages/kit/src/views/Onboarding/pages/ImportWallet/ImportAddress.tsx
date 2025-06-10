@@ -22,6 +22,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
@@ -226,7 +227,7 @@ function ImportAddress() {
         });
       try {
         if (!networksResp.publicKeyExportEnabled.has(networkIdText)) {
-          throw new Error(`Network not supported: ${networkIdText}`);
+          throw new OneKeyPlainTextError(`Network not supported: ${networkIdText}`);
         }
         const result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(

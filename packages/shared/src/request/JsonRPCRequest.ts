@@ -2,6 +2,7 @@ import axios from 'axios';
 import timeoutSignal from 'timeout-signal';
 
 import type { IJsonRpcResponsePro } from '@onekeyhq/shared/types/request';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import {
   AxiosResponseError,
@@ -204,7 +205,7 @@ class JsonRPCRequest {
     );
 
     if (!Array.isArray(flattenedResults)) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'Invalid JSON Batch RPC response, response should be an array',
       );
     }

@@ -4,6 +4,7 @@ import { atom } from 'jotai';
 import { isEqual, isString, merge } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -234,13 +235,13 @@ export function atomWithStorage<Value>(
 class GlobalJotaiStorageReadyHandler {
   resolveReady: (value: boolean | PromiseLike<boolean>) => void = () => {
     // do nothing
-    throw new Error('this is not expected to be called');
+    throw new OneKeyPlainTextError('this is not expected to be called');
   };
 
   ready = new Promise<boolean>((resolve) => {
     this.resolveReady = resolve;
     if (this.resolveReady !== resolve) {
-      throw new Error('update resolveReady callback failed');
+      throw new OneKeyPlainTextError('update resolveReady callback failed');
     }
   });
 }

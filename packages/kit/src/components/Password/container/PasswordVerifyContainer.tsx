@@ -4,6 +4,7 @@ import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Spinner, Stack } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -202,7 +203,7 @@ const PasswordVerifyContainer = ({
             onVerifyRes('');
             resetPasswordErrorAttempts();
           } else {
-            throw new Error('biology auth verify error');
+            throw new OneKeyPlainTextError('biology auth verify error');
           }
         } else {
           let biologyAuthRes;
@@ -226,7 +227,7 @@ const PasswordVerifyContainer = ({
             onVerifyRes(biologyAuthRes);
             resetPasswordErrorAttempts();
           } else {
-            throw new Error('biology auth verify error');
+            throw new OneKeyPlainTextError('biology auth verify error');
           }
         }
       } catch (e: any) {

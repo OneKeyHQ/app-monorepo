@@ -52,7 +52,7 @@ export const checkIsUndefined = (something: any, orError?: IErrorType) => {
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
-    // `throw new Error()` won't print error object in iOS/Android,
+    // `throw new OneKeyPlainTextError()` won't print error object in iOS/Android,
     //    so we print it manually by `console.error()`
     console.error(msg, ...args);
   }

@@ -50,7 +50,7 @@ export function verifyEvmSignedTxMatched({
   const address = signerAddress.toLowerCase();
 
   if (address !== recoveredAddress || !address || !recoveredAddress) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `EVM Signer address not match: ${address}, ${recoveredAddress}`,
     );
   }

@@ -338,7 +338,7 @@ function readVarintNum(buffer: Buffer): { position: number; length: number } {
         if (n <= 2 ** 53) {
           length = n;
         } else {
-          throw new Error(
+          throw new OneKeyPlainTextError(
             'number too large to retain precision - use readVarintBN',
           );
         }

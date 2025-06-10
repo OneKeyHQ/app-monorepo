@@ -1,6 +1,7 @@
 import { cloneDeep, isString } from 'lodash';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -47,7 +48,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T> {
-    // throw new Error(
+    // throw new OneKeyPlainTextError(
     //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     // );
     if (!isString(bucketName)) {

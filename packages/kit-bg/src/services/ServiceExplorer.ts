@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IBuildExplorerUrlParams } from '@onekeyhq/shared/types/explorer';
 
 import ServiceBase from './ServiceBase';
@@ -53,7 +54,7 @@ class ServiceExplorer extends ServiceBase {
         networkId,
       });
     if (!isCustomNetwork) {
-      throw new Error('Only custom network is supported');
+      throw new OneKeyPlainTextError('Only custom network is supported');
     }
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,

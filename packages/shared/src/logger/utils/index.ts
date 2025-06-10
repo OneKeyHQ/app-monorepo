@@ -2,6 +2,7 @@ import appGlobals from '../../appGlobals';
 import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {
@@ -13,7 +14,7 @@ const consoleFunc = (msg: string) => {
 };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getLogFilePath = async (filename: string) => {
-  throw new Error('Not implemented');
+  throw new OneKeyPlainTextError('Not implemented');
 };
 
 const getDeviceInfo = () =>

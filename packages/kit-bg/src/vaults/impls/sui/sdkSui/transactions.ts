@@ -2,7 +2,10 @@ import { Transaction } from '@mysten/sui/transactions';
 import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 import BigNumber from 'bignumber.js';
 
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -54,7 +57,7 @@ async function getAllCoinsByCoinType({
       retries += 1;
       console.error(`Failed to fetch coins, retry attempt: ${retries}`, error);
       if (retries >= maxRetries) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'Failed to fetch coins, maximum retry attempts reached',
         );
       }

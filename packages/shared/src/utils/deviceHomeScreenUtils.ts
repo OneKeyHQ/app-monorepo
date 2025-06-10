@@ -60,7 +60,7 @@ function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {
 
 // const toig = (imageData: ImageData, deviceModelInternal: IDeviceType) => {
 //   if (!deviceModelInformation[deviceModelInternal]) {
-//     throw new Error(
+//     throw new OneKeyPlainTextError(
 //       `imageToCanvas ERROR: Device model not supported: ${deviceModelInternal}`,
 //     );
 //   }

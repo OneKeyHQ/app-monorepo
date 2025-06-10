@@ -3,6 +3,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { EAlphTxType } from '@onekeyhq/core/src/chains/alph/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   backgroundClass,
   permissionRequired,
@@ -86,7 +87,7 @@ class ProviderApiAlph extends ProviderApiBase {
         throw web3Errors.rpc.methodNotSupported();
       }
       if (params.addressGroup !== undefined && params.addressGroup !== 0) {
-        throw new Error('Only address group 0 is supported');
+        throw new OneKeyPlainTextError('Only address group 0 is supported');
       }
     }
   }

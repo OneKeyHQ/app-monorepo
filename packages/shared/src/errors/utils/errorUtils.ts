@@ -190,6 +190,7 @@ function isErrorByClassName({
 
 function getCurrentCallStackV1() {
   try {
+    // eslint-disable-next-line no-restricted-syntax
     throw new Error();
   } catch (e) {
     autoPrintErrorIgnore(e);

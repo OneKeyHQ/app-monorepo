@@ -3,6 +3,7 @@ import {
   encodeAddress,
 } from '@onekeyhq/core/src/chains/bch/sdkBch';
 import { validateBtcAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 import VaultBtc from '../btc/Vault';
@@ -49,7 +50,7 @@ export default class Vault extends VaultBtc {
       );
 
       if (!bchAddress) {
-        throw new Error('Invalid BCH address');
+        throw new OneKeyPlainTextError('Invalid BCH address');
       }
 
       const result = {

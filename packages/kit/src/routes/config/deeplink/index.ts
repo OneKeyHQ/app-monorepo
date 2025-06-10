@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IEOneKeyDeepLinkParams } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
@@ -179,7 +180,7 @@ async function processDeepLinkWalletConnect({
       // V1
       if (queryParams?.bridge && queryParams?.key) {
         // wcUri = url;
-        throw new Error('WalletConnect V1 is not supported');
+        throw new OneKeyPlainTextError('WalletConnect V1 is not supported');
       }
       // V2
       // eslint-disable-next-line spellcheck/spell-checker

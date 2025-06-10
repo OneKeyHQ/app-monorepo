@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import { EOutputsTypeForCoinSelect } from '@onekeyhq/core/src/chains/btc/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IEncodedTxDnx,
   IUnspentOutput,
@@ -121,11 +122,11 @@ export default class Vault extends VaultBase {
     const { tokenInfo } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
     }
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }

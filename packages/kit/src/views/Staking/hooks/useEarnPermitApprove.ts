@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -90,7 +91,7 @@ export function useEarnPermitApprove() {
         );
       } else if (token.symbol === 'DAI') {
         if (!permit2Data.message.expiry) {
-          throw new Error('Expiry is required for DAI');
+          throw new OneKeyPlainTextError('Expiry is required for DAI');
         }
         permitBundlerAction = BundlerAction.permitDai(
           permit2Data.message.nonce,
@@ -101,7 +102,7 @@ export function useEarnPermitApprove() {
           false,
         );
       } else {
-        throw new Error('Unsupported token');
+        throw new OneKeyPlainTextError('Unsupported token');
       }
 
       return permitBundlerAction;

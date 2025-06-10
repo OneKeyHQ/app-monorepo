@@ -1,4 +1,5 @@
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -66,7 +67,7 @@ export class V4MigrationForAddressBook extends V4MigrationManagerBase {
             v5items.push(v5item);
             return v5item;
           }
-          throw new Error(
+          throw new OneKeyPlainTextError(
             `network not support: ${v4addressBookItem.networkId}`,
           );
         },

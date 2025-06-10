@@ -27,7 +27,7 @@ Object.keys(coreChainApi).forEach((key) => {
       throw new OneKeyPlainTextError(`CoreChainScope must have impl: ${key}`);
     }
     if (scope.impl !== key && scope.impl !== IMPL_CKB) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `CoreChainApiHub key must be the same as impl: ${scope.impl}, ${key}`,
       );
     }

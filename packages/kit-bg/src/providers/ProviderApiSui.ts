@@ -3,6 +3,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type IVaultSui from '@onekeyhq/kit-bg/src/vaults/impls/sui/Vault';
 import {
   backgroundClass,
@@ -174,7 +175,7 @@ class ProviderApiSui extends ProviderApiBase {
 
     const tx = await vault.waitPendingTransaction(result.txid, params.options);
 
-    if (!tx) throw new Error('Transaction not found');
+    if (!tx) throw new OneKeyPlainTextError('Transaction not found');
 
     return Promise.resolve(tx);
   }
@@ -268,7 +269,7 @@ class ProviderApiSui extends ProviderApiBase {
       dAppAccount?.address &&
       address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
     ) {
-      throw new Error('Sender address mismatch');
+      throw new OneKeyPlainTextError('Sender address mismatch');
     }
 
     const encodedTx: IEncodedTxSui = {
@@ -307,7 +308,7 @@ class ProviderApiSui extends ProviderApiBase {
       dAppAccount?.address &&
       address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
     ) {
-      throw new Error('Sender address mismatch');
+      throw new OneKeyPlainTextError('Sender address mismatch');
     }
 
     const encodedTx: IEncodedTxSui = {
@@ -331,7 +332,7 @@ class ProviderApiSui extends ProviderApiBase {
       showRawEffects: true,
     });
 
-    if (!tx) throw new Error('Transaction not found');
+    if (!tx) throw new OneKeyPlainTextError('Transaction not found');
 
     return Promise.resolve(tx);
   }

@@ -34,7 +34,7 @@ const SENSITIVE_ENCODE_TYPE: 'xor' | 'aes' = 'aes';
 
 function ensureEncodeKeyExists(key: string) {
   if (!key) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'encodeKey is not set, please call setBgSensitiveTextEncodeKey() from webembed',
     );
   }
@@ -335,7 +335,7 @@ async function encryptStringAsync({
 
 function checkKeyPassedOnExtUi(key?: string) {
   if (platformEnv.isExtensionUi && !key) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Please get and pass key by:  await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
     );
   }
@@ -445,7 +445,7 @@ async function encodeSensitiveTextAsync({
 
 function getBgSensitiveTextEncodeKey() {
   if (platformEnv.isExtensionUi) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Not allow to call ()getBgSensitiveTextEncodeKey from extension ui',
     );
   }
@@ -454,12 +454,12 @@ function getBgSensitiveTextEncodeKey() {
 
 function setBgSensitiveTextEncodeKey(key: string) {
   if (platformEnv.isExtensionUi) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Not allow to call setBgSensitiveTextEncodeKey() from extension ui',
     );
   }
   if (!platformEnv.isWebEmbed) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Only allow to call setBgSensitiveTextEncodeKey() from webembed',
     );
   }

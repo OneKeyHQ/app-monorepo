@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import {
   AccountSelectorJotaiProvider,
@@ -38,7 +39,7 @@ export function AccountSelectorProviderMirror({
   availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
 }) {
   if (!enabledNum || enabledNum.length <= 0) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'AccountSelectorProviderMirror ERROR: enabledNum is required',
     );
   }

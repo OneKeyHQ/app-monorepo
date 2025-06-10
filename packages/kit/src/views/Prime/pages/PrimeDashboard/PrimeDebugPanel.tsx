@@ -9,6 +9,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
@@ -27,7 +28,7 @@ function CloudSyncDebugTest() {
           const syncCredential =
             await backgroundApiProxy.servicePrimeCloudSync.getSyncCredentialSafe();
           if (!syncCredential) {
-            throw new Error('No sync credential');
+            throw new OneKeyPlainTextError('No sync credential');
           }
           const result =
             await backgroundApiProxy.servicePrimeCloudSync.initLocalSyncItemsDB(

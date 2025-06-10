@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   Button,
   Dialog,
@@ -44,7 +45,7 @@ export function V4MigrationGetStarted({
       Toast.message({
         title: 'V4Migration Not supported in web dapp mode',
       });
-      throw new Error('V4Migration Not supported in web dapp mode');
+      throw new OneKeyPlainTextError('V4Migration Not supported in web dapp mode');
     }
     const startMigration = async () => {
       try {

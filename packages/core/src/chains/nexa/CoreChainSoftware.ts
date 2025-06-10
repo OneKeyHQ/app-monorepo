@@ -83,7 +83,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     if (!account.address) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'nexa signTransaction ERROR: account.address is required',
       );
     }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Button } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { Page, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -184,7 +185,7 @@ const ProtocolDetailsPage = () => {
       // if (claimTokenAddress) {
       //   const rewardToken = result.rewardAssets?.[claimTokenAddress];
       //   if (!rewardToken) {
-      //     throw new Error('Reward token not found');
+      //     throw new OneKeyPlainTextError('Reward token not found');
       //   }
       //   claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
       // }

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
 import { Dialog, Input, Toast } from '@onekeyhq/components';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -12,7 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 function useBrowserOptionsAction() {
   const handleShareUrl = useCallback((url: string) => {
     if (!url) {
-      throw new Error('url is required');
+      throw new OneKeyPlainTextError('url is required');
     }
     setTimeout(() => {
       void Share.share(

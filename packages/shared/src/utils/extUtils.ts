@@ -1,6 +1,7 @@
 import { isNil } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
@@ -231,7 +232,7 @@ async function openSidePanel(
           },
         });
       } else {
-        throw new Error('The sidePanel cannot be opened in the bg thread.');
+        throw new OneKeyPlainTextError('The sidePanel cannot be opened in the bg thread.');
       }
       return;
     }

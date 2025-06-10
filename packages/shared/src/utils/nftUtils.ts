@@ -14,6 +14,7 @@ import type {
   IDeviceType,
 } from '@onekeyfe/hd-core';
 import type { Action } from 'expo-image-manipulator';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export function getFilteredNftsBySearchKey({
   nfts,
@@ -182,7 +183,7 @@ export async function generateUploadNFTParams({
   const base64 = await imageUtils.getBase64FromImageUri({ uri: imageUri });
 
   if (!base64) {
-    throw new Error(`Failed to get base64 from image uri: ${imageUri}`);
+    throw new OneKeyPlainTextError(`Failed to get base64 from image uri: ${imageUri}`);
   }
 
   const data = await compressNFT(base64, 480, 800, width, height, false);
