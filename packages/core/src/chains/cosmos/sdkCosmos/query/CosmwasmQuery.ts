@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import type {
   ICosmosCw20AssetInfo,
   ICosmosCw20TokenBalance,
@@ -8,7 +10,6 @@ import type {
   IQuery,
 } from './IQuery';
 import type { AxiosInstance } from 'axios';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 interface ICosmosCw20TokenInfoResponse {
   'name': string;

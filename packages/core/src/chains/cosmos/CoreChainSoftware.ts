@@ -1,6 +1,9 @@
 import { sha256 } from '@noble/hashes/sha256';
 
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -31,7 +34,6 @@ import {
 } from './sdkCosmos';
 
 import type { IEncodedTxCosmos } from './types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 

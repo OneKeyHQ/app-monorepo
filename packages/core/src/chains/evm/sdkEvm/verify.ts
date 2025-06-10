@@ -1,5 +1,6 @@
-import { ethers } from './ethers';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
+import { ethers } from './ethers';
 
 export type IVerifyEvmSignedTxMatchedParams = {
   signerAddress: string;
@@ -19,7 +20,9 @@ export function verifyEvmSignedTxMatched({
 }: IVerifyEvmSignedTxMatchedParams) {
   const txidFromRawTx = ethers.utils.keccak256(rawTx);
   if (txid !== txidFromRawTx || !txid || !txidFromRawTx) {
-    throw new OneKeyPlainTextError(`EVM txid not match: ${txid}, ${txidFromRawTx}`);
+    throw new OneKeyPlainTextError(
+      `EVM txid not match: ${txid}, ${txidFromRawTx}`,
+    );
   }
 
   const ethersTx = ethers.utils.parseTransaction(rawTx);

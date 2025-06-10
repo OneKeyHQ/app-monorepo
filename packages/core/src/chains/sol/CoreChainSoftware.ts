@@ -1,6 +1,7 @@
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import {
@@ -31,7 +32,6 @@ import { parseToNativeTx } from './sdkSol/parse';
 
 import type { IEncodedTxSol, INativeTxSol } from './types';
 import type { ISigner } from '../../base/ChainSigner';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'ed25519';
 

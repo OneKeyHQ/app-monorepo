@@ -2,7 +2,10 @@ import { keccak256 } from '@ethersproject/keccak256';
 import TronWeb from 'tronweb';
 
 import { decryptAsync, uncompressPublicKey } from '@onekeyhq/core/src/secret';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -24,7 +27,6 @@ import { ECoreApiExportedSecretKeyType } from '../../types';
 
 import type { IEncodedTxTron } from './types';
 import type { ISigner } from '../../base/ChainSigner';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 

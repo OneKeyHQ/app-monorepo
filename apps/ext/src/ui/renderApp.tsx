@@ -6,11 +6,11 @@ import 'setimmediate';
 import { createRoot } from 'react-dom/client';
 
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import App from '../App';
 

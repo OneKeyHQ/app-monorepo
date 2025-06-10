@@ -11,10 +11,11 @@ import { dialog, ipcMain, shell } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { ipcMessageKeys } from '../config';
 
 import type { BrowserWindow } from 'electron';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const finished = promisify(stream.finished);
 
@@ -365,7 +366,9 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
             )
           ) {
             logger.error('mas permission denied');
-            throw new OneKeyPlainTextError(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
+            throw new OneKeyPlainTextError(
+              ERRORS.MAS_DISK_PATH_PERMISSION_DENIED,
+            );
           }
         }
 

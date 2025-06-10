@@ -7,6 +7,7 @@ import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -15,7 +16,6 @@ import {
   type EShortcutEvents,
   shortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';

@@ -4,7 +4,10 @@ import * as necc from '@noble/secp256k1';
 import { Transaction, crypto } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
 
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -20,7 +23,6 @@ import type {
 } from './types';
 import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
 import type { Script } from '@onekeyfe/kaspa-core-lib';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export enum SignatureType {
   SIGHASH_ALL = 0x01,

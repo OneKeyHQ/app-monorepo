@@ -3,9 +3,10 @@ import { Buffer } from 'buffer';
 
 import BN from 'bn.js';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { decodeAddress } from './address';
 import { getBufferFromBN } from './bn';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export enum ENexaOpcode {
   OP_FALSE = 0,

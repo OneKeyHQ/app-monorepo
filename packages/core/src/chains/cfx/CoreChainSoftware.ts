@@ -6,6 +6,7 @@ import {
   secp256k1,
   uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -30,7 +31,6 @@ import {
 
 import { pubkeyToCfxAddress, signTransactionWithSigner } from './sdkCfx';
 import { conflux } from './sdkCfx/conflux';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 

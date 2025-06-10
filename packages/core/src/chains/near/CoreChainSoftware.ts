@@ -4,7 +4,10 @@ import sha256 from 'js-sha256';
 import { isString } from 'lodash';
 import { transactions, utils } from 'near-api-js';
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -28,7 +31,6 @@ import {
 import type { IEncodedTxNear, INativeTxNear } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
   SignedTransaction,
   Transaction,
 } from 'near-api-js/lib/transaction';

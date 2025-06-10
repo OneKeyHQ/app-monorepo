@@ -2,10 +2,11 @@ import { utils } from '@ckb-lumos/base';
 import { getConfig as getSDKConfig } from '@ckb-lumos/config-manager';
 import { generateAddress } from '@ckb-lumos/helpers';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import type { Script } from '@ckb-lumos/base';
 import type { Config } from '@ckb-lumos/config-manager';
 import type { Options } from '@ckb-lumos/helpers';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function blake160(publicKey: string): string {
   return new utils.CKBHasher().update(publicKey).digestHex().slice(0, 42);

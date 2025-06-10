@@ -1,10 +1,10 @@
 import { isEqual, isEqualWith } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import type { Psbt } from 'bitcoinjs-lib';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export function verifyBtcSignedPsbtMatched({
   unsignedPsbt,

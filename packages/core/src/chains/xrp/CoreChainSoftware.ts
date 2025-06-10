@@ -2,7 +2,10 @@ import BigNumber from 'bignumber.js';
 import { sign } from 'ripple-keypairs';
 import { deriveAddress, encode, encodeForSigning, hashes } from 'xrpl';
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -24,7 +27,6 @@ import {
 
 import type { IEncodedTxXrp } from './types';
 import type { Transaction } from 'xrpl';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 

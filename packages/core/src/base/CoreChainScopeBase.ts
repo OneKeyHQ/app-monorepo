@@ -47,7 +47,9 @@ export abstract class CoreChainScopeBase {
           async (...args: any[]) => {
             const method = prop;
             if (!isString(method)) {
-              throw new OneKeyPlainTextError('FlowLogger api method must be string');
+              throw new OneKeyPlainTextError(
+                'FlowLogger api method must be string',
+              );
             }
             let apiInstance = this.apiProxyCache[apiName];
             if (!apiInstance) {

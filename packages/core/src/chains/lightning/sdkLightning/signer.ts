@@ -1,7 +1,8 @@
 import elliptic from 'elliptic';
 
-import type { BNInput, SignatureInput } from 'elliptic';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
+import type { BNInput, SignatureInput } from 'elliptic';
 
 // eslint-disable-next-line new-cap
 const ec = new elliptic.ec('secp256k1');

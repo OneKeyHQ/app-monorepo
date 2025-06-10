@@ -1,10 +1,11 @@
 import { Transaction, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { parseToNativeTx } from './parse';
 
 import type { Message, PublicKey } from '@solana/web3.js';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function getFeePayerFromVersionedTransaction(
   versionedTx: VersionedTransaction,

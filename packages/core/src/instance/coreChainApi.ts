@@ -5,10 +5,10 @@ import {
   IMPL_CKB,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { CoreChainApiHub } from '../base/CoreChainApiHub';
 import { CoreChainScopeBase } from '../base/CoreChainScopeBase';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const coreChainApi = new CoreChainApiHub();
 

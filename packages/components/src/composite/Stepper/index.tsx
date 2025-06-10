@@ -3,6 +3,8 @@ import { Children, createContext, useContext, useMemo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { Badge } from '../../content';
 import {
   Icon,
@@ -14,8 +16,6 @@ import {
 } from '../../primitives';
 
 import type { IStackStyle } from '../../primitives';
-
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export enum EStepItemStatus {
   Done = 'done',
@@ -103,7 +103,9 @@ const StepperContext = createContext<IStepperContextProps | undefined>(
 export function useStepperContext() {
   const context = useContext(StepperContext);
   if (!context) {
-    throw new OneKeyPlainTextError('useStepperContext must be used within a StepProvider');
+    throw new OneKeyPlainTextError(
+      'useStepperContext must be used within a StepProvider',
+    );
   }
   return context;
 }

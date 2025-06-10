@@ -2,10 +2,11 @@
 import BigNumber from 'bignumber.js';
 import elliptic from 'elliptic';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { parse256 } from '../bip32';
 
 import type { IBaseCurve, ICurveForKD } from './base';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 type IEllipticBasePoint = elliptic.curve.base.BasePoint;
 

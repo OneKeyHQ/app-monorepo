@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 
-import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -16,7 +19,6 @@ import {
 } from '../crypto-functions';
 
 import { xorDecrypt, xorEncrypt } from './xor';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
@@ -65,7 +67,9 @@ async function decodePasswordAsync({
   // decode password if it is encoded
   if (isEncodedSensitiveText(password)) {
     if (platformEnv.isExtensionUi) {
-      throw new OneKeyPlainTextError('decodePassword can NOT be called from UI');
+      throw new OneKeyPlainTextError(
+        'decodePassword can NOT be called from UI',
+      );
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveTextAsync({
@@ -84,7 +88,9 @@ async function decodePasswordAsync({
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
     );
-    throw new OneKeyPlainTextError('Passing raw password is not allowed and not safe.');
+    throw new OneKeyPlainTextError(
+      'Passing raw password is not allowed and not safe.',
+    );
   }
   return password;
 }

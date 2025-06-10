@@ -1,4 +1,7 @@
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -20,7 +23,6 @@ import {
 import { getUtxoAccountPrefixPath } from '../../utils';
 
 import { getDisplayAddress, signEncodedTx } from './sdkNexa';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 const firstAddressRelPath = '0/0';

@@ -1,6 +1,8 @@
+import { merge } from 'lodash';
+
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { merge } from 'lodash';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { decryptAsync, encryptAsync } from '../../secret';
@@ -39,7 +41,6 @@ import { EAdaNetworkId } from './types';
 import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
 import type { IAdaUTXO, IEncodedTxAda } from './types';
 import type { ISigner } from '../../base/ChainSigner';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'ed25519';
 

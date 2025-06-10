@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { merge } from 'lodash';
 
 import { sha256 as _sha256 } from '@noble/hashes/sha256';
 import {
@@ -10,6 +9,7 @@ import {
 } from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
+import { merge } from 'lodash';
 import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -589,11 +589,15 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       // TODO generate address from privateKey, and check if matched with utxo address
       const addressFromPrivateKey = address;
       if (addressFromPrivateKey !== address) {
-        throw new OneKeyPlainTextError('addressFromPrivateKey and utxoAddress not matched');
+        throw new OneKeyPlainTextError(
+          'addressFromPrivateKey and utxoAddress not matched',
+        );
       }
 
       if (!privateKey) {
-        throw new OneKeyPlainTextError(`privateKey not found: ${address} ${fullPath}`);
+        throw new OneKeyPlainTextError(
+          `privateKey not found: ${address} ${fullPath}`,
+        );
       }
 
       ret[fullPath] = privateKey;

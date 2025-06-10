@@ -11,7 +11,10 @@ import {
 import { sha3_256 } from 'js-sha3';
 
 import { decryptAsync, ed25519 } from '@onekeyhq/core/src/secret';
-import { OneKeyInternalError, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 

@@ -5,6 +5,8 @@ import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { get } from 'lodash';
 import Long from 'long';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { defaultAminoDecodeRegistry } from '../amino/aminoDecode';
 import { defaultAminoMsgOpts } from '../amino/types';
 import { ECosmosMessageType } from '../message';
@@ -15,7 +17,6 @@ import type { ICosmosStdFee } from '../../types';
 import type { ICosmosStdPublickey, ICosmosStdSignDoc } from '../amino/types';
 import type { ICosmosUnpackedMessage } from '../proto/protoDecode';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export function getDirectSignDoc(tx: TransactionWrapper): ProtoSignDoc {
   if (tx.mode === 'amino') {

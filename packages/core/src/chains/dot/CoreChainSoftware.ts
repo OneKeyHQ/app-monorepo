@@ -5,6 +5,7 @@ import { merge } from 'lodash';
 import {
   Expect24WordsMnemonicError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -37,7 +38,6 @@ import { serializeMessage, serializeSignedTransaction } from './sdkDot';
 import { DOT_TYPE_PREFIX } from './types';
 
 import type { IEncodedTxDot } from './types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'ed25519';
 

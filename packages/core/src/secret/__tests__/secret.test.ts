@@ -5,6 +5,7 @@ import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   IncorrectPassword,
   InvalidMnemonic,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -41,7 +42,6 @@ import {
 import type { ICoreImportedCredential, ICurveName } from '../../types';
 import type { IBip32ExtendedKey } from '../bip32';
 import type { IBip39RevealableSeed } from '../bip39';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 /*
 yarn test packages/core/src/secret/__tests__/secret.test.ts

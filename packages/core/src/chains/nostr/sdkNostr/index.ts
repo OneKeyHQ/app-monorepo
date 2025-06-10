@@ -5,12 +5,12 @@ import { sha256 } from '@noble/hashes/sha256';
 import * as secp256k1 from '@noble/secp256k1';
 import { bech32 } from 'bech32';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { aesCbcDecrypt, aesCbcEncrypt } from '../../../secret/crypto-functions';
 
 import type { INostrEvent } from '../types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export function validateEvent(event: INostrEvent): boolean {
   if (!(event instanceof Object)) return false;
@@ -33,7 +33,9 @@ export function validateEvent(event: INostrEvent): boolean {
 
 export function serializeEvent(event: INostrEvent): string {
   if (!validateEvent(event))
-    throw new OneKeyPlainTextError("can't serialize event with wrong or missing properties");
+    throw new OneKeyPlainTextError(
+      "can't serialize event with wrong or missing properties",
+    );
 
   // https://github.com/nostr-protocol/nips/blob/master/01.md
   return JSON.stringify([

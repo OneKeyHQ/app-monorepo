@@ -1,5 +1,7 @@
 import { Script } from '@onekeyfe/kaspa-core-lib';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { BASE_KAS_TO_P2SH_ADDRESS } from '../constant';
 import { EKaspaSignType } from '../publickey';
 import { SignatureType } from '../transaction';
@@ -9,7 +11,6 @@ import type { IEncodedTxKaspa } from '../../types';
 import type { IKaspaTransaction } from '../types';
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 import type { IScriptPublicKey, ITransactionInput } from '@onekeyfe/kaspa-wasm';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const getKaspaApi = async () => {
   const Loader = await import('@onekeyfe/kaspa-wasm');

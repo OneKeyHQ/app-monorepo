@@ -5,6 +5,7 @@ import blake from 'blakejs';
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -30,7 +31,6 @@ import {
 import { EFilProtocolIndicator, type IEncodedTxFil } from './types';
 
 import type { ISigner } from '../../base/ChainSigner';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 

@@ -1,4 +1,7 @@
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -34,7 +37,6 @@ import sdk from './sdkKaspa/sdk';
 
 import type { IEncodedTxKaspa } from './types';
 import type { PrivateKey } from '@onekeyfe/kaspa-core-lib';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 

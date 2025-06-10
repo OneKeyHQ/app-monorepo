@@ -1,14 +1,16 @@
 import { BigNumber } from 'bignumber.js';
 
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
-import { LowerTransactionAmountError } from '@onekeyhq/shared/src/errors';
+import {
+  LowerTransactionAmountError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 
 import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
 
 import type { RestAPIClient } from './clientRestApi';
 import type { IKaspaUTXOResponse, IKaspaUnspentOutputInfo } from './types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 type ISortKey = 'daaScore' | 'satoshis';
 

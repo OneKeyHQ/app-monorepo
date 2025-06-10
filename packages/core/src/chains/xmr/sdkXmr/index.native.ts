@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
-import type { IMoneroApi } from './types';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
+import type { IMoneroApi } from './types';
 
 // auto check webembedApi ready by calling each method
 const ensureSDKReady = async () => Promise.resolve(true);

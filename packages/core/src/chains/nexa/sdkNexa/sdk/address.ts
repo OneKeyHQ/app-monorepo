@@ -1,5 +1,6 @@
 /* eslint-disable no-bitwise */
 import bigInt from 'big-integer';
+
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export enum ENexaAddressType {
@@ -35,7 +36,9 @@ function getType(versionByte: number) {
     case 11 << 3:
       return 'GROUP';
     default:
-      throw new OneKeyPlainTextError(`Invalid address type in version byte: ${versionByte}.`);
+      throw new OneKeyPlainTextError(
+        `Invalid address type in version byte: ${versionByte}.`,
+      );
   }
 }
 
