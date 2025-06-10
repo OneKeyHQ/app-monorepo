@@ -1,4 +1,5 @@
 import { BFC_TYPE_ARG } from '@benfen/bfc.js/utils';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
@@ -51,6 +52,12 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 120,
   customRpcEnabled: true,
   gasLimitValidationEnabled: true,
+
+  supportedDeviceTypes: [
+    EDeviceType.Pro,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+  ],
 
   accountDeriveInfo,
   networkInfo: {

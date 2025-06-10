@@ -65,7 +65,7 @@ import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { useLazyMarketTradeActions } from './tradeHook';
 import { useSortType } from './useSortType';
-import { useWatchListAction } from './wachListHooks';
+import { useWatchListAction } from './watchListHooks';
 
 const lineColorMap = {
   light: ['rgba(0, 113, 63)', 'rgba(196, 0, 6)'],

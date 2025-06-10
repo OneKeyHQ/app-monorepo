@@ -79,9 +79,11 @@ function DeviceDetailsModalCmp() {
       void refreshData();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
     appEventBus.on(EAppEventBusNames.FinishFirmwareUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+      appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
       appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
     };
   }, [refreshData]);
@@ -101,7 +103,8 @@ function DeviceDetailsModalCmp() {
     });
   }, [result?.device, navigation]);
 
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const { showFirmwareVerifyDialog, isLoading: isFirmwareVerifyDialogLoading } =
+    useFirmwareVerifyDialog();
   const onPressAuthRequest = useCallback(async () => {
     if (!result?.device) {
       return;
@@ -266,6 +269,7 @@ function DeviceDetailsModalCmp() {
                 data={result}
                 onPressHomescreen={onPressHomescreen}
                 onPressAuthRequest={onPressAuthRequest}
+                authRequestLoading={isFirmwareVerifyDialogLoading}
                 onPressCheckForUpdates={onPressCheckForUpdates}
                 onPressTroubleshooting={onPressTroubleshooting}
               />

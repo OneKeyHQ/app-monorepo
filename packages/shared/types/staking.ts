@@ -179,6 +179,12 @@ export type IStakeHistory = {
   amount?: string;
   timestamp: number;
   tokenAddress: string;
+  networkId: string;
+  token?: {
+    price?: string;
+    price24h?: string;
+    info?: IToken;
+  };
   direction: 'receive' | 'send';
 };
 
@@ -186,12 +192,22 @@ export type IStakeHistoriesResponse = {
   filter: Record<string, string>;
   list: IStakeHistory[];
   tokenMap: Record<string, IToken>;
+  tokens: {
+    price?: string;
+    price24h?: string;
+    info?: IToken;
+  }[];
   nextKey?: string;
   network?: {
     networkId: string;
     name: string;
     logoURI: string;
   };
+  networks: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  }[];
 };
 
 export enum EStakeTxType {
@@ -366,7 +382,8 @@ interface IRewards {
 
 export interface IEarnIcon {
   icon: IKeyOfIcons;
-  color: ColorTokens;
+  color?: ColorTokens;
+  size?: string;
 }
 
 export interface IEarnPopupActionIcon {
@@ -445,11 +462,16 @@ export type IEarnTooltip =
   | IEarnRebateTooltip
   | IEarnWithdrawTooltip;
 
+export enum EClaimType {
+  Claim = 'claim',
+  ClaimOrder = 'claimOrder',
+}
+
 export interface IEarnClaimActionIcon {
-  type: 'claim';
+  type: EClaimType;
   text: string | IEarnText;
   disabled: boolean;
-  data: {
+  data?: {
     balance: string;
     token: IEarnToken;
   };
@@ -513,8 +535,13 @@ export interface IEarnWithdrawAction {
   };
 }
 
+export enum EWithdrawType {
+  Withdraw = 'withdraw',
+  WithdrawOrder = 'withdrawOrder',
+}
+
 export interface IEarnWithdrawActionIcon {
-  type: 'withdraw';
+  type: EWithdrawType;
   disabled: boolean;
   text: IEarnText;
   data: {
@@ -524,7 +551,7 @@ export interface IEarnWithdrawActionIcon {
 }
 
 export interface IEarnWithdrawOrderActionIcon {
-  type: 'withdrawOrder';
+  type: EWithdrawType;
   disabled: boolean;
   text: IEarnText;
   data: {

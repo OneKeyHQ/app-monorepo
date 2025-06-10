@@ -183,6 +183,7 @@ class ServiceAllNetwork extends ServiceBase {
       networkAccount = await this.backgroundApi.serviceAccount.getAccount({
         accountId,
         networkId,
+        indexedAccountId,
       });
     } catch (error) {
       console.log('getAccount error', error);

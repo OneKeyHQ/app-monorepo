@@ -5,7 +5,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EApproveType } from '@onekeyhq/shared/types/staking';
+import { EApproveType, EWithdrawType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
@@ -15,6 +15,7 @@ export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
   return useCallback(
     async ({
+      withdrawType,
       tokenInfo,
       protocolInfo,
       accountId,
@@ -23,6 +24,7 @@ export const useHandleWithdraw = () => {
       provider,
       onSuccess,
     }: {
+      withdrawType: EWithdrawType;
       protocolInfo?: IProtocolInfo;
       tokenInfo?: IEarnTokenInfo;
       accountId?: string;
@@ -41,7 +43,10 @@ export const useHandleWithdraw = () => {
       if (!stakingConfig) {
         throw new Error('Staking config not found');
       }
-      if (stakingConfig.withdrawWithTx) {
+      if (
+        withdrawType === EWithdrawType.WithdrawOrder ||
+        stakingConfig.withdrawWithTx
+      ) {
         appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
           accountId,
           networkId,

@@ -14,6 +14,7 @@ export interface ISwapConfigs {
   recentTokenPairs?: { fromToken: ISwapToken; toToken: ISwapToken }[];
   swapProviderManager?: ISwapProviderManager[];
   bridgeProviderManager?: ISwapProviderManager[];
+  swapUserCloseTips?: string[];
 }
 
 export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> {
@@ -117,6 +118,21 @@ export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> 
     await this.setRawData({
       ...data,
       bridgeProviderManager: providerManager,
+    });
+  }
+
+  @backgroundMethod()
+  async getSwapUserCloseTips() {
+    const data = await this.getRawData();
+    return data?.swapUserCloseTips ?? [];
+  }
+
+  @backgroundMethod()
+  async setSwapUserCloseTips(tipsId: string) {
+    const data = await this.getRawData();
+    await this.setRawData({
+      ...data,
+      swapUserCloseTips: [...(data?.swapUserCloseTips ?? []), tipsId],
     });
   }
 }

@@ -23,6 +23,7 @@ module.exports = [
   'ack',
   'aclose',
   'ada',
+  'nums',
   'addr',
   'Addr',
   'addr1',
@@ -934,4 +935,5 @@ module.exports = [
   "ttf'",
   "xmr'",
   "xrp'",
+  'sidepanel',
 ];

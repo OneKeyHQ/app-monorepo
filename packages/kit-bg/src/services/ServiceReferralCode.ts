@@ -8,6 +8,7 @@ import type {
   IEarnWalletHistory,
   IHardwareSalesRecord,
   IInviteHistory,
+  IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -36,6 +37,15 @@ class ServiceReferralCode extends ServiceBase {
       );
     }
     return summary.data.data;
+  }
+
+  @backgroundMethod()
+  async getInvitePaidList() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInvitePaidHistory;
+    }>('/rebate/v1/invite/paid');
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -141,12 +151,9 @@ class ServiceReferralCode extends ServiceBase {
   async getEarnReward(cursor?: string, available?: boolean) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
-      subject: string;
       cursor?: string;
       status?: string;
-    } = {
-      subject: 'Earn',
-    };
+    } = {};
     if (cursor) {
       params.cursor = cursor;
     }
@@ -155,7 +162,7 @@ class ServiceReferralCode extends ServiceBase {
     }
     const response = await client.get<{
       data: IEarnRewardResponse;
-    }>('/rebate/v1/invite/records', { params });
+    }>('/rebate/v1/invite/earn-records', { params });
     return response.data.data;
   }
 
@@ -206,6 +213,11 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async resetPostConfig() {
+    await this.backgroundApi.simpleDb.referralCode.resetPostConfig();
+  }
+
+  @backgroundMethod()
   async reset() {
     await this.backgroundApi.simpleDb.referralCode.reset();
   }
@@ -225,7 +237,7 @@ class ServiceReferralCode extends ServiceBase {
   async getPostConfig() {
     const postConfig =
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
-    if (postConfig) {
+    if (postConfig?.locales) {
       setTimeout(() => {
         void this.fetchPostConfig();
       });

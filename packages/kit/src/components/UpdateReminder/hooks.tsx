@@ -20,6 +20,7 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   downloadASC as NativeDownloadASC,
   downloadPackage as NativeDownloadPackage,
@@ -34,6 +35,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
@@ -296,6 +298,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       params?: {
         latestVersion?: string;
         isForceUpdate?: boolean;
+        summary?: string;
       },
     ) => {
       dialog.show({
@@ -306,7 +309,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             borderCurve="continuous"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
-            elevation={0.5}
+            elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
             overflow="hidden"
           >
             <LottieView
@@ -324,17 +327,24 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         title: intl.formatMessage({
           id: ETranslations.update_notification_dialog_title,
         }),
-        description: intl.formatMessage({
-          id: ETranslations.update_notification_dialog_desc,
-        }),
+        description:
+          params?.summary ||
+          intl.formatMessage({
+            id: ETranslations.update_notification_dialog_desc,
+          }),
         onConfirmText: intl.formatMessage({
           id: ETranslations.update_update_now,
         }),
         showCancelButton: false,
+        onHeaderCloseButtonPress: () => {
+          console.log('onHeaderCloseButtonPress');
+          defaultLogger.app.component.closedInUpdateDialog();
+        },
         onConfirm: () => {
           setTimeout(() => {
             toUpdatePreviewPage(isFull, params);
           }, 120);
+          defaultLogger.app.component.confirmedInUpdateDialog();
         },
       });
     },
@@ -361,7 +371,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           if (needUpdate) {
             if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
@@ -371,10 +381,13 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {
-              showUpdateDialog(false, response);
+              isFirstLaunch = false;
+              await whenAppUnlocked();
+              setTimeout(() => {
+                showUpdateDialog(false, response);
+              }, 200);
             }
           }
-          isFirstLaunch = false;
         },
       );
     }

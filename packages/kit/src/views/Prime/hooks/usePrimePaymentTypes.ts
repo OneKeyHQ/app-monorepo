@@ -11,8 +11,11 @@ export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 
 export type IPackage = {
   subscriptionPeriod: ISubscriptionPeriod;
+  pricePerMonth: number;
   pricePerMonthString: string;
+  pricePerYear: number;
   pricePerYearString: string;
+  priceTotalPerYearString: string;
 };
 
 export type IRevenueCatCustomerInfoWeb = CustomerInfoWeb;
@@ -25,6 +28,7 @@ export type IUsePrimePayment = {
   >;
   getPackagesNative: (() => Promise<IPackage[]>) | undefined;
   getPackagesWeb: (() => Promise<IPackage[]>) | undefined;
+  restorePurchases: (() => Promise<void>) | undefined;
   purchasePackageNative:
     | (({
         subscriptionPeriod,
@@ -38,7 +42,7 @@ export type IUsePrimePayment = {
         email,
         locale,
       }: {
-        subscriptionPeriod: string;
+        subscriptionPeriod: ISubscriptionPeriod;
         email: string;
         locale?: string;
       }) => Promise<PurchaseResult>)

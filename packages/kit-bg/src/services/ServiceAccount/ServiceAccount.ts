@@ -1711,6 +1711,11 @@ class ServiceAccount extends ServiceBase {
     return this.getAccountNameFromAddressMemo({ networkId, address });
   }
 
+  @backgroundMethod()
+  async clearAccountNameFromAddressCache() {
+    this.getAccountNameFromAddressMemo.clear();
+  }
+
   getAccountNameFromAddressMemo = memoizee(
     async ({ networkId, address }: { networkId: string; address: string }) => {
       const vault = await vaultFactory.getChainOnlyVault({
@@ -1780,10 +1785,12 @@ class ServiceAccount extends ServiceBase {
     dbAccount,
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }): Promise<INetworkAccount> {
     checkIsDefined(accountId);
     checkIsDefined(networkId);
@@ -1812,12 +1819,13 @@ class ServiceAccount extends ServiceBase {
           networkId: checkIsDefined(realNetworkId),
         });
       }
-      const indexedAccountId =
+      const newIndexedAccountId =
+        indexedAccountId ||
         accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
           accountId,
         });
       const allNetworkAccount = await this.getMockedAllNetworkAccount({
-        indexedAccountId,
+        indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
         throw new Error(
@@ -2448,7 +2456,12 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async createHWWalletBase(params: IDBCreateHwWalletParams) {
-    const { features, passphraseState, fillingXfpByCallingSdk } = params;
+    const {
+      features,
+      passphraseState,
+      fillingXfpByCallingSdk,
+      isMockedStandardHwWallet,
+    } = params;
     if (!features) {
       throw new Error('createHWWalletBase ERROR: features is required');
     }
@@ -2466,7 +2479,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     let xfp: string | undefined;
-    if (fillingXfpByCallingSdk) {
+    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
         connectId,
         deviceId,
@@ -2479,8 +2492,11 @@ class ServiceAccount extends ServiceBase {
       ...params,
       xfp,
       passphraseState: passphraseState || '',
-      getFirstEvmAddressFn: async () => {
-        const r =
+      getFirstEvmAddressFn: async (): Promise<string | null> => {
+        if (isMockedStandardHwWallet) {
+          return '';
+        }
+        const r: string | null =
           await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
             {
               connectId,
@@ -2802,18 +2818,24 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async removeWallet({
     walletId,
     skipBackupWalletRemove,
+    isRemoveToMocked,
   }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
     if (!walletId) {
       throw new Error('walletId is required');
+    }
+    if (accountUtils.isOthersWallet({ walletId })) {
+      throw new Error('Remove non-hd and non-hw wallet is not allowed');
     }
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
     });
     const result = await localDb.removeWallet({
       walletId,
+      isRemoveToMocked,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({

@@ -27,7 +27,7 @@ export const initSentry = () => {
     return;
   }
   Sentry.init({
-    dsn: 'https://fc0d87f5a1ef85df3a6621206fec0357@o4508208799809536.ingest.de.sentry.io/4508320051036240',
+    dsn: process.env.SENTRY_DSN_WEB || '',
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
         appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
@@ -43,7 +43,13 @@ export const initSentry = () => {
       },
     }),
     ...buildSentryOptions(Sentry),
-    integrations: buildIntegrations(Sentry),
+    integrations: [
+      ...buildIntegrations(Sentry),
+      // https://github.com/getsentry/sentry-javascript/issues/3040
+      Sentry.browserApiErrorsIntegration({
+        eventTarget: false,
+      }),
+    ],
   });
 };
 

@@ -150,6 +150,8 @@ export interface IAppEventBusPayload {
     deriveType?: string | IAccountDeriveTypes;
     error?: IOneKeyError;
   };
+  [EAppEventBusNames.SDKGetAllNetworkAddressesStart]: undefined;
+  [EAppEventBusNames.SDKGetAllNetworkAddressesEnd]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;
@@ -271,6 +273,13 @@ export interface IAppEventBusPayload {
     index: number;
     tabId: string;
   };
+  [EAppEventBusNames.HardwareFeaturesUpdate]: {
+    deviceId: string;
+  };
+  [EAppEventBusNames.UnlockApp]: {
+    jobId: string;
+  };
+  [EAppEventBusNames.AddressBookUpdate]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

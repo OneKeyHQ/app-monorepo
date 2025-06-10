@@ -14,7 +14,6 @@ import {
   Dialog,
   Divider,
   Icon,
-  IconButton,
   Image,
   Page,
   Popover,
@@ -24,7 +23,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
@@ -33,7 +31,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -66,8 +64,12 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import { EarnText } from '../ProtocolDetails/EarnText';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import { StakingAmountInput } from '../StakingAmountInput';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
@@ -379,11 +381,11 @@ export function UniversalStake({
     debouncedFetchTransactionConfirmation,
   ]);
 
-  const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
-    providerName,
-    eventEndTime: protocolInfo?.eventEndTime,
-    // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
-  });
+  // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
+  //   providerName,
+  //   eventEndTime: protocolInfo?.eventEndTime,
+  //   // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
+  // });
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -414,7 +416,7 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
@@ -440,6 +442,8 @@ export function UniversalStake({
     },
     [decimals, debouncedFetchEstimateFeeResp, checkAmount],
   );
+
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
   const onMax = useCallback(() => {
     const balanceBN = new BigNumber(balance);
@@ -576,7 +580,7 @@ export function UniversalStake({
       onConfirm?.({ amount: amountValue, ...permitSignatureParams });
 
     // Wait for the dialog confirmation if it's shown
-    await showFalconEventEndedDialog();
+    // await showFalconEventEndedDialog();
 
     if (estimateFeeResp) {
       const daySpent =
@@ -603,7 +607,6 @@ export function UniversalStake({
   }, [
     usePermit2Approve,
     approveType,
-    showFalconEventEndedDialog,
     estimateFeeResp,
     shouldApprove,
     onConfirm,
@@ -854,7 +857,7 @@ export function UniversalStake({
       items.push(
         <CalculationListItem>
           <CalculationListItem.Label
-            size="$bodyMd"
+            size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
               transactionConfirmation.receive.tooltip.type === 'text'
@@ -865,12 +868,10 @@ export function UniversalStake({
             {transactionConfirmation.receive.title.text}
           </CalculationListItem.Label>
           <CalculationListItem.Value>
-            <FormatHyperlinkText
+            <EarnText
+              text={transactionConfirmation.receive.description}
               size="$bodyMdMedium"
-              color={transactionConfirmation.receive.description.color}
-            >
-              {transactionConfirmation.receive.description.text}
-            </FormatHyperlinkText>
+            />
           </CalculationListItem.Value>
         </CalculationListItem>,
       );
@@ -951,6 +952,7 @@ export function UniversalStake({
           hasError={isInsufficientBalance || isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
@@ -1033,12 +1035,11 @@ export function UniversalStake({
       >
         {protocolInfo?.apyDetail ? (
           <XStack gap="$1" ai="center">
-            <SizableText
-              color={protocolInfo.apyDetail.description.color || '$textSuccess'}
+            <EarnText
+              text={protocolInfo.apyDetail.description}
               size="$headingLg"
-            >
-              {protocolInfo.apyDetail.description.text}
-            </SizableText>
+              color="$textSuccess"
+            />
             <EarnActionIcon
               title={protocolInfo.apyDetail.title.text}
               actionIcon={protocolInfo.apyDetail.button}
@@ -1046,30 +1047,26 @@ export function UniversalStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <SizableText
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
             size="$bodyMd"
-            color={transactionConfirmation?.title.color || '$textSubdued'}
-          >
-            {transactionConfirmation?.title.text || ' '}
-          </SizableText>
+            boldTextProps={{
+              size: '$bodyMdMedium',
+            }}
+          />
           {transactionConfirmation?.rewards.map((reward) => {
             const hasTooltip = reward.tooltip?.type === 'text';
             const textSize = hasTooltip ? '$bodyMd' : '$bodyLgMedium';
             return (
               <XStack key={reward.title.text} gap="$1" ai="center" mt="$1.5">
                 <XStack gap="$1">
-                  <FormatHyperlinkText
+                  <EarnText text={reward.title} />
+                  <EarnText
+                    text={reward.description}
                     size={textSize}
-                    color={reward.title.color}
-                  >
-                    {reward.title.text}
-                  </FormatHyperlinkText>
-                  <FormatHyperlinkText
-                    size={textSize}
-                    color={reward.description.color || '$textSubdued'}
-                  >
-                    {reward.description.text}
-                  </FormatHyperlinkText>
+                    color="$textSubdued"
+                  />
                 </XStack>
                 {hasTooltip ? (
                   <Popover.Tooltip

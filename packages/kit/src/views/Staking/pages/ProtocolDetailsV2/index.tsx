@@ -8,7 +8,6 @@ import {
   Badge,
   Button,
   Divider,
-  Icon,
   Image,
   Page,
   XStack,
@@ -32,8 +31,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EWithdrawType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnTokenInfo,
+  IEarnWithdrawActionIcon,
+  IEarnWithdrawOrderActionIcon,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -44,6 +46,7 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnIcon } from '../../components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
@@ -148,7 +151,7 @@ function SubscriptionSection({
         <EarnText
           text={{
             text: `${subscriptionValue.formattedValue || 0} ${
-              subscriptionValue.token.info.symbol
+              subscriptionValue?.token?.info?.symbol
             }`,
           }}
           size="$bodyLgMedium"
@@ -408,10 +411,10 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                       bg="$bgCaution"
                       borderRadius="$1"
                     >
-                      <Icon
-                        name={item.icon.icon}
+                      <EarnIcon
+                        icon={item.icon}
                         size="$4"
-                        color={item.icon.color || '$iconCaution'}
+                        color="$iconCaution"
                       />
                     </XStack>
                     <EarnText text={item.title} size="$bodyMdMedium" />
@@ -432,11 +435,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                 <YStack gap="$1">
                   {item.list.map((i, indexOfList) => (
                     <XStack key={indexOfList} gap="$1">
-                      <Icon
-                        name={i.icon.icon}
-                        size="$4"
-                        color={i.icon.color || '$iconCaution'}
-                      />
+                      <EarnIcon icon={i.icon} size="$4" color="$iconCaution" />
                       <EarnText
                         text={i.title}
                         size="$bodySm"
@@ -475,7 +474,11 @@ const ProtocolDetailsPage = () => {
       }),
     [accountId, indexedAccountId, networkId],
   );
-  const { result, isLoading, run } = usePromiseResult(
+  const {
+    result: detailInfo,
+    isLoading,
+    run,
+  } = usePromiseResult(
     async () => {
       const response =
         await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
@@ -486,29 +489,16 @@ const ProtocolDetailsPage = () => {
           provider,
           vault,
         });
-
-      const tokens = response?.subscriptionValue?.token.info.address
-        ? await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-            networkId,
-            contractList: [response.subscriptionValue.token.info.address],
-          })
-        : undefined;
-      return {
-        detailInfo: response,
-        nativeToken: tokens?.[0],
-      };
+      return response;
     },
     [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
 
-  const { detailInfo, nativeToken } = result || {};
-
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     return detailInfo?.subscriptionValue?.token &&
       detailInfo?.subscriptionValue?.balance
       ? {
-          nativeToken,
           balanceParsed: detailInfo.subscriptionValue.balance,
           token: detailInfo.subscriptionValue.token.info,
           price: detailInfo.subscriptionValue.token.price,
@@ -521,7 +511,6 @@ const ProtocolDetailsPage = () => {
   }, [
     detailInfo?.subscriptionValue?.token,
     detailInfo?.subscriptionValue.balance,
-    nativeToken,
     networkId,
     provider,
     vault,
@@ -570,7 +559,7 @@ const ProtocolDetailsPage = () => {
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     const withdrawAction = detailInfo?.actions.find(
       (i) => i.type === 'withdraw',
-    );
+    ) as IEarnWithdrawActionIcon;
     return detailInfo?.protocol
       ? {
           ...detailInfo.protocol,
@@ -633,29 +622,33 @@ const ProtocolDetailsPage = () => {
     indexedAccountId,
   ]);
 
-  const onWithdraw = useCallback(async () => {
-    await handleWithdraw({
-      protocolInfo,
-      tokenInfo,
-      accountId: earnAccount?.accountId,
+  const onWithdraw = useCallback(
+    async (withdrawType: EWithdrawType) => {
+      await handleWithdraw({
+        withdrawType,
+        protocolInfo,
+        tokenInfo,
+        accountId: earnAccount?.accountId,
+        networkId,
+        symbol,
+        provider,
+        onSuccess: async () => {
+          // if (networkUtils.isBTCNetwork(networkId)) {
+          //   await run();
+          // }
+        },
+      });
+    },
+    [
+      earnAccount?.accountId,
+      handleWithdraw,
       networkId,
-      symbol,
+      protocolInfo,
       provider,
-      onSuccess: async () => {
-        // if (networkUtils.isBTCNetwork(networkId)) {
-        //   await run();
-        // }
-      },
-    });
-  }, [
-    earnAccount?.accountId,
-    handleWithdraw,
-    networkId,
-    protocolInfo,
-    provider,
-    symbol,
-    tokenInfo,
-  ]);
+      symbol,
+      tokenInfo,
+    ],
+  );
 
   const historyAction = useMemo(() => {
     return detailInfo?.actions.find((i) => i.type === 'history');
@@ -716,15 +709,18 @@ const ProtocolDetailsPage = () => {
   }, [detailInfo?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
 
   const withdrawButtonProps = useMemo(() => {
-    const item = detailInfo?.actions?.find(
-      (i) => i.type === 'withdraw' || i.type === 'withdrawOrder',
-    );
+    const item: IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon =
+      detailInfo?.actions?.find(
+        (i) =>
+          i.type === EWithdrawType.Withdraw ||
+          i.type === EWithdrawType.WithdrawOrder,
+      ) as IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon;
     return {
       text: item?.text.text,
       props: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         display: item ? undefined : 'none',
-        onPress: onWithdraw,
+        onPress: () => onWithdraw(item?.type || EWithdrawType.Withdraw),
       } as IButtonProps,
     };
   }, [earnAccount?.accountAddress, onWithdraw, detailInfo?.actions]);

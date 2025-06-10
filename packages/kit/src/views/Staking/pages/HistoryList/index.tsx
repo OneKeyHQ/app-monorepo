@@ -26,7 +26,10 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IStakeHistory } from '@onekeyhq/shared/types/staking';
+import type {
+  IStakeHistoriesResponse,
+  IStakeHistory,
+} from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -41,37 +44,69 @@ import { capitalizeString } from '../../utils/utils';
 type IHistoryItemProps = {
   item: IStakeHistory;
   network?: { networkId: string; name: string; logoURI: string };
+  networks?: IStakeHistoriesResponse['networks'];
   token?: IToken;
   provider?: string;
+  tokenMap?: IStakeHistoriesResponse['tokenMap'];
 };
 
-const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => {
+const HistoryItem = ({
+  item,
+  provider,
+  token,
+  network,
+  networks,
+  tokenMap,
+}: IHistoryItemProps) => {
   const navigation = useAppNavigation();
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.HistoryList
   >();
-  const { accountId, networkId } = route.params;
+  const { accountId } = route.params;
+  const logoURI = useMemo(() => {
+    if (token?.logoURI) {
+      return token.logoURI;
+    }
+    if (networks?.length) {
+      return networks.find((o) => o.networkId === item.networkId)?.logoURI;
+    }
+    if (tokenMap && item.type === 'stake') {
+      const uri = tokenMap[item.tokenAddress]?.logoURI;
+      if (uri) {
+        return uri;
+      }
+    }
+    return network?.logoURI;
+  }, [
+    item.type,
+    item.tokenAddress,
+    item.networkId,
+    token?.logoURI,
+    networks,
+    network?.logoURI,
+    tokenMap,
+  ]);
   const onPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
-      networkId,
+      networkId: item.networkId,
       accountId,
       transactionHash: item.txHash,
       historyTx: undefined,
       isAllNetworks: false,
     });
-  }, [accountId, networkId, item, navigation]);
+  }, [accountId, item, navigation]);
   return (
     <ListItem
       avatarProps={{
-        src: token?.logoURI,
+        src: logoURI,
       }}
       title={item.title}
       subtitle={provider ? capitalizeString(provider) : undefined}
       onPress={onPress}
     >
       <YStack>
-        {item.amount && Number(item.amount) > 0 ? (
+        {item.amount !== undefined ? (
           <NumberSizeableText
             size="$bodyLgMedium"
             formatter="balance"
@@ -81,7 +116,7 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => {
               showPlusMinusSigns: true,
             }}
           >
-            {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
+            {`${item.direction === 'send' ? '-' : ''}${item.amount}`}
           </NumberSizeableText>
         ) : null}
       </YStack>
@@ -101,7 +136,8 @@ type IHistoryContentProps = {
   filterType?: string;
   onFilterTypeChange: (type: string) => void;
   network?: { networkId: string; name: string; logoURI: string };
-  tokenMap: Record<string, IToken>;
+  networks?: IStakeHistoriesResponse['networks'];
+  tokenMap?: IStakeHistoriesResponse['tokenMap'];
   provider?: string;
 };
 
@@ -113,10 +149,11 @@ const keyExtractor = (item: unknown) => {
 const HistoryContent = ({
   sections,
   network,
-  tokenMap,
   provider,
   filter,
   filterType,
+  networks,
+  tokenMap,
   onFilterTypeChange,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
@@ -124,11 +161,13 @@ const HistoryContent = ({
       <HistoryItem
         item={item}
         network={network}
-        token={tokenMap[item.tokenAddress]}
+        token={item.token?.info}
+        tokenMap={tokenMap}
         provider={provider}
+        networks={networks}
       />
     ),
-    [network, tokenMap, provider],
+    [network, networks, provider, tokenMap],
   );
 
   const renderSectionHeader = useCallback(
@@ -235,14 +274,25 @@ function HistoryList() {
       const listMap = groupBy(historyResp.list, (item) =>
         formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
       );
-      const sections = Object.entries(listMap)
-        .map(([title, data]) => ({ title, data }))
+      const sections: {
+        title: string;
+        data: IStakeHistory[];
+      }[] = Object.entries(listMap)
+        .map(([title, data]) => ({
+          title,
+          data: data.map((i) => ({
+            ...i,
+            token: historyResp.tokens.find(
+              (token) =>
+                token?.info?.address === i.tokenAddress &&
+                token?.info?.networkId === i.networkId,
+            ),
+          })),
+        }))
         .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
 
-      const tokenMap = { ...historyResp.tokenMap };
-
       // local history items
-      if (stakeTag) {
+      if (filterType !== 'rebate' && stakeTag) {
         // refresh account history
         await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -254,16 +304,6 @@ function HistoryList() {
             networkId,
             stakeTag,
           });
-        localItems.forEach((o) => {
-          if (o.stakingInfo.receive) {
-            const receive = o.stakingInfo.receive;
-            tokenMap[receive.token.address] = receive.token;
-          }
-          if (o.stakingInfo.send) {
-            const send = o.stakingInfo.send;
-            tokenMap[send.token.address] = send.token;
-          }
-        });
         const localNormalizedItems = localItems.map<IStakeHistory>((o) => {
           const action = o.stakingInfo.send ?? o.stakingInfo.receive;
           return {
@@ -272,21 +312,42 @@ function HistoryList() {
             title: labelFn(o.stakingInfo.label),
             direction: o.stakingInfo.send ? 'send' : 'receive',
             amount: action?.amount,
+            networkId: o.stakingInfo?.receive?.token?.networkId ?? '',
+            token: historyResp.tokens.find(
+              (i) =>
+                i?.info?.address === o.stakingInfo?.receive?.token?.address &&
+                i?.info?.networkId === o.stakingInfo?.receive?.token?.networkId,
+            ),
             tokenAddress: action?.token.address ?? '',
           };
         });
         if (localNormalizedItems.length > 0) {
-          sections.unshift({
-            title: intl.formatMessage({ id: ETranslations.global_pending }),
-            data: localNormalizedItems,
-            isPending: true,
-          } as IHistorySectionItem);
+          let direction = '';
+          if (filterType === 'stake') {
+            direction = 'send';
+          } else if (filterType === 'withdraw') {
+            direction = 'receive';
+          }
+          const pendingItems =
+            filterType === 'all'
+              ? localNormalizedItems
+              : localNormalizedItems.filter(
+                  (item) => item.direction === direction,
+                );
+          if (pendingItems.length > 0) {
+            sections.unshift({
+              title: intl.formatMessage({ id: ETranslations.global_pending }),
+              data: localNormalizedItems,
+              isPending: true,
+            } as IHistorySectionItem);
+          }
         }
       }
       return {
         network: historyResp.network,
+        networks: historyResp.networks,
+        tokenMap: historyResp.tokenMap,
         sections,
-        tokenMap,
         filter: historyResp.filter || {},
       };
     },
@@ -320,6 +381,7 @@ function HistoryList() {
             <HistoryContent
               sections={result.sections}
               network={result.network}
+              networks={result.networks}
               tokenMap={result.tokenMap}
               filter={result.filter}
               provider={provider}

@@ -138,10 +138,20 @@ export function WebViewWebEmbed({
   // Handle messages from WebView - only works in native environments
   const handleMessage = useCallback((event?: WebViewMessageEvent) => {
     if (event?.nativeEvent.data) {
-      const data = JSON.parse(event.nativeEvent.data) as {
-        type: string;
-        data: any;
-      };
+      let data:
+        | {
+            type: string;
+            data: any;
+          }
+        | undefined;
+      try {
+        data = JSON.parse(event.nativeEvent.data);
+      } catch (error) {
+        console.error(error);
+      }
+      if (!data) {
+        return;
+      }
       switch (data.type) {
         case EWebEmbedPostMessageType.TrackEvent:
           {
@@ -196,7 +206,7 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
-        useGeckoView={platformEnv.isNativeAndroid}
+        useGeckoView={false}
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
