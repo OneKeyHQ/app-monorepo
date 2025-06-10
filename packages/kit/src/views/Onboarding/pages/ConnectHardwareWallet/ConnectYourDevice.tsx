@@ -99,6 +99,7 @@ import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 // Helper function to convert transport type enum to analytics string
 type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';

@@ -73,6 +73,7 @@ import { showBatchCreateAccountPreviewPageNumberDialog } from './PreviewPageNumb
 import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function DeriveTypeTrigger({ onPress }: ISelectRenderTriggerProps) {
   return (

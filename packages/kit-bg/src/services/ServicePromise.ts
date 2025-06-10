@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 

@@ -343,7 +343,7 @@ export default class ServicePassword extends ServiceBase {
       if (catchPassword) {
         await this.saveBiologyAuthPassword(catchPassword);
       } else {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyErrors.OneKeyPlainTextError(
           'no catch password please unlock the application again or modify the password.',
         );
       }
@@ -507,11 +507,11 @@ export default class ServicePassword extends ServiceBase {
     ensureSensitiveTextEncoded(newPassword);
 
     if (!oldPassword) {
-      throw new OneKeyPlainTextError('oldPassword is required');
+      throw new OneKeyErrors.OneKeyPlainTextError('oldPassword is required');
     }
 
     if (!newPassword) {
-      throw new OneKeyPlainTextError('newPassword is required');
+      throw new OneKeyErrors.OneKeyPlainTextError('newPassword is required');
     }
 
     await this.validatePassword({

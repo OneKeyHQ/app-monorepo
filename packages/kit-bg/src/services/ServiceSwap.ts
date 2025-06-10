@@ -314,7 +314,8 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new OneKeyPlainTextError('swap fetch token cancel', {
+        // eslint-disable-next-line no-restricted-syntax
+        throw new Error('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
       } else {
@@ -575,7 +576,8 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new OneKeyPlainTextError('swap fetch quote cancel', {
+        // eslint-disable-next-line no-restricted-syntax
+        throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
       }
@@ -1013,7 +1015,8 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new OneKeyPlainTextError('swap check token approve allowance cancel', {
+        // eslint-disable-next-line no-restricted-syntax
+        throw new Error('swap check token approve allowance cancel', {
           cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
         });
       }
