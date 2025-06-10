@@ -5,7 +5,6 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import { hash160 } from '@onekeyhq/core/src/secret/hash';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressItem,
   IAddressNetworkItem,
@@ -15,6 +14,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -129,7 +129,9 @@ class ServiceAddressBook extends ServiceBase {
         return true;
       }
       if (!password) {
-        throw new OneKeyPlainTextError('addressBook verifyHash ERROR: password is required');
+        throw new OneKeyPlainTextError(
+          'addressBook verifyHash ERROR: password is required',
+        );
       }
 
       const { items } =
@@ -233,7 +235,9 @@ class ServiceAddressBook extends ServiceBase {
         password,
       });
       if (verifyResult) {
-        throw new OneKeyPlainTextError('failed to reset items when verify result is ok');
+        throw new OneKeyPlainTextError(
+          'failed to reset items when verify result is ok',
+        );
       }
       await this.setItems({
         items: [],
@@ -429,7 +433,9 @@ class ServiceAddressBook extends ServiceBase {
           skipEventEmit: options.skipEventEmit,
         });
       } else {
-        throw new OneKeyPlainTextError(`Failed to find item with id = ${obj.id || ''}`);
+        throw new OneKeyPlainTextError(
+          `Failed to find item with id = ${obj.id || ''}`,
+        );
       }
     });
   }

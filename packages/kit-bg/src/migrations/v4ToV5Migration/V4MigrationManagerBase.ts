@@ -1,8 +1,8 @@
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -35,7 +35,9 @@ export class V4MigrationManagerBase {
     const impl = networkUtils.getNetworkImpl({ networkId });
     const coreApi = getCoreChainApiScopeByImpl({ impl });
     if (!coreApi) {
-      throw new OneKeyPlainTextError(`No coreApi found for networkId ${networkId}`);
+      throw new OneKeyPlainTextError(
+        `No coreApi found for networkId ${networkId}`,
+      );
     }
     return coreApi;
   }

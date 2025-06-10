@@ -1,5 +1,5 @@
-import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import type {
   CustomerInfo,

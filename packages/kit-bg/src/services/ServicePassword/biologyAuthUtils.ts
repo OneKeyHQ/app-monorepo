@@ -4,8 +4,8 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';

@@ -1,8 +1,9 @@
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import appGlobals from '../../appGlobals';
 import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {

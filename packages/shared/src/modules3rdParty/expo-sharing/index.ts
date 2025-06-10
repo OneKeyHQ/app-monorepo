@@ -1,5 +1,6 @@
-import type { SharingOptions } from 'expo-sharing';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
+import type { SharingOptions } from 'expo-sharing';
 
 const mock = {
   shareAsync: async (url: string, _options: SharingOptions = {}) => {

@@ -1,7 +1,7 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { jotaiInitFromUi } from './jotaiInitFromUi';

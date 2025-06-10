@@ -5,7 +5,6 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IYStackProps } from '@onekeyhq/components';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   Icon,
   SizableText,
@@ -21,6 +20,7 @@ import {
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {

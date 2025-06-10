@@ -1,5 +1,5 @@
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IWalletAddedEventParams,
   IWalletStartedParams,

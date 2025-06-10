@@ -2,8 +2,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IBuildExplorerUrlParams } from '@onekeyhq/shared/types/explorer';
 
 import ServiceBase from './ServiceBase';

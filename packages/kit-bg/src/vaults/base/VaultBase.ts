@@ -138,7 +138,9 @@ export type IKeyringMapKey = IDBWalletType;
 
 if (platformEnv.isExtensionUi) {
   debugger;
-  throw new OneKeyPlainTextError('engine/VaultBase is not allowed imported from ui');
+  throw new OneKeyPlainTextError(
+    'engine/VaultBase is not allowed imported from ui',
+  );
 }
 
 export abstract class VaultBaseChainOnly extends VaultContext {
@@ -1175,7 +1177,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       (!address && !addressDetail.allowEmptyAddress) ||
       !addressDetail.isValid
     ) {
-      throw new OneKeyPlainTextError('VaultBase.getAccount ERROR: address is invalid');
+      throw new OneKeyPlainTextError(
+        'VaultBase.getAccount ERROR: address is invalid',
+      );
     }
 
     return {

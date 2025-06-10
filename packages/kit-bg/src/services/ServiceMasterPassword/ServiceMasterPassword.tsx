@@ -396,7 +396,9 @@ class ServiceMasterPassword extends ServiceBase {
     }
     const primeUserId = serverUserInfo?.userId;
     if (!primeUserId) {
-      throw new OneKeyPlainTextError('FetchPrimeUserInfo ERROR: No primeUserId');
+      throw new OneKeyPlainTextError(
+        'FetchPrimeUserInfo ERROR: No primeUserId',
+      );
     }
 
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
@@ -451,7 +453,9 @@ class ServiceMasterPassword extends ServiceBase {
         }
 
         if (!masterPasswordUUID) {
-          throw new OneKeyPlainTextError('SetupMasterPassword ERROR: No master password UUID');
+          throw new OneKeyPlainTextError(
+            'SetupMasterPassword ERROR: No master password UUID',
+          );
         }
 
         // const securityPasswordR1 = await this.buildSecurityPassword({
@@ -520,7 +524,9 @@ class ServiceMasterPassword extends ServiceBase {
           !encryptedSecurityPasswordR1 ||
           !encryptedSecurityPasswordR1ForServer
         ) {
-          throw new OneKeyPlainTextError('SetupMasterPassword ERROR: No master password');
+          throw new OneKeyPlainTextError(
+            'SetupMasterPassword ERROR: No master password',
+          );
         }
 
         // login should match to server password UUID
@@ -576,7 +582,9 @@ class ServiceMasterPassword extends ServiceBase {
     }
     const primeUserId = serverUserInfo?.userId;
     if (!primeUserId) {
-      throw new OneKeyPlainTextError('FetchPrimeUserInfo ERROR: No primeUserId');
+      throw new OneKeyPlainTextError(
+        'FetchPrimeUserInfo ERROR: No primeUserId',
+      );
     }
 
     const serverPasswordUUID = serverUserInfo?.pwdHash;
@@ -644,10 +652,14 @@ class ServiceMasterPassword extends ServiceBase {
       );
     }
     if (!accountSalt) {
-      throw new OneKeyPlainTextError('verifyServerMasterPassword ERROR: No salt');
+      throw new OneKeyPlainTextError(
+        'verifyServerMasterPassword ERROR: No salt',
+      );
     }
     if (!primeUserId) {
-      throw new OneKeyPlainTextError('verifyServerMasterPassword ERROR: No primeUserId');
+      throw new OneKeyPlainTextError(
+        'verifyServerMasterPassword ERROR: No primeUserId',
+      );
     }
 
     const rawMasterPassword =
@@ -728,7 +740,9 @@ class ServiceMasterPassword extends ServiceBase {
           },
         );
       if (!localItem) {
-        throw new OneKeyPlainTextError('verifyMasterPassword ERROR: No local item');
+        throw new OneKeyPlainTextError(
+          'verifyMasterPassword ERROR: No local item',
+        );
       }
 
       const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
@@ -760,7 +774,9 @@ class ServiceMasterPassword extends ServiceBase {
           };
         }
       }
-      throw new OneKeyPlainTextError('verifyMasterPassword ERROR: Invalid password');
+      throw new OneKeyPlainTextError(
+        'verifyMasterPassword ERROR: Invalid password',
+      );
     } catch (error) {
       if (clearLocalMasterPasswordIfIncorrect) {
         // password incorrect with server
@@ -1103,7 +1119,9 @@ class ServiceMasterPassword extends ServiceBase {
         const accountSalt = serverUserInfo?.salt;
         const primeUserId = serverUserInfo?.userId;
         if (!accountSalt || !primeUserId) {
-          throw new OneKeyPlainTextError('No accountSalt or primeUserId in serverApi');
+          throw new OneKeyPlainTextError(
+            'No accountSalt or primeUserId in serverApi',
+          );
         }
         const securityPasswordR1 = await this.decryptSecurityPassword({
           securityPasswordEncrypted: encryptedSecurityPasswordR1,
@@ -1113,7 +1131,9 @@ class ServiceMasterPassword extends ServiceBase {
           primeUserId,
         });
         if (!securityPasswordR1) {
-          throw new OneKeyPlainTextError('Failed to decrypt securityPasswordR1');
+          throw new OneKeyPlainTextError(
+            'Failed to decrypt securityPasswordR1',
+          );
         }
         return {
           securityPasswordR1,

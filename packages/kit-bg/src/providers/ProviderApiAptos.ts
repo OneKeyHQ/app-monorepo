@@ -23,8 +23,8 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';

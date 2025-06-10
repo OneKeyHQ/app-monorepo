@@ -1,7 +1,6 @@
 import { cloneDeep, isString } from 'lodash';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 

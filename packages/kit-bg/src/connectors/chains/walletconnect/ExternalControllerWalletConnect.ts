@@ -143,19 +143,25 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   override sendTransactionByWalletConnect(
     payload: IExternalSendTransactionByWalletConnectPayload,
   ): Promise<ISignedTxPro> {
-    throw new OneKeyPlainTextError('Not available, use ExternalControllerEvm directly');
+    throw new OneKeyPlainTextError(
+      'Not available, use ExternalControllerEvm directly',
+    );
   }
 
   override signMessageByWalletConnect(
     payload: IExternalSignMessageByWalletConnectPayload,
   ): Promise<ISignedMessagePro> {
-    throw new OneKeyPlainTextError('Not available, use ExternalControllerEvm directly');
+    throw new OneKeyPlainTextError(
+      'Not available, use ExternalControllerEvm directly',
+    );
   }
 
   override handleWalletConnectEvents(
     params: IExternalHandleWalletConnectEventsParams,
   ): Promise<void> {
-    throw new OneKeyPlainTextError('Not available, use ExternalControllerEvm directly');
+    throw new OneKeyPlainTextError(
+      'Not available, use ExternalControllerEvm directly',
+    );
   }
 
   override async sendTransaction(

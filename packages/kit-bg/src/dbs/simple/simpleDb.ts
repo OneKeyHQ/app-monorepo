@@ -13,7 +13,9 @@ if (platformEnv.isExtensionUi) {
     {},
     {
       get() {
-        throw new OneKeyPlainTextError('[simpleDb] is NOT allowed in UI process currently.');
+        throw new OneKeyPlainTextError(
+          '[simpleDb] is NOT allowed in UI process currently.',
+        );
       },
     },
   ) as SimpleDb;

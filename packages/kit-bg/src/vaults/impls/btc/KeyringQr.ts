@@ -6,7 +6,6 @@ import {
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { verifyBtcSignedPsbtMatched } from '@onekeyhq/core/src/chains/btc/sdkBtc/verify';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -19,6 +18,7 @@ import {
   NotImplemented,
   OneKeyErrorAirGapAccountNotFound,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -171,7 +171,9 @@ export class KeyringQr extends KeyringQrBase {
         }
 
         if (!psbtHex) {
-          throw new OneKeyPlainTextError('BTC QR sign ERROR: psbtHex not found');
+          throw new OneKeyPlainTextError(
+            'BTC QR sign ERROR: psbtHex not found',
+          );
         }
 
         const signedPsbt = Psbt.fromHex(psbtHex, {

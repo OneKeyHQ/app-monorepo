@@ -15,12 +15,12 @@ import {
   scriptToAddress,
 } from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
   RemainingMinBalanceError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -178,7 +178,9 @@ export default class Vault extends VaultBase {
     const { tokenInfo, amount, from, to } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
 
     if (!tokenInfo) {
@@ -234,7 +236,9 @@ export default class Vault extends VaultBase {
       );
     } else {
       if (!tokenInfo.address) {
-        throw new OneKeyPlainTextError('buildEncodedTx ERROR: tokenInfo.address is missing');
+        throw new OneKeyPlainTextError(
+          'buildEncodedTx ERROR: tokenInfo.address is missing',
+        );
       }
       amountValue = new BigNumber(amount)
         .shiftedBy(tokenInfo.decimals)

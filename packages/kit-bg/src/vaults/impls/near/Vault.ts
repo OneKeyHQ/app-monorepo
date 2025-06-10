@@ -3,7 +3,6 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, sortBy } from 'lodash';
 
 import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
@@ -13,6 +12,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -152,7 +152,9 @@ export default class Vault extends VaultBase {
     const { tokenInfo } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
 
     if (!tokenInfo) {

@@ -9,7 +9,6 @@ import type {
   IEncodedTxTron,
 } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -19,6 +18,7 @@ import {
   InsufficientBalance,
   InvalidAddress,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
@@ -132,7 +132,9 @@ export default class Vault extends VaultBase {
       approveInfo as IApproveInfo;
 
     if (!tokenInfo) {
-      throw new OneKeyPlainTextError('buildEncodedTx ERROR: approveInfo.tokenInfo is missing');
+      throw new OneKeyPlainTextError(
+        'buildEncodedTx ERROR: approveInfo.tokenInfo is missing',
+      );
     }
 
     const amountHex = toBigIntHex(
@@ -190,7 +192,9 @@ export default class Vault extends VaultBase {
       const { from, to, amount, tokenInfo } = transferInfo;
 
       if (!transferInfo.to) {
-        throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
+        throw new OneKeyPlainTextError(
+          'buildEncodedTx ERROR: transferInfo.to is missing',
+        );
       }
 
       if (!tokenInfo) {

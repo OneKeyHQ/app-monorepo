@@ -2,7 +2,6 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { verifySolSignedTxMatched } from '@onekeyhq/core/src/chains/sol/sdkSol/verify';
@@ -25,6 +24,7 @@ import { EAirGapDataTypeSol, getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
 import {
   OneKeyErrorAirGapAccountNotFound,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';

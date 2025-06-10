@@ -3,7 +3,6 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 
 import '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
@@ -16,6 +15,7 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EEventBusBroadcastMethodNames,
   appEventBus,
@@ -110,7 +110,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {
-      throw new OneKeyPlainTextError(`setAtomValue ERROR: atomName not found: ${atomName}`);
+      throw new OneKeyPlainTextError(
+        `setAtomValue ERROR: atomName not found: ${atomName}`,
+      );
     }
     await atom.set(value);
   }
@@ -207,7 +209,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const { method, params } = request;
 
     if (!origin) {
-      throw new OneKeyPlainTextError('BackgroundApi [payload.origin] is required.');
+      throw new OneKeyPlainTextError(
+        'BackgroundApi [payload.origin] is required.',
+      );
     }
 
     if (!internal && !scope) {
@@ -277,7 +281,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   sendForProvider(providerName: IInjectedProviderNamesStrings): any {
     if (!providerName) {
-      throw new OneKeyPlainTextError('sendForProvider: providerName is required.');
+      throw new OneKeyPlainTextError(
+        'sendForProvider: providerName is required.',
+      );
     }
     if (!this.sendForProviderMaps[providerName]) {
       this.sendForProviderMaps[providerName] =

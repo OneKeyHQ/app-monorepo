@@ -2,12 +2,12 @@ import BigNumber from 'bignumber.js';
 import { isArray } from 'lodash';
 
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,

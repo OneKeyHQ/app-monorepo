@@ -4,11 +4,11 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { getBgSensitiveTextEncodeKey } from '@onekeyhq/core/src/secret';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -500,7 +500,9 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   async callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     if (!platformEnv.isNative) {
-      throw new OneKeyPlainTextError('call webembed api only support native env');
+      throw new OneKeyPlainTextError(
+        'call webembed api only support native env',
+      );
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 

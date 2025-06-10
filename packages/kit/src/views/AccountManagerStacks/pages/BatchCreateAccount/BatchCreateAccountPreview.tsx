@@ -48,6 +48,7 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -73,7 +74,6 @@ import { showBatchCreateAccountPreviewPageNumberDialog } from './PreviewPageNumb
 import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function DeriveTypeTrigger({ onPress }: ISelectRenderTriggerProps) {
   return (

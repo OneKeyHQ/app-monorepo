@@ -1,5 +1,5 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EGalleryRoutes,
   EModalReferFriendsRoutes,

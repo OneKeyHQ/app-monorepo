@@ -2,10 +2,7 @@ import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG, normalizeHexAddress } from '@benfen/bfc.js/utils';
 
 import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
-import {
-  OneKeyError,
-  OneKeyPlainTextError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { OneKeyBfcClient } from './ClientBfc';
 import type {

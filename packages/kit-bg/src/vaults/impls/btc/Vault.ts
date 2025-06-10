@@ -23,7 +23,6 @@ import {
   type IOutputsForCoinSelect,
 } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
@@ -47,6 +46,7 @@ import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConst
 import {
   InsufficientBalance,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -696,7 +696,9 @@ export default class VaultBtc extends VaultBase {
     if (encoding) {
       return getCoinSelectTxType(encoding);
     }
-    throw new OneKeyPlainTextError('getCoinSelectTxType ERROR: Invalid encoding');
+    throw new OneKeyPlainTextError(
+      'getCoinSelectTxType ERROR: Invalid encoding',
+    );
   }
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -716,7 +718,9 @@ export default class VaultBtc extends VaultBase {
     if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
       if (!transferInfo.to) {
-        throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
+        throw new OneKeyPlainTextError(
+          'buildEncodedTx ERROR: transferInfo.to is missing',
+        );
       }
     }
     return this._buildEncodedTxFromBatchTransfer(params);
@@ -925,7 +929,9 @@ export default class VaultBtc extends VaultBase {
 
     // transfer output + maybe opReturn output
     if (!isBatchTransfer && outputsForCoinSelect.length > 2) {
-      throw new OneKeyPlainTextError('single transfer should only have one output');
+      throw new OneKeyPlainTextError(
+        'single transfer should only have one output',
+      );
     }
     const btcForkNetwork = await this.getBtcForkNetwork();
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;

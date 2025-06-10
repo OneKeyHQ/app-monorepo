@@ -1,8 +1,8 @@
 /* eslint-disable camelcase */
 import { atom, useAtom } from 'jotai';
 
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   atomWithStorage,

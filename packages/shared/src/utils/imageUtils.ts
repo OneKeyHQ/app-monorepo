@@ -7,6 +7,8 @@ import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 
@@ -17,7 +19,6 @@ import type {
   ImageResult,
 } from 'expo-image-manipulator';
 import type { ImageSourcePropType } from 'react-native';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 type ICommonImageLogFn = (...args: string[]) => void;
 

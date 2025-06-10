@@ -1,7 +1,7 @@
 import { isNumber } from 'lodash';
 
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { V4LocalDbAgentBase } from '../V4LocalDbAgentBase';
 import { v4storeNameSupportCreatedAt } from '../v4localDBConsts';
@@ -231,7 +231,9 @@ export class V4RealmDBAgent
       const recordKeys = Object.keys(record || {});
       recordKeys.forEach((key) => {
         if (!propertiesKeys.includes(key)) {
-          throw new OneKeyPlainTextError(`Realm schema properties missing: ${name} ${key}`);
+          throw new OneKeyPlainTextError(
+            `Realm schema properties missing: ${name} ${key}`,
+          );
         }
       });
     }

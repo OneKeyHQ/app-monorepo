@@ -1,5 +1,5 @@
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IExternalConnectionInfo,
   IExternalConnectorEvm,

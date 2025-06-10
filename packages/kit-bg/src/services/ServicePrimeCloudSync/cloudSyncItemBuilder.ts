@@ -69,7 +69,9 @@ class CloudSyncItemBuilder {
     accountIndex: number | undefined;
   }) {
     if (!wallet) {
-      throw new OneKeyPlainTextError('buildWalletSyncKey ERROR: wallet is required');
+      throw new OneKeyPlainTextError(
+        'buildWalletSyncKey ERROR: wallet is required',
+      );
     }
     const {
       // use hd exclusive hash, not shared xfp, avoid software and hardware wallets' avatar and name shared

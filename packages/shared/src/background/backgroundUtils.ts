@@ -12,8 +12,8 @@ import {
   isUndefined,
 } from 'lodash';
 
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   IMPL_ADA,
@@ -279,7 +279,9 @@ export async function waitForDataLoaded({
   }
   clearTimeout(timer);
   if (timeoutReject) {
-    throw new OneKeyPlainTextError(`waitForDataLoaded: ${logName ?? ''} timeout`);
+    throw new OneKeyPlainTextError(
+      `waitForDataLoaded: ${logName ?? ''} timeout`,
+    );
   }
 }
 
@@ -414,10 +416,14 @@ export function getBackgroundServiceApi({
     if (serviceName.includes('@')) {
       const [nameSpace, name] = serviceName.split('@');
       if (!nameSpace) {
-        throw new OneKeyPlainTextError(`service nameSpace not found: ${nameSpace}`);
+        throw new OneKeyPlainTextError(
+          `service nameSpace not found: ${nameSpace}`,
+        );
       }
       if (!backgroundApi[nameSpace]) {
-        throw new OneKeyPlainTextError(`service nameSpace not found: ${nameSpace}`);
+        throw new OneKeyPlainTextError(
+          `service nameSpace not found: ${nameSpace}`,
+        );
       }
       serviceApi = backgroundApi[nameSpace][name];
     } else {

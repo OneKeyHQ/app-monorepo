@@ -8,9 +8,9 @@ import type {
   IEncodedTxDnx,
   ISignTxParams,
 } from '@onekeyhq/core/src/chains/dnx/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { DnxSignature } from '@onekeyfe/hd-core';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 185;
 const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 29;
@@ -50,7 +50,8 @@ export function integerToLittleEndianHex({
 }
 
 export function hexToBin(hex: string): Uint8Array {
-  if (hex.length % 2 !== 0) throw new OneKeyPlainTextError('Hex string has invalid length!');
+  if (hex.length % 2 !== 0)
+    throw new OneKeyPlainTextError('Hex string has invalid length!');
   const result = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length / 2; i += 1) {
     result[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);

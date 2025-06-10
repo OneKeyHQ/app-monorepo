@@ -2,7 +2,6 @@
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -11,6 +10,7 @@ import type {
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {

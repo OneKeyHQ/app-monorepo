@@ -215,7 +215,9 @@ class ServiceQrWallet extends ServiceBase {
     const { serviceAccount } = this.backgroundApi;
     let byDevice: IDBDevice | undefined;
     if (!walletId) {
-      throw new OneKeyPlainTextError('prepareQrcodeWalletAddressAdd ERROR: walletId missing ');
+      throw new OneKeyPlainTextError(
+        'prepareQrcodeWalletAddressAdd ERROR: walletId missing ',
+      );
     }
     const byWallet = await serviceAccount.getWallet({
       walletId,

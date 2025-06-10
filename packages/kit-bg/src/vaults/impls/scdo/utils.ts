@@ -4,8 +4,8 @@ import RLP from 'rlp';
 import { keccak256 } from 'viem';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { secp256k1 } from '@onekeyhq/core/src/secret';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 

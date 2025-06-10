@@ -3,8 +3,8 @@
 import { atom } from 'jotai';
 import { isEqual, isString, merge } from 'lodash';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';

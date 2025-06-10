@@ -20,7 +20,9 @@ export class ExternalWalletFactory {
 
   getWalletConnectController() {
     if (!this.backgroundApi) {
-      throw new OneKeyPlainTextError('ExternalWalletFactory backgroundApi not set yet');
+      throw new OneKeyPlainTextError(
+        'ExternalWalletFactory backgroundApi not set yet',
+      );
     }
     const implWalletConnect = 'walletconnect';
     if (!this.controllersCache[implWalletConnect]) {
@@ -43,7 +45,9 @@ export class ExternalWalletFactory {
     connectionInfo?: IExternalConnectionInfo;
   }): Promise<ExternalControllerBase> {
     if (!this.backgroundApi) {
-      throw new OneKeyPlainTextError('ExternalWalletFactory backgroundApi not set yet');
+      throw new OneKeyPlainTextError(
+        'ExternalWalletFactory backgroundApi not set yet',
+      );
     }
     // eslint-disable-next-line no-param-reassign
     impl = impl || networkUtils.getNetworkImpl({ networkId: networkId || '' });

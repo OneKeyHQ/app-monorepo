@@ -1,8 +1,8 @@
 import { sha256 as sha256noble } from '@noble/hashes/sha256';
 import { sha512 as sha512noble } from '@noble/hashes/sha512';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { hash160, hmacSHA256, hmacSHA512, sha256 } from './crypto-functions';

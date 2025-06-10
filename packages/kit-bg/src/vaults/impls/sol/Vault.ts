@@ -44,7 +44,6 @@ import bs58 from 'bs58';
 import { isEmpty, isNil } from 'lodash';
 
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IDecodedTxExtraSol,
   IEncodedTxSol,
@@ -59,6 +58,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -217,7 +217,9 @@ export default class Vault extends VaultBase {
     const { from, to: firstReceiver } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const client = await this.getClient();
     const source = new PublicKey(from);

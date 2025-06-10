@@ -1,5 +1,4 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const enUS = {
   'Confirm_password': 'Confirm Password',

@@ -2,11 +2,11 @@ import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { PurchasesSdkWebBase } from './PurchasesSdkWebBase';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export default class PurchasesSdkWeb extends PurchasesSdkWebBase {
   async getApiKey(): Promise<string> {

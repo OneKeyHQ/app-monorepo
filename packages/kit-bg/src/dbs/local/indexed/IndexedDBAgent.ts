@@ -80,7 +80,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     }
     const indexed = this.buckets[bucketName];
     if (!indexed) {
-      throw new OneKeyPlainTextError(`indexedDB bucket not found: ${bucketName}`);
+      throw new OneKeyPlainTextError(
+        `indexedDB bucket not found: ${bucketName}`,
+      );
     }
     return indexed;
   }
@@ -660,7 +662,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         // TODO only remove first record?
         const recordId = pair[0]?.id;
         if (isNil(recordId)) {
-          throw new OneKeyPlainTextError('dbRemoveRecord ERROR: recordId not found');
+          throw new OneKeyPlainTextError(
+            'dbRemoveRecord ERROR: recordId not found',
+          );
         }
         return store.delete(recordId);
       }),

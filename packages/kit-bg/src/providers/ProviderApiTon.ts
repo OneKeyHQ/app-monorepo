@@ -5,12 +5,12 @@ import { isNaN } from 'lodash';
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EMessageTypesTon } from '@onekeyhq/shared/types/message';

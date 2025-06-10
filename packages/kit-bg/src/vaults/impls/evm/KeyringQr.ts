@@ -2,7 +2,6 @@ import { TransactionTypes } from '@ethersproject/transactions';
 import HDKey from 'hdkey';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   buildSignedTxFromSignatureEvm,
   packUnsignedTxForSignEvm,
@@ -30,6 +29,7 @@ import type {
 import {
   OneKeyErrorAirGapAccountNotFound,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';

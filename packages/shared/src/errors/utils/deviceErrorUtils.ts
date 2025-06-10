@@ -1,8 +1,6 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { isArray, isNil } from 'lodash';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
-
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
 import {

@@ -180,7 +180,9 @@ function useSignatureConfirm(params: IParams) {
 
       const { transfersInfo } = params;
       if (!transfersInfo?.length || transfersInfo?.length > 1) {
-        throw new OneKeyPlainTextError('Only one transfer is supported for lightning send');
+        throw new OneKeyPlainTextError(
+          'Only one transfer is supported for lightning send',
+        );
       }
       const [transferInfo] = transfersInfo;
       const { to: toVal } = transferInfo;

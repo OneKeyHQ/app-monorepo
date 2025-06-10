@@ -6,9 +6,9 @@ import { ethers } from 'ethersV6';
 import { isNil, keyBy, orderBy, pick, uniq } from 'lodash';
 
 import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
@@ -508,7 +508,9 @@ class EvmApiProvider extends BaseApiProvider {
         .filter((fee) => !fee.isNaN());
 
       if (baseFees.length === 0) {
-        throw new OneKeyPlainTextError('No valid base fees found in recent blocks');
+        throw new OneKeyPlainTextError(
+          'No valid base fees found in recent blocks',
+        );
       }
 
       const maxBaseFee = B.max(...baseFees);

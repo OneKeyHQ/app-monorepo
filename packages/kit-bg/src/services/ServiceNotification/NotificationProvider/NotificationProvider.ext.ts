@@ -105,7 +105,9 @@ export default class NotificationProvider extends NotificationProviderBase {
         permissions: ['notifications'],
       });
     if (!isNotificationsPermissionDefined) {
-      throw new OneKeyPlainTextError('notifications permissions not defined in manifest.json');
+      throw new OneKeyPlainTextError(
+        'notifications permissions not defined in manifest.json',
+      );
     }
   }
 

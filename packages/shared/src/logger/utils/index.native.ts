@@ -9,12 +9,12 @@ import {
   getUsedMemorySync,
 } from 'react-native-device-info';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   FileLogger,
   LogLevel,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
 import platformEnv from '../../platformEnv';

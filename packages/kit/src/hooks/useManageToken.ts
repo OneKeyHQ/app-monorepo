@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EModalAssetListRoutes,
   EModalRoutes,

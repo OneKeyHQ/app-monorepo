@@ -1,11 +1,11 @@
 import BigNumber from 'bignumber.js';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
@@ -574,7 +574,9 @@ class ServiceAccountProfile extends ServiceBase {
         // @ts-expect-error
         return data;
       }
-      throw new OneKeyPlainTextError(failedRequest.error ?? 'Failed to send proxy request');
+      throw new OneKeyPlainTextError(
+        failedRequest.error ?? 'Failed to send proxy request',
+      );
     }
     return data.map((item) => item.data);
   }

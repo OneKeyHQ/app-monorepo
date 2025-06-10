@@ -11,7 +11,6 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
 
 import { serializeSignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -23,6 +22,7 @@ import {
   BalanceLowerMinimum,
   InvalidTransferValue,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';

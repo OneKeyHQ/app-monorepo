@@ -1,8 +1,8 @@
 import axios from 'axios';
 import timeoutSignal from 'timeout-signal';
 
-import type { IJsonRpcResponsePro } from '@onekeyhq/shared/types/request';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import type { IJsonRpcResponsePro } from '@onekeyhq/shared/types/request';
 
 import {
   AxiosResponseError,

@@ -1,7 +1,7 @@
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';

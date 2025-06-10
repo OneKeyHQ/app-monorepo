@@ -3,12 +3,12 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
 
 import { EAdaNetworkId } from '@onekeyhq/core/src/chains/ada/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type IAdaVault from '@onekeyhq/kit-bg/src/vaults/impls/ada/Vault';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 

@@ -3,7 +3,6 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IEncodedTxSol,
@@ -15,6 +14,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -94,7 +94,9 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyPlainTextError('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.solGetAddress(connectId, deviceId, {
@@ -263,7 +265,9 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
 
-          throw new OneKeyPlainTextError('signMessage not supported on hardware');
+          throw new OneKeyPlainTextError(
+            'signMessage not supported on hardware',
+          );
         },
       ),
     );

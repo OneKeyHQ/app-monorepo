@@ -26,9 +26,9 @@ import {
   OneKeyError,
   OneKeyHardwareError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 

@@ -80,7 +80,9 @@ export async function transfer(
 
   const XUDT_SCRIPT = config.SCRIPTS.XUDT;
   if (!XUDT_SCRIPT) {
-    throw new OneKeyPlainTextError('Provided config does not have XUDT script setup!');
+    throw new OneKeyPlainTextError(
+      'Provided config does not have XUDT script setup!',
+    );
   }
 
   const fromScript = parseAddress(fromAddress, { config });
@@ -353,7 +355,9 @@ export async function transfer(
     changeAmount.gt(0) &&
     changeCapacity.lt(minimalCellCapacityCompatible(changeCell))
   ) {
-    throw new OneKeyPlainTextError('Not enough capacity for change in from infos!');
+    throw new OneKeyPlainTextError(
+      'Not enough capacity for change in from infos!',
+    );
   }
 
   return txSkeleton;

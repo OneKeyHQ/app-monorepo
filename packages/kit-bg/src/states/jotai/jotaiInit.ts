@@ -46,7 +46,9 @@ export async function jotaiInit() {
   Object.entries(EAtomNames).forEach(([key, value]) => {
     checkAtomNameMatched(key, value);
     if (!value.endsWith('Atom')) {
-      throw new OneKeyPlainTextError(`Atom name should be end with Atom: ${value}`);
+      throw new OneKeyPlainTextError(
+        `Atom name should be end with Atom: ${value}`,
+      );
     }
     if (!atoms[key]) {
       throw new OneKeyPlainTextError(`Atom not defined: ${key}`);

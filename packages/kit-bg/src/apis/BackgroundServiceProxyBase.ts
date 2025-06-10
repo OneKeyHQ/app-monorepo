@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export abstract class BackgroundServiceProxyBase {
   abstract serviceNameSpace: string;

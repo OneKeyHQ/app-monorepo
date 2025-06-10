@@ -25,7 +25,9 @@ export function AccountSelectorTriggerLegacy({
   const { config } = contextData;
   const title = `${config?.sceneName || ''} 账户选择器 🔗  ${num}`;
   const showAccountSelector = useCallback(() => {
-    throw new OneKeyPlainTextError('showAccountSelector legacy not implemented');
+    throw new OneKeyPlainTextError(
+      'showAccountSelector legacy not implemented',
+    );
   }, []);
   return (
     <>

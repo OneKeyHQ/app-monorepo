@@ -1,7 +1,8 @@
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { Metadata, NO_LOG_OUTPUT } from '../types';
 
 import type { IMethodDecoratorMetadata } from '../types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
   return function logMethod(

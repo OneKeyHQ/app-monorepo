@@ -1,5 +1,6 @@
-import { SectionPressItem } from './SectionPressItem';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
+import { SectionPressItem } from './SectionPressItem';
 
 export function CrashDevSettings() {
   return (

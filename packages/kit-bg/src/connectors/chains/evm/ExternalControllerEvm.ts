@@ -2,9 +2,9 @@ import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -310,7 +310,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     });
     const provider = await connector.getProvider();
     if (!wcChain) {
-      throw new OneKeyPlainTextError('evmWalletConnect signMessage ERROR: wcChain not found');
+      throw new OneKeyPlainTextError(
+        'evmWalletConnect signMessage ERROR: wcChain not found',
+      );
     }
     const result = (await provider.request(
       {
@@ -349,7 +351,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     )) as string;
 
     if (!txid) {
-      throw new OneKeyPlainTextError('walletConnect sendTransaction ERROR: txid not found');
+      throw new OneKeyPlainTextError(
+        'walletConnect sendTransaction ERROR: txid not found',
+      );
     }
 
     return {

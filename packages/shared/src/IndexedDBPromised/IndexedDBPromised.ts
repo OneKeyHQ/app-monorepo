@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isString } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import platformEnv from '../platformEnv';
 
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 import { IndexedDBTransactionPromised } from './IndexedDBTransactionPromised';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type {
   DBSchema,

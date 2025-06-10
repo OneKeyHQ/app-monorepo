@@ -10,7 +10,6 @@ import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   Icon,
   ListView,
@@ -34,6 +33,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalWalletAddressRoutes,

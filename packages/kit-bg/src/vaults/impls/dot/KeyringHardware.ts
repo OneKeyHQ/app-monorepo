@@ -97,7 +97,9 @@ export class KeyringHardware extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new OneKeyPlainTextError('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.polkadotGetAddress(connectId, deviceId, {

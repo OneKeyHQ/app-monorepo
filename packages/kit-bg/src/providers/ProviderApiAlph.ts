@@ -3,12 +3,12 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { EAlphTxType } from '@onekeyhq/core/src/chains/alph/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IConnectedAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import type { EMessageTypesAlph } from '@onekeyhq/shared/types/message';

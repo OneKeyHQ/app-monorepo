@@ -3,12 +3,12 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type IVaultSui from '@onekeyhq/kit-bg/src/vaults/impls/sui/Vault';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';

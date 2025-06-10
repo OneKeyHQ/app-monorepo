@@ -33,7 +33,8 @@ const bitcoin: IQRCodeHandler<IBitcoinValue> = async (value, options) => {
 
   if (queryList?.amount) {
     queryList.amount = Number(queryList?.amount);
-    if (!Number.isFinite(queryList?.amount)) throw new OneKeyPlainTextError('Invalid amount');
+    if (!Number.isFinite(queryList?.amount))
+      throw new OneKeyPlainTextError('Invalid amount');
     if (queryList?.amount < 0) throw new OneKeyPlainTextError('Invalid amount');
   }
 

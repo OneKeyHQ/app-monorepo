@@ -15,8 +15,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
-  PendingQueueTooLong,
   OneKeyPlainTextError,
+  PendingQueueTooLong,
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,

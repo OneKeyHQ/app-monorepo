@@ -7,8 +7,8 @@ import coinSelectUtils from '@onekeyfe/coinselect/utils';
 import coinSelectWitness from '@onekeyfe/coinselect/witness';
 import { isNil } from 'lodash';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { EAddressEncodings } from '../types';
 

@@ -1,5 +1,7 @@
 import { InteractionManager } from 'react-native';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { formatTime } from '../../utils/dateUtils';
 import { isPromiseObject } from '../../utils/promiseUtils';
 import { stringifyFunc } from '../stringifyFunc';
@@ -9,7 +11,6 @@ import { logFn } from './logFn';
 
 import type { BaseScene } from './baseScene';
 import type { EScopeName, IScope } from '../types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export abstract class BaseScope implements IScope {
   protected abstract scopeName: EScopeName;
@@ -42,7 +43,9 @@ export abstract class BaseScope implements IScope {
             const fullName = `${this.scopeName}.${sceneName}.${prop}()`;
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (!(prop in instance) || typeof instance[prop] !== 'function') {
-              throw new OneKeyPlainTextError(`Scene method ${prop} not found: ${fullName}`);
+              throw new OneKeyPlainTextError(
+                `Scene method ${prop} not found: ${fullName}`,
+              );
             }
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call

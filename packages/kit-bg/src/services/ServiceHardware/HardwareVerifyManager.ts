@@ -3,8 +3,8 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  OneKeyServerApiError,
   OneKeyPlainTextError,
+  OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {

@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import type { IEncodedTxNeoN3 } from '@onekeyhq/core/src/chains/neo/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -15,6 +14,7 @@ import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
@@ -177,7 +177,9 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
 
     const inputs = await this.buildTransferInputs({

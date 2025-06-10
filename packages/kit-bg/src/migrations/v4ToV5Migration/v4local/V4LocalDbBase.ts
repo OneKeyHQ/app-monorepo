@@ -13,9 +13,9 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
+  OneKeyPlainTextError,
   PasswordNotSet,
   WrongPassword,
-  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -143,7 +143,9 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       await this.verifyPassword(oldPassword);
     }
     if (!oldPassword && !isCreateMode) {
-      throw new OneKeyPlainTextError('changePassword ERROR: oldPassword is required');
+      throw new OneKeyPlainTextError(
+        'changePassword ERROR: oldPassword is required',
+      );
     }
     await db.withTransaction(async (tx) => {
       if (oldPassword) {

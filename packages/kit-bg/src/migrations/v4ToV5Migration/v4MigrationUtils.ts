@@ -4,9 +4,9 @@ import {
   COINTYPE_STC,
   COINTYPE_XMR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { IV4EIP1559Fee, IV4FeeInfo, IV4FeeInfoUnit } from './v4types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const notSupportedCoinType = [COINTYPE_XMR, COINTYPE_STC];
 

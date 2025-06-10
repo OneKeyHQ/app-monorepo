@@ -1,7 +1,8 @@
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { INDEXED_DB_NAME } from '../consts';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import { EIndexedDBBucketNames } from '../types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 function buildDbName(bucketName: EIndexedDBBucketNames) {
   return INDEXED_DB_NAME(bucketName);

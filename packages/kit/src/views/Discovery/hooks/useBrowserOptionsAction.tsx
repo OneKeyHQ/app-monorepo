@@ -4,9 +4,9 @@ import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
 import { Dialog, Input, Toast } from '@onekeyhq/components';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

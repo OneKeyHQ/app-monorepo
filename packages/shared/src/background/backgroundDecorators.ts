@@ -1,5 +1,4 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import errorToastUtils from '../errors/utils/errorToastUtils';
 import { formatDateFns } from '../utils/dateUtils';

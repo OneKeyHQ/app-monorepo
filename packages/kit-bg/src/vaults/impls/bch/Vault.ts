@@ -3,8 +3,8 @@ import {
   encodeAddress,
 } from '@onekeyhq/core/src/chains/bch/sdkBch';
 import { validateBtcAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import VaultBtc from '../btc/Vault';
 

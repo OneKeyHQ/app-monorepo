@@ -2,10 +2,10 @@
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 import type { IOffscreenApiMessagePayload } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import offscreenApi from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApi';
 import { OFFSCREEN_API_MESSAGE_TYPE } from '@onekeyhq/kit-bg/src/offscreens/types';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 

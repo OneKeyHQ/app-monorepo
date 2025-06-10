@@ -376,7 +376,9 @@ export default class ServiceNotification extends ServiceBase {
     }
 
     if (!permission.isSupported) {
-      throw new OneKeyPlainTextError('Notification is not supported on your device');
+      throw new OneKeyPlainTextError(
+        'Notification is not supported on your device',
+      );
     }
 
     // TODO desktop linux,windows support

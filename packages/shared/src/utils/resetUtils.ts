@@ -1,5 +1,5 @@
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 let isResetting = false;
 

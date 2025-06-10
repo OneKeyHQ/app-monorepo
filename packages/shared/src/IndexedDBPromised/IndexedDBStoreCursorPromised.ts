@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
+import indexedDBPromisedUtils from './indexedDBPromisedUtils';
 
 import type {
   // CursorKey,

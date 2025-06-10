@@ -4,7 +4,6 @@ import { publicToAddress, toChecksumAddress } from '@ethereumjs/util';
 import HDKey from 'hdkey';
 
 import { Button, Stack, TextArea } from '@onekeyhq/components';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type { IAnimationValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
@@ -13,6 +12,7 @@ import {
   airGapUrUtils,
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { KEYRING_ACCOUNT, KEYRING_MODE } from './types';
 

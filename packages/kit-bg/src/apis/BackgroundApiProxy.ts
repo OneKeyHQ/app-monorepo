@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { SimpleDbProxy } from '../dbs/simple/base/SimpleDbProxy';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
@@ -67,7 +69,6 @@ import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -84,7 +85,9 @@ class BackgroundApiProxy
         prop !== 'inspect'
       ) {
         return (..._args: any[]) => {
-          throw new OneKeyPlainTextError('localDb cannot be accessed from the UI layer');
+          throw new OneKeyPlainTextError(
+            'localDb cannot be accessed from the UI layer',
+          );
         };
       }
       return undefined;

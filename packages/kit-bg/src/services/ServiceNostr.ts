@@ -5,12 +5,12 @@ import {
   validateEvent,
 } from '@onekeyhq/core/src/chains/nostr/sdkNostr';
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type IVaultNostr from '@onekeyhq/kit-bg/src/vaults/impls/nostr/Vault';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 

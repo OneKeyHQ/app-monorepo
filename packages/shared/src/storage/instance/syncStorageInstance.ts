@@ -1,12 +1,13 @@
 import { isPlainObject } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import platformEnv from '../../platformEnv';
 import resetUtils from '../../utils/resetUtils';
 
 import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const syncStorageWeb = {
   set(key: EAppSyncStorageKeys, value: boolean | string | number) {

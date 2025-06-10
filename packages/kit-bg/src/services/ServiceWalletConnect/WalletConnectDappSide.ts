@@ -2,8 +2,8 @@ import { omitBy } from 'lodash';
 import { Linking } from 'react-native';
 
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -196,7 +196,9 @@ export class WalletConnectDappSide {
       });
     } else {
       // handle non-EVM
-      throw new OneKeyPlainTextError('WalletConnectEventSessionEvent only support EVM now');
+      throw new OneKeyPlainTextError(
+        'WalletConnectEventSessionEvent only support EVM now',
+      );
     }
   }
 
@@ -314,7 +316,9 @@ export class WalletConnectDappSide {
           v?.session?.topic,
         );
       });
-      throw new OneKeyPlainTextError('getOrCreateProvider ERROR: topic mismatched');
+      throw new OneKeyPlainTextError(
+        'getOrCreateProvider ERROR: topic mismatched',
+      );
     }
 
     return provider;
@@ -476,7 +480,9 @@ export class WalletConnectDappSide {
       // call connect() to create new session
       await provider.connect(connectParams);
       if (!provider.session || !provider.isWalletConnect) {
-        throw new OneKeyPlainTextError('WalletConnect ERROR: Connect to wallet failed');
+        throw new OneKeyPlainTextError(
+          'WalletConnect ERROR: Connect to wallet failed',
+        );
       }
       return provider.session;
     } finally {

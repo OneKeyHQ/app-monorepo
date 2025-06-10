@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable spellcheck/spell-checker */
-import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
 

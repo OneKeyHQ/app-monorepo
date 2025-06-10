@@ -12,7 +12,6 @@ import {
   encryptAsync,
 } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { cloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   backgroundClass,
@@ -25,6 +24,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

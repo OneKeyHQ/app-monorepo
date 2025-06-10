@@ -1,5 +1,5 @@
-import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IMemoizeeOptions } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';

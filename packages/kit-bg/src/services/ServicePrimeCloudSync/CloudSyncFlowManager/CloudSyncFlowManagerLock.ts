@@ -23,7 +23,9 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
     syncCredential: ICloudSyncCredential,
   ): ICloudSyncCredentialForLock {
     if (!syncCredential) {
-      throw new OneKeyPlainTextError('syncCredential is required for build flush lock');
+      throw new OneKeyPlainTextError(
+        'syncCredential is required for build flush lock',
+      );
     }
     return {
       primeAccountSalt: syncCredential.primeAccountSalt,

@@ -6,7 +6,6 @@ import type {
   IEncodedTxGroupAlgo,
 } from '@onekeyhq/core/src/chains/algo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
@@ -19,6 +18,7 @@ import type {
 import {
   ManageTokenInsufficientBalanceError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';

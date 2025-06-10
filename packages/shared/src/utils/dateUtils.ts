@@ -11,13 +11,14 @@ import {
   parseISO,
 } from 'date-fns';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { ETranslations, type ILocaleSymbol } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { DateLocaleMap } from '../locale/dateLocaleMap';
 import { getDefaultLocale } from '../locale/getDefaultLocale';
 
 import type { Duration } from 'date-fns';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export const parseToDateFnsLocale = (localeSymbol: ILocaleSymbol) => {
   let locale = localeSymbol;

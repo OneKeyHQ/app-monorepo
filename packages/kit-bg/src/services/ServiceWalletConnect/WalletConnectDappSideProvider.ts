@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import UniversalProvider from '@walletconnect/universal-provider';
 
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import type {
   NamespaceConfig,

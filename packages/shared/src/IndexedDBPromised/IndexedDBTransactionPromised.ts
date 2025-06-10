@@ -1,8 +1,9 @@
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import storageChecker from '../storageChecker/storageChecker';
 
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { IndexedDBPromised } from './IndexedDBPromised';
 import type {

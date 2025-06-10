@@ -1,8 +1,9 @@
 import * as bip39 from 'bip39';
 import { padStart } from 'lodash';
 
-import type { IDotMapValues } from './types';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
+import type { IDotMapValues } from './types';
 
 const mnemonicWordToValueData = (word: string) => {
   const wordlist = bip39.wordlists.english;

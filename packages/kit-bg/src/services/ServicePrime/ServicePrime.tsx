@@ -7,8 +7,8 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  PrimeLoginDialogCancelError,
   OneKeyPlainTextError,
+  PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,

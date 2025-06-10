@@ -7,9 +7,9 @@ import {
   PRIVY_APP_ID,
   PRIVY_MOBILE_CLIENT_ID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { PrimeGlobalEffect } from '../hooks/PrimeGlobalEffect';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
   const appId = PRIVY_APP_ID;

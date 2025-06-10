@@ -12,9 +12,9 @@ import {
   contextAtomComputedBase,
   contextAtomMethodBase,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { WritableAtom } from 'jotai';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export { atom };
 
@@ -63,7 +63,9 @@ export function createJotaiContext<TContextConfig = undefined>() {
   function useContextData() {
     const data = useContext(Context);
     if (!data?.store) {
-      throw new OneKeyPlainTextError('useContextStore ERROR: store not initialized');
+      throw new OneKeyPlainTextError(
+        'useContextStore ERROR: store not initialized',
+      );
     }
     return data;
   }

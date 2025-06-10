@@ -1,6 +1,6 @@
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   OneKeyError,
   OneKeyServerApiError,

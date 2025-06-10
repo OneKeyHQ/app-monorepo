@@ -98,13 +98,19 @@ export abstract class KeyringBase extends VaultContext {
       const { path, publicKey, address, addresses, relPath } =
         addressInfos[idx];
       if (!path) {
-        throw new OneKeyPlainTextError('KeyringHD prepareAccounts ERROR: path not found');
+        throw new OneKeyPlainTextError(
+          'KeyringHD prepareAccounts ERROR: path not found',
+        );
       }
       if (accountType === EDBAccountType.VARIANT && !addresses) {
-        throw new OneKeyPlainTextError('addresses is required for variant account');
+        throw new OneKeyPlainTextError(
+          'addresses is required for variant account',
+        );
       }
       if (accountType === EDBAccountType.VARIANT && address) {
-        throw new OneKeyPlainTextError('address should not set for variant account');
+        throw new OneKeyPlainTextError(
+          'address should not set for variant account',
+        );
       }
 
       const pathIndex = usedIndexes[idx];

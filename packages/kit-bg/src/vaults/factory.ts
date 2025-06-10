@@ -112,7 +112,9 @@ export async function createKeyringInstance(vault: VaultBase) {
 export async function createVaultInstance(options: IVaultOptions) {
   ensureRunOnBackground();
   if (!options.networkId) {
-    throw new OneKeyPlainTextError('createVaultInstance ERROR: networkId is required');
+    throw new OneKeyPlainTextError(
+      'createVaultInstance ERROR: networkId is required',
+    );
   }
   const impl = networkUtils.getNetworkImpl({
     networkId: options.networkId,

@@ -5,11 +5,11 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { AirGapUR } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import {
   NotImplemented,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';

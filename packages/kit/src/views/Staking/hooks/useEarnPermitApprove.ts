@@ -5,8 +5,8 @@ import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IToken } from '@onekeyhq/shared/types/token';

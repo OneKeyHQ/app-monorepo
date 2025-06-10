@@ -1,5 +1,5 @@
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 class WebEmbedApiTest {
   test1(...params: string[]) {

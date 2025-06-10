@@ -307,7 +307,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const recordKeys = Object.keys(record || {});
       recordKeys.forEach((key) => {
         if (!propertiesKeys.includes(key)) {
-          throw new OneKeyPlainTextError(`Realm schema properties missing: ${name} ${key}`);
+          throw new OneKeyPlainTextError(
+            `Realm schema properties missing: ${name} ${key}`,
+          );
         }
       });
     }

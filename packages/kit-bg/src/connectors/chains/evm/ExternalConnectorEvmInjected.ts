@@ -1,12 +1,12 @@
 import { injected } from '@wagmi/core';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type {
   IExternalConnectionInfo,
   IExternalConnectorEvm,
 } from '@onekeyhq/shared/types/externalWallet.types';
 
 import type { EvmConnectorManager } from './EvmConnectorManager';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 export const EVM_INJECTED_GLOBAL_VAR = 'ethereum';
 export class ExternalConnectorEvmInjected {

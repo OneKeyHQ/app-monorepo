@@ -8,7 +8,6 @@ import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
 import type { ICosmosStdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   TransactionWrapper,
   deserializeTx,
@@ -21,6 +20,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -636,7 +636,8 @@ class ProviderApiCosmos extends ProviderApiBase {
       });
 
     const network = networks.find((n) => n.chainId === params);
-    if (!network) throw new OneKeyPlainTextError(`OneKey does not support ${params}`);
+    if (!network)
+      throw new OneKeyPlainTextError(`OneKey does not support ${params}`);
 
     return {
       chainId: network.chainId,

@@ -5,10 +5,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  OneKeyError,
-  OneKeyPlainTextError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -370,7 +367,9 @@ class ServiceLightning extends ServiceBase {
       }>(loginURL.toString());
       // if the service returned with a HTTP 200 we still check if the response data is OK
       if (response?.data.status?.toUpperCase() !== 'OK') {
-        throw new OneKeyPlainTextError(response?.data?.reason || 'Auth: Something went wrong');
+        throw new OneKeyPlainTextError(
+          response?.data?.reason || 'Auth: Something went wrong',
+        );
       }
 
       return response.data;
