@@ -708,7 +708,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           const exhaustiveCheck: never = item.dataType;
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           throw new OneKeyPlainTextError(
-            `Unsupported data type: ${exhaustiveCheck}`,
+            `Unsupported data type: ${exhaustiveCheck as unknown as string}`,
           );
         }
       }

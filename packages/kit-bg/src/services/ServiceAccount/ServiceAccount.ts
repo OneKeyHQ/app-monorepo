@@ -2849,7 +2849,9 @@ class ServiceAccount extends ServiceBase {
       throw new OneKeyPlainTextError('walletId is required');
     }
     if (accountUtils.isOthersWallet({ walletId })) {
-      throw new Error('Remove non-hd and non-hw wallet is not allowed');
+      throw new OneKeyPlainTextError(
+        'Remove non-hd and non-hw wallet is not allowed',
+      );
     }
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,

@@ -46,6 +46,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const TRACK_ID = 'demo-dialog';
 
@@ -1161,7 +1162,7 @@ const DialogGallery = () => {
                       Toast.error({
                         title: 'This is an error dialog',
                       });
-                      throw new Error('test');
+                      throw new OneKeyPlainTextError('test');
                     },
                   });
                 }}
