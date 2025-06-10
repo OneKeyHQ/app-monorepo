@@ -9,7 +9,6 @@ import {
 } from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
-import { merge } from 'lodash';
 import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
