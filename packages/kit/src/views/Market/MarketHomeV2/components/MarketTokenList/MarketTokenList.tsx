@@ -107,6 +107,7 @@ function MarketTokenList({
         $platform-web={{
           overflow: 'auto',
         }}
+        flex={1}
         width="100%"
       >
         {showSkeleton ? (
