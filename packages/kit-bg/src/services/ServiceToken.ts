@@ -241,9 +241,6 @@ class ServiceToken extends ServiceBase {
         mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
       }));
 
-    resp.data.data.accountId = accountId;
-    resp.data.data.networkId = networkId;
-
     if (saveToLocal) {
       let tokenListValue = new BigNumber(0);
       tokenListValue = tokenListValue

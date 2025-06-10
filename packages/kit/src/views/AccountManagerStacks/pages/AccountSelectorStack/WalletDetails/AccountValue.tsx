@@ -83,7 +83,6 @@ function AccountValue(accountValue: {
                 networkId: linkedNetworkId,
               })
             ];
-          console.log('networkAccountValue', networkAccountValue);
           if (!isNil(networkAccountValue)) {
             accountValueExist = true;
             mergedValue = mergedValue.plus(networkAccountValue);
