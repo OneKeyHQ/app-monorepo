@@ -27,6 +27,7 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
@@ -815,7 +816,7 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
-    throw new Error('Test Electron Native crash');
+    throw new OneKeyPlainTextError('Test Electron Native crash');
   });
 
   ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {

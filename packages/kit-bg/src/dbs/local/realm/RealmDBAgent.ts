@@ -2,7 +2,10 @@ import { Semaphore, withTimeout } from 'async-mutex';
 import { isNumber } from 'lodash';
 import Realm from 'realm';
 
-import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalDBRecordNotFoundError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -285,7 +288,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         if (newRecord instanceof Realm.Object) {
           return newRecord;
         }
-        throw new Error('newRecord is not a Relam.Object');
+        throw new OneKeyPlainTextError('newRecord is not a Relam.Object');
       }),
     );
     return Promise.resolve(undefined);
@@ -304,7 +307,9 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const recordKeys = Object.keys(record || {});
       recordKeys.forEach((key) => {
         if (!propertiesKeys.includes(key)) {
-          throw new Error(`Realm schema properties missing: ${name} ${key}`);
+          throw new OneKeyPlainTextError(
+            `Realm schema properties missing: ${name} ${key}`,
+          );
         }
       });
     }

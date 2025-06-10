@@ -41,7 +41,7 @@ export class V4SimpleDb {
 //     {},
 //     {
 //       get() {
-//         throw new Error('[V4SimpleDb] is NOT allowed in UI process currently.');
+//         throw new OneKeyPlainTextError('[V4SimpleDb] is NOT allowed in UI process currently.');
 //       },
 //     },
 //   ) as V4SimpleDb;

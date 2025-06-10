@@ -8,6 +8,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IConnectedAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import type { EMessageTypesAlph } from '@onekeyhq/shared/types/message';
@@ -86,7 +87,7 @@ class ProviderApiAlph extends ProviderApiBase {
         throw web3Errors.rpc.methodNotSupported();
       }
       if (params.addressGroup !== undefined && params.addressGroup !== 0) {
-        throw new Error('Only address group 0 is supported');
+        throw new OneKeyPlainTextError('Only address group 0 is supported');
       }
     }
   }

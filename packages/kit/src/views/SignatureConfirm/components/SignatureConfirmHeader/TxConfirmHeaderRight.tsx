@@ -94,6 +94,7 @@ function TxConfirmHeaderRight(props: {
                 </SizableText>
                 <Image width={160} height={40}>
                   <Image.Source
+                    resizeMode="contain"
                     source={{
                       uri: mevProtectionProvider.logoURI,
                     }}

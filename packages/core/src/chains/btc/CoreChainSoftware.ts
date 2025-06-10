@@ -17,6 +17,7 @@ import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AddressNotSupportSignMethodError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -220,16 +221,16 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyPlainTextError('privateKeyRaw is required');
     }
 
     if (keyType === ECoreApiExportedSecretKeyType.xprvt) {
       if (credentials.hd) {
         if (!addressEncoding) {
-          throw new Error('addressEncoding is required');
+          throw new OneKeyPlainTextError('addressEncoding is required');
         }
         if (!account.xpub) {
-          throw new Error('xpub is required');
+          throw new OneKeyPlainTextError('xpub is required');
         }
         const network = getBtcForkNetwork(networkInfo?.networkChainCode);
 
@@ -240,7 +241,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
         const xprvVersionBytes = versionByte.private;
         if (!xprvVersionBytes) {
-          throw new Error('xprvVersionBytes not found');
+          throw new OneKeyPlainTextError('xprvVersionBytes not found');
         }
         return bs58check.encode(
           Buffer.from(bs58check.decode(account.xpub))
@@ -265,7 +266,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         );
       }
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getAddressFromPublic(
@@ -336,7 +337,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     });
 
     if (!fullXfp) {
-      throw new Error('fulXfp build failed');
+      throw new OneKeyPlainTextError('fulXfp build failed');
     }
 
     return {
@@ -383,7 +384,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     for (const [fullPath, privateKey] of Object.entries(privateKeys)) {
       const address = pathToAddresses?.[fullPath]?.address;
       if (!address) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'getSignersMap ERROR: address is required, is privateKeys including fullPath?',
         );
       }
@@ -587,11 +588,15 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       // TODO generate address from privateKey, and check if matched with utxo address
       const addressFromPrivateKey = address;
       if (addressFromPrivateKey !== address) {
-        throw new Error('addressFromPrivateKey and utxoAddress not matched');
+        throw new OneKeyPlainTextError(
+          'addressFromPrivateKey and utxoAddress not matched',
+        );
       }
 
       if (!privateKey) {
-        throw new Error(`privateKey not found: ${address} ${fullPath}`);
+        throw new OneKeyPlainTextError(
+          `privateKey not found: ${address} ${fullPath}`,
+        );
       }
 
       ret[fullPath] = privateKey;
@@ -621,7 +626,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     });
 
     if (!addressInfo.isValid) {
-      throw new Error('Invalid address');
+      throw new OneKeyPlainTextError('Invalid address');
     }
 
     const supportedTypes = [EAddressEncodings.P2WPKH, EAddressEncodings.P2TR];
@@ -869,7 +874,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     }
 
     if (!networkChainCode) {
-      throw new Error('networkChainCode is required');
+      throw new OneKeyPlainTextError('networkChainCode is required');
     }
 
     const network = getBtcForkNetwork(networkChainCode);
@@ -986,7 +991,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const { psbtHex, inputsToSign } = encodedTx;
 
     if (!relPaths?.length) {
-      throw new Error('BTC sign transaction need relPaths');
+      throw new OneKeyPlainTextError('BTC sign transaction need relPaths');
     }
 
     const network = getBtcForkNetwork(networkChainCode);
@@ -1125,7 +1130,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   ) {
     const signer = signers[address];
     if (!signer) {
-      throw new Error(`BTC signer not found: ${address}`);
+      throw new OneKeyPlainTextError(`BTC signer not found: ${address}`);
     }
     return signer;
   }
@@ -1138,7 +1143,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     } = payload;
 
     if (!relPaths?.length) {
-      throw new Error('BTC sign message need relPaths');
+      throw new OneKeyPlainTextError('BTC sign message need relPaths');
     }
 
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageBtc;

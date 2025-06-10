@@ -6,7 +6,10 @@ import {
   utils,
 } from '@starcoin/starcoin';
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -44,7 +47,7 @@ const pubkeyToAddress = async (
       pubkeyBytes.toString('hex'),
     );
   } else {
-    throw new Error('invalid encoding');
+    throw new OneKeyPlainTextError('invalid encoding');
   }
   return address;
 };
@@ -68,7 +71,7 @@ const buildUnsignedRawTx = (
     !gasPrice ||
     typeof nonce === 'undefined'
   ) {
-    throw new Error('invalid unsignedTx');
+    throw new OneKeyPlainTextError('invalid unsignedTx');
   }
 
   let txPayload: StarcoinTypes.TransactionPayload;

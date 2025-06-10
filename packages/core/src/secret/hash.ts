@@ -1,6 +1,7 @@
 import { sha256 as sha256noble } from '@noble/hashes/sha256';
 import { sha512 as sha512noble } from '@noble/hashes/sha512';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -20,10 +21,10 @@ function sha512Sync({
   // eslint-disable-next-line no-param-reassign
   iterations = iterations ?? 1;
   if (iterations < 1) {
-    throw new Error('iterations must be greater than 0');
+    throw new OneKeyPlainTextError('iterations must be greater than 0');
   }
   if (!data) {
-    throw new Error('data is required');
+    throw new OneKeyPlainTextError('data is required');
   }
   let hash: string = bufferUtils.bytesToHex(sha512noble(data));
   for (let i = 1; i < iterations; i += 1) {

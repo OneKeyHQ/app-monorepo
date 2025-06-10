@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -16,10 +19,40 @@ function AccountValue(accountValue: {
   linkedNetworkId?: string;
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
     activeAccountValue?.accountId === accountValue?.accountId;
+
+  const {
+    linkedAccountId,
+    linkedNetworkId,
+    indexedAccountId,
+    mergeDeriveAssetsEnabled,
+    isSingleAddress,
+  } = accountValue;
+
+  const networksAccounts = usePromiseResult(
+    async () => {
+      if (!linkedNetworkId || !indexedAccountId || !mergeDeriveAssetsEnabled) {
+        return [];
+      }
+      const { networkAccounts } =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId: linkedNetworkId,
+            indexedAccountId,
+            excludeEmptyAccount: true,
+          },
+        );
+      return networkAccounts;
+    },
+    [indexedAccountId, linkedNetworkId, mergeDeriveAssetsEnabled],
+    {
+      initResult: [],
+    },
+  ).result;
 
   const { currency, value } = useMemo(() => {
     if (activeAccountValue && isActiveAccount) {
@@ -33,27 +66,37 @@ function AccountValue(accountValue: {
       return value;
     }
 
-    const {
-      linkedAccountId,
-      linkedNetworkId,
-      indexedAccountId,
-      mergeDeriveAssetsEnabled,
-    } = accountValue;
+    if (
+      linkedNetworkId &&
+      mergeDeriveAssetsEnabled &&
+      networksAccounts.length > 0 &&
+      !isSingleAddress
+    ) {
+      let mergedValue = new BigNumber(0);
+      let accountValueExist = false;
+      networksAccounts.forEach((networkAccount) => {
+        if (networkAccount.account) {
+          const networkAccountValue =
+            value[
+              accountUtils.buildAccountValueKey({
+                accountId: networkAccount.account.id,
+                networkId: linkedNetworkId,
+              })
+            ];
+          if (!isNil(networkAccountValue)) {
+            accountValueExist = true;
+            mergedValue = mergedValue.plus(networkAccountValue);
+          }
+        }
+      });
+      return accountValueExist ? mergedValue.toFixed() : undefined;
+    }
 
     if (
       linkedAccountId &&
       linkedNetworkId &&
       !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
     ) {
-      if (mergeDeriveAssetsEnabled && indexedAccountId) {
-        return value[
-          accountUtils.buildAccountValueKey({
-            accountId: indexedAccountId,
-            networkId: linkedNetworkId,
-          })
-        ];
-      }
-
       return value[
         accountUtils.buildAccountValueKey({
           accountId: linkedAccountId,
@@ -66,7 +109,14 @@ function AccountValue(accountValue: {
       (acc, v) => new BigNumber(acc ?? '0').plus(v ?? '0').toFixed(),
       '0',
     );
-  }, [value, accountValue]);
+  }, [
+    value,
+    linkedAccountId,
+    linkedNetworkId,
+    mergeDeriveAssetsEnabled,
+    networksAccounts,
+    isSingleAddress,
+  ]);
 
   return accountValueString ? (
     <Currency
@@ -97,6 +147,7 @@ function AccountValueWithSpotlight({
   linkedNetworkId,
   indexedAccountId,
   mergeDeriveAssetsEnabled,
+  isSingleAddress,
 }: {
   accountValue:
     | {
@@ -111,6 +162,7 @@ function AccountValueWithSpotlight({
   linkedNetworkId?: string;
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
@@ -121,6 +173,7 @@ function AccountValueWithSpotlight({
       linkedNetworkId={linkedNetworkId}
       indexedAccountId={indexedAccountId}
       mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
+      isSingleAddress={isSingleAddress}
     />
   ) : (
     <NumberSizeableTextWrapper

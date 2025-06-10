@@ -12,7 +12,11 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyError,
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils, {
@@ -501,11 +505,13 @@ export default class Vault extends VaultBase {
       const { from, to, amount, tokenInfo, nftInfo, hexData } = transferInfo;
 
       if (!transferInfo.to) {
-        throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+        throw new OneKeyPlainTextError(
+          'buildEncodedTx ERROR: transferInfo.to is missing',
+        );
       }
 
       if (!tokenInfo && !nftInfo) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
         );
       }
@@ -529,7 +535,7 @@ export default class Vault extends VaultBase {
 
       if (tokenInfo) {
         if (isNil(tokenInfo.decimals)) {
-          throw new Error(
+          throw new OneKeyPlainTextError(
             'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals missing',
           );
         }
@@ -552,7 +558,7 @@ export default class Vault extends VaultBase {
 
         // token address is required when building erc20 token transfer
         if (!tokenInfo.address) {
-          throw new Error(
+          throw new OneKeyPlainTextError(
             'buildEncodedTx ERROR: transferInfo.tokenInfo.address missing',
           );
         }
@@ -583,7 +589,7 @@ export default class Vault extends VaultBase {
       approveInfo as IApproveInfo;
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }

@@ -1,11 +1,13 @@
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import type { SharingOptions } from 'expo-sharing';
 
 const mock = {
   shareAsync: async (url: string, _options: SharingOptions = {}) => {
-    throw new Error('Function not implemented.');
+    throw new OneKeyPlainTextError('Function not implemented.');
   },
   isAvailableAsync: async () => {
-    throw new Error('Function not implemented.');
+    throw new OneKeyPlainTextError('Function not implemented.');
   },
 };
 

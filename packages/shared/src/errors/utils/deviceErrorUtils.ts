@@ -214,7 +214,7 @@ export function convertDeviceError(
 
     // TODO not working as HardwareErrorCode is const but not enum
     // const exhaustiveCheck: never = code;
-    // throw new Error(
+    // throw new OneKeyPlainTextError(
     //   `Unhandled hardware error code case: ${exhaustiveCheck as any}`,
     // );
   }

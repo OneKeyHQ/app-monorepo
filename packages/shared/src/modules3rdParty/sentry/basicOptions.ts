@@ -71,11 +71,7 @@ const FILTERED_ERROR_TYPES = new Set([
   EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
 
-const FILTER_ERROR_VALUES = [
-  'AbortError: AbortError',
-  'cancel timeout',
-  `Failed to execute 'define' on 'CustomElementRegistry': the name "webview" has already been used with this registry`,
-];
+const FILTER_ERROR_VALUES = ['AbortError: AbortError', 'cancel timeout'];
 
 const isFilterErrorAndSkipSentry = (error?: {
   type?: string | undefined;
@@ -85,6 +81,16 @@ const isFilterErrorAndSkipSentry = (error?: {
     return false;
   }
   if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
+    return true;
+  }
+
+  if (
+    platformEnv.isDesktop &&
+    error.value &&
+    error.value.includes(
+      `Failed to execute 'define' on 'CustomElementRegistry'`,
+    )
+  ) {
     return true;
   }
 

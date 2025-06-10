@@ -47,6 +47,7 @@ type IHistoryItemProps = {
   networks?: IStakeHistoriesResponse['networks'];
   token?: IToken;
   provider?: string;
+  tokenMap?: IStakeHistoriesResponse['tokenMap'];
 };
 
 const HistoryItem = ({
@@ -55,13 +56,14 @@ const HistoryItem = ({
   token,
   network,
   networks,
+  tokenMap,
 }: IHistoryItemProps) => {
   const navigation = useAppNavigation();
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.HistoryList
   >();
-  const { accountId, networkId } = route.params;
+  const { accountId } = route.params;
   const logoURI = useMemo(() => {
     if (token?.logoURI) {
       return token.logoURI;
@@ -69,8 +71,22 @@ const HistoryItem = ({
     if (networks?.length) {
       return networks.find((o) => o.networkId === item.networkId)?.logoURI;
     }
+    if (tokenMap && item.type === 'stake') {
+      const uri = tokenMap[item.tokenAddress]?.logoURI;
+      if (uri) {
+        return uri;
+      }
+    }
     return network?.logoURI;
-  }, [token?.logoURI, networks, network?.logoURI, item.networkId]);
+  }, [
+    item.type,
+    item.tokenAddress,
+    item.networkId,
+    token?.logoURI,
+    networks,
+    network?.logoURI,
+    tokenMap,
+  ]);
   const onPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
       networkId: item.networkId,
@@ -121,6 +137,7 @@ type IHistoryContentProps = {
   onFilterTypeChange: (type: string) => void;
   network?: { networkId: string; name: string; logoURI: string };
   networks?: IStakeHistoriesResponse['networks'];
+  tokenMap?: IStakeHistoriesResponse['tokenMap'];
   provider?: string;
 };
 
@@ -136,6 +153,7 @@ const HistoryContent = ({
   filter,
   filterType,
   networks,
+  tokenMap,
   onFilterTypeChange,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
@@ -144,11 +162,12 @@ const HistoryContent = ({
         item={item}
         network={network}
         token={item.token?.info}
+        tokenMap={tokenMap}
         provider={provider}
         networks={networks}
       />
     ),
-    [network, networks, provider],
+    [network, networks, provider, tokenMap],
   );
 
   const renderSectionHeader = useCallback(
@@ -327,6 +346,7 @@ function HistoryList() {
       return {
         network: historyResp.network,
         networks: historyResp.networks,
+        tokenMap: historyResp.tokenMap,
         sections,
         filter: historyResp.filter || {},
       };
@@ -362,6 +382,7 @@ function HistoryList() {
               sections={result.sections}
               network={result.network}
               networks={result.networks}
+              tokenMap={result.tokenMap}
               filter={result.filter}
               provider={provider}
               onFilterTypeChange={setFilterType}

@@ -8,7 +8,10 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyHardwareError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -76,7 +79,9 @@ export class KeyringHardware extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.nostrGetPublicKey(connectId, deviceId, {
@@ -111,7 +116,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxNostr;
     const { event } = encodedTx;
     if (!validateEvent(event)) {
-      throw new Error('Invalid event');
+      throw new OneKeyPlainTextError('Invalid event');
     }
 
     const sdk = await this.getHardwareSDKInstance();
