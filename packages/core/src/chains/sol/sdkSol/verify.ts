@@ -1,6 +1,8 @@
 import { Transaction, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { parseToNativeTx } from './parse';
 
 import type { Message, PublicKey } from '@solana/web3.js';
@@ -17,7 +19,7 @@ function getFeePayerFromVersionedTransaction(
   } else if ('accountKeys' in message) {
     feePayer = (message as Message).accountKeys?.[0];
   } else {
-    throw new Error('Unknown transaction message format');
+    throw new OneKeyPlainTextError('Unknown transaction message format');
   }
 
   return feePayer.toString();
@@ -37,40 +39,40 @@ export function verifySolSignedTxMatched({
   const transaction = parseToNativeTx(rawTx, encoding);
 
   if (!transaction) {
-    throw new Error('Invalid Solana transaction');
+    throw new OneKeyPlainTextError('Invalid Solana transaction');
   }
 
   if (transaction instanceof VersionedTransaction) {
     if (!transaction.signatures[0]) {
-      throw new Error('Solana transaction signature not found');
+      throw new OneKeyPlainTextError('Solana transaction signature not found');
     }
     const txidFromRawTx = bs58.encode(transaction.signatures[0]);
 
     if (txidFromRawTx !== txid) {
-      throw new Error('Solana txid not match');
+      throw new OneKeyPlainTextError('Solana txid not match');
     }
 
     const feePayer = getFeePayerFromVersionedTransaction(transaction);
     if (feePayer !== signerAddress) {
-      throw new Error('Solana fee payer address not match');
+      throw new OneKeyPlainTextError('Solana fee payer address not match');
     }
   } else if (transaction instanceof Transaction) {
     if (!transaction.signatures[0].signature) {
-      throw new Error('Solana transaction signature not found');
+      throw new OneKeyPlainTextError('Solana transaction signature not found');
     }
     const txidFromRawTx = bs58.encode(transaction.signatures[0].signature);
 
     if (txidFromRawTx !== txid) {
-      throw new Error('Solana txid not match');
+      throw new OneKeyPlainTextError('Solana txid not match');
     }
 
     const feePayer =
       transaction.feePayer?.toString() ??
       transaction.signatures[0].publicKey.toString();
     if (feePayer !== signerAddress) {
-      throw new Error('Solana fee payer address not match');
+      throw new OneKeyPlainTextError('Solana fee payer address not match');
     }
   } else {
-    throw new Error('Unknown transaction type');
+    throw new OneKeyPlainTextError('Unknown transaction type');
   }
 }

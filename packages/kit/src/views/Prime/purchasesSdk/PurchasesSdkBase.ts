@@ -1,3 +1,4 @@
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import type {
@@ -38,10 +39,10 @@ export abstract class PurchasesSdkBase {
   async login(params: { userId: string }): Promise<void> {
     const apiKey = await this.getApiKey();
     if (!apiKey) {
-      throw new Error('No REVENUECAT api key found');
+      throw new OneKeyPlainTextError('No REVENUECAT api key found');
     }
     if (!params.userId) {
-      throw new Error('No userId found');
+      throw new OneKeyPlainTextError('No userId found');
     }
     await this.setDefaultLogLevel();
     await this.configureWithLogin({ apiKey, userId: params.userId });
@@ -50,11 +51,11 @@ export abstract class PurchasesSdkBase {
 
   async ensureUserIdMatched(userId: string) {
     if (!userId) {
-      throw new Error('No userId found');
+      throw new OneKeyPlainTextError('No userId found');
     }
     const appUserId = await this.getAppUserId();
     if (appUserId !== userId) {
-      throw new Error('AppUserId not match');
+      throw new OneKeyPlainTextError('AppUserId not match');
     }
   }
 

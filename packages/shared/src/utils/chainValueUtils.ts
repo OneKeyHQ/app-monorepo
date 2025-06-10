@@ -1,12 +1,14 @@
 import BigNumber from 'bignumber.js';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { ELightningUnit } from '../../types/lightning';
 
 import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
 
 function nilError(message: string): number {
-  throw new Error(message);
+  throw new OneKeyPlainTextError(message);
 }
 
 export interface IChainValueConvertOptions {

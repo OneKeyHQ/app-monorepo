@@ -28,6 +28,7 @@ import {
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapTipsAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -47,6 +48,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapTips] = useSwapTipsAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
@@ -524,6 +526,17 @@ export function useSwapInit(params?: ISwapInitParams) {
     setToToken,
     needChangeToken,
   ]);
+
+  useEffect(() => {
+    void (async () => {
+      const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
+      const simpleDbTips =
+        await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
+      if (tips && !simpleDbTips.includes(tips.tipsId)) {
+        setSwapTips(tips);
+      }
+    })();
+  }, [setSwapTips]);
 
   useEffect(() => {
     void (async () => {

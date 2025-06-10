@@ -2,7 +2,10 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyPlainTextError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -105,7 +108,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   }> {
     const { connectId, deviceType } = device;
     if (!connectId) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'firmwareAuthenticate ERROR: device connectId is undefined',
       );
     }

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export abstract class BackgroundServiceProxyBase {
@@ -13,7 +14,7 @@ export abstract class BackgroundServiceProxyBase {
 
   _createProxyService(serviceName = 'ROOT') {
     if (this._serviceCreatedNames[serviceName]) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `_createProxyService name duplicated. name=${serviceName}`,
       );
     }

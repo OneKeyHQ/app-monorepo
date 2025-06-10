@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 
-import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -31,7 +34,7 @@ const SENSITIVE_ENCODE_TYPE: 'xor' | 'aes' = 'aes';
 
 function ensureEncodeKeyExists(key: string) {
   if (!key) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'encodeKey is not set, please call setBgSensitiveTextEncodeKey() from webembed',
     );
   }
@@ -64,7 +67,9 @@ async function decodePasswordAsync({
   // decode password if it is encoded
   if (isEncodedSensitiveText(password)) {
     if (platformEnv.isExtensionUi) {
-      throw new Error('decodePassword can NOT be called from UI');
+      throw new OneKeyPlainTextError(
+        'decodePassword can NOT be called from UI',
+      );
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveTextAsync({
@@ -83,7 +88,9 @@ async function decodePasswordAsync({
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
     );
-    throw new Error('Passing raw password is not allowed and not safe.');
+    throw new OneKeyPlainTextError(
+      'Passing raw password is not allowed and not safe.',
+    );
   }
   return password;
 }
@@ -328,7 +335,7 @@ async function encryptStringAsync({
 
 function checkKeyPassedOnExtUi(key?: string) {
   if (platformEnv.isExtensionUi && !key) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Please get and pass key by:  await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
     );
   }
@@ -336,7 +343,7 @@ function checkKeyPassedOnExtUi(key?: string) {
 
 function ensureSensitiveTextEncoded(text: string) {
   if (!isEncodedSensitiveText(text)) {
-    throw new Error('Not encoded sensitive text');
+    throw new OneKeyPlainTextError('Not encoded sensitive text');
   }
 }
 
@@ -433,12 +440,12 @@ async function encodeSensitiveTextAsync({
     return `${ENCODE_TEXT_PREFIX.xor}${encoded}`;
   }
 
-  throw new Error('Unknown SENSITIVE_ENCODE_TYPE type');
+  throw new OneKeyPlainTextError('Unknown SENSITIVE_ENCODE_TYPE type');
 }
 
 function getBgSensitiveTextEncodeKey() {
   if (platformEnv.isExtensionUi) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Not allow to call ()getBgSensitiveTextEncodeKey from extension ui',
     );
   }
@@ -447,12 +454,12 @@ function getBgSensitiveTextEncodeKey() {
 
 function setBgSensitiveTextEncodeKey(key: string) {
   if (platformEnv.isExtensionUi) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Not allow to call setBgSensitiveTextEncodeKey() from extension ui',
     );
   }
   if (!platformEnv.isWebEmbed) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       'Only allow to call setBgSensitiveTextEncodeKey() from webembed',
     );
   }

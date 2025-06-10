@@ -33,7 +33,8 @@ export const EarnNavigation = {
       params: {
         accountId: earnAccount?.accountId || accountId || '',
         networkId,
-        indexedAccountId: earnAccount?.account.indexedAccountId,
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccountId,
         symbol,
         provider,
         vault,

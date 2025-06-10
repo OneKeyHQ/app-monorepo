@@ -15,6 +15,7 @@ import {
   OneKeyError,
   OneKeyErrorPrimeMasterPasswordInvalid,
   OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -149,7 +150,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       default: {
         const exhaustiveCheck: never = dataType;
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        throw new Error(`Unsupported data type: ${exhaustiveCheck}`);
+        throw new OneKeyPlainTextError(
+          `Unsupported data type: ${exhaustiveCheck as string}`,
+        );
       }
     }
   }
@@ -495,7 +498,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
 
     if (isFlush) {
-      // throw new Error('Mock flush api error');
+      // throw new OneKeyPlainTextError('Mock flush api error');
     }
 
     const lockItemToServer =
@@ -704,7 +707,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         default: {
           const exhaustiveCheck: never = item.dataType;
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          throw new Error(`Unsupported data type: ${exhaustiveCheck}`);
+          throw new OneKeyPlainTextError(
+            `Unsupported data type: ${exhaustiveCheck as unknown as string}`,
+          );
         }
       }
     }

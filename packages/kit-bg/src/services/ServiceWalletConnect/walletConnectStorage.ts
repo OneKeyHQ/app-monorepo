@@ -6,6 +6,7 @@ import {
 } from '@walletconnect/sign-client';
 import { isEmpty, isNil } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { IWalletConnectSession } from '@onekeyhq/shared/src/walletConnect/types';
 
@@ -30,7 +31,7 @@ function buildWalletConnectStorageWithKeyPrefix(prefix: string) {
         .then((keys) => keys.map((key) => newKey(key)));
     },
     async getEntries() {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'WalletConnectStorageWithKeyPrefix ERROR: getEntries not implemented',
       );
     },

@@ -1,4 +1,5 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type {
   SuiTransport,
@@ -37,13 +38,13 @@ export class OneKeySuiTransport implements SuiTransport {
       });
     const response = res?.[0];
     if (!response) {
-      throw new Error('No response received from the proxy');
+      throw new OneKeyPlainTextError('No response received from the proxy');
     }
 
     return response;
   }
 
   async subscribe(): Promise<() => Promise<boolean>> {
-    throw new Error('Subscription not implemented');
+    throw new OneKeyPlainTextError('Subscription not implemented');
   }
 }

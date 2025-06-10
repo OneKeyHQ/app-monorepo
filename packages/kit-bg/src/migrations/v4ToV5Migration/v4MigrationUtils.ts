@@ -4,6 +4,7 @@ import {
   COINTYPE_STC,
   COINTYPE_XMR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import type { IV4EIP1559Fee, IV4FeeInfo, IV4FeeInfoUnit } from './v4types';
 
@@ -40,7 +41,7 @@ function nanToZeroString(value: string | number | unknown) {
 }
 
 function nilError(message: string): number {
-  throw new Error(message);
+  throw new OneKeyPlainTextError(message);
 }
 
 function calculateTotalFeeNative({

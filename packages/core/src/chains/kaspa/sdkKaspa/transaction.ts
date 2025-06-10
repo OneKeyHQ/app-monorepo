@@ -4,7 +4,10 @@ import * as necc from '@noble/secp256k1';
 import { Transaction, crypto } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
 
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -114,7 +117,7 @@ async function sign(
     // @ts-expect-error
     const b = sig.toBuffer('schnorr').toString('hex');
     if (b.length < 128)
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `Invalid Signature\nsecp256k1 sig:${hexUtils.hexlify(
           signature,
         )}\nSignature.fromString:${b}`,

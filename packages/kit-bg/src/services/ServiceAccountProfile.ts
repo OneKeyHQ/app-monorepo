@@ -5,6 +5,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
@@ -578,46 +579,37 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     body,
     returnRawData,
+    isJsonRpc,
   }: {
     networkId: string;
     body: IProxyRequestItem[];
     returnRawData?: boolean;
+    isJsonRpc?: boolean;
   }): Promise<T[]> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: IProxyRequest = { networkId, body };
-    const resp = await client.post<IProxyResponse<T>>(
+    const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
       '/wallet/v1/proxy/wallet',
       request,
     );
-    const data = resp.data.data.data;
+
+    if (isJsonRpc) {
+      const data = resp.data.data.data as IRpcProxyResponse<T>['data']['data'];
+      return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+    }
+
+    const data = resp.data.data.data as IProxyResponse<T>['data']['data'];
     const failedRequest = data.find((item) => !item.success);
     if (failedRequest) {
       if (returnRawData) {
         // @ts-expect-error
         return data;
       }
-      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
+      throw new OneKeyPlainTextError(
+        failedRequest.error ?? 'Failed to send proxy request',
+      );
     }
     return data.map((item) => item.data);
-  }
-
-  async sendRpcProxyRequest<T>({
-    networkId,
-    body,
-  }: {
-    networkId: string;
-    body: IProxyRequestItem[];
-  }): Promise<T[]> {
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const request: IProxyRequest = { networkId, body };
-    const resp = await client.post<IRpcProxyResponse<T>>(
-      '/wallet/v1/proxy/wallet',
-      request,
-    );
-
-    const data = resp.data.data.data;
-
-    return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
   }
 
   @backgroundMethod()
@@ -637,7 +629,7 @@ class ServiceAccountProfile extends ServiceBase {
       const currencyInfo = currencyMap[currency];
 
       if (!currencyInfo) {
-        throw new Error('Currency not found');
+        throw new OneKeyPlainTextError('Currency not found');
       }
       usdValue = Object.entries(value).reduce((acc, [n, v]) => {
         acc[n] = new BigNumber(v)

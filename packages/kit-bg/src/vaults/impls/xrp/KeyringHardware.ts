@@ -10,6 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
+  OneKeyPlainTextError,
   UnknownHardwareError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -81,7 +82,9 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.xrpGetAddress(connectId, deviceId, {

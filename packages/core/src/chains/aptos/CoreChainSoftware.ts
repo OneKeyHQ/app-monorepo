@@ -11,7 +11,10 @@ import {
 import { sha3_256 } from 'js-sha3';
 
 import { decryptAsync, ed25519 } from '@onekeyhq/core/src/secret';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -79,14 +82,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyPlainTextError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return `0x${(
         await decryptAsync({ password, data: privateKeyRaw })
       ).toString('hex')}`;
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -108,7 +111,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     const { rawTxUnsigned, encodedTx } = unsignedTx;
     if (!rawTxUnsigned) {
-      throw new Error('rawTxUnsigned is undefined');
+      throw new OneKeyPlainTextError('rawTxUnsigned is undefined');
     }
     const senderPublicKey = account.pub;
     if (!senderPublicKey) {
