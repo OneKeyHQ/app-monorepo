@@ -110,6 +110,9 @@ export class OneKeyError<
     if (className) {
       this.className = className;
     }
+    // if (className && !this.name) {
+    //   this.name = className;
+    // }
     if (name) {
       this.name = name;
     }

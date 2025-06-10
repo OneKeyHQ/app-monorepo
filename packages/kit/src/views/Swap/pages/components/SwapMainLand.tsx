@@ -58,6 +58,7 @@ import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import SwapTipsContainer from './SwapTipsContainer';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -253,6 +254,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pt: pageType === EPageType.modal ? '$2.5' : '$5',
           }}
         >
+          <SwapTipsContainer />
           <SwapHeaderContainer
             pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
