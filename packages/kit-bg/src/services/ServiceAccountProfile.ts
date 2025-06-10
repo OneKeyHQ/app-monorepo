@@ -5,11 +5,14 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -518,6 +521,27 @@ class ServiceAccountProfile extends ServiceBase {
     return result;
   }
 
+  @backgroundMethod()
+  public async clearQueryAddressCache() {
+    this._queryAddressWithCache.clear();
+  }
+
+  @backgroundMethod()
+  public async queryAddressWithCache(params: IQueryCheckAddressArgs) {
+    return this._queryAddressWithCache(params);
+  }
+
+  _queryAddressWithCache = memoizee(
+    async (params: IQueryCheckAddressArgs) => {
+      return this.queryAddress(params);
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      max: 30,
+    },
+  );
+
   private async handleNameSolve(
     networkId: string,
     address: string,
@@ -573,7 +597,9 @@ class ServiceAccountProfile extends ServiceBase {
         // @ts-expect-error
         return data;
       }
-      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
+      throw new OneKeyPlainTextError(
+        failedRequest.error ?? 'Failed to send proxy request',
+      );
     }
     return data.map((item) => item.data);
   }
@@ -614,7 +640,7 @@ class ServiceAccountProfile extends ServiceBase {
       const currencyInfo = currencyMap[currency];
 
       if (!currencyInfo) {
-        throw new Error('Currency not found');
+        throw new OneKeyPlainTextError('Currency not found');
       }
       usdValue = Object.entries(value).reduce((acc, [n, v]) => {
         acc[n] = new BigNumber(v)

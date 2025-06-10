@@ -175,11 +175,26 @@ export function AccountSelectorWalletListSideBar({
 
   const CELL_HEIGHT = 68;
 
+  const getHiddenWalletsLength = useCallback(
+    (wallet: IDBWallet) => {
+      let _hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+      if (
+        accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
+        !accountUtils.isHwHiddenWallet({ wallet }) &&
+        isEditableRouteParams
+      ) {
+        _hiddenWalletsLength += 1; // create hidden wallet button
+      }
+      return _hiddenWalletsLength;
+    },
+    [isEditableRouteParams],
+  );
+
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
     wallets?.forEach?.((wallet) => {
-      const hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+      const hiddenWalletsLength = getHiddenWalletsLength(wallet);
       const height = (1 + hiddenWalletsLength) * (CELL_HEIGHT + 12);
       layouts.push({ offset, length: height, index: layouts.length });
       offset += height;
@@ -188,7 +203,7 @@ export function AccountSelectorWalletListSideBar({
       }
     });
     return layouts;
-  }, [wallets, CELL_HEIGHT]);
+  }, [wallets, getHiddenWalletsLength]);
 
   const { md } = useMedia();
 
@@ -225,10 +240,13 @@ export function AccountSelectorWalletListSideBar({
         getItemLayout={(_, index) => layoutList[index]}
         renderPlaceholder={({ item }) => (
           <Stack
-            h={
-              (1 + (item?.hiddenWallets?.length ?? 0)) * CELL_HEIGHT +
-              (item?.hiddenWallets?.length ?? 0) * 12
-            }
+            h={(() => {
+              const hiddenWalletsLength = getHiddenWalletsLength(item);
+              return (
+                (1 + hiddenWalletsLength) * CELL_HEIGHT +
+                hiddenWalletsLength * 12
+              );
+            })()}
             mx="$2"
             bg="$bgActive"
             p="$1"
@@ -270,6 +288,7 @@ export function AccountSelectorWalletListSideBar({
                 onWalletLongPress={drag}
                 testID={`wallet-${item.id}`}
                 badge={badge}
+                isEditMode={isEditableRouteParams}
               />
             </Stack>
           );

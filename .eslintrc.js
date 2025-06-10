@@ -178,6 +178,11 @@ const tsRules = {
         "ImportDeclaration[source.value='react'][specifiers.0.type='ImportDefaultSpecifier']",
       message: 'Default React import not allowed',
     },
+    {
+      selector: 'ThrowStatement > NewExpression[callee.name="Error"]',
+      message:
+        'Direct use of "throw new Error" is not allowed. Use OneKeyPlainTextError or OneKeyError instead',
+    },
   ],
 };
 

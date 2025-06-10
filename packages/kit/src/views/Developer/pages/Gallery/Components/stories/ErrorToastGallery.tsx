@@ -4,6 +4,7 @@ import {
   BadAuthError,
   InvoiceExpiredError,
   OneKeyError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -18,7 +19,7 @@ function error10() {
   throw new BadAuthError();
 }
 function error00() {
-  throw new Error(`原生 new Error 不显示 toast: ${Date.now()}`);
+  throw new OneKeyPlainTextError(`原生 new Error 不显示 toast: ${Date.now()}`);
 }
 function error11() {
   throw new BadAuthError({
@@ -36,7 +37,7 @@ function error12() {
     autoToast: true,
     message: '自定义 Error 类，显式传入自定义 message，不再使用内置 i18n',
   });
-  // throw new Error(`demoErrorInSyncMethod: ${Date.now()}`);
+  // throw new OneKeyPlainTextError(`demoErrorInSyncMethod: ${Date.now()}`);
 }
 
 async function error20() {

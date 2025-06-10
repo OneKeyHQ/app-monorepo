@@ -1,4 +1,5 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -12,7 +13,9 @@ if (platformEnv.isExtensionUi) {
     {},
     {
       get() {
-        throw new Error('[simpleDb] is NOT allowed in UI process currently.');
+        throw new OneKeyPlainTextError(
+          '[simpleDb] is NOT allowed in UI process currently.',
+        );
       },
     },
   ) as SimpleDb;

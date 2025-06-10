@@ -2,6 +2,8 @@
 import { uniq } from 'lodash';
 import { Platform } from 'react-native';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { ONEKEY_LOGO_ICON_URL } from '../consts';
 import {
   ONEKEY_APP_DEEP_LINK,
@@ -37,7 +39,7 @@ const platformName = uniq([
   .join('-');
 
 if (!platformName) {
-  throw new Error('platformName is empty');
+  throw new OneKeyPlainTextError('platformName is empty');
 }
 
 export const WALLET_CONNECT_CLIENT_NAME = platformEnv.appFullName;

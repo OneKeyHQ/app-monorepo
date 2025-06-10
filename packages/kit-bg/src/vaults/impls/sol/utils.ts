@@ -10,6 +10,7 @@ import {
 import bs58 from 'bs58';
 
 import type { INativeTxSol } from '@onekeyhq/core/src/chains/sol/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { EParamsEncodings } from './sdkSol/ClientSol';
 
@@ -105,7 +106,7 @@ export async function parseNativeTxDetail({
           encoding: EParamsEncodings.BASE64,
         });
         if (!accountInfo) {
-          throw new Error('Account not found');
+          throw new OneKeyPlainTextError('Account not found');
         }
         return new AddressLookupTableAccount({
           key: lookup.accountKey,

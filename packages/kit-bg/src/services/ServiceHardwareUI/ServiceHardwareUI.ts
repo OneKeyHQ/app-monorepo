@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -356,7 +357,7 @@ class ServiceHardwareUI extends ServiceBase {
           this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
         if (isMutexLocked) {
           isBusy = true;
-          throw new Error(
+          throw new OneKeyPlainTextError(
             appLocale.intl.formatMessage({
               id: ETranslations.feedback_hardware_is_busy,
             }),

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return,  @typescript-eslint/no-unsafe-member-access */
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -14,7 +15,9 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
     // @ts-ignore
     const module = message?.module as any;
     if (!module) {
-      throw new Error('callRemoteApiMethod ERROR: module is required');
+      throw new OneKeyPlainTextError(
+        'callRemoteApiMethod ERROR: module is required',
+      );
     }
     const moduleInstance: any = await moduleGetter(module);
     if (moduleInstance && moduleInstance[method]) {
@@ -33,17 +36,21 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
     if (remoteApiType === 'webEmbedApi') {
       errorMessage += ' please run "yarn app:web-embed:build" again';
       if (!platformEnv.isWebEmbed) {
-        throw new Error('webEmbedApi is only available in webEmbed');
+        throw new OneKeyPlainTextError(
+          'webEmbedApi is only available in webEmbed',
+        );
       }
     }
 
     if (remoteApiType === 'offscreenApi') {
       if (!platformEnv.isExtensionOffscreen) {
-        throw new Error('offscreenApi is only available in offscreen');
+        throw new OneKeyPlainTextError(
+          'offscreenApi is only available in offscreen',
+        );
       }
     }
 
-    throw new Error(errorMessage);
+    throw new OneKeyPlainTextError(errorMessage);
   };
 }
 
@@ -93,7 +100,9 @@ abstract class RemoteApiProxyBase {
   ): any {
     const nameStr = name as string;
     if (this._moduleCreatedNames[nameStr]) {
-      throw new Error(`_createProxyService name duplicated. name=${nameStr}`);
+      throw new OneKeyPlainTextError(
+        `_createProxyService name duplicated. name=${nameStr}`,
+      );
     }
     this._moduleCreatedNames[nameStr] = true;
     const proxy: any = new Proxy(

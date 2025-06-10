@@ -5,7 +5,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -223,7 +223,7 @@ class ServiceLightning extends ServiceBase {
       });
 
     if (!data.data.lnurlDetails) {
-      throw new Error('Invalid lnurl');
+      throw new OneKeyPlainTextError('Invalid lnurl');
     }
 
     return data.data.lnurlDetails;
@@ -313,7 +313,7 @@ class ServiceLightning extends ServiceBase {
         },
       });
       if (response.status >= 500) {
-        throw new Error('Recipient server error');
+        throw new OneKeyPlainTextError('Recipient server error');
       }
 
       if (response.data.status.toUpperCase() === 'OK') {
@@ -324,7 +324,7 @@ class ServiceLightning extends ServiceBase {
       console.error(e);
       const error = e as AxiosError<ILNURLError>;
       if (error.response?.data?.reason) {
-        throw new Error(error.response?.data.reason);
+        throw new OneKeyPlainTextError(error.response?.data.reason);
       }
       throw e;
     }
@@ -341,7 +341,7 @@ class ServiceLightning extends ServiceBase {
     lnurlDetail: ILNURLDetails;
   }) {
     if (lnurlDetail.tag !== 'login') {
-      throw new Error('lnurl-auth: invalid tag');
+      throw new OneKeyPlainTextError('lnurl-auth: invalid tag');
     }
     const vault = (await vaultFactory.getVault({
       networkId,
@@ -367,7 +367,9 @@ class ServiceLightning extends ServiceBase {
       }>(loginURL.toString());
       // if the service returned with a HTTP 200 we still check if the response data is OK
       if (response?.data.status?.toUpperCase() !== 'OK') {
-        throw new Error(response?.data?.reason || 'Auth: Something went wrong');
+        throw new OneKeyPlainTextError(
+          response?.data?.reason || 'Auth: Something went wrong',
+        );
       }
 
       return response.data;
@@ -376,7 +378,7 @@ class ServiceLightning extends ServiceBase {
         console.error('LNURL-AUTH FAIL:', e);
         const error =
           (e.response?.data as { reason?: string })?.reason || e.message; // lnurl error or exception message
-        throw new Error(error);
+        throw new OneKeyPlainTextError(error);
       }
       throw e;
     }

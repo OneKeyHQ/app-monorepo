@@ -1,5 +1,6 @@
 import { Base64 } from 'js-base64';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors/errors/plainTextError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {
@@ -8,9 +9,8 @@ export const base64Encode = function (arraybuffer: ArrayBuffer): string {
   return base64Data;
 };
 
-export const base64Decode = function (base64: string): ArrayBuffer {
-  const uint8Array = Base64.toUint8Array(base64);
-  return uint8Array.buffer;
+export const base64Decode = function (base64: string): Uint8Array {
+  return Base64.toUint8Array(base64);
 };
 
 const isContextSupportWebAuth = Boolean(
@@ -47,7 +47,7 @@ export const isSupportWebAuth = async () => {
 
 export const verifiedWebAuth = async (credId: string) => {
   if (!(await isSupportWebAuth())) {
-    throw new Error('Not support web auth');
+    throw new OneKeyPlainTextError('Not support web auth');
   }
   const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
   const getCredentialOptions: CredentialRequestOptions = {
@@ -73,10 +73,12 @@ export const verifiedWebAuth = async (credId: string) => {
 
 export const registerWebAuth = async (credId?: string) => {
   if (!(await isSupportWebAuth())) {
-    throw new Error('Not support web auth');
+    throw new OneKeyPlainTextError('Not support web auth');
   }
   if (!navigator?.credentials) {
-    throw new Error('navigator.credentials API is not available');
+    throw new OneKeyPlainTextError(
+      'navigator.credentials API is not available',
+    );
   }
   try {
     if (credId) {

@@ -16,7 +16,10 @@ import type {
   ISignedTxPro,
   IUnsignedMessageTon,
 } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -102,7 +105,9 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -273,7 +278,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         result.skip_validate &&
         signingMessageHexFromHw !== signingMessageHash
       ) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           appLocale.intl.formatMessage({
             id: ETranslations.feedback_failed_to_sign_transaction,
           }),

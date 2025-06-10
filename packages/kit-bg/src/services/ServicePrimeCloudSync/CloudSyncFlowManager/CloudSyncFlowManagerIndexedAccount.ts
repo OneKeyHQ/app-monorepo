@@ -8,6 +8,7 @@ import {
   WALLET_TYPE_QR,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
@@ -62,15 +63,21 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
     const accountIndex = indexedAccount.index;
 
     if (!wallet) {
-      throw new Error('buildWalletSyncKey ERROR: wallet is required');
+      throw new OneKeyPlainTextError(
+        'buildWalletSyncKey ERROR: wallet is required',
+      );
     }
     const { xfp: walletXfp } = wallet;
 
     if (!walletXfp) {
-      throw new Error('buildWalletSyncKey ERROR: walletXfp is required');
+      throw new OneKeyPlainTextError(
+        'buildWalletSyncKey ERROR: walletXfp is required',
+      );
     }
     if (isNil(accountIndex)) {
-      throw new Error('buildWalletSyncKey ERROR: accountIndex is required');
+      throw new OneKeyPlainTextError(
+        'buildWalletSyncKey ERROR: accountIndex is required',
+      );
     }
 
     const rawKey = [walletXfp, accountIndex.toString()].join('__');
@@ -94,10 +101,14 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
     } = wallet ?? {};
 
     if (!walletXfp) {
-      throw new Error('buildSyncPayload ERROR: walletXfp is required');
+      throw new OneKeyPlainTextError(
+        'buildSyncPayload ERROR: walletXfp is required',
+      );
     }
     if (isNil(indexedAccount.index)) {
-      throw new Error('buildSyncPayload ERROR: accountIndex is required');
+      throw new OneKeyPlainTextError(
+        'buildSyncPayload ERROR: accountIndex is required',
+      );
     }
 
     console.log(

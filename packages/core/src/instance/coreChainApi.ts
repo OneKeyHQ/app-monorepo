@@ -5,6 +5,7 @@ import {
   IMPL_CKB,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { CoreChainApiHub } from '../base/CoreChainApiHub';
 import { CoreChainScopeBase } from '../base/CoreChainScopeBase';
@@ -23,10 +24,10 @@ Object.keys(coreChainApi).forEach((key) => {
   ) {
     scope.scopeName = key;
     if (!scope.impl) {
-      throw new Error(`CoreChainScope must have impl: ${key}`);
+      throw new OneKeyPlainTextError(`CoreChainScope must have impl: ${key}`);
     }
     if (scope.impl !== key && scope.impl !== IMPL_CKB) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `CoreChainApiHub key must be the same as impl: ${scope.impl}, ${key}`,
       );
     }
@@ -42,7 +43,7 @@ export function getCoreChainApiScopeByImpl({ impl }: { impl: string }) {
     }
   }
   if (!scope) {
-    throw new Error(`No coreApi found for impl ${impl}`);
+    throw new OneKeyPlainTextError(`No coreApi found for impl ${impl}`);
   }
   return scope;
 }

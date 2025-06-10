@@ -26,6 +26,7 @@ import {
   NotImplemented,
   OneKeyError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -148,7 +149,9 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const client = await this.getClient();
     const invoice = await this._decodedInvoiceCache(transferInfo.to);
@@ -399,7 +402,7 @@ export default class Vault extends VaultBase {
             displayAddress: address,
           };
         }
-        throw new Error('not a lnurl');
+        throw new OneKeyPlainTextError('not a lnurl');
       }
       return {
         isValid: true,
@@ -491,7 +494,7 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const signTemplate = await client.fetchSignTemplate(address, 'auth');
     if (signTemplate.type !== 'auth') {
-      throw new Error('Invalid auth sign template');
+      throw new OneKeyPlainTextError('Invalid auth sign template');
     }
     const timestamp = Date.now();
     const keyring = this.keyring as KeyringHd;
@@ -627,7 +630,7 @@ export default class Vault extends VaultBase {
         paymentRequest,
       });
     } catch (e: any) {
-      throw new Error((e as Error)?.message ?? e);
+      throw new OneKeyPlainTextError((e as Error)?.message ?? e);
     }
 
     const paymentHash = invoice.tags.find(
