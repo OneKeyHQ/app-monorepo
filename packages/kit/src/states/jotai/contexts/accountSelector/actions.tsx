@@ -9,6 +9,7 @@ import { tonMnemonicToKeyPair } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { toastExistingWalletSwitch } from '@onekeyhq/kit/src/utils/toastExistingWalletSwitch';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
   IDBAccount,
@@ -619,7 +620,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         await Promise.all([
           generatingAccountsFn({ wallet, indexedAccount, hidden }),
-          await timerUtils.wait(100),
+          await timerUtils.wait(1000),
         ]);
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
@@ -632,9 +633,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           step: EFinalizeWalletSetupSteps.Ready,
         });
 
-        await timerUtils.wait(1000);
+        await timerUtils.wait(2000);
 
-        return { wallet, indexedAccount, isOverrideWallet };
+        const createResult = { wallet, indexedAccount, isOverrideWallet };
+        return createResult;
       } catch (error) {
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
@@ -673,19 +675,38 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
-      const result =
-        await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
-          {
-            walletId: wallet.id,
-            indexedAccountId: indexedAccount?.id,
-            customNetworks:
-              networkId && deriveType ? [{ networkId, deriveType }] : undefined,
+      let result: {
+        addedAccounts: {
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+        }[];
+        failedAccounts: Array<{
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+          error: IOneKeyError;
+        }>;
+      } = {
+        addedAccounts: [],
+        failedAccounts: [],
+      };
 
-            skipDeviceCancel,
-            hideCheckingDeviceLoading,
-            autoHandleExitError,
-          },
-        );
+      if (!params.wallet.isMocked) {
+        result =
+          await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+            {
+              walletId: wallet.id,
+              indexedAccountId: indexedAccount?.id,
+              customNetworks:
+                networkId && deriveType
+                  ? [{ networkId, deriveType }]
+                  : undefined,
+
+              skipDeviceCancel,
+              hideCheckingDeviceLoading,
+              autoHandleExitError,
+            },
+          );
+      }
 
       if (autoHandleExitError) {
         void (async () => {
@@ -749,6 +770,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           await this.autoSelectToCreatedWallet.call(set, {
             wallet,
             indexedAccount,
+            isOverrideWallet,
           });
           return { wallet, indexedAccount, isOverrideWallet };
         },
@@ -769,12 +791,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       options: { disableAutoSelect?: boolean } = {},
     ) => {
       const res = await serviceAccount.createHWWallet(params);
-      const { wallet, indexedAccount } = res;
+      const { wallet, indexedAccount, isOverrideWallet } = res;
 
       if (!options?.disableAutoSelect) {
         await this.autoSelectToCreatedWallet.call(set, {
           wallet,
           indexedAccount,
+          isOverrideWallet,
         });
       }
 
@@ -816,10 +839,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             : skipDeviceCancel,
           hideCheckingDeviceLoading,
         });
-        const { wallet, indexedAccount } = res;
+        const { wallet, indexedAccount, isOverrideWallet } = res;
         await this.autoSelectToCreatedWallet.call(set, {
           wallet,
           indexedAccount,
+          isOverrideWallet,
         });
         if (options?.addDefaultNetworkAccounts) {
           let dialog: IDialogInstance | undefined;
@@ -858,6 +882,43 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  createHWWalletWithoutHidden = contextAtomMethod(
+    async (_, set, params: IDBCreateHwWalletParamsBase) => {
+      return this.withFinalizeWalletSetupStep.call(set, {
+        createWalletFn: async () => {
+          const { wallet, indexedAccount, isOverrideWallet } =
+            await this.createHWWallet.call(
+              set,
+              {
+                ...params,
+                skipDeviceCancel: true,
+              },
+              {
+                disableAutoSelect: true,
+              },
+            );
+          await serviceAccount.restoreTempCreatedWallet({
+            walletId: wallet.id,
+          });
+          return {
+            isOverrideWallet,
+            wallet,
+            indexedAccount,
+            hidden: undefined,
+          };
+        },
+        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+            skipDeviceCancel: false,
+            hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+          });
+        },
+      });
+    },
+  );
+
   createHWWalletWithHidden = contextAtomMethod(
     async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
@@ -865,7 +926,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
-              { ...params, skipDeviceCancel: true },
+              {
+                ...params,
+                isMockedStandardHwWallet: true,
+                skipDeviceCancel: true,
+              },
               {
                 disableAutoSelect: true,
               },
@@ -874,7 +939,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           let hiddenWalletCreatedResult:
             | {
                 wallet: IDBWallet;
-                indexedAccount: IDBIndexedAccount;
+                indexedAccount: IDBIndexedAccount | undefined;
               }
             | undefined;
           // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
@@ -906,6 +971,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.autoSelectToCreatedWallet.call(set, {
               wallet,
               indexedAccount,
+              isOverrideWallet,
             });
           }
 
@@ -1128,13 +1194,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       {
         walletId,
+        isRemoveToMocked,
       }: {
         walletId: string;
+        isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
       },
     ) => {
       // TODO add home scene check
       const num = 0;
-      await serviceAccount.removeWallet({ walletId });
+      await serviceAccount.removeWallet({
+        walletId,
+        isRemoveToMocked,
+      });
       set(accountSelectorEditModeAtom(), false);
 
       await this.autoSelectNextAccount.call(set, {
@@ -1716,11 +1787,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (
       _,
       set,
-      {
-        wallet,
-        indexedAccount,
-      }: { wallet: IDBWallet; indexedAccount?: IDBIndexedAccount },
+      createResult: {
+        wallet: IDBWallet;
+        indexedAccount: IDBIndexedAccount | undefined;
+        isOverrideWallet: boolean | undefined;
+      },
     ) => {
+      const { wallet, indexedAccount } = createResult;
+      toastExistingWalletSwitch(createResult);
       await this.updateSelectedAccount.call(set, {
         num: 0,
         builder: (v) => ({
@@ -2023,6 +2097,7 @@ export function useAccountSelectorActions() {
   // const createHWWallet = actions.createHWWallet.use();
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
+  const createHWWalletWithoutHidden = actions.createHWWalletWithoutHidden.use();
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
@@ -2060,6 +2135,7 @@ export function useAccountSelectorActions() {
     createHDWallet,
     createHWHiddenWallet,
     createHWWalletWithHidden,
+    createHWWalletWithoutHidden,
     createQrWallet,
     createTonImportedWallet,
     updateHwWalletsDeprecatedStatus,

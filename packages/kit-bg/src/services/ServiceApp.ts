@@ -14,7 +14,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { exitApp } from '@onekeyhq/shared/src/modules3rdParty/react-native-exit';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -51,9 +50,6 @@ class ServiceApp extends ServiceBase {
   restartApp() {
     defaultLogger.setting.page.restartApp();
     if (platformEnv.isNative) {
-      setTimeout(() => {
-        exitApp();
-      }, 1200);
       RNRestart.restart();
       return;
     }
@@ -99,6 +95,9 @@ class ServiceApp extends ServiceBase {
     defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
 
+    // WARNING:
+    // After deleting the realm database on Android, it blocks the thread for about 300ms. Root cause unknown.
+    // Therefore, do not add any Android-specific business logic after cleaning the realm db
     try {
       // clean local db
       await localDb.reset();
@@ -106,124 +105,128 @@ class ServiceApp extends ServiceBase {
       console.error('localDb.reset() error');
     }
     defaultLogger.setting.page.clearDataStep('localDb-reset');
-    await timerUtils.wait(100);
-
-    if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
-      try {
-        const storageBuckets = (globalThis.navigator as INavigator)
-          .storageBuckets;
-        const names = await storageBuckets?.keys();
-        if (names) {
-          for (const name of names) {
-            try {
-              await storageBuckets?.delete(name);
-            } catch (error) {
-              console.error('storageBuckets.delete() error', error);
-            }
-          }
-        }
-      } catch {
-        console.error('storageBuckets.delete() error');
-      }
-    }
-    defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
-    await timerUtils.wait(100);
-
-    if (!platformEnv.isNative && platformEnv.isRuntimeBrowser) {
-      const shouldDeleteAllOtherIndexedDBs = true;
-      try {
-        if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
-          const indexedDB = globalThis?.indexedDB;
-          const deleteAllIndexedDBs = async () => {
-            const dbNames: IDBDatabaseInfo[] =
-              (await indexedDB?.databases?.()) || [];
-            for (const { name } of dbNames) {
-              if (name) {
-                try {
-                  await new Promise<void>((resolve, reject) => {
-                    const timer = setTimeout(() => {
-                      reject(new Error(`deleteIndexedDB timeout: ${name}`));
-                    }, 1000);
-
-                    const deleteRequest = indexedDB?.deleteDatabase(name);
-                    deleteRequest.onsuccess = () => {
-                      clearTimeout(timer);
-                      resolve();
-                    };
-                    deleteRequest.onerror = () => {
-                      clearTimeout(timer);
-                      reject(new Error(`deleteIndexedDB error: ${name}`));
-                    };
-                  });
-                } catch (error) {
-                  console.error('deleteIndexedDB error', error);
-                }
-              }
-            }
-          };
-          await deleteAllIndexedDBs();
-        }
-      } catch (error) {
-        console.error('deleteAllIndexedDBs error', error);
-      }
-    }
-    defaultLogger.setting.page.clearDataStep('shouldDeleteAllOtherIndexedDBs');
-    await timerUtils.wait(100);
 
     try {
       const isV4DbExist: boolean =
         await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
       if (isV4DbExist) {
         await v4dbHubs.v4localDb.reset();
-        await timerUtils.wait(600);
+        if (!platformEnv.isNativeAndroid) {
+          await timerUtils.wait(600);
+        }
       }
     } catch (error) {
       //
     }
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');
-    await timerUtils.wait(1500);
 
-    if (platformEnv.isRuntimeBrowser) {
-      try {
-        globalThis.localStorage.clear();
-      } catch {
-        console.error('window.localStorage.clear() error');
+    if (!platformEnv.isNative) {
+      if (platformEnv.isRuntimeBrowser) {
+        try {
+          const storageBuckets = (globalThis.navigator as INavigator)
+            .storageBuckets;
+          const names = await storageBuckets?.keys();
+          if (names) {
+            for (const name of names) {
+              try {
+                await storageBuckets?.delete(name);
+              } catch (error) {
+                console.error('storageBuckets.delete() error', error);
+              }
+            }
+          }
+        } catch {
+          console.error('storageBuckets.delete() error');
+        }
+        await timerUtils.wait(100);
+        defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
       }
-      try {
-        globalThis.sessionStorage.clear();
-      } catch {
-        console.error('window.sessionStorage.clear() error');
-      }
-    }
 
-    if (platformEnv.isExtension) {
-      try {
-        await globalThis.chrome.storage.local.clear();
-      } catch {
-        console.error('chrome.storage.local.clear() error');
-      }
-      // try {
-      //   await globalThis.chrome.storage.sync.clear();
-      // } catch {
-      //   console.error('chrome.storage.sync.clear() error');
-      // }
-      try {
-        await globalThis.chrome.storage.session.clear();
-      } catch {
-        console.error('chrome.storage.session.clear() error');
-      }
-      // try {
-      //   await globalThis.chrome.storage.managed.clear();
-      // } catch {
-      //   console.error('chrome.storage.managed.clear() error');
-      // }
-    }
+      if (platformEnv.isRuntimeBrowser) {
+        const shouldDeleteAllOtherIndexedDBs = true;
+        try {
+          if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
+            const indexedDB = globalThis?.indexedDB;
+            const deleteAllIndexedDBs = async () => {
+              const dbNames: IDBDatabaseInfo[] =
+                (await indexedDB?.databases?.()) || [];
+              for (const { name } of dbNames) {
+                if (name) {
+                  try {
+                    await new Promise<void>((resolve, reject) => {
+                      const timer = setTimeout(() => {
+                        reject(new Error(`deleteIndexedDB timeout: ${name}`));
+                      }, 1000);
 
-    if (platformEnv.isDesktop) {
-      try {
-        await globalThis.desktopApi?.storeClear();
-      } catch (error) {
-        console.error('desktopApi.storeClear() error', error);
+                      const deleteRequest = indexedDB?.deleteDatabase(name);
+                      deleteRequest.onsuccess = () => {
+                        clearTimeout(timer);
+                        resolve();
+                      };
+                      deleteRequest.onerror = () => {
+                        clearTimeout(timer);
+                        reject(new Error(`deleteIndexedDB error: ${name}`));
+                      };
+                    });
+                  } catch (error) {
+                    console.error('deleteIndexedDB error', error);
+                  }
+                }
+              }
+            };
+            await deleteAllIndexedDBs();
+          }
+        } catch (error) {
+          console.error('deleteAllIndexedDBs error', error);
+        }
+        await timerUtils.wait(100);
+        defaultLogger.setting.page.clearDataStep(
+          'shouldDeleteAllOtherIndexedDBs',
+        );
+      }
+
+      if (platformEnv.isRuntimeBrowser) {
+        try {
+          globalThis.localStorage.clear();
+        } catch {
+          console.error('window.localStorage.clear() error');
+        }
+        try {
+          globalThis.sessionStorage.clear();
+        } catch {
+          console.error('window.sessionStorage.clear() error');
+        }
+      }
+
+      if (platformEnv.isExtension) {
+        try {
+          await globalThis.chrome.storage.local.clear();
+        } catch {
+          console.error('chrome.storage.local.clear() error');
+        }
+        // try {
+        //   await globalThis.chrome.storage.sync.clear();
+        // } catch {
+        //   console.error('chrome.storage.sync.clear() error');
+        // }
+        try {
+          await globalThis.chrome.storage.session.clear();
+        } catch {
+          console.error('chrome.storage.session.clear() error');
+        }
+        // try {
+        //   await globalThis.chrome.storage.managed.clear();
+        // } catch {
+        //   console.error('chrome.storage.managed.clear() error');
+        // }
+      }
+
+      if (platformEnv.isDesktop) {
+        try {
+          await globalThis.desktopApi?.storeClear();
+        } catch (error) {
+          console.error('desktopApi.storeClear() error', error);
+        }
       }
     }
   }
@@ -257,7 +260,7 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('endResetting');
     }
 
-    if (platformEnv.isWeb || platformEnv.isDesktop) {
+    if (!platformEnv.isNative && (platformEnv.isWeb || platformEnv.isDesktop)) {
       // reset route/href
       try {
         appGlobals.$navigationRef.current?.navigate(ERootRoutes.Main, {
@@ -269,10 +272,9 @@ class ServiceApp extends ServiceBase {
       } catch {
         console.error('reset route error');
       }
+      defaultLogger.setting.page.clearData({ action: 'ResetApp' });
+      await timerUtils.wait(600);
     }
-
-    defaultLogger.setting.page.clearData({ action: 'ResetApp' });
-    await timerUtils.wait(600);
 
     this.restartApp();
   }

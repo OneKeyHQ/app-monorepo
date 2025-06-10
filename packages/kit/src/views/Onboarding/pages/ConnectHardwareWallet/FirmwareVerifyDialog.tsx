@@ -31,6 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IDeviceVerifyVersionCompareResult,
@@ -924,6 +925,7 @@ export function FirmwareAuthenticationDialogContent({
 }
 
 export function useFirmwareVerifyDialog() {
+  const [isLoading, setIsLoading] = useState(false);
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
@@ -936,18 +938,45 @@ export function useFirmwareVerifyDialog() {
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
       onClose: () => Promise<void> | void;
     }) => {
-      console.log('====> features: ', features);
-      // use old features to quick check if need new version
-      const shouldUseNewAuthenticateVersion =
-        await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
-          {
-            features,
-          },
+      const onCloseFn = async () => {
+        await onClose?.();
+        setIsLoading(false);
+        if (device.connectId) {
+          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+            {
+              connectId: device.connectId,
+              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
+            },
+          );
+        }
+      };
+
+      setIsLoading(true);
+      // await backgroundApiProxy.serviceApp.showDialogLoading({
+      //   title: appLocale.intl.formatMessage({
+      //     id: ETranslations.global_processing,
+      //   }),
+      // });
+      let shouldUseNewAuthenticateVersion = false;
+      try {
+        console.log('====> features: ', features);
+        // use old features to quick check if need new version
+        shouldUseNewAuthenticateVersion =
+          await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
+            {
+              features,
+            },
+          );
+        console.log(
+          'shouldUseNewAuthenticateVersion: ====>>>: ',
+          shouldUseNewAuthenticateVersion,
         );
-      console.log(
-        'shouldUseNewAuthenticateVersion: ====>>>: ',
-        shouldUseNewAuthenticateVersion,
-      );
+      } catch (error) {
+        await onCloseFn();
+        throw error;
+      } finally {
+        // await backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
       const firmwareAuthenticationDialog = Dialog.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
@@ -966,22 +995,14 @@ export function useFirmwareVerifyDialog() {
             useNewProcess={shouldUseNewAuthenticateVersion}
           />
         ),
-        async onClose() {
-          await onClose?.();
-          if (device.connectId) {
-            await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
-              {
-                connectId: device.connectId,
-                skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
-              },
-            );
-          }
-        },
+        onCancel: onCloseFn,
+        onClose: onCloseFn,
       });
     },
     [],
   );
   return {
     showFirmwareVerifyDialog,
+    isLoading,
   };
 }
