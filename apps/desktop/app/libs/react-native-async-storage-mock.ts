@@ -5,39 +5,39 @@ export const AsyncStorage = {
   getItem: async (key: string): Promise<string | null> => {
     return storage.get(key) || null;
   },
-  
+
   setItem: async (key: string, value: string): Promise<void> => {
     storage.set(key, value);
   },
-  
+
   removeItem: async (key: string): Promise<void> => {
     storage.delete(key);
   },
-  
+
   clear: async (): Promise<void> => {
     storage.clear();
   },
-  
+
   getAllKeys: async (): Promise<string[]> => {
     return Array.from(storage.keys());
   },
-  
+
   multiGet: async (keys: string[]): Promise<[string, string | null][]> => {
-    return keys.map(key => [key, storage.get(key) || null]);
+    return keys.map((key) => [key, storage.get(key) || null]);
   },
-  
+
   multiSet: async (keyValuePairs: [string, string][]): Promise<void> => {
     keyValuePairs.forEach(([key, value]) => {
       storage.set(key, value);
     });
   },
-  
+
   multiRemove: async (keys: string[]): Promise<void> => {
-    keys.forEach(key => {
+    keys.forEach((key) => {
       storage.delete(key);
     });
   },
-  
+
   mergeItem: async (key: string, value: string): Promise<void> => {
     const existingValue = storage.get(key);
     if (existingValue) {
@@ -53,12 +53,12 @@ export const AsyncStorage = {
       storage.set(key, value);
     }
   },
-  
+
   multiMerge: async (keyValuePairs: [string, string][]): Promise<void> => {
     for (const [key, value] of keyValuePairs) {
       await AsyncStorage.mergeItem(key, value);
     }
-  }
+  },
 };
 
 export default AsyncStorage;
