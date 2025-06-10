@@ -5,6 +5,7 @@ import * as ethUtil from 'ethereumjs-util';
 import { isString } from 'lodash';
 
 import { decryptAsync, uncompressPublicKey } from '@onekeyhq/core/src/secret';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -27,7 +28,6 @@ import {
 
 import { hashMessage } from './message';
 import {
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
   buildSignedTxFromSignatureEvm,
   getPublicKeyFromPrivateKey,
   packUnsignedTxForSignEvm,

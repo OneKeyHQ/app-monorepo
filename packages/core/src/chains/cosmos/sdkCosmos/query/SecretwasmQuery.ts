@@ -1,5 +1,5 @@
-import type {
 import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import type {
   ICosmosCw20AssetInfo,
   ICosmosCw20TokenBalance,
   IQuery,

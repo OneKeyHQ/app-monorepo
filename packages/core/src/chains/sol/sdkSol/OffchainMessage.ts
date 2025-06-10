@@ -2,10 +2,11 @@
 /* eslint-disable no-bitwise */
 /* eslint-disable spellcheck/spell-checker */
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 import { EOffChainMessageType } from '../types';
 
 import type {
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
   ICreateOffChainMessageOptions,
   IOffChainMessageHeaderLegacy,
   IOffChainMessageHeaderStandard,
@@ -145,7 +146,7 @@ export class OffchainMessage {
   ): Uint8Array {
     if (format === 0) {
       if (!/^[\x20-\x7E]*$/.test(message)) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'Format 0 only supports printable ASCII characters (0x20-0x7E)',
         );
       }
@@ -168,7 +169,7 @@ export class OffchainMessage {
     }
 
     if (totalLength > maxLength) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `Total message length (${totalLength}) exceeds maximum (${maxLength}) for format ${format}`,
       );
     }
@@ -211,12 +212,16 @@ export class OffchainMessage {
 
   private static validateSignerPublicKeys(signerPublicKeys: Uint8Array[]) {
     if (signerPublicKeys.length === 0) {
-      throw new OneKeyPlainTextError('At least one signer public key is required');
+      throw new OneKeyPlainTextError(
+        'At least one signer public key is required',
+      );
     }
 
     for (const pubkey of signerPublicKeys) {
       if (pubkey.length !== 32) {
-        throw new OneKeyPlainTextError('Each signer public key must be 32 bytes');
+        throw new OneKeyPlainTextError(
+          'Each signer public key must be 32 bytes',
+        );
       }
     }
   }
@@ -447,7 +452,9 @@ export class OffchainMessage {
 
   serialize() {
     if (!this.isValid()) {
-      throw new OneKeyPlainTextError(`Invalid OffchainMessage: ${JSON.stringify(this)}`);
+      throw new OneKeyPlainTextError(
+        `Invalid OffchainMessage: ${JSON.stringify(this)}`,
+      );
     }
     const buffer = Buffer.alloc(4);
     if (!this.message) {
