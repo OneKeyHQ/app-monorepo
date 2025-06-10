@@ -8,7 +8,10 @@ import type { IEncodedTxAda } from '@onekeyhq/core/src/chains/ada/types';
 import { EAdaNetworkId } from '@onekeyhq/core/src/chains/ada/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -121,7 +124,9 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const { derivationType, addressType, networkId, protocolMagic } =
             //   await getCardanoConstant();

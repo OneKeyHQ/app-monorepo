@@ -1,6 +1,9 @@
 import { isNil, isNumber } from 'lodash';
 
-import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalDBRecordNotFoundError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -73,11 +76,13 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     bucketName: EIndexedDBBucketNames,
   ): IndexedDBPromised<IIndexedDBSchemaMap> {
     if (!this.buckets) {
-      throw new Error('buckets not initialized');
+      throw new OneKeyPlainTextError('buckets not initialized');
     }
     const indexed = this.buckets[bucketName];
     if (!indexed) {
-      throw new Error(`indexedDB bucket not found: ${bucketName}`);
+      throw new OneKeyPlainTextError(
+        `indexedDB bucket not found: ${bucketName}`,
+      );
     }
     return indexed;
   }
@@ -270,7 +275,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         default: {
           const exhaustiveCheck: never = bucketName;
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          throw new Error(
+          throw new OneKeyPlainTextError(
             `Unsupported indexedDB bucket name: ${exhaustiveCheck as string}`,
           );
         }
@@ -314,7 +319,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         message,
         method: 'error',
       });
-      throw new Error(message);
+      throw new OneKeyPlainTextError(message);
     }
     return store;
   }
@@ -657,7 +662,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         // TODO only remove first record?
         const recordId = pair[0]?.id;
         if (isNil(recordId)) {
-          throw new Error('dbRemoveRecord ERROR: recordId not found');
+          throw new OneKeyPlainTextError(
+            'dbRemoveRecord ERROR: recordId not found',
+          );
         }
         return store.delete(recordId);
       }),

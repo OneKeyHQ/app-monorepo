@@ -1,6 +1,7 @@
 import { cloneDeep, isNil, isPlainObject } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import localDb from '../../dbs/local/localDb';
 import dbBackupTools from '../../services/ServiceDBBackup/dbBackupTools';
@@ -24,7 +25,7 @@ function checkAtomNameMatched(key: string, value: string) {
     // if (isNotificationsPersistAtom) {
     //   return;
     // }
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `Atom name not matched with key: key=${key} value=${value}`,
     );
   }
@@ -45,10 +46,12 @@ export async function jotaiInit() {
   Object.entries(EAtomNames).forEach(([key, value]) => {
     checkAtomNameMatched(key, value);
     if (!value.endsWith('Atom')) {
-      throw new Error(`Atom name should be end with Atom: ${value}`);
+      throw new OneKeyPlainTextError(
+        `Atom name should be end with Atom: ${value}`,
+      );
     }
     if (!atoms[key]) {
-      throw new Error(`Atom not defined: ${key}`);
+      throw new OneKeyPlainTextError(`Atom not defined: ${key}`);
     }
   });
   // console.log('allAtoms : ', allAtoms, atoms, EAtomNames);

@@ -12,7 +12,10 @@ import type {
   ISignedTxPro,
   IUnsignedMessageCfx,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -93,7 +96,9 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyPlainTextError(
+              'use sdk allNetworkGetAddress instead',
+            );
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -217,7 +222,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))
-          throw new Error('not hex string');
+          throw new OneKeyPlainTextError('not hex string');
 
         messageBuffer = Buffer.from(
           hexUtils.stripHexPrefix(message.message),

@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EApproveType, EWithdrawType } from '@onekeyhq/shared/types/staking';
@@ -41,7 +42,7 @@ export const useHandleWithdraw = () => {
           provider,
         });
       if (!stakingConfig) {
-        throw new Error('Staking config not found');
+        throw new OneKeyPlainTextError('Staking config not found');
       }
       if (
         withdrawType === EWithdrawType.WithdrawOrder ||

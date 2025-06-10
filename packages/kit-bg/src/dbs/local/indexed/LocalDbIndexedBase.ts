@@ -8,6 +8,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IndexedDBObjectStorePromised,
@@ -18,11 +19,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedToBucketsMigration from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
-import {
-  INDEXED_DB_NAME,
-  INDEXED_DB_VERSION,
-  storeNameSupportCreatedAt,
-} from '../consts';
+import { INDEXED_DB_VERSION, storeNameSupportCreatedAt } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import {
@@ -161,7 +158,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       //   // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
       //   const bucket = await storageBuckets?.open('hello-world', bucketOptions);
       //   if (!bucket?.indexedDB) {
-      //     throw new Error(`Failed to open bucket indexedDB: ${bucketName}`);
+      //     throw new OneKeyPlainTextError(`Failed to open bucket indexedDB: ${bucketName}`);
       //   }
       //   idb = bucket.indexedDB;
       // }
@@ -214,7 +211,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     try {
       await this._initDBRecords(db);
     } catch (error) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `Failed to init db records: ${(error as Error)?.message}`,
       );
     }
@@ -283,7 +280,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       alwaysCreate: true,
     });
     if (!tx.stores) {
-      throw new Error('tx.stores is undefined');
+      throw new OneKeyPlainTextError('tx.stores is undefined');
     }
     const { Context: contextStore, Wallet: walletStore } = tx.stores;
     await Promise.all([

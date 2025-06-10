@@ -18,7 +18,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorAirGapInvalidQrCode,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -212,7 +215,9 @@ class ServiceQrWallet extends ServiceBase {
     const { serviceAccount } = this.backgroundApi;
     let byDevice: IDBDevice | undefined;
     if (!walletId) {
-      throw new Error('prepareQrcodeWalletAddressAdd ERROR: walletId missing ');
+      throw new OneKeyPlainTextError(
+        'prepareQrcodeWalletAddressAdd ERROR: walletId missing ',
+      );
     }
     const byWallet = await serviceAccount.getWallet({
       walletId,
@@ -322,7 +327,7 @@ class ServiceQrWallet extends ServiceBase {
       };
       buildBy = 'hdkey';
     } else {
-      throw new Error(`Invalid UR type: ${ur.type}`);
+      throw new OneKeyPlainTextError(`Invalid UR type: ${ur.type}`);
     }
     const qrDevice: IQrWalletDevice = {
       name: airGapMultiAccounts.device || 'QR Wallet',

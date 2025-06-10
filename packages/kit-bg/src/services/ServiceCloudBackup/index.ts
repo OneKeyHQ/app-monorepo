@@ -24,6 +24,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -267,7 +268,7 @@ class ServiceCloudBackup extends ServiceBase {
     };
     const accountCount = accountCountWithBackup(cloudData.publicData);
     if (!isAvailableBackupWithBackup(cloudData.publicData)) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         appLocale.intl.formatMessage({
           id: ETranslations.backup_no_content_available_for_backup,
         }),
@@ -278,7 +279,7 @@ class ServiceCloudBackup extends ServiceBase {
       if (!RNFS) return;
       const localTempFilePath = this.getTempFilePath(filename);
       if (!localTempFilePath) {
-        throw new Error('Invalid local temp file path.');
+        throw new OneKeyPlainTextError('Invalid local temp file path.');
       }
       await RNFS.writeFile(
         localTempFilePath,

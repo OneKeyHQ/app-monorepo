@@ -1,4 +1,5 @@
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
@@ -19,7 +20,9 @@ export class ExternalWalletFactory {
 
   getWalletConnectController() {
     if (!this.backgroundApi) {
-      throw new Error('ExternalWalletFactory backgroundApi not set yet');
+      throw new OneKeyPlainTextError(
+        'ExternalWalletFactory backgroundApi not set yet',
+      );
     }
     const implWalletConnect = 'walletconnect';
     if (!this.controllersCache[implWalletConnect]) {
@@ -42,13 +45,15 @@ export class ExternalWalletFactory {
     connectionInfo?: IExternalConnectionInfo;
   }): Promise<ExternalControllerBase> {
     if (!this.backgroundApi) {
-      throw new Error('ExternalWalletFactory backgroundApi not set yet');
+      throw new OneKeyPlainTextError(
+        'ExternalWalletFactory backgroundApi not set yet',
+      );
     }
     // eslint-disable-next-line no-param-reassign
     impl = impl || networkUtils.getNetworkImpl({ networkId: networkId || '' });
 
     if (!impl && !connectionInfo) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         'ExternalWalletFactory->getController ERROR:  No impl or connectionInfo',
       );
     }
@@ -69,7 +74,7 @@ export class ExternalWalletFactory {
     if (connectionInfo?.walletConnect) {
       return this.getWalletConnectController();
     }
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `ExternalWalletFactory->getController ERROR:  Unknown impl or connectionInfo: ${
         impl || ''
       }`,

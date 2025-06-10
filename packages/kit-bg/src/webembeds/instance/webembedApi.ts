@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable new-cap */
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { buildCallRemoteApiMethod } from '../../apis/RemoteApiProxyBase';
@@ -25,7 +26,7 @@ const getOrCreateWebEmbedApiModule = memoizee(
     if (name === 'imageUtils') {
       return new (await import('../WebEmbedApiImageUtils')).default();
     }
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `Unknown WebEmbed API module: ${
         name as string
       } , please run "yarn app:web-embed:build" again`,

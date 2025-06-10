@@ -23,7 +23,7 @@ import {
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetListRoutes,
@@ -228,17 +228,17 @@ function AddCustomTokenModal() {
       }
       try {
         if (searchedTokenRef.current?.networkId !== selectedNetworkIdValue) {
-          throw new Error('Token networkId not matched');
+          throw new OneKeyPlainTextError('Token networkId not matched');
         }
         if (
           normalizeAddress(searchedTokenRef.current?.address) !==
           normalizeAddress(contractAddress)
         ) {
-          throw new Error('Token address not matched');
+          throw new OneKeyPlainTextError('Token address not matched');
         }
         const decimalsBN = new BigNumber(searchedTokenRef.current?.decimals);
         if (decimalsBN.isNaN()) {
-          throw new Error('Token decimal is invalid');
+          throw new OneKeyPlainTextError('Token decimal is invalid');
         }
 
         const tokenInfo: IAccountToken = {

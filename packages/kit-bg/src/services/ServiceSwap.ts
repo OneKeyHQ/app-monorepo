@@ -64,6 +64,7 @@ import type {
   ISwapCheckSupportResponse,
   ISwapNetwork,
   ISwapNetworkBase,
+  ISwapTips,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxHistory,
@@ -313,6 +314,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
+        // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
@@ -574,6 +576,7 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
+        // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
@@ -1012,6 +1015,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {
+        // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap check token approve allowance cancel', {
           cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
         });
@@ -2212,6 +2216,20 @@ export default class ServiceSwap extends ServiceBase {
         title: error?.message,
         message: error?.requestId,
       });
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSwapTips() {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const { data } = await client.get<{ data: ISwapTips }>(
+        '/utility/v1/swap-tips',
+      );
+      return data?.data;
+    } catch (e) {
+      console.error(e);
       return undefined;
     }
   }

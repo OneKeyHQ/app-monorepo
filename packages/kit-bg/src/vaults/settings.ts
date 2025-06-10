@@ -52,12 +52,12 @@ function validateVaultSettings({
 }) {
   if (process.env.NODE_ENV !== 'production') {
     if (!settings.accountDeriveInfo.default) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `no default accountDeriveInfo found in vault settings: ${networkId}`,
       );
     }
     if (!Object.isFrozen(settings)) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${networkId}`,
       );
     }
@@ -109,7 +109,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
   };
   const loader = settingsLoader[impl];
   if (!loader) {
-    throw new Error(`no settings found: impl=${impl}`);
+    throw new OneKeyPlainTextError(`no settings found: impl=${impl}`);
   }
   const settings = (await settingsLoader[impl]()).default;
   validateVaultSettings({ settings, networkId });
@@ -142,7 +142,7 @@ export async function getVaultSettingsAccountDeriveInfo({
     info = settings.accountDeriveInfo[deriveType as 'default'];
   }
   if (!info) {
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `no accountDeriveInfo found in vault settings: ${networkId} ${deriveType}`,
     );
   }

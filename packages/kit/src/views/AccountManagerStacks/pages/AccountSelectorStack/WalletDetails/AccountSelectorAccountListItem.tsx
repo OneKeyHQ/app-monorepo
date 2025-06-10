@@ -1,7 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -28,6 +34,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
+import { AccountRenameInlineButton } from '../../../components/AccountEdit/AccountRenameButton';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
@@ -404,9 +411,18 @@ export function AccountSelectorAccountListItem({
           flex={1}
           pr="$8"
           primary={
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {item.name}
-            </SizableText>
+            editMode ? (
+              <AccountRenameInlineButton
+                name={item.name}
+                indexedAccount={indexedAccount}
+                account={account}
+                wallet={focusedWalletInfo?.wallet}
+              />
+            ) : (
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {item.name}
+              </SizableText>
+            )
           }
           secondary={
             <XStack alignItems="center">

@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -223,7 +224,7 @@ class ServiceNetwork extends ServiceBase {
       );
     }
     if (!network) {
-      throw new Error(
+      throw new OneKeyPlainTextError(
         `getNetwork ERROR: Network not found: ${networkId || ''} ${code || ''}`,
       );
     }
@@ -763,7 +764,7 @@ class ServiceNetwork extends ServiceBase {
     if (exportType === 'publicKey') {
       return this.getSupportExportPublicKeyNetworks();
     }
-    throw new Error('Not implemented');
+    throw new OneKeyPlainTextError('Not implemented');
   }
 
   @backgroundMethod()

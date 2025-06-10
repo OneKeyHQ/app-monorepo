@@ -13,6 +13,7 @@ import {
   usePasswordPersistAtom,
   usePasswordPromptPromiseTriggerAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EPassKeyWindowFrom,
@@ -149,7 +150,7 @@ function PassKeyContainer() {
 
 function renderPassKeyPage() {
   const root = globalThis.document.querySelector('#root');
-  if (!root) throw new Error('No root element found!');
+  if (!root) throw new OneKeyPlainTextError('No root element found!');
 
   createRoot(root).render(
     <GlobalJotaiReady>

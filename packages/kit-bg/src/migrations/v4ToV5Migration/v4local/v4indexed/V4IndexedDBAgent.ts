@@ -1,5 +1,6 @@
 import { isNil, isNumber } from 'lodash';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -161,7 +162,7 @@ export class V4IndexedDBAgent
   ): IV4LocalDBTransactionStores[T] {
     const store = tx.stores?.[storeName];
     if (!store) {
-      throw new Error(`indexedDB store not found: ${storeName}`);
+      throw new OneKeyPlainTextError(`indexedDB store not found: ${storeName}`);
     }
     return store;
   }
@@ -385,7 +386,9 @@ export class V4IndexedDBAgent
       pairs.map(async (pair) => {
         const recordId = pair[0]?.id;
         if (isNil(recordId)) {
-          throw new Error('dbRemoveRecord ERROR: recordId not found');
+          throw new OneKeyPlainTextError(
+            'dbRemoveRecord ERROR: recordId not found',
+          );
         }
         return store.delete(recordId);
       }),

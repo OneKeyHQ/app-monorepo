@@ -2,6 +2,7 @@
 
 // copy from:
 //    node_modules/@react-native-async-storage/async-storage/types/index.d.ts
+import { OneKeyPlainTextError } from '../errors/errors/plainTextError';
 import platformEnv, { isManifestV3 } from '../platformEnv';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
@@ -14,7 +15,9 @@ class ExtensionStorage implements AsyncStorageStatic {
 
   _checkOffscreen() {
     if (platformEnv.isExtensionOffscreen) {
-      throw new Error('ExtensionStorage is not supported in offscreen page.');
+      throw new OneKeyPlainTextError(
+        'ExtensionStorage is not supported in offscreen page.',
+      );
     }
   }
 

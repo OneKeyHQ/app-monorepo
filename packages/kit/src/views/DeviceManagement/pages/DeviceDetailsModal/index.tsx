@@ -103,7 +103,8 @@ function DeviceDetailsModalCmp() {
     });
   }, [result?.device, navigation]);
 
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const { showFirmwareVerifyDialog, isLoading: isFirmwareVerifyDialogLoading } =
+    useFirmwareVerifyDialog();
   const onPressAuthRequest = useCallback(async () => {
     if (!result?.device) {
       return;
@@ -268,6 +269,7 @@ function DeviceDetailsModalCmp() {
                 data={result}
                 onPressHomescreen={onPressHomescreen}
                 onPressAuthRequest={onPressAuthRequest}
+                authRequestLoading={isFirmwareVerifyDialogLoading}
                 onPressCheckForUpdates={onPressCheckForUpdates}
                 onPressTroubleshooting={onPressTroubleshooting}
               />
