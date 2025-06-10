@@ -19,6 +19,7 @@ function AccountValue(accountValue: {
   linkedNetworkId?: string;
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
@@ -29,6 +30,7 @@ function AccountValue(accountValue: {
     linkedNetworkId,
     indexedAccountId,
     mergeDeriveAssetsEnabled,
+    isSingleAddress,
   } = accountValue;
 
   const networksAccounts = usePromiseResult(
@@ -65,31 +67,37 @@ function AccountValue(accountValue: {
     }
 
     if (
+      linkedNetworkId &&
+      mergeDeriveAssetsEnabled &&
+      networksAccounts.length > 0 &&
+      !isSingleAddress
+    ) {
+      let mergedValue = new BigNumber(0);
+      let accountValueExist = false;
+      networksAccounts.forEach((networkAccount) => {
+        if (networkAccount.account) {
+          const networkAccountValue =
+            value[
+              accountUtils.buildAccountValueKey({
+                accountId: networkAccount.account.id,
+                networkId: linkedNetworkId,
+              })
+            ];
+          console.log('networkAccountValue', networkAccountValue);
+          if (!isNil(networkAccountValue)) {
+            accountValueExist = true;
+            mergedValue = mergedValue.plus(networkAccountValue);
+          }
+        }
+      });
+      return accountValueExist ? mergedValue.toFixed() : undefined;
+    }
+
+    if (
       linkedAccountId &&
       linkedNetworkId &&
       !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
     ) {
-      if (mergeDeriveAssetsEnabled && networksAccounts.length > 0) {
-        let mergedValue = new BigNumber(0);
-        let accountValueExist = false;
-        networksAccounts.forEach((networkAccount) => {
-          if (networkAccount.account) {
-            const networkAccountValue =
-              value[
-                accountUtils.buildAccountValueKey({
-                  accountId: networkAccount.account.id,
-                  networkId: linkedNetworkId,
-                })
-              ];
-            if (!isNil(networkAccountValue)) {
-              accountValueExist = true;
-              mergedValue = mergedValue.plus(networkAccountValue);
-            }
-          }
-        });
-        return accountValueExist ? mergedValue.toFixed() : undefined;
-      }
-
       return value[
         accountUtils.buildAccountValueKey({
           accountId: linkedAccountId,
@@ -108,6 +116,7 @@ function AccountValue(accountValue: {
     linkedNetworkId,
     mergeDeriveAssetsEnabled,
     networksAccounts,
+    isSingleAddress,
   ]);
 
   return accountValueString ? (
@@ -139,6 +148,7 @@ function AccountValueWithSpotlight({
   linkedNetworkId,
   indexedAccountId,
   mergeDeriveAssetsEnabled,
+  isSingleAddress,
 }: {
   accountValue:
     | {
@@ -153,6 +163,7 @@ function AccountValueWithSpotlight({
   linkedNetworkId?: string;
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
@@ -163,6 +174,7 @@ function AccountValueWithSpotlight({
       linkedNetworkId={linkedNetworkId}
       indexedAccountId={indexedAccountId}
       mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
+      isSingleAddress={isSingleAddress}
     />
   ) : (
     <NumberSizeableTextWrapper
