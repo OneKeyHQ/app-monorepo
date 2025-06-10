@@ -1,15 +1,17 @@
 import { useCallback } from 'react';
 
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IUniversalSearchAddress } from '@onekeyhq/shared/types/search';
 
 import { AccountAddress } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountAddress';
@@ -30,8 +32,26 @@ export function UniversalSearchAddressItem({
   const universalSearchActions = useUniversalSearchActions();
 
   const { vaultSettings } = useAccountData({
-    networkId: item.payload.network?.id,
+    networkId: item.payload.network?.id ?? contextNetworkId,
   });
+
+  const { result: networkAccounts } = usePromiseResult(
+    async () => {
+      if (!item.payload.indexedAccount?.id || !contextNetworkId) {
+        return [];
+      }
+      return backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+        {
+          indexedAccountId: item.payload.indexedAccount.id,
+          networkIds: [contextNetworkId],
+        },
+      );
+    },
+    [contextNetworkId, item.payload.indexedAccount?.id],
+    {
+      initResult: [],
+    },
+  );
 
   const handleAccountPress = useCallback(async () => {
     navigation.pop();
@@ -138,6 +158,20 @@ export function UniversalSearchAddressItem({
   ]);
 
   const renderAccountValue = useCallback(() => {
+    let linkedAccountId = item.payload.account?.id;
+    const linkedNetworkId = item.payload.network?.id ?? contextNetworkId;
+
+    if (
+      !item.payload.account &&
+      !vaultSettings?.mergeDeriveAssetsEnabled &&
+      !networkUtils.isAllNetwork({ networkId: contextNetworkId }) &&
+      item.payload.indexedAccount?.id &&
+      linkedNetworkId &&
+      networkAccounts.length > 0
+    ) {
+      linkedAccountId = networkAccounts[0].account?.id;
+    }
+
     return (
       <>
         <AccountValueWithSpotlight
@@ -146,10 +180,11 @@ export function UniversalSearchAddressItem({
           })}
           index={0}
           accountValue={item.payload.accountsValue}
-          linkedAccountId={item.payload.account?.id}
-          linkedNetworkId={item.payload.network?.id}
+          linkedAccountId={linkedAccountId}
+          linkedNetworkId={linkedNetworkId}
           indexedAccountId={item.payload.indexedAccount?.id}
           mergeDeriveAssetsEnabled={vaultSettings?.mergeDeriveAssetsEnabled}
+          isSingleAddress={!!item.payload.addressInfo?.displayAddress}
         />
         {item.payload.addressInfo?.displayAddress ? (
           <Stack
@@ -163,11 +198,9 @@ export function UniversalSearchAddressItem({
       </>
     );
   }, [
-    item.payload.account?.id,
-    item.payload.accountsValue,
-    item.payload.network?.id,
-    item.payload.indexedAccount?.id,
-    item.payload.addressInfo?.displayAddress,
+    contextNetworkId,
+    item,
+    networkAccounts,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 

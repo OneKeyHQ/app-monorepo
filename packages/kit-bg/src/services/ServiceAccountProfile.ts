@@ -579,18 +579,26 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     body,
     returnRawData,
+    isJsonRpc,
   }: {
     networkId: string;
     body: IProxyRequestItem[];
     returnRawData?: boolean;
+    isJsonRpc?: boolean;
   }): Promise<T[]> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: IProxyRequest = { networkId, body };
-    const resp = await client.post<IProxyResponse<T>>(
+    const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
       '/wallet/v1/proxy/wallet',
       request,
     );
-    const data = resp.data.data.data;
+
+    if (isJsonRpc) {
+      const data = resp.data.data.data as IRpcProxyResponse<T>['data']['data'];
+      return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+    }
+
+    const data = resp.data.data.data as IProxyResponse<T>['data']['data'];
     const failedRequest = data.find((item) => !item.success);
     if (failedRequest) {
       if (returnRawData) {
@@ -602,25 +610,6 @@ class ServiceAccountProfile extends ServiceBase {
       );
     }
     return data.map((item) => item.data);
-  }
-
-  async sendRpcProxyRequest<T>({
-    networkId,
-    body,
-  }: {
-    networkId: string;
-    body: IProxyRequestItem[];
-  }): Promise<T[]> {
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const request: IProxyRequest = { networkId, body };
-    const resp = await client.post<IRpcProxyResponse<T>>(
-      '/wallet/v1/proxy/wallet',
-      request,
-    );
-
-    const data = resp.data.data.data;
-
-    return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
   }
 
   @backgroundMethod()
