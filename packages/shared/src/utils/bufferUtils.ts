@@ -8,6 +8,7 @@ import {
 import { isString } from 'lodash';
 
 import { OneKeyPlainTextError } from '../errors/errors/plainTextError';
+
 import hexUtils from './hexUtils';
 
 function toBuffer(

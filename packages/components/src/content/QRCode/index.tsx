@@ -22,6 +22,9 @@ import { Icon, Stack } from '../../primitives';
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import type { IAirGapUrJson as SharedAirGapUrJson } from '@onekeyhq/shared/src/utils/ble/airGapTypes';
+
 export type IQrcodeDrawType = 'dot' | 'line' | 'animated';
 
 type IBasicQRCodeProps = {
@@ -290,7 +293,7 @@ export function QRCode({
     let timerId: ReturnType<typeof setInterval>;
     if (isAnimatedCode) {
       if (!valueUr) {
-        throw new Error('valueUr is required for animated QRCode');
+        throw new OneKeyPlainTextError('valueUr is required for animated QRCode');
       }
       const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder({
         ur: valueUr,

@@ -15,6 +15,8 @@ import {
 
 import type { IStackStyle } from '../../primitives';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+
 export enum EStepItemStatus {
   Done = 'done',
   Failed = 'failed',
@@ -101,7 +103,7 @@ const StepperContext = createContext<IStepperContextProps | undefined>(
 export function useStepperContext() {
   const context = useContext(StepperContext);
   if (!context) {
-    throw new Error('useStepperContext must be used within a StepProvider');
+    throw new OneKeyPlainTextError('useStepperContext must be used within a StepProvider');
   }
   return context;
 }

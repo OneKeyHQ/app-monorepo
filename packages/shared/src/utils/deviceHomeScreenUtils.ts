@@ -3,6 +3,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyPlainTextError } from '../errors/errors/plainTextError';
+
 import imageUtils from './imageUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';

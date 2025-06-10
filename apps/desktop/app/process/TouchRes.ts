@@ -14,6 +14,7 @@ import logger from 'electron-log/main';
 import { ipcMessageKeys } from '../config';
 
 import type { BrowserWindow } from 'electron';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 const finished = promisify(stream.finished);
 
@@ -247,7 +248,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       })
       .catch((e) => {
         logger.info('download resource file error: ', e);
-        throw new Error(ERRORS.DOWNLOAD_FAILED);
+        throw new OneKeyPlainTextError(ERRORS.DOWNLOAD_FAILED);
       });
   };
 
@@ -364,14 +365,14 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
             )
           ) {
             logger.error('mas permission denied');
-            throw new Error(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
+            throw new OneKeyPlainTextError(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
           }
         }
 
         const diskPath = await findDiskPath();
         logger.info('disk path: ', diskPath);
         if (!diskPath) {
-          throw new Error(ERRORS.NOT_FOUND_DISK_PATH);
+          throw new OneKeyPlainTextError(ERRORS.NOT_FOUND_DISK_PATH);
         }
 
         await downloadFile(params.resourceUrl);

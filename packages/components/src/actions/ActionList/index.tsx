@@ -15,6 +15,7 @@ import {
   type EShortcutEvents,
   shortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
@@ -269,7 +270,7 @@ function BasicActionList({
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
       if (platformEnv.isDev && md && !estimatedContentHeight) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'estimatedContentHeight is required on Async rendering items',
         );
       }
