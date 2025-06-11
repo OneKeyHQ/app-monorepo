@@ -1,5 +1,5 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, Stack, XStack } from '@onekeyhq/components';
+import { Page, Stack, XStack, YStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type ETabMarketV2Routes,
@@ -19,7 +19,7 @@ import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderL
 import { TradingView } from '../../../components/TradingView';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
-import { SwapPanel, TokenDetailHeader } from './components';
+import { InformationTabs, SwapPanel, TokenDetailHeader } from './components';
 import { TokenActivityOverview } from './components/TokenActivityOverview';
 import { useMarketDetail } from './hooks/useMarketDetail';
 
@@ -55,14 +55,23 @@ function MarketDetail({
       />
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
-        <XStack>
-          <TradingView
-            mode="realtime"
-            identifier="BTCUSDT"
-            baseToken="BTC"
-            targetToken="USDT"
-            onLoadEnd={() => {}}
-          />
+
+        <XStack flex={1}>
+          <YStack flex={1}>
+            <Stack flex={1}>
+              <TradingView
+                mode="realtime"
+                identifier="BTCUSDT"
+                baseToken="BTC"
+                targetToken="USDT"
+                onLoadEnd={() => {}}
+              />
+            </Stack>
+
+            <Stack h={300}>
+              <InformationTabs />
+            </Stack>
+          </YStack>
 
           <Stack w="$100">
             <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />

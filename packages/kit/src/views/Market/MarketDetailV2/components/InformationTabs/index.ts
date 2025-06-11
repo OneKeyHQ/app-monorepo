@@ -1,0 +1,1 @@
+export { InformationTabs } from './InformationTabs';
