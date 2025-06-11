@@ -139,18 +139,11 @@ async function publicFromPrivate(
   encryptedPrivateKey: Buffer,
   password: string,
 ): Promise<Buffer> {
-  console.log(
-    'generateRootFingerprintHexAsync____publicFromPrivate',
-    encryptedPrivateKey,
-  );
   const decryptedPrivateKey = await decryptAsync({
     password,
     data: bufferUtils.toBuffer(encryptedPrivateKey),
   });
-  console.log(
-    'generateRootFingerprintHexAsync____decryptedPrivateKey',
-    decryptedPrivateKey,
-  );
+
   return getCurveByName(curveName).publicFromPrivate(decryptedPrivateKey);
 }
 
@@ -777,18 +770,15 @@ async function generateRootFingerprintHexAsync(
     hdCredential,
     password,
   );
-  console.log('generateRootFingerprintHexAsync____masterKey', masterKey);
   const publicKey = await publicFromPrivate(
     curveName,
     bufferUtils.toBuffer(masterKey.key),
     password,
   );
-  console.log('generateRootFingerprintHexAsync____publicKey', publicKey);
   const r = bufferUtils
     .toBuffer(await hash160(bufferUtils.toBuffer(publicKey)))
     .slice(0, 4)
     .toString('hex');
-  console.log('generateRootFingerprintHexAsync____r', r);
   return r;
 }
 

@@ -486,20 +486,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
 
       let ctx = await this.txGetContext({ tx });
-      console.log('updatePassword>>>>>>> 1', ctx);
-
-      console.log('updatePassword>>>>>>> 2', ctx);
 
       ctx = await this.txGetContext({ tx });
-      console.log('updatePassword>>>>>>> 3', ctx);
 
       // update context verifyString
       await this.txUpdateContextVerifyString({
         tx,
         verifyString,
       });
-
-      console.log('updatePassword>>>>>>> 4', ctx);
     });
   }
 

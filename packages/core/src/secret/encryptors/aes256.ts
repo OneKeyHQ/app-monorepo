@@ -185,8 +185,6 @@ async function encryptAsync({
   // in web environment, if async function is executed in indexedDB.transaction, it will cause the transaction to be committed prematurely, so here use synchronous function
   // ------------------------------------------------------------
 
-  console.log('encryptAsync____passwordDecoded', passwordDecoded);
-
   // const key: Buffer = platformEnv.isNative
   //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
   //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
@@ -217,15 +215,6 @@ async function encryptAsync({
     key,
     iv,
     //
-  });
-
-  console.log('encryptAsync____dataEncrypted', {
-    dataEncrypted: bufferUtils.bytesToHex(dataEncrypted),
-    dataUTF8: data.toString('utf-8'),
-    dataBuffer: bufferUtils.bytesToHex(dataBuffer),
-    key: bufferUtils.bytesToHex(key),
-    salt: bufferUtils.bytesToHex(salt),
-    iv: bufferUtils.bytesToHex(iv),
   });
 
   return Buffer.concat([salt, iv, dataEncrypted]);
@@ -284,7 +273,6 @@ async function decryptAsync({
     allowRawPassword,
     ignoreLogger: true,
   });
-  console.log('passwordDecoded', passwordDecoded);
   if (!passwordDecoded) {
     throw new IncorrectPassword();
   }
@@ -335,16 +323,6 @@ async function decryptAsync({
       data: encryptedData,
       key,
       iv,
-    });
-    console.log('decryptAsync', {
-      encryptedData: bufferUtils.bytesToHex(encryptedData),
-      key: bufferUtils.bytesToHex(key),
-      iv: bufferUtils.bytesToHex(iv),
-      aesDecryptData: bufferUtils.bytesToHex(aesDecryptData),
-      aesDecryptDataUTF8: aesDecryptData.toString('utf-8'),
-      passwordDecoded,
-      salt: bufferUtils.bytesToHex(salt),
-      data: bufferUtils.bytesToHex(dataBuffer),
     });
 
     if (!ignoreLogger) {
@@ -442,8 +420,6 @@ async function decodeSensitiveTextAsync({
         ignoreLogger,
         allowRawPassword,
       });
-      console.log('decodeSensitiveTextAsync', decrypted);
-      console.log('decodeSensitiveTextAsync theKey', theKey);
       return decrypted.toString('utf-8');
     }
     if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
