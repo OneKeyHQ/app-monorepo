@@ -80,7 +80,7 @@ export function SwapTestPanel({
       $platform-web={{
         position: 'fixed',
       }}
-      top={70}
+      bottom={70}
       left={220}
       backgroundColor="$bgApp"
       padding="$3"

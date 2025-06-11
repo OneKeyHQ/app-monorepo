@@ -34,12 +34,12 @@ export function TradingViewV2(props: ITradingViewProps & WebViewProps) {
 
   const {
     onLoadEnd,
-    tradingViewUrl = 'https://tradingview.onekeytest.com/',
+    tradingViewUrl = 'http://localhost:5173/',
     tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
     networkId = 'sol--101',
-    interval = '1s',
-    timeFrom = 1_747_648_323,
-    timeTo = 1_847_649_323,
+    interval = '1D',
+    timeFrom = 1_723_593_600,
+    timeTo = 1_749_513_600,
   } = props;
 
   const { kineData } = useTradingViewV2({
