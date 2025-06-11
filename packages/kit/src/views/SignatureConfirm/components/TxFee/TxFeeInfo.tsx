@@ -29,6 +29,7 @@ import {
   useSendSelectedFeeAtom,
   useSendTxStatusAtom,
   useSignatureConfirmActions,
+  useTronResourceRentalInfoAtom,
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -98,6 +99,9 @@ function TxFeeInfo(props: IProps) {
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const [extraFeeInfo] = useExtraFeeInfoAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
+  const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const { isResourceRentalNeeded, isResourceRentalEnabled, payType } =
+    tronResourceRentalInfo;
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -1236,6 +1240,52 @@ function TxFeeInfo(props: IProps) {
     [selectedFee?.totalFiatMinForDisplay, settings.currencyInfo.symbol],
   );
 
+  const renderOriginalFeeInfo = useCallback(() => {
+    if (!isResourceRentalNeeded || !isResourceRentalEnabled) {
+      return null;
+    }
+
+    return (
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        textDecorationLine="line-through"
+        textDecorationColor="$textSubdued"
+        textDecorationStyle="solid"
+      >
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: txFeeCommon?.nativeSymbol,
+          }}
+        >
+          {selectedFee?.totalNativeMinForDisplay ?? '-'}
+        </NumberSizeableText>
+        (
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{
+            currency: settings.currencyInfo.symbol,
+          }}
+        >
+          {selectedFee?.totalFiatMinForDisplay ?? '-'}
+        </NumberSizeableText>
+        )
+      </SizableText>
+    );
+  }, [
+    isResourceRentalEnabled,
+    isResourceRentalNeeded,
+    selectedFee?.totalFiatMinForDisplay,
+    selectedFee?.totalNativeMinForDisplay,
+    settings.currencyInfo.symbol,
+    txFeeCommon?.nativeSymbol,
+  ]);
+
   useEffect(() => {
     if (txAdvancedSettings.dataChanged) {
       setTxFeeInit(false);
@@ -1263,6 +1313,7 @@ function TxFeeInfo(props: IProps) {
         ) : null}
         {renderFeeEditor()}
       </XStack>
+      {renderOriginalFeeInfo()}
       <XStack gap="$1" alignItems="center">
         {txFeeInit ? (
           renderTotalNative()

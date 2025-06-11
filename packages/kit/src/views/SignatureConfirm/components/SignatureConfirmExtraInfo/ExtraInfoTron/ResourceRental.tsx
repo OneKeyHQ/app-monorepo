@@ -18,8 +18,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
+import { useTronResourceRentalInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
 import { useIntl } from 'react-intl';
+import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
+import { useCallback } from 'react';
 
 const showResourceRentalDetailsDialog = ({
   title,
@@ -48,75 +52,19 @@ const showResourceRentalDetailsDialog = ({
 
 function ResourceRental() {
   const intl = useIntl();
-
+  const [resourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const {
+    isResourceRentalEnabled,
+    isResourceRentalNeeded,
+    isSwapTrxEnabled,
+    payType,
+  } = resourceRentalInfo;
   const saveAmount = '10.23';
 
-  return (
-    <YStack gap="$1">
-      <SignatureConfirmItem.Block>
-        <XStack alignItems="center" gap="$2" justifyContent="space-between">
-          <YStack flex={1} gap="$1">
-            <XStack alignItems="center" gap="$1.5" flexWrap="wrap">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.wallet_energy_rental_title,
-                })}
-              </SizableText>
-              <Badge badgeSize="sm" badgeType="success">
-                <XStack alignItems="center" gap="$1">
-                  <Icon name="FlashSolid" size="$4" color="$iconSuccess" />
-                  <SizableText size="$bodySmMedium" color="$textSuccess">
-                    {intl.formatMessage(
-                      {
-                        id: ETranslations.wallet_save_amount,
-                      },
-                      { number: saveAmount },
-                    )}
-                  </SizableText>
-                </XStack>
-              </Badge>
-              <Badge badgeSize="sm" badgeType="success">
-                {intl.formatMessage({
-                  id: ETranslations.wallet_pay_with_usdt,
-                })}
-              </Badge>
-              <Stack
-                {...listItemPressStyle}
-                borderRadius="$full"
-                onPress={() =>
-                  showResourceRentalDetailsDialog({
-                    title: intl.formatMessage({
-                      id: ETranslations.wallet_energy_rental_title,
-                    }),
-                    description: intl.formatMessage({
-                      id: ETranslations.wallet_energy_rental_description,
-                    }),
-                    content: (
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.global_learn_more,
-                        })}
-                      </SizableText>
-                    ),
-                  })
-                }
-              >
-                <Icon
-                  name="InfoCircleOutline"
-                  size="$4.5"
-                  color="$iconSubdued"
-                />
-              </Stack>
-            </XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.wallet_energy_rental_low_energy_detected,
-              })}
-            </SizableText>
-          </YStack>
-          <Switch size="large" />
-        </XStack>
-      </SignatureConfirmItem.Block>
+  const renderSwapTrxBlock = useCallback(() => {
+    if (payType === ETronResourceRentalPayType.Native) return null;
+
+    return (
       <Accordion
         overflow="hidden"
         width="100%"
@@ -208,12 +156,89 @@ function ResourceRental() {
                     5.98 USDT → 20 TRX
                   </SizableText>
                 </YStack>
-                <Switch size="large" />
+                <Switch size="large" value={isSwapTrxEnabled} />
               </XStack>
             </Accordion.Content>
           </Accordion.HeightAnimator>
         </Accordion.Item>
       </Accordion>
+    );
+  }, [intl, payType, isSwapTrxEnabled]);
+
+  if (!isResourceRentalNeeded) {
+    return null;
+  }
+
+  return (
+    <YStack gap="$1">
+      <SignatureConfirmItem.Block>
+        <XStack alignItems="center" gap="$2" justifyContent="space-between">
+          <YStack flex={1} gap="$1">
+            <XStack alignItems="center" gap="$1.5" flexWrap="wrap">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.wallet_energy_rental_title,
+                })}
+              </SizableText>
+              {payType === ETronResourceRentalPayType.Native ? (
+                <Badge badgeSize="sm" badgeType="success">
+                  <XStack alignItems="center" gap="$1">
+                    <Icon name="FlashSolid" size="$4" color="$iconSuccess" />
+                    <SizableText size="$bodySmMedium" color="$textSuccess">
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.wallet_save_amount,
+                        },
+                        { number: saveAmount },
+                      )}
+                    </SizableText>
+                  </XStack>
+                </Badge>
+              ) : (
+                <Badge badgeSize="sm" badgeType="success">
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_pay_with_usdt,
+                  })}
+                </Badge>
+              )}
+              <Stack
+                {...listItemPressStyle}
+                borderRadius="$full"
+                onPress={() =>
+                  showResourceRentalDetailsDialog({
+                    title: intl.formatMessage({
+                      id: ETranslations.wallet_energy_rental_title,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.wallet_energy_rental_description,
+                    }),
+                    content: (
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.global_learn_more,
+                        })}
+                      </SizableText>
+                    ),
+                  })
+                }
+              >
+                <Icon
+                  name="InfoCircleOutline"
+                  size="$4.5"
+                  color="$iconSubdued"
+                />
+              </Stack>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.wallet_energy_rental_low_energy_detected,
+              })}
+            </SizableText>
+          </YStack>
+          <Switch size="large" value={isResourceRentalEnabled} />
+        </XStack>
+      </SignatureConfirmItem.Block>
+      {renderSwapTrxBlock()}
     </YStack>
   );
 }

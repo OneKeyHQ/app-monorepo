@@ -13,6 +13,11 @@ export enum EFeeType {
   Custom = 'Custom',
 }
 
+export enum ETronResourceRentalPayType {
+  Native = 'native',
+  Token = 'token',
+}
+
 export type IGasEIP1559 = {
   baseFeePerGas: string;
   maxFeePerGas: string;

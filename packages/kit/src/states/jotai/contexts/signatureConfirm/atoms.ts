@@ -3,7 +3,11 @@ import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
-import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import {
+  EFeeType,
+  ESendFeeStatus,
+  ETronResourceRentalPayType,
+} from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -149,3 +153,18 @@ export const { atom: extraFeeInfoAtom, use: useExtraFeeInfoAtom } =
   }>({
     feeNative: '0',
   });
+
+export const {
+  atom: tronResourceRentalInfoAtom,
+  use: useTronResourceRentalInfoAtom,
+} = contextAtom<{
+  payType: ETronResourceRentalPayType;
+  isResourceRentalNeeded: boolean;
+  isResourceRentalEnabled: boolean;
+  isSwapTrxEnabled: boolean;
+}>({
+  payType: ETronResourceRentalPayType.Native,
+  isResourceRentalNeeded: false,
+  isResourceRentalEnabled: false,
+  isSwapTrxEnabled: false,
+});
