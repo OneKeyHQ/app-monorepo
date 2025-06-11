@@ -9,6 +9,7 @@ import {
   getUsedMemorySync,
 } from 'react-native-device-info';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   FileLogger,
   LogLevel,
@@ -43,7 +44,7 @@ const consoleFunc = (msg: string) => {
 
 const getLogFilePath = async (filename: string) => {
   if (!RNFS) {
-    throw new Error('RNFS is not available');
+    throw new OneKeyPlainTextError('RNFS is not available');
   }
   const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
   if (!isExist) {

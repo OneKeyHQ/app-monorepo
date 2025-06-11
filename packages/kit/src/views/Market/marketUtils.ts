@@ -1,6 +1,10 @@
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
@@ -25,9 +29,17 @@ export const marketNavigation = {
   ) {
     await timerUtils.wait(80);
     navigation.switchTab(ETabRoutes.Market);
-    await timerUtils.wait(80);
-    navigation.push(ETabMarketRoutes.MarketDetail, {
-      token: coinGeckoId,
+    await timerUtils.wait(100);
+
+    // Then navigate to the detail page
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetail,
+        params: {
+          token: coinGeckoId,
+        },
+      },
     });
   },
 };

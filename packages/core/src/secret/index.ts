@@ -1,6 +1,9 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
-import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidMnemonic,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -226,7 +229,7 @@ async function encryptRevealableSeed({
   password: string;
 }): Promise<IBip39RevealableSeedEncryptHex> {
   if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
-    throw new Error('Invalid seed object');
+    throw new OneKeyPlainTextError('Invalid seed object');
   }
   const encrypted = await encryptStringAsync({
     password,
@@ -262,7 +265,7 @@ async function encryptImportedCredential({
   password: string;
 }): Promise<ICoreImportedCredentialEncryptHex> {
   if (!credential || !credential.privateKey) {
-    throw new Error('Invalid credential object');
+    throw new OneKeyPlainTextError('Invalid credential object');
   }
   const encrypted = await encryptStringAsync({
     password,

@@ -1,13 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Icon, Stack } from '@onekeyhq/components';
+import { ActionList, Icon, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -32,9 +33,79 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EAccountManagerStacksRoutes,
+  EModalRoutes,
+  EOnboardingPages,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+function BatchCreateAccountButton({
+  focusedWalletInfo,
+  activeAccount,
+}: {
+  focusedWalletInfo:
+    | {
+        wallet: IDBWallet;
+        device: IDBDevice | undefined;
+      }
+    | undefined;
+  activeAccount: IAccountSelectorActiveAccountInfo;
+}) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  const handleBatchCreateAccount = useCallback(async () => {
+    if (!focusedWalletInfo?.wallet?.id) {
+      return;
+    }
+    await backgroundApiProxy.serviceAccount.generateWalletsMissingMetaWithUserInteraction(
+      {
+        walletId: focusedWalletInfo?.wallet?.id || '',
+      },
+    );
+    await backgroundApiProxy.serviceBatchCreateAccount.prepareBatchCreate();
+    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+      screen: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
+      params: {
+        walletId: focusedWalletInfo?.wallet?.id || '',
+        networkId: networkUtils.toNetworkIdFallback({
+          networkId: activeAccount?.network?.id,
+        }),
+      },
+    });
+  }, [focusedWalletInfo, navigation, activeAccount]);
+
+  return (
+    <ActionList
+      title=""
+      renderTrigger={
+        <ListItem.IconButton
+          testID="batch-create-account-button-trigger"
+          icon="ChevronDownSmallOutline"
+          // icon="DotHorOutline"
+          mr="$3"
+          pr="$2"
+          borderRightWidth={0}
+        />
+      }
+      items={[
+        {
+          testID: 'batch-create-account-button',
+          icon: 'Back10Outline',
+          label: intl.formatMessage({
+            id: ETranslations.global_bulk_add_accounts,
+          }),
+          onPress: () => {
+            void handleBatchCreateAccount();
+          },
+        },
+      ]}
+    />
+  );
+}
 
 export function AccountSelectorAddAccountButton({
   num,
@@ -195,21 +266,40 @@ export function AccountSelectorAddAccountButton({
     },
   );
 
+  const canBatchCreateAccount = useMemo(() => {
+    return (
+      accountUtils.isHdWallet({ walletId: focusedWalletInfo?.wallet?.id }) ||
+      accountUtils.isHwOrQrWallet({ walletId: focusedWalletInfo?.wallet?.id })
+    );
+  }, [focusedWalletInfo]);
+
   return (
-    <ListItem testID="account-add-account" onPress={handleAddAccount}>
-      <Stack bg="$bgStrong" borderRadius="$2" p="$2" borderCurve="continuous">
-        <Icon name="PlusSmallOutline" />
-      </Stack>
-      {/* Add account */}
-      <ListItem.Text
-        userSelect="none"
-        primary={intl.formatMessage({
-          id: ETranslations.global_add_account,
-        })}
-        primaryTextProps={{
-          color: '$textSubdued',
-        }}
-      />
-    </ListItem>
+    <XStack ai="center">
+      <ListItem
+        flex={1}
+        testID="account-add-account"
+        onPress={handleAddAccount}
+      >
+        <Stack bg="$bgStrong" borderRadius="$2" p="$2" borderCurve="continuous">
+          <Icon name="PlusSmallOutline" />
+        </Stack>
+        {/* Add account */}
+        <ListItem.Text
+          userSelect="none"
+          primary={intl.formatMessage({
+            id: ETranslations.global_add_account,
+          })}
+          primaryTextProps={{
+            color: '$textSubdued',
+          }}
+        />
+      </ListItem>
+      {canBatchCreateAccount ? (
+        <BatchCreateAccountButton
+          focusedWalletInfo={focusedWalletInfo}
+          activeAccount={activeAccount}
+        />
+      ) : null}
+    </XStack>
   );
 }

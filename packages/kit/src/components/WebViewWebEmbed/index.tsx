@@ -10,6 +10,7 @@ import {
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { EWebEmbedPostMessageType } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
@@ -66,7 +67,7 @@ export function WebViewWebEmbed({
         apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
       }
       if (!apiKey) {
-        throw new Error('No REVENUECAT api key found');
+        throw new OneKeyPlainTextError('No REVENUECAT api key found');
       }
       setRevenuecatApiKey(apiKey);
     }
@@ -138,10 +139,20 @@ export function WebViewWebEmbed({
   // Handle messages from WebView - only works in native environments
   const handleMessage = useCallback((event?: WebViewMessageEvent) => {
     if (event?.nativeEvent.data) {
-      const data = JSON.parse(event.nativeEvent.data) as {
-        type: string;
-        data: any;
-      };
+      let data:
+        | {
+            type: string;
+            data: any;
+          }
+        | undefined;
+      try {
+        data = JSON.parse(event.nativeEvent.data);
+      } catch (error) {
+        console.error(error);
+      }
+      if (!data) {
+        return;
+      }
       switch (data.type) {
         case EWebEmbedPostMessageType.TrackEvent:
           {
@@ -196,7 +207,7 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
-        useGeckoView={platformEnv.isNativeAndroid}
+        useGeckoView={false}
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file

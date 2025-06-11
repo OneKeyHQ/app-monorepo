@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
@@ -40,7 +41,7 @@ class BiologyAuthUtils implements IBiologyAuth {
     useRnJsCrypto?: boolean;
   } = {}) => {
     if (!secureStorageInstance.supportSecureStorage()) {
-      throw new Error('No password');
+      throw new OneKeyPlainTextError('No password');
     }
     let text = await secureStorageInstance.getSecureItem('password');
     if (text) {
@@ -53,7 +54,7 @@ class BiologyAuthUtils implements IBiologyAuth {
       text = await encodeSensitiveTextAsync({ text, useRnJsCrypto });
       return text;
     }
-    throw new Error('No password');
+    throw new OneKeyPlainTextError('No password');
   };
 
   deletePassword = async () => {

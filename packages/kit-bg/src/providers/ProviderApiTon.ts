@@ -10,6 +10,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EMessageTypesTon } from '@onekeyhq/shared/types/message';
@@ -136,7 +137,7 @@ class ProviderApiTon extends ProviderApiBase {
   ) {
     const version = getAccountVersion(account.id);
     if (!account.pub) {
-      throw new Error('Invalid account');
+      throw new OneKeyPlainTextError('Invalid account');
     }
     const wallet = getWalletContractInstance({
       version,
@@ -170,25 +171,25 @@ class ProviderApiTon extends ProviderApiBase {
         validUntil === null ||
         validUntil < Date.now() / 1000)
     ) {
-      throw new Error('Bad request: Invalid validUntil');
+      throw new OneKeyPlainTextError('Bad request: Invalid validUntil');
     }
 
     // check messages
     if (encodedTx.messages.length === 0) {
-      throw new Error('Bad request: Empty messages');
+      throw new OneKeyPlainTextError('Bad request: Empty messages');
     }
 
     // check address and amount
     for (const message of encodedTx.messages) {
       if (!('address' in message && 'amount' in message)) {
-        throw new Error('Bad request: Invalid message');
+        throw new OneKeyPlainTextError('Bad request: Invalid message');
       }
       if (typeof message.amount !== 'string') {
-        throw new Error('Bad request: Invalid amount');
+        throw new OneKeyPlainTextError('Bad request: Invalid amount');
       }
       // raw address type throw error
       if (message.address.startsWith('0:')) {
-        throw new Error('Bad request: Invalid address');
+        throw new OneKeyPlainTextError('Bad request: Invalid address');
       }
     }
 
@@ -200,7 +201,7 @@ class ProviderApiTon extends ProviderApiBase {
         fromAddr.toString(false, false, false) !==
         account.account.addressDetail.baseAddress
       ) {
-        throw new Error('Invalid from address');
+        throw new OneKeyPlainTextError('Invalid from address');
       }
     } else {
       encodedTx.from = account.account.addressDetail.baseAddress;

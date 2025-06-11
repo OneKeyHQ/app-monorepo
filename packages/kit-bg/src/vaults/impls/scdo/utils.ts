@@ -5,6 +5,7 @@ import { keccak256 } from 'viem';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import { secp256k1 } from '@onekeyhq/core/src/secret';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -61,7 +62,7 @@ export function publicKeyToAddress(publicKey: Buffer) {
   } else if (publicKey.length === 65) {
     publicKeyBytes = publicKey.subarray(1);
   } else {
-    throw new Error('Invalid public key');
+    throw new OneKeyPlainTextError('Invalid public key');
   }
   const shard = 1;
   const pubkey = RLP.encode(publicKeyBytes);

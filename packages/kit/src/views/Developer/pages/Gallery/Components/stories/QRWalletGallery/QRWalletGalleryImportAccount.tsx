@@ -12,6 +12,7 @@ import {
   airGapUrUtils,
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 
 import { KEYRING_ACCOUNT, KEYRING_MODE } from './types';
 
@@ -131,7 +132,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
             }
 
             if (!xfp) {
-              //   throw new Error(
+              //   throw new OneKeyPlainTextError(
               //     'KeystoneError#invalid_data: invalid crypto-hdkey, cannot get source fingerprint',
               //   );
             }
@@ -201,7 +202,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
                   const address = toChecksumAddress(result);
                   console.log(address);
                 } else {
-                  throw new Error(
+                  throw new OneKeyPlainTextError(
                     `KeystoneError#pubkey_account.no_expected_account`,
                   );
                 }

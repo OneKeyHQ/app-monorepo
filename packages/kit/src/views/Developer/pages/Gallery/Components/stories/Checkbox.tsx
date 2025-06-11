@@ -90,6 +90,7 @@ const CheckboxGallery = () => (
           <Stack>
             <CheckboxDemo />
             <CheckboxDemo label="With label" />
+            <CheckboxDemo label="With label" description="With description" />
             <CheckboxDemo
               label="Unchecked and disabled"
               disabled

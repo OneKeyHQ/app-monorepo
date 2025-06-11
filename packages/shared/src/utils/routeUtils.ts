@@ -1,3 +1,4 @@
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EGalleryRoutes,
@@ -70,7 +71,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   //           `Duplicate screen name found: "${name}" at paths:`,
   //           existingPaths.join(', '),
   //         );
-  //         throw new Error(
+  //         throw new OneKeyPlainTextError(
   //           `Duplicate screen name "${name}" found at: ${existingPaths.join(
   //             ', ',
   //           )}`,
@@ -94,7 +95,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       if (platformEnv.isDev) {
         if (!screen) {
           try {
-            throw new Error(`screen ${screenName} not found`);
+            throw new OneKeyPlainTextError(`screen ${screenName} not found`);
           } catch (error) {
             console.error(error);
           }

@@ -58,6 +58,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
+  OneKeyPlainTextError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -216,7 +217,9 @@ export default class Vault extends VaultBase {
     const { from, to: firstReceiver } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyPlainTextError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const client = await this.getClient();
     const source = new PublicKey(from);
@@ -250,7 +253,7 @@ export default class Vault extends VaultBase {
       const { amount, to, tokenInfo, nftInfo } = transfersInfo[i];
 
       if (!tokenInfo && !nftInfo) {
-        throw new Error(
+        throw new OneKeyPlainTextError(
           'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
         );
       }
@@ -393,7 +396,7 @@ export default class Vault extends VaultBase {
       await timerUtils.wait(1000);
     }
 
-    throw new Error(
+    throw new OneKeyPlainTextError(
       `Solana getLatestBlockHash retry times exceeded: ${
         lastRpcErrorMessage || ''
       }`,
@@ -511,9 +514,9 @@ export default class Vault extends VaultBase {
       })[0];
 
       if (tokenRecord.state === TokenState.Locked) {
-        throw new Error('token account is locked');
+        throw new OneKeyPlainTextError('token account is locked');
       } else if (tokenRecord.state === TokenState.Listed) {
-        throw new Error('token is listed');
+        throw new OneKeyPlainTextError('token is listed');
       }
 
       let authorizationRules: PublicKey | undefined;

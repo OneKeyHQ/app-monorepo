@@ -145,7 +145,15 @@ export function useEarnActions() {
   const removePermitCache = actions.removePermitCache.use();
 
   const buildEarnAccountsKey = useCallback(
-    (account = '', network = '') => `${account}-${network}`,
+    ({
+      accountId,
+      indexAccountId,
+      networkId,
+    }: {
+      accountId?: string;
+      indexAccountId?: string;
+      networkId: string;
+    }) => `${indexAccountId || accountId || ''}-${networkId}`,
     [],
   );
 

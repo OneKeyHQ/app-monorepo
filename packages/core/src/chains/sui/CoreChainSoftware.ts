@@ -1,6 +1,7 @@
 import { messageWithIntent } from '@mysten/sui/cryptography';
 import { Ed25519Keypair, Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -51,14 +52,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyPlainTextError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return `0x${(
         await decryptAsync({ password, data: privateKeyRaw })
       ).toString('hex')}`;
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -83,7 +84,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     if (!unsignedTx.rawTxUnsigned) {
-      throw new Error('unsignedTx.rawTxUnsigned is undefined');
+      throw new OneKeyPlainTextError('unsignedTx.rawTxUnsigned is undefined');
     }
 
     const prvKey = await signer.getPrvkey();
@@ -130,7 +131,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     if (!privateKey) {
-      throw new Error('Invalid private key');
+      throw new OneKeyPlainTextError('Invalid private key');
     }
 
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);

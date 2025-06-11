@@ -12,7 +12,10 @@ import {
 import BigNumber from 'bignumber.js';
 import { List, Set } from 'immutable';
 
-import { MinimumTransferBalanceRequiredForSendingAssetError } from '@onekeyhq/shared/src/errors';
+import {
+  MinimumTransferBalanceRequiredForSendingAssetError,
+  OneKeyPlainTextError,
+} from '@onekeyhq/shared/src/errors';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { addCellDep } from './script';
@@ -77,13 +80,15 @@ export async function transfer(
 
   const XUDT_SCRIPT = config.SCRIPTS.XUDT;
   if (!XUDT_SCRIPT) {
-    throw new Error('Provided config does not have XUDT script setup!');
+    throw new OneKeyPlainTextError(
+      'Provided config does not have XUDT script setup!',
+    );
   }
 
   const fromScript = parseAddress(fromAddress, { config });
 
   if (requireToAddress && !toAddress) {
-    throw new Error('You must provide a to address!');
+    throw new OneKeyPlainTextError('You must provide a to address!');
   }
 
   const toScript = parseAddress(toAddress, { config });
@@ -93,14 +98,14 @@ export async function transfer(
     : fromScript;
 
   if (_amount.lte(0)) {
-    throw new Error('amount must be greater than 0');
+    throw new OneKeyPlainTextError('amount must be greater than 0');
   }
 
   const xudtType = generateXudtScript(xudtToken, config);
 
   const cellProvider = txSkeleton.get('cellProvider');
   if (!cellProvider) {
-    throw new Error('Cell provider is missing!');
+    throw new OneKeyPlainTextError('Cell provider is missing!');
   }
 
   // support ANYONE_CAN_PAY address
@@ -350,7 +355,9 @@ export async function transfer(
     changeAmount.gt(0) &&
     changeCapacity.lt(minimalCellCapacityCompatible(changeCell))
   ) {
-    throw new Error('Not enough capacity for change in from infos!');
+    throw new OneKeyPlainTextError(
+      'Not enough capacity for change in from infos!',
+    );
   }
 
   return txSkeleton;

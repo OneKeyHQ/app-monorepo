@@ -524,7 +524,7 @@ class ServiceUniversalSearch extends ServiceBase {
             accountsValue = (
               await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
                 {
-                  accounts: [{ accountId: account?.id }],
+                  accounts: [{ accountId: indexedAccount.id }],
                 },
               )
             )?.[0];

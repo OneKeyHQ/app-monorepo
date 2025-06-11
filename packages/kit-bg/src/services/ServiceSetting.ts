@@ -18,6 +18,7 @@ import {
   IMPL_EVM,
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -300,7 +301,7 @@ class ServiceSetting extends ServiceBase {
     );
 
     if (networksVaultSettings.length !== networks.length) {
-      throw new Error('failed to get account derivation config');
+      throw new OneKeyPlainTextError('failed to get account derivation config');
     }
 
     networks = networks.filter((o, i) => {

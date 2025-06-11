@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,12 +19,14 @@ function DeviceBasicInfoSection({
   onPressAuthRequest,
   onPressCheckForUpdates,
   onPressTroubleshooting,
+  authRequestLoading,
 }: {
   data: IHwQrWalletWithDevice;
   onPressHomescreen: () => void;
   onPressAuthRequest: () => void;
   onPressCheckForUpdates: () => void;
   onPressTroubleshooting: () => void;
+  authRequestLoading: boolean;
 }) {
   const { wallet, device } = data;
   const intl = useIntl();
@@ -101,7 +103,7 @@ function DeviceBasicInfoSection({
         </XStack>
         <YStack flex={1}>
           <XStack ml={-5} pr="$5">
-            <WalletRenameButton wallet={wallet} />
+            <WalletRenameButton wallet={wallet} editable />
           </XStack>
           {isQrWallet ? null : (
             <XStack mt="$1.5" gap="$1.5">
@@ -142,6 +144,7 @@ function DeviceBasicInfoSection({
             })}
             drillIn
             onPress={onPressAuthRequest}
+            isLoading={authRequestLoading}
           />
           <ListItem
             title={intl.formatMessage({

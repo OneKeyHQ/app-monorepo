@@ -6,6 +6,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -230,7 +231,7 @@ class ServiceStaking extends ServiceBase {
       provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyPlainTextError('Staking config not found');
     }
     const isMorphoProvider = earnUtils.isMorphoProvider({
       providerName: provider,
@@ -282,7 +283,7 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyPlainTextError('Staking config not found');
     }
     const isMorphoProvider = earnUtils.isMorphoProvider({
       providerName: params.provider,
@@ -353,7 +354,7 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyPlainTextError('Staking config not found');
     }
 
     const sendParams: Record<string, string | undefined> = {
@@ -386,22 +387,22 @@ class ServiceStaking extends ServiceBase {
     params: IBuildPermit2ApproveSignDataParams,
   ) {
     if (!params?.networkId) {
-      throw new Error('networkId is required');
+      throw new OneKeyPlainTextError('networkId is required');
     }
     if (!params?.provider) {
-      throw new Error('provider is required');
+      throw new OneKeyPlainTextError('provider is required');
     }
     if (!params?.symbol) {
-      throw new Error('symbol is required');
+      throw new OneKeyPlainTextError('symbol is required');
     }
     if (!params?.accountAddress) {
-      throw new Error('accountAddress is required');
+      throw new OneKeyPlainTextError('accountAddress is required');
     }
     if (!params?.vault) {
-      throw new Error('vault is required');
+      throw new OneKeyPlainTextError('vault is required');
     }
     if (!params?.amount) {
-      throw new Error('amount is required');
+      throw new OneKeyPlainTextError('amount is required');
     }
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
@@ -413,16 +414,16 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async buildRegisterSignMessageData(params: IBuildRegisterSignMessageParams) {
     if (!params?.networkId) {
-      throw new Error('networkId is required');
+      throw new OneKeyPlainTextError('networkId is required');
     }
     if (!params?.provider) {
-      throw new Error('provider is required');
+      throw new OneKeyPlainTextError('provider is required');
     }
     if (!params?.symbol) {
-      throw new Error('symbol is required');
+      throw new OneKeyPlainTextError('symbol is required');
     }
     if (!params?.accountAddress) {
-      throw new Error('accountAddress is required');
+      throw new OneKeyPlainTextError('accountAddress is required');
     }
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
@@ -930,7 +931,9 @@ class ServiceStaking extends ServiceBase {
     morphoVault?: string;
   }) {
     if (!networkId || !accountId || !provider) {
-      throw new Error('networkId or accountId or provider not found');
+      throw new OneKeyPlainTextError(
+        'networkId or accountId or provider not found',
+      );
     }
     const isMorphoProvider = earnUtils.isMorphoProvider({
       providerName: provider,
@@ -1057,10 +1060,10 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
     if (networkUtils.isAllNetwork({ networkId })) {
-      throw new Error('networkId should not be all network');
+      throw new OneKeyPlainTextError('networkId should not be all network');
     }
     if (networkUtils.isAllNetwork({ networkId }) && !indexedAccountId) {
-      throw new Error('indexedAccountId should be provided');
+      throw new OneKeyPlainTextError('indexedAccountId should be provided');
     }
     if (accountUtils.isOthersAccount({ accountId }) || !indexedAccountId) {
       let account: INetworkAccount | null = null;
