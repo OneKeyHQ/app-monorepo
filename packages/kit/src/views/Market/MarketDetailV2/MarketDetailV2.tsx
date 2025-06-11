@@ -69,7 +69,10 @@ function MarketDetail({
             </Stack>
 
             <Stack h={300}>
-              <InformationTabs />
+              <InformationTabs
+                tokenAddress={tokenAddress}
+                networkId={networkId}
+              />
             </Stack>
           </YStack>
 

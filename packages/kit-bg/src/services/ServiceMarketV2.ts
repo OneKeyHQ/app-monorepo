@@ -8,6 +8,7 @@ import type {
   IMarketTokenDetail,
   IMarketTokenKineResponse,
   IMarketTokenListResponse,
+  IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
 import ServiceBase from './ServiceBase';
@@ -112,6 +113,29 @@ class ServiceMarketV2 extends ServiceBase {
         interval,
         timeFrom,
         timeTo,
+      },
+    });
+    const { data } = response.data;
+    return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenTransactions({
+    tokenAddress,
+    networkId,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenTransactionsResponse;
+    }>('/utility/v2/market/token/transactions', {
+      params: {
+        tokenAddress,
+        networkId,
       },
     });
     const { data } = response.data;

@@ -161,3 +161,25 @@ export interface IMarketTokenKineResponse {
   points: IMarketTokenKineDataPoint[];
   total: number;
 }
+
+export interface IMarketTokenTransactionToken {
+  symbol: string;
+  amount: string;
+  address: string;
+  price: string;
+}
+
+export interface IMarketTokenTransaction {
+  pairAddress: string;
+  hash: string;
+  owner: string;
+  type: 'buy' | 'sell';
+  timestamp: number;
+  url: string;
+  from: IMarketTokenTransactionToken;
+  to: IMarketTokenTransactionToken;
+}
+
+export interface IMarketTokenTransactionsResponse {
+  list: IMarketTokenTransaction[];
+}

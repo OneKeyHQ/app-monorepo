@@ -165,13 +165,13 @@ export function SwapPanel(props: ISwapPanelProps) {
       {swapPanelContent}
 
       {/* Test - Only in Dev Mode */}
-      {platformEnv.isDev ? (
+      {/* {platformEnv.isDev ? (
         <SwapTestPanel
           useSpeedSwapActionsParams={useSpeedSwapActionsParams}
           speedSwapActions={speedSwapActions}
           swapPanel={swapPanel}
         />
-      ) : null}
+      ) : null} */}
     </>
   );
 }
