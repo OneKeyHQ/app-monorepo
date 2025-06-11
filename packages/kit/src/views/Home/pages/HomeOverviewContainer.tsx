@@ -47,7 +47,7 @@ import type { FontSizeTokens } from 'tamagui';
 function HomeOverviewContainer() {
   const num = 0;
   const {
-    activeAccount: { account, network, wallet, deriveInfoItems },
+    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
   } = useActiveAccount({ num });
   const intl = useIntl();
 
@@ -64,14 +64,6 @@ function HomeOverviewContainer() {
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-
-  const { result: vaultSettings } = usePromiseResult(async () => {
-    if (!network) return;
-    const s = backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: network.id,
-    });
-    return s;
-  }, [network]);
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
@@ -260,6 +252,15 @@ function HomeOverviewContainer() {
       );
       return allWorth;
     }
+
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      const allWorth = Object.values(accountWorth.worth).reduce(
+        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+        '0',
+      );
+      return allWorth;
+    }
+
     return (
       accountWorth.worth[
         accountUtils.buildAccountValueKey({
@@ -270,7 +271,13 @@ function HomeOverviewContainer() {
       Object.values(accountWorth.worth)[0] ??
       '0'
     );
-  }, [accountWorth.worth, account?.id, network?.id, network?.isAllNetworks]);
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    accountWorth.worth,
+    account?.id,
+  ]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
