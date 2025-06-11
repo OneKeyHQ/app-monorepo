@@ -19,6 +19,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+import { useIntl } from 'react-intl';
 
 const showResourceRentalDetailsDialog = ({
   title,
@@ -46,32 +47,55 @@ const showResourceRentalDetailsDialog = ({
   });
 
 function ResourceRental() {
+  const intl = useIntl();
+
+  const saveAmount = '10.23';
+
   return (
     <YStack gap="$1">
       <SignatureConfirmItem.Block>
         <XStack alignItems="center" gap="$2" justifyContent="space-between">
           <YStack flex={1} gap="$1">
-            <XStack alignItems="center" gap="$1.5">
+            <XStack alignItems="center" gap="$1.5" flexWrap="wrap">
               <SizableText size="$bodySm" color="$textSubdued">
-                Energy Rental
+                {intl.formatMessage({
+                  id: ETranslations.wallet_energy_rental_title,
+                })}
               </SizableText>
               <Badge badgeSize="sm" badgeType="success">
-                Save 10.23 TRX
+                <XStack alignItems="center" gap="$1">
+                  <Icon name="FlashSolid" size="$4" color="$iconSuccess" />
+                  <SizableText size="$bodySmMedium" color="$textSuccess">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.wallet_save_amount,
+                      },
+                      { number: saveAmount },
+                    )}
+                  </SizableText>
+                </XStack>
               </Badge>
               <Badge badgeSize="sm" badgeType="success">
-                Pay with USDT
+                {intl.formatMessage({
+                  id: ETranslations.wallet_pay_with_usdt,
+                })}
               </Badge>
               <Stack
                 {...listItemPressStyle}
                 borderRadius="$full"
                 onPress={() =>
                   showResourceRentalDetailsDialog({
-                    title: 'Energy Rental',
-                    description:
-                      'Low energy detected. Energy rental was enabled to reduce fees. You can cancel it anytime.',
+                    title: intl.formatMessage({
+                      id: ETranslations.wallet_energy_rental_title,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.wallet_energy_rental_description,
+                    }),
                     content: (
                       <SizableText size="$bodySm" color="$textSubdued">
-                        Learn more
+                        {intl.formatMessage({
+                          id: ETranslations.global_learn_more,
+                        })}
                       </SizableText>
                     ),
                   })
@@ -85,7 +109,9 @@ function ResourceRental() {
               </Stack>
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
-              Low energy detected. Energy rental was enabled to reduce fees.
+              {intl.formatMessage({
+                id: ETranslations.wallet_energy_rental_low_energy_detected,
+              })}
             </SizableText>
           </YStack>
           <Switch size="large" />
@@ -118,7 +144,9 @@ function ResourceRental() {
                 justifyContent="space-between"
               >
                 <SizableText size="$bodySm" color="$textSubdued">
-                  Get some TRX for future fees？
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_get_trx_for_future_fees,
+                  })}
                 </SizableText>
                 <View
                   animation="quick"
@@ -141,22 +169,29 @@ function ResourceRental() {
                 gap="$2"
                 justifyContent="space-between"
               >
-                <YStack>
+                <YStack gap="$1">
                   <XStack alignItems="center" gap="$1.5">
                     <SizableText size="$bodySm" color="$textSubdued">
-                      Exchange USDT for 20 TRX
+                      {intl.formatMessage({
+                        id: ETranslations.wallet_exchange_usdt_for_trx,
+                      })}
                     </SizableText>
                     <Stack
                       borderRadius="$full"
                       {...listItemPressStyle}
                       onPress={() =>
                         showResourceRentalDetailsDialog({
-                          title: 'Exchange USDT for 20 TRX',
-                          description:
-                            'If you don’t have enough TRX, you can choose to use USDT to rent energy. USDT payments cost more than TRX. You may opt to receive part of your payment as TRX for future use.',
+                          title: intl.formatMessage({
+                            id: ETranslations.wallet_exchange_usdt_for_trx,
+                          }),
+                          description: intl.formatMessage({
+                            id: ETranslations.wallet_exchange_usdt_description,
+                          }),
                           content: (
                             <SizableText size="$bodySm" color="$textSubdued">
-                              Exchange rate: 1 USDT = 3.578074 TRX
+                              {intl.formatMessage({
+                                id: ETranslations.wallet_exchange_rate,
+                              })}
                             </SizableText>
                           ),
                         })
