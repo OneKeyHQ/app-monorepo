@@ -25,11 +25,9 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EPrimePages,
-  IPrimeParamList,
-} from '@onekeyhq/shared/src/routes/prime';
-import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -273,7 +271,9 @@ export default function PagePrimeFeatures() {
   );
 
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
-  const shouldShowConfirmButton = !isPrimeSubscriptionActive;
+  const shouldShowConfirmButton = !showAllFeatures
+    ? true
+    : !isPrimeSubscriptionActive;
 
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
   const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
@@ -305,6 +305,12 @@ export default function PagePrimeFeatures() {
   }, [packages, selectedSubscriptionPeriod]);
 
   const subscribe = useCallback(async () => {
+    if (!showAllFeatures) {
+      navigation.pushModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDashboard,
+      });
+      return;
+    }
     if (isPackagesLoading) {
       return;
     }
@@ -326,7 +332,9 @@ export default function PagePrimeFeatures() {
   }, [
     ensurePrimeSubscriptionActive,
     isPackagesLoading,
+    navigation,
     selectedSubscriptionPeriod,
+    showAllFeatures,
   ]);
 
   return (
@@ -360,13 +368,20 @@ export default function PagePrimeFeatures() {
         confirmButtonProps={
           shouldShowConfirmButton
             ? {
-                loading: isSubscribeLazyLoading,
-                disabled: isPackagesLoading,
+                loading: !showAllFeatures ? false : isSubscribeLazyLoading,
+                disabled: !showAllFeatures ? false : isPackagesLoading,
               }
             : undefined
         }
         onConfirm={shouldShowConfirmButton ? subscribe : undefined}
         onConfirmText={(() => {
+          if (!showAllFeatures) {
+            // return intl.formatMessage({
+            //   id: ETranslations.prime_about_onekey_prime,
+            // });
+            return 'About OneKey Prime';
+          }
+
           if (!packages?.length) {
             return intl.formatMessage({
               id: ETranslations.prime_subscribe,
