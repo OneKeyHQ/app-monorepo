@@ -7,7 +7,7 @@ import {
 } from '@noble/hashes/utils';
 import { isString } from 'lodash';
 
-import { OneKeyLocalError } from '../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 import hexUtils from './hexUtils';
 

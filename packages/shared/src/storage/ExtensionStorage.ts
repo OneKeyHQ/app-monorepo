@@ -2,7 +2,7 @@
 
 // copy from:
 //    node_modules/@react-native-async-storage/async-storage/types/index.d.ts
-import { OneKeyLocalError } from '../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../errors/errors/localError';
 import platformEnv, { isManifestV3 } from '../platformEnv';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';

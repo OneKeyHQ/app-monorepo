@@ -4,7 +4,7 @@
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
 
-import { OneKeyLocalError } from '../../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../../errors/errors/localError';
 
 type IXMLHttpRequestResponseType =
   | ''

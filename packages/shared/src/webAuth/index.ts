@@ -1,6 +1,6 @@
 import { Base64 } from 'js-base64';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/plainTextError';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {

@@ -11,7 +11,7 @@ import {
 } from 'lodash';
 
 import appGlobals from '../appGlobals';
-import { OneKeyLocalError } from '../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../errors/errors/localError';
 import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';

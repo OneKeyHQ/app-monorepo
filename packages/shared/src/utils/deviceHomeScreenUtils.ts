@@ -2,7 +2,7 @@
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { OneKeyLocalError } from '../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 import imageUtils from './imageUtils';
 

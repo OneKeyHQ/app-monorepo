@@ -12,7 +12,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { IMPL_CFX } from '../engine/engineConsts';
 import { OneKeyError } from '../errors';
-import { OneKeyLocalError } from '../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 const solidityTypes = () => {
   const types = [

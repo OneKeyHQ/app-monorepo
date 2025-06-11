@@ -11,7 +11,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/plainTextError';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
