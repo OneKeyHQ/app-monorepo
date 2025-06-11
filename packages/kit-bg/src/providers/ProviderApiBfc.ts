@@ -8,7 +8,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
@@ -171,7 +171,7 @@ class ProviderApiBfc extends ProviderApiBase {
 
     const tx = await vault.waitPendingTransaction(result.txid, params.options);
 
-    if (!tx) throw new OneKeyPlainTextError('Transaction not found');
+    if (!tx) throw new OneKeyLocalError('Transaction not found');
 
     return Promise.resolve(tx);
   }

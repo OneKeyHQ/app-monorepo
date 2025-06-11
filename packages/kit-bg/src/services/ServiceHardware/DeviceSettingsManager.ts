@@ -193,7 +193,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           }
           if (!imgHex) {
             // empty string will clear the home screen(classic,mini)
-            // throw new OneKeyPlainTextError('Invalid home screen hex');
+            // throw new OneKeyLocalError('Invalid home screen hex');
           }
           await this.applySettingsToDevice(device.connectId, {
             homescreen: imgHex,

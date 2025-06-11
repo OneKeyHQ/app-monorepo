@@ -3,7 +3,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { bech32 } from 'bech32';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
@@ -12,7 +12,7 @@ import type { ICurveName } from '../../../types';
 
 const secp256k1PubkeyToRawAddress = (pubkey: Uint8Array): Uint8Array => {
   if (pubkey.length !== 33) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `Invalid Secp256k1 pubkey length (compressed): ${pubkey.length}`,
     );
   }
@@ -22,7 +22,7 @@ const secp256k1PubkeyToRawAddress = (pubkey: Uint8Array): Uint8Array => {
 
 const ed25519PubkeyToRawAddress = (pubkey: Uint8Array): Uint8Array => {
   if (pubkey.length !== 32) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `Invalid Ed25519 pubkey length: ${pubkey.length}`,
     );
   }

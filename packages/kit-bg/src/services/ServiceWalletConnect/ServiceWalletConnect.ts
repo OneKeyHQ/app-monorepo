@@ -6,7 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -70,7 +70,7 @@ class ServiceWalletConnect extends ServiceBase {
     walletConnectChainId?: IWalletConnectChainString,
   ): Promise<IWalletConnectChainInfo | undefined> {
     if (!walletConnectChainId || !walletConnectChainId.includes(':')) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `WalletConnect ChainId not valid: ${walletConnectChainId || ''}`,
       );
     }
@@ -155,7 +155,7 @@ class ServiceWalletConnect extends ServiceBase {
     });
     const wcChain = chainData?.wcChain;
     if (!wcChain) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `getWcChainByNetworkId ERROR: wcChain not found ${networkId}`,
       );
     }
@@ -246,7 +246,7 @@ class ServiceWalletConnect extends ServiceBase {
     for (const namespace of Object.keys(requiredNamespaces)) {
       const impl = namespaceToImplsMap[namespace as INamespaceUnion];
       if (!impl) {
-        throw new OneKeyPlainTextError('Namespace not supported');
+        throw new OneKeyLocalError('Namespace not supported');
       }
       // Generate networkIds by merging supported networks from both required and optional namespaces
       const networkIds = await this.getAvailableNetworkIdsForNamespace(

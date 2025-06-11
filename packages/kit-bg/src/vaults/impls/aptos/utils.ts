@@ -26,7 +26,7 @@ import {
   OneKeyError,
   OneKeyHardwareError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -306,14 +306,14 @@ export async function fetchEntryFunctionAbi(
 
   // If there's no ABI, then the function is invalid
   if (!functionAbi) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `Could not find entry function ABI for '${moduleAddress}::${moduleName}::${functionName}'`,
     );
   }
 
   // Non-entry functions also can't be used
   if (!functionAbi.is_entry) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `'${moduleAddress}::${moduleName}::${functionName}' is not an entry function`,
     );
   }
@@ -577,7 +577,7 @@ export async function buildSimpleTransaction(
 
   // support function or script
   if (!('function' in payload) && !('bytecode' in payload)) {
-    throw new OneKeyPlainTextError('Not support transaction type');
+    throw new OneKeyLocalError('Not support transaction type');
   }
 
   let gasUnitPrice: number | undefined = input.gasUnitPrice;

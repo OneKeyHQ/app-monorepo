@@ -14,7 +14,7 @@ import {
   WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import {
@@ -171,14 +171,14 @@ function formatUtxoPath(path: string): string {
 
   // Check if the path starts with 'm'
   if (parts[0] !== 'm') {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Invalid UTXO path: path should start with "m"',
     );
   }
 
   // Check if the path has at least three hardened levels
   if (parts.length < 4) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Invalid UTXO path: path should have at least three hardened levels',
     );
   }
@@ -186,7 +186,7 @@ function formatUtxoPath(path: string): string {
   // Check if the first three levels are hardened
   for (let i = 1; i <= 3; i += 1) {
     if (!parts[i].endsWith("'")) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Invalid UTXO path: level ${i} should be hardened`,
       );
     }
@@ -302,7 +302,7 @@ function buildWatchingAccountId({
   }
   const pubOrAddress = xpub || address;
   if (!pubOrAddress) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'buildWatchingAccountId ERROR: publicKey is not defined',
     );
   }
@@ -353,7 +353,7 @@ function buildImportedAccountId({
 }) {
   const publicKey = xpub || pub;
   if (!publicKey) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'buildImportedAccountId ERROR: publicKey is not defined',
     );
   }
@@ -405,12 +405,12 @@ function buildHDAccountId({
   let usedPath = path;
   if (!usedPath) {
     if (!template) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildHDAccountId ERROR: template or path must be provided',
       );
     }
     if (isNil(index)) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildHDAccountId ERROR: index must be provided',
       );
     }
@@ -437,7 +437,7 @@ function buildIndexedAccountId({
   index: number;
 }) {
   if (index < 0) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'buildIndexedAccountId ERROR: index must be positive',
     );
   }
@@ -545,7 +545,7 @@ function isAccountCompatibleWithNetwork({
   networkId: string;
 }) {
   if (!networkId) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
     );
   }
@@ -614,7 +614,7 @@ function getAccountCompatibleNetwork({
     accountNetworkId &&
     !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId
   ) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `getAccountCompatibleNetwork ERROR: chainId not found in networkId: ${accountNetworkId}` ||
         '',
     );
@@ -703,7 +703,7 @@ function buildExternalAccountId({
   wcSessionTopic = wcSessionTopic || connectionInfo?.walletConnect?.topic;
   if (wcSessionTopic) {
     if (!networkId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildExternalAccountId ERROR: walletconnect account required networkId ',
       );
     }
@@ -721,7 +721,7 @@ function buildExternalAccountId({
     accountId = `${WALLET_TYPE_EXTERNAL}--${COINTYPE_ETH}--injected--${connectionInfo?.evmInjected?.global}`;
   }
   if (!accountId) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'buildExternalAccountId ERROR: accountId is empty',
     );
   }
@@ -739,7 +739,7 @@ function buildLightningAccountId({
 }) {
   const parts = accountId.split(SEPERATOR);
   if (parts.length < 2) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'buildLightningAccountId ERROR: invalid accountId',
     );
   }

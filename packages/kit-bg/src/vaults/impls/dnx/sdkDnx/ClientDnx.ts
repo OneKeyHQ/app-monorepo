@@ -1,6 +1,6 @@
 import Axios from 'axios';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -34,7 +34,7 @@ export class ClientDnx {
     );
 
     if (!resp.data.status || resp.data.status !== 'OK')
-      throw new OneKeyPlainTextError('Failed to send transaction');
+      throw new OneKeyLocalError('Failed to send transaction');
 
     return resp.data.status;
   }

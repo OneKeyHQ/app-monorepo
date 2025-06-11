@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IMoneroApi } from './types';
 
@@ -8,7 +8,7 @@ import type { IMoneroApi } from './types';
 const ensureSDKReady = async () => Promise.resolve(true);
 
 async function getMoneroApi(): Promise<IMoneroApi> {
-  throw new OneKeyPlainTextError('webembedApiProxy not ok');
+  throw new OneKeyLocalError('webembedApiProxy not ok');
   // import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
   // const embedApi: IMoneroApiWebembed = await Promise.resolve(
   //   webembedApiProxy.chainXmrLegacy,

@@ -12,7 +12,7 @@ import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   IncorrectPassword,
   MinimumTransferBalanceRequiredError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import {
   DeviceNotFound,
@@ -167,13 +167,13 @@ class ServiceDemo extends ServiceBase {
 
   @backgroundMethod()
   async demoError2() {
-    throw new OneKeyPlainTextError('hello world: no error toast');
+    throw new OneKeyLocalError('hello world: no error toast');
   }
 
   @backgroundMethod()
   @toastIfError()
   async demoError3() {
-    throw new OneKeyPlainTextError('hello world: error toast: 3');
+    throw new OneKeyLocalError('hello world: error toast: 3');
   }
 
   @backgroundMethod()
@@ -189,7 +189,7 @@ class ServiceDemo extends ServiceBase {
 
   @toastIfError()
   async demoError4b() {
-    throw new OneKeyPlainTextError('hello world: error toast: 4b');
+    throw new OneKeyLocalError('hello world: error toast: 4b');
   }
 
   @backgroundMethod()
@@ -552,7 +552,7 @@ class ServiceDemo extends ServiceBase {
   }) {
     defaultLogger.app.perf.resetTimestamp();
     if (!connectId || !deviceId) {
-      throw new OneKeyPlainTextError('connectId or deviceId is undefined');
+      throw new OneKeyLocalError('connectId or deviceId is undefined');
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });
@@ -662,7 +662,7 @@ class ServiceDemo extends ServiceBase {
   }) {
     defaultLogger.app.perf.resetTimestamp();
     if (!connectId || !deviceId) {
-      throw new OneKeyPlainTextError('connectId or deviceId is undefined');
+      throw new OneKeyLocalError('connectId or deviceId is undefined');
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });

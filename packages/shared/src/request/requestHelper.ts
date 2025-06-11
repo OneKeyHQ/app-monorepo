@@ -3,7 +3,7 @@ import type {
   ISettingsPersistAtom,
   ISettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 class RequestHelper {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -12,27 +12,27 @@ class RequestHelper {
     if (url.includes('api.revenuecat.com')) {
       return Promise.resolve(false);
     }
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Not implemented, please call overrideMethods',
     );
   };
 
   getDevSettingsPersistAtom: () => Promise<IDevSettingsPersistAtom> =
     async () => {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Not implemented, please call overrideMethods',
       );
     };
 
   getSettingsPersistAtom: () => Promise<ISettingsPersistAtom> = async () => {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Not implemented, please call overrideMethods',
     );
   };
 
   getSettingsValuePersistAtom: () => Promise<ISettingsValuePersistAtom> =
     async () => {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Not implemented, please call overrideMethods',
       );
     };

@@ -1,6 +1,6 @@
 import { isNil } from 'lodash';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type {
@@ -39,7 +39,7 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
     ignoreNotFound,
   }: ILocalDBTxRemoveRecordsParams<T>) {
     if (isNil(ids) && isNil(recordPairs)) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'dbUpdateRecord ERROR: ids and recordPairs both not found',
       );
     }

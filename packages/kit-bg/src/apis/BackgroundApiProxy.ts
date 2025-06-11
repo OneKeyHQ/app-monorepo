@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbProxy } from '../dbs/simple/base/SimpleDbProxy';
 
@@ -85,7 +85,7 @@ class BackgroundApiProxy
         prop !== 'inspect'
       ) {
         return (..._args: any[]) => {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'localDb cannot be accessed from the UI layer',
           );
         };

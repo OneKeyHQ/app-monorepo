@@ -48,7 +48,7 @@ import {
   InvalidMnemonic,
   OneKeyError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -563,13 +563,13 @@ class ServiceAccount extends ServiceBase {
     isVerifyAddressAction?: boolean;
   }) {
     if (!walletId) {
-      throw new OneKeyPlainTextError('walletId is required');
+      throw new OneKeyLocalError('walletId is required');
     }
     if (!networkId) {
-      throw new OneKeyPlainTextError('networkId is required');
+      throw new OneKeyLocalError('networkId is required');
     }
     if (!deriveType) {
-      throw new OneKeyPlainTextError('deriveType is required');
+      throw new OneKeyLocalError('deriveType is required');
     }
     const { isHardware, password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
@@ -740,7 +740,7 @@ class ServiceAccount extends ServiceBase {
   }) {
     const { addressDetail, existsInDb, displayAddress, ...dbAccount } = account;
     if (isNil(dbAccount.pathIndex)) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
       );
     }
@@ -965,19 +965,19 @@ class ServiceAccount extends ServiceBase {
     accountName: string | undefined;
   }) {
     if (!accountId && !indexedAccountId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'accountId or indexedAccountId is required',
       );
     }
     if (accountId && indexedAccountId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'accountId and indexedAccountId can not be used at the same time',
       );
     }
     let dbAccountId = accountId;
     if (indexedAccountId) {
       if (!deriveType) {
-        throw new OneKeyPlainTextError('deriveType required');
+        throw new OneKeyLocalError('deriveType required');
       }
       dbAccountId = await this.getDbAccountIdFromIndexedAccountId({
         indexedAccountId,
@@ -986,7 +986,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
     if (!dbAccountId) {
-      throw new OneKeyPlainTextError('dbAccountId required');
+      throw new OneKeyLocalError('dbAccountId required');
     }
     const dbAccount = await this.getDBAccountSafe({
       accountId: dbAccountId,
@@ -1009,7 +1009,7 @@ class ServiceAccount extends ServiceBase {
             networkId,
           });
       }
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage(
           {
             id: ETranslations.global_private_key_error,
@@ -1030,12 +1030,12 @@ class ServiceAccount extends ServiceBase {
     });
     const keyType = keyTypes?.[0];
     if (!keyType) {
-      // throw new OneKeyPlainTextError(
+      // throw new OneKeyLocalError(
       //   appLocale.intl.formatMessage({
       //     id: ETranslations.hardware_not_support,
       //   }),
       // );
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Export keyType not found for the network',
       );
     }
@@ -1053,7 +1053,7 @@ class ServiceAccount extends ServiceBase {
         keyType,
       });
     }
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `exportType not supported: ${String(exportType)}`,
     );
   }
@@ -1094,7 +1094,7 @@ class ServiceAccount extends ServiceBase {
   }): Promise<string | undefined> {
     const buildResult = async (account: IDBAccount | undefined) => {
       if (!account) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'exportAccountPublicKey ERROR: account not found',
         );
       }
@@ -1106,7 +1106,7 @@ class ServiceAccount extends ServiceBase {
         publicKey = (account as IDBUtxoAccount | undefined)?.xpub;
       }
       if (!publicKey) {
-        throw new OneKeyPlainTextError('publicKey not found');
+        throw new OneKeyLocalError('publicKey not found');
       }
       return publicKey;
     };
@@ -1213,7 +1213,7 @@ class ServiceAccount extends ServiceBase {
     isOverrideAccounts: boolean;
   }> {
     if (platformEnv.isWebDappMode) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'addImportedAccountWithCredential ERROR: Not supported in Dapp mode',
       );
     }
@@ -1436,7 +1436,7 @@ class ServiceAccount extends ServiceBase {
     isOverrideAccounts: boolean;
   }> {
     if (networkUtils.isAllNetwork({ networkId })) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'addWatchingAccount ERROR: networkId should not be all networks',
       );
     }
@@ -1460,7 +1460,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
     if (!network) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'addWatchingAccount ERROR: network not found',
       );
     }
@@ -1483,7 +1483,7 @@ class ServiceAccount extends ServiceBase {
       }
     }
     if (!address && !xpub) {
-      throw new OneKeyPlainTextError('input not valid');
+      throw new OneKeyLocalError('input not valid');
     }
 
     const params: IPrepareWatchingAccountsParams = {
@@ -1507,7 +1507,7 @@ class ServiceAccount extends ServiceBase {
         deriveTypeByAddressEncoding &&
         deriveTypeByAddressEncoding !== deriveType
       ) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'addWatchingAccount ERROR: deriveType not correct',
         );
       }
@@ -1822,7 +1822,7 @@ class ServiceAccount extends ServiceBase {
           networkId: undefined,
         });
         if (realNetworkId === getNetworkIdsMap().onekeyall) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'getAccount ERROR: realNetworkId can not be allnetwork',
           );
         }
@@ -1841,7 +1841,7 @@ class ServiceAccount extends ServiceBase {
         indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'getAccount ERROR: allNetworkAccount accountId not match',
         );
       }
@@ -1879,7 +1879,7 @@ class ServiceAccount extends ServiceBase {
     }
     if (indexedAccountId) {
       if (!deriveType) {
-        throw new OneKeyPlainTextError('deriveType is required');
+        throw new OneKeyLocalError('deriveType is required');
       }
       const { accounts } = await this.getAccountsByIndexedAccounts({
         networkId,
@@ -1890,7 +1890,7 @@ class ServiceAccount extends ServiceBase {
       if (accounts[0]) {
         return accounts[0];
       }
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `indexedAccounts not found: ${indexedAccountId}`,
       );
     }
@@ -2478,7 +2478,7 @@ class ServiceAccount extends ServiceBase {
       isMockedStandardHwWallet,
     } = params;
     if (!features) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'createHWWalletBase ERROR: features is required',
       );
     }
@@ -2565,7 +2565,7 @@ class ServiceAccount extends ServiceBase {
       await this.validateMnemonic(mnemonic);
 
     if (mnemonicType === EMnemonicType.TON) {
-      throw new OneKeyPlainTextError('TON mnemonic is not supported');
+      throw new OneKeyLocalError('TON mnemonic is not supported');
     }
 
     await this.generateAllHdAndQrWalletsHashAndXfp({ password });
@@ -2612,7 +2612,7 @@ class ServiceAccount extends ServiceBase {
       await this.validateMnemonic(mnemonic);
 
     if (mnemonicType !== EMnemonicType.TON) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'saveTonMnemonic ERROR: Not a TON mnemonic',
       );
     }
@@ -2653,7 +2653,7 @@ class ServiceAccount extends ServiceBase {
     isOverrideWallet?: boolean;
   }> {
     if (platformEnv.isWebDappMode) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'createHDWallet ERROR: Not supported in Dapp mode',
       );
     }
@@ -2683,7 +2683,7 @@ class ServiceAccount extends ServiceBase {
         //   addedHdAccountIndex:
         // })
         // DO NOT throw error, just return the exists wallet, so v4 migration can continue
-        // throw new OneKeyPlainTextError('Wallet with the same mnemonic hash already exists');
+        // throw new OneKeyLocalError('Wallet with the same mnemonic hash already exists');
         return {
           wallet: existsSameHashWallet,
           isOverrideWallet: true,
@@ -2846,10 +2846,10 @@ class ServiceAccount extends ServiceBase {
     isRemoveToMocked,
   }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
     if (!walletId) {
-      throw new OneKeyPlainTextError('walletId is required');
+      throw new OneKeyLocalError('walletId is required');
     }
     if (accountUtils.isOthersWallet({ walletId })) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Remove non-hd and non-hw wallet is not allowed',
       );
     }
@@ -3003,7 +3003,7 @@ class ServiceAccount extends ServiceBase {
     reason?: EReasonForNeedPassword;
   }) {
     if (!accountUtils.isHdWallet({ walletId })) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'getHDAccountMnemonic ERROR: Not a HD account',
       );
     }
@@ -3027,7 +3027,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
     if (!accountUtils.isImportedAccount({ accountId })) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'getTonImportedAccountMnemonic ERROR: Not a Ton Imported account',
       );
     }
@@ -3181,7 +3181,7 @@ class ServiceAccount extends ServiceBase {
   }) {
     const checkIsNotHiddenWallet = (wallet: IDBWallet | undefined) => {
       if (wallet && accountUtils.isHwHiddenWallet({ wallet })) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'insertWalletOrder ERROR: Not supported for HW hidden wallet',
         );
       }
@@ -3384,7 +3384,7 @@ class ServiceAccount extends ServiceBase {
     const { serviceNetwork } = this.backgroundApi;
     const network = await serviceNetwork.getNetworkSafe({ networkId });
     if (!network) {
-      throw new OneKeyPlainTextError('Network not found');
+      throw new OneKeyLocalError('Network not found');
     }
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     const vaultSettings = await vault.getVaultSettings();
@@ -3451,7 +3451,7 @@ class ServiceAccount extends ServiceBase {
     { allowWatchAccount }: { allowWatchAccount?: boolean },
   ) {
     if (!accountId && !indexedAccountId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'accountId or indexedAccountId is required',
       );
     }
@@ -3881,11 +3881,11 @@ class ServiceAccount extends ServiceBase {
     cachePassword?: string;
   }) {
     if (!walletId) {
-      throw new OneKeyPlainTextError('walletId is required');
+      throw new OneKeyLocalError('walletId is required');
     }
     const wallet = await localDb.getWalletSafe({ walletId });
     if (!wallet) {
-      throw new OneKeyPlainTextError('wallet not found');
+      throw new OneKeyLocalError('wallet not found');
     }
 
     let walletUpdated = false;
@@ -3919,7 +3919,7 @@ class ServiceAccount extends ServiceBase {
         walletId: wallet?.id,
       });
       if (!device) {
-        throw new OneKeyPlainTextError('wallet associated device not found');
+        throw new OneKeyLocalError('wallet associated device not found');
       }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
@@ -4321,7 +4321,7 @@ class ServiceAccount extends ServiceBase {
 
     const wallet = await this.getWalletSafe({ walletId });
     if (!wallet) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'updateWalletBackupStatus ERROR: wallet not found',
       );
     }

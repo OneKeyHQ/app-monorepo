@@ -14,7 +14,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
@@ -96,7 +96,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
@@ -222,7 +222,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))
-          throw new OneKeyPlainTextError('not hex string');
+          throw new OneKeyLocalError('not hex string');
 
         messageBuffer = Buffer.from(
           hexUtils.stripHexPrefix(message.message),

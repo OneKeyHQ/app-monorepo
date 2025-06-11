@@ -30,7 +30,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -228,7 +228,7 @@ export default class VaultCosmos extends VaultBase {
         withNonce: true,
       });
     if (!accountInfo) {
-      throw new OneKeyPlainTextError('Invalid account');
+      throw new OneKeyLocalError('Invalid account');
     }
     const txBuilder = new TxAminoBuilder();
     const account = await this.getAccount();
@@ -264,11 +264,11 @@ export default class VaultCosmos extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || transfersInfo.length === 0) {
-      throw new OneKeyPlainTextError('transfersInfo is required');
+      throw new OneKeyLocalError('transfersInfo is required');
     }
     transfersInfo.forEach((transferInfo) => {
       if (!transferInfo.to) {
-        throw new OneKeyPlainTextError('Invalid transferInfo.to params');
+        throw new OneKeyLocalError('Invalid transferInfo.to params');
       }
     });
     return this._buildEncodedTxWithFee({ transfersInfo });
@@ -607,7 +607,7 @@ export default class VaultCosmos extends VaultBase {
       rawTx: signedTx.rawTx,
     });
 
-    if (!txId) throw new OneKeyPlainTextError('broadcastTransaction failed');
+    if (!txId) throw new OneKeyLocalError('broadcastTransaction failed');
 
     return {
       ...signedTx,

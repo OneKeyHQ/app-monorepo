@@ -5,7 +5,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
 // eslint-disable-next-line import/order
@@ -41,13 +41,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       apiKeyType: 'web',
     });
     if (!isReady) {
-      throw new OneKeyPlainTextError('PrimeAuth Not ready');
+      throw new OneKeyLocalError('PrimeAuth Not ready');
     }
     if (!apiKey) {
-      throw new OneKeyPlainTextError('No REVENUECAT api key found');
+      throw new OneKeyLocalError('No REVENUECAT api key found');
     }
     if (!user?.privyUserId) {
-      throw new OneKeyPlainTextError('User not logged in');
+      throw new OneKeyLocalError('User not logged in');
     }
 
     // TODO VPN required
@@ -65,7 +65,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
     if (appUserId !== user?.privyUserId) {
-      throw new OneKeyPlainTextError('AppUserId not match');
+      throw new OneKeyLocalError('AppUserId not match');
     }
 
     setPrimePersistAtom((prev): IPrimeUserInfo => {
@@ -89,7 +89,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     await configureDonePromise.current.ready;
 
     if (!isReady) {
-      throw new OneKeyPlainTextError('PrimeAuth Not ready');
+      throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
     const offerings = await Purchases.getSharedInstance().getOfferings({
@@ -153,7 +153,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }) => {
       try {
         if (!isReady) {
-          throw new OneKeyPlainTextError('PrimeAuth Not ready');
+          throw new OneKeyLocalError('PrimeAuth Not ready');
         }
 
         // will block stripe modal
@@ -168,7 +168,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         });
 
         if (!offerings.current) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'purchasePaywallPackage ERROR: No offerings',
           );
         }
@@ -178,7 +178,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         );
 
         if (!paywallPackage) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'purchasePaywallPackage ERROR: No paywall package',
           );
         }
