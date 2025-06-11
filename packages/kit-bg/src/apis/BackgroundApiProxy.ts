@@ -42,6 +42,7 @@ import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
 import type ServiceMarketV2 from '../services/ServiceMarketV2';
+import type ServiceMarketWS from '../services/ServiceMarketWS';
 import type ServiceMasterPassword from '../services/ServiceMasterPassword';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
@@ -247,6 +248,10 @@ class BackgroundApiProxy
   serviceMarketV2 = this._createProxyService(
     'serviceMarketV2',
   ) as ServiceMarketV2;
+
+  serviceMarketWS = this._createProxyService(
+    'serviceMarketWS',
+  ) as ServiceMarketWS;
 
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
 
