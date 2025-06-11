@@ -4984,7 +4984,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         });
 
-        if (true) throw new Error('test error');
+        if (true) throw new OneKeyPlainTextError('test error');
 
         const ctxById = await this.txGetRecordById({
           tx,

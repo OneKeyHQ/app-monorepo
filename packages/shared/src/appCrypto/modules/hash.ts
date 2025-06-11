@@ -20,13 +20,13 @@ import { has } from 'lodash';
 import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { OneKeyPlainTextError } from '../../errors';
 import bufferUtils from '../../utils/bufferUtils';
 import { ALLOW_USE_WEB_CRYPTO_SUBTLE } from '../consts';
 import { runAppCryptoTestTask } from '../utils';
 
 import type { ISha512Params } from '../types';
 import type { IRunAppCryptoTestTaskResult } from '../utils';
-import { OneKeyPlainTextError } from '../../errors';
 
 // #region hmacSHA256
 

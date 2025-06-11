@@ -12,6 +12,7 @@ import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
+import { OneKeyPlainTextError } from '../../errors';
 import {
   ALLOW_USE_WEB_CRYPTO_SUBTLE,
   PBKDF2_KEY_LENGTH,
@@ -143,7 +144,7 @@ async function pbkdf2ByRNCrypto({
     }
   ).pbkdf2;
   if (!fn) {
-    throw new Error('globalThis.crypto.pbkdf2 is not supported');
+    throw new OneKeyPlainTextError('globalThis.crypto.pbkdf2 is not supported');
   }
   return new Promise<Buffer>((resolve, reject) => {
     fn(
@@ -171,7 +172,9 @@ function pbkdf2ByRNCryptoSync({ password, salt }: IPbkdf2Params): Buffer {
     }
   ).pbkdf2Sync;
   if (!fn) {
-    throw new Error('globalThis.crypto.pbkdf2Sync is not supported');
+    throw new OneKeyPlainTextError(
+      'globalThis.crypto.pbkdf2Sync is not supported',
+    );
   }
   return bufferUtils.toBuffer(
     fn(
@@ -187,10 +190,10 @@ function pbkdf2ByRNCryptoSync({ password, salt }: IPbkdf2Params): Buffer {
 function _pbkdf2AsyncCheck(params: IPbkdf2Params) {
   const { password, salt } = params;
   if (!password || password.length <= 0) {
-    throw new Error('Zero-length password is not supported');
+    throw new OneKeyPlainTextError('Zero-length password is not supported');
   }
   if (!salt || salt.length <= 0) {
-    throw new Error('Zero-length salt is not supported');
+    throw new OneKeyPlainTextError('Zero-length salt is not supported');
   }
 }
 
@@ -236,7 +239,7 @@ function pbkdf2SyncV2(params: IPbkdf2Params): Buffer {
     throw error;
   }
   if (!result) {
-    throw new Error('pbkdf2Sync ERROR: result is empty');
+    throw new OneKeyPlainTextError('pbkdf2Sync ERROR: result is empty');
   }
   return result;
 }
