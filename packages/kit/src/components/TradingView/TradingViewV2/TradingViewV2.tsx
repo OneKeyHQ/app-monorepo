@@ -11,7 +11,7 @@ import { useTradingViewV2 } from './useTradingViewV2';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 
-interface IBaseTradingViewProps {
+interface IBaseTradingViewV2Props {
   mode: 'overview' | 'realtime';
   identifier: string;
   baseToken: string;
@@ -25,9 +25,9 @@ interface IBaseTradingViewProps {
   timeTo?: number;
 }
 
-export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
+export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
-export function TradingViewV2(props: ITradingViewProps & WebViewProps) {
+export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);

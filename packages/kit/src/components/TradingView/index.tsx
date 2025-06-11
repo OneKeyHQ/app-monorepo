@@ -18,4 +18,4 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
   return <TradingViewV1 {...props} />;
 }
 
-export type { ITradingViewProps };
+export type { ITradingViewProps, TradingViewV2 };
