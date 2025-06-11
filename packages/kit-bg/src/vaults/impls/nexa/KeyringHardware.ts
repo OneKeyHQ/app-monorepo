@@ -182,7 +182,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
 
     const { inputSignatures, outputSignatures, signatureBuffer } =
-      buildSignatureBuffer(encodedTx, dbAccount.address);
+      await buildSignatureBuffer(encodedTx, dbAccount.address);
 
     const response = await sdk.nexaSignTransaction(connectId, deviceId, {
       ...params.deviceParams?.deviceCommonParams,
@@ -208,7 +208,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         }),
       );
 
-      const txid = buildTxid(inputSigs, outputSignatures);
+      const txid = await buildTxid(inputSigs, outputSignatures);
       const rawTx = buildRawTx(inputSigs, outputSignatures, 0, true);
 
       return {

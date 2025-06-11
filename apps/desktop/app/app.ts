@@ -11,6 +11,8 @@ import {
   BrowserWindow,
   Menu,
   app,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  inAppPurchase,
   ipcMain,
   nativeTheme,
   powerMonitor,

@@ -700,7 +700,7 @@ export async function getAddressFromXpub({
       const index = part.endsWith("'")
         ? parseInt(part.slice(0, -1), 10) + 2 ** 31
         : parseInt(part, 10);
-      extendedKey = CKDPub(curve, extendedKey, index);
+      extendedKey = await CKDPub(curve, extendedKey, index);
       cache.set(relPath, extendedKey);
     }
 

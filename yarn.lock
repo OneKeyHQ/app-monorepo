@@ -599,12 +599,12 @@ __metadata:
   linkType: hard
 
 "@babel/helpers@npm:^7.27.1":
-  version: 7.27.1
-  resolution: "@babel/helpers@npm:7.27.1"
+  version: 7.27.3
+  resolution: "@babel/helpers@npm:7.27.3"
   dependencies:
-    "@babel/template": "npm:^7.27.1"
-    "@babel/types": "npm:^7.27.1"
-  checksum: 10/b86ee2c87d52640c63ec1fdf139d4560efc173ae6379659e0df49a3c0cf1d5f24436132ebb4459a4ee72418b43b39ee001f4e01465b48c8d31911a745ec4fd74
+    "@babel/template": "npm:^7.27.2"
+    "@babel/types": "npm:^7.27.3"
+  checksum: 10/534e6bd68d96a7e548aeab7a4cf8003d7cffc0202448e47242095692e243d08fcf89b6f4b9ea369b4fc29a4247b443da9fa29f43de4b71639b3687c1c8f534d2
   languageName: node
   linkType: hard
 
@@ -2025,7 +2025,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/template@npm:^7.27.1":
+"@babel/template@npm:^7.27.1, @babel/template@npm:^7.27.2":
   version: 7.27.2
   resolution: "@babel/template@npm:7.27.2"
   dependencies:
@@ -7152,7 +7152,6 @@ __metadata:
     "@types/jsrsasign": "npm:^10.5.11"
     "@zondax/izari-filecoin": "npm:^1.2.0"
     algosdk: "npm:^2.6.0"
-    asmcrypto.js: "npm:2.3.2"
     base32-decode: "npm:^1.0.0"
     bchaddrjs: "npm:^0.5.2"
     bip32: "npm:^4.0.0"
@@ -7301,7 +7300,7 @@ __metadata:
     expo-blur: "npm:12.9.1"
     expo-clipboard: "npm:5.0.1"
     expo-constants: "npm:15.4.6"
-    expo-crypto: "npm:12.8.1"
+    expo-crypto: "npm:~12.8.1"
     expo-device: "npm:5.9.3"
     expo-font: "npm:11.10.3"
     expo-haptics: "npm:12.8.1"
@@ -7330,6 +7329,7 @@ __metadata:
     path-browserify: "npm:^1.0.1"
     react: "npm:18.2.0"
     react-native: "npm:0.73.7"
+    react-native-aes-crypto: "npm:3.2.1"
     react-native-ble-plx: "npm:3.5.0"
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta15"
@@ -14239,9 +14239,9 @@ __metadata:
   linkType: hard
 
 "@tronweb3/google-protobuf@npm:^3.21.2":
-  version: 3.21.2
-  resolution: "@tronweb3/google-protobuf@npm:3.21.2"
-  checksum: 10/00d9344e0d32af7af3e55087ffb60b8663ce2c180e8450e5e76b72e5d7309dc2b6ce9999dece7aa48050b626e6f50622dc2614d80e5bb4bcd259512363aaa048
+  version: 3.21.4
+  resolution: "@tronweb3/google-protobuf@npm:3.21.4"
+  checksum: 10/9e3b1ffc118721798f6b84b7a1c60bed2b5d6b6a0e5ee733d5d11941f1d62f94e6f698409987ebed0c1d14c7677e24d9fa16f8a5ba7e8d871db4ae59775dacb6
   languageName: node
   linkType: hard
 
@@ -18589,10 +18589,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.0, bn.js@npm:^4.11.6, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9, bn.js@npm:^4.12.0, bn.js@npm:^4.8.0":
+"bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.0, bn.js@npm:^4.11.6, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9, bn.js@npm:^4.8.0":
   version: 4.12.0
   resolution: "bn.js@npm:4.12.0"
   checksum: 10/10f8db196d3da5adfc3207d35d0a42aa29033eb33685f20ba2c36cadfe2de63dad05df0a20ab5aae01b418d1c4b3d4d205273085262fa020d17e93ff32b67527
+  languageName: node
+  linkType: hard
+
+"bn.js@npm:^4.12.0":
+  version: 4.12.2
+  resolution: "bn.js@npm:4.12.2"
+  checksum: 10/5803983405c087443e0e6c9bb5d0bc863d9f987d77e710f81b14c55616494f5a274e1650ee892531acb3529d52c0e0ea48aa12d2873dd80a75dde9d73a2ec518
   languageName: node
   linkType: hard
 
@@ -24082,8 +24089,8 @@ __metadata:
   linkType: hard
 
 "ethers@npm:^6.13.1":
-  version: 6.13.4
-  resolution: "ethers@npm:6.13.4"
+  version: 6.14.3
+  resolution: "ethers@npm:6.14.3"
   dependencies:
     "@adraffy/ens-normalize": "npm:1.10.1"
     "@noble/curves": "npm:1.2.0"
@@ -24092,7 +24099,7 @@ __metadata:
     aes-js: "npm:4.0.0-beta.5"
     tslib: "npm:2.7.0"
     ws: "npm:8.17.1"
-  checksum: 10/221192fed93f6b0553f3e5e72bfd667d676220577d34ff854f677e955d6f608e60636a9c08b5d54039c532a9b9b7056384f0d7019eb6e111d53175806f896ac6
+  checksum: 10/ce68b962f117fd651090bd8096fde708428ce23f0d044c365bc8cbf2e8f3cb70e1661ff0194364848ccac06d607d4a977f2a0c9e370b9712809c0ca6c36131f9
   languageName: node
   linkType: hard
 
@@ -24419,7 +24426,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-crypto@npm:12.8.1":
+"expo-crypto@npm:~12.8.1":
   version: 12.8.1
   resolution: "expo-crypto@npm:12.8.1"
   dependencies:
@@ -35156,6 +35163,13 @@ __metadata:
   peerDependencies:
     react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
   checksum: 10/70b8948da1e94f0765df5b3335cb85c2d61fd488c12b975b1e388c0b0575d66b470aa7f329f14639e5a12d0d39e0185373b292608ea1c82a5009a69695473765
+  languageName: node
+  linkType: hard
+
+"react-native-aes-crypto@npm:3.2.1":
+  version: 3.2.1
+  resolution: "react-native-aes-crypto@npm:3.2.1"
+  checksum: 10/aefa69279aca38fa44edfe4f0a8d48a5cc7b27947f5fa0541f29ebbb7fdd251321c0b2aa210ddbf4a9ec5b8e03575be80d9d73f0140473643e9d6572a37ff8e1
   languageName: node
   linkType: hard
 

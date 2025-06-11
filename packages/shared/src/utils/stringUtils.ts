@@ -12,13 +12,49 @@ export function equalsIgnoreCase(
   return a?.toUpperCase() === b?.toUpperCase();
 }
 
+const STRINGIFY_REPLACER = {
+  bufferToHex: (key: string, value: any) => {
+    if (value instanceof Uint8Array || Buffer.isBuffer(value)) {
+      return value.toString('hex');
+    }
+    // Handle serialized Buffer objects with {data: number[], type: "Buffer"}
+    if (
+      value &&
+      typeof value === 'object' &&
+      'type' in value &&
+      'data' in value
+    ) {
+      const valueLikeBuffer = value as {
+        type: 'Buffer';
+        data: number[];
+      };
+      if (
+        valueLikeBuffer &&
+        valueLikeBuffer.type === 'Buffer' &&
+        valueLikeBuffer.data &&
+        Array.isArray(valueLikeBuffer.data) &&
+        valueLikeBuffer.data.every((item) => typeof item === 'number')
+      ) {
+        return Buffer.from(valueLikeBuffer.data).toString('hex');
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return value;
+  },
+};
+
 export function stableStringify(
   value: any,
-  replacer?: (key: string, value: any) => any,
+  replacer?: ((key: string, value: any) => any) | null,
   space?: string | number,
   options?: { depthLimit: number | undefined; edgesLimit: number | undefined },
 ): string {
-  return safeStringify.stableStringify(value, replacer, space, options);
+  return safeStringify.stableStringify(
+    value,
+    replacer ?? undefined,
+    space,
+    options,
+  );
 }
 
 function randomString(
@@ -108,11 +144,11 @@ function isValidEmail(email: string): boolean {
 }
 
 export default {
+  STRINGIFY_REPLACER,
   generateUUID,
   validator,
   isValidEmail,
   stableStringify,
-  safeStringify,
   randomString,
   equalsIgnoreCase,
   capitalizeWords,
