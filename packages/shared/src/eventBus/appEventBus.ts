@@ -16,7 +16,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
-import { defaultLogger } from '../logger/logger';
+// import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
@@ -392,9 +392,6 @@ class AppEventBusClass extends CrossEventEmitter {
     isRemote?: boolean;
   }) {
     const { type, payload, isRemote } = params;
-    defaultLogger.app.eventBus.emitToSelf({
-      eventName: type,
-    });
     const payloadCloned = cloneDeep(payload);
     try {
       // @ts-ignore
