@@ -5,6 +5,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
   EFeeType,
   ESendFeeStatus,
+  ETronResourceRentalPayType,
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
@@ -27,6 +28,7 @@ import {
   sendSelectedFeeInfoAtom,
   sendTxStatusAtom,
   tokenApproveInfoAtom,
+  tronResourceRentalInfoAtom,
   txAdvancedSettingsAtom,
   unsignedTxsAtom,
 } from './atoms';
@@ -197,6 +199,24 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       set(extraFeeInfoAtom(), payload);
     },
   );
+
+  updateTronResourceRentalInfo = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        payType?: ETronResourceRentalPayType;
+        isResourceRentalNeeded?: boolean;
+        isResourceRentalEnabled?: boolean;
+        isSwapTrxEnabled?: boolean;
+      },
+    ) => {
+      set(tronResourceRentalInfoAtom(), {
+        ...get(tronResourceRentalInfoAtom()),
+        ...payload,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -223,6 +243,8 @@ export function useSignatureConfirmActions() {
   const updateTxAdvancedSettings = actions.updateTxAdvancedSettings.use();
   const updateDecodedTxs = actions.updateDecodedTxs.use();
   const updateExtraFeeInfo = actions.updateExtraFeeInfo.use();
+  const updateTronResourceRentalInfo =
+    actions.updateTronResourceRentalInfo.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -239,5 +261,6 @@ export function useSignatureConfirmActions() {
     updateTxAdvancedSettings,
     updateDecodedTxs,
     updateExtraFeeInfo,
+    updateTronResourceRentalInfo,
   });
 }

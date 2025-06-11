@@ -1,3 +1,6 @@
+import { useCallback } from 'react';
+
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
@@ -6,7 +9,6 @@ import {
   Badge,
   Dialog,
   Icon,
-  IconButton,
   SizableText,
   Stack,
   Switch,
@@ -14,16 +16,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  useSignatureConfirmActions,
+  useTronResourceRentalInfoAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-
-import { useTronResourceRentalInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
-import { useIntl } from 'react-intl';
-import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
-import { useCallback } from 'react';
 
 const showResourceRentalDetailsDialog = ({
   title,
@@ -53,6 +55,7 @@ const showResourceRentalDetailsDialog = ({
 function ResourceRental() {
   const intl = useIntl();
   const [resourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const { updateTronResourceRentalInfo } = useSignatureConfirmActions().current;
   const {
     isResourceRentalEnabled,
     isResourceRentalNeeded,
@@ -60,6 +63,20 @@ function ResourceRental() {
     payType,
   } = resourceRentalInfo;
   const saveAmount = '10.23';
+
+  const handleResourceRentalToggle = useCallback(
+    (value: boolean) => {
+      updateTronResourceRentalInfo({ isResourceRentalEnabled: value });
+    },
+    [updateTronResourceRentalInfo],
+  );
+
+  const handleSwapTrxToggle = useCallback(
+    (value: boolean) => {
+      updateTronResourceRentalInfo({ isSwapTrxEnabled: value });
+    },
+    [updateTronResourceRentalInfo],
+  );
 
   const renderSwapTrxBlock = useCallback(() => {
     if (payType === ETronResourceRentalPayType.Native) return null;
@@ -156,14 +173,18 @@ function ResourceRental() {
                     5.98 USDT → 20 TRX
                   </SizableText>
                 </YStack>
-                <Switch size="large" value={isSwapTrxEnabled} />
+                <Switch
+                  size="large"
+                  value={isSwapTrxEnabled}
+                  onChange={handleSwapTrxToggle}
+                />
               </XStack>
             </Accordion.Content>
           </Accordion.HeightAnimator>
         </Accordion.Item>
       </Accordion>
     );
-  }, [intl, payType, isSwapTrxEnabled]);
+  }, [intl, payType, isSwapTrxEnabled, handleSwapTrxToggle]);
 
   if (!isResourceRentalNeeded) {
     return null;
@@ -235,7 +256,11 @@ function ResourceRental() {
               })}
             </SizableText>
           </YStack>
-          <Switch size="large" value={isResourceRentalEnabled} />
+          <Switch
+            size="large"
+            value={isResourceRentalEnabled}
+            onChange={handleResourceRentalToggle}
+          />
         </XStack>
       </SignatureConfirmItem.Block>
       {renderSwapTrxBlock()}
