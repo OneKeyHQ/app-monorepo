@@ -125,12 +125,17 @@ export default class Vault extends VaultBase {
     const { path, addresses, xpub } = dbAccount;
     const network = await this.getNetwork();
     const { decimals, feeMeta } = network;
-    const utxos = await this._collectUTXOsInfoByApi({
-      address: dbAccount.address,
-      path,
-      addresses,
-      xpub,
-    });
+    const utxos = (
+      await this._collectUTXOsInfoByApi({
+        address: dbAccount.address,
+        path,
+        addresses,
+        xpub,
+      })
+    )
+      // Native transfer filter datumHash is null
+      .filter((utxo) => utxo.datum_hash == null);
+
     const amountBN = new BigNumber(amount);
 
     let output;
