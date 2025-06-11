@@ -38,14 +38,14 @@ export function InformationTabs({
   const tabs = useMemo(
     () => [
       {
-        id: 'holders',
-        title: 'Holders',
-        page: HoldersComponent,
-      },
-      {
         id: 'transactions',
         title: 'Transactions',
         page: TransactionsHistoryComponent,
+      },
+      {
+        id: 'holders',
+        title: 'Holders',
+        page: HoldersComponent,
       },
     ],
     [TransactionsHistoryComponent],
