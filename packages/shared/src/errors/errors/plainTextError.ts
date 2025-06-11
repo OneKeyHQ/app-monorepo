@@ -1,5 +1,3 @@
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import { OneKeyError } from './baseErrors';
@@ -13,9 +11,4 @@ export class OneKeyPlainTextError<
   override className = EOneKeyErrorClassNames.OneKeyPlainTextError;
 
   override name = EOneKeyErrorClassNames.OneKeyPlainTextError;
-
-  constructor(message: string) {
-    super(message);
-    defaultLogger.app.error.log(message);
-  }
 }
