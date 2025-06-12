@@ -22,7 +22,7 @@ import {
 import {
   NotImplemented,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -97,7 +97,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
@@ -144,7 +144,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (unsignedTx.isKRC20RevealTx) {
       if (!encodedTx.commitScriptHex) {
-        throw new OneKeyPlainTextError('commitScriptHex is required');
+        throw new OneKeyLocalError('commitScriptHex is required');
       }
       const api = await sdkWasm.getKaspaApi();
       const network = await this.getNetwork();

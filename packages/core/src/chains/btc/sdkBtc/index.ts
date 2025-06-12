@@ -12,7 +12,7 @@ import { cloneDeep, isNil, omit } from 'lodash';
 
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -97,7 +97,7 @@ export function tweakSigner(
   // new Uint8Array(privKey.buffer) return 8192 length on NODE.js 20
   let privateKey: Uint8Array | null = new Uint8Array(privKey);
   if (!privateKey) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Private key is required for tweaking signer!',
     );
   }
@@ -106,7 +106,7 @@ export function tweakSigner(
   }
 
   if (!privateKey) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Private key is required for tweaking signer!',
     );
   }
@@ -117,7 +117,7 @@ export function tweakSigner(
       tapTweakHash(toXOnly(publicKey), opts.tweakHash),
     );
     if (!tweakedPrivateKey) {
-      throw new OneKeyPlainTextError('Invalid tweaked private key!');
+      throw new OneKeyLocalError('Invalid tweaked private key!');
     }
     privateKey = tweakedPrivateKey;
   }
@@ -134,7 +134,7 @@ export const loadOPReturn = (
   opReturnSizeLimit: number = TX_OP_RETURN_SIZE_LIMIT,
 ) => {
   if (opReturn.length > opReturnSizeLimit) {
-    throw new OneKeyPlainTextError('OP_RETURN data is too large.');
+    throw new OneKeyLocalError('OP_RETURN data is too large.');
   }
   const buffer = Buffer.from(opReturn);
   return buffer.slice(0, opReturnSizeLimit);
@@ -401,7 +401,7 @@ export function getBtcXpubFromXprvt({
   const xprvVersionBytesNum = parseInt(xprv.slice(0, 4).toString('hex'), 16);
 
   if (isNil(xprvVersionBytesNum) || Number.isNaN(xprvVersionBytesNum)) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Invalid X Private Key: xprvVersionBytesNum not found',
     );
   }
@@ -558,7 +558,7 @@ export function getBip32FromBase58({
   //   network = getBtcForkNetwork('tbtc');
   // }
   // if (!network) {
-  //   throw new OneKeyPlainTextError(`network not support: ${impl}`);
+  //   throw new OneKeyLocalError(`network not support: ${impl}`);
   // }
 
   // const accountNameInfoMap = getAccountNameInfoByImpl(IMPL_BTC);
@@ -624,7 +624,7 @@ export function pubkeyToPayment({
       break;
 
     default:
-      throw new OneKeyPlainTextError(`Invalid encoding: ${encoding as string}`);
+      throw new OneKeyLocalError(`Invalid encoding: ${encoding as string}`);
   }
 
   return payment;
@@ -662,7 +662,7 @@ export async function getAddressFromXpub({
       xpub,
     });
     if (supportEncodings.length > 1) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
       );
     }
@@ -754,7 +754,7 @@ export function convertBtcScriptTypeForHardware(sdkScriptType: string) {
   const val = map[sdkScriptType];
 
   if (isNil(val)) {
-    throw new OneKeyPlainTextError(`${sdkScriptType} not found in map`);
+    throw new OneKeyLocalError(`${sdkScriptType} not found in map`);
   }
   return val;
 }
@@ -778,7 +778,7 @@ export function getBtcForkVersionBytesByAddressEncoding({
   }
 
   if (!versionBytes) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `getBtcForkVersionBytesByAddressEncoding ERROR: Invalid addressEncoding ${addressEncoding}`,
     );
   }
@@ -804,7 +804,7 @@ export function convertBtcForkXpub({
   addressEncoding: EAddressEncodings | undefined;
 }) {
   if (!addressEncoding) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'convertBtcForkXpub ERROR: Invalid addressEncoding',
     );
   }
@@ -813,7 +813,7 @@ export function convertBtcForkXpub({
     btcForkNetwork,
   });
   if (!versionBytes || isNil(versionBytes.public)) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'convertBtcForkXpub ERROR: Invalid versionBytes',
     );
   }

@@ -17,7 +17,7 @@ import {
   InitIframeTimeout,
   NeedFirmwareUpgradeFromWeb,
   NeedOneKeyBridgeUpgrade,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
 import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
@@ -311,7 +311,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const originalConnectId = connectId;
 
     if (platformEnv.isNative && !originalConnectId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'checkAllFirmwareRelease ERROR: native ble-sdk connectId is required',
       );
     }
@@ -732,7 +732,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<IFirmwareUpdateInfo> {
     serviceHardwareUtils.hardwareLog('_checkFirmwareUpdate', payload);
     if (!payload?.features) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'setFirmwareUpdateInfo ERROR: features is required',
       );
     }
@@ -780,7 +780,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async setBleFirmwareUpdateInfo(payload: IBleFirmwareReleasePayload) {
     serviceHardwareUtils.hardwareLog('showBleFirmwareReleaseInfo', payload);
     if (!payload.features) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'setBleFirmwareUpdateInfo ERROR: features is required',
       );
     }
@@ -1203,7 +1203,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
     });
     if (!dbDevice) {
-      // throw new OneKeyPlainTextError('device not found');
+      // throw new OneKeyLocalError('device not found');
     }
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
@@ -1369,7 +1369,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
         const deviceType = params?.releaseResult?.deviceType;
         if (deviceType !== EDeviceType.Pro) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'Do not support update firmware for this device',
           );
         }
@@ -1810,14 +1810,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async validateMnemonicBackuped(params: IUpdateFirmwareWorkflowParams) {
     if (!params.backuped) {
-      throw new OneKeyPlainTextError('mnemonic not backuped');
+      throw new OneKeyLocalError('mnemonic not backuped');
     }
   }
 
   async validateUSBConnection(params: IUpdateFirmwareWorkflowParams) {
     // TODO device is connected by USB
     if (!params.usbConnected) {
-      throw new OneKeyPlainTextError('USB not connected');
+      throw new OneKeyLocalError('USB not connected');
     }
   }
 

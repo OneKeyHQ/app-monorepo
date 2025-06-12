@@ -3,7 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
@@ -291,7 +291,7 @@ class ServiceDappSide extends ServiceBase {
   }) {
     const connectionInfo = account.connectionInfo;
     if (!connectionInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'sendTransaction ERROR: connectionInfo not found',
       );
     }

@@ -20,7 +20,7 @@ import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts'
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyErrorAirGapInvalidQrCode,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -215,7 +215,7 @@ class ServiceQrWallet extends ServiceBase {
     const { serviceAccount } = this.backgroundApi;
     let byDevice: IDBDevice | undefined;
     if (!walletId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'prepareQrcodeWalletAddressAdd ERROR: walletId missing ',
       );
     }
@@ -327,7 +327,7 @@ class ServiceQrWallet extends ServiceBase {
       };
       buildBy = 'hdkey';
     } else {
-      throw new OneKeyPlainTextError(`Invalid UR type: ${ur.type}`);
+      throw new OneKeyLocalError(`Invalid UR type: ${ur.type}`);
     }
     const qrDevice: IQrWalletDevice = {
       name: airGapMultiAccounts.device || 'QR Wallet',

@@ -9,7 +9,7 @@ import { ResultFormatter } from '@ckb-lumos/rpc';
 
 import {
   ConvertTxError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -71,7 +71,7 @@ export function serializeTransactionMessage(
 
   const signingEntries = txSkeletonWithMessage.get('signingEntries');
   if (signingEntries?.size === 0) {
-    throw new OneKeyPlainTextError('No signingEntries');
+    throw new OneKeyLocalError('No signingEntries');
   }
   const message = signingEntries.get(0)?.message;
   return {

@@ -2,7 +2,7 @@ import { isNil, isNumber } from 'lodash';
 
 import {
   LocalDBRecordNotFoundError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -76,11 +76,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     bucketName: EIndexedDBBucketNames,
   ): IndexedDBPromised<IIndexedDBSchemaMap> {
     if (!this.buckets) {
-      throw new OneKeyPlainTextError('buckets not initialized');
+      throw new OneKeyLocalError('buckets not initialized');
     }
     const indexed = this.buckets[bucketName];
     if (!indexed) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `indexedDB bucket not found: ${bucketName}`,
       );
     }
@@ -275,7 +275,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         default: {
           const exhaustiveCheck: never = bucketName;
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             `Unsupported indexedDB bucket name: ${exhaustiveCheck as string}`,
           );
         }
@@ -319,7 +319,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         message,
         method: 'error',
       });
-      throw new OneKeyPlainTextError(message);
+      throw new OneKeyLocalError(message);
     }
     return store;
   }
@@ -662,7 +662,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         // TODO only remove first record?
         const recordId = pair[0]?.id;
         if (isNil(recordId)) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'dbRemoveRecord ERROR: recordId not found',
           );
         }

@@ -22,7 +22,7 @@ import {
 } from '@aptos-labs/ts-sdk';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
   EntryFunctionArgumentTypes,
@@ -130,7 +130,7 @@ function deserializeFromScriptArgument(
     case EScriptArgumentType.Serialized:
       return Serialized.deserialize(deserializer);
     default:
-      throw new OneKeyPlainTextError(`Unknown script argument type: ${index}`);
+      throw new OneKeyLocalError(`Unknown script argument type: ${index}`);
   }
 }
 
@@ -603,13 +603,13 @@ export function serializeTransactionPayload(
     if ('code' in value) {
       serializableTransactionPayloadV1ScriptLegacy(value, serializer);
     } else {
-      throw new OneKeyPlainTextError('Invalid transaction payload type');
+      throw new OneKeyLocalError('Invalid transaction payload type');
     }
   } else if ('type' in args) {
     // V1 SDK Legacy Params
     serializableTransactionPayloadV1Legacy(args, serializer);
   } else {
-    throw new OneKeyPlainTextError('Invalid transaction payload type');
+    throw new OneKeyLocalError('Invalid transaction payload type');
   }
   return bytesToHex(serializer.toUint8Array());
 }
@@ -631,5 +631,5 @@ export function deserializeTransactionPayload(
   if (type === ETransactionPayloadType.SCRIPT_LEGACY) {
     return deserializableTransactionPayloadV1ScriptLegacy(deserializer);
   }
-  throw new OneKeyPlainTextError('Invalid transaction payload type');
+  throw new OneKeyLocalError('Invalid transaction payload type');
 }

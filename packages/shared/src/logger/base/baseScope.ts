@@ -1,6 +1,6 @@
 import { InteractionManager } from 'react-native';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { formatTime } from '../../utils/dateUtils';
 import { isPromiseObject } from '../../utils/promiseUtils';
@@ -36,14 +36,14 @@ export abstract class BaseScope implements IScope {
               (this.cache[sceneName] = new SceneClass());
             const sceneInstance = instance as BaseScene;
             if (typeof prop !== 'string') {
-              throw new OneKeyPlainTextError(
+              throw new OneKeyLocalError(
                 `Scene method must be string: ${this.scopeName}.${sceneName}`,
               );
             }
             const fullName = `${this.scopeName}.${sceneName}.${prop}()`;
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (!(prop in instance) || typeof instance[prop] !== 'function') {
-              throw new OneKeyPlainTextError(
+              throw new OneKeyLocalError(
                 `Scene method ${prop} not found: ${fullName}`,
               );
             }
@@ -51,7 +51,7 @@ export abstract class BaseScope implements IScope {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             const result = instance[prop].call(instance, ...args);
             if (isPromiseObject(result)) {
-              throw new OneKeyPlainTextError(
+              throw new OneKeyLocalError(
                 `Scene method must not return a promise: ${fullName}`,
               );
             }

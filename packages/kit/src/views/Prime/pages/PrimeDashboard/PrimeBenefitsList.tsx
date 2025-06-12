@@ -1,15 +1,26 @@
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Badge, Icon, Stack, Toast, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  SizableText,
+  Stack,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
+
+import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
 function PrimeBenefitsItem({
   icon,
@@ -26,33 +37,44 @@ function PrimeBenefitsItem({
 }) {
   const intl = useIntl();
   return (
-    <ListItem drillIn={!isComingSoon} onPress={onPress}>
+    <ListItem drillIn onPress={onPress}>
       <YStack borderRadius="$3" borderCurve="continuous" bg="$brand4" p="$2">
         <Icon name={icon} size="$6" color="$brand9" />
       </YStack>
       <ListItem.Text
         userSelect="none"
         flex={1}
-        primary={title}
+        primary={
+          <XStack>
+            <SizableText textAlign="left" size="$bodyLgMedium">
+              {title}
+            </SizableText>
+            {isComingSoon ? (
+              <Badge ml="$2" badgeSize="sm">
+                <Badge.Text>
+                  {intl.formatMessage({
+                    id: ETranslations.id_prime_soon,
+                  })}
+                </Badge.Text>
+              </Badge>
+            ) : null}
+          </XStack>
+        }
         secondary={subtitle}
       />
-      {isComingSoon ? (
-        <Badge badgeSize="sm">
-          <Badge.Text>
-            {intl.formatMessage({
-              id: ETranslations.id_prime_soon,
-            })}
-          </Badge.Text>
-        </Badge>
-      ) : null}
     </ListItem>
   );
 }
 
-export function PrimeBenefitsList() {
+export function PrimeBenefitsList({
+  selectedSubscriptionPeriod,
+}: {
+  selectedSubscriptionPeriod: ISubscriptionPeriod;
+}) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { ensureOneKeyIDLoggedIn } = usePrimeRequirements();
+  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
 
   return (
     <Stack py="$2">
@@ -65,11 +87,19 @@ export function PrimeBenefitsList() {
           id: ETranslations.prime_onekey_cloud_desc,
         })}
         onPress={() => {
-          navigation.navigate(EPrimePages.PrimeCloudSync);
+          if (isPrimeSubscriptionActive) {
+            navigation.navigate(EPrimePages.PrimeCloudSync);
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.OneKeyCloud,
+              selectedSubscriptionPeriod,
+            });
+          }
         }}
       />
       <PrimeBenefitsItem
-        icon="PhoneOutline"
+        icon="MultipleDevicesOutline"
         title={intl.formatMessage({
           id: ETranslations.global_device_management,
         })}
@@ -77,10 +107,18 @@ export function PrimeBenefitsList() {
           id: ETranslations.prime_device_management_desc,
         })}
         onPress={async () => {
-          await ensureOneKeyIDLoggedIn();
-          navigation.pushFullModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDeviceLimit,
-          });
+          if (isPrimeSubscriptionActive) {
+            await ensureOneKeyIDLoggedIn();
+            navigation.pushFullModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeDeviceLimit,
+            });
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.DeviceManagement,
+              selectedSubscriptionPeriod,
+            });
+          }
         }}
       />
       <PrimeBenefitsItem
@@ -93,9 +131,17 @@ export function PrimeBenefitsList() {
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
         onPress={() => {
-          if (process.env.NODE_ENV !== 'production') {
-            Toast.success({
-              title: 'Bulk Copy Addresses',
+          if (isPrimeSubscriptionActive) {
+            if (process.env.NODE_ENV !== 'production') {
+              Toast.success({
+                title: 'Bulk Copy Addresses',
+              });
+            }
+          } else {
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
+              selectedSubscriptionPeriod,
             });
           }
         }}

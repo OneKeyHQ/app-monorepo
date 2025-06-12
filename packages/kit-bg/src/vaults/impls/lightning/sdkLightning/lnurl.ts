@@ -2,7 +2,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import axios from 'axios';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -104,7 +104,7 @@ export const getLnurlDetails = memoizee(
       const res = await axios.get<ILNURLDetails | ILNURLError>(url.toString());
       const lnurlDetails = res.data;
       if (isLNURLRequestError(lnurlDetails)) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           `LNURL request error: ${lnurlDetails.reason}`,
         );
       }
@@ -113,7 +113,7 @@ export const getLnurlDetails = memoizee(
 
       return lnurlDetails;
     } catch (e) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Invalid LNURL: ${e instanceof Error ? e.message : ''}`,
       );
     }

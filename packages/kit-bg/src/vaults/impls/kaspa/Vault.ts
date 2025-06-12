@@ -32,7 +32,7 @@ import {
 import {
   NotImplemented,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -122,7 +122,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }
@@ -381,7 +381,7 @@ export default class Vault extends VaultBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     const { gasLimit, gasPrice } = feeInfo?.gas ?? {};
     if (typeof gasLimit !== 'string' || typeof gasPrice !== 'string') {
-      throw new OneKeyPlainTextError('gasLimit or gasPrice is not a string.');
+      throw new OneKeyLocalError('gasLimit or gasPrice is not a string.');
     }
 
     try {
@@ -389,10 +389,10 @@ export default class Vault extends VaultBase {
       const bigNumberGasPrice = new BigNumber(gasPrice);
 
       if (bigNumberGasLimit.isNaN() || bigNumberGasPrice.isNaN()) {
-        throw new OneKeyPlainTextError('Fee is not a valid number.');
+        throw new OneKeyLocalError('Fee is not a valid number.');
       }
     } catch (error) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Invalid fee value: ${(error as Error).message}`,
       );
     }
@@ -467,7 +467,7 @@ export default class Vault extends VaultBase {
       });
     }
 
-    throw new OneKeyPlainTextError('Invalid private key');
+    throw new OneKeyLocalError('Invalid private key');
   }
 
   override validateXprvt(): Promise<IXprvtValidation> {
@@ -749,7 +749,7 @@ export default class Vault extends VaultBase {
     // throw error after 2 minutes
     const timeout = setTimeout(() => {
       confirmed = true;
-      throw new OneKeyPlainTextError('Commit transaction timeout');
+      throw new OneKeyLocalError('Commit transaction timeout');
     }, 2 * 60 * 1000);
     while (!confirmed) {
       const tx = await this.backgroundApi.serviceHistory.fetchTxDetails({
@@ -823,7 +823,7 @@ export default class Vault extends VaultBase {
       });
 
     if (!commitAddress) {
-      throw new OneKeyPlainTextError('Invalid P2SH commitAddress address');
+      throw new OneKeyLocalError('Invalid P2SH commitAddress address');
     }
 
     const encodedTx: IEncodedTxKaspa = await this.prepareAndBuildTx({
@@ -853,7 +853,7 @@ export default class Vault extends VaultBase {
     commitTx: IEncodedTxKaspa;
   }) {
     if (!commitTx.commitAddress || !commitTx.commitScriptPubKey) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Commit address and scriptPubKey are required',
       );
     }

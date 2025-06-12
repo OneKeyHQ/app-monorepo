@@ -1,6 +1,6 @@
 import { Base64 } from 'js-base64';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors/errors/plainTextError';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {
@@ -47,7 +47,7 @@ export const isSupportWebAuth = async () => {
 
 export const verifiedWebAuth = async (credId: string) => {
   if (!(await isSupportWebAuth())) {
-    throw new OneKeyPlainTextError('Not support web auth');
+    throw new OneKeyLocalError('Not support web auth');
   }
   const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
   const getCredentialOptions: CredentialRequestOptions = {
@@ -73,10 +73,10 @@ export const verifiedWebAuth = async (credId: string) => {
 
 export const registerWebAuth = async (credId?: string) => {
   if (!(await isSupportWebAuth())) {
-    throw new OneKeyPlainTextError('Not support web auth');
+    throw new OneKeyLocalError('Not support web auth');
   }
   if (!navigator?.credentials) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'navigator.credentials API is not available',
     );
   }

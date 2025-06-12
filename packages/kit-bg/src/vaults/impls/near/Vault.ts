@@ -12,7 +12,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -152,13 +152,13 @@ export default class Vault extends VaultBase {
     const { tokenInfo } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }
 
     if (!tokenInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }

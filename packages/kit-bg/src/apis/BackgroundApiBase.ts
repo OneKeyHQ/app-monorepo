@@ -15,7 +15,7 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EEventBusBroadcastMethodNames,
   appEventBus,
@@ -110,7 +110,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `setAtomValue ERROR: atomName not found: ${atomName}`,
       );
     }
@@ -174,7 +174,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const provider: ProviderApiBase | null =
       this.providers[scope as IInjectedProviderNames];
     if (!provider) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `[${scope as string}] ProviderApi instance is not found.`,
       );
     }
@@ -209,13 +209,13 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const { method, params } = request;
 
     if (!origin) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'BackgroundApi [payload.origin] is required.',
       );
     }
 
     if (!internal && !scope) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'BackgroundApi [payload.scope] is required for non-internal method call.',
       );
     }
@@ -281,7 +281,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   sendForProvider(providerName: IInjectedProviderNamesStrings): any {
     if (!providerName) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'sendForProvider: providerName is required.',
       );
     }

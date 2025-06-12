@@ -1,7 +1,7 @@
 /* eslint-disable no-bitwise */
 import bigInt from 'big-integer';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 export enum ENexaAddressType {
   PayToPublicKeyHash = 'P2PKH',
@@ -36,7 +36,7 @@ function getType(versionByte: number) {
     case 11 << 3:
       return 'GROUP';
     default:
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Invalid address type in version byte: ${versionByte}.`,
       );
   }
@@ -53,7 +53,7 @@ function getTypeBits(type: string) {
     case 'GROUP':
       return 11 << 3;
     default:
-      throw new OneKeyPlainTextError(`Invalid type: ${type}.`);
+      throw new OneKeyLocalError(`Invalid type: ${type}.`);
   }
 }
 
@@ -202,25 +202,25 @@ export function encode(
 
 export function decodeAddress(address: string) {
   if (typeof address !== 'string' || !hasSingleCase(address)) {
-    throw new OneKeyPlainTextError(`Invalid address: ${address}`);
+    throw new OneKeyLocalError(`Invalid address: ${address}`);
   }
 
   // let hash: Uint8Array;
 
   const pieces: string[] = address.toLowerCase().split(':');
   if (pieces.length !== 2) {
-    throw new OneKeyPlainTextError(`Miss prefix: ${address}`);
+    throw new OneKeyLocalError(`Miss prefix: ${address}`);
   }
 
   const prefix = pieces[0];
   if (!isValidPrefix(prefix)) {
-    throw new OneKeyPlainTextError(`Invalid prefix: ${address}`);
+    throw new OneKeyLocalError(`Invalid prefix: ${address}`);
   }
 
   const payload = base32Decode(pieces[1]);
 
   if (!validChecksum(prefix, payload)) {
-    throw new OneKeyPlainTextError(`Invalid checksum: ${address}`);
+    throw new OneKeyLocalError(`Invalid checksum: ${address}`);
   }
 
   const payloadData = fromUint5Array(Buffer.from(payload.subarray(0, -8)));
