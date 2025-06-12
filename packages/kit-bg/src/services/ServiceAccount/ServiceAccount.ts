@@ -965,9 +965,7 @@ class ServiceAccount extends ServiceBase {
     accountName: string | undefined;
   }) {
     if (!accountId && !indexedAccountId) {
-      throw new OneKeyLocalError(
-        'accountId or indexedAccountId is required',
-      );
+      throw new OneKeyLocalError('accountId or indexedAccountId is required');
     }
     if (accountId && indexedAccountId) {
       throw new OneKeyLocalError(
@@ -1035,9 +1033,7 @@ class ServiceAccount extends ServiceBase {
       //     id: ETranslations.hardware_not_support,
       //   }),
       // );
-      throw new OneKeyLocalError(
-        'Export keyType not found for the network',
-      );
+      throw new OneKeyLocalError('Export keyType not found for the network');
     }
     if (exportType === 'privateKey') {
       return this.exportAccountSecretKey({
@@ -1460,9 +1456,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
     if (!network) {
-      throw new OneKeyLocalError(
-        'addWatchingAccount ERROR: network not found',
-      );
+      throw new OneKeyLocalError('addWatchingAccount ERROR: network not found');
     }
 
     const vault = await vaultFactory.getWalletOnlyVault({
@@ -1707,14 +1701,10 @@ class ServiceAccount extends ServiceBase {
     account: INetworkAccount;
     networkId: string;
   }) {
-    try {
-      await localDb.saveAccountAddresses({
-        account,
-        networkId,
-      });
-    } catch (e) {
-      console.log('saveAccountAddresses----', e);
-    }
+    await localDb.saveAccountAddresses({
+      account,
+      networkId,
+    });
   }
 
   @backgroundMethod()
@@ -2616,9 +2606,7 @@ class ServiceAccount extends ServiceBase {
       await this.validateMnemonic(mnemonic);
 
     if (mnemonicType !== EMnemonicType.TON) {
-      throw new OneKeyLocalError(
-        'saveTonMnemonic ERROR: Not a TON mnemonic',
-      );
+      throw new OneKeyLocalError('saveTonMnemonic ERROR: Not a TON mnemonic');
     }
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
@@ -3455,9 +3443,7 @@ class ServiceAccount extends ServiceBase {
     { allowWatchAccount }: { allowWatchAccount?: boolean },
   ) {
     if (!accountId && !indexedAccountId) {
-      throw new OneKeyLocalError(
-        'accountId or indexedAccountId is required',
-      );
+      throw new OneKeyLocalError('accountId or indexedAccountId is required');
     }
 
     const { serviceNetwork, serviceAccount } = this.backgroundApi;
