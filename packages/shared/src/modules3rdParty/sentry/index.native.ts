@@ -21,9 +21,10 @@ export * from '@sentry/react-native';
 export * from './basicOptions';
 
 export const initSentry = () => {
-  if (process.env.NODE_ENV !== 'production') {
-    return;
-  }
+  // if (process.env.NODE_ENV !== 'production') {
+  //   return;
+  // }
+  return;
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...buildBasicOptions({
@@ -53,7 +54,7 @@ export const withSentryHOC = (
 ): ComponentType<any> =>
   withErrorBoundary(withProfiler(wrap(Component)), {
     onError: (error, info) => {
-      console.error('error', error, info);
+      console.error('error---', error, info);
     },
     fallback: errorBoundaryFallback,
   });
