@@ -695,17 +695,45 @@ function AvailableAssetsTabViewList() {
               borderCurve: 'continuous',
             }}
           >
-            {Array.from({ length: 3 }).map((_, index) => (
-              <ListItem key={index} mx="$0" px="$4">
-                <ListItem.Avatar>
-                  <Skeleton width="$8" height="$8" radius="round" />
-                </ListItem.Avatar>
-                <ListItem.Text>
-                  <Skeleton w={120} h={16} borderRadius="$2" />
-                </ListItem.Text>
-                <ListItem.Text>
-                  <Skeleton w={80} h={16} borderRadius="$2" />
-                </ListItem.Text>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <ListItem
+                key={index}
+                mx="$0"
+                px="$4"
+                {...(media.gtLg
+                  ? {
+                      borderRadius: '$0',
+                    }
+                  : {})}
+                {...(index !== 0 && media.gtLg
+                  ? {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: '$borderSubdued',
+                    }
+                  : {})}
+              >
+                <XStack
+                  flex={1}
+                  alignItems="center"
+                  justifyContent="space-between"
+                  gap="$4"
+                >
+                  <XStack ai="center" gap="$4">
+                    <Skeleton
+                      width={media.gtLg ? '$8' : '$10'}
+                      height={media.gtLg ? '$8' : '$10'}
+                      radius="round"
+                    />
+                    <Skeleton w={60} h={20} borderRadius="$2" />
+                  </XStack>
+
+                  <Skeleton w={90} h={20} borderRadius="$2" />
+
+                  <IconButton
+                    icon="ChevronRightSmallOutline"
+                    variant="tertiary"
+                  />
+                </XStack>
               </ListItem>
             ))}
           </YStack>
