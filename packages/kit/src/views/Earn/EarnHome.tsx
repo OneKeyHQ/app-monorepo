@@ -5,11 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type {
-  IKeyOfIcons,
-  ISizableTextProps,
-  IYStackProps,
-} from '@onekeyhq/components';
+import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
   Badge,
   Banner,
@@ -24,7 +20,6 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
-  Tab,
   XStack,
   YStack,
   useMedia,
@@ -50,7 +45,6 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnAccount,
   IEarnAccountToken,
@@ -58,7 +52,6 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
-import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -68,6 +61,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
+import { AvailableAssetsTabViewList } from './components/AvailableAssetsTabViewList';
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
@@ -580,265 +574,6 @@ function Overview({
   );
 }
 
-function AvailableAssetsTabViewList() {
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-  const [{ availableAssetsByType = {} }] = useEarnAtom();
-  const actions = useEarnActions();
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  const media = useMedia();
-  const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-
-  const tabData = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({ id: ETranslations.global_all }),
-        type: EAvailableAssetsTypeEnum.All,
-      },
-      {
-        title: 'Stable coins',
-        type: EAvailableAssetsTypeEnum.StableCoins,
-      },
-      {
-        title: 'Native tokens',
-        type: EAvailableAssetsTypeEnum.NativeTokens,
-      },
-    ],
-    [intl],
-  );
-
-  // Get filtered assets based on selected tab
-  const assets = useMemo(() => {
-    const currentTabType = tabData[selectedTabIndex]?.type;
-    return availableAssetsByType[currentTabType] || [];
-  }, [availableAssetsByType, selectedTabIndex, tabData]);
-
-  // Load data for the selected tab
-  const { isLoading } = usePromiseResult(
-    async () => {
-      const currentTabType = tabData[selectedTabIndex]?.type;
-      if (currentTabType) {
-        const tabAssets =
-          await backgroundApiProxy.serviceStaking.getAvailableAssets({
-            type: currentTabType,
-          });
-
-        // Update the corresponding data in atom
-        actions.current.updateAvailableAssetsByType(currentTabType, tabAssets);
-        return tabAssets;
-      }
-      return [];
-    },
-    [selectedTabIndex, tabData, actions],
-    {
-      watchLoading: true,
-    },
-  );
-
-  // Handle tab change
-  const handleTabChange = useCallback((index: number) => {
-    setSelectedTabIndex(index);
-  }, []);
-
-  if (assets.length || isLoading) {
-    return (
-      <YStack gap="$3">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_available_assets })}
-        </SizableText>
-        <Tab.Header
-          style={{
-            height: 28,
-            borderBottomWidth: 0,
-          }}
-          data={tabData}
-          itemContainerStyle={{
-            px: '$2',
-            mr: '$1',
-            cursor: 'default',
-          }}
-          itemTitleNormalStyle={{
-            color: '$textSubdued',
-            fontSize: 14,
-            fontWeight: '500',
-            lineHeight: 20,
-            letterSpacing: -0.15,
-          }}
-          itemTitleSelectedStyle={{
-            color: '$text',
-            fontSize: 14,
-            fontWeight: '500',
-            lineHeight: 20,
-            letterSpacing: -0.15,
-          }}
-          cursorStyle={{
-            height: '100%',
-            bg: '$bgActive',
-            borderRadius: '$2',
-            borderCurve: 'continuous',
-          }}
-          onSelectedPageIndex={handleTabChange}
-        />
-
-        {isLoading ? (
-          <YStack
-            mx="$-5"
-            $gtLg={{
-              mx: 0,
-              overflow: 'hidden',
-              bg: '$bg',
-              borderRadius: '$3',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: '$borderSubdued',
-              borderCurve: 'continuous',
-            }}
-          >
-            {Array.from({ length: 4 }).map((_, index) => (
-              <ListItem
-                key={index}
-                mx="$0"
-                px="$4"
-                {...(media.gtLg
-                  ? {
-                      borderRadius: '$0',
-                    }
-                  : {})}
-                {...(index !== 0 && media.gtLg
-                  ? {
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: '$borderSubdued',
-                    }
-                  : {})}
-              >
-                <XStack
-                  flex={1}
-                  alignItems="center"
-                  justifyContent="space-between"
-                  gap="$4"
-                >
-                  <XStack ai="center" gap="$4">
-                    <Skeleton
-                      width={media.gtLg ? '$8' : '$10'}
-                      height={media.gtLg ? '$8' : '$10'}
-                      radius="round"
-                    />
-                    <Skeleton w={60} h={20} borderRadius="$2" />
-                  </XStack>
-
-                  <Skeleton w={90} h={20} borderRadius="$2" />
-
-                  <IconButton
-                    icon="ChevronRightSmallOutline"
-                    variant="tertiary"
-                  />
-                </XStack>
-              </ListItem>
-            ))}
-          </YStack>
-        ) : (
-          <YStack
-            mx="$-5"
-            $gtLg={{
-              mx: 0,
-              overflow: 'hidden',
-              bg: '$bg',
-              borderRadius: '$3',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: '$borderSubdued',
-              borderCurve: 'continuous',
-            }}
-          >
-            {assets.map(
-              (
-                {
-                  name,
-                  logoURI,
-                  aprWithoutFee,
-                  networkId,
-                  symbol,
-                  rewardUnit,
-                  tags = [],
-                },
-                index,
-              ) => (
-                <ListItem
-                  userSelect="none"
-                  key={`${name}-${index}`}
-                  onPress={async () => {
-                    await toTokenProviderListPage(navigation, {
-                      networkId,
-                      accountId: account?.id ?? '',
-                      indexedAccountId: indexedAccount?.id,
-                      symbol,
-                    });
-                  }}
-                  avatarProps={{
-                    src: logoURI,
-                    fallbackProps: {
-                      borderRadius: '$full',
-                    },
-                    ...(media.gtLg
-                      ? {
-                          size: '$8',
-                        }
-                      : {}),
-                  }}
-                  {...(media.gtLg
-                    ? {
-                        drillIn: true,
-                        mx: '$0',
-                        px: '$4',
-                        borderRadius: '$0',
-                      }
-                    : {})}
-                  {...(index !== 0 && media.gtLg
-                    ? {
-                        borderTopWidth: StyleSheet.hairlineWidth,
-                        borderTopColor: '$borderSubdued',
-                      }
-                    : {})}
-                >
-                  <ListItem.Text
-                    flexGrow={1}
-                    flexBasis={0}
-                    primary={
-                      <XStack gap="$2" alignItems="center">
-                        <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-                        <XStack gap="$1">
-                          {tags.map((tag) => (
-                            <Badge
-                              key={tag}
-                              badgeType="success"
-                              badgeSize="sm"
-                              userSelect="none"
-                            >
-                              <Badge.Text>{tag}</Badge.Text>
-                            </Badge>
-                          ))}
-                        </XStack>
-                      </XStack>
-                    }
-                  />
-                  <ListItem.Text
-                    $gtLg={{
-                      flexGrow: 1,
-                      flexBasis: 0,
-                    }}
-                    primary={buildAprText(aprWithoutFee, rewardUnit)}
-                  />
-                </ListItem>
-              ),
-            )}
-          </YStack>
-        )}
-      </YStack>
-    );
-  }
-  return null;
-}
-
 function BasicEarnHome() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -950,6 +685,19 @@ function BasicEarnHome() {
   const navigation = useAppNavigation();
 
   const accountSelectorActions = useAccountSelectorActions();
+
+  // Create adapter function for AvailableAssetsTabViewList
+  const handleTokenPress = useCallback(
+    async (params: {
+      networkId: string;
+      accountId: string;
+      indexedAccountId?: string;
+      symbol: string;
+    }) => {
+      await toTokenProviderListPage(navigation, params);
+    },
+    [navigation],
+  );
 
   const onBannerPress = useCallback(
     async ({
@@ -1114,7 +862,7 @@ function BasicEarnHome() {
                 }}
               >
                 <Recommended isFetchingAccounts={isLoading} />
-                <AvailableAssetsTabViewList />
+                <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
               </YStack>
               {/* TODO: replace to FAQ List */}
               {media.gtLg ? (
