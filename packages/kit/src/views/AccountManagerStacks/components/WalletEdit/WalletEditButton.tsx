@@ -123,10 +123,13 @@ function WalletEditButtonView({ wallet }: { wallet?: IDBWallet }) {
           ) : null}
 
           {showBackupButton ? (
-            <HdWalletBackupButton
-              wallet={wallet}
-              onClose={handleActionListClose}
-            />
+            <>
+              <HdWalletBackupButton
+                wallet={wallet}
+                onClose={handleActionListClose}
+              />
+              <Divider mx="$2" my="$1" />
+            </>
           ) : null}
 
           {showDeviceManagementButton ? (

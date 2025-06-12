@@ -244,6 +244,7 @@ function HiddenWalletAddButton({
   isEditMode?: boolean;
 }) {
   const { createHiddenWallet, isLoading } = useAddHiddenWalletButton();
+  const intl = useIntl();
 
   if (!isEditMode) {
     return null;
@@ -251,8 +252,10 @@ function HiddenWalletAddButton({
 
   return (
     <WalletListItemBaseView
-      name="Hidden wallet"
-      avatarView={<Icon name="PlusCircleOutline" size="$10" />}
+      name={intl.formatMessage({ id: ETranslations.global_hidden_wallet })}
+      avatarView={
+        <Icon name="PlusCircleOutline" color="$iconSubdued" size="$10" />
+      }
       selected={false}
       onPress={async () => {
         if (isLoading) {
@@ -270,17 +273,12 @@ export function WalletListItem({
   onWalletPress,
   onWalletLongPress, // drag and drop
   isOthers,
-  badge,
   isEditMode,
   ...rest
 }: IWalletListItemProps) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const intl = useIntl();
-  const media = useMedia();
   let walletAvatarProps: IWalletAvatarProps = {
     wallet,
     status: 'default', // 'default' | 'connected';
-    badge,
   };
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
@@ -339,9 +337,6 @@ export function WalletListItem({
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
             onWalletLongPress={onWalletLongPress}
-            {...(media.md && {
-              badge: Number(index) + 1,
-            })}
           />
         ))}
         {!isHiddenWallet ? (

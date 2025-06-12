@@ -394,7 +394,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           />
         ) : null}
         {!isMockedStandardHwWallet ? (
-          <XStack px="$5" py="$2" gap="$2">
+          <XStack px="$5" py="$2">
             <InputUnControlled
               leftIconName="SearchOutline"
               size="small"
@@ -411,27 +411,28 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               defaultValue={searchText}
               onChangeText={handleSearch}
             />
-            {editable ? (
-              <Button
-                testID="account-edit-button"
-                variant="tertiary"
-                alignSelf="flex-start"
-                $gtMd={{ top: '$0.5' }}
-                onPress={() => {
-                  setEditMode((v) => !v);
-                }}
-                {...(editMode && {
-                  color: '$textInteractive',
-                  icon: 'CheckLargeOutline',
-                  iconColor: '$iconSuccess',
-                })}
-              >
-                {editMode
-                  ? intl.formatMessage({ id: ETranslations.global_done })
-                  : intl.formatMessage({ id: ETranslations.global_edit })}
-              </Button>
-            ) : null}
           </XStack>
+        ) : null}
+        {/* TODO: remove this */}
+        {editable ? (
+          <Button
+            testID="account-edit-button"
+            variant="tertiary"
+            alignSelf="flex-start"
+            $gtMd={{ top: '$0.5' }}
+            onPress={() => {
+              setEditMode((v) => !v);
+            }}
+            {...(editMode && {
+              color: '$textInteractive',
+              icon: 'CheckLargeOutline',
+              iconColor: '$iconSuccess',
+            })}
+          >
+            {editMode
+              ? intl.formatMessage({ id: ETranslations.global_done })
+              : intl.formatMessage({ id: ETranslations.global_edit })}
+          </Button>
         ) : null}
       </Stack>
     );
@@ -440,7 +441,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         <Stack height="100%">
           {renderSectionListHeader()}
           <Stack flex={1} justifyContent="center" alignItems="center">
-            <SizableText size="$bodyLg">No standard wallet yet</SizableText>
+            <SizableText size="$bodyLg">
+              {intl.formatMessage({
+                id: ETranslations.no_standard_wallet_desc,
+              })}
+            </SizableText>
             {isEditableRouteParams ? (
               <Button
                 mt="$6"
@@ -476,7 +481,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                   });
                 }}
               >
-                Standard Wallet
+                {intl.formatMessage({
+                  id: ETranslations.global_standard_wallet,
+                })}
               </Button>
             ) : null}
           </Stack>

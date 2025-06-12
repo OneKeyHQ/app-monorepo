@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Button, Stack } from '@onekeyhq/components';
+import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerForDapp } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -58,67 +59,73 @@ export function WalletDetailsHeader({
   );
 
   return (
-    <ListItem
+    <YStack
       testID="account-selector-header"
-      mt="$1.5"
-      gap={0}
-      justifyContent="flex-end"
+      mt="$1"
+      mb="$2.5"
+      pb="$1"
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      borderBottomColor="$neutral3"
       {...rest}
-      renderAvatar={
-        <Stack
-          role="button"
-          borderRadius="$2"
-          {...(accountUtils.isHdWallet({ walletId: wallet?.id }) && {
-            onPress: () =>
-              wallet ? showWalletAvatarEditDialog({ wallet }) : null,
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-            focusable: true,
-            focusVisibleStyle: {
-              outlineOffset: 2,
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-            },
-          })}
-        >
-          <Stack>
-            <WalletAvatar size="$8" wallet={wallet} />
-            {accountUtils.isHdWallet({ walletId: wallet?.id }) ? (
-              <ListItem.Avatar.CornerIcon
-                name="MenuCircleHorSolid"
-                color="$iconSubdued"
-              />
-            ) : null}
-          </Stack>
-        </Stack>
-      }
     >
-      {wallet ? (
-        <WalletRenameButton wallet={wallet} editable={editable} />
-      ) : null}
+      <ListItem gap="$1.5">
+        <XStack gap="$1.5" alignItems="center" flex={1}>
+          <Stack
+            role="button"
+            borderRadius="$2"
+            p="$1"
+            m="$-1"
+            {...(accountUtils.isHdWallet({ walletId: wallet?.id }) && {
+              onPress: () =>
+                wallet ? showWalletAvatarEditDialog({ wallet }) : null,
+              hoverStyle: {
+                bg: '$bgHover',
+              },
+              pressStyle: {
+                bg: '$bgActive',
+              },
+              focusable: true,
+              focusVisibleStyle: {
+                outlineOffset: 2,
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              },
+            })}
+          >
+            <Stack>
+              <WalletAvatar size="$8" wallet={wallet} />
+              {accountUtils.isHdWallet({ walletId: wallet?.id }) ? (
+                <ListItem.Avatar.CornerIcon
+                  name="MenuCircleHorSolid"
+                  color="$iconSubdued"
+                />
+              ) : null}
+            </Stack>
+          </Stack>
+          {wallet ? (
+            <WalletRenameButton wallet={wallet} editable={editable} />
+          ) : null}
+        </XStack>
 
-      {/* more edit button */}
-      {editable ? <WalletEditButton wallet={wallet} /> : null}
+        {/* more edit button */}
+        {editable ? <WalletEditButton wallet={wallet} /> : null}
 
-      {/* single chain deriveType selector */}
-      {linkedNetworkId &&
-      !isNil(num) &&
-      [
-        EAccountSelectorSceneName.discover,
-        EAccountSelectorSceneName.addressInput,
-      ].includes(accountSelectorContextData?.sceneName as any) ? (
-        <DeriveTypeSelectorTriggerForDapp
-          num={num}
-          focusedWalletId={
-            !isNil(num) ? selectedAccount.focusedWallet : undefined
-          }
-        />
-      ) : null}
-    </ListItem>
+        {/* single chain deriveType selector */}
+        {linkedNetworkId &&
+        !isNil(num) &&
+        [
+          EAccountSelectorSceneName.discover,
+          EAccountSelectorSceneName.addressInput,
+        ].includes(accountSelectorContextData?.sceneName as any) ? (
+          <DeriveTypeSelectorTriggerForDapp
+            num={num}
+            focusedWalletId={
+              !isNil(num) ? selectedAccount.focusedWallet : undefined
+            }
+          />
+        ) : null}
+      </ListItem>
+    </YStack>
   );
 }
