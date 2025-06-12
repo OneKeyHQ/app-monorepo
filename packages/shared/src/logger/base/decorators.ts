@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { Metadata, NO_LOG_OUTPUT } from '../types';
 
@@ -12,7 +12,7 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
   ) {
     const originalMethod = descriptor.value as (...args: any[]) => any;
     if (typeof originalMethod !== 'function') {
-      throw new OneKeyPlainTextError('This decorator is only for methods');
+      throw new OneKeyLocalError('This decorator is only for methods');
     }
     descriptor.value = function (...args: any[]) {
       let result = originalMethod.apply(this, args);

@@ -4,6 +4,7 @@ import {
   entropyToMnemonic,
   generateMnemonic,
   mnemonicToEntropy,
+  mnemonicToSeed,
   mnemonicToSeedSync,
   validateMnemonic,
   wordlists,
@@ -36,7 +37,7 @@ function mnemonicToRevealableSeed(
           Buffer.from([1]), // langCode is always 1 for english wordlist.
           Buffer.from([entropyLength]),
           Buffer.from(entropyHexStr, 'hex'),
-          crypto.randomBytes(32 - entropyLength), // Always pad entropy to 32 bytes.
+          bufferUtils.toBuffer(crypto.randomBytes(32 - entropyLength)), // Always pad entropy to 32 bytes.
         ]),
       ),
       seed: bufferUtils.bytesToHex(seed),
@@ -68,6 +69,7 @@ export {
   generateMnemonic,
   mnemonicToRevealableSeed,
   mnemonicToSeedSync,
+  mnemonicToSeed,
   revealEntropyToMnemonic,
   validateMnemonic,
 };

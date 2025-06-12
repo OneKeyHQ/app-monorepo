@@ -18,7 +18,7 @@ import {
   InsufficientBalance,
   InvalidAddress,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
@@ -132,7 +132,7 @@ export default class Vault extends VaultBase {
       approveInfo as IApproveInfo;
 
     if (!tokenInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: approveInfo.tokenInfo is missing',
       );
     }
@@ -192,13 +192,13 @@ export default class Vault extends VaultBase {
       const { from, to, amount, tokenInfo } = transferInfo;
 
       if (!transferInfo.to) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: transferInfo.to is missing',
         );
       }
 
       if (!tokenInfo) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
         );
       }
@@ -280,7 +280,7 @@ export default class Vault extends VaultBase {
             },
           });
         } else if (typeof e === 'string') {
-          throw new OneKeyPlainTextError(e);
+          throw new OneKeyLocalError(e);
         } else {
           throw e;
         }

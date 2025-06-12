@@ -4,7 +4,7 @@ import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -29,7 +29,7 @@ export async function getPrimePaymentApiKey({
     }
 
     if (!apiKey) {
-      throw new OneKeyPlainTextError('No REVENUECAT api key found');
+      throw new OneKeyLocalError('No REVENUECAT api key found');
     }
 
     return { apiKey, isSandboxKey };
@@ -43,7 +43,7 @@ export async function getPrimePaymentApiKey({
     apiKey = REVENUECAT_API_KEY_GOOGLE || '';
   }
   if (!apiKey) {
-    throw new OneKeyPlainTextError('No REVENUECAT api key found');
+    throw new OneKeyLocalError('No REVENUECAT api key found');
   }
 
   return { apiKey, isSandboxKey: false };

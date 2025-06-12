@@ -184,7 +184,7 @@ const ProtocolDetailsPage = () => {
       // if (claimTokenAddress) {
       //   const rewardToken = result.rewardAssets?.[claimTokenAddress];
       //   if (!rewardToken) {
-      //     throw new OneKeyPlainTextError('Reward token not found');
+      //     throw new OneKeyLocalError('Reward token not found');
       //   }
       //   claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
       // }

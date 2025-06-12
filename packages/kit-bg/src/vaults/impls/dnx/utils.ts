@@ -8,7 +8,7 @@ import type {
   IEncodedTxDnx,
   ISignTxParams,
 } from '@onekeyhq/core/src/chains/dnx/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { DnxSignature } from '@onekeyfe/hd-core';
 
@@ -51,7 +51,7 @@ export function integerToLittleEndianHex({
 
 export function hexToBin(hex: string): Uint8Array {
   if (hex.length % 2 !== 0)
-    throw new OneKeyPlainTextError('Hex string has invalid length!');
+    throw new OneKeyLocalError('Hex string has invalid length!');
   const result = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length / 2; i += 1) {
     result[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
@@ -66,7 +66,7 @@ export function validHex(hex: string) {
 
 export function cnFastHash(input: string): string {
   if (input.length % 2 !== 0 || !validHex(input)) {
-    throw new OneKeyPlainTextError('Input invalid');
+    throw new OneKeyLocalError('Input invalid');
   }
   return keccak256(hexToBin(input));
 }
@@ -94,7 +94,7 @@ export function uint64To8be(
   let numBN = new BigNumber(num);
   const res: Uint8Array = new Uint8Array(size);
   if (size < 1 || size > 8) {
-    throw new OneKeyPlainTextError('Invalid input length');
+    throw new OneKeyLocalError('Invalid input length');
   }
   const twopow8 = new BigNumber(2).pow(8);
   for (let i = size - 1; i >= 0; i -= 1) {
@@ -126,24 +126,24 @@ export function cnBase58Decode(address: string) {
     index: number,
   ): Uint8Array {
     if (data.length < 1 || data.length > fullEncodedBlockSize) {
-      throw new OneKeyPlainTextError(`Invalid block length: ${data.length}`);
+      throw new OneKeyLocalError(`Invalid block length: ${data.length}`);
     }
 
     const resSize: number = encodedBlockSizes.indexOf(data.length);
     if (resSize <= 0) {
-      throw new OneKeyPlainTextError('Invalid block size');
+      throw new OneKeyLocalError('Invalid block size');
     }
     let resNum = new BigNumber(0);
     let order = new BigNumber(1);
     for (let i = data.length - 1; i >= 0; i -= 1) {
       const digit: number = alphabet.indexOf(data[i]);
       if (digit < 0) {
-        throw new OneKeyPlainTextError('Invalid symbol');
+        throw new OneKeyLocalError('Invalid symbol');
       }
       const product = order.multipliedBy(digit).plus(resNum);
       // if product > UINT64_MAX
       if (product.comparedTo(UINT64_MAX) === 1) {
-        throw new OneKeyPlainTextError('Overflow');
+        throw new OneKeyLocalError('Overflow');
       }
       resNum = product;
       order = order.multipliedBy(alphabetSize);
@@ -152,7 +152,7 @@ export function cnBase58Decode(address: string) {
       resSize < fullBlockSize &&
       new BigNumber(2).pow(8 * resSize).comparedTo(resNum) <= 0
     ) {
-      throw new OneKeyPlainTextError('Overflow 2');
+      throw new OneKeyLocalError('Overflow 2');
     }
     buf.set(uint64To8be(resNum, resSize), index);
     return buf;
@@ -168,7 +168,7 @@ export function cnBase58Decode(address: string) {
   const lastBlockSize: number = addressArray.length % fullEncodedBlockSize;
   const lastBlockDecodedSize: number = encodedBlockSizes.indexOf(lastBlockSize);
   if (lastBlockDecodedSize < 0) {
-    throw new OneKeyPlainTextError('Invalid encoded length');
+    throw new OneKeyLocalError('Invalid encoded length');
   }
   const dataSize: number =
     fullBlockCount * fullBlockSize + lastBlockDecodedSize;
@@ -212,7 +212,7 @@ export function decodeAddress(address: string) {
     prefix !== expectedPrefixInt &&
     prefix !== expectedPrefixSub
   ) {
-    throw new OneKeyPlainTextError('Invalid address prefix');
+    throw new OneKeyLocalError('Invalid address prefix');
   }
 
   dec = dec.slice(expectedPrefix.length);

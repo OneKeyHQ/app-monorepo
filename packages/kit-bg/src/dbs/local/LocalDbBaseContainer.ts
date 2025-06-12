@@ -47,7 +47,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T> {
-    // throw new OneKeyPlainTextError(
+    // throw new OneKeyLocalError(
     //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     // );
     if (!isString(bucketName)) {

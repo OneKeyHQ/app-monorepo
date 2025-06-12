@@ -27,7 +27,7 @@ import {
   InvalidAccount,
   NetworkFeeInsufficient,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -130,13 +130,13 @@ export default class VaultAptos extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || transfersInfo.length === 0 || !transfersInfo[0].to) {
-      throw new OneKeyPlainTextError('Invalid transferInfo.to params');
+      throw new OneKeyLocalError('Invalid transferInfo.to params');
     }
     const transferInfo = transfersInfo[0];
     const { to, amount, tokenInfo } = transferInfo;
 
     if (!tokenInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Invalid transferInfo.tokenInfo params, should not be empty',
       );
     }

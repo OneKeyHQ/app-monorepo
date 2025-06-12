@@ -20,7 +20,7 @@ import {
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
@@ -290,7 +290,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       type="token"
       handleEdit={() => {
         if (isNil(token.info.decimals)) {
-          throw new OneKeyPlainTextError('token decimals is required.');
+          throw new OneKeyLocalError('token decimals is required.');
         }
         if (isBuildingDecodedTxs) return;
         showApproveEditor({

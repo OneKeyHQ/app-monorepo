@@ -27,7 +27,7 @@ export class KeyringHd extends KeyringHdBase {
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
     // if (params.deriveInfo?.label === 'Ledger Live') {
-    //   throw new OneKeyPlainTextError('Solana HD Account with Ledger Live is not supported');
+    //   throw new OneKeyLocalError('Solana HD Account with Ledger Live is not supported');
     // }
     return this.basePrepareAccountsHd(params);
   }

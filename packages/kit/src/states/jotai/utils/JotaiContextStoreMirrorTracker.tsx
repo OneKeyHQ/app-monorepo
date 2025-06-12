@@ -13,7 +13,7 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
@@ -117,7 +117,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
         switch (storeName) {
           case EJotaiContextStoreNames.accountSelector: {
             if (!accountSelectorInfo) {
-              throw new OneKeyPlainTextError(
+              throw new OneKeyLocalError(
                 'JotaiContextRootProvidersAutoMount ERROR: accountSelectorInfo is required',
               );
             }
@@ -163,7 +163,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           default: {
             const exhaustiveCheck: never = storeName;
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               `Unhandled storeName case: ${exhaustiveCheck as string}`,
             );
           }

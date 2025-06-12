@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showMorphoClaimDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showMorphoClaimDialog';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -66,7 +66,7 @@ export const useHandleClaim = ({
           provider,
         });
       if (!stakingConfig) {
-        throw new OneKeyPlainTextError('Staking config not found');
+        throw new OneKeyLocalError('Staking config not found');
       }
       if (isReward) {
         await handleUniversalClaim({
