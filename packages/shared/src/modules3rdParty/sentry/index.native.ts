@@ -21,10 +21,9 @@ export * from '@sentry/react-native';
 export * from './basicOptions';
 
 export const initSentry = () => {
-  // if (process.env.NODE_ENV !== 'production') {
-  //   return;
-  // }
-  return;
+  if (process.env.NODE_ENV !== 'production') {
+    return;
+  }
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...buildBasicOptions({
