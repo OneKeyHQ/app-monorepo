@@ -10,7 +10,6 @@ import {
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
-// eslint-disable-next-line import/order
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
 import { DesktopWebView } from './DesktopWebView';

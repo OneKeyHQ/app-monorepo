@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
@@ -109,7 +109,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
       //   networkId,
       //   tokenAddress,
       // });
-      // void backgroundApiProxy.serviceMarketWS.disconnect();
+      void backgroundApiProxy.serviceMarketWS.disconnect();
     };
   }, [networkId, tokenAddress]);
 
@@ -159,9 +159,14 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     };
   }, [networkId, tokenAddress]);
 
+  const customReceiveHandler = useCallback((...args: any[]) => {
+    console.log('customReceiveHandler', args);
+  }, []);
+
   return (
     <Stack position="relative" flex={1}>
       <WebView
+        customReceiveHandler={customReceiveHandler}
         onLoadEnd={onLoadEnd}
         onWebViewRef={(ref) => {
           webRef.current = ref;
