@@ -617,16 +617,16 @@ test('Child index too big', async () => {
     CKDPriv('secp256k1', xPrvTest, 2 ** 32, password),
   ).rejects.toThrow(new Error('Overflowed.'));
 
-  expect(() => CKDPub('secp256k1', xPubTest, 2 ** 32)).toThrow(
+  await expect(CKDPub('secp256k1', xPubTest, 2 ** 32)).rejects.toThrow(
     new Error('Invalid index.'),
   );
 });
 
-test('(ECDSA) CKDPub failed for hardened index', () => {
+test('(ECDSA) CKDPub failed for hardened index', async () => {
   const index = 2 ** 31;
-  expect(() => {
-    CKDPub('secp256k1', xPubTest, index);
-  }).toThrow(new Error(`Can't derive public key for index ${index}.`));
+  await expect(CKDPub('secp256k1', xPubTest, index)).rejects.toThrow(
+    new Error(`Can't derive public key for index ${index}.`),
+  );
 });
 
 test('Normal CKDPriv is not supported for ed25519', async () => {
@@ -637,10 +637,10 @@ test('Normal CKDPriv is not supported for ed25519', async () => {
   );
 });
 
-test('CKDPub is not supported for ed25519', () => {
-  expect(() => {
-    CKDPub('ed25519', xPubTest, 0);
-  }).toThrow(new Error('CKDPub is not supported for ed25519.'));
+test('CKDPub is not supported for ed25519', async () => {
+  await expect(CKDPub('ed25519', xPubTest, 0)).rejects.toThrow(
+    new Error('CKDPub is not supported for ed25519.'),
+  );
 });
 
 test('Normal encryption/decryption', async () => {
@@ -654,7 +654,7 @@ test('Normal encryption/decryption', async () => {
 });
 
 test('Incorrect password', async () => {
-  const encrypted = await encryptAsync({ password, data: Buffer.from('') });
+  const encrypted = await encryptAsync({ password, data: Buffer.from('1111') });
   await expect(
     decryptAsync({
       password: password + password,
@@ -681,14 +681,14 @@ test('Incorrect mnemonic', async () => {
   ).rejects.toThrow(InvalidMnemonic);
 });
 
-test('sha256', () => {
-  let hashBuffer = sha256(bufferUtils.toBuffer('hd-1--1', 'utf-8'));
+test('sha256', async () => {
+  let hashBuffer = await sha256(bufferUtils.toBuffer('hd-1--1', 'utf-8'));
   let hash = bufferUtils.bytesToHex(hashBuffer);
   expect(hash).toBe(
     '8aaf059c0c662d850ba4be656a127a7e9e5412b1e472a2919962da3d321a4ea6',
   );
 
-  hashBuffer = sha256(bufferUtils.toBuffer('hd-1--0', 'utf-8'));
+  hashBuffer = await sha256(bufferUtils.toBuffer('hd-1--0', 'utf-8'));
   hash = bufferUtils.bytesToHex(hashBuffer);
   expect(hash).toBe(
     'c804881858e8a43235e9f6ec4e8b50c611657397e75905471360ededa208e4b4',
@@ -696,7 +696,7 @@ test('sha256', () => {
 });
 
 test('sha512Async - iterations = 1 (默认值) 无 iterationSalt', async () => {
-  const { sha512Async } = await import('./hash');
+  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'hello world';
   const result = await sha512Async({ data: testData });
 
@@ -711,14 +711,14 @@ test('sha512Async - iterations = 1 (默认值) 无 iterationSalt', async () => {
 });
 
 test('sha512Async - iterations = 0 应该抛出错误', async () => {
-  const { sha512Async } = await import('./hash');
+  const { sha512Pro: sha512Async } = await import('./hash');
   await expect(
     sha512Async({ data: 'test data', iterations: 0 }),
   ).rejects.toThrow('iterations must be greater than 0');
 });
 
 test('sha512Async - iterations = 5 无 iterationSalt', async () => {
-  const { sha512Async } = await import('./hash');
+  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'hello world';
   const iterations = 5;
 
@@ -732,7 +732,7 @@ test('sha512Async - iterations = 5 无 iterationSalt', async () => {
 });
 
 test('sha512Async - iterations = 1 有 iterationSalt', async () => {
-  const { sha512Async } = await import('./hash');
+  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'test data';
   const iterationSalt = 'salt123';
 
@@ -742,7 +742,7 @@ test('sha512Async - iterations = 1 有 iterationSalt', async () => {
 });
 
 test('sha512Async - iterations = 3 有 iterationSalt', async () => {
-  const { sha512Async } = await import('./hash');
+  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'test data';
   const iterations = 3;
   const iterationSalt = 'salt123';
@@ -769,12 +769,12 @@ test('sha512Async - iterations = 3 有 iterationSalt', async () => {
 });
 
 test('sha512Async - 空数据应该抛出错误', async () => {
-  const { sha512Async } = await import('./hash');
+  const { sha512Pro: sha512Async } = await import('./hash');
   await expect(sha512Async({ data: '' })).rejects.toThrow('data is required');
 });
 
 test('sha512Async - 相同输入产生相同输出', async () => {
-  const { sha512Async } = await import('./hash');
+  const { sha512Pro: sha512Async } = await import('./hash');
   const testData = 'consistent data';
   const iterations = 2;
   const iterationSalt = 'consistent salt';

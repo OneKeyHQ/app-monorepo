@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -64,7 +64,7 @@ export function usePrimeRequirements() {
         } else {
           await onConfirm();
         }
-        throw new OneKeyPlainTextError('Prime is not logged in');
+        throw new OneKeyLocalError('Prime is not logged in');
       }
     },
     [isLoggedIn, logout, intl, loginOneKeyId],
@@ -132,7 +132,7 @@ export function usePrimeRequirements() {
         } else {
           await onConfirm();
         }
-        throw new OneKeyPlainTextError('Prime subscription is not active');
+        throw new OneKeyLocalError('Prime subscription is not active');
       }
     },
     [ensureOneKeyIDLoggedIn, intl, purchase, user.isEnableSandboxPay],

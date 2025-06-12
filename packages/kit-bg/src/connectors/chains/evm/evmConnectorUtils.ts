@@ -1,7 +1,7 @@
 import { cloneDeep, isNil } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -17,7 +17,7 @@ function parseSendTransactionParams({
 }) {
   const { signOnly } = params;
   if (signOnly) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'KeyringExternal signTransaction ERROR: signOnly not supported for WalletConnect.',
     );
   }
@@ -63,7 +63,7 @@ function parseSignMessageParams({ params }: { params: ISignMessageParams }) {
   const callParams = firstMessageInfo?.payload || [];
 
   if (!method) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `KeyringExternal signMessage ERROR: method not support, ${firstMessageInfo.type}`,
     );
   }

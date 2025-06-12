@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -150,7 +150,7 @@ function ConnectionModal() {
             network: network?.name,
             failReason: 'no accountSelectorNum',
           });
-          throw new OneKeyPlainTextError('no accountSelectorNum');
+          throw new OneKeyLocalError('no accountSelectorNum');
         }
         await serviceDApp.updateConnectionSession({
           origin: $sourceInfo?.origin,

@@ -11,7 +11,7 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 import { Psbt, Transaction, payments } from 'bitcoinjs-lib';
 import { isEmpty } from 'lodash';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -38,7 +38,7 @@ export function formatPsbtHex(psbtHex: string) {
       formatData = psbtHex;
     }
   } catch (e) {
-    throw new OneKeyPlainTextError('invalid psbt');
+    throw new OneKeyLocalError('invalid psbt');
   }
   return formatData;
 }
@@ -207,9 +207,7 @@ export async function buildPsbt({
         case EAddressEncodings.P2PKH: {
           if (isInputMixin) {
             if (!txid) {
-              throw new OneKeyPlainTextError(
-                'txid is required for p2pkh input',
-              );
+              throw new OneKeyLocalError('txid is required for p2pkh input');
             }
             const nonWitnessPrevTxs = checkIsDefined(
               btcExtraInfo?.nonWitnessPrevTxs,
@@ -282,7 +280,7 @@ export async function buildPsbt({
 
     const encoding = inputAddressesEncodings[i];
     if (!encoding) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `inputAddressesEncodings missing encoding at index ${i}`,
       );
     }

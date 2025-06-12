@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 
 import BN from 'bn.js';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { decodeAddress } from './address';
 import { getBufferFromBN } from './bn';
@@ -197,7 +197,7 @@ export function bufferToScripChunk(buffer: Buffer): INexaScriptChunk {
   } else if (len < 2 ** 32) {
     opcodenum = ENexaOpcode.OP_PUSHDATA4;
   } else {
-    throw new OneKeyPlainTextError("You can't push that much data");
+    throw new OneKeyLocalError("You can't push that much data");
   }
   return {
     buf: buffer,
@@ -338,7 +338,7 @@ function readVarintNum(buffer: Buffer): { position: number; length: number } {
         if (n <= 2 ** 53) {
           length = n;
         } else {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'number too large to retain precision - use readVarintBN',
           );
         }

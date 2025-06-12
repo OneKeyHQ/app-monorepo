@@ -56,8 +56,8 @@ export async function serializeProof({
     timestampBuffer,
     Buffer.from(message, 'utf-8'),
   ]);
-  const msgHash = sha256(msgBytes);
-  const bytes = sha256(Buffer.concat([prefix, msgHash]));
+  const msgHash = await sha256(msgBytes);
+  const bytes = await sha256(Buffer.concat([prefix, msgHash]));
 
   return {
     msg: msgBytes,

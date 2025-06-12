@@ -1,6 +1,6 @@
 import { isPlainObject } from 'lodash';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import platformEnv from '../../platformEnv';
 import resetUtils from '../../utils/resetUtils';
@@ -17,7 +17,7 @@ const syncStorageWeb = {
   setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
     resetUtils.checkNotInResetting();
     if (!isPlainObject(value)) {
-      throw new OneKeyPlainTextError('value must be a plain object');
+      throw new OneKeyLocalError('value must be a plain object');
     }
     mmkvStorageInstance.set(key, JSON.stringify(value));
   },

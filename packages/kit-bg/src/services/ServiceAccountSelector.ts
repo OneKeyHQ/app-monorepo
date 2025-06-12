@@ -11,7 +11,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -406,7 +406,7 @@ class ServiceAccountSelector extends ServiceBase {
       focusedWallet: activeAccount?.wallet?.id,
     };
 
-    // throw new OneKeyPlainTextError('Method not implemented.');
+    // throw new OneKeyLocalError('Method not implemented.');
     return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
 

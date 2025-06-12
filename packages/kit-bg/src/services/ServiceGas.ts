@@ -7,7 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,
@@ -138,7 +138,7 @@ class ServiceGas extends ServiceBase {
         .filter((item) => !!item),
       feeBudget: feeInfo.feeBudget?.map((item) => {
         if (!item.gasPrice) {
-          throw new OneKeyPlainTextError('gasPrice is undefined');
+          throw new OneKeyLocalError('gasPrice is undefined');
         }
         return {
           ...item,
