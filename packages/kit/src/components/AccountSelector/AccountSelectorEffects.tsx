@@ -133,10 +133,10 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
             selectedAccount: selectedAccountRef.current,
           });
           if (activeAccount.account && activeAccount.network?.id) {
-            // void backgroundApiProxy.serviceAccount.saveAccountAddresses({
-            //   account: activeAccount.account,
-            //   networkId: activeAccount.network?.id,
-            // });
+            void backgroundApiProxy.serviceAccount.saveAccountAddresses({
+              account: activeAccount.account,
+              networkId: activeAccount.network?.id,
+            });
           }
         },
         150,
