@@ -1707,10 +1707,14 @@ class ServiceAccount extends ServiceBase {
     account: INetworkAccount;
     networkId: string;
   }) {
-    await localDb.saveAccountAddresses({
-      account,
-      networkId,
-    });
+    try {
+      await localDb.saveAccountAddresses({
+        account,
+        networkId,
+      });
+    } catch (e) {
+      console.log('saveAccountAddresses----', e);
+    }
   }
 
   @backgroundMethod()
