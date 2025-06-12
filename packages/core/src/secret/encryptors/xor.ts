@@ -1,6 +1,8 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 function xorEncrypt({ data, key }: { data: string; key: string }): string {
   if (!key) {
-    throw new Error('Key is required');
+    throw new OneKeyLocalError('Key is required');
   }
   const dataBytes = Buffer.from(data, 'utf8');
   const keyBytes = Buffer.from(key, 'utf8');
@@ -23,7 +25,7 @@ function xorDecrypt({
   key: string;
 }): string {
   if (!key) {
-    throw new Error('Key is required');
+    throw new OneKeyLocalError('Key is required');
   }
   const encryptedBytes = Buffer.from(encryptedDataHex, 'hex');
   const keyBytes = Buffer.from(key, 'utf8');

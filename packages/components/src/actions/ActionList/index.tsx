@@ -8,6 +8,7 @@ import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -43,6 +44,7 @@ export interface IActionListItemProps {
   description?: string;
   destructive?: boolean;
   onPress?: (close: () => void) => void | Promise<boolean | void>;
+  onClose?: () => void;
   disabled?: boolean;
   testID?: string;
   trackID?: string;
@@ -275,7 +277,7 @@ function BasicActionList({
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
       if (platformEnv.isDev && md && !estimatedContentHeight) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'ActionList.estimatedContentHeight is required on Async rendering items',
         );
       }
@@ -302,7 +304,10 @@ function BasicActionList({
       key={item.label}
       disabled={item.disabled}
       {...item}
-      onClose={handleActionListClose}
+      onClose={() => {
+        handleActionListClose();
+        item.onClose?.();
+      }}
     />
   );
   return (

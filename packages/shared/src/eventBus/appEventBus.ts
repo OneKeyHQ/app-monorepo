@@ -11,11 +11,12 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
-import { defaultLogger } from '../logger/logger';
+// import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
@@ -391,9 +392,6 @@ class AppEventBusClass extends CrossEventEmitter {
     isRemote?: boolean;
   }) {
     const { type, payload, isRemote } = params;
-    defaultLogger.app.eventBus.emitToSelf({
-      eventName: type,
-    });
     const payloadCloned = cloneDeep(payload);
     try {
       // @ts-ignore
@@ -431,7 +429,9 @@ class AppEventBusClass extends CrossEventEmitter {
 
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
-      throw new Error('offscreen or webembed event bus not support yet.');
+      throw new OneKeyLocalError(
+        'offscreen or webembed event bus not support yet.',
+      );
     }
     if (platformEnv.isNative) {
       // requestToWebEmbed

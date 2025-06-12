@@ -2,13 +2,14 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
+import { Badge, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -24,6 +25,7 @@ import {
   EModalKeyTagRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 export const useOnLock = () => {
   const [passwordSetting] = usePasswordPersistAtom();
@@ -71,6 +73,44 @@ const LockNowButton = () => {
       title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
       onPress={handlePress}
     />
+  );
+};
+
+const PrimeOneKeyCloudButton = () => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+
+  const handlePress = useCallback(() => {
+    if (isPrimeSubscriptionActive) {
+      navigation.pushModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeCloudSync,
+      });
+    } else {
+      navigation.pushModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeFeatures,
+        params: {
+          showAllFeatures: false,
+          selectedFeature: EPrimeFeatures.OneKeyCloud,
+          selectedSubscriptionPeriod: 'P1Y',
+        },
+      });
+    }
+  }, [isPrimeSubscriptionActive, navigation]);
+  return (
+    <ListItem
+      drillIn
+      icon="CloudSyncOutline"
+      title={intl.formatMessage({ id: ETranslations.global_onekey_cloud })}
+      onPress={handlePress}
+    >
+      <XStack>
+        <Badge badgeSize="sm">
+          <Badge.Text>Prime</Badge.Text>
+        </Badge>
+        {/* <ListItem.Text primary="Prime" align="right" /> */}
+      </XStack>
+    </ListItem>
   );
 };
 
@@ -129,6 +169,7 @@ export const DefaultSection = () => {
       <LockNowButton />
       {platformEnv.isExtension ? <DefaultWalletSetting /> : null}
       <AddressBookItem />
+      <PrimeOneKeyCloudButton />
       {platformEnv.isNative ? (
         <ListItem
           icon="RepeatOutline"

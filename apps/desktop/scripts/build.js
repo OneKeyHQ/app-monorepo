@@ -37,6 +37,14 @@ build({
       __dirname,
       '../../desktop/app/libs/react-native-mock',
     ),
+    '@react-native-async-storage/async-storage': path.join(
+      __dirname,
+      '../../desktop/app/libs/react-native-async-storage-mock',
+    ),
+    'react-native-mmkv': path.join(
+      __dirname,
+      '../../desktop/app/libs/react-native-mmkv-mock',
+    ),
     '@sentry/react-native': path.join(
       __dirname,
       '../../desktop/app/libs/sentry-react-native-mock',

@@ -1,4 +1,5 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -23,7 +24,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   override checkEnvAvailable(): void {
     if (!platformEnv.isNative) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'WebembedApiProxy should only be used in iOS/Android Native env.',
       );
     }

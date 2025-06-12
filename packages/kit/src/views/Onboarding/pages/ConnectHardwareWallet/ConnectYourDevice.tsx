@@ -54,6 +54,7 @@ import {
   FIRMWARE_CONTACT_US_URL,
   HARDWARE_BRIDGE_DOWNLOAD_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -708,7 +709,7 @@ function ConnectByUSBOrBLE() {
             existsFirmware,
           });
           console.log('Device is in bootloader mode', device);
-          throw new Error('Device is in bootloader mode');
+          throw new OneKeyLocalError('Device is in bootloader mode');
         };
         if (
           await deviceUtils.isBootloaderModeFromSearchDevice({

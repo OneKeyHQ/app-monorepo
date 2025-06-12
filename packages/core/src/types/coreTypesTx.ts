@@ -60,7 +60,8 @@ export type IEncodedTx =
   | IEncodedTxGroupAlgo
   | IEncodedTxCkb
   | IEncodedTxNear
-  | IEncodedTxNeoN3;
+  | IEncodedTxNeoN3
+  | IEncodedTxScdo;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot
 //   | IEncodedTxSTC

@@ -2,7 +2,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import axios from 'axios';
 
-import { InvalidTransferValue } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidTransferValue,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IRpcClientInfo } from '@onekeyhq/shared/types/customRpc';
 
 import type { AxiosError, AxiosInstance } from 'axios';
@@ -65,12 +68,12 @@ class ClientBtc {
           'transaction already in block chain',
         )
       ) {
-        throw new Error('Transaction already in block');
+        throw new OneKeyLocalError('Transaction already in block');
       }
 
       if (err.response?.data?.error) {
         console.log('blockbook send tx error: ', err.response?.data?.error);
-        throw new Error(err.response?.data?.error);
+        throw new OneKeyLocalError(err.response?.data?.error);
       }
       throw err;
     }
