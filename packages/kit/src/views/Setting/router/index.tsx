@@ -26,6 +26,9 @@ const SettingClearAppCacheModal = LazyLoadPage(
 const SettingListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/List'),
 );
+const SettingTabModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Tab'),
+);
 const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
@@ -96,8 +99,11 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
 >[] = [
   {
     name: EModalSettingRoutes.SettingListModal,
-    component: SettingListModal,
+    component: SettingTabModal,
     rewrite: '/',
+    options: {
+      headerShown: false,
+    },
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
