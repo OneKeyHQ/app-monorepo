@@ -39,8 +39,17 @@ export function useMarketTransactions({
 
   const sortedTransactions = useMemo(() => {
     if (!transactionsData?.list) return [];
+    // Deduplicate transactions by their hash before sorting
+    const seenHashes = new Set<string>();
+    const uniqueTransactions = transactionsData.list.filter((tx) => {
+      if (seenHashes.has(tx.hash)) {
+        return false;
+      }
+      seenHashes.add(tx.hash);
+      return true;
+    });
     // Sort by timestamp in descending order (newest first)
-    return [...transactionsData.list].sort((a, b) => b.timestamp - a.timestamp);
+    return uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
   }, [transactionsData]);
 
   return {

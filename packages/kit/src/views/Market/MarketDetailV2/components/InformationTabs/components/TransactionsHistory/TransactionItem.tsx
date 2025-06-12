@@ -71,10 +71,10 @@ function TransactionItem({ item }: ITransactionItemProps) {
         minWidth="$32"
         alignItems="center"
         justifyContent="center"
-        gap="$2"
+        gap="$1"
       >
         {/* Column 1: amounts */}
-        <YStack w="50%" alignItems="flex-end" gap="$1">
+        <YStack w="50%" alignItems="flex-end">
           <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
             {`${baseSign}${formatAmount(baseToken.amount)}`}
           </SizableText>
@@ -84,7 +84,7 @@ function TransactionItem({ item }: ITransactionItemProps) {
         </YStack>
 
         {/* Column 2: symbols */}
-        <YStack w="50%" alignItems="flex-start" gap="$1">
+        <YStack w="50%" alignItems="flex-start">
           <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
             {baseToken.symbol}
           </SizableText>
