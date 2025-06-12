@@ -67,3 +67,10 @@ export interface IEarnPermitCacheKey {
   tokenAddress: string;
   amount: string;
 }
+
+export enum EAvailableAssetsTypeEnum {
+  All = 'all',
+  StableCoins = 'stableCoins',
+  NativeTokens = 'nativeTokens',
+  Recommended = 'recommended',
+}
