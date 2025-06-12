@@ -6,6 +6,7 @@ import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDeta
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import TransactionItem from './TransactionItem';
+import TransactionsHeader from './TransactionsHeader';
 import TransactionsSkeleton from './TransactionsSkeleton';
 
 interface ITransactionsHistoryProps {
@@ -48,6 +49,7 @@ export function TransactionsHistory({
       keyExtractor={(item) => item.hash}
       estimatedItemSize={80}
       showsVerticalScrollIndicator
+      ListHeaderComponent={TransactionsHeader}
       contentContainerStyle={{
         paddingBottom: '$4',
       }}

@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import { ListView, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ListView, SizableText, Stack } from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
