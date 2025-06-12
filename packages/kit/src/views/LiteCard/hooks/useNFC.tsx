@@ -143,6 +143,7 @@ export default function useNFC() {
         void hideNFCConnectDialog();
         if (error) {
           if (
+            cardInfo &&
             lastCardInfo &&
             lastCardInfo?.serialNum !== cardInfo?.serialNum &&
             error
