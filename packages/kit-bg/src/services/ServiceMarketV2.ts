@@ -6,6 +6,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketChainsResponse,
   IMarketTokenDetail,
+  IMarketTokenHoldersResponse,
   IMarketTokenKineResponse,
   IMarketTokenListResponse,
   IMarketTokenTransactionsResponse,
@@ -133,6 +134,29 @@ class ServiceMarketV2 extends ServiceBase {
       message: string;
       data: IMarketTokenTransactionsResponse;
     }>('/utility/v2/market/token/transactions', {
+      params: {
+        tokenAddress,
+        networkId,
+      },
+    });
+    const { data } = response.data;
+    return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenHolders({
+    tokenAddress,
+    networkId,
+  }: {
+    tokenAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketTokenHoldersResponse;
+    }>('/utility/v2/market/token/top-holders', {
       params: {
         tokenAddress,
         networkId,

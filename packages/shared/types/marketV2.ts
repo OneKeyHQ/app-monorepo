@@ -183,3 +183,13 @@ export interface IMarketTokenTransaction {
 export interface IMarketTokenTransactionsResponse {
   list: IMarketTokenTransaction[];
 }
+
+export interface IMarketTokenHolder {
+  accountAddress: string;
+  amount: string;
+  fiatValue: string;
+}
+
+export interface IMarketTokenHoldersResponse {
+  list: IMarketTokenHolder[];
+}

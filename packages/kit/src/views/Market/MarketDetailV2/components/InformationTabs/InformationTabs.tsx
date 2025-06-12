@@ -11,8 +11,13 @@ interface IInformationTabsProps {
 }
 
 // Extract component definitions outside render to prevent re-creation on each render
-const HoldersComponent = () => <Holders />;
-HoldersComponent.displayName = 'HoldersComponent';
+const createHoldersComponent = (tokenAddress: string, networkId: string) => {
+  const Component = () => (
+    <Holders tokenAddress={tokenAddress} networkId={networkId} />
+  );
+  Component.displayName = 'HoldersComponent';
+  return Component;
+};
 
 // Factory function to create the TransactionsHistory component with props
 const createTransactionsHistoryComponent = (
@@ -35,6 +40,11 @@ export function InformationTabs({
     [tokenAddress, networkId],
   );
 
+  const HoldersComponent = useMemo(
+    () => createHoldersComponent(tokenAddress, networkId),
+    [tokenAddress, networkId],
+  );
+
   const tabs = useMemo(
     () => [
       {
@@ -48,7 +58,7 @@ export function InformationTabs({
         page: HoldersComponent,
       },
     ],
-    [TransactionsHistoryComponent],
+    [TransactionsHistoryComponent, HoldersComponent],
   );
 
   return <Tab data={tabs} />;
