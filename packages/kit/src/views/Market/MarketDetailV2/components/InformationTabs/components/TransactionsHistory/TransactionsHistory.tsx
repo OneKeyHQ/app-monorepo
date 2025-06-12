@@ -23,6 +23,11 @@ export function TransactionsHistory({
     networkId,
   });
 
+  console.log(
+    'transactions',
+    transactions.map((t) => t.timestamp),
+  );
+
   const renderItem: IListViewProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(({ item }: { item: IMarketTokenTransaction }) => {
       return <TransactionItem key={item.hash} item={item} />;

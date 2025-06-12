@@ -29,7 +29,7 @@ export function useMarketDetail({
     [tokenAddress, networkId],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 45 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 

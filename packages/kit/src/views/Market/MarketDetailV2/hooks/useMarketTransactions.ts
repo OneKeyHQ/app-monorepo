@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -29,7 +29,7 @@ export function useMarketTransactions({
     [tokenAddress, networkId],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
@@ -37,8 +37,14 @@ export function useMarketTransactions({
     await fetchTransactions();
   }, [fetchTransactions]);
 
+  const sortedTransactions = useMemo(() => {
+    if (!transactionsData?.list) return [];
+    // Sort by timestamp in descending order (newest first)
+    return [...transactionsData.list].sort((a, b) => b.timestamp - a.timestamp);
+  }, [transactionsData]);
+
   return {
-    transactions: transactionsData?.list || [],
+    transactions: sortedTransactions,
     transactionsData,
     fetchTransactions,
     isRefreshing,
