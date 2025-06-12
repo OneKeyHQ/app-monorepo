@@ -14,7 +14,7 @@ import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
@@ -177,7 +177,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }
@@ -523,7 +523,7 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     if (!rawTx) {
-      throw new OneKeyPlainTextError('rawTx is empty');
+      throw new OneKeyLocalError('rawTx is empty');
     }
 
     const rpcClient = new rpc.RPCClient(rpcUrl);

@@ -2,7 +2,7 @@ import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha256';
 import * as necc from '@noble/secp256k1';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 function bcryptoSha256(buffer: Buffer): Buffer {
   return Buffer.from(sha256(Uint8Array.from(buffer)));
@@ -39,16 +39,16 @@ function normalizeScalar(scalar: bigint | number | string | Uint8Array) {
     num = BigInt(scalar);
   } else if (typeof scalar === 'string') {
     if (scalar.length !== 64)
-      throw new OneKeyPlainTextError('Expected 32 bytes of private scalar');
+      throw new OneKeyLocalError('Expected 32 bytes of private scalar');
     num = hexToNumber(scalar);
   } else if (scalar instanceof Uint8Array) {
     if (scalar.length !== 32)
-      throw new OneKeyPlainTextError('Expected 32 bytes of private scalar');
+      throw new OneKeyLocalError('Expected 32 bytes of private scalar');
     num = bytesToNumber(scalar);
   } else {
     throw new TypeError('Expected valid private scalar');
   }
-  if (num < 0) throw new OneKeyPlainTextError('Expected private scalar >= 0');
+  if (num < 0) throw new OneKeyLocalError('Expected private scalar >= 0');
   return num;
 }
 const privateAdd = (privateKey: Uint8Array, tweak: Uint8Array) => {
@@ -72,7 +72,7 @@ const pointAddScalar = (
   const P = necc.Point.fromHex(p);
   const t = normalizeScalar(tweak);
   const Q = necc.Point.BASE.multiplyAndAddUnsafe(P, t, 1n);
-  if (!Q) throw new OneKeyPlainTextError('Tweaked point at infinity');
+  if (!Q) throw new OneKeyLocalError('Tweaked point at infinity');
   return Q.toRawBytes(isCompressed);
 };
 const pointMultiply = (

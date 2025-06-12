@@ -2,7 +2,7 @@ import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG, normalizeHexAddress } from '@benfen/bfc.js/utils';
 
 import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
-import { OneKeyError, OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { OneKeyBfcClient } from './ClientBfc';
 import type {
@@ -106,7 +106,7 @@ export function waitPendingTransaction(
 
 export function objectTypeToCoinType(objectType: string): string {
   if (!objectType) {
-    throw new OneKeyPlainTextError('objectType cannot be empty');
+    throw new OneKeyLocalError('objectType cannot be empty');
   }
 
   // Handle generic Coin type

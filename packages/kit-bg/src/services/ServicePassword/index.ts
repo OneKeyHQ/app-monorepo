@@ -313,7 +313,7 @@ export default class ServicePassword extends ServiceBase {
     const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
       await this.setBiologyAuthEnable(false);
-      throw new OneKeyErrors.OneKeyPlainTextError('biologyAuth not support');
+      throw new OneKeyErrors.OneKeyLocalError('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
@@ -343,7 +343,7 @@ export default class ServicePassword extends ServiceBase {
       if (catchPassword) {
         await this.saveBiologyAuthPassword(catchPassword);
       } else {
-        throw new OneKeyErrors.OneKeyPlainTextError(
+        throw new OneKeyErrors.OneKeyLocalError(
           'no catch password please unlock the application again or modify the password.',
         );
       }
@@ -507,11 +507,11 @@ export default class ServicePassword extends ServiceBase {
     ensureSensitiveTextEncoded(newPassword);
 
     if (!oldPassword) {
-      throw new OneKeyErrors.OneKeyPlainTextError('oldPassword is required');
+      throw new OneKeyErrors.OneKeyLocalError('oldPassword is required');
     }
 
     if (!newPassword) {
-      throw new OneKeyErrors.OneKeyPlainTextError('newPassword is required');
+      throw new OneKeyErrors.OneKeyLocalError('newPassword is required');
     }
 
     await this.validatePassword({

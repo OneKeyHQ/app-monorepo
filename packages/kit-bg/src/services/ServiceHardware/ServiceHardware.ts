@@ -11,7 +11,7 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -232,7 +232,7 @@ class ServiceHardware extends ServiceBase {
       };
       const versions = uniq(Object.values(allVersions));
       if (versions.length > 1 || !HARDWARE_SDK_VERSION) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           `Hardware SDK versions not equal: ${JSON.stringify(allVersions)}`,
         );
       }
@@ -549,7 +549,7 @@ class ServiceHardware extends ServiceBase {
   }): Promise<Features | undefined> {
     const { connectId } = device;
     if (!connectId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'hardware connect ERROR: connectId is undefined',
       );
     }
@@ -696,7 +696,7 @@ class ServiceHardware extends ServiceBase {
     const { connectId, params } = options;
     serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
     if (!params?.allowEmptyConnectId && !connectId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
       );
     }
@@ -768,7 +768,7 @@ class ServiceHardware extends ServiceBase {
       connectId: params.connectId,
     });
     if (!dbDevice) {
-      throw new OneKeyPlainTextError('device not found');
+      throw new OneKeyLocalError('device not found');
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>

@@ -18,7 +18,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
@@ -187,7 +187,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }): Promise<string> {
     const { message, deviceParams } = params;
     if (!deviceParams) {
-      throw new OneKeyPlainTextError('deviceParams is undefined');
+      throw new OneKeyLocalError('deviceParams is undefined');
     }
     const { dbDevice, deviceCommonParams } = deviceParams;
     const { connectId, deviceId } = dbDevice;
@@ -208,7 +208,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))
-          throw new OneKeyPlainTextError('not hex string');
+          throw new OneKeyLocalError('not hex string');
 
         messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
       } catch (error) {
@@ -327,7 +327,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 

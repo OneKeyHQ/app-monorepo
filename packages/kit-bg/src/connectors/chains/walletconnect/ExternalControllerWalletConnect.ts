@@ -2,7 +2,7 @@
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -113,14 +113,14 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     const sessions = await walletConnectStorage.dappSideStorage.getSessions();
     if (!sessions.find((item) => item.topic === topic)) {
       // (cleanupInactiveSessions)
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.feedback_walletconnect_session_discconected,
         }),
       );
     }
     if (!connectedAddresses[networkId]) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
           id: ETranslations.feedback_external_wallet_does_not_approve_network,
         })}: ${networkId}`,
@@ -132,7 +132,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
         .toLowerCase()
         .includes(address.toLowerCase())
     ) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
           id: ETranslations.feedback_external_wallet_doesn_not_approve_address,
         })}: ${networkId} ${address}`,
@@ -143,7 +143,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   override sendTransactionByWalletConnect(
     payload: IExternalSendTransactionByWalletConnectPayload,
   ): Promise<ISignedTxPro> {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Not available, use ExternalControllerEvm directly',
     );
   }
@@ -151,7 +151,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   override signMessageByWalletConnect(
     payload: IExternalSignMessageByWalletConnectPayload,
   ): Promise<ISignedMessagePro> {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Not available, use ExternalControllerEvm directly',
     );
   }
@@ -159,7 +159,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   override handleWalletConnectEvents(
     params: IExternalHandleWalletConnectEventsParams,
   ): Promise<void> {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Not available, use ExternalControllerEvm directly',
     );
   }

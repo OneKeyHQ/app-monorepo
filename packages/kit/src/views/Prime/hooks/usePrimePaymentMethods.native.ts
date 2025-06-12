@@ -6,7 +6,7 @@ import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -94,10 +94,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getCustomerInfo = useCallback(async () => {
     if (!isReady) {
-      throw new OneKeyPlainTextError('PrimeAuth Not ready');
+      throw new OneKeyLocalError('PrimeAuth Not ready');
     }
     if (!user?.privyUserId) {
-      throw new OneKeyPlainTextError('User not logged in');
+      throw new OneKeyLocalError('User not logged in');
     }
 
     if (user?.privyUserId) {
@@ -114,7 +114,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }
     const appUserId = await PurchasesReactNative.getAppUserID();
     if (appUserId !== user?.privyUserId) {
-      throw new OneKeyPlainTextError('AppUserId not match');
+      throw new OneKeyLocalError('AppUserId not match');
     }
     const customerInfo: CustomerInfo =
       await PurchasesReactNative.getCustomerInfo();
@@ -132,7 +132,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getPackagesNative = useCallback(async () => {
     if (!isReady) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'PrimeAuth native not ready, please try again later',
       );
     }
@@ -197,7 +197,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }) => {
       try {
         if (!isReady) {
-          throw new OneKeyPlainTextError('PrimeAuth native not ready!');
+          throw new OneKeyLocalError('PrimeAuth native not ready!');
         }
 
         // await backgroundApiProxy.serviceApp.showDialogLoading({
@@ -213,7 +213,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         );
 
         if (!offering) {
-          throw new OneKeyPlainTextError('Offering not found');
+          throw new OneKeyLocalError('Offering not found');
         }
 
         const makePurchaseResult = await PurchasesReactNative.purchasePackage(

@@ -12,7 +12,7 @@ import {
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   IncorrectMasterPassword,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
@@ -69,7 +69,7 @@ class CloudSyncItemBuilder {
     accountIndex: number | undefined;
   }) {
     if (!wallet) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildWalletSyncKey ERROR: wallet is required',
       );
     }
@@ -91,13 +91,13 @@ class CloudSyncItemBuilder {
       deviceType = dbDevice?.deviceType || '';
     }
     if (!keyHash) {
-      throw new OneKeyPlainTextError(`keyHash is required: ${wallet.id}`);
+      throw new OneKeyLocalError(`keyHash is required: ${wallet.id}`);
     }
     if (!dataType) {
-      throw new OneKeyPlainTextError(`dataType is required: ${wallet.id}`);
+      throw new OneKeyLocalError(`dataType is required: ${wallet.id}`);
     }
     if (!walletType) {
-      throw new OneKeyPlainTextError(`walletType is required: ${wallet.id}`);
+      throw new OneKeyLocalError(`walletType is required: ${wallet.id}`);
     }
 
     const rawKey = [
@@ -126,7 +126,7 @@ class CloudSyncItemBuilder {
     syncPassword: string;
   }) {
     if (!primeAccountSalt || !syncPassword) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncryptPassword ERROR: primeAccountSalt or syncPassword is required',
       );
     }

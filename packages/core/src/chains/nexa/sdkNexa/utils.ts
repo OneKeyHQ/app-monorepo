@@ -22,7 +22,7 @@ import {
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
 import {
   InvalidAddress,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -306,7 +306,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
   const available = inputAmount.sub(fee);
   if (available.lt(new BN(0))) {
     console.error(inputAmount.toString(), fee.toString());
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage(
         { id: ETranslations.feedback_account_balance_not_equal_to_utxos },
         {

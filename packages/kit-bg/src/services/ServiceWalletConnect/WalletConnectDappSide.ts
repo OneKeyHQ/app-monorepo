@@ -3,7 +3,7 @@ import { Linking } from 'react-native';
 
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -196,7 +196,7 @@ export class WalletConnectDappSide {
       });
     } else {
       // handle non-EVM
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'WalletConnectEventSessionEvent only support EVM now',
       );
     }
@@ -261,7 +261,7 @@ export class WalletConnectDappSide {
     let provider: WalletConnectDappSideProvider | undefined;
 
     if (!topic && !createNewTopic) {
-      throw new OneKeyPlainTextError('topic or createNewTopic is required');
+      throw new OneKeyLocalError('topic or createNewTopic is required');
     }
     if (createNewTopic) {
       // eslint-disable-next-line no-param-reassign
@@ -316,7 +316,7 @@ export class WalletConnectDappSide {
           v?.session?.topic,
         );
       });
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'getOrCreateProvider ERROR: topic mismatched',
       );
     }
@@ -480,7 +480,7 @@ export class WalletConnectDappSide {
       // call connect() to create new session
       await provider.connect(connectParams);
       if (!provider.session || !provider.isWalletConnect) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'WalletConnect ERROR: Connect to wallet failed',
         );
       }

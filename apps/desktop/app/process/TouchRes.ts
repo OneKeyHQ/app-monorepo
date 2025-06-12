@@ -11,7 +11,7 @@ import { dialog, ipcMain, shell } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ipcMessageKeys } from '../config';
 
@@ -249,7 +249,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       })
       .catch((e) => {
         logger.info('download resource file error: ', e);
-        throw new OneKeyPlainTextError(ERRORS.DOWNLOAD_FAILED);
+        throw new OneKeyLocalError(ERRORS.DOWNLOAD_FAILED);
       });
   };
 
@@ -366,7 +366,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
             )
           ) {
             logger.error('mas permission denied');
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               ERRORS.MAS_DISK_PATH_PERMISSION_DENIED,
             );
           }
@@ -375,7 +375,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
         const diskPath = await findDiskPath();
         logger.info('disk path: ', diskPath);
         if (!diskPath) {
-          throw new OneKeyPlainTextError(ERRORS.NOT_FOUND_DISK_PATH);
+          throw new OneKeyLocalError(ERRORS.NOT_FOUND_DISK_PATH);
         }
 
         await downloadFile(params.resourceUrl);

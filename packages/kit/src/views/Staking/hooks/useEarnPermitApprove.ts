@@ -6,7 +6,7 @@ import { ethers } from 'ethersV6';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -91,7 +91,7 @@ export function useEarnPermitApprove() {
         );
       } else if (token.symbol === 'DAI') {
         if (!permit2Data.message.expiry) {
-          throw new OneKeyPlainTextError('Expiry is required for DAI');
+          throw new OneKeyLocalError('Expiry is required for DAI');
         }
         permitBundlerAction = BundlerAction.permitDai(
           permit2Data.message.nonce,
@@ -102,7 +102,7 @@ export function useEarnPermitApprove() {
           false,
         );
       } else {
-        throw new OneKeyPlainTextError('Unsupported token');
+        throw new OneKeyLocalError('Unsupported token');
       }
 
       return permitBundlerAction;

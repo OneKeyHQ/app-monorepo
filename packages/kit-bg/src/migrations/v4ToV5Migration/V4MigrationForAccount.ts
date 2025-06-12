@@ -33,7 +33,7 @@ import {
   COINTYPE_SUI,
   COINTYPE_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -109,7 +109,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
       const networkId = v4CoinTypeToNetworkId[v4account.coinType];
       if (!networkId) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           `Unsupported coinType for migration: ${v4account.coinType}`,
         );
       }
@@ -171,7 +171,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         dbCredentialRaw: credentialImported,
       };
     }
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `Unsupported credential type: ${v4dbCredential.id}`,
     );
   }
@@ -204,7 +204,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         dbCredentialRaw: credentialHD,
       };
     }
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `Unsupported credential type: ${v4dbCredential.id}`,
     );
   }

@@ -20,7 +20,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
   RemainingMinBalanceError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -178,13 +178,13 @@ export default class Vault extends VaultBase {
     const { tokenInfo, amount, from, to } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }
 
     if (!tokenInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }
@@ -236,7 +236,7 @@ export default class Vault extends VaultBase {
       );
     } else {
       if (!tokenInfo.address) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: tokenInfo.address is missing',
         );
       }

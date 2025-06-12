@@ -37,7 +37,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountActivityNotificationSettings } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -217,7 +217,7 @@ function AccountNotificationSettingsProvider({
 function useContextAccountNotificationSettings() {
   const context = useContext(AccountNotificationSettingsContext);
   if (context === undefined) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'useAccountNotificationSettings must be used within a NotificationSettingsProvider',
     );
   }

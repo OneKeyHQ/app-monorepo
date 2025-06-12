@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   IncorrectPassword,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -108,7 +108,7 @@ class ServiceV4Migration extends ServiceBase {
   async getMigrationPasswordV5() {
     const pwd = this.migrationPayload?.v5password || '';
     if (!pwd) {
-      throw new OneKeyPlainTextError('Migration v5 password not set');
+      throw new OneKeyLocalError('Migration v5 password not set');
     }
     return pwd;
   }
@@ -119,7 +119,7 @@ class ServiceV4Migration extends ServiceBase {
       this.migrationPayload?.v5password ||
       '';
     if (!pwd) {
-      throw new OneKeyPlainTextError('Migration v4 password not set');
+      throw new OneKeyLocalError('Migration v4 password not set');
     }
     return pwd;
   }
@@ -474,7 +474,7 @@ class ServiceV4Migration extends ServiceBase {
             });
 
           if (!passwordRes?.password) {
-            throw new OneKeyPlainTextError('password not set');
+            throw new OneKeyLocalError('password not set');
           }
           return passwordRes?.password || '';
         },

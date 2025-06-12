@@ -8,7 +8,7 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import {
   NotImplemented,
   OneKeyError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
@@ -96,10 +96,10 @@ class BaseApiProvider {
       contractList: [this.nativeTokenAddress],
     });
     if (!token) {
-      throw new OneKeyPlainTextError('getNativeToken failed');
+      throw new OneKeyLocalError('getNativeToken failed');
     }
     if (!token?.info?.decimals) {
-      throw new OneKeyPlainTextError('getNativeToken decimals failed');
+      throw new OneKeyLocalError('getNativeToken decimals failed');
     }
     return {
       info: {

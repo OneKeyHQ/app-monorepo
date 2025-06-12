@@ -18,7 +18,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -105,7 +105,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
@@ -278,7 +278,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         result.skip_validate &&
         signingMessageHexFromHw !== signingMessageHash
       ) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           appLocale.intl.formatMessage({
             id: ETranslations.feedback_failed_to_sign_transaction,
           }),

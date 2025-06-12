@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import storageChecker from '../storageChecker/storageChecker';
 
@@ -82,7 +82,7 @@ export class IndexedDBTransactionPromised<
   get store(): TxStores[1] extends undefined
     ? IDBPObjectStore<DBTypes, TxStores, TxStores[0], Mode>
     : undefined {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'use IndexedDBTransactionPromised.objectStore(name) to get a specific store',
     );
   }

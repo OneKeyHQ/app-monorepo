@@ -6,7 +6,7 @@ import {
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type {
@@ -151,7 +151,7 @@ export class BackgroundApiProxyBase
         backgroundMethodName = methodName;
       }
       if (!this.backgroundApi) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'backgroundApi not found in non-ext env',
         );
       }
@@ -208,6 +208,6 @@ export class BackgroundApiProxyBase
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     payload: IJsBridgeMessagePayload,
   ): Promise<IJsonRpcResponse<any>> {
-    throw new OneKeyPlainTextError('handleProviderMethods in Proxy is mocked');
+    throw new OneKeyLocalError('handleProviderMethods in Proxy is mocked');
   }
 }

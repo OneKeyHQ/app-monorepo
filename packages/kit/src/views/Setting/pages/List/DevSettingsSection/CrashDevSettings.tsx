@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SectionPressItem } from './SectionPressItem';
 
@@ -8,7 +8,7 @@ export function CrashDevSettings() {
       <SectionPressItem
         title="Crash Test with Private Key"
         onPress={() => {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'Test error with private key: 5KQNWfsMwLXLCh3zdpCQjLmvY8dWt3HqZjc9YJyuXUKFzZeK8Ld',
           );
         }}
@@ -16,7 +16,7 @@ export function CrashDevSettings() {
       <SectionPressItem
         title="Crash Test with Mnemonic"
         onPress={() => {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'Test error with mnemonic: abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual',
           );
         }}

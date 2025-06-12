@@ -21,7 +21,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   AddressNotSupportSignMethodError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
@@ -197,7 +197,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const { unsignedTx, signOnly } = params;
     const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
     if (!psbtHex || !inputsToSign) {
-      throw new OneKeyPlainTextError('invalid psbt');
+      throw new OneKeyLocalError('invalid psbt');
     }
 
     const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
@@ -403,7 +403,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
