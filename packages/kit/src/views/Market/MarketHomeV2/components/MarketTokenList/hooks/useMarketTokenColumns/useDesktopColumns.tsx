@@ -52,7 +52,7 @@ export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
               bottom={-4}
             />
           </XStack>
-          <YStack space="$1">
+          <YStack gap="$1">
             <Skeleton width={80} height={16} />
             <Skeleton width={60} height={12} />
           </YStack>
@@ -132,9 +132,9 @@ export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
         <Txns transactions={text} walletInfo={record.walletInfo} />
       ),
       renderSkeleton: () => (
-        <YStack space="$1" alignItems="flex-end">
+        <YStack gap="$1" alignItems="flex-end">
           <Skeleton width={50} height={14} />
-          <XStack space="$1">
+          <XStack gap="$1">
             <Skeleton width={20} height={12} />
             <Skeleton width={20} height={12} />
           </XStack>

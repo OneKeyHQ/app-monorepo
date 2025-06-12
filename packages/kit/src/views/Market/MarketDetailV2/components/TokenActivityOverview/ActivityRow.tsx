@@ -14,7 +14,7 @@ export function ActivityRow({
   buyPercentage,
 }: IActivityRowProps) {
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <SizableText size="$bodyLgMedium">{label}</SizableText>
       <Progress value={buyPercentage} progressColor="$bgSuccessStrong" />
       <Stack flexDirection="row" justifyContent="space-between">

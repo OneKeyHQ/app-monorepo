@@ -239,12 +239,12 @@ export default function PageDevUnitTests() {
   return (
     <Page scrollEnabled>
       <Page.Header title="Dev Unit Tests" />
-      <YStack space="$8" p="$4">
+      <YStack gap="$8" p="$4">
         {/* Hash Functions */}
-        <Stack space="$6">
+        <Stack gap="$6">
           <SizableText size="$headingLg">Hash Functions</SizableText>
 
-          <Stack space="$4">
+          <Stack gap="$4">
             <SizableText>HMAC SHA256</SizableText>
             <Input
               value={hmac256Key}
@@ -284,7 +284,7 @@ export default function PageDevUnitTests() {
             </Stack>
           </Stack>
 
-          <Stack space="$4">
+          <Stack gap="$4">
             <SizableText>HMAC SHA512</SizableText>
             <Input
               value={hmac512Key}
@@ -324,7 +324,7 @@ export default function PageDevUnitTests() {
             </Stack>
           </Stack>
 
-          <Stack space="$4">
+          <Stack gap="$4">
             <SizableText>SHA256</SizableText>
             <Input
               value={sha256Data}
@@ -358,7 +358,7 @@ export default function PageDevUnitTests() {
             </Stack>
           </Stack>
 
-          <Stack space="$4">
+          <Stack gap="$4">
             <SizableText>Hash160</SizableText>
             <Input
               value={hash160Data}
@@ -394,10 +394,10 @@ export default function PageDevUnitTests() {
         </Stack>
 
         {/* Crypto Functions */}
-        <Stack space="$6">
+        <Stack gap="$6">
           <SizableText size="$headingLg">Crypto Functions</SizableText>
 
-          <Stack space="$4">
+          <Stack gap="$4">
             <SizableText>Key Derivation (PBKDF2)</SizableText>
             <Input
               value={password}
@@ -441,7 +441,7 @@ export default function PageDevUnitTests() {
             </Stack>
           </Stack>
 
-          <Stack space="$4">
+          <Stack gap="$4">
             <SizableText>AES-CBC Encryption</SizableText>
             <Input
               value={ivHex}
@@ -491,7 +491,7 @@ export default function PageDevUnitTests() {
             </Stack>
           </Stack>
 
-          <Stack space="$4">
+          <Stack gap="$4">
             <SizableText>AES-CBC Decryption</SizableText>
             <Input
               value={decryptIvHex}
