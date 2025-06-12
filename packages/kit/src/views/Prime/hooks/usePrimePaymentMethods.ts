@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -33,10 +32,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const { user, isReady: isAuthReady } = usePrimeAuthV2();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
-  const configureDonePromise = useRef(createPromiseTarget<boolean>());
-  const intl = useIntl();
 
-  const getCustomerInfo = useCallback(async () => {
+  const initSdk = useCallback(async () => {
     const { apiKey } = await getPrimePaymentApiKey({
       apiKeyType: 'web',
     });
@@ -57,6 +54,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
     Purchases.configure(apiKey, user?.privyUserId || '');
+  }, [isReady, user?.privyUserId]);
+
+  const getCustomerInfo = useCallback(async () => {
+    await initSdk();
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -81,12 +82,11 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       // grantEntitlementAccess();
     }
 
-    configureDonePromise.current.resolveTarget(true);
     return customerInfo;
-  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
+  }, [initSdk, setPrimePersistAtom, user?.privyUserId]);
 
   const getPackagesWeb = useCallback(async () => {
-    await configureDonePromise.current.ready;
+    await initSdk();
 
     if (!isReady) {
       throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -139,7 +139,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     });
 
     return packages;
-  }, [isReady]);
+  }, [initSdk, isReady]);
 
   const purchasePackageWeb = useCallback(
     async ({
@@ -151,6 +151,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
+      await initSdk();
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -206,7 +207,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         // void backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady],
+    [initSdk, isReady],
   );
 
   return {

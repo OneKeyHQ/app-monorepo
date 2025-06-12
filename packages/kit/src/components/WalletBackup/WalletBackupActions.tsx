@@ -25,10 +25,12 @@ export function WalletBackupActions({
   children,
   onSelected,
   actionListProps,
+  onClose,
 }: {
   wallet: IDBWallet | undefined;
   children: React.ReactNode;
   onSelected?: () => void;
+  onClose?: () => void;
   actionListProps?: Partial<ComponentProps<typeof ActionList>>;
 }) {
   const navigation = useAppNavigation();
@@ -99,6 +101,7 @@ export function WalletBackupActions({
           }),
           icon: 'SignatureOutline' as IKeyOfIcons,
           onPress: () => void handleBackupPhrase(),
+          onClose,
         },
         platformEnv.isNative && {
           label: intl.formatMessage({
@@ -106,6 +109,7 @@ export function WalletBackupActions({
           }),
           icon: 'OnekeyLiteOutline' as IKeyOfIcons,
           onPress: () => void handleBackupLiteCard(),
+          onClose,
         },
         {
           label: intl.formatMessage({
@@ -113,6 +117,7 @@ export function WalletBackupActions({
           }),
           icon: 'OnekeyKeytagOutline' as IKeyOfIcons,
           onPress: () => void handleBackupKeyTag(),
+          onClose,
         },
       ].filter(Boolean)}
       renderTrigger={children}
