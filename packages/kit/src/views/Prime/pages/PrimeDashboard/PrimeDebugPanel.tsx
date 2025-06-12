@@ -14,7 +14,7 @@ import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -28,7 +28,7 @@ function CloudSyncDebugTest() {
           const syncCredential =
             await backgroundApiProxy.servicePrimeCloudSync.getSyncCredentialSafe();
           if (!syncCredential) {
-            throw new OneKeyPlainTextError('No sync credential');
+            throw new OneKeyLocalError('No sync credential');
           }
           const result =
             await backgroundApiProxy.servicePrimeCloudSync.initLocalSyncItemsDB(

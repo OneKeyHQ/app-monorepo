@@ -4,7 +4,7 @@ import TronWeb from 'tronweb';
 import { decryptAsync, uncompressPublicKey } from '@onekeyhq/core/src/secret';
 import {
   NotImplemented,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -84,14 +84,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new OneKeyPlainTextError('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return (await decryptAsync({ password, data: privateKeyRaw })).toString(
         'hex',
       );
     }
-    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(

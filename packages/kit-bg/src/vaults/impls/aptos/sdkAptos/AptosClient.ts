@@ -4,7 +4,7 @@ import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import {
   InvalidAccount,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 
 import type {
@@ -138,7 +138,7 @@ export class AptosClient {
       });
     const response = res?.[0];
     if (!response) {
-      throw new OneKeyPlainTextError('No response received from the proxy');
+      throw new OneKeyLocalError('No response received from the proxy');
     }
 
     return response;

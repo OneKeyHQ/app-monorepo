@@ -7,7 +7,7 @@ import type {
 import {
   NotImplemented,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
@@ -100,7 +100,7 @@ export abstract class CoreChainApiBase {
     }
 
     if (!privateKey) {
-      throw new OneKeyPlainTextError(`No private key found: ${accountPath}`);
+      throw new OneKeyLocalError(`No private key found: ${accountPath}`);
     }
 
     return this.baseCreateSigner({
@@ -148,7 +148,7 @@ export abstract class CoreChainApiBase {
       privateKeys[''] = encryptPrivateKey;
     }
     if (!Object.keys(privateKeys).length) {
-      throw new OneKeyPlainTextError('No private keys found');
+      throw new OneKeyLocalError('No private keys found');
     }
     return privateKeys;
   }

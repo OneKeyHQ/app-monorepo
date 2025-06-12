@@ -13,7 +13,7 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   EAccountSelectorSceneName,
@@ -208,7 +208,7 @@ export function useActiveAccount({ num }: { num: number }): {
 export function useAccountSelectorSceneInfo() {
   const { config } = useAccountSelectorContextData();
   if (!config) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'useAccountSelectorSceneInfo ERROR: context config not found',
     );
   }

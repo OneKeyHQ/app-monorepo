@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
@@ -120,7 +120,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
@@ -165,7 +165,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               'register',
             );
             if (signTemplate.type !== 'register') {
-              throw new OneKeyPlainTextError('Wrong signature type');
+              throw new OneKeyLocalError('Wrong signature type');
             }
             const sign = await this.signApiMessage({
               connectId,
@@ -222,7 +222,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId, deviceCommonParams, path, msgPayload } =
       params;
     if (!connectId || !deviceId) {
-      throw new OneKeyPlainTextError('connectId and deviceId is required');
+      throw new OneKeyLocalError('connectId and deviceId is required');
     }
 
     const { isTestnet } = await this.getNetwork();
@@ -261,7 +261,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       'transfer',
     );
     if (signTemplate.type !== 'transfer') {
-      throw new OneKeyPlainTextError('Wrong transfer signature type');
+      throw new OneKeyLocalError('Wrong transfer signature type');
     }
     const network = await this.getNetwork();
     const signature = await this.signApiMessage({
@@ -346,7 +346,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   async lnurlAuth(params: ILnurlAuthParams) {
     const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
-      throw new OneKeyPlainTextError('lnurl-auth: invalid tag');
+      throw new OneKeyLocalError('lnurl-auth: invalid tag');
     }
 
     const url = new URL(lnurlDetail.url);

@@ -4,7 +4,7 @@ import axios from 'axios';
 
 import {
   InvalidTransferValue,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import type { IRpcClientInfo } from '@onekeyhq/shared/types/customRpc';
 
@@ -68,12 +68,12 @@ class ClientBtc {
           'transaction already in block chain',
         )
       ) {
-        throw new OneKeyPlainTextError('Transaction already in block');
+        throw new OneKeyLocalError('Transaction already in block');
       }
 
       if (err.response?.data?.error) {
         console.log('blockbook send tx error: ', err.response?.data?.error);
-        throw new OneKeyPlainTextError(err.response?.data?.error);
+        throw new OneKeyLocalError(err.response?.data?.error);
       }
       throw err;
     }

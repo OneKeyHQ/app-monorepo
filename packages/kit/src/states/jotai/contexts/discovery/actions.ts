@@ -25,7 +25,7 @@ import {
   processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -123,7 +123,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const webTabs = get(webTabsAtom());
       let newTabs = data;
       if (!Array.isArray(data)) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'setWebTabsWriteAtom: payload must be an array',
         );
       }
@@ -510,7 +510,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       if (!Array.isArray(data)) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'buildBookmarkData: payload must be an array',
         );
       }
@@ -622,7 +622,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       if (!Array.isArray(data)) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'buildHistoryData: payload must be an array',
         );
       }

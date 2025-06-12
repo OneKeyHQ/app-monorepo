@@ -10,7 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   OneKeyHardwareError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -79,7 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
@@ -116,7 +116,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxNostr;
     const { event } = encodedTx;
     if (!validateEvent(event)) {
-      throw new OneKeyPlainTextError('Invalid event');
+      throw new OneKeyLocalError('Invalid event');
     }
 
     const sdk = await this.getHardwareSDKInstance();

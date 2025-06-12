@@ -5,7 +5,7 @@ import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors/errors/plainTextError';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -194,7 +194,7 @@ function toastMessage({
 }: IToastBaseProps) {
   if (platformEnv.isDev) {
     if (title?.length === 0) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `The parameter 'title' cannot be an empty string`,
       );
     }

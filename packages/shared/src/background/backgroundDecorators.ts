@@ -145,7 +145,7 @@ function permissionRequired() {
     if (isFunction(fn)) {
       descriptor.value = function (...args: Array<any>): any {
         // if (this.chainId !== '0x1') {
-        //   throw new OneKeyPlainTextError(this.chainId + ' chain not matched');
+        //   throw new OneKeyLocalError(this.chainId + ' chain not matched');
         // }
         const result = fn.apply(this, args);
         return result;

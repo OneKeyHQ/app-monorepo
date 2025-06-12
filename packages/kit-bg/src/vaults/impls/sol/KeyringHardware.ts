@@ -14,7 +14,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -94,7 +94,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
@@ -168,7 +168,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const transaction = parseToNativeTx(encodedTx);
 
     if (!transaction) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.feedback_failed_to_parse_transaction,
         }),
@@ -203,7 +203,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       };
     }
 
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage({
         id: ETranslations.feedback_failed_to_sign_transaction,
       }),
@@ -265,7 +265,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
 
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'signMessage not supported on hardware',
           );
         },

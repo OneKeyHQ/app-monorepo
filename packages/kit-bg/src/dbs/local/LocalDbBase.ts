@@ -53,7 +53,7 @@ import {
   NotImplemented,
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
   PasswordNotSet,
   RenameDuplicateNameError,
   WrongPassword,
@@ -221,7 +221,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     if (!ctx) {
-      throw new OneKeyPlainTextError('failed get local db context');
+      throw new OneKeyLocalError('failed get local db context');
     }
 
     if (options?.verifyPassword) {
@@ -377,7 +377,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx: ILocalDBTransaction;
   }) {
     if (!oldPassword || !newPassword) {
-      throw new OneKeyPlainTextError('password is required');
+      throw new OneKeyLocalError('password is required');
     }
 
     // update all credentials
@@ -479,7 +479,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await this.verifyPassword({ password: oldPassword, useRnJsCrypto });
     }
     if (!oldPassword && !isCreateMode) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'changePassword ERROR: oldPassword is required',
       );
     }
@@ -1150,7 +1150,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
       const { indexedAccountId } = account;
       if (!indexedAccountId) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           `indexedAccountId is missing from account: ${accountId}`,
         );
       }
@@ -1866,7 +1866,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     if (!currentWalletToCreate) {
-      throw new OneKeyPlainTextError('currentWalletToCreate is undefined');
+      throw new OneKeyLocalError('currentWalletToCreate is undefined');
     }
 
     const isUsingDefaultName = () =>
@@ -2146,7 +2146,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       existingDevice?.id || existingDeviceId || accountUtils.buildDeviceDbId();
 
     if (!fullXfp && !isMockedStandardHwWallet) {
-      throw new OneKeyPlainTextError('fullXfp is required');
+      throw new OneKeyLocalError('fullXfp is required');
     }
 
     let passphraseState = '';
@@ -2606,7 +2606,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     console.log('createHwWallet', features);
     const { connectId } = device;
     if (!connectId) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'createHwWallet ERROR: connectId is required',
       );
     }
@@ -3191,14 +3191,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         const isExternal = accountUtils.isExternalWallet({ walletId });
 
         if (!account.impl && !isExternal) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'validateAccountsFields ERROR: account.impl is missing',
           );
         }
 
         if (account.type === EDBAccountType.VARIANT) {
           if (account.address && !isExternal) {
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'VARIANT account should not set account address',
             );
           }
@@ -3207,7 +3207,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (account.type === EDBAccountType.UTXO) {
           // dnx relPath is empty
           if (!account.relPath && ![COINTYPE_DNX].includes(account.coinType)) {
-            throw new OneKeyPlainTextError('UTXO account should set relPath');
+            throw new OneKeyLocalError('UTXO account should set relPath');
           }
         }
 
@@ -3216,10 +3216,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           accountUtils.isHwWallet({ walletId })
         ) {
           if (isNil(account.pathIndex)) {
-            throw new OneKeyPlainTextError('HD account should set pathIndex');
+            throw new OneKeyLocalError('HD account should set pathIndex');
           }
           if (!account.indexedAccountId) {
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'HD account should set indexedAccountId',
             );
           }
@@ -3230,7 +3230,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           accountUtils.isWatchingWallet({ walletId })
         ) {
           if (!account.createAtNetwork) {
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'imported or watching account should set createAtNetwork',
             );
           }
@@ -3573,12 +3573,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             // add imported account credential
             if (walletId === WALLET_TYPE_IMPORTED) {
               if (addedIds.length !== 1) {
-                throw new OneKeyPlainTextError(
+                throw new OneKeyLocalError(
                   'Only one can be imported at a time into a private key account.',
                 );
               }
               if (!importedCredential) {
-                throw new OneKeyPlainTextError(
+                throw new OneKeyLocalError(
                   'importedCredential is required for imported account',
                 );
               }
@@ -3638,7 +3638,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     rs: IBip39RevealableSeedEncryptHex;
   }) {
     if (!accountUtils.isImportedAccount({ accountId })) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'saveTonMnemonic ERROR: Not a imported account',
       );
     }
@@ -4198,7 +4198,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (params.name && params.shouldCheckDuplicate) {
       const id = params.indexedAccountId ?? params.accountId;
       if (params.indexedAccountId && params.accountId) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'ensureAccountNameNotDuplicate ERROR: indexedAccountId and accountId should not be set at the same time',
         );
       }
@@ -4415,7 +4415,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       return this.getDevice(wallet.associatedDevice);
     }
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `wallet associatedDevice not found:${wallet?.id || walletId}`,
     );
   }
@@ -4761,7 +4761,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
 
         // await wait(5000);
-        // throw new OneKeyPlainTextError('test error');
+        // throw new OneKeyLocalError('test error');
 
         await this.txUpdateWallet({
           tx,
@@ -4918,7 +4918,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
 
         // await wait(5000);
-        // throw new OneKeyPlainTextError('failed');
+        // throw new OneKeyLocalError('failed');
 
         return {
           recordPairs: recordPairs.filter(Boolean).map((r) => r[0]),

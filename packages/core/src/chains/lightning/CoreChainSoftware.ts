@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -191,7 +191,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       },
     });
     if (!privateKeys[fullPath]) {
-      throw new OneKeyPlainTextError('No private key found.');
+      throw new OneKeyLocalError('No private key found.');
     }
     const signer = await this.baseCreateSigner({
       curve,
@@ -279,7 +279,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const hashingKey = root.derivePath(`m/138'/0`);
     const hashingPrivateKey = hashingKey.privateKey;
     if (!hashingPrivateKey) {
-      throw new OneKeyPlainTextError('lnurl-auth: invalid hashing key');
+      throw new OneKeyLocalError('lnurl-auth: invalid hashing key');
     }
     const url = new URL(lnurlDetail.url);
 
@@ -294,13 +294,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     if (!linkingKey.privateKey) {
-      throw new OneKeyPlainTextError('lnurl-auth: invalid linking private key');
+      throw new OneKeyLocalError('lnurl-auth: invalid linking private key');
     }
 
     const linkingKeyPriv = bufferUtils.bytesToHex(linkingKey.privateKey);
 
     if (!linkingKeyPriv) {
-      throw new OneKeyPlainTextError('Invalid linkingKey');
+      throw new OneKeyLocalError('Invalid linkingKey');
     }
 
     const signer = new HashKeySigner(linkingKeyPriv);

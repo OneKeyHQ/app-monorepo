@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { INDEXED_DB_NAME } from '../consts';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
@@ -36,7 +36,7 @@ function getBucketNameByStoreName(
     default: {
       const exhaustiveCheck: never = storeName;
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Unsupported indexedDB store name: ${exhaustiveCheck as string}`,
       );
     }

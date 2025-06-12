@@ -10,7 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
   UnknownHardwareError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -82,7 +82,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyPlainTextError(
+            throw new OneKeyLocalError(
               'use sdk allNetworkGetAddress instead',
             );
 
