@@ -8,7 +8,7 @@ import { isNil, keyBy, orderBy, pick, uniq } from 'lodash';
 import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
@@ -142,7 +142,7 @@ class EvmApiProvider extends BaseApiProvider {
       params.address,
     );
     if (!isValid) {
-      throw new OneKeyPlainTextError('Invalid address');
+      throw new OneKeyLocalError('Invalid address');
     }
     return normalizedAddress;
   }
@@ -209,7 +209,7 @@ class EvmApiProvider extends BaseApiProvider {
       const price = token.price;
       const price24h = token.price24h;
       if (!info?.decimals) {
-        throw new OneKeyPlainTextError('decimals is undefined');
+        throw new OneKeyLocalError('decimals is undefined');
       }
       const balanceParsed = balance.shiftedBy(-info.decimals);
 
@@ -327,7 +327,7 @@ class EvmApiProvider extends BaseApiProvider {
       ]);
 
     if (!gasFeeInfo.baseFee) {
-      throw new OneKeyPlainTextError('baseFee is undefined');
+      throw new OneKeyLocalError('baseFee is undefined');
     }
 
     const res = {
@@ -508,7 +508,7 @@ class EvmApiProvider extends BaseApiProvider {
         .filter((fee) => !fee.isNaN());
 
       if (baseFees.length === 0) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'No valid base fees found in recent blocks',
         );
       }
@@ -608,7 +608,7 @@ class EvmApiProvider extends BaseApiProvider {
     const receipt = res[1];
 
     if (!tx || !receipt) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `[ProviderEVMFork.getHistoryDetail] Can not find transaction by hash: ${txid}`,
       );
     }
@@ -616,7 +616,7 @@ class EvmApiProvider extends BaseApiProvider {
     const nativeToken = await this.getNativeToken();
 
     if (!nativeToken.info?.decimals) {
-      throw new OneKeyPlainTextError('decimals is undefined');
+      throw new OneKeyLocalError('decimals is undefined');
     }
 
     const gasFee = new B(receipt?.effectiveGasPrice ?? 0)

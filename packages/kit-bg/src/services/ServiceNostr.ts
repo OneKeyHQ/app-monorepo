@@ -10,7 +10,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
@@ -66,7 +66,7 @@ class ServiceNostr extends ServiceBase {
   }) {
     try {
       if (!validateEvent(event)) {
-        throw new OneKeyPlainTextError('Invalid event');
+        throw new OneKeyLocalError('Invalid event');
       }
       // update cache by options.autoSign
       if (options?.origin) {
@@ -131,7 +131,7 @@ class ServiceNostr extends ServiceBase {
     plaintext: string;
   }) {
     if (!pubkey || !plaintext) {
-      throw new OneKeyPlainTextError('Invalid encrypt params');
+      throw new OneKeyLocalError('Invalid encrypt params');
     }
 
     const { password, deviceParams } =
@@ -179,7 +179,7 @@ class ServiceNostr extends ServiceBase {
     ciphertext: string;
   }) {
     if (!pubkey || !ciphertext) {
-      throw new OneKeyPlainTextError('Invalid encrypt params');
+      throw new OneKeyLocalError('Invalid encrypt params');
     }
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.getCachedPasswordOrDeviceParams({
@@ -232,7 +232,7 @@ class ServiceNostr extends ServiceBase {
     sigHash: string;
   }) {
     if (!sigHash) {
-      throw new OneKeyPlainTextError('Invalid signSchnorr params');
+      throw new OneKeyLocalError('Invalid signSchnorr params');
     }
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.getCachedPasswordOrDeviceParams({

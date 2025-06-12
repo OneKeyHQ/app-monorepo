@@ -18,7 +18,7 @@ import {
   usePasswordModeAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -203,7 +203,7 @@ const PasswordVerifyContainer = ({
             onVerifyRes('');
             resetPasswordErrorAttempts();
           } else {
-            throw new OneKeyPlainTextError('biology auth verify error');
+            throw new OneKeyLocalError('biology auth verify error');
           }
         } else {
           let biologyAuthRes;
@@ -227,7 +227,7 @@ const PasswordVerifyContainer = ({
             onVerifyRes(biologyAuthRes);
             resetPasswordErrorAttempts();
           } else {
-            throw new OneKeyPlainTextError('biology auth verify error');
+            throw new OneKeyLocalError('biology auth verify error');
           }
         }
       } catch (e: any) {

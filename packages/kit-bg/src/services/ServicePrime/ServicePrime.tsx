@@ -7,7 +7,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  OneKeyPlainTextError,
+  OneKeyLocalError,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
@@ -320,7 +320,7 @@ class ServicePrime extends ServiceBase {
     //   emailCodeRequired: true,
     // };
 
-    throw new OneKeyPlainTextError('Deprecated, use Privy instead');
+    throw new OneKeyLocalError('Deprecated, use Privy instead');
   }
 
   @backgroundMethod()
@@ -385,7 +385,7 @@ class ServicePrime extends ServiceBase {
   async ensurePrimeLoginValidEmail(email: string) {
     if (!stringUtils.isValidEmail(email)) {
       // TODO i18n error
-      throw new OneKeyPlainTextError('Invalid email');
+      throw new OneKeyLocalError('Invalid email');
     }
   }
 
@@ -633,7 +633,7 @@ class ServicePrime extends ServiceBase {
     code: string;
   }) {
     if (!code || code.length !== 6) {
-      throw new OneKeyPlainTextError('Invalid code');
+      throw new OneKeyLocalError('Invalid code');
     }
     await primeLoginDialogAtom.set((v) => ({
       ...v,

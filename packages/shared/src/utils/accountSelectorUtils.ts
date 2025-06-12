@@ -1,5 +1,5 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { EAccountSelectorSceneName } from '../../types';
 
@@ -38,13 +38,13 @@ function buildAccountSelectorSceneId({
 }): string {
   if (sceneName === EAccountSelectorSceneName.discover) {
     if (!sceneUrl) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildSceneId ERROR: sceneUrl is required',
       );
     }
     const origin = uriUtils.getOriginFromUrl({ url: sceneUrl });
     if (origin !== sceneUrl) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `buildSceneId ERROR: sceneUrl should be equal to origin, full url is not allowed: ${sceneUrl}`,
       );
     }
@@ -52,7 +52,7 @@ function buildAccountSelectorSceneId({
   }
 
   if (!sceneName) {
-    throw new OneKeyPlainTextError('buildSceneId ERROR: sceneName is required');
+    throw new OneKeyLocalError('buildSceneId ERROR: sceneName is required');
   }
   return sceneName;
 }

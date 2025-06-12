@@ -16,7 +16,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   LowerTransactionAmountError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -105,7 +105,7 @@ export default class VaultNexa extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }

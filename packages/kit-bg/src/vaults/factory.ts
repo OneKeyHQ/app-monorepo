@@ -41,7 +41,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
   VaultKeyringNotDefinedError,
 } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -112,7 +112,7 @@ export async function createKeyringInstance(vault: VaultBase) {
 export async function createVaultInstance(options: IVaultOptions) {
   ensureRunOnBackground();
   if (!options.networkId) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'createVaultInstance ERROR: networkId is required',
     );
   }
@@ -162,7 +162,7 @@ export async function createVaultInstance(options: IVaultOptions) {
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
-    throw new OneKeyPlainTextError(`no vault found: impl=${impl}`);
+    throw new OneKeyLocalError(`no vault found: impl=${impl}`);
   }
   const VaultClass = (await loader()).default;
 

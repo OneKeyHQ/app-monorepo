@@ -30,7 +30,7 @@ import * as queryString from 'query-string';
 import findFocusedRoute from '@react-navigation/core/src/findFocusedRoute';
 import type { PathConfigMap } from '@react-navigation/core/src/types';
 import validatePathConfig from '@react-navigation/core/src/validatePathConfig';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 // ---CHANGED end----
 
 type Options<ParamList extends {}> = {
@@ -219,7 +219,7 @@ export function getStateFromPath<ParamList extends {}>(
           : a.every((it, i) => b[i] === it);
 
       if (!intersects) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           `Found conflicting screens with the same pattern. The pattern '${
             config.pattern
           }' resolves to both '${a.join(' > ')}' and '${b.join(
@@ -380,7 +380,7 @@ const createNormalizedConfigs = (
     // it could have `screens` prop which has nested configs
     if (typeof config.path === 'string') {
       if (config.exact && config.path === undefined) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           "A 'path' needs to be specified when specifying 'exact: true'. If you don't want this screen in the URL, specify it as empty string, e.g. `path: ''`."
         );
       }

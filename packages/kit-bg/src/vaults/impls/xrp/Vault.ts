@@ -16,7 +16,7 @@ import {
   InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -101,7 +101,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }
@@ -360,7 +360,7 @@ export default class Vault extends VaultBase {
           returnRawData: true,
         });
       if (accountInfo.success === false) {
-        throw new OneKeyPlainTextError(accountInfo.error);
+        throw new OneKeyLocalError(accountInfo.error);
       }
       if (accountInfo.result?.error || accountInfo.result?.error_message) {
         // eslint-disable-next-line no-restricted-syntax

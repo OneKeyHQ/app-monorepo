@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IExternalConnectionInfo,
@@ -9,7 +9,7 @@ import type { EvmConnectorManager } from './EvmConnectorManager';
 
 export class ExternalConnectorEvmEIP6963 {
   constructor() {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'ExternalConnectorEvmEIP6963 is mocked class, use ExternalConnectorEvmEIP6963.createConnector()',
     );
   }

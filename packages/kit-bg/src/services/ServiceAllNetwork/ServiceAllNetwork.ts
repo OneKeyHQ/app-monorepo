@@ -7,7 +7,7 @@ import {
   IMPL_EVM,
   getEnabledNFTNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
@@ -97,7 +97,7 @@ class ServiceAllNetwork extends ServiceBase {
 
     if (isOthersWallet) {
       if (!othersWalletAccountId) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'getAllNetworkDbAccounts ERROR: accountId is required',
         );
       }
@@ -107,7 +107,7 @@ class ServiceAllNetwork extends ServiceBase {
       dbAccounts = [dbAccount].filter(Boolean);
     } else {
       if (!indexedAccountId) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'getAllNetworkDbAccounts ERROR: indexedAccountId is required',
         );
       }
@@ -120,7 +120,7 @@ class ServiceAllNetwork extends ServiceBase {
           ));
       } else {
         if (!singleNetworkDeriveType) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'getAllNetworkDbAccounts ERROR: deriveType is required',
           );
         }

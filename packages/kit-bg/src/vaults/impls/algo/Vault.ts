@@ -18,7 +18,7 @@ import type {
 import {
   ManageTokenInsufficientBalanceError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -170,12 +170,12 @@ export default class Vault extends VaultBase {
   }) {
     const { transferInfo, specifiedFeeRate } = params;
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError('Invalid transferInfo.to params');
+      throw new OneKeyLocalError('Invalid transferInfo.to params');
     }
     const { from, to, amount, tokenInfo, note } = transferInfo;
 
     if (!tokenInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }

@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -57,7 +57,7 @@ async function getAllCoinsByCoinType({
       retries += 1;
       console.error(`Failed to fetch coins, retry attempt: ${retries}`, error);
       if (retries >= maxRetries) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'Failed to fetch coins, maximum retry attempts reached',
         );
       }

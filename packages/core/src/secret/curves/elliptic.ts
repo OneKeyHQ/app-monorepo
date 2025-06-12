@@ -2,7 +2,7 @@
 import BigNumber from 'bignumber.js';
 import elliptic from 'elliptic';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { parse256 } from '../bip32';
 
@@ -12,7 +12,7 @@ type IEllipticBasePoint = elliptic.curve.base.BasePoint;
 
 function checkBufferIsNotEmpty(buff: Buffer) {
   if (buff?.length === 0) {
-    throw new OneKeyPlainTextError('Curve call ERROR: Buffer is empty');
+    throw new OneKeyLocalError('Curve call ERROR: Buffer is empty');
   }
 }
 
@@ -35,7 +35,7 @@ class EllipticECWrapper implements ICurveForKD {
     } else if (publicKey.length == 65 && publicKey[0] === 4) {
       toCompressed = true;
     } else {
-      throw new OneKeyPlainTextError('Invalid public key.');
+      throw new OneKeyLocalError('Invalid public key.');
     }
 
     return Buffer.from(

@@ -14,7 +14,7 @@ import { List, Set } from 'immutable';
 
 import {
   MinimumTransferBalanceRequiredForSendingAssetError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -80,7 +80,7 @@ export async function transfer(
 
   const XUDT_SCRIPT = config.SCRIPTS.XUDT;
   if (!XUDT_SCRIPT) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Provided config does not have XUDT script setup!',
     );
   }
@@ -88,7 +88,7 @@ export async function transfer(
   const fromScript = parseAddress(fromAddress, { config });
 
   if (requireToAddress && !toAddress) {
-    throw new OneKeyPlainTextError('You must provide a to address!');
+    throw new OneKeyLocalError('You must provide a to address!');
   }
 
   const toScript = parseAddress(toAddress, { config });
@@ -98,14 +98,14 @@ export async function transfer(
     : fromScript;
 
   if (_amount.lte(0)) {
-    throw new OneKeyPlainTextError('amount must be greater than 0');
+    throw new OneKeyLocalError('amount must be greater than 0');
   }
 
   const xudtType = generateXudtScript(xudtToken, config);
 
   const cellProvider = txSkeleton.get('cellProvider');
   if (!cellProvider) {
-    throw new OneKeyPlainTextError('Cell provider is missing!');
+    throw new OneKeyLocalError('Cell provider is missing!');
   }
 
   // support ANYONE_CAN_PAY address
@@ -355,7 +355,7 @@ export async function transfer(
     changeAmount.gt(0) &&
     changeCapacity.lt(minimalCellCapacityCompatible(changeCell))
   ) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'Not enough capacity for change in from infos!',
     );
   }

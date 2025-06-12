@@ -21,7 +21,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { FIRST_EVM_ADDRESS_PATH } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -131,7 +131,7 @@ function InviteCode({
         }
 
         if (!walletInfo) {
-          throw new OneKeyPlainTextError('Invalid Wallet');
+          throw new OneKeyLocalError('Invalid Wallet');
         }
         const { referralCode } = form.getValues();
         let unsignedMessage: string | undefined;

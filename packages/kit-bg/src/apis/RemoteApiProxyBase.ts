@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return,  @typescript-eslint/no-unsafe-member-access */
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -15,7 +15,7 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
     // @ts-ignore
     const module = message?.module as any;
     if (!module) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'callRemoteApiMethod ERROR: module is required',
       );
     }
@@ -36,7 +36,7 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
     if (remoteApiType === 'webEmbedApi') {
       errorMessage += ' please run "yarn app:web-embed:build" again';
       if (!platformEnv.isWebEmbed) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'webEmbedApi is only available in webEmbed',
         );
       }
@@ -44,13 +44,13 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
 
     if (remoteApiType === 'offscreenApi') {
       if (!platformEnv.isExtensionOffscreen) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'offscreenApi is only available in offscreen',
         );
       }
     }
 
-    throw new OneKeyPlainTextError(errorMessage);
+    throw new OneKeyLocalError(errorMessage);
   };
 }
 
@@ -100,7 +100,7 @@ abstract class RemoteApiProxyBase {
   ): any {
     const nameStr = name as string;
     if (this._moduleCreatedNames[nameStr]) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `_createProxyService name duplicated. name=${nameStr}`,
       );
     }

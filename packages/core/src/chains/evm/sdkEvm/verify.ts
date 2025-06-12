@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ethers } from './ethers';
 
@@ -20,7 +20,7 @@ export function verifyEvmSignedTxMatched({
 }: IVerifyEvmSignedTxMatchedParams) {
   const txidFromRawTx = ethers.utils.keccak256(rawTx);
   if (txid !== txidFromRawTx || !txid || !txidFromRawTx) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `EVM txid not match: ${txid}, ${txidFromRawTx}`,
     );
   }
@@ -50,7 +50,7 @@ export function verifyEvmSignedTxMatched({
   const address = signerAddress.toLowerCase();
 
   if (address !== recoveredAddress || !address || !recoveredAddress) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `EVM Signer address not match: ${address}, ${recoveredAddress}`,
     );
   }

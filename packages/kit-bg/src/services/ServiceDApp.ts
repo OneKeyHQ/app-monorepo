@@ -18,7 +18,7 @@ import {
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -88,7 +88,7 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   }
 
   if (!networkImpls) {
-    throw new OneKeyPlainTextError('networkImpl not found');
+    throw new OneKeyLocalError('networkImpl not found');
   }
   return {
     storageType,
@@ -132,10 +132,10 @@ class ServiceDApp extends ServiceBase {
       try {
         return await new Promise((resolve, reject) => {
           if (!request.origin) {
-            throw new OneKeyPlainTextError('origin is required');
+            throw new OneKeyLocalError('origin is required');
           }
           if (!request.scope) {
-            throw new OneKeyPlainTextError('scope is required');
+            throw new OneKeyLocalError('scope is required');
           }
           const id = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -274,7 +274,7 @@ class ServiceDApp extends ServiceBase {
     skipBackupCheck?: boolean;
   }) {
     if (!accountId || !networkId) {
-      throw new OneKeyPlainTextError('accountId and networkId required');
+      throw new OneKeyLocalError('accountId and networkId required');
     }
     return this.openModal({
       request,
@@ -427,7 +427,7 @@ class ServiceDApp extends ServiceBase {
     walletConnectTopic?: string;
   }) {
     if (storageType === 'walletConnect' && !walletConnectTopic) {
-      throw new OneKeyPlainTextError('walletConnectTopic is required');
+      throw new OneKeyLocalError('walletConnectTopic is required');
     }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
@@ -831,7 +831,7 @@ class ServiceDApp extends ServiceBase {
         networkId: newNetworkId,
       });
     if (!containsNetwork) {
-      throw new OneKeyPlainTextError('Network not found');
+      throw new OneKeyLocalError('Network not found');
     }
     const { shouldSwitchNetwork, isDifferentNetworkImpl } =
       await this.getSwitchNetworkInfo(params);
@@ -870,7 +870,7 @@ class ServiceDApp extends ServiceBase {
         );
 
       if (!activeAccount.account) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'Switch network failed, account not found',
         );
       }

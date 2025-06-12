@@ -313,7 +313,10 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async fetchChangeLog() {
     const response = await this.getAppLatestInfo();
-    return response?.changeLog;
+    return {
+      changeLog: response?.changeLog,
+      summary: response?.summary,
+    };
   }
 
   @backgroundMethod()

@@ -45,7 +45,8 @@ function UpdatePreview({
     autoClose = false,
   } = route.params || {};
   usePreventRemove(!!isForceUpdate, () => {});
-  const changeLog = useAppChangeLog(latestVersion);
+  const response = useAppChangeLog(latestVersion);
+  const { changeLog } = response ?? {};
   return (
     <Page>
       <Page.Header

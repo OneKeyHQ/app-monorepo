@@ -20,7 +20,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -148,13 +148,13 @@ class ProviderApiCosmos extends ProviderApiBase {
     const chainId = typeof params === 'string' ? params : params[0];
 
     const networkId = this.convertCosmosChainId(chainId);
-    if (!networkId) throw new OneKeyPlainTextError('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
       networkId,
     });
     if (!network) {
-      throw new OneKeyPlainTextError('Invalid chainId');
+      throw new OneKeyLocalError('Invalid chainId');
     }
 
     try {
@@ -183,7 +183,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     }
     const result = await this.enable(request, [chainId]);
     if (!result) {
-      throw new OneKeyPlainTextError('Failed to connect Babylon wallet');
+      throw new OneKeyLocalError('Failed to connect Babylon wallet');
     }
     return chainId;
   }
@@ -215,7 +215,7 @@ class ProviderApiCosmos extends ProviderApiBase {
           this._enableFailureCache[origin] = now;
         } else {
           const chainId = params?.[0] ?? '';
-          throw new OneKeyPlainTextError(`OneKey does not support ${chainId}.`);
+          throw new OneKeyLocalError(`OneKey does not support ${chainId}.`);
         }
         return false;
       }
@@ -263,11 +263,11 @@ class ProviderApiCosmos extends ProviderApiBase {
   public async getKey(request: IJsBridgeMessagePayload, params: string) {
     return this._getKeyQueue.runExclusive(async () => {
       const networkId = this.convertCosmosChainId(params);
-      if (!networkId) throw new OneKeyPlainTextError('Invalid chainId');
+      if (!networkId) throw new OneKeyLocalError('Invalid chainId');
       const network = await this.backgroundApi.serviceNetwork.getNetwork({
         networkId,
       });
-      if (!network) throw new OneKeyPlainTextError('Invalid chainId');
+      if (!network) throw new OneKeyLocalError('Invalid chainId');
 
       let account: {
         account: INetworkAccount;
@@ -290,7 +290,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         account = await this._getAccount(request, networkId);
       }
       if (!account) {
-        throw new OneKeyPlainTextError('No account found');
+        throw new OneKeyLocalError('No account found');
       }
 
       return this._getKeyFromAccount(account.account);
@@ -322,7 +322,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     );
 
     const networkId = this.convertCosmosChainId(params.signDoc.chain_id);
-    if (!networkId) throw new OneKeyPlainTextError('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
@@ -385,7 +385,7 @@ class ProviderApiCosmos extends ProviderApiBase {
   ): Promise<any> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.signDoc.chainId);
-    if (!networkId) throw new OneKeyPlainTextError('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
@@ -404,7 +404,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         });
 
       if (!accountInfo) {
-        throw new OneKeyPlainTextError('Invalid account');
+        throw new OneKeyLocalError('Invalid account');
       }
 
       encodedTx.accountNumber = `${accountInfo.accountNumber ?? 0}`;
@@ -476,7 +476,7 @@ class ProviderApiCosmos extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.chainId);
-    if (!networkId) throw new OneKeyPlainTextError('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
@@ -510,7 +510,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
 
       const networkId = this.convertCosmosChainId(params.chainId);
-      if (!networkId) throw new OneKeyPlainTextError('Invalid chainId');
+      if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
       const account = await this._getAccount(request, networkId);
 
@@ -637,7 +637,7 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     const network = networks.find((n) => n.chainId === params);
     if (!network)
-      throw new OneKeyPlainTextError(`OneKey does not support ${params}`);
+      throw new OneKeyLocalError(`OneKey does not support ${params}`);
 
     return {
       chainId: network.chainId,

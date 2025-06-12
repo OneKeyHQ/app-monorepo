@@ -9,7 +9,7 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -125,7 +125,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }
@@ -386,10 +386,10 @@ export default class Vault extends VaultBase {
       const { signature, publicKey, rawTx, encodedTx } = params.signedTx;
 
       if (!signature) {
-        throw new OneKeyPlainTextError('signature is empty');
+        throw new OneKeyLocalError('signature is empty');
       }
       if (!publicKey) {
-        throw new OneKeyPlainTextError('publicKey is empty');
+        throw new OneKeyLocalError('publicKey is empty');
       }
 
       const txid = await this.backgroundApi.serviceSend.broadcastTransaction({
@@ -505,10 +505,10 @@ export default class Vault extends VaultBase {
       }
 
       if (!signature) {
-        throw new OneKeyPlainTextError('signature is empty');
+        throw new OneKeyLocalError('signature is empty');
       }
       if (!publicKey) {
-        throw new OneKeyPlainTextError('publicKey is empty');
+        throw new OneKeyLocalError('publicKey is empty');
       }
 
       const client = new OneKeyBfcClient({ url: rpcUrl });

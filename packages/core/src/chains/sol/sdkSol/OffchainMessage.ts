@@ -2,7 +2,7 @@
 /* eslint-disable no-bitwise */
 /* eslint-disable spellcheck/spell-checker */
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { EOffChainMessageType } from '../types';
 
@@ -146,7 +146,7 @@ export class OffchainMessage {
   ): Uint8Array {
     if (format === 0) {
       if (!/^[\x20-\x7E]*$/.test(message)) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'Format 0 only supports printable ASCII characters (0x20-0x7E)',
         );
       }
@@ -169,7 +169,7 @@ export class OffchainMessage {
     }
 
     if (totalLength > maxLength) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Total message length (${totalLength}) exceeds maximum (${maxLength}) for format ${format}`,
       );
     }
@@ -205,21 +205,21 @@ export class OffchainMessage {
     }
 
     if (applicationDomain.length !== 32) {
-      throw new OneKeyPlainTextError('Application domain must be 32 bytes');
+      throw new OneKeyLocalError('Application domain must be 32 bytes');
     }
     return applicationDomain;
   }
 
   private static validateSignerPublicKeys(signerPublicKeys: Uint8Array[]) {
     if (signerPublicKeys.length === 0) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'At least one signer public key is required',
       );
     }
 
     for (const pubkey of signerPublicKeys) {
       if (pubkey.length !== 32) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'Each signer public key must be 32 bytes',
         );
       }
@@ -234,7 +234,7 @@ export class OffchainMessage {
     isLegacy = false,
   }: ICreateOffChainMessageOptions) {
     if (message.length === 0) {
-      throw new OneKeyPlainTextError('Message cannot be empty');
+      throw new OneKeyLocalError('Message cannot be empty');
     }
 
     const messageBytes = this.createMessageBytes(message, format);
@@ -452,16 +452,16 @@ export class OffchainMessage {
 
   serialize() {
     if (!this.isValid()) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Invalid OffchainMessage: ${JSON.stringify(this)}`,
       );
     }
     const buffer = Buffer.alloc(4);
     if (!this.message) {
-      throw new OneKeyPlainTextError('message is null');
+      throw new OneKeyLocalError('message is null');
     }
     if (this.messageFormat === undefined) {
-      throw new OneKeyPlainTextError('messageFormat is null');
+      throw new OneKeyLocalError('messageFormat is null');
     }
     let offset = buffer.writeUInt8(this.version);
     offset = buffer.writeUInt8(this.messageFormat, offset);

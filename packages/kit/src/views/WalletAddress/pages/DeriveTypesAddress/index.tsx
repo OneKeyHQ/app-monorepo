@@ -33,7 +33,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalWalletAddressRoutes,
@@ -120,7 +120,7 @@ const DeriveTypesAddressItem = ({
 
   const onPress = useCallback(async () => {
     if (!network) {
-      throw new OneKeyPlainTextError('network is empty');
+      throw new OneKeyLocalError('network is empty');
     }
     if (item.account) {
       if (actionType === EDeriveAddressActionType.Copy) {

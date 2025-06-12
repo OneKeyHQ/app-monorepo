@@ -1,5 +1,5 @@
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
@@ -20,7 +20,7 @@ export class ExternalWalletFactory {
 
   getWalletConnectController() {
     if (!this.backgroundApi) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'ExternalWalletFactory backgroundApi not set yet',
       );
     }
@@ -45,7 +45,7 @@ export class ExternalWalletFactory {
     connectionInfo?: IExternalConnectionInfo;
   }): Promise<ExternalControllerBase> {
     if (!this.backgroundApi) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'ExternalWalletFactory backgroundApi not set yet',
       );
     }
@@ -53,7 +53,7 @@ export class ExternalWalletFactory {
     impl = impl || networkUtils.getNetworkImpl({ networkId: networkId || '' });
 
     if (!impl && !connectionInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'ExternalWalletFactory->getController ERROR:  No impl or connectionInfo',
       );
     }
@@ -74,7 +74,7 @@ export class ExternalWalletFactory {
     if (connectionInfo?.walletConnect) {
       return this.getWalletConnectController();
     }
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `ExternalWalletFactory->getController ERROR:  Unknown impl or connectionInfo: ${
         impl || ''
       }`,
