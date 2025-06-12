@@ -79,9 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new OneKeyLocalError(
-              'use sdk allNetworkGetAddress instead',
-            );
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.nostrGetPublicKey(connectId, deviceId, {

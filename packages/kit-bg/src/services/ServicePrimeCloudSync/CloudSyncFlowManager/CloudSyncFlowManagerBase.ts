@@ -1,4 +1,4 @@
-import { sha512Sync } from '@onekeyhq/core/src/secret/hash';
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -128,7 +128,7 @@ export abstract class CloudSyncFlowManagerBase<
   }
 
   rawKeyToHashKey(rawKey: string): string {
-    return sha512Sync({ data: rawKey });
+    return sha512ProSync({ data: rawKey });
   }
 
   async getSyncCredential() {

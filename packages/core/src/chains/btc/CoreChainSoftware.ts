@@ -34,7 +34,7 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   BaseBip32KeyDeriver,
-  batchGetPublicKeysAsync,
+  batchGetPublicKeys,
   decryptAsync,
   encryptAsync,
   mnemonicFromEntropyAsync,
@@ -860,7 +860,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     defaultLogger.account.accountCreatePerf.batchGetPublicKeysBtc();
     // pubkeyInfos.map(i=>i.path)
     //    ["m/49'/0'/0'", "m/49'/0'/1'"]
-    const pubkeyInfos = await batchGetPublicKeysAsync({
+    const pubkeyInfos = await batchGetPublicKeys({
       curveName,
       hdCredential,
       password,

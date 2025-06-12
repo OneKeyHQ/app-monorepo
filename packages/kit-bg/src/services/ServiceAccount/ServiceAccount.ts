@@ -965,9 +965,7 @@ class ServiceAccount extends ServiceBase {
     accountName: string | undefined;
   }) {
     if (!accountId && !indexedAccountId) {
-      throw new OneKeyLocalError(
-        'accountId or indexedAccountId is required',
-      );
+      throw new OneKeyLocalError('accountId or indexedAccountId is required');
     }
     if (accountId && indexedAccountId) {
       throw new OneKeyLocalError(
@@ -1035,9 +1033,7 @@ class ServiceAccount extends ServiceBase {
       //     id: ETranslations.hardware_not_support,
       //   }),
       // );
-      throw new OneKeyLocalError(
-        'Export keyType not found for the network',
-      );
+      throw new OneKeyLocalError('Export keyType not found for the network');
     }
     if (exportType === 'privateKey') {
       return this.exportAccountSecretKey({
@@ -1342,7 +1338,7 @@ class ServiceAccount extends ServiceBase {
           id: accountId,
           type: EDBAccountType.VARIANT,
           name: '',
-          connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+          connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
           addresses: {},
           connectedAddresses: addresses, // TODO merge with addresses
           selectedAddress: {},
@@ -1369,7 +1365,7 @@ class ServiceAccount extends ServiceBase {
         id: accountId,
         type: EDBAccountType.VARIANT,
         name: '',
-        connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+        connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
         addresses: {},
         connectedAddresses: addresses, // TODO merge with addresses
         selectedAddress: {},
@@ -1460,9 +1456,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
     if (!network) {
-      throw new OneKeyLocalError(
-        'addWatchingAccount ERROR: network not found',
-      );
+      throw new OneKeyLocalError('addWatchingAccount ERROR: network not found');
     }
 
     const vault = await vaultFactory.getWalletOnlyVault({
@@ -2535,7 +2529,7 @@ class ServiceAccount extends ServiceBase {
     xfp: string;
   }> => {
     const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
-    const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+    const buff = await sha256(bufferUtils.toBuffer(text, 'utf8'));
     const hash = bufferUtils.bytesToHex(buff);
 
     const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
@@ -2612,9 +2606,7 @@ class ServiceAccount extends ServiceBase {
       await this.validateMnemonic(mnemonic);
 
     if (mnemonicType !== EMnemonicType.TON) {
-      throw new OneKeyLocalError(
-        'saveTonMnemonic ERROR: Not a TON mnemonic',
-      );
+      throw new OneKeyLocalError('saveTonMnemonic ERROR: Not a TON mnemonic');
     }
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
@@ -3451,9 +3443,7 @@ class ServiceAccount extends ServiceBase {
     { allowWatchAccount }: { allowWatchAccount?: boolean },
   ) {
     if (!accountId && !indexedAccountId) {
-      throw new OneKeyLocalError(
-        'accountId or indexedAccountId is required',
-      );
+      throw new OneKeyLocalError('accountId or indexedAccountId is required');
     }
 
     const { serviceNetwork, serviceAccount } = this.backgroundApi;

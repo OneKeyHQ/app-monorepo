@@ -8,10 +8,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import {
-  NotImplemented,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';

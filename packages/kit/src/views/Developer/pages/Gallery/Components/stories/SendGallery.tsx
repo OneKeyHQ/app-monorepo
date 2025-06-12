@@ -51,7 +51,7 @@ function ExternalAccountSign() {
     <PartContainer title="ExternalAccountSign">
       <Button
         onPress={async () => {
-          const r = await backgroundApiProxy.serviceDemo.testEvmPersonalSign({
+          const r = await backgroundApiProxy.serviceDemo.demoEvmPersonalSign({
             networkId: activeAccount.network?.id || '',
             accountId: activeAccount.account?.id || '',
           });
@@ -78,7 +78,7 @@ function ExternalAccountSign() {
             txid
               "0x63a5e9fdc8ae8c6cfb72c5662bee9e84a4c19887d01c25e8180ee10d24ac6601"
           */
-          const r = await backgroundApiProxy.serviceDemo.testEvmSendTxSign({
+          const r = await backgroundApiProxy.serviceDemo.demoEvmSendTxSign({
             networkId: activeAccount.network?.id || '',
             accountId: activeAccount.account?.id || '',
             encodedTx: {
@@ -112,7 +112,7 @@ function ExternalAccountSign() {
             txid
               "0x63a5e9fdc8ae8c6cfb72c5662bee9e84a4c19887d01c25e8180ee10d24ac6601"
           */
-          const r = await backgroundApiProxy.serviceDemo.testEvmSendTxSign({
+          const r = await backgroundApiProxy.serviceDemo.demoEvmSendTxSign({
             networkId: activeAccount.network?.id || '',
             accountId: activeAccount.account?.id || '',
             encodedTx: {
@@ -353,7 +353,7 @@ const SendGallery = () => (
               <SendTestButton />
               <Button
                 onPress={() => {
-                  void backgroundApiProxy.serviceV4Migration.testShowData();
+                  void backgroundApiProxy.serviceV4Migration.demoShowDataOfV4Migration();
                 }}
               >
                 Test v4 migration

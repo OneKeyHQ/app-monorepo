@@ -171,9 +171,7 @@ export class KeyringQr extends KeyringQrBase {
         }
 
         if (!psbtHex) {
-          throw new OneKeyLocalError(
-            'BTC QR sign ERROR: psbtHex not found',
-          );
+          throw new OneKeyLocalError('BTC QR sign ERROR: psbtHex not found');
         }
 
         const signedPsbt = Psbt.fromHex(psbtHex, {

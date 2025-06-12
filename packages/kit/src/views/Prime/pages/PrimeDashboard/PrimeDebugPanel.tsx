@@ -157,7 +157,7 @@ function CloudSyncDebugTest() {
 
       <Button
         onPress={async () => {
-          await backgroundApiProxy.servicePrimeCloudSync.debugDownloadAllServerSyncItemsAndSaveToLocal();
+          await backgroundApiProxy.servicePrimeCloudSync.demoDownloadAllServerSyncItemsAndSaveToLocal();
         }}
       >
         API:下载所有云端数据并写入本地

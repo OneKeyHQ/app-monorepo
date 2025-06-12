@@ -508,9 +508,7 @@ class EvmApiProvider extends BaseApiProvider {
         .filter((fee) => !fee.isNaN());
 
       if (baseFees.length === 0) {
-        throw new OneKeyLocalError(
-          'No valid base fees found in recent blocks',
-        );
+        throw new OneKeyLocalError('No valid base fees found in recent blocks');
       }
 
       const maxBaseFee = B.max(...baseFees);

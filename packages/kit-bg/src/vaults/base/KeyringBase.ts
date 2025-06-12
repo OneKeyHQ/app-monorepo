@@ -3,10 +3,7 @@ import { isNil } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import {
-  NotImplemented,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -103,9 +100,7 @@ export abstract class KeyringBase extends VaultContext {
         );
       }
       if (accountType === EDBAccountType.VARIANT && !addresses) {
-        throw new OneKeyLocalError(
-          'addresses is required for variant account',
-        );
+        throw new OneKeyLocalError('addresses is required for variant account');
       }
       if (accountType === EDBAccountType.VARIANT && address) {
         throw new OneKeyLocalError(

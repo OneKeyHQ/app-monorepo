@@ -12,9 +12,7 @@ class RequestHelper {
     if (url.includes('api.revenuecat.com')) {
       return Promise.resolve(false);
     }
-    throw new OneKeyLocalError(
-      'Not implemented, please call overrideMethods',
-    );
+    throw new OneKeyLocalError('Not implemented, please call overrideMethods');
   };
 
   getDevSettingsPersistAtom: () => Promise<IDevSettingsPersistAtom> =
@@ -25,9 +23,7 @@ class RequestHelper {
     };
 
   getSettingsPersistAtom: () => Promise<ISettingsPersistAtom> = async () => {
-    throw new OneKeyLocalError(
-      'Not implemented, please call overrideMethods',
-    );
+    throw new OneKeyLocalError('Not implemented, please call overrideMethods');
   };
 
   getSettingsValuePersistAtom: () => Promise<ISettingsValuePersistAtom> =

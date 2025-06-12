@@ -35,11 +35,7 @@ class BiologyAuthUtils implements IBiologyAuth {
     await secureStorageInstance.setSecureItem('password', text);
   };
 
-  getPassword = async ({
-    useRnJsCrypto,
-  }: {
-    useRnJsCrypto?: boolean;
-  } = {}) => {
+  getPassword = async () => {
     if (!secureStorageInstance.supportSecureStorage()) {
       throw new OneKeyLocalError('No password');
     }
@@ -49,9 +45,8 @@ class BiologyAuthUtils implements IBiologyAuth {
       text = await decodeSensitiveTextAsync({
         encodedText: text,
         key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
-        useRnJsCrypto,
       });
-      text = await encodeSensitiveTextAsync({ text, useRnJsCrypto });
+      text = await encodeSensitiveTextAsync({ text });
       return text;
     }
     throw new OneKeyLocalError('No password');
