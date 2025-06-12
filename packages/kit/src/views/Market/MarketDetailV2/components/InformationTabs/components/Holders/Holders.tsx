@@ -1,11 +1,12 @@
 import { memo, useCallback } from 'react';
 
-import { ListView, SizableText, Stack } from '@onekeyhq/components';
+import { ListView, SizableText, Stack, XStack } from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
 import HolderItem from './HolderItem';
+import HoldersHeader from './HoldersHeader';
 import HoldersSkeleton from './HoldersSkeleton';
 
 interface IHoldersProps {
@@ -50,6 +51,7 @@ function Holders({ tokenAddress, networkId }: IHoldersProps) {
       keyExtractor={(item) => item.accountAddress}
       estimatedItemSize={70}
       showsVerticalScrollIndicator
+      ListHeaderComponent={HoldersHeader}
       contentContainerStyle={{
         paddingBottom: '$4',
       }}

@@ -1,11 +1,6 @@
 import { memo } from 'react';
 
-import {
-  SizableText,
-  XStack,
-  YStack,
-  useClipboard,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack, useClipboard } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
@@ -35,6 +30,15 @@ function HolderItem({ item, index }: IHolderItemProps) {
     return numberFormat(num.toString(), { formatter: 'marketCap' });
   };
 
+  const formatPercent = (percent?: string) => {
+    if (!percent) return '--';
+    const num = parseFloat(percent);
+    if (Number.isNaN(num)) return '--';
+    // If the value appears to be in the 0-1 range convert it to percentage.
+    const value = num < 1 ? num * 100 : num;
+    return `${value.toFixed(2)}%`;
+  };
+
   return (
     <XStack
       py="$3"
@@ -42,43 +46,72 @@ function HolderItem({ item, index }: IHolderItemProps) {
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
       alignItems="center"
-      justifyContent="space-between"
+      gap="$3"
     >
-      <XStack alignItems="center" gap="$3" flex={1}>
-        <SizableText size="$bodyMd" color="$textSubdued" minWidth="$6">
-          #{index + 1}
-        </SizableText>
+      {/* Rank */}
+      <SizableText size="$bodyMd" color="$textSubdued" minWidth="$6">
+        #{index + 1}
+      </SizableText>
 
-        <XStack
-          onPress={handleCopyAddress}
-          cursor="pointer"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          borderRadius="$2"
-          px="$2"
-          py="$1"
-          alignItems="center"
-          gap="$1"
-          flex={1}
+      {/* Address with copy icon */}
+      <XStack
+        onPress={handleCopyAddress}
+        cursor="pointer"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        borderRadius="$2"
+        px="$2"
+        py="$1"
+        alignItems="center"
+        gap="$1"
+        flex={1}
+        minWidth={0}
+      >
+        <SizableText
+          fontFamily="$monoRegular"
+          size="$bodyMd"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={1}
         >
-          <SizableText size="$bodyMd" color="$text">
-            {accountUtils.shortenAddress({
-              address: item.accountAddress,
-              leadingLength: 6,
-              trailingLength: 4,
-            })}
-          </SizableText>
-        </XStack>
+          {accountUtils.shortenAddress({
+            address: item.accountAddress,
+            leadingLength: 6,
+            trailingLength: 4,
+          })}
+        </SizableText>
+        <Icon name="Copy2Outline" size="$4" color="$iconSubdued" />
       </XStack>
 
-      <YStack alignItems="flex-end" gap="$1">
-        <SizableText size="$bodyMd" color="$text">
-          {formatAmount(item.amount)}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          ${formatFiatValue(item.fiatValue)}
-        </SizableText>
-      </YStack>
+      {/* Percentage */}
+      <SizableText
+        size="$bodyMd"
+        color="$text"
+        minWidth="$16"
+        textAlign="right"
+      >
+        {formatPercent(item.percentage)}
+      </SizableText>
+
+      {/* Amount */}
+      <SizableText
+        size="$bodyMd"
+        color="$text"
+        minWidth="$20"
+        textAlign="right"
+      >
+        {formatAmount(item.amount)}
+      </SizableText>
+
+      {/* Fiat Value */}
+      <SizableText
+        size="$bodyMd"
+        color="$text"
+        minWidth="$20"
+        textAlign="right"
+      >
+        ${formatFiatValue(item.fiatValue)}
+      </SizableText>
     </XStack>
   );
 }

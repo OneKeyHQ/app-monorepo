@@ -188,6 +188,11 @@ export interface IMarketTokenHolder {
   accountAddress: string;
   amount: string;
   fiatValue: string;
+  /**
+   * Percentage of the total token supply that this holder owns. The value is expressed as a string
+   * representation of the percentage (e.g. "10.31" to represent 10.31%).
+   */
+  percentage?: string;
 }
 
 export interface IMarketTokenHoldersResponse {
