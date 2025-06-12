@@ -182,7 +182,7 @@ function TxConfirmActions(props: IProps) {
 
     let newUnsignedTxs: IUnsignedTxPro[];
     try {
-      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSend({
+      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
         networkId,
         unsignedTxs,

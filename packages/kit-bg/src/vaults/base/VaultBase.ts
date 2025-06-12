@@ -60,6 +60,7 @@ import type {
   IEstimateGasResp,
   IFeeInfoUnit,
   IServerEstimateFeeResponse,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -437,6 +438,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     feeInfo?: IFeeInfoUnit;
   }) {
     return Promise.resolve(true);
+  }
+
+  async preActionsBeforeSending(params: {
+    unsignedTxs: IUnsignedTxPro[];
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
+  }): Promise<any> {
+    return Promise.resolve();
   }
 
   async buildEstimateFeeParams({

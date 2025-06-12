@@ -33,6 +33,11 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type {
+  IFeeInfoUnit,
+  IFeeTron,
+  ITronResourceRentalInfo,
+} from '@onekeyhq/shared/types/fee';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -860,5 +865,63 @@ export default class Vault extends VaultBase {
     }
 
     return transaction;
+  }
+
+  async _createResourceRentalOrder(params: {
+    tronResourceRentalInfo: ITronResourceRentalInfo;
+    feeInfo: IFeeTron;
+  }) {
+    const { tronResourceRentalInfo, feeInfo } = params;
+  }
+
+  async _uploadResourceRentalOrder(params: {
+    tronResourceRentalInfo: ITronResourceRentalInfo;
+    feeInfo: IFeeTron;
+  }) {
+    const { tronResourceRentalInfo, feeInfo } = params;
+  }
+
+  async _checkResourceRentalOrderStatus(params: {
+    tronResourceRentalInfo: ITronResourceRentalInfo;
+    feeInfo: IFeeTron;
+  }) {
+    const { tronResourceRentalInfo, feeInfo } = params;
+  }
+
+  override async preActionsBeforeSending(params: {
+    unsignedTxs: IUnsignedTxPro[];
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
+    feeInfo?: IFeeInfoUnit;
+  }) {
+    const { unsignedTxs, tronResourceRentalInfo, feeInfo } = params;
+
+    if (!tronResourceRentalInfo || !feeInfo?.feeTron) {
+      return;
+    }
+
+    const { isResourceRentalNeeded, isResourceRentalEnabled } =
+      tronResourceRentalInfo;
+
+    if (!isResourceRentalNeeded || !isResourceRentalEnabled) {
+      return;
+    }
+
+    try {
+      const rentalOrder = await this._createResourceRentalOrder({
+        tronResourceRentalInfo,
+        feeInfo: feeInfo.feeTron,
+      });
+      const uploadResult = await this._uploadResourceRentalOrder({
+        tronResourceRentalInfo,
+        feeInfo: feeInfo.feeTron,
+      });
+
+      await this._checkResourceRentalOrderStatus({
+        tronResourceRentalInfo,
+        feeInfo: feeInfo.feeTron,
+      });
+    } catch (e) {
+      console.log('createResourceRentalOrder error:', e);
+    }
   }
 }

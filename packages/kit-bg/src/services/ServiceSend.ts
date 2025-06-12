@@ -347,7 +347,7 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  public async updateUnSignedTxBeforeSend({
+  public async updateUnSignedTxBeforeSending({
     accountId,
     networkId,
     feeInfos: sendSelectedFeeInfos,
