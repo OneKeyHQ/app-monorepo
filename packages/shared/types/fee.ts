@@ -18,6 +18,13 @@ export enum ETronResourceRentalPayType {
   Token = 'token',
 }
 
+export type ITronResourceRentalInfo = {
+  payType: ETronResourceRentalPayType;
+  isResourceRentalNeeded: boolean;
+  isResourceRentalEnabled: boolean;
+  isSwapTrxEnabled: boolean;
+};
+
 export type IGasEIP1559 = {
   baseFeePerGas: string;
   maxFeePerGas: string;

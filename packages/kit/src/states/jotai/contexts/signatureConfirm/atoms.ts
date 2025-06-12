@@ -2,6 +2,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import {
   EFeeType,
@@ -157,12 +158,7 @@ export const { atom: extraFeeInfoAtom, use: useExtraFeeInfoAtom } =
 export const {
   atom: tronResourceRentalInfoAtom,
   use: useTronResourceRentalInfoAtom,
-} = contextAtom<{
-  payType: ETronResourceRentalPayType;
-  isResourceRentalNeeded: boolean;
-  isResourceRentalEnabled: boolean;
-  isSwapTrxEnabled: boolean;
-}>({
+} = contextAtom<ITronResourceRentalInfo>({
   payType: ETronResourceRentalPayType.Native,
   isResourceRentalNeeded: false,
   isResourceRentalEnabled: false,

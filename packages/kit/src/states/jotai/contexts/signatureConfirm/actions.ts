@@ -5,9 +5,9 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
   EFeeType,
   ESendFeeStatus,
-  ETronResourceRentalPayType,
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
@@ -201,16 +201,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
   );
 
   updateTronResourceRentalInfo = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        payType?: ETronResourceRentalPayType;
-        isResourceRentalNeeded?: boolean;
-        isResourceRentalEnabled?: boolean;
-        isSwapTrxEnabled?: boolean;
-      },
-    ) => {
+    (get, set, payload: Partial<ITronResourceRentalInfo>) => {
       set(tronResourceRentalInfoAtom(), {
         ...get(tronResourceRentalInfoAtom()),
         ...payload,
