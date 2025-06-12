@@ -7,6 +7,8 @@ import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -38,6 +40,7 @@ export interface IActionListItemProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   label: string;
+  extra?: ReactNode;
   description?: string;
   destructive?: boolean;
   onPress?: (close: () => void) => void | Promise<boolean | void>;
@@ -45,6 +48,7 @@ export interface IActionListItemProps {
   testID?: string;
   trackID?: string;
   shortcutKeys?: string[] | EShortcutEvents;
+  isLoading?: boolean;
 }
 
 // Duration to prevent rapid re-triggering of the action list
@@ -59,6 +63,7 @@ export function ActionListItem(
     icon,
     iconProps,
     label,
+    extra,
     description,
     onPress,
     destructive,
@@ -66,6 +71,7 @@ export function ActionListItem(
     onClose,
     testID,
     shortcutKeys,
+    isLoading,
   } = props;
 
   const handlePress = useCallback(
@@ -120,10 +126,10 @@ export function ActionListItem(
         //   outlineWidth: 2,
         // },
       })}
-      onPress={sharedOnPress}
+      onPress={isLoading ? undefined : sharedOnPress}
       testID={testID}
     >
-      <XStack jc="space-between" flex={1}>
+      <XStack jc="space-between" flex={1} alignItems="center">
         {icon ? (
           <Icon
             name={icon}
@@ -163,6 +169,7 @@ export function ActionListItem(
             </SizableText>
           ) : null}
         </YStack>
+        {isLoading ? <Spinner size="small" /> : extra}
       </XStack>
     </ButtonFrame>
   );
@@ -269,8 +276,8 @@ function BasicActionList({
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
       if (platformEnv.isDev && md && !estimatedContentHeight) {
-        throw new Error(
-          'estimatedContentHeight is required on Async rendering items',
+        throw new OneKeyLocalError(
+          'ActionList.estimatedContentHeight is required on Async rendering items',
         );
       }
       void (async () => {

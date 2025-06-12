@@ -2,6 +2,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { PublicKey } from '@onekeyfe/kaspa-core-lib';
 
 import { tweakPublicKey } from '@onekeyhq/core/src/secret/bip340';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 export enum EKaspaSignType {
   Schnorr = 'schnorr',
@@ -23,7 +24,7 @@ export function publicKeyFromX(odd: boolean, x: string): PublicKey {
 
 export function publicKeyFromOriginPubkey(pubkey: Buffer): PublicKey {
   const tweakPublic = tweakPublicKey(pubkey.subarray(1));
-  if (!tweakPublic) throw new Error('Public key tweak failed');
+  if (!tweakPublic) throw new OneKeyLocalError('Public key tweak failed');
   const { parity, x: xOnlyPubkey } = tweakPublic;
   return publicKeyFromX(parity === 0, bytesToHex(xOnlyPubkey));
 }

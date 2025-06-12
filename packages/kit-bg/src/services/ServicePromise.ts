@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -57,13 +58,13 @@ class ServicePromise extends ServiceBase {
   }: IPromiseContainerCallbackCreate): number {
     latestId += 1;
     if (latestId <= 0) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `PromiseContainer ERROR: callback id can NOT negative, id=${latestId}`,
       );
     }
     if (this.callbacks[latestId]) {
       // TODO custom error
-      throw new Error(
+      throw new OneKeyLocalError(
         `PromiseContainer ERROR: callback exists, id=${latestId}`,
       );
     }

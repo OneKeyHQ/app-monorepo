@@ -10,6 +10,7 @@ import type {
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
@@ -89,12 +90,12 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || !transfersInfo.length) {
-      throw new Error('transfersInfo is required');
+      throw new OneKeyLocalError('transfersInfo is required');
     }
     const transfer = transfersInfo[0];
     const tokenInfo = transfer.tokenInfo;
     if (!tokenInfo) {
-      throw new Error('tokenInfo is required');
+      throw new OneKeyLocalError('tokenInfo is required');
     }
 
     let amount = new BigNumber(transfer.amount)
@@ -271,6 +272,29 @@ export default class Vault extends VaultBase {
       ...params.unsignedTx,
       encodedTx,
     };
+  }
+
+  _checkIsNativeTransfer(encodedTx: IEncodedTxScdo) {
+    return encodedTx.Payload == null || encodedTx.Payload === '';
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxScdo | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
+    // try using value=0 to calculate native transfer gas limit to avoid maximum transfer failure.
+    if (this._checkIsNativeTransfer(encodedTx)) {
+      encodedTx.Amount = 0;
+    }
+
+    return Promise.resolve({
+      encodedTx,
+    });
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {

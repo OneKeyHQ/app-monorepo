@@ -7,13 +7,18 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Alert,
+  Button,
   InputUnControlled,
   SectionList,
+  SizableText,
   Stack,
+  Toast,
+  XStack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -21,6 +26,7 @@ import {
   useAccountSelectorEditModeAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
   IDBAccount,
   IDBDevice,
@@ -44,7 +50,6 @@ import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem
 import { AccountSelectorAddAccountButton } from './AccountSelectorAddAccountButton';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
-import { WalletOptions } from './WalletOptions';
 
 import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
 
@@ -67,6 +72,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const isEditableRouteParams = route.params?.editable;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
   const [searchText, setSearchText] = useState('');
+  const { createQrWallet } = useCreateQrWallet();
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     editMode,
@@ -352,8 +358,213 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   }, [focusedWalletInfo, isOthers]);
 
   // useCallback cause re-render when unmount, but useMemo not
-  const sectionListMemo = useMemo(
-    () => (
+  const sectionListMemo = useMemo(() => {
+    const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
+    let sectionListView: React.ReactNode | null = null;
+    const renderSectionListHeader = () => (
+      <Stack>
+        {isOthersUniversal ? null : (
+          <Stack
+            // TODO performance
+            onLayout={(e) => {
+              e?.persist?.();
+              handleLayoutCacheSet('header', () => handleLayoutForHeader(e));
+            }}
+          >
+            {/* <WalletOptions
+              wallet={focusedWalletInfo?.wallet}
+              device={focusedWalletInfo?.device}
+            /> */}
+          </Stack>
+        )}
+        {isDeprecatedWallet ? (
+          <Alert
+            type="warning"
+            title={intl.formatMessage({
+              id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
+            })}
+            icon="InfoCircleOutline"
+            borderRadius={0}
+            borderLeftWidth={0}
+            borderRightWidth={0}
+            px={20}
+          />
+        ) : null}
+        {!isMockedStandardHwWallet ? (
+          <XStack px="$5" py="$2" gap="$2">
+            <InputUnControlled
+              leftIconName="SearchOutline"
+              size="small"
+              allowClear
+              placeholder={intl.formatMessage({
+                id: ETranslations.global_search_account_selector,
+              })}
+              containerProps={{
+                flex: 1,
+                borderRadius: '$full',
+                bg: '$bgStrong',
+                borderColor: '$transparent',
+              }}
+              defaultValue={searchText}
+              onChangeText={handleSearch}
+            />
+            {editable ? (
+              <Button
+                testID="account-edit-button"
+                variant="tertiary"
+                alignSelf="flex-start"
+                $gtMd={{ top: '$0.5' }}
+                onPress={() => {
+                  setEditMode((v) => !v);
+                }}
+                {...(editMode && {
+                  color: '$textInteractive',
+                  icon: 'CheckLargeOutline',
+                  iconColor: '$iconSuccess',
+                })}
+              >
+                {editMode
+                  ? intl.formatMessage({ id: ETranslations.global_done })
+                  : intl.formatMessage({ id: ETranslations.global_edit })}
+              </Button>
+            ) : null}
+          </XStack>
+        ) : null}
+      </Stack>
+    );
+    if (isMockedStandardHwWallet) {
+      sectionListView = (
+        <Stack height="100%">
+          {renderSectionListHeader()}
+          <Stack flex={1} justifyContent="center" alignItems="center">
+            <SizableText size="$bodyLg">No standard wallet yet</SizableText>
+            {isEditableRouteParams ? (
+              <Button
+                mt="$6"
+                icon="PlusLargeOutline"
+                onPress={async () => {
+                  if (
+                    accountUtils.isQrWallet({
+                      walletId: focusedWalletInfo.wallet?.id,
+                    })
+                  ) {
+                    qrHiddenCreateGuideDialog.showDialogForCreatingStandardWallet(
+                      {
+                        onConfirm: () => {
+                          void createQrWallet({
+                            isOnboarding: true,
+                          });
+                        },
+                      },
+                    );
+                    return;
+                  }
+                  if (!focusedWalletInfo?.device?.featuresInfo) {
+                    Toast.error({
+                      title: 'Error',
+                      message: 'No device features found',
+                    });
+                    return;
+                  }
+
+                  await actions.current.createHWWalletWithoutHidden({
+                    device: focusedWalletInfo?.device,
+                    features: focusedWalletInfo?.device?.featuresInfo,
+                  });
+                }}
+              >
+                Standard Wallet
+              </Button>
+            ) : null}
+          </Stack>
+        </Stack>
+      );
+    } else if (listViewLayout.height) {
+      sectionListView = (
+        <SectionList
+          ref={listRef}
+          // TODO performance
+          onLayout={(e) => {
+            e?.persist?.();
+            handleLayoutCacheSet('list', () => handleLayoutForSectionList(e));
+          }}
+          estimatedItemSize={60}
+          initialScrollIndex={initialScrollIndex}
+          getItemLayout={getItemLayout}
+          keyExtractor={(item) =>
+            `${editable ? '1' : '0'}_${
+              (item as IDBIndexedAccount | IDBAccount).id
+            }`
+          }
+          ListEmptyComponent={<EmptyView />}
+          contentContainerStyle={{ pb: '$3' }}
+          extraData={[selectedAccount.indexedAccountId, editMode]}
+          // {...(wallet?.type !== 'others' && {
+          //   ListHeaderComponent: (
+          //     <WalletOptions editMode={editMode} wallet={wallet} />
+          //   ),
+          // })}
+          ListHeaderComponent={renderSectionListHeader()}
+          sections={sectionData ?? (emptyArray as any)}
+          renderSectionHeader={({
+            section,
+          }: {
+            section: IAccountSelectorAccountsListSectionData;
+          }) => (
+            <>
+              {/* If better performance is needed,  */
+              /*  a header component should be extracted and data updates should be subscribed to through context" */}
+              <EmptyNoAccountsView section={section} />
+              {/* No accounts */}
+            </>
+          )}
+          renderItem={({
+            item,
+            section,
+            index,
+          }: {
+            item: IDBIndexedAccount | IDBAccount;
+            section: IAccountSelectorAccountsListSectionData;
+            index: number;
+          }) => (
+            <AccountSelectorAccountListItem
+              num={num}
+              linkedNetworkId={linkedNetworkId}
+              item={item}
+              section={section}
+              index={index}
+              isOthersUniversal={isOthersUniversal}
+              selectedAccount={selectedAccount}
+              accountsValue={accountsValue}
+              linkNetwork={linkNetwork}
+              editMode={editMode}
+              accountsCount={accountsCount}
+              focusedWalletInfo={focusedWalletInfo}
+            />
+          )}
+          renderSectionFooter={({
+            section,
+          }: {
+            section: IAccountSelectorAccountsListSectionData;
+          }) =>
+            // editable mode and not searching, can add account
+            isEditableRouteParams && !searchText ? (
+              <AccountSelectorAddAccountButton
+                num={num}
+                isOthersUniversal={isOthersUniversal}
+                section={section}
+                focusedWalletInfo={focusedWalletInfo}
+              />
+            ) : null
+          }
+        />
+      );
+    }
+
+    return (
       <Stack
         flex={1}
         // TODO performance
@@ -369,168 +580,37 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           });
           return null;
         })()}
-        {listViewLayout.height ? (
-          <SectionList
-            ref={listRef}
-            // TODO performance
-            onLayout={(e) => {
-              e?.persist?.();
-              handleLayoutCacheSet('list', () => handleLayoutForSectionList(e));
-            }}
-            estimatedItemSize={60}
-            initialScrollIndex={initialScrollIndex}
-            getItemLayout={getItemLayout}
-            keyExtractor={(item) =>
-              `${editable ? '1' : '0'}_${
-                (item as IDBIndexedAccount | IDBAccount).id
-              }`
-            }
-            ListEmptyComponent={<EmptyView />}
-            contentContainerStyle={{ pb: '$3' }}
-            extraData={[selectedAccount.indexedAccountId, editMode]}
-            // {...(wallet?.type !== 'others' && {
-            //   ListHeaderComponent: (
-            //     <WalletOptions editMode={editMode} wallet={wallet} />
-            //   ),
-            // })}
-            ListHeaderComponent={
-              <Stack>
-                {isOthersUniversal ? null : (
-                  <Stack
-                    // TODO performance
-                    onLayout={(e) => {
-                      e?.persist?.();
-                      handleLayoutCacheSet('header', () =>
-                        handleLayoutForHeader(e),
-                      );
-                    }}
-                  >
-                    <WalletOptions
-                      wallet={focusedWalletInfo?.wallet}
-                      device={focusedWalletInfo?.device}
-                    />
-                  </Stack>
-                )}
-                {isDeprecatedWallet ? (
-                  <Alert
-                    type="warning"
-                    title={intl.formatMessage({
-                      id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
-                    })}
-                    description={intl.formatMessage({
-                      id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
-                    })}
-                    icon="InfoCircleOutline"
-                    borderRadius={0}
-                    borderLeftWidth={0}
-                    borderRightWidth={0}
-                    px={20}
-                  />
-                ) : null}
-                {accountsCount && accountsCount > 0 ? (
-                  <Stack px="$5" py="$2">
-                    <InputUnControlled
-                      leftIconName="SearchOutline"
-                      size="small"
-                      allowClear
-                      placeholder={intl.formatMessage({
-                        id: ETranslations.global_search_account_selector,
-                      })}
-                      containerProps={{
-                        w: '100%',
-                        borderRadius: '$full',
-                        bg: '$bgStrong',
-                        borderColor: '$transparent',
-                      }}
-                      defaultValue={searchText}
-                      onChangeText={handleSearch}
-                    />
-                  </Stack>
-                ) : null}
-              </Stack>
-            }
-            sections={sectionData ?? (emptyArray as any)}
-            renderSectionHeader={({
-              section,
-            }: {
-              section: IAccountSelectorAccountsListSectionData;
-            }) => (
-              <>
-                {/* If better performance is needed,  */
-                /*  a header component should be extracted and data updates should be subscribed to through context" */}
-                <EmptyNoAccountsView section={section} />
-                {/* No accounts */}
-              </>
-            )}
-            renderItem={({
-              item,
-              section,
-              index,
-            }: {
-              item: IDBIndexedAccount | IDBAccount;
-              section: IAccountSelectorAccountsListSectionData;
-              index: number;
-            }) => (
-              <AccountSelectorAccountListItem
-                num={num}
-                linkedNetworkId={linkedNetworkId}
-                item={item}
-                section={section}
-                index={index}
-                isOthersUniversal={isOthersUniversal}
-                selectedAccount={selectedAccount}
-                accountsValue={accountsValue}
-                linkNetwork={linkNetwork}
-                editMode={editMode}
-                accountsCount={accountsCount}
-                focusedWalletInfo={focusedWalletInfo}
-              />
-            )}
-            renderSectionFooter={({
-              section,
-            }: {
-              section: IAccountSelectorAccountsListSectionData;
-            }) =>
-              // editable mode and not searching, can add account
-              isEditableRouteParams && !searchText ? (
-                <AccountSelectorAddAccountButton
-                  num={num}
-                  isOthersUniversal={isOthersUniversal}
-                  section={section}
-                  focusedWalletInfo={focusedWalletInfo}
-                />
-              ) : null
-            }
-          />
-        ) : null}
+        {sectionListView}
       </Stack>
-    ),
-    [
-      accountsCount,
-      accountsValue,
-      editMode,
-      editable,
-      focusedWalletInfo,
-      getItemLayout,
-      handleLayoutCacheSet,
-      handleLayoutForContainer,
-      handleLayoutForHeader,
-      handleLayoutForSectionList,
-      handleSearch,
-      initialScrollIndex,
-      intl,
-      isEditableRouteParams,
-      isOthersUniversal,
-      linkNetwork,
-      linkedNetworkId,
-      listViewLayout.height,
-      num,
-      searchText,
-      sectionData,
-      selectedAccount,
-      isDeprecatedWallet,
-    ],
-  );
+    );
+  }, [
+    accountsCount,
+    accountsValue,
+    actions,
+    createQrWallet,
+    editMode,
+    editable,
+    focusedWalletInfo,
+    getItemLayout,
+    handleLayoutCacheSet,
+    handleLayoutForContainer,
+    handleLayoutForHeader,
+    handleLayoutForSectionList,
+    handleSearch,
+    initialScrollIndex,
+    intl,
+    isDeprecatedWallet,
+    isEditableRouteParams,
+    isOthersUniversal,
+    linkNetwork,
+    linkedNetworkId,
+    listViewLayout.height,
+    num,
+    searchText,
+    sectionData,
+    selectedAccount,
+    setEditMode,
+  ]);
 
   // Used to find out which deps cause redraws by binary search
   const sectionListMemoMock = useMemo(() => {
@@ -594,9 +674,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         editable={editable}
         linkedNetworkId={linkedNetworkId}
         num={num}
-        onEditButtonPress={() => {
-          setEditMode((v) => !v);
-        }}
         {...(!editMode && {
           title,
         })}

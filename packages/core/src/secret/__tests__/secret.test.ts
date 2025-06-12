@@ -6,6 +6,7 @@ import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   IncorrectPassword,
   InvalidMnemonic,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -474,7 +475,7 @@ describe('Secret Module Tests', () => {
         await mnemonicToSeedAsync({
           mnemonic: 'invalid mnemonic',
         });
-        throw new Error('Should have thrown');
+        throw new OneKeyLocalError('Should have thrown');
       } catch (error) {
         expect(error).toBeDefined();
       }

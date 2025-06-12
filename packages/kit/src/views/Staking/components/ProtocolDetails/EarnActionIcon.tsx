@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -197,12 +197,18 @@ function BasicClaimActionIcon({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: tokenInfo?.networkId || '',
   });
+  const [loading, setLoading] = useState(false);
   return (
     <Button
       size="small"
       variant="primary"
-      disabled={actionIcon?.disabled}
+      loading={loading}
+      disabled={loading || actionIcon?.disabled}
       onPress={async () => {
+        setLoading(true);
+        setTimeout(() => {
+          setLoading(false);
+        }, 10 * 1000);
         const claimAmount =
           protocolInfo?.claimable || actionIcon.data?.balance || '0';
         const isMorphoClaim = !!(
@@ -212,6 +218,7 @@ function BasicClaimActionIcon({
           })
         );
         await handleClaim({
+          claimType: actionIcon.type,
           symbol: protocolInfo?.symbol || '',
           protocolInfo,
           tokenInfo: tokenInfo
@@ -236,6 +243,7 @@ function BasicClaimActionIcon({
             tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
           },
         });
+        setLoading(false);
       }}
     >
       {typeof actionIcon.text === 'string'

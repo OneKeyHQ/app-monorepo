@@ -15,7 +15,7 @@ import type {
   ITransferPayload,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
@@ -180,7 +180,9 @@ function useSignatureConfirm(params: IParams) {
 
       const { transfersInfo } = params;
       if (!transfersInfo?.length || transfersInfo?.length > 1) {
-        throw new Error('Only one transfer is supported for lightning send');
+        throw new OneKeyLocalError(
+          'Only one transfer is supported for lightning send',
+        );
       }
       const [transferInfo] = transfersInfo;
       const { to: toVal } = transferInfo;
@@ -226,7 +228,7 @@ function useSignatureConfirm(params: IParams) {
               });
               break;
             default:
-              throw new Error('Unsupported LNURL tag');
+              throw new OneKeyLocalError('Unsupported LNURL tag');
           }
           return;
         }
@@ -337,7 +339,7 @@ function useSignatureConfirm(params: IParams) {
           onFail: (error) => reject(error),
           onCancel: () =>
             reject(
-              new OneKeyPlainTextError(
+              new OneKeyLocalError(
                 intl.formatMessage({
                   id: ETranslations.feedback_user_rejected,
                 }),

@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -207,7 +208,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async getAddressFromPublic(): Promise<ICoreApiGetAddressItem> {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Method not implemented. use getAddressFromPrivate instead.',
     );
   }
@@ -271,7 +272,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
 
     if (keyType === ECoreApiExportedSecretKeyType.xprvt) {
@@ -291,6 +292,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       }
     }
 
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 }

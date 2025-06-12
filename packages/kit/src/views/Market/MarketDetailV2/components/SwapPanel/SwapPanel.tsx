@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -8,8 +6,10 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, useMedia } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { SwapTestPanel } from './components/SwapTestPanel';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
@@ -25,6 +25,8 @@ export type ISwapPanelProps = {
 
 export function SwapPanel(props: ISwapPanelProps) {
   const { networkId: networkIdProp, tokenDetail } = props;
+
+  console.log('networkIdProp, tokenDetail', networkIdProp, tokenDetail);
   const intl = useIntl();
   const media = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -45,16 +47,7 @@ export function SwapPanel(props: ISwapPanelProps) {
   const { isLoading, speedConfig, supportSpeedSwap, defaultTokens, provider } =
     useSpeedSwapInit(networkIdProp ?? '');
 
-  const {
-    speedSwapBuildTx,
-    speedSwapBuildTxLoading,
-    checkTokenAllowanceLoading,
-    speedSwapApproveHandler,
-    speedSwapApproveLoading,
-    shouldApprove,
-    balance,
-    balanceToken,
-  } = useSpeedSwapActions({
+  const useSpeedSwapActionsParams = {
     slippage,
     spenderAddress: speedConfig.spenderAddress,
     marketToken: {
@@ -77,7 +70,21 @@ export function SwapPanel(props: ISwapPanelProps) {
     tradeType: tradeType ?? ESwapDirection.BUY,
     account: activeAccount,
     fromTokenAmount: paymentAmount.toFixed(),
-  });
+  };
+
+  const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
+
+  const {
+    speedSwapBuildTx,
+    speedSwapBuildTxLoading,
+    checkTokenAllowanceLoading,
+    speedSwapApproveHandler,
+    speedSwapApproveLoading,
+    shouldApprove,
+    balance,
+    balanceToken,
+    fetchBalanceLoading,
+  } = speedSwapActions;
 
   useEffect(() => {
     if (defaultTokens.length > 0 && !paymentToken) {
@@ -153,5 +160,18 @@ export function SwapPanel(props: ISwapPanelProps) {
     );
   }
 
-  return swapPanelContent;
+  return (
+    <>
+      {swapPanelContent}
+
+      {/* Test - Only in Dev Mode */}
+      {platformEnv.isDev ? (
+        <SwapTestPanel
+          useSpeedSwapActionsParams={useSpeedSwapActionsParams}
+          speedSwapActions={speedSwapActions}
+          swapPanel={swapPanel}
+        />
+      ) : null}
+    </>
+  );
 }
