@@ -268,15 +268,32 @@ const SettingsConfig = [
         },
       ],
       [
-        !platformEnv.isWeb ? {
-          icon: 'RefreshCcwOutline',
-          translationId: ETranslations.settings_account_sync_modal_title,
-          navigateTo: EModalSettingRoutes.SettingCustomNetwork,
-        } : undefined,
+        !platformEnv.isWeb
+          ? {
+              icon: 'RefreshCcwOutline',
+              translationId: ETranslations.settings_account_sync_modal_title,
+              navigateTo: EModalSettingRoutes.SettingAlignPrimaryAccount,
+            }
+          : undefined,
+        {
+          icon: 'LabOutline',
+          translationId: ETranslations.global_customize_transaction,
+          navigateTo: EModalSettingRoutes.SettingCustomTransaction,
+        },
       ].filter(Boolean),
       [
-        
+        {
+          icon: 'BranchesOutline',
+          translationId: ETranslations.settings_account_derivation_path,
+          navigateTo: EModalSettingRoutes.SettingAccountDerivationModal,
+        },
+      ],
     ],
+  },
+  {
+    icon: 'Shield2CheckSolid',
+    translationId: ETranslations.global_security,
+    configs: [[{}]],
   },
 ];
 
