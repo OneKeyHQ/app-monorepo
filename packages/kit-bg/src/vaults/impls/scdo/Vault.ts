@@ -274,6 +274,29 @@ export default class Vault extends VaultBase {
     };
   }
 
+  _checkIsNativeTransfer(encodedTx: IEncodedTxScdo) {
+    return encodedTx.Payload == null || encodedTx.Payload === '';
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxScdo | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
+    // try using value=0 to calculate native transfer gas limit to avoid maximum transfer failure.
+    if (this._checkIsNativeTransfer(encodedTx)) {
+      encodedTx.Amount = 0;
+    }
+
+    return Promise.resolve({
+      encodedTx,
+    });
+  }
+
   override async validateAddress(address: string): Promise<IAddressValidation> {
     // from https://github.com/SCDOLAB/scdo.js/blob/88059eb9e0d527cd80715206745c55fb88e3bddd/src/utils.js#L304
     return {

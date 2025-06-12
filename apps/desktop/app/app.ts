@@ -64,7 +64,7 @@ initSentry();
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
-const APP_NAME = 'OneKey Wallet';
+const APP_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
