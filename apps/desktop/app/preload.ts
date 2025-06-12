@@ -22,7 +22,11 @@ import type {
 
 import { ipcMessageKeys } from './config';
 
-import type { IDesktopIAPGetProductsResult, IDesktopIAPGetProductsParams, IDesktopSystemInfo } from './config';
+import type {
+  IDesktopIAPGetProductsParams,
+  IDesktopIAPGetProductsResult,
+  IDesktopSystemInfo,
+} from './config';
 import type { IMacBundleInfo } from './libs/utils';
 
 export interface IVerifyUpdateParams {
@@ -466,7 +470,7 @@ const desktopApi = Object.freeze({
     ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
-  iapGetProducts: (params: IDesktopIAPGetProductsParams) =>
+  iapGetProducts: async (params: IDesktopIAPGetProductsParams) =>
     ipcRenderer.sendSync(ipcMessageKeys.IAP_GET_PRODUCTS, params),
 });
 

@@ -3,6 +3,7 @@ import { inAppPurchase, ipcMain } from 'electron';
 import type { IDesktopSubModuleInitParams } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
+import { getMacAppId } from './libs/utils';
 
 import type {
   IDesktopIAPGetProductsParams,
@@ -41,18 +42,27 @@ function init(_initParams: IDesktopSubModuleInitParams) {
         const products: Electron.Product[] = await inAppPurchase.getProducts(
           apiParams.productIDs,
         );
+        // get app bundleId
+        const bundleId = getMacAppId();
+        console.log('App Bundle ID:', bundleId);
+
         const result: IDesktopIAPGetProductsResult = {
+          bundleId,
           canMakePayments,
           products,
+          productIDs: apiParams.productIDs,
         };
-        return event.reply(ipcMessageKeys.IAP_GET_PRODUCTS, result);
+        event.returnValue = result;
+        return;
       }
 
       const result: IDesktopIAPGetProductsResult = {
+        bundleId: '',
         canMakePayments: false,
         products: [],
+        productIDs: [],
       };
-      return event.reply(ipcMessageKeys.IAP_GET_PRODUCTS, result);
+      event.returnValue = result;
     },
   );
 }

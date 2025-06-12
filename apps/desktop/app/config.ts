@@ -22,7 +22,9 @@ export type IDesktopIAPGetProductsParams = {
   productIDs: string[];
 };
 export type IDesktopIAPGetProductsResult = {
+  bundleId: string;
   canMakePayments: boolean;
+  productIDs: string[];
   products: Electron.Product[];
 };
 
