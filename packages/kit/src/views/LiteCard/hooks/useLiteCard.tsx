@@ -69,12 +69,21 @@ export default function useLiteCard() {
 
           const createSetMnemonicConnection = nfc.createNFCConnection(
             async () => {
+              defaultLogger.hardware.liteCard.log(
+                'connected lite setMnemonic',
+                oldCard,
+              );
               const { error: newError, cardInfo: newCard } =
                 await LiteCard.setMnemonic(
                   encodeMnemonic,
                   pin.current,
                   !isNewCard,
                 );
+              defaultLogger.hardware.liteCard.log(
+                'setMnemonic result',
+                newCard,
+                newError,
+              );
               await nfc.handlerLiteCardError({
                 error: newError,
                 cardInfo: newCard,
@@ -129,6 +138,11 @@ export default function useLiteCard() {
       const createGetMnemonicConnection = nfc.createNFCConnection(async () => {
         const { error, data, cardInfo } = await LiteCard.getMnemonicWithPin(
           pin.current,
+        );
+        defaultLogger.hardware.liteCard.log(
+          'getMnemonicWithPin result',
+          cardInfo,
+          error,
         );
         await nfc.handlerLiteCardError({
           error,
@@ -223,6 +237,7 @@ export default function useLiteCard() {
     await showResetWarningDialog();
     const createResetConnection = nfc.createNFCConnection(async () => {
       const { error, cardInfo } = await LiteCard.reset();
+      defaultLogger.hardware.liteCard.log('reset result', cardInfo, error);
       await nfc.handlerLiteCardError({
         error,
         cardInfo,
