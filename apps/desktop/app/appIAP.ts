@@ -1,6 +1,13 @@
-import { inAppPurchase } from 'electron';
+import { inAppPurchase, ipcMain } from 'electron';
 
 import type { IDesktopSubModuleInitParams } from '@onekeyhq/shared/types/desktop';
+
+import { ipcMessageKeys } from './config';
+
+import type {
+  IDesktopIAPGetProductsParams,
+  IDesktopIAPGetProductsResult,
+} from './config';
 
 async function testIAP() {
   const canMakePayments = inAppPurchase.canMakePayments();
@@ -15,31 +22,39 @@ async function testIAP() {
     'so.onekey.wallet.Prime_Yearly',
     'so.onekey.wallet.Prime_Monthly',
   ];
-  const products = await inAppPurchase.getProducts(productIDs);
+  const products: Electron.Product[] = await inAppPurchase.getProducts(
+    productIDs,
+  );
   console.log('inAppPurchase___products', products);
   console.log('inAppPurchase___products.length', products.length);
 }
 
 function init(_initParams: IDesktopSubModuleInitParams) {
-  setTimeout(() => {
-    void testIAP();
-  }, 5000);
+  ipcMain.on(
+    ipcMessageKeys.IAP_GET_PRODUCTS,
+    async (event, apiParams: IDesktopIAPGetProductsParams) => {
+      if (process.env.NODE_ENV !== 'production') {
+        void testIAP();
+      }
+      if (process.platform === 'darwin') {
+        const canMakePayments = inAppPurchase.canMakePayments();
+        const products: Electron.Product[] = await inAppPurchase.getProducts(
+          apiParams.productIDs,
+        );
+        const result: IDesktopIAPGetProductsResult = {
+          canMakePayments,
+          products,
+        };
+        return event.reply(ipcMessageKeys.IAP_GET_PRODUCTS, result);
+      }
 
-  // ipcMain.on(
-  //   ipcMessageKeys.APP_DEV_ONLY_API,
-  //   (event, apiParams: IDesktopMainProcessDevOnlyApiParams) => {
-  //     if (process.env.NODE_ENV !== 'production') {
-  //       const { module, method, params } = apiParams;
-  //       console.log('call APP_DEV_ONLY_API::', module, method, params);
-  //       if (module === 'shell') {
-  //         // @ts-ignore
-  //         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  //         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  //         shell[method](...params);
-  //       }
-  //     }
-  //   },
-  // );
+      const result: IDesktopIAPGetProductsResult = {
+        canMakePayments: false,
+        products: [],
+      };
+      return event.reply(ipcMessageKeys.IAP_GET_PRODUCTS, result);
+    },
+  );
 }
 
 export default {
