@@ -923,12 +923,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
+          const shouldCreateHiddenWalletOnly = Boolean(
+            params?.features?.passphrase_protection,
+          );
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               {
                 ...params,
-                isMockedStandardHwWallet: true,
+                isMockedStandardHwWallet: shouldCreateHiddenWalletOnly,
                 skipDeviceCancel: true,
               },
               {
@@ -943,7 +946,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               }
             | undefined;
           // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
-          if (device && device.featuresInfo?.passphrase_protection) {
+          if (device && shouldCreateHiddenWalletOnly) {
             // wait previous action done, wait device ready
             if (!params.hideCheckingDeviceLoading) {
               await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
