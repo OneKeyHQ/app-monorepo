@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '../../errors';
+import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 import bufferUtils from '../../utils/bufferUtils';
 import { ALLOW_USE_WEB_CRYPTO_SUBTLE } from '../consts';
@@ -17,10 +17,10 @@ function _keyFromPasswordAndSaltCheck({
   salt: Buffer;
 }) {
   if (!password || password.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length password is not supported');
+    throw new OneKeyLocalError('Zero-length password is not supported');
   }
   if (!salt || salt.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length salt is not supported');
+    throw new OneKeyLocalError('Zero-length salt is not supported');
   }
 }
 

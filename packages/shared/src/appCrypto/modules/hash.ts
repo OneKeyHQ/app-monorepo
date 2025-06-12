@@ -20,7 +20,7 @@ import { has } from 'lodash';
 import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OneKeyPlainTextError } from '../../errors';
+import { OneKeyLocalError } from '../../errors';
 import bufferUtils from '../../utils/bufferUtils';
 import { ALLOW_USE_WEB_CRYPTO_SUBTLE } from '../consts';
 import { runAppCryptoTestTask } from '../utils';
@@ -78,10 +78,10 @@ function hmacSHA256ByNodeCrypto(key: Buffer, data: Buffer): Buffer {
 
 function _hmacSHA256Check(key: Buffer, data: Buffer) {
   if (!key || key.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length key is not supported');
+    throw new OneKeyLocalError('Zero-length key is not supported');
   }
   if (!data || data.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length data is not supported');
+    throw new OneKeyLocalError('Zero-length data is not supported');
   }
 }
 
@@ -157,10 +157,10 @@ function hmacSHA512ByNodeCrypto(key: Buffer, data: Buffer): Buffer {
 
 function _hmacSHA512Check(key: Buffer, data: Buffer) {
   if (!key || key.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length key is not supported');
+    throw new OneKeyLocalError('Zero-length key is not supported');
   }
   if (!data || data.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length data is not supported');
+    throw new OneKeyLocalError('Zero-length data is not supported');
   }
 }
 
@@ -207,7 +207,7 @@ function sha256ByAsmcrypto(data: Buffer): Buffer {
     .process(data)
     .finish().result;
   if (!result) {
-    throw new OneKeyPlainTextError('Failed to hash data by Sha256ByAsmcrypto');
+    throw new OneKeyLocalError('Failed to hash data by Sha256ByAsmcrypto');
   }
   return Buffer.from(result);
 }
@@ -222,7 +222,7 @@ function sha256ByNodeCrypto(data: Buffer): Buffer {
 
 function _sha256Check(data: Buffer) {
   if (!data || data.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length data is not supported');
+    throw new OneKeyLocalError('Zero-length data is not supported');
   }
 }
 
@@ -270,7 +270,7 @@ function sha512ByAsmcrypto(data: Buffer): Buffer {
     .process(data)
     .finish().result;
   if (!result) {
-    throw new OneKeyPlainTextError('Failed to hash data by Sha256ByAsmcrypto');
+    throw new OneKeyLocalError('Failed to hash data by Sha256ByAsmcrypto');
   }
   return Buffer.from(result);
 }
@@ -285,7 +285,7 @@ function sha512ByNodeCrypto(data: Buffer): Buffer {
 
 function _sha512Check(data: Buffer) {
   if (!data || data.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length data is not supported');
+    throw new OneKeyLocalError('Zero-length data is not supported');
   }
 }
 
@@ -314,10 +314,10 @@ async function sha512(data: Buffer): Promise<Buffer> {
 // #region sha512Pro
 function _sha512ProCheck(params: ISha512Params) {
   if (!params.data) {
-    throw new OneKeyPlainTextError('data is required');
+    throw new OneKeyLocalError('data is required');
   }
   if (!params.iterations || params.iterations < 1) {
-    throw new OneKeyPlainTextError('iterations must be greater than 0');
+    throw new OneKeyLocalError('iterations must be greater than 0');
   }
 }
 
@@ -455,7 +455,7 @@ function hash160ByNodeCrypto(data: Buffer): Buffer {
 
 function _hash160Check(data: Buffer) {
   if (!data || data.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length data is not supported');
+    throw new OneKeyLocalError('Zero-length data is not supported');
   }
 }
 

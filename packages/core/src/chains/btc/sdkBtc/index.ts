@@ -97,18 +97,14 @@ export function tweakSigner(
   // new Uint8Array(privKey.buffer) return 8192 length on NODE.js 20
   let privateKey: Uint8Array | null = new Uint8Array(privKey);
   if (!privateKey) {
-    throw new OneKeyLocalError(
-      'Private key is required for tweaking signer!',
-    );
+    throw new OneKeyLocalError('Private key is required for tweaking signer!');
   }
   if (publicKey[0] === 3) {
     privateKey = ecc.privateNegate(privateKey);
   }
 
   if (!privateKey) {
-    throw new OneKeyLocalError(
-      'Private key is required for tweaking signer!',
-    );
+    throw new OneKeyLocalError('Private key is required for tweaking signer!');
   }
 
   if (opts.needTweak) {

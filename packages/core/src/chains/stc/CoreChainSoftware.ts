@@ -6,10 +6,7 @@ import {
   utils,
 } from '@starcoin/starcoin';
 
-import {
-  NotImplemented,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 

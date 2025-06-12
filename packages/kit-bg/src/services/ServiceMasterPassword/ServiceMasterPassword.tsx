@@ -398,9 +398,7 @@ class ServiceMasterPassword extends ServiceBase {
     }
     const primeUserId = serverUserInfo?.userId;
     if (!primeUserId) {
-      throw new OneKeyLocalError(
-        'FetchPrimeUserInfo ERROR: No primeUserId',
-      );
+      throw new OneKeyLocalError('FetchPrimeUserInfo ERROR: No primeUserId');
     }
 
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
@@ -584,9 +582,7 @@ class ServiceMasterPassword extends ServiceBase {
     }
     const primeUserId = serverUserInfo?.userId;
     if (!primeUserId) {
-      throw new OneKeyLocalError(
-        'FetchPrimeUserInfo ERROR: No primeUserId',
-      );
+      throw new OneKeyLocalError('FetchPrimeUserInfo ERROR: No primeUserId');
     }
 
     const serverPasswordUUID = serverUserInfo?.pwdHash;
@@ -654,9 +650,7 @@ class ServiceMasterPassword extends ServiceBase {
       );
     }
     if (!accountSalt) {
-      throw new OneKeyLocalError(
-        'verifyServerMasterPassword ERROR: No salt',
-      );
+      throw new OneKeyLocalError('verifyServerMasterPassword ERROR: No salt');
     }
     if (!primeUserId) {
       throw new OneKeyLocalError(
@@ -742,9 +736,7 @@ class ServiceMasterPassword extends ServiceBase {
           },
         );
       if (!localItem) {
-        throw new OneKeyLocalError(
-          'verifyMasterPassword ERROR: No local item',
-        );
+        throw new OneKeyLocalError('verifyMasterPassword ERROR: No local item');
       }
 
       const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
@@ -1133,9 +1125,7 @@ class ServiceMasterPassword extends ServiceBase {
           primeUserId,
         });
         if (!securityPasswordR1) {
-          throw new OneKeyLocalError(
-            'Failed to decrypt securityPasswordR1',
-          );
+          throw new OneKeyLocalError('Failed to decrypt securityPasswordR1');
         }
         return {
           securityPasswordR1,

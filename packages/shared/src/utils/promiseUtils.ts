@@ -116,9 +116,7 @@ export async function waitForDataLoaded({
   }
   clearTimeout(timer);
   if (timeoutReject) {
-    throw new OneKeyLocalError(
-      `waitForDataLoaded: ${logName ?? ''} timeout`,
-    );
+    throw new OneKeyLocalError(`waitForDataLoaded: ${logName ?? ''} timeout`);
   }
 }
 

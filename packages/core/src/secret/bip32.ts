@@ -2,7 +2,7 @@
 // eslint-disable-next-line max-classes-per-file
 import BigNumber from 'bignumber.js';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { hmacSHA512, hmacSHA512Sync } from './hash';
 
@@ -131,7 +131,7 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
 
     // Throw error immediately instead of retrying
     // This ensures deterministic relationship between seed and master key
-    throw new OneKeyPlainTextError('Invalid master key generated from seed');
+    throw new OneKeyLocalError('Invalid master key generated from seed');
   }
 
   async generateMasterKeyFromSeedAsync(
@@ -152,7 +152,7 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
 
     // Throw error immediately instead of retrying
     // This ensures deterministic relationship between seed and master key
-    throw new OneKeyPlainTextError('Invalid master key generated from seed');
+    throw new OneKeyLocalError('Invalid master key generated from seed');
   }
 
   N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey {

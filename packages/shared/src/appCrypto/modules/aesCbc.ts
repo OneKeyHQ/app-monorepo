@@ -9,7 +9,7 @@ import { AES_CBC as AsmcryptoAesCbc } from 'asmcrypto.js';
 import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OneKeyPlainTextError } from '../../errors';
+import { OneKeyLocalError } from '../../errors';
 import bufferUtils from '../../utils/bufferUtils';
 import { ALLOW_USE_WEB_CRYPTO_SUBTLE } from '../consts';
 import { runAppCryptoTestTask } from '../utils';
@@ -23,13 +23,13 @@ type IAesCbcInvokeParams = {
 };
 function _aesCbcInvokeCheck({ iv, key, data }: IAesCbcInvokeParams) {
   if (!iv || iv.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length iv is not supported');
+    throw new OneKeyLocalError('Zero-length iv is not supported');
   }
   if (!key || key.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length key is not supported');
+    throw new OneKeyLocalError('Zero-length key is not supported');
   }
   if (!data || data.length <= 0) {
-    throw new OneKeyPlainTextError('Zero-length data is not supported');
+    throw new OneKeyLocalError('Zero-length data is not supported');
   }
 }
 
@@ -156,7 +156,7 @@ async function aesCbcDecryptByRNAes({
     'aes-256-cbc',
   );
   if (!decrypted || decrypted?.length <= 0) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'aesCbcDecryptByRNAes ERROR: decrypted data is empty',
     );
   }
@@ -166,7 +166,7 @@ async function aesCbcDecryptByRNAes({
   // verify the key is correct by encrypting the buffer with the key and iv
   const r = await aesCbcEncryptByRNAes({ iv, key, data: buffer });
   if (bufferUtils.bytesToHex(r) !== bufferUtils.bytesToHex(data)) {
-    throw new OneKeyPlainTextError('aesCbcDecryptByRNAes ERROR: wrong AES key');
+    throw new OneKeyLocalError('aesCbcDecryptByRNAes ERROR: wrong AES key');
   }
 
   return buffer;

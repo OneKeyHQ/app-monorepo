@@ -207,9 +207,7 @@ export async function buildPsbt({
         case EAddressEncodings.P2PKH: {
           if (isInputMixin) {
             if (!txid) {
-              throw new OneKeyLocalError(
-                'txid is required for p2pkh input',
-              );
+              throw new OneKeyLocalError('txid is required for p2pkh input');
             }
             const nonWitnessPrevTxs = checkIsDefined(
               btcExtraInfo?.nonWitnessPrevTxs,

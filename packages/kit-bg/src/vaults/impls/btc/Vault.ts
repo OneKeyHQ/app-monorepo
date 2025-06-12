@@ -696,9 +696,7 @@ export default class VaultBtc extends VaultBase {
     if (encoding) {
       return getCoinSelectTxType(encoding);
     }
-    throw new OneKeyLocalError(
-      'getCoinSelectTxType ERROR: Invalid encoding',
-    );
+    throw new OneKeyLocalError('getCoinSelectTxType ERROR: Invalid encoding');
   }
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -929,9 +927,7 @@ export default class VaultBtc extends VaultBase {
 
     // transfer output + maybe opReturn output
     if (!isBatchTransfer && outputsForCoinSelect.length > 2) {
-      throw new OneKeyLocalError(
-        'single transfer should only have one output',
-      );
+      throw new OneKeyLocalError('single transfer should only have one output');
     }
     const btcForkNetwork = await this.getBtcForkNetwork();
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
