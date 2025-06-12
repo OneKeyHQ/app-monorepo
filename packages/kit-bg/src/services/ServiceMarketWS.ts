@@ -1,7 +1,6 @@
 import { io } from 'socket.io-client';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -97,7 +96,8 @@ class ServiceMarketWS extends ServiceBase {
     tokenAddress: string;
   }) {
     if (!this.socket?.connected) {
-      throw new OneKeyPlainTextError('WebSocket not connected');
+      console.error('WebSocket not connected');
+      return;
     }
 
     const subscriptionKey = `${EChannel.tokenTxs}-${networkId}-${tokenAddress}`;
@@ -131,7 +131,8 @@ class ServiceMarketWS extends ServiceBase {
     tokenAddress: string;
   }) {
     if (!this.socket?.connected) {
-      throw new OneKeyPlainTextError('WebSocket not connected');
+      console.error('WebSocket not connected');
+      return;
     }
 
     const subscriptionKey = `${EChannel.ohlcv}-${networkId}-${tokenAddress}`;
