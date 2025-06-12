@@ -1,5 +1,7 @@
 import elliptic from 'elliptic';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import type { BNInput, SignatureInput } from 'elliptic';
 
 // eslint-disable-next-line new-cap
@@ -13,7 +15,7 @@ class HashKeySigner {
   constructor(keyHex: string) {
     this.keyHex = keyHex;
     if (!keyHex) {
-      throw new Error('Invalid key');
+      throw new OneKeyLocalError('Invalid key');
     }
     this.sk = ec.keyFromPrivate(Buffer.from(keyHex, 'hex'));
   }
@@ -28,7 +30,7 @@ class HashKeySigner {
 
   sign(message: string | Uint8Array) {
     if (!message) {
-      throw new Error('Invalid message');
+      throw new OneKeyLocalError('Invalid message');
     }
     return this.sk.sign(message, { canonical: true });
   }

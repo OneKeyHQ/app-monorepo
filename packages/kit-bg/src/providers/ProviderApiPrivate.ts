@@ -8,6 +8,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -291,7 +292,7 @@ class ProviderApiPrivate extends ProviderApiBase {
         },
       };
     }
-    throw new Error('Invalid request');
+    throw new OneKeyLocalError('Invalid request');
   }
 
   /*
@@ -439,7 +440,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       );
       return;
     }
-    throw new Error('Invalid request');
+    throw new OneKeyLocalError('Invalid request');
   }
 
   @providerApiMethod()
@@ -499,7 +500,9 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   async callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     if (!platformEnv.isNative) {
-      throw new Error('call webembed api only support native env');
+      throw new OneKeyLocalError(
+        'call webembed api only support native env',
+      );
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 
@@ -516,12 +519,12 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
 
     if (!bg?.webEmbedBridge?.request) {
-      throw new Error('webembed webview bridge not ready.');
+      throw new OneKeyLocalError('webembed webview bridge not ready.');
     }
 
     const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
     if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `callWebEmbedApiProxy not allowed origin: ${
           webviewOrigin || 'undefined'
         }`,

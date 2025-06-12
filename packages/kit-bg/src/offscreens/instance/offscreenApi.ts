@@ -1,6 +1,7 @@
 /* eslint-disable new-cap */
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { buildCallRemoteApiMethod } from '../../apis/RemoteApiProxyBase';
@@ -41,7 +42,9 @@ const createOffscreenApiModule = memoizee(
       case 'kaspaSdk':
         return new (await import('../OffscreenApiKaspaSdk')).default();
       default:
-        throw new Error(`Unknown offscreen API module: ${name as string}`);
+        throw new OneKeyLocalError(
+          `Unknown offscreen API module: ${name as string}`,
+        );
     }
   },
   {

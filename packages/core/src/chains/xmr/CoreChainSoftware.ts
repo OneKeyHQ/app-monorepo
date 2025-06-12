@@ -1,6 +1,7 @@
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -148,7 +149,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async getAddressFromPublic(): Promise<ICoreApiGetAddressItem> {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Method not implemented, use getAddressFromPrivate instead.',
     );
   }

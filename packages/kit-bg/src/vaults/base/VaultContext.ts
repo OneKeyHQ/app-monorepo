@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
 import type { ICoreApiNetworkInfo } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -22,7 +23,7 @@ export class VaultContext {
         ? accountUtils.getWalletIdFromAccountId({ accountId: this.accountId })
         : '');
     if (!this.walletId && !this.options.isChainOnly) {
-      throw new Error('can not get correct walletId');
+      throw new OneKeyLocalError('can not get correct walletId');
     }
   }
 

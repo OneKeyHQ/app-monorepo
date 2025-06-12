@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type PurchaseParams, Purchases } from '@revenuecat/purchases-js';
 import { useSearchParams } from 'react-router-dom';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 async function closeNativeWebViewModal() {
   await globalThis.$onekey.$private.request({
     method: 'wallet_closeWebViewModal',
@@ -89,7 +91,7 @@ export default function PageWebEmbedPrimePurchase() {
       );
 
       if (!paywallPackage) {
-        throw new Error('No paywall package found');
+        throw new OneKeyLocalError('No paywall package found');
       }
 
       const purchaseParams: PurchaseParams = {

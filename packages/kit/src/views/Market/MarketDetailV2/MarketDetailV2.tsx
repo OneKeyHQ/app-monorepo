@@ -16,6 +16,7 @@ import {
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
+import { TradingView } from '../../../components/TradingView';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import { SwapPanel, TokenDetailHeader } from './components';
@@ -55,11 +56,19 @@ function MarketDetail({
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
         <XStack>
+          <TradingView
+            mode="realtime"
+            identifier="BTCUSDT"
+            baseToken="BTC"
+            targetToken="USDT"
+            onLoadEnd={() => {}}
+          />
+
           <Stack w="$100">
             <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
-          </Stack>
 
-          <TokenActivityOverview tokenDetail={tokenDetail} />
+            <TokenActivityOverview tokenDetail={tokenDetail} />
+          </Stack>
         </XStack>
       </Page.Body>
     </Page>

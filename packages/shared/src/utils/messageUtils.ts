@@ -12,6 +12,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { IMPL_CFX } from '../engine/engineConsts';
 import { OneKeyError } from '../errors';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 const solidityTypes = () => {
   const types = [
@@ -77,7 +78,7 @@ export function sanitizeMessage(
   types: { [key: string]: { name: string; type: string }[] },
 ) {
   if (!types) {
-    throw new Error(`Invalid types definition`);
+    throw new OneKeyLocalError(`Invalid types definition`);
   }
 
   // Primary type can be an array.
@@ -98,7 +99,7 @@ export function sanitizeMessage(
 
   const baseTypeDefinitions = types[baseType];
   if (!baseTypeDefinitions) {
-    throw new Error(`Invalid primary type definition`);
+    throw new OneKeyLocalError(`Invalid primary type definition`);
   }
 
   const sanitizedStruct: { [index: string]: any } = {};
@@ -194,7 +195,7 @@ function validateAddress({
   }
 
   if (!isValid) {
-    throw new Error(
+    throw new OneKeyLocalError(
       `Invalid "${propertyName}" address: ${String(
         address,
       )} must be a valid string.`,
@@ -252,7 +253,7 @@ export function validateTypedSignMessageDataV1(
     // typedSignatureHash will throw if the data is invalid.
     typedSignatureHash(message as any);
   } catch (e) {
-    throw new Error(`Expected EIP712 typed data.`);
+    throw new OneKeyLocalError(`Expected EIP712 typed data.`);
   }
 }
 
@@ -279,7 +280,9 @@ export function validateTypedSignMessageDataV3V4(
     Array.isArray(message) ||
     (typeof message !== 'object' && typeof message !== 'string')
   ) {
-    throw new Error(`Invalid message: Must be a valid string or object.`);
+    throw new OneKeyLocalError(
+      `Invalid message: Must be a valid string or object.`,
+    );
   }
 
   if (typeof message === 'object') {
@@ -288,7 +291,9 @@ export function validateTypedSignMessageDataV3V4(
     try {
       messageObject = JSON.parse(message);
     } catch (e) {
-      throw new Error('Message data must be passed as a valid JSON string.');
+      throw new OneKeyLocalError(
+        'Message data must be passed as a valid JSON string.',
+      );
     }
   }
 

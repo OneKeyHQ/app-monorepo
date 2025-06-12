@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -19,7 +20,7 @@ const PRESET_FEE_LABEL = [
 ];
 
 function nilError(message: string): number {
-  throw new Error(message);
+  throw new OneKeyLocalError(message);
 }
 
 function nanToZeroString(value: string | number | unknown) {

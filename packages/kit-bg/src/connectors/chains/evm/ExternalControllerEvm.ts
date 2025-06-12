@@ -4,6 +4,7 @@ import { isNil, isString, uniqBy } from 'lodash';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -227,7 +228,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       });
     }
     if (!connector) {
-      throw new Error('connector is not defined');
+      throw new OneKeyLocalError('connector is not defined');
     }
     return { connector, connectionInfo };
   }
@@ -309,7 +310,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     });
     const provider = await connector.getProvider();
     if (!wcChain) {
-      throw new Error('evmWalletConnect signMessage ERROR: wcChain not found');
+      throw new OneKeyLocalError(
+        'evmWalletConnect signMessage ERROR: wcChain not found',
+      );
     }
     const result = (await provider.request(
       {
@@ -335,7 +338,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     );
     const provider = await connector.getProvider();
     if (!wcChain) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'evmWalletConnect sendTransaction ERROR: wcChain not found',
       );
     }
@@ -348,7 +351,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     )) as string;
 
     if (!txid) {
-      throw new Error('walletConnect sendTransaction ERROR: txid not found');
+      throw new OneKeyLocalError(
+        'walletConnect sendTransaction ERROR: txid not found',
+      );
     }
 
     return {
@@ -502,7 +507,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     });
 
     if (!txid) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'ExternalWalletControllerEvm sendTransaction ERROR: txid not found',
       );
     }
@@ -607,7 +612,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     if (
       !peerAddresses.includes((account.address || '')?.toLowerCase() as any)
     ) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
           id: ETranslations.feedback_address_not_matched,
         })}: ${networkId} ${account.address}`,
@@ -618,7 +623,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     // because wcChain has been passed in request()
     // and OKX wallet will not return the correct chainId
     if (!isWalletConnect && chainId !== peerChainIdNum.toString()) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
           id: ETranslations.global_network_not_matched,
         })}: ${networkId} peerChainId=${peerChainIdNum}`,
