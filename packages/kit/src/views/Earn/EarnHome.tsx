@@ -62,6 +62,7 @@ import {
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { AvailableAssetsTabViewList } from './components/AvailableAssetsTabViewList';
+import { FAQPanel } from './components/FAQPanel';
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
@@ -864,28 +865,29 @@ function BasicEarnHome() {
                 <Recommended isFetchingAccounts={isLoading} />
                 <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
               </YStack>
-              {/* TODO: replace to FAQ List */}
+              {/* FAQ Panel */}
               {media.gtLg ? (
                 <YStack
                   gap="$6"
-                  p="$4"
-                  borderWidth={StyleSheet.hairlineWidth}
-                  borderColor="$transparent"
+                  py="$4"
+                  px="$5"
                   borderRadius="$3"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="$borderSubdued"
                   borderCurve="continuous"
-                  bg="$bgSubdued"
                   $gtMd={{
                     w: EARN_RIGHT_PANEL_WIDTH,
                   }}
                 >
-                  <SizableText size="$headingSm">
-                    {intl.formatMessage({
-                      id: ETranslations.earn_feature_list_title,
-                    })}
-                  </SizableText>
+                  <FAQPanel />
                 </YStack>
               ) : null}
             </YStack>
+            {media.gtLg ? null : (
+              <YStack mt="$1" px="$4" py="$4">
+                <FAQPanel />
+              </YStack>
+            )}
           </YStack>
         </ScrollView>
       </Page.Body>
