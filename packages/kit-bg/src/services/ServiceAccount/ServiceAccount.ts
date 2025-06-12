@@ -2852,6 +2852,9 @@ class ServiceAccount extends ServiceBase {
       walletId,
       isRemoveToMocked,
     });
+    if (platformEnv.isNative) {
+      await timerUtils.wait(3000);
+    }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
       walletId,
