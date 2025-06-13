@@ -45,6 +45,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnAccount,
   IEarnAccountToken,
@@ -122,28 +123,24 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (
     <YStack
       gap="$4"
-      px="$4"
+      px="$5"
       py="$3.5"
       borderRadius="$3"
       bg="$bg"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderCurve="continuous"
+      alignItems="center"
       {...rest}
     >
-      <XStack gap="$3" alignItems="center">
-        <Skeleton width="$8" height="$8" radius="round" />
-        <YStack py="$1">
-          <Skeleton w={56} h={16} borderRadius="$2" />
-        </YStack>
-      </XStack>
-      <YStack gap="$1">
-        <YStack py="$1">
-          <Skeleton w={80} h={20} borderRadius="$2" />
-        </YStack>
-        <YStack py="$1">
-          <Skeleton w={120} h={12} borderRadius="$2" />
-        </YStack>
+      <YStack alignItems="center" gap="$4">
+        <XStack gap="$3" ai="center" width="100%">
+          <Skeleton width="$8" height="$8" radius="round" />
+          <YStack py="$1">
+            <Skeleton w={56} h={24} borderRadius="$2" />
+          </YStack>
+        </XStack>
+        <Skeleton w={118} h={28} borderRadius="$2" pt="$4" pb="$1" />
       </YStack>
     </YStack>
   );
@@ -153,7 +150,6 @@ function RecommendedItem({
   token,
   ...rest
 }: { token?: ITokenAccount } & IYStackProps) {
-  const intl = useIntl();
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const [decorationColor, setDecorationColor] = useState<string | null>(null);
@@ -194,11 +190,10 @@ function RecommendedItem({
     <YStack
       role="button"
       flex={1}
-      px="$4"
+      px="$5"
       py="$3.5"
       borderRadius="$3"
       borderCurve="continuous"
-      // bg={decorationColor || '$bgSubdued'} // $bgSubdued is the default color. Will cause a blink.
       bg={decorationColor}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
@@ -211,51 +206,39 @@ function RecommendedItem({
       }}
       onPress={onPress}
       userSelect="none"
+      alignItems="center"
       {...rest}
     >
-      <XStack gap="$3" alignItems="center">
-        <YStack>
-          <Image size="$8">
-            <Image.Source
-              source={{
-                uri: token.logoURI,
-              }}
-            />
-            <Image.Fallback
-              alignItems="center"
-              justifyContent="center"
-              bg="$bgStrong"
-              delayMs={1000}
-            >
-              <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
-            </Image.Fallback>
-          </Image>
-        </YStack>
-        <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-      </XStack>
-      <SizableText size="$headingXl" pt="$4" pb="$1">
-        {buildAprText(token.aprWithoutFee, token.rewardUnit)}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
-        <NumberSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="balance"
-          formatterOptions={{ tokenSymbol: token.symbol }}
-        >
-          {token.balanceParsed}
-        </NumberSizeableText>
-      </SizableText>
+      <YStack alignItems="center">
+        <XStack gap="$3" ai="center" width="100%">
+          <YStack>
+            <Image size="$8">
+              <Image.Source
+                source={{
+                  uri: token.logoURI,
+                }}
+              />
+              <Image.Fallback
+                alignItems="center"
+                justifyContent="center"
+                bg="$bgStrong"
+                delayMs={1000}
+              >
+                <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+              </Image.Fallback>
+            </Image>
+          </YStack>
+          <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
+        </XStack>
+        <SizableText size="$headingXl" pt="$4" pb="$1">
+          {buildAprText(token.aprWithoutFee, token.rewardUnit)}
+        </SizableText>
+      </YStack>
     </YStack>
   );
 }
 
-function RecommendedContainer({
-  profit,
-  children,
-}: PropsWithChildren<{ profit: BigNumber }>) {
-  const [settings] = useSettingsPersistAtom();
+function RecommendedContainer({ children }: PropsWithChildren) {
   const intl = useIntl();
   return (
     <YStack gap="$3">
@@ -264,43 +247,6 @@ function RecommendedContainer({
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_recommended })}
         </SizableText>
-        <XStack gap="$1.5">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {`${intl.formatMessage({
-              id: ETranslations.earn_missing_rewards,
-            })}: `}
-            <NumberSizeableText
-              size="$bodyMdMedium"
-              color="$textSuccess"
-              formatter="balance"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
-            >
-              {profit.toFixed()}
-            </NumberSizeableText>
-          </SizableText>
-          <Popover
-            placement="bottom-start"
-            title={intl.formatMessage({
-              id: ETranslations.earn_missing_rewards,
-            })}
-            renderContent={
-              <SizableText px="$5" py="$4">
-                {intl.formatMessage({
-                  id: ETranslations.earn_missing_rewards_tooltip,
-                })}
-              </SizableText>
-            }
-            renderTrigger={
-              <IconButton
-                variant="tertiary"
-                size="small"
-                icon="InfoCircleOutline"
-              />
-            }
-          />
-        </XStack>
       </YStack>
       {children}
     </YStack>
@@ -312,76 +258,128 @@ function Recommended({
 }: {
   isFetchingAccounts: boolean;
 }) {
-  const allNetworkId = useAllNetworkId();
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const totalFiatMapKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: account?.id,
-        indexAccountId: indexedAccount?.id,
-        networkId: allNetworkId,
-      }),
-    [account?.id, actions, allNetworkId, indexedAccount?.id],
-  );
-  const [{ earnAccount }] = useEarnAtom();
-  const { tokens, profit } = useMemo(() => {
-    const accountTokens: ITokenAccount[] = [];
-    let totalProfit = new BigNumber(0);
-    const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
-    list?.forEach((accountItem) => {
-      accountItem.tokens.forEach((token) => {
-        totalProfit = totalProfit.plus(token.profit || 0);
-        accountTokens.push({
-          ...token,
-          account: accountItem,
+  const [{ availableAssetsByType = {} }] = useEarnAtom();
+
+  // Get recommended assets
+  const { isLoading } = usePromiseResult(
+    async () => {
+      const recommendedAssets =
+        await backgroundApiProxy.serviceStaking.getAvailableAssets({
+          type: EAvailableAssetsTypeEnum.Recommend,
         });
-      });
-    });
-    return {
-      tokens: accountTokens.sort((a, b) => a.orderIndex - b.orderIndex),
-      profit: totalProfit,
-    };
-  }, [earnAccount, totalFiatMapKey]);
-  if (isFetchingAccounts && tokens.length < 1) {
+
+      // Update the corresponding data in atom
+      actions.current.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.Recommend,
+        recommendedAssets,
+      );
+      return recommendedAssets;
+    },
+    [actions],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const tokens = useMemo(() => {
+    const recommendAssets =
+      availableAssetsByType[EAvailableAssetsTypeEnum.Recommend] || [];
+    return recommendAssets.map(
+      (token) =>
+        ({
+          ...token,
+          account: {
+            networkId: token.networkId,
+          },
+          orderIndex: 0,
+          profit: '0',
+          balance: '0',
+          balanceParsed: '0',
+          fiatValue: '0',
+          address: '',
+          price: '0',
+        } as unknown as ITokenAccount),
+    );
+  }, [availableAssetsByType]);
+
+  // Render skeleton when loading
+  if ((isLoading || isFetchingAccounts) && tokens.length < 1) {
     return (
-      <RecommendedContainer profit={profit}>
-        <XStack m="$-5" p="$3.5">
-          {Array.from({ length: 2 }).map((_, index) => (
-            <YStack
-              key={index}
-              p="$1.5"
-              flexBasis="50%"
-              $gtLg={{
-                flexBasis: '33.33%',
-              }}
-            >
-              <RecommendedSkeletonItem />
-            </YStack>
-          ))}
-        </XStack>
+      <RecommendedContainer>
+        {/* Desktop/Extension with larger screen: 4 items per row */}
+        {platformEnv.isNative ? (
+          // Mobile: horizontal scrolling skeleton
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <XStack gap="$3" px="$1.5">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <YStack key={index} width="$40">
+                  <RecommendedSkeletonItem />
+                </YStack>
+              ))}
+            </XStack>
+          </ScrollView>
+        ) : (
+          // Desktop/Extension: grid layout
+          <XStack m="$-5" p="$3.5" flexWrap="wrap">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <YStack
+                key={index}
+                p="$1.5"
+                flexBasis={
+                  platformEnv.isExtension && !platformEnv.isDesktop
+                    ? '50%' // Extension small screen: 2 per row
+                    : '25%' // Desktop: 4 per row
+                }
+              >
+                <RecommendedSkeletonItem />
+              </YStack>
+            ))}
+          </XStack>
+        )}
       </RecommendedContainer>
     );
   }
+
+  // Render actual tokens
   if (tokens.length) {
     return (
-      <RecommendedContainer profit={profit}>
-        <XStack m="$-5" p="$3.5" flexWrap="wrap">
-          {tokens.map((token) => (
-            <YStack
-              key={token.symbol}
-              p="$1.5"
-              flexBasis="50%"
-              $gtLg={{
-                flexBasis: '33.33%',
-              }}
-            >
-              <RecommendedItem token={token} />
-            </YStack>
-          ))}
-        </XStack>
+      <RecommendedContainer>
+        {platformEnv.isNative ? (
+          // Mobile: horizontal scrolling
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: '$1.5',
+            }}
+          >
+            <XStack gap="$3">
+              {tokens.map((token) => (
+                <YStack key={token.symbol} width="$40">
+                  <RecommendedItem token={token} />
+                </YStack>
+              ))}
+            </XStack>
+          </ScrollView>
+        ) : (
+          // Desktop/Extension: grid layout
+          <XStack m="$-5" p="$3.5" flexWrap="wrap">
+            {tokens.map((token) => (
+              <YStack
+                key={token.symbol}
+                p="$1.5"
+                flexBasis={
+                  platformEnv.isExtension && !platformEnv.isDesktop
+                    ? '50%' // Extension small screen: 2 per row
+                    : '25%' // Desktop: 4 per row
+                }
+              >
+                <RecommendedItem token={token} />
+              </YStack>
+            ))}
+          </XStack>
+        )}
       </RecommendedContainer>
     );
   }
@@ -578,7 +576,6 @@ function Overview({
 function BasicEarnHome() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
   const allNetworkId = useAllNetworkId();

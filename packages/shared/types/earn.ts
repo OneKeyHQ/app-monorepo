@@ -72,5 +72,5 @@ export enum EAvailableAssetsTypeEnum {
   All = 'all',
   StableCoins = 'stableCoins',
   NativeTokens = 'nativeTokens',
-  Recommended = 'recommended',
+  Recommend = 'recommend',
 }
