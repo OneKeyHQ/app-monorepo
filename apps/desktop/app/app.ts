@@ -41,6 +41,7 @@ import type {
 import appDevOnlyApi from './appDevOnlyApi';
 import appNotification from './appNotification';
 import appPermission from './appPermission';
+import appIAP from './appIAP';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -605,6 +606,7 @@ function createMainWindow() {
   appNotification.init(subModuleInitParams);
   appPermission.init(subModuleInitParams);
   appDevOnlyApi.init(subModuleInitParams);
+  appIAP.init(subModuleInitParams);
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
