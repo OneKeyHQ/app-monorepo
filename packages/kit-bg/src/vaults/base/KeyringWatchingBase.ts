@@ -4,6 +4,7 @@ import type { EAddressEncodings, ISignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -55,7 +56,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       addresses,
     } = params;
     if (!address && !xpub) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'basePrepareUtxoWatchingAccounts ERROR: address and xpub are not defined',
       );
     }
@@ -121,7 +122,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       throw new InvalidAddress();
     }
     if (!createAtNetwork) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'basePrepareSimpleWatchingAccounts ERROR: createAtNetwork is not defined',
       );
     }

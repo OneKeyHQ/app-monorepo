@@ -23,11 +23,11 @@ import {
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  FIRMWARE_CONTACT_US_URL,
   HELP_CENTER_COMMON_FAQ_URL,
   HELP_CENTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalDeviceManagementRoutes,
   IModalDeviceManagementParamList,
@@ -314,7 +314,9 @@ function HardwareTroubleshootingModal() {
         onCancelText={intl.formatMessage({
           id: ETranslations.settings_help_center,
         })}
-        onConfirm={() => openUrlExternal(FIRMWARE_CONTACT_US_URL)}
+        onConfirm={() => {
+          void showIntercom();
+        }}
         onCancel={(_pop) => openUrlExternal(HELP_CENTER_URL)}
       />
     </Page>

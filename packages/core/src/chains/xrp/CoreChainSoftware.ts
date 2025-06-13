@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 import { sign } from 'ripple-keypairs';
 import { deriveAddress, encode, encodeForSigning, hashes } from 'xrpl';
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -53,7 +53,7 @@ function signature(
   const tx = { ...transaction };
 
   if (tx.TxnSignature || tx.Signers) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'txJSON must not contain "TxnSignature" or "Signers" properties',
     );
   }
@@ -97,7 +97,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       if (credentials.hd) {
@@ -111,7 +111,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           .toUpperCase()}`;
       }
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(

@@ -14,6 +14,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -51,7 +52,7 @@ class ServiceAddressBook extends ServiceBase {
     const salt = await decodeSensitiveTextAsync({ encodedText: password });
     const itemString = stableStringify(items);
     return bufferUtils.bytesToHex(
-      hash160(bufferUtils.toBuffer(`${itemString}${salt}`, 'utf-8')),
+      await hash160(bufferUtils.toBuffer(`${itemString}${salt}`, 'utf-8')),
     );
   }
 
@@ -128,7 +129,9 @@ class ServiceAddressBook extends ServiceBase {
         return true;
       }
       if (!password) {
-        throw new Error('addressBook verifyHash ERROR: password is required');
+        throw new OneKeyLocalError(
+          'addressBook verifyHash ERROR: password is required',
+        );
       }
 
       const { items } =
@@ -145,7 +148,7 @@ class ServiceAddressBook extends ServiceBase {
       if (returnValue) {
         return false;
       }
-      throw new Error('address book failed to verify hash');
+      throw new OneKeyLocalError('address book failed to verify hash');
     });
   }
 
@@ -159,7 +162,7 @@ class ServiceAddressBook extends ServiceBase {
   }): Promise<{ isSafe: boolean; items: IAddressItem[] }> {
     const isSafe = await this.verifyHash({ returnValue: true, password });
     if (throwErrorIfNotSafe && !isSafe) {
-      throw new Error('address book failed to verify hash');
+      throw new OneKeyLocalError('address book failed to verify hash');
     }
     const items = await this.getItems();
     return { isSafe, items: isSafe ? items : [] };
@@ -173,7 +176,7 @@ class ServiceAddressBook extends ServiceBase {
     password: string;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
     const { networkId, exact, password } = params;
-    // throw new Error('address book failed to verify hash');
+    // throw new OneKeyLocalError('address book failed to verify hash');
     const isSafe: boolean = await this.verifyHash({
       returnValue: true,
       password,
@@ -232,7 +235,9 @@ class ServiceAddressBook extends ServiceBase {
         password,
       });
       if (verifyResult) {
-        throw new Error('failed to reset items when verify result is ok');
+        throw new OneKeyLocalError(
+          'failed to reset items when verify result is ok',
+        );
       }
       await this.setItems({
         items: [],
@@ -247,22 +252,22 @@ class ServiceAddressBook extends ServiceBase {
   ) {
     const { serviceValidator } = this.backgroundApi;
     if (item.name.length > 24) {
-      throw new Error('Name is too long');
+      throw new OneKeyLocalError('Name is too long');
     }
     let result = await this.findItem({ address: item.address, password });
     if (result && (!item.id || result.id !== item.id)) {
-      throw new Error('Address already exist');
+      throw new OneKeyLocalError('Address already exist');
     }
     result = await this.findItem({ name: item.name, password });
     if (result && (!item.id || result.id !== item.id)) {
-      throw new Error('Name already exist');
+      throw new OneKeyLocalError('Name already exist');
     }
     const validStatus = await serviceValidator.validateAddress({
       networkId: item.networkId,
       address: item.address,
     });
     if (validStatus !== 'valid') {
-      throw new Error('Invalid address');
+      throw new OneKeyLocalError('Invalid address');
     }
   }
 
@@ -428,7 +433,9 @@ class ServiceAddressBook extends ServiceBase {
           skipEventEmit: options.skipEventEmit,
         });
       } else {
-        throw new Error(`Failed to find item with id = ${obj.id || ''}`);
+        throw new OneKeyLocalError(
+          `Failed to find item with id = ${obj.id || ''}`,
+        );
       }
     });
   }
@@ -442,7 +449,7 @@ class ServiceAddressBook extends ServiceBase {
     } = {},
   ) {
     if (!obj.id) {
-      throw new Error('Missing id');
+      throw new OneKeyLocalError('Missing id');
     }
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -516,7 +523,7 @@ class ServiceAddressBook extends ServiceBase {
     const { items } = await this.getSafeRawItems({ password });
     const removedItem = items.find((i) => i.id === id);
     if (!removedItem) {
-      throw new Error(`Failed to find item with id = ${id}`);
+      throw new OneKeyLocalError(`Failed to find item with id = ${id}`);
     }
 
     return this.removeItemFn(removedItem, {

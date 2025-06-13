@@ -197,7 +197,6 @@ function TokenListContainer(_props: ITabPageProps) {
   const { run } = usePromiseResult(
     async () => {
       let accountId = account?.id ?? '';
-
       try {
         if (!network) return;
 
@@ -280,6 +279,33 @@ function TokenListContainer(_props: ITabPageProps) {
             fiatValue: allTokenList.fiatValue,
             map: allTokenListMap,
           };
+
+          const accountWorth: Record<string, string> = {};
+
+          resp.forEach((item) => {
+            if (item.accountId && item.networkId) {
+              let accountWorthValue = new BigNumber(0);
+              accountWorthValue = accountWorthValue
+                .plus(item.tokens.fiatValue ?? '0')
+                .plus(item.riskTokens.fiatValue ?? '0')
+                .plus(item.smallBalanceTokens.fiatValue ?? '0');
+
+              accountWorth[
+                accountUtils.buildAccountValueKey({
+                  accountId: item.accountId,
+                  networkId: item.networkId,
+                })
+              ] = accountWorthValue.toFixed();
+            }
+          });
+
+          updateAccountWorth({
+            accountId,
+            initialized: true,
+            worth: accountWorth,
+            createAtNetworkWorth: '0',
+            merge: false,
+          });
         } else {
           r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
             accountId,
@@ -288,31 +314,31 @@ function TokenListContainer(_props: ITabPageProps) {
             flag: 'home-token-list',
             saveToLocal: true,
           });
+
+          let accountWorth = new BigNumber(0);
+          accountWorth = accountWorth
+            .plus(r.tokens.fiatValue ?? '0')
+            .plus(r.riskTokens.fiatValue ?? '0')
+            .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
+
+          updateAccountWorth({
+            accountId,
+            initialized: true,
+            worth: {
+              [accountUtils.buildAccountValueKey({
+                accountId,
+                networkId: network.id,
+              })]: accountWorth.toFixed(),
+            },
+            createAtNetworkWorth: accountWorth.toFixed(),
+            merge: false,
+          });
         }
-
-        let accountWorth = new BigNumber(0);
-        accountWorth = accountWorth
-          .plus(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
-          .plus(r.smallBalanceTokens.fiatValue ?? '0');
-
-        updateAccountOverviewState({
-          isRefreshing: false,
-          initialized: true,
-        });
-
-        updateAccountWorth({
-          accountId,
-          initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({
-              accountId,
-              networkId: network.id,
-            })]: accountWorth.toFixed(),
-          },
-          createAtNetworkWorth: accountWorth.toFixed(),
-          merge: false,
-        });
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
         // can search all tokens in token list
@@ -1192,6 +1218,7 @@ function TokenListContainer(_props: ITabPageProps) {
       let riskyTokenList: IAccountToken[] = [];
       let tokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
+      let tokenListWorth: Record<string, string> = {};
 
       if (mergeDeriveAddressData) {
         const { networkAccounts } =
@@ -1219,6 +1246,15 @@ function TokenListContainer(_props: ITabPageProps) {
         );
 
         const params = resp.map((r) => {
+          if (r.accountId && r.networkId) {
+            tokenListWorth = {
+              ...tokenListWorth,
+              [accountUtils.buildAccountValueKey({
+                accountId: r.accountId,
+                networkId: r.networkId,
+              })]: r.tokenListValue,
+            };
+          }
           tokenListValue = new BigNumber(tokenListValue)
             .plus(r.tokenListValue ?? '0')
             .toFixed();
@@ -1265,6 +1301,12 @@ function TokenListContainer(_props: ITabPageProps) {
         riskyTokenList = localTokens.riskyTokenList;
         tokenListMap = localTokens.tokenListMap;
         tokenListValue = localTokens.tokenListValue;
+        tokenListWorth = {
+          [accountUtils.buildAccountValueKey({
+            accountId,
+            networkId,
+          })]: localTokens.tokenListValue,
+        };
       }
 
       if (
@@ -1290,14 +1332,7 @@ function TokenListContainer(_props: ITabPageProps) {
             ? indexedAccount?.id ?? ''
             : account?.id ?? '',
           initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({
-              accountId: mergeDeriveAddressData
-                ? indexedAccount?.id ?? ''
-                : account?.id ?? '',
-              networkId,
-            })]: tokenListValue,
-          },
+          worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,
           merge: false,
         });

@@ -82,6 +82,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./apps/web/web-build
           cname: ${{ env.TEST_ENDPOINT }}
+          publish_branch: test-pages
           force_orphan: true
 
       - name: 'Notify to Slack'

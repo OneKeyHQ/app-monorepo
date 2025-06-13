@@ -18,6 +18,7 @@ import {
   NotImplemented,
   OneKeyErrorAirGapAccountNotFound,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -91,7 +92,7 @@ export class KeyringQr extends KeyringQrBase {
     });
     const xpub = airGapAccount?.extendedPublicKey;
     if (!xpub) {
-      throw new Error('xpub not found');
+      throw new OneKeyLocalError('xpub not found');
     }
     const deriveType =
       await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
@@ -101,7 +102,7 @@ export class KeyringQr extends KeyringQrBase {
       });
     const addressEncoding = deriveType.deriveInfo?.addressEncoding;
     if (!addressEncoding) {
-      throw new Error('addressEncoding not found');
+      throw new OneKeyLocalError('addressEncoding not found');
     }
 
     let unsignedPsbt: Psbt | undefined;
@@ -121,7 +122,7 @@ export class KeyringQr extends KeyringQrBase {
             const relPath = btcExtraInfo?.addressToPath?.[address]?.relPath;
             const fullPath = btcExtraInfo?.addressToPath?.[address]?.fullPath;
             if (!relPath) {
-              throw new Error('relPath not found');
+              throw new OneKeyLocalError('relPath not found');
             }
             const xpubAddressInfo = await this.coreApi.getAddressFromXpub({
               network,
@@ -165,12 +166,12 @@ export class KeyringQr extends KeyringQrBase {
         } catch (error) {
           // eslint-disable-next-line spellcheck/spell-checker
           // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/bitcoin.js
-          //        throw new Error('type not match');
+          //        throw new OneKeyLocalError('type not match');
           throw new OneKeyErrorAirGapInvalidQrCode();
         }
 
         if (!psbtHex) {
-          throw new Error('BTC QR sign ERROR: psbtHex not found');
+          throw new OneKeyLocalError('BTC QR sign ERROR: psbtHex not found');
         }
 
         const signedPsbt = Psbt.fromHex(psbtHex, {
@@ -257,7 +258,7 @@ export class KeyringQr extends KeyringQrBase {
             addressRelPath = childPath;
             const extendedPublicKey = airGapAccount?.extendedPublicKey;
             if (!extendedPublicKey) {
-              throw new Error('xpub not found');
+              throw new OneKeyLocalError('xpub not found');
             }
             xpub = convertBtcForkXpub({
               btcForkNetwork: network,
@@ -267,10 +268,10 @@ export class KeyringQr extends KeyringQrBase {
           }
 
           if (!xpub) {
-            throw new Error('publicKey not found');
+            throw new OneKeyLocalError('publicKey not found');
           }
           if (!addressRelPath) {
-            throw new Error('addressRelPath not found');
+            throw new OneKeyLocalError('addressRelPath not found');
           }
 
           const xpubAddressInfo = await this.coreApi.getAddressFromXpub({

@@ -44,12 +44,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
 import { AccountSelectorAddAccountButton } from './AccountSelectorAddAccountButton';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
+import { AccountSearchBar } from './WalletDetailsHeader/AccountSearchBar';
 
 import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
 
@@ -357,9 +359,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     return focusedWalletInfo?.wallet?.name || '';
   }, [focusedWalletInfo, isOthers]);
 
+  const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
+  const isHiddenWallet = !!focusedWalletInfo?.wallet?.passphraseState;
+
   // useCallback cause re-render when unmount, but useMemo not
   const sectionListMemo = useMemo(() => {
-    const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
     let sectionListView: React.ReactNode | null = null;
     const renderSectionListHeader = () => (
       <Stack>
@@ -392,46 +396,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             borderRightWidth={0}
             px={20}
           />
-        ) : null}
-        {!isMockedStandardHwWallet ? (
-          <XStack px="$5" py="$2" gap="$2">
-            <InputUnControlled
-              leftIconName="SearchOutline"
-              size="small"
-              allowClear
-              placeholder={intl.formatMessage({
-                id: ETranslations.global_search_account_selector,
-              })}
-              containerProps={{
-                flex: 1,
-                borderRadius: '$full',
-                bg: '$bgStrong',
-                borderColor: '$transparent',
-              }}
-              defaultValue={searchText}
-              onChangeText={handleSearch}
-            />
-            {editable ? (
-              <Button
-                testID="account-edit-button"
-                variant="tertiary"
-                alignSelf="flex-start"
-                $gtMd={{ top: '$0.5' }}
-                onPress={() => {
-                  setEditMode((v) => !v);
-                }}
-                {...(editMode && {
-                  color: '$textInteractive',
-                  icon: 'CheckLargeOutline',
-                  iconColor: '$iconSuccess',
-                })}
-              >
-                {editMode
-                  ? intl.formatMessage({ id: ETranslations.global_done })
-                  : intl.formatMessage({ id: ETranslations.global_edit })}
-              </Button>
-            ) : null}
-          </XStack>
         ) : null}
       </Stack>
     );
@@ -545,21 +509,20 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               focusedWalletInfo={focusedWalletInfo}
             />
           )}
-          renderSectionFooter={({
-            section,
-          }: {
-            section: IAccountSelectorAccountsListSectionData;
-          }) =>
-            // editable mode and not searching, can add account
-            isEditableRouteParams && !searchText ? (
-              <AccountSelectorAddAccountButton
-                num={num}
-                isOthersUniversal={isOthersUniversal}
-                section={section}
-                focusedWalletInfo={focusedWalletInfo}
-              />
-            ) : null
-          }
+          // renderSectionFooter={({
+          //   section,
+          // }: {
+          //   section: IAccountSelectorAccountsListSectionData;
+          // }) =>
+          //   // editable mode and not searching, can add account
+          //   isEditableRouteParams && !searchText ? (
+          //     <AccountSelectorAddAccountButton
+          //       num={num}
+          //       isOthersUniversal={isOthersUniversal}
+          //       focusedWalletInfo={focusedWalletInfo}
+          //     />
+          //   ) : null
+          // }
         />
       );
     }
@@ -596,20 +559,18 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     handleLayoutForContainer,
     handleLayoutForHeader,
     handleLayoutForSectionList,
-    handleSearch,
     initialScrollIndex,
     intl,
     isDeprecatedWallet,
     isEditableRouteParams,
+    isMockedStandardHwWallet,
     isOthersUniversal,
     linkNetwork,
     linkedNetworkId,
     listViewLayout.height,
     num,
-    searchText,
     sectionData,
     selectedAccount,
-    setEditMode,
   ]);
 
   // Used to find out which deps cause redraws by binary search
@@ -678,8 +639,39 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           title,
         })}
       />
+      {!isMockedStandardHwWallet &&
+      sectionDataOriginal?.length &&
+      focusedWalletInfo?.wallet?.id ? (
+        <AccountSearchBar
+          searchText={searchText}
+          onSearchTextChange={setSearchText}
+          editMode={editMode}
+          onEditModeChange={setEditMode}
+          editable={editable}
+        />
+      ) : null}
+
+      {focusedWalletInfo?.wallet?.id && isHiddenWallet && editMode ? (
+        <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
+      ) : null}
+
       {sectionListMemo}
       {sectionListMemoMock}
+
+      {
+        // editable mode and not searching, can add account
+        isEditableRouteParams &&
+        !searchText &&
+        focusedWalletInfo?.wallet?.id &&
+        !isMockedStandardHwWallet &&
+        sectionDataOriginal?.length ? (
+          <AccountSelectorAddAccountButton
+            num={num}
+            isOthersUniversal={isOthersUniversal}
+            focusedWalletInfo={focusedWalletInfo}
+          />
+        ) : null
+      }
       {/* <DelayedRender delay={1000}>
       </DelayedRender> */}
     </Stack>

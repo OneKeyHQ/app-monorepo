@@ -7,6 +7,7 @@ import type {
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
@@ -16,7 +17,7 @@ import type {
 
 import {
   batchGetPrivateKeys,
-  batchGetPublicKeysAsync,
+  batchGetPublicKeys,
   decryptAsync,
   decryptImportedCredential,
   ed25519,
@@ -99,7 +100,7 @@ export abstract class CoreChainApiBase {
     }
 
     if (!privateKey) {
-      throw new Error(`No private key found: ${accountPath}`);
+      throw new OneKeyLocalError(`No private key found: ${accountPath}`);
     }
 
     return this.baseCreateSigner({
@@ -147,7 +148,7 @@ export abstract class CoreChainApiBase {
       privateKeys[''] = encryptPrivateKey;
     }
     if (!Object.keys(privateKeys).length) {
-      throw new Error('No private keys found');
+      throw new OneKeyLocalError('No private keys found');
     }
     return privateKeys;
   }
@@ -216,7 +217,7 @@ export abstract class CoreChainApiBase {
         indexFormatted,
       );
     } else {
-      pubkeyInfos = await batchGetPublicKeysAsync({
+      pubkeyInfos = await batchGetPublicKeys({
         curveName: curve,
         hdCredential,
         password,

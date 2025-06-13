@@ -576,6 +576,13 @@ const FontGallery = LazyLoadPage(
     ),
 );
 
+const CryptoGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -841,5 +848,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.FontGallery,
     component: FontGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentCryptoGallery,
+    component: CryptoGallery,
   },
 ];

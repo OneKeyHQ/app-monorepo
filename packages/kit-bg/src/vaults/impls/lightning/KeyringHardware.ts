@@ -14,7 +14,10 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -117,7 +120,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.btcGetPublicKey(connectId, deviceId, {
@@ -160,7 +163,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               'register',
             );
             if (signTemplate.type !== 'register') {
-              throw new Error('Wrong signature type');
+              throw new OneKeyLocalError('Wrong signature type');
             }
             const sign = await this.signApiMessage({
               connectId,
@@ -217,7 +220,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId, deviceCommonParams, path, msgPayload } =
       params;
     if (!connectId || !deviceId) {
-      throw new Error('connectId and deviceId is required');
+      throw new OneKeyLocalError('connectId and deviceId is required');
     }
 
     const { isTestnet } = await this.getNetwork();
@@ -256,7 +259,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       'transfer',
     );
     if (signTemplate.type !== 'transfer') {
-      throw new Error('Wrong transfer signature type');
+      throw new OneKeyLocalError('Wrong transfer signature type');
     }
     const network = await this.getNetwork();
     const signature = await this.signApiMessage({
@@ -341,7 +344,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   async lnurlAuth(params: ILnurlAuthParams) {
     const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
-      throw new Error('lnurl-auth: invalid tag');
+      throw new OneKeyLocalError('lnurl-auth: invalid tag');
     }
 
     const url = new URL(lnurlDetail.url);

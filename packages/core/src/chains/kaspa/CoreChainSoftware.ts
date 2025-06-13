@@ -1,4 +1,4 @@
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -56,7 +56,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       const chainId = networkInfo.chainId;
@@ -65,7 +65,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         chainId,
       ).toString();
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -123,7 +123,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const api = await sdk.getKaspaApi();
 
       if (!encodedTx.commitScriptHex) {
-        throw new Error('commitScriptHex is required');
+        throw new OneKeyLocalError('commitScriptHex is required');
       }
 
       const rawTx = await api.signRevealTransactionSoftware({

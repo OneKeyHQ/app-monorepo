@@ -1,5 +1,6 @@
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   OneKeyError,
   OneKeyServerApiError,
@@ -113,7 +114,7 @@ class ClientLightning {
           credential = '';
         }
         if (!credential) {
-          throw new Error('No credential');
+          throw new OneKeyLocalError('No credential');
         }
         return credential;
       },
@@ -187,7 +188,7 @@ class ClientLightning {
   }) {
     try {
       if (!hashPubKey || !address || !signature) {
-        throw new Error('Invalid exchange token params');
+        throw new OneKeyLocalError('Invalid exchange token params');
       }
       return await this.request
         .post<IAuthResponse>(`${this.prefix}/account/auth`, {
@@ -218,7 +219,7 @@ class ClientLightning {
         networkId,
       });
       if (!authorization) {
-        throw new Error('Bad Auth');
+        throw new OneKeyLocalError('Bad Auth');
       }
       return this.request
         .get<IOneKeyAPIBaseResponse<boolean>>(

@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
-import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
 // eslint-disable-next-line import/order
@@ -14,8 +15,6 @@ import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -36,21 +35,19 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const { user, isReady: isAuthReady } = usePrimeAuthV2();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
-  const configureDonePromise = useRef(createPromiseTarget<boolean>());
-  const intl = useIntl();
 
-  const getCustomerInfo = useCallback(async () => {
+  const initSdk = useCallback(async () => {
     const { apiKey } = await getPrimePaymentApiKey({
       apiKeyType: 'web',
     });
     if (!isReady) {
-      throw new Error('PrimeAuth Not ready');
+      throw new OneKeyLocalError('PrimeAuth Not ready');
     }
     if (!apiKey) {
-      throw new Error('No REVENUECAT api key found');
+      throw new OneKeyLocalError('No REVENUECAT api key found');
     }
     if (!user?.privyUserId) {
-      throw new Error('User not logged in');
+      throw new OneKeyLocalError('User not logged in');
     }
 
     // TODO VPN required
@@ -60,6 +57,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
     Purchases.configure(apiKey, user?.privyUserId || '');
+  }, [isReady, user?.privyUserId]);
+
+  const getCustomerInfo = useCallback(async () => {
+    await initSdk();
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -68,7 +69,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
     if (appUserId !== user?.privyUserId) {
-      throw new Error('AppUserId not match');
+      throw new OneKeyLocalError('AppUserId not match');
     }
 
     setPrimePersistAtom((prev): IPrimeUserInfo => {
@@ -84,15 +85,14 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       // grantEntitlementAccess();
     }
 
-    configureDonePromise.current.resolveTarget(true);
     return customerInfo;
-  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
+  }, [initSdk, setPrimePersistAtom, user?.privyUserId]);
 
   const getPackagesWeb = useCallback(async () => {
-    await configureDonePromise.current.ready;
+    await initSdk();
 
     if (!isReady) {
-      throw new Error('PrimeAuth Not ready');
+      throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
     const offerings = await Purchases.getSharedInstance().getOfferings({
@@ -142,7 +142,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     });
 
     return packages;
-  }, [isReady]);
+  }, [initSdk, isReady]);
 
   const purchasePackageWeb = useCallback(
     async ({
@@ -154,9 +154,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
+      await initSdk();
       try {
         if (!isReady) {
-          throw new Error('PrimeAuth Not ready');
+          throw new OneKeyLocalError('PrimeAuth Not ready');
         }
 
         // will block stripe modal
@@ -171,7 +172,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         });
 
         if (!offerings.current) {
-          throw new Error('purchasePaywallPackage ERROR: No offerings');
+          throw new OneKeyLocalError(
+            'purchasePaywallPackage ERROR: No offerings',
+          );
         }
 
         const paywallPackage = offerings.current.availablePackages.find(
@@ -179,7 +182,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         );
 
         if (!paywallPackage) {
-          throw new Error('purchasePaywallPackage ERROR: No paywall package');
+          throw new OneKeyLocalError(
+            'purchasePaywallPackage ERROR: No paywall package',
+          );
         }
 
         const purchaseParams: PurchaseParams = {
@@ -205,8 +210,18 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         // void backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady],
+    [initSdk, isReady],
   );
+
+  const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const testToast = useCallback(() => {
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.prime_restore_successful,
+      }),
+    });
+  }, [intl]);
 
   return {
     isReady,

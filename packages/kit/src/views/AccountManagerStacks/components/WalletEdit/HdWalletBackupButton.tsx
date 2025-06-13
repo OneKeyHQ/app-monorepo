@@ -22,12 +22,14 @@ export function HdWalletBackupButton({
           crossAxis: 18,
         },
       }}
+      onClose={onClose}
     >
       <ActionList.Item
         testID="AccountSelector-WalletOption-Backup"
         icon="Shield2CheckOutline"
         label={intl.formatMessage({ id: ETranslations.global_backup })}
-        onClose={onClose}
+        // onClose={onClose}
+        onClose={() => {}}
         onPress={() => {
           // void handleBackupPhrase();
         }}

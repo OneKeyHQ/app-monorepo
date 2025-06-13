@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 let isResetting = false;
@@ -16,7 +17,7 @@ const getIsResetting = () => isResetting;
 
 const checkNotInResetting = () => {
   if (isResetting) {
-    throw new Error('Cannot perform operation while resetting');
+    throw new OneKeyLocalError('Cannot perform operation while resetting');
   }
 };
 

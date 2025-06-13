@@ -1,5 +1,7 @@
 import { networks } from 'bitcoinjs-lib';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { EAddressEncodings } from '../../../types';
 
 import type { IBtcForkNetwork } from '../types';
@@ -205,11 +207,13 @@ export function getBtcForkNetwork(
   chainCode: string | undefined, // btc, tbtc, bch, doge, btg, dgb, nmc, vtc, dash
 ): IBtcForkNetwork {
   if (!chainCode) {
-    throw new Error('getBtcForkNetwork ERROR: chainCode is undefined');
+    throw new OneKeyLocalError(
+      'getBtcForkNetwork ERROR: chainCode is undefined',
+    );
   }
   const network = extendedNetworks[chainCode];
   if (typeof network === 'undefined' || !network) {
-    throw new Error(`Network not found. chainCode: ${chainCode}`);
+    throw new OneKeyLocalError(`Network not found. chainCode: ${chainCode}`);
   }
 
   network.networkChainCode = chainCode;

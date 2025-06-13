@@ -5,6 +5,7 @@ import {
   Markdown,
   Page,
   ScrollView,
+  SizableText,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -16,33 +17,21 @@ import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 function WhatsNew() {
   const intl = useIntl();
   const { version = '' } = platformEnv;
-  const changeLog = useAppChangeLog(version);
+  const response = useAppChangeLog(version);
+  const { changeLog } = response ?? {};
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.settings_whats_new })}
+        title={intl.formatMessage(
+          { id: ETranslations.update_changelog_updated_title },
+          {
+            ver: platformEnv.version,
+          },
+        )}
       />
-      <Page.Body m="$5">
-        <YStack gap="$3">
-          <>
-            {intl
-              .formatMessage(
-                { id: ETranslations.update_whats_new_in_onekey_version },
-                {
-                  version,
-                },
-              )
-              .split('\n')
-              .map((text) => (
-                <Heading key={text} size="$heading2xl">
-                  {text}
-                </Heading>
-              ))}
-          </>
-        </YStack>
+      <Page.Body mx="$5">
         {changeLog ? (
           <ScrollView
-            mt="$7"
             contentInsetAdjustmentBehavior="automatic"
             contentContainerStyle={{ pb: '$5' }}
           >
@@ -51,12 +40,6 @@ function WhatsNew() {
           </ScrollView>
         ) : null}
       </Page.Body>
-      <Page.Footer
-        onCancelText={intl.formatMessage({ id: ETranslations.global_got_it })}
-        onCancel={(close) => {
-          close();
-        }}
-      />
     </Page>
   );
 }

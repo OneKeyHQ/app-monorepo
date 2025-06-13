@@ -4,6 +4,7 @@ import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -15,6 +16,7 @@ import {
   OneKeyError,
   OneKeyErrorPrimeMasterPasswordInvalid,
   OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -149,7 +151,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       default: {
         const exhaustiveCheck: never = dataType;
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        throw new Error(`Unsupported data type: ${exhaustiveCheck}`);
+        throw new OneKeyLocalError(
+          `Unsupported data type: ${exhaustiveCheck as string}`,
+        );
       }
     }
   }
@@ -495,7 +499,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
 
     if (isFlush) {
-      // throw new Error('Mock flush api error');
+      // throw new OneKeyLocalError('Mock flush api error');
     }
 
     const lockItemToServer =
@@ -704,7 +708,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         default: {
           const exhaustiveCheck: never = item.dataType;
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          throw new Error(`Unsupported data type: ${exhaustiveCheck}`);
+          throw new OneKeyLocalError(
+            `Unsupported data type: ${exhaustiveCheck as unknown as string}`,
+          );
         }
       }
     }
@@ -1885,8 +1891,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     return localItems.sort((a, b) => a.id.localeCompare(b.id));
   }
 
-  @backgroundMethod()
-  async debugDownloadAllServerSyncItemsAndSaveToLocal() {
+  @backgroundMethodForDev()
+  async demoDownloadAllServerSyncItemsAndSaveToLocal() {
     const localItems = await this.decryptAllServerSyncItems();
     await localDb.addAndUpdateSyncItems({
       items: localItems,
@@ -1894,8 +1900,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
-  async debugCopyDevice() {
+  @backgroundMethodForDev()
+  async demoCopyDevice() {
     if (process.env.NODE_ENV !== 'production') {
       const fromDeviceId = '8fe72eee-e6e5-4327-b923-517f960da17d';
       const toDeviceId = '5bb89656-571f-4d24-a2de-2f499775b7a9';
@@ -1922,8 +1928,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async debugClearSyncItemPwdHash() {
+  @backgroundMethodForDev()
+  async demoClearSyncItemPwdHash() {
     const { syncItems } = await localDb.getAllSyncItems();
     await localDb.withTransaction(
       // EIndexedDBBucketNames.cloudSync,
@@ -1942,8 +1948,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     );
   }
 
-  @backgroundMethod()
-  async debugTamperingLocalSyncItemData() {
+  @backgroundMethodForDev()
+  async demoTamperingLocalSyncItemData() {
     const { syncItems } = await localDb.getAllSyncItems();
     await localDb.withTransaction(
       // EIndexedDBBucketNames.cloudSync,
@@ -1963,8 +1969,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     );
   }
 
-  @backgroundMethod()
-  async debugTamperingLocalSyncItemDataTime() {
+  @backgroundMethodForDev()
+  async demoTamperingLocalSyncItemDataTime() {
     const { syncItems } = await localDb.getAllSyncItems();
     await localDb.withTransaction(
       // EIndexedDBBucketNames.cloudSync,

@@ -20,7 +20,7 @@ import {
   writeUInt64LEBN,
   writeUInt8,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
-import { InvalidAddress } from '@onekeyhq/shared/src/errors';
+import { InvalidAddress, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -96,19 +96,19 @@ function convertScriptToPushBuffer(key: Buffer): Buffer {
   return scriptChunksToBuffer([templateChunk]);
 }
 
-export function publickeyToAddress(
+export async function publickeyToAddress(
   publicKey: Buffer,
   chainId: string,
   type: ENexaAddressType = ENexaAddressType.PayToScriptTemplate,
-): string {
+): Promise<string> {
   const network = getNexaNetworkInfo(chainId);
   let hashBuffer: Buffer;
   if (type === ENexaAddressType.PayToPublicKeyHash) {
-    hashBuffer = hash160(publicKey);
+    hashBuffer = await hash160(publicKey);
   } else if (type === ENexaAddressType.PayToScriptTemplate) {
     const templateChunk = bufferToScripChunk(publicKey);
     const scriptBuffer = scriptChunksToBuffer([templateChunk]);
-    const constraintHash = hash160(scriptBuffer);
+    const constraintHash = await hash160(scriptBuffer);
     const chunks = [
       { opcodenum: ENexaOpcode.OP_FALSE },
       { opcodenum: ENexaOpcode.OP_1 },
@@ -127,21 +127,21 @@ export function verifyNexaAddressPrefix(address: string) {
   return address.startsWith('nexa:') || address.startsWith('nexatest:');
 }
 
-export function getDisplayAddress({
+export async function getDisplayAddress({
   address,
   chainId,
 }: {
   address: string;
   chainId: string;
-}): string {
+}): Promise<string> {
   if (verifyNexaAddressPrefix(address)) {
     return address;
   }
   return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
 }
 
-export function sha256sha256(buffer: Buffer): Buffer {
-  return sha256(sha256(buffer));
+export async function sha256sha256(buffer: Buffer): Promise<Buffer> {
+  return sha256(await sha256(buffer));
 }
 
 const MAXINT = 0xff_ff_ff_ff;
@@ -250,11 +250,11 @@ export function buildRawTx(
   return idemBuffer;
 }
 
-export function buildTxid(
+export async function buildTxid(
   inputSignatures: INexaInputSignature[],
   outputSignatures: INexaOutputSignature[],
   nLockTime = 0,
-): string {
+): Promise<string> {
   // build input Idem buffer
   // const inputIdem = Buffer.concat(inputSignatures.map(buildInputIdem));
   // const outputIdem = Buffer.concat(outputSignatures.map(buildOutputIdem));
@@ -269,7 +269,7 @@ export function buildTxid(
   //   writeUInt32LE(nLockTime),
   // ]);
   const idemBuffer = buildRawTx(inputSignatures, outputSignatures, nLockTime);
-  const idemHash = sha256sha256(idemBuffer);
+  const idemHash = await sha256sha256(idemBuffer);
 
   const satisfierBuffer = Buffer.concat([
     writeInt32LE(inputSignatures.length),
@@ -280,9 +280,9 @@ export function buildTxid(
     ),
   ]);
 
-  const satisfierHash = sha256sha256(satisfierBuffer);
+  const satisfierHash = await sha256sha256(satisfierBuffer);
   const txIdHash = reverseBuffer(
-    sha256sha256(Buffer.concat([idemHash, satisfierHash])),
+    await sha256sha256(Buffer.concat([idemHash, satisfierHash])),
   ).toString('hex');
   return txIdHash;
 }
@@ -303,7 +303,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
   const available = inputAmount.sub(fee);
   if (available.lt(new BN(0))) {
     console.error(inputAmount.toString(), fee.toString());
-    throw new Error(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage(
         { id: ETranslations.feedback_account_balance_not_equal_to_utxos },
         {
@@ -347,7 +347,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
   };
 }
 
-export function buildSignatureBuffer(
+export async function buildSignatureBuffer(
   encodedTx: IEncodedTxNexa,
   dbAccountAddress: string,
 ) {
@@ -360,19 +360,19 @@ export function buildSignatureBuffer(
       ]),
     ),
   );
-  const prevoutsHash = sha256sha256(prevoutsBuffer);
+  const prevoutsHash = await sha256sha256(prevoutsBuffer);
 
   const sequenceNumberBuffer = Buffer.concat(
     inputs.map((input) =>
       writeUInt32LE(input.sequenceNumber || DEFAULT_SEQNUMBER),
     ),
   );
-  const sequenceNumberHash = sha256sha256(sequenceNumberBuffer);
+  const sequenceNumberHash = await sha256sha256(sequenceNumberBuffer);
 
   const inputAmountBuffer = Buffer.concat(
     inputs.map((input) => writeUInt64LEBN(new BN(input.satoshis))),
   );
-  const inputAmountHash = sha256sha256(inputAmountBuffer);
+  const inputAmountHash = await sha256sha256(inputAmountBuffer);
 
   const { outputSignatures, inputSignatures } = buildSignatures(
     encodedTx,
@@ -391,7 +391,7 @@ export function buildSignatureBuffer(
       ]),
     ),
   );
-  const outputHash = sha256sha256(outputBuffer);
+  const outputHash = await sha256sha256(outputBuffer);
   const subScriptBuffer = scriptChunksToBuffer([
     {
       opcodenum: ENexaOpcode.OP_FROMALTSTACK,
@@ -435,9 +435,9 @@ export async function signEncodedTx(
     outputSignatures,
     inputSignatures: inputSigs,
     signatureBuffer,
-  } = buildSignatureBuffer(encodedTx, dbAccountAddress);
-  const ret = sha256sha256(signatureBuffer);
-  const signature = sign(privateKey, ret);
+  } = await buildSignatureBuffer(encodedTx, dbAccountAddress);
+  const ret = await sha256sha256(signatureBuffer);
+  const signature = await sign(privateKey, ret);
   const inputSignatures: INexaInputSignature[] = inputSigs.map((inputSig) => ({
     ...inputSig,
     publicKey,
@@ -445,7 +445,7 @@ export async function signEncodedTx(
     scriptBuffer: buildInputScriptBuffer(publicKey, signature),
   }));
 
-  const txid = buildTxid(inputSignatures, outputSignatures);
+  const txid = await buildTxid(inputSignatures, outputSignatures);
   const rawTx = buildRawTx(inputSignatures, outputSignatures, 0, true);
   return {
     txid,
@@ -456,14 +456,14 @@ export async function signEncodedTx(
   };
 }
 
-export function decodeScriptBufferToNexaAddress(
+export async function decodeScriptBufferToNexaAddress(
   buffer: Buffer,
   prefix: string,
 ) {
   const chunks = decodeScriptBufferToScriptChunks(buffer);
   // lib/script/script.js 1364L
   if (isPublicKeyTemplateIn(chunks) && chunks[0].buf) {
-    const constraintHash = hash160(chunks[0].buf);
+    const constraintHash = await hash160(chunks[0].buf);
     const scriptTemplate = scriptChunksToBuffer([
       {
         opcodenum: ENexaOpcode.OP_FALSE,

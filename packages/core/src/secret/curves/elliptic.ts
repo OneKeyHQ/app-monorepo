@@ -2,6 +2,8 @@
 import BigNumber from 'bignumber.js';
 import elliptic from 'elliptic';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { parse256 } from '../bip32';
 
 import type { IBaseCurve, ICurveForKD } from './base';
@@ -10,7 +12,7 @@ type IEllipticBasePoint = elliptic.curve.base.BasePoint;
 
 function checkBufferIsNotEmpty(buff: Buffer) {
   if (buff?.length === 0) {
-    throw new Error('Curve call ERROR: Buffer is empty');
+    throw new OneKeyLocalError('Curve call ERROR: Buffer is empty');
   }
 }
 
@@ -33,7 +35,7 @@ class EllipticECWrapper implements ICurveForKD {
     } else if (publicKey.length == 65 && publicKey[0] === 4) {
       toCompressed = true;
     } else {
-      throw new Error('Invalid public key.');
+      throw new OneKeyLocalError('Invalid public key.');
     }
 
     return Buffer.from(
@@ -83,6 +85,7 @@ class EllipticECWrapper implements ICurveForKD {
     ]);
   }
 
+  // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#public-parent-key--public-child-key
   getChildPublicKey(IL: Buffer, parentPublicKey: Buffer): Buffer | null {
     checkBufferIsNotEmpty(IL);
     checkBufferIsNotEmpty(parentPublicKey);

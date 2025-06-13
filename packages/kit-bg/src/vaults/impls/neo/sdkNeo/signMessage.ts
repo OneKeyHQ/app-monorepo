@@ -2,7 +2,9 @@ import { Buffer } from 'buffer';
 
 import elliptic from 'elliptic';
 
-import { sha256 as sha256Hash } from '@onekeyhq/core/src/secret/crypto-functions';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+
+const { sha256: sha256Hash } = appCrypto.hash;
 
 // eslint-disable-next-line new-cap
 const curveInstance = new elliptic.ec('p256');
@@ -12,8 +14,9 @@ interface ISignatureObject {
   s: string;
 }
 
-function sha256(hex: string): string {
-  return sha256Hash(Buffer.from(hex, 'hex')).toString('hex');
+async function sha256(hex: string): Promise<string> {
+  // sha256Hash(Buffer.from(hex, 'hex')).toString('hex');
+  return (await sha256Hash(Buffer.from(hex, 'hex'))).toString('hex');
 }
 
 function getPublicKeyUnencoded(publicKey: string): string {
@@ -91,7 +94,11 @@ export function isPublicKey(key: string, encoded?: boolean): boolean {
  * @param publicKey - Public key (hex format)
  * @returns Verification result, true for valid signature
  */
-export function verify(hex: string, sig: string, publicKey: string): boolean {
+export async function verify(
+  hex: string,
+  sig: string,
+  publicKey: string,
+): Promise<boolean> {
   try {
     if (!isPublicKey(publicKey, true)) {
       // eslint-disable-next-line no-param-reassign
@@ -99,7 +106,7 @@ export function verify(hex: string, sig: string, publicKey: string): boolean {
     }
 
     const sigObj = getSignatureFromHex(sig);
-    const messageHash = sha256(hex);
+    const messageHash = await sha256(hex);
     const publicKeyPair = curveInstance.keyFromPublic(publicKey, 'hex');
     return publicKeyPair.verify(messageHash, sigObj);
   } catch (error) {

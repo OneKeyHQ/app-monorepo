@@ -71,7 +71,9 @@ export const useTradingViewProps = ({
   const calendars = useCalendars();
   return useMemo(() => {
     const locale = localeMap[systemLocale as ILocaleJSONSymbol] || 'en-US';
-    const timezone = calendars[0].timeZone || 'Etc/UTC';
+    // https://onekey-bb.sentry.io/issues/45978027
+    // Cannot read property 'timeZone' of undefined
+    const timezone = calendars?.[0]?.timeZone || 'Etc/UTC';
     const params: Record<string, string> = {
       'show_popup_button': 'false',
       'autosize': 'true',

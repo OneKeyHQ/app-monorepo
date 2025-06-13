@@ -3,7 +3,7 @@ import { isNil } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -38,10 +38,10 @@ export abstract class KeyringBase extends VaultContext {
     super(vault.options);
     this.vault = vault;
     if (this.vault.networkId !== vault.options.networkId) {
-      throw new Error('KeyringBase ERROR: networkId not match1');
+      throw new OneKeyLocalError('KeyringBase ERROR: networkId not match1');
     }
     if (this.networkId !== vault.options.networkId) {
-      throw new Error('KeyringBase ERROR: networkId not match2');
+      throw new OneKeyLocalError('KeyringBase ERROR: networkId not match2');
     }
   }
 
@@ -73,12 +73,12 @@ export abstract class KeyringBase extends VaultContext {
   ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
     const { walletId } = this;
     if (!walletId) {
-      throw new Error('walletId is not defined');
+      throw new OneKeyLocalError('walletId is not defined');
     }
     const { names, deriveInfo, indexes } = params;
     const { coinType, template, namePrefix, idSuffix } = deriveInfo;
     if (!coinType) {
-      throw new Error('coinType is not defined');
+      throw new OneKeyLocalError('coinType is not defined');
     }
 
     const settings = await this.getVaultSettings();
@@ -95,13 +95,17 @@ export abstract class KeyringBase extends VaultContext {
       const { path, publicKey, address, addresses, relPath } =
         addressInfos[idx];
       if (!path) {
-        throw new Error('KeyringHD prepareAccounts ERROR: path not found');
+        throw new OneKeyLocalError(
+          'KeyringHD prepareAccounts ERROR: path not found',
+        );
       }
       if (accountType === EDBAccountType.VARIANT && !addresses) {
-        throw new Error('addresses is required for variant account');
+        throw new OneKeyLocalError('addresses is required for variant account');
       }
       if (accountType === EDBAccountType.VARIANT && address) {
-        throw new Error('address should not set for variant account');
+        throw new OneKeyLocalError(
+          'address should not set for variant account',
+        );
       }
 
       const pathIndex = usedIndexes[idx];
@@ -149,20 +153,20 @@ export abstract class KeyringBase extends VaultContext {
   ): Promise<IDBUtxoAccount[]> {
     const { walletId } = this;
     if (!walletId) {
-      throw new Error('walletId is undefined');
+      throw new OneKeyLocalError('walletId is undefined');
     }
     // v5 do not check prev account used, so skipCheckAccountExist is always true
     const { indexes, deriveInfo, names, skipCheckAccountExist = true } = params;
     const { coinType, template, namePrefix } = deriveInfo;
     if (!coinType) {
-      throw new Error('coinType is not defined');
+      throw new OneKeyLocalError('coinType is not defined');
     }
 
     const settings = await this.getVaultSettings();
     const { accountType } = settings;
 
     if (accountType !== EDBAccountType.UTXO) {
-      throw new Error('accountType is not utxo');
+      throw new OneKeyLocalError('accountType is not utxo');
     }
 
     const { checkIsAccountUsed, buildAddressesInfo } = options;
@@ -192,12 +196,12 @@ export abstract class KeyringBase extends VaultContext {
       addresses,
     } of addressesInfo) {
       if (!path || isNil(xpub) || !addresses) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'basePrepareHdUtxoAccounts ERROR: path or xpub or addresses is undefined',
         );
       }
       if (!relPath) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'basePrepareHdUtxoAccounts ERROR: relPath is undefined',
         );
       }
