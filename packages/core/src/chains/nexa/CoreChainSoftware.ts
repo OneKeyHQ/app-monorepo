@@ -118,7 +118,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const path = fullPath ? prefixPath : '';
 
-    const displayAddress = getDisplayAddress({
+    const displayAddress: string = await getDisplayAddress({
       address,
       chainId: networkInfo.chainId,
     });

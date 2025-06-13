@@ -1338,7 +1338,7 @@ class ServiceAccount extends ServiceBase {
           id: accountId,
           type: EDBAccountType.VARIANT,
           name: '',
-          connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+          connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
           addresses: {},
           connectedAddresses: addresses, // TODO merge with addresses
           selectedAddress: {},
@@ -1365,7 +1365,7 @@ class ServiceAccount extends ServiceBase {
         id: accountId,
         type: EDBAccountType.VARIANT,
         name: '',
-        connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+        connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
         addresses: {},
         connectedAddresses: addresses, // TODO merge with addresses
         selectedAddress: {},
@@ -2529,7 +2529,7 @@ class ServiceAccount extends ServiceBase {
     xfp: string;
   }> => {
     const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
-    const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+    const buff = await sha256(bufferUtils.toBuffer(text, 'utf8'));
     const hash = bufferUtils.bytesToHex(buff);
 
     const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
@@ -2852,6 +2852,13 @@ class ServiceAccount extends ServiceBase {
       walletId,
       isRemoveToMocked,
     });
+
+    // WARNING:
+    // Use setTimeout to change React Native's render scheduling to avoid exceptions penetrating the scheduler and causing crashes.
+    // If using React 19, it should not crash in React Native. Need to wait for RN upgrade to 0.79 to remove this code.
+    if (platformEnv.isNative) {
+      await timerUtils.wait(1500);
+    }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
       walletId,

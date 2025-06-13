@@ -52,7 +52,7 @@ class ServiceAddressBook extends ServiceBase {
     const salt = await decodeSensitiveTextAsync({ encodedText: password });
     const itemString = stableStringify(items);
     return bufferUtils.bytesToHex(
-      hash160(bufferUtils.toBuffer(`${itemString}${salt}`, 'utf-8')),
+      await hash160(bufferUtils.toBuffer(`${itemString}${salt}`, 'utf-8')),
     );
   }
 

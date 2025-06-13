@@ -2,23 +2,17 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEqual, noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import {
-  type LayoutChangeEvent,
-  type LayoutRectangle,
-  StyleSheet,
-} from 'react-native';
+import { type LayoutChangeEvent, type LayoutRectangle } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Alert,
   Button,
-  InputUnControlled,
   SectionList,
   SizableText,
   Stack,
   Toast,
-  XStack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
@@ -49,12 +43,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
 import { AccountSelectorAddAccountButton } from './AccountSelectorAddAccountButton';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
+import { AccountSearchBar } from './WalletDetailsHeader/AccountSearchBar';
 
 export interface IWalletDetailsProps {
   num: number;
@@ -94,10 +90,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   );
   const isOthersUniversal = isOthers || isOthersWallet;
   // const isOthersUniversal = true;
-
-  const handleSearch = useDebouncedCallback((text: string) => {
-    setSearchText(text?.trim() || '');
-  }, 300);
 
   const {
     result: listDataResult,
@@ -360,9 +352,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     return focusedWalletInfo?.wallet?.name || '';
   }, [focusedWalletInfo, isOthers]);
 
+  const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
+  const isHiddenWallet = !!focusedWalletInfo?.wallet?.passphraseState;
+
   // useCallback cause re-render when unmount, but useMemo not
   const sectionListMemo = useMemo(() => {
-    const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
     let sectionListView: React.ReactNode | null = null;
     const renderSectionListHeader = () => (
       <Stack>
@@ -391,32 +385,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             })}
             mx="$5"
           />
-        ) : null}
-        {!isMockedStandardHwWallet ? (
-          <XStack
-            mb="$2"
-            px="$5"
-            py="$2"
-            borderBottomWidth={StyleSheet.hairlineWidth}
-            borderBottomColor="$neutral3"
-          >
-            <InputUnControlled
-              leftIconName="SearchOutline"
-              size="small"
-              allowClear
-              placeholder={intl.formatMessage({
-                id: ETranslations.global_search_account_selector,
-              })}
-              containerProps={{
-                flex: 1,
-                borderRadius: '$full',
-                bg: '$bgStrong',
-                borderColor: '$transparent',
-              }}
-              defaultValue={searchText}
-              onChangeText={handleSearch}
-            />
-          </XStack>
         ) : null}
       </Stack>
     );
@@ -542,11 +510,14 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             section: IAccountSelectorAccountsListSectionData;
           }) =>
             // editable mode and not searching, can add account
-            isEditableRouteParams && !searchText ? (
+            isEditableRouteParams &&
+            !searchText &&
+            focusedWalletInfo?.wallet?.id &&
+            !isMockedStandardHwWallet &&
+            sectionDataOriginal?.length ? (
               <AccountSelectorAddAccountButton
                 num={num}
                 isOthersUniversal={isOthersUniversal}
-                section={section}
                 focusedWalletInfo={focusedWalletInfo}
               />
             ) : null
@@ -587,17 +558,16 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     handleLayoutForContainer,
     handleLayoutForHeader,
     handleLayoutForSectionList,
-    handleSearch,
     initialScrollIndex,
     intl,
     isDeprecatedWallet,
     isEditableRouteParams,
+    isMockedStandardHwWallet,
     isOthersUniversal,
     linkNetwork,
     linkedNetworkId,
     listViewLayout.height,
     num,
-    searchText,
     sectionData,
     selectedAccount,
   ]);
@@ -668,6 +638,19 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           title,
         })}
       />
+      {!isMockedStandardHwWallet &&
+      sectionDataOriginal?.length &&
+      focusedWalletInfo?.wallet?.id ? (
+        <AccountSearchBar
+          searchText={searchText}
+          onSearchTextChange={setSearchText}
+        />
+      ) : null}
+
+      {focusedWalletInfo?.wallet?.id && isHiddenWallet && editMode ? (
+        <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
+      ) : null}
+
       {sectionListMemo}
       {sectionListMemoMock}
       {/* <DelayedRender delay={1000}>

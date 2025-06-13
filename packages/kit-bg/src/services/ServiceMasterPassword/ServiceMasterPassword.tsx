@@ -4,7 +4,7 @@ import {
   decryptStringAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
-  sha512Async,
+  sha512Pro,
 } from '@onekeyhq/core/src/secret';
 import {
   backgroundMethod,
@@ -63,7 +63,7 @@ class ServiceMasterPassword extends ServiceBase {
   }) {
     // TODO check empty value
 
-    const hash = await sha512Async({
+    const hash = await sha512Pro({
       data: [
         '180B50C8-E4EC-40E9-9CF3-7DD71F2882F7',
         rawMasterPassword,
@@ -288,6 +288,8 @@ class ServiceMasterPassword extends ServiceBase {
     });
   }
 
+  // TODO test if executed from native side
+  @backgroundMethod()
   async generateRandomSecurityPassword() {
     const key: Buffer = crypto.randomBytes(32);
     return bufferUtils.bytesToHex(key);
@@ -307,7 +309,7 @@ class ServiceMasterPassword extends ServiceBase {
     primeUserId: string;
   }) {
     // TODO check empty value
-    const securityTypeHash = await sha512Async({
+    const securityTypeHash = await sha512Pro({
       data: [
         'EB36A58F-E51C-4520-BB41-5437768CE668',
         `${securityType}`,
@@ -382,7 +384,7 @@ class ServiceMasterPassword extends ServiceBase {
     isRegister: boolean;
     isChangeMasterPassword?: boolean;
     masterPasswordUUIDBuilder?: () => string;
-    securityPasswordR1Builder?: () => string;
+    securityPasswordR1Builder?: () => Promise<string>;
   }) {
     // const primePersist = await primePersistAtom.get();
     // const isServerMasterPasswordSet = Boolean(
@@ -476,7 +478,7 @@ class ServiceMasterPassword extends ServiceBase {
 
         if (isRegister) {
           if (securityPasswordR1Builder) {
-            securityPasswordR1 = securityPasswordR1Builder();
+            securityPasswordR1 = await securityPasswordR1Builder();
           } else {
             securityPasswordR1 = await this.generateRandomSecurityPassword();
           }
@@ -948,8 +950,8 @@ class ServiceMasterPassword extends ServiceBase {
       masterPasswordUUIDBuilder: () => {
         return stringUtils.generateUUID();
       },
-      securityPasswordR1Builder: () => {
-        // Use the same securityPasswordR1 to avoid rebuilding items
+      securityPasswordR1Builder: async () => {
+        // Use the same securityPasswordR1 of old master password to avoid rebuilding all sync items
         return oldPasswordResult.securityPasswordR1;
       },
     });

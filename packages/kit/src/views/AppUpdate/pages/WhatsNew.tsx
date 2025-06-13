@@ -18,7 +18,7 @@ function WhatsNew() {
   const intl = useIntl();
   const { version = '' } = platformEnv;
   const response = useAppChangeLog(version);
-  const { changeLog, summary } = response ?? {};
+  const { changeLog } = response ?? {};
   return (
     <Page>
       <Page.Header
@@ -35,11 +35,6 @@ function WhatsNew() {
             contentInsetAdjustmentBehavior="automatic"
             contentContainerStyle={{ pb: '$5' }}
           >
-            {summary ? (
-              <SizableText size="$bodyLg" $gtMd={{ size: '$bodyMd' }}>
-                {summary}
-              </SizableText>
-            ) : null}
             <Markdown>{changeLog}</Markdown>
             <ViewUpdateHistory />
           </ScrollView>

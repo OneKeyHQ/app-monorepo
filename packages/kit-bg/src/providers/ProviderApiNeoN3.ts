@@ -433,7 +433,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     const concatenatedString = lengthHex + parameterHexString;
     const messageHex = `000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000${concatenatedString}`;
     const signHex = u.num2hexstring(0, 4, true) + u.sha256(messageHex);
-    const result = verify(signHex, params.data, params.publicKey);
+    const result = await verify(signHex, params.data, params.publicKey);
     return {
       result,
     };
