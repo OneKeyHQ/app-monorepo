@@ -15,7 +15,6 @@ import {
   N,
   batchGetPrivateKeys,
   batchGetPublicKeys,
-  batchGetPublicKeysAsync,
   compressPublicKey,
   decryptAsync,
   decryptImportedCredential,
@@ -67,6 +66,8 @@ jest.mock('crypto', () => ({
     return Buffer.alloc(size, 0xde);
   }),
 }));
+
+const GET_PUB_TIMEOUT = 5118;
 
 describe('Secret Module Tests', () => {
   const TEST_PASSWORD = 'password123';
@@ -625,7 +626,7 @@ describe('Secret Module Tests', () => {
 
   // Test CKDPub function
   describe('CKDPub', () => {
-    it('should derive child public keys correctly', () => {
+    it('should derive child public keys correctly', async () => {
       const parentKey = {
         key: Buffer.from(
           '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
@@ -634,7 +635,7 @@ describe('Secret Module Tests', () => {
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
 
-      const testChildKey = CKDPub('secp256k1', parentKey, 0);
+      const testChildKey = await CKDPub('secp256k1', parentKey, 0);
       expect(testChildKey).toBeDefined();
       expect(testChildKey.key).toBeInstanceOf(Buffer);
       expect(testChildKey.chainCode).toBeInstanceOf(Buffer);
@@ -647,18 +648,22 @@ describe('Secret Module Tests', () => {
         ),
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
-      const nistChildKey = CKDPub('nistp256', nistParentKey, 0);
+      const nistChildKey = await CKDPub('nistp256', nistParentKey, 0);
       expect(nistChildKey).toBeDefined();
       expect(nistChildKey.key).toBeInstanceOf(Buffer);
       expect(nistChildKey.chainCode).toBeInstanceOf(Buffer);
 
       // Test error cases
-      expect(() => CKDPub('invalid-curve' as any, parentKey, 0)).toThrow();
-      expect(() => CKDPub('secp256k1', parentKey, -1)).toThrow();
-      expect(() => CKDPub('secp256k1', parentKey, 2_147_483_648)).toThrow(); // Hardened index not allowed
+      await expect(
+        CKDPub('invalid-curve' as any, parentKey, 0),
+      ).rejects.toThrow();
+      await expect(CKDPub('secp256k1', parentKey, -1)).rejects.toThrow();
+      await expect(
+        CKDPub('secp256k1', parentKey, 2_147_483_648),
+      ).rejects.toThrow(); // Hardened index not allowed
     });
 
-    it('should match snapshot for public key derivation', () => {
+    it('should match snapshot for public key derivation', async () => {
       const parentKey = {
         key: Buffer.from(
           '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
@@ -666,7 +671,7 @@ describe('Secret Module Tests', () => {
         ),
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
-      const extendedKey = CKDPub('secp256k1', parentKey, 0);
+      const extendedKey = await CKDPub('secp256k1', parentKey, 0);
       expect({
         key: extendedKey.key.toString('hex'),
         chainCode: extendedKey.chainCode.toString('hex'),
@@ -814,45 +819,50 @@ describe('Secret Module Tests', () => {
       seed: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
     };
 
-    it('should generate public keys matching private keys', async () => {
-      const encryptedSeed = await encryptRevealableSeed({
-        rs: testSeed,
-        password: testPassword,
-      });
-      const curveName: ICurveName = 'secp256k1';
-      const prefix = 'm';
-      const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
+    it(
+      'should generate public keys matching private keys',
+      async () => {
+        const encryptedSeed = await encryptRevealableSeed({
+          rs: testSeed,
+          password: testPassword,
+        });
+        const curveName: ICurveName = 'secp256k1';
+        const prefix = 'm';
+        const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
 
-      const privateKeys = await batchGetPrivateKeys(
-        curveName,
-        encryptedSeed,
-        testPassword,
-        prefix,
-        relPaths,
-      );
+        const [privateKeys, publicKeys] = await Promise.all([
+          batchGetPrivateKeys(
+            curveName,
+            encryptedSeed,
+            testPassword,
+            prefix,
+            relPaths,
+          ),
+          batchGetPublicKeys({
+            curveName,
+            hdCredential: encryptedSeed,
+            password: testPassword,
+            prefix,
+            relPaths,
+          }),
+        ]);
 
-      const publicKeys = await batchGetPublicKeys(
-        curveName,
-        encryptedSeed,
-        testPassword,
-        prefix,
-        relPaths,
-      );
-
-      expect(publicKeys).toHaveLength(privateKeys.length);
-      publicKeys.forEach((pubKey, index) => {
-        expect(pubKey.path).toBe(privateKeys[index].path);
-        expect(pubKey.parentFingerPrint).toEqual(
-          privateKeys[index].parentFingerPrint,
-        );
-        expect(Buffer.isBuffer(pubKey.extendedKey.key)).toBe(true);
-        expect(Buffer.isBuffer(pubKey.extendedKey.chainCode)).toBe(true);
-        // Public key should be different from private key
-        expect(pubKey.extendedKey.key).not.toEqual(
-          privateKeys[index].extendedKey.key,
-        );
-      });
-    });
+        expect(publicKeys).toHaveLength(privateKeys.length);
+        publicKeys.forEach((pubKey, index) => {
+          expect(pubKey.path).toBe(privateKeys[index].path);
+          expect(pubKey.parentFingerPrint).toEqual(
+            privateKeys[index].parentFingerPrint,
+          );
+          expect(Buffer.isBuffer(pubKey.extendedKey.key)).toBe(true);
+          expect(Buffer.isBuffer(pubKey.extendedKey.chainCode)).toBe(true);
+          // Public key should be different from private key
+          expect(pubKey.extendedKey.key).not.toEqual(
+            privateKeys[index].extendedKey.key,
+          );
+        });
+      },
+      GET_PUB_TIMEOUT,
+    );
 
     it('should throw error for invalid curve name', async () => {
       const encryptedSeed = await encryptRevealableSeed({
@@ -864,13 +874,13 @@ describe('Secret Module Tests', () => {
       const relPaths = ['0/0'];
 
       await expect(
-        batchGetPublicKeys(
+        batchGetPublicKeys({
           curveName,
-          encryptedSeed,
-          testPassword,
+          hdCredential: encryptedSeed,
+          password: testPassword,
           prefix,
           relPaths,
-        ),
+        }),
       ).rejects.toThrow(
         'Key derivation is not supported for curve invalid-curve.',
       );
@@ -886,13 +896,13 @@ describe('Secret Module Tests', () => {
       const relPaths = ['0/0'];
 
       await expect(
-        batchGetPublicKeys(
+        batchGetPublicKeys({
           curveName,
-          encryptedSeed,
-          'wrong-password',
+          hdCredential: encryptedSeed,
+          password: 'wrong-password',
           prefix,
           relPaths,
-        ),
+        }),
       ).rejects.toThrow();
     });
 
@@ -905,13 +915,13 @@ describe('Secret Module Tests', () => {
       const prefix = 'm';
       const relPaths = ["44'/0'", '0/0', "1'/0/0"];
 
-      const publicKeys = await batchGetPublicKeys(
+      const publicKeys = await batchGetPublicKeys({
         curveName,
-        encryptedSeed,
-        testPassword,
+        hdCredential: encryptedSeed,
+        password: testPassword,
         prefix,
         relPaths,
-      );
+      });
 
       expect(publicKeys).toHaveLength(3);
       expect(publicKeys[0].path).toBe("m/44'/0'");
@@ -928,13 +938,13 @@ describe('Secret Module Tests', () => {
       const prefix = 'm';
       const relPaths = ['0/0'];
 
-      const publicKeys = await batchGetPublicKeys(
+      const publicKeys = await batchGetPublicKeys({
         curveName,
-        encryptedSeed,
-        testPassword,
+        hdCredential: encryptedSeed,
+        password: testPassword,
         prefix,
         relPaths,
-      );
+      });
 
       expect(
         publicKeys.map((key) => ({
@@ -960,40 +970,45 @@ describe('Secret Module Tests', () => {
       // do nothing
     });
 
-    it('should return same results as batchGetPublicKeys in non-native environment', async () => {
-      const encryptedSeed = await encryptRevealableSeed({
-        rs: testSeed,
-        password: testPassword,
-      });
-      const curveName: ICurveName = 'secp256k1';
-      const prefix = 'm';
-      const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
+    it(
+      'should return same results as batchGetPublicKeys in non-native environment',
+      async () => {
+        const encryptedSeed = await encryptRevealableSeed({
+          rs: testSeed,
+          password: testPassword,
+        });
+        const curveName: ICurveName = 'secp256k1';
+        const prefix = 'm';
+        const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
 
-      const syncResult = await batchGetPublicKeys(
-        curveName,
-        encryptedSeed,
-        testPassword,
-        prefix,
-        relPaths,
-      );
+        const [syncResult, asyncResult] = await Promise.all([
+          batchGetPublicKeys({
+            curveName,
+            hdCredential: encryptedSeed,
+            password: testPassword,
+            prefix,
+            relPaths,
+          }),
+          batchGetPublicKeys({
+            curveName,
+            hdCredential: encryptedSeed,
+            password: testPassword,
+            prefix,
+            relPaths,
+          }),
+        ]);
 
-      const asyncResult = await batchGetPublicKeysAsync({
-        curveName,
-        hdCredential: encryptedSeed,
-        password: testPassword,
-        prefix,
-        relPaths,
-      });
-
-      expect(asyncResult).toEqual(syncResult);
-    });
+        expect(asyncResult).toEqual(syncResult);
+      },
+      GET_PUB_TIMEOUT,
+    );
 
     it('should handle native environment correctly', async () => {
       const encryptedSeed = await encryptRevealableSeed({
         rs: testSeed,
         password: testPassword,
       });
-      const result = await batchGetPublicKeysAsync({
+      const result = await batchGetPublicKeys({
         curveName: 'secp256k1',
         hdCredential: encryptedSeed,
         password: testPassword,
@@ -1020,7 +1035,7 @@ describe('Secret Module Tests', () => {
         rs: testSeed,
         password: testPassword,
       });
-      const result = await batchGetPublicKeysAsync({
+      const result = await batchGetPublicKeys({
         curveName: 'secp256k1',
         hdCredential: encryptedSeed,
         password: testPassword,

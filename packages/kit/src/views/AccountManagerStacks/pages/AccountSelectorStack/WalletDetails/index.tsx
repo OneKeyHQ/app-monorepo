@@ -44,6 +44,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
@@ -360,6 +361,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   // useCallback cause re-render when unmount, but useMemo not
   const sectionListMemo = useMemo(() => {
     const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
+    const isHiddenWallet = !!focusedWalletInfo?.wallet?.passphraseState;
     let sectionListView: React.ReactNode | null = null;
     const renderSectionListHeader = () => (
       <Stack>
@@ -432,6 +434,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               </Button>
             ) : null}
           </XStack>
+        ) : null}
+        {isHiddenWallet && editMode ? (
+          <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
         ) : null}
       </Stack>
     );

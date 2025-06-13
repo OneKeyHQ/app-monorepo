@@ -95,39 +95,39 @@ import type {
 import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
-import {
-  EIndexedDBBucketNames,
-  type IDBAccount,
-  type IDBApiGetContextOptions,
-  type IDBCloudSyncItem,
-  type IDBContext,
-  type IDBCreateHDWalletParams,
-  type IDBCreateHwWalletParams,
-  type IDBCreateQRWalletParams,
-  type IDBCredentialBase,
-  type IDBDevice,
-  type IDBDeviceSettings,
-  type IDBEnsureAccountNameNotDuplicateParams,
-  type IDBExternalAccount,
-  type IDBGetWalletsParams,
-  type IDBIndexedAccount,
-  type IDBRemoveWalletParams,
-  type IDBSetAccountNameParams,
-  type IDBSetWalletNameAndAvatarParams,
-  type IDBUpdateDeviceSettingsParams,
-  type IDBUpdateFirmwareVerifiedParams,
-  type IDBWallet,
-  type IDBWalletId,
-  type IDBWalletIdSingleton,
-  type IDBWalletNextIdKeys,
-  type IDBWalletNextIds,
-  type IDBWalletType,
-  type ILocalDBRecordUpdater,
-  type ILocalDBTransaction,
-  type ILocalDBTxGetRecordByIdResult,
-} from './types';
+import { EIndexedDBBucketNames } from './types';
 
 import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
+import type {
+  IDBAccount,
+  IDBApiGetContextOptions,
+  IDBCloudSyncItem,
+  IDBContext,
+  IDBCreateHDWalletParams,
+  IDBCreateHwWalletParams,
+  IDBCreateQRWalletParams,
+  IDBCredentialBase,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBEnsureAccountNameNotDuplicateParams,
+  IDBExternalAccount,
+  IDBGetWalletsParams,
+  IDBIndexedAccount,
+  IDBRemoveWalletParams,
+  IDBSetAccountNameParams,
+  IDBSetWalletNameAndAvatarParams,
+  IDBUpdateDeviceSettingsParams,
+  IDBUpdateFirmwareVerifiedParams,
+  IDBWallet,
+  IDBWalletId,
+  IDBWalletIdSingleton,
+  IDBWalletNextIdKeys,
+  IDBWalletNextIds,
+  IDBWalletType,
+  ILocalDBRecordUpdater,
+  ILocalDBTransaction,
+  ILocalDBTxGetRecordByIdResult,
+} from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
@@ -299,11 +299,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async checkPassword({
     password,
     context,
-    useRnJsCrypto,
   }: {
     password: string;
     context: IDBContext;
-    useRnJsCrypto?: boolean;
   }): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
@@ -316,7 +314,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const decrypted = await decryptVerifyString({
         password,
         verifyString: context.verifyString,
-        useRnJsCrypto,
       });
       return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
@@ -324,20 +321,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async verifyPassword({
-    password,
-    useRnJsCrypto,
-  }: {
-    password: string;
-    useRnJsCrypto?: boolean;
-  }): Promise<void> {
+  async verifyPassword({ password }: { password: string }): Promise<void> {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
       const isValid = await this.checkPassword({
         password,
         context: ctx,
-        useRnJsCrypto,
       });
       if (isValid) {
         return;
@@ -468,21 +458,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     oldPassword,
     newPassword,
     isCreateMode,
-    useRnJsCrypto,
   }: {
     oldPassword: string;
     newPassword: string;
     isCreateMode?: boolean;
-    useRnJsCrypto?: boolean;
   }): Promise<void> {
     if (oldPassword) {
-      await this.verifyPassword({ password: oldPassword, useRnJsCrypto });
+      await this.verifyPassword({ password: oldPassword });
     }
     if (!oldPassword && !isCreateMode) {
       throw new OneKeyLocalError(
         'changePassword ERROR: oldPassword is required',
       );
     }
+
+    // may take too long, causing transaction to be automatically committed, so it needs to be outside the transaction
+    const verifyString = await encryptVerifyString({ password: newPassword });
+
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       if (oldPassword) {
         // update all credentials
@@ -493,10 +485,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
 
+      let ctx = await this.txGetContext({ tx });
+
+      ctx = await this.txGetContext({ tx });
+
       // update context verifyString
       await this.txUpdateContextVerifyString({
         tx,
-        verifyString: await encryptVerifyString({ password: newPassword }),
+        verifyString,
       });
     });
   }
@@ -1232,7 +1228,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
-  buildIndexedAccountIdHash({
+  async buildIndexedAccountIdHash({
     firstEvmAddress,
     index,
     indexedAccountId,
@@ -1251,7 +1247,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       firstEvmAddress && !isNil(index)
         ? `${firstEvmAddress}--${index.toString()}`
         : indexedAccountId;
-    const hashBuffer = sha256(bufferUtils.toBuffer(hashContent, 'utf-8'));
+    const hashBuffer = await sha256(bufferUtils.toBuffer(hashContent, 'utf-8'));
     let idHash = bufferUtils.bytesToHex(hashBuffer);
     idHash = idHash.slice(-42);
     checkIsDefined(idHash);
@@ -1290,34 +1286,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const accountDefaultNameMap: {
       [indexedAccountId: string]: string;
     } = {};
-    const indexedAccounts: IDBIndexedAccount[] = indexes.map((index) => {
-      const indexedAccountId = accountUtils.buildIndexedAccountId({
-        walletId,
-        index,
-      });
-
-      let accountName = names?.[index];
-      if (!accountName) {
-        const defaultName = accountUtils.buildIndexedAccountName({
-          pathIndex: index,
-        });
-        accountDefaultNameMap[indexedAccountId] = defaultName;
-        accountName = defaultName;
-      }
-
-      const r: IDBIndexedAccount = {
-        id: indexedAccountId,
-        idHash: this.buildIndexedAccountIdHash({
-          firstEvmAddress: dbWallet?.firstEvmAddress,
-          indexedAccountId,
+    const indexedAccountsPromise: Promise<IDBIndexedAccount>[] = indexes.map(
+      async (index) => {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId,
           index,
-        }),
-        walletId,
-        index,
-        name: accountName,
-      };
-      return r;
-    });
+        });
+
+        let accountName = names?.[index];
+        if (!accountName) {
+          const defaultName = accountUtils.buildIndexedAccountName({
+            pathIndex: index,
+          });
+          accountDefaultNameMap[indexedAccountId] = defaultName;
+          accountName = defaultName;
+        }
+
+        const r: IDBIndexedAccount = {
+          id: indexedAccountId,
+          idHash: await this.buildIndexedAccountIdHash({
+            firstEvmAddress: dbWallet?.firstEvmAddress,
+            indexedAccountId,
+            index,
+          }),
+          walletId,
+          index,
+          name: accountName,
+        };
+        return r;
+      },
+    );
+    const indexedAccounts = await Promise.all(indexedAccountsPromise);
 
     let indexedAccountsToAdd = indexedAccounts;
 
@@ -2173,12 +2172,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       if (fullXfp) {
         xfpHash = bufferUtils.bytesToHex(
-          sha256(bufferUtils.toBuffer(fullXfp, 'utf8')),
+          await sha256(bufferUtils.toBuffer(fullXfp, 'utf8')),
         );
       }
       if (qrDevice.xfp) {
         xfpHashLegacy = bufferUtils.bytesToHex(
-          sha256(bufferUtils.toBuffer(qrDevice.xfp, 'utf8')),
+          await sha256(bufferUtils.toBuffer(qrDevice.xfp, 'utf8')),
         );
       }
     }
@@ -2606,9 +2605,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     console.log('createHwWallet', features);
     const { connectId } = device;
     if (!connectId) {
-      throw new OneKeyLocalError(
-        'createHwWallet ERROR: connectId is required',
-      );
+      throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
@@ -3492,8 +3489,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 tx,
                 name: ELocalDBStoreNames.IndexedAccount,
                 ids: [firstAccount?.indexedAccountId].filter(Boolean),
-                updater: (item) => {
-                  item.idHash = this.buildIndexedAccountIdHash({
+                updater: async (item) => {
+                  item.idHash = await this.buildIndexedAccountIdHash({
                     firstEvmAddress,
                     indexedAccountId: item.id,
                     index: firstAccount.pathIndex,
@@ -3654,6 +3651,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         ],
         skipIfExists: true,
+      });
+    });
+  }
+
+  async updateWalletsBackupStatus(walletsBackedUpStatusMap: {
+    [walletId: string]: {
+      isBackedUp?: boolean;
+    };
+  }): Promise<void> {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: Object.keys(walletsBackedUpStatusMap),
+        updater: (record) => {
+          const isBackedUp = walletsBackedUpStatusMap[record.id]?.isBackedUp;
+          if (isBackedUp === undefined) {
+            return record;
+          }
+          record.backuped = isBackedUp;
+          return record;
+        },
       });
     });
   }
@@ -4933,27 +4952,67 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return ctx;
   }
 
-  // #endregion
+  async demoTestTransactionAutoCommit() {
+    const ctx = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        let _ctx = await this.txGetContext({ tx });
+        console.log('demoTestTransactionAutoCommit>>>>>>> 1', _ctx);
 
-  async updateWalletsBackupStatus(walletsBackedUpStatusMap: {
-    [walletId: string]: {
-      isBackedUp?: boolean;
-    };
-  }): Promise<void> {
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Wallet,
-        ids: Object.keys(walletsBackedUpStatusMap),
-        updater: (record) => {
-          const isBackedUp = walletsBackedUpStatusMap[record.id]?.isBackedUp;
-          if (isBackedUp === undefined) {
-            return record;
-          }
-          record.backuped = isBackedUp;
-          return record;
-        },
-      });
-    });
+        const verifyString = await encryptVerifyString({
+          password: 'hello-world',
+          allowRawPassword: true,
+        });
+
+        console.log('demoTestTransactionAutoCommit>>>>>>> 2', _ctx);
+        _ctx = await this.txGetContext({ tx });
+        console.log('demoTestTransactionAutoCommit>>>>>>> 3', _ctx);
+
+        await this.txUpdateContext({
+          tx,
+          updater: (r) => {
+            r.backupUUID = `1111: ${new Date().toLocaleTimeString()}`;
+            return Promise.resolve(r);
+          },
+        });
+
+        if (true) throw new OneKeyLocalError('test error');
+
+        const ctxById = await this.txGetRecordById({
+          tx,
+          name: ELocalDBStoreNames.Context,
+          id: `${DB_MAIN_CONTEXT_ID}-1111`,
+        });
+        console.log('demoTestTransactionAutoCommit>>>>>>> 3.1', ctxById);
+
+        // TODO 如果事务提前提交，之前的数据改动会回滚吗？
+        // globalThis?.crypto?.subtle cause transaction commit immediately
+        if (globalThis?.crypto?.subtle) {
+          // const hash = await globalThis.crypto.subtle.digest(
+          //   'SHA-256',
+          //   bufferUtils.toBuffer('hello-world', 'utf-8'),
+          // );
+        }
+
+        _ctx = await this.txGetContext({ tx });
+        console.log('demoTestTransactionAutoCommit>>>>>>> 4', _ctx);
+
+        await this.txUpdateContext({
+          tx,
+          updater: (r) => {
+            r.backupUUID = `2222: ${new Date().toLocaleTimeString()}`;
+            return Promise.resolve(r);
+          },
+        });
+
+        _ctx = await this.txGetContext({ tx });
+        console.log('demoTestTransactionAutoCommit>>>>>>> 5', _ctx);
+        return _ctx;
+      },
+    );
+
+    return ctx;
   }
+
+  // #endregion
 }

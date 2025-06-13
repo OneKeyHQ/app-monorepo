@@ -4,6 +4,7 @@ import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -1890,8 +1891,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     return localItems.sort((a, b) => a.id.localeCompare(b.id));
   }
 
-  @backgroundMethod()
-  async debugDownloadAllServerSyncItemsAndSaveToLocal() {
+  @backgroundMethodForDev()
+  async demoDownloadAllServerSyncItemsAndSaveToLocal() {
     const localItems = await this.decryptAllServerSyncItems();
     await localDb.addAndUpdateSyncItems({
       items: localItems,
@@ -1899,8 +1900,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
-  async debugCopyDevice() {
+  @backgroundMethodForDev()
+  async demoCopyDevice() {
     if (process.env.NODE_ENV !== 'production') {
       const fromDeviceId = '8fe72eee-e6e5-4327-b923-517f960da17d';
       const toDeviceId = '5bb89656-571f-4d24-a2de-2f499775b7a9';
@@ -1927,8 +1928,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async debugClearSyncItemPwdHash() {
+  @backgroundMethodForDev()
+  async demoClearSyncItemPwdHash() {
     const { syncItems } = await localDb.getAllSyncItems();
     await localDb.withTransaction(
       // EIndexedDBBucketNames.cloudSync,
@@ -1947,8 +1948,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     );
   }
 
-  @backgroundMethod()
-  async debugTamperingLocalSyncItemData() {
+  @backgroundMethodForDev()
+  async demoTamperingLocalSyncItemData() {
     const { syncItems } = await localDb.getAllSyncItems();
     await localDb.withTransaction(
       // EIndexedDBBucketNames.cloudSync,
@@ -1968,8 +1969,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     );
   }
 
-  @backgroundMethod()
-  async debugTamperingLocalSyncItemDataTime() {
+  @backgroundMethodForDev()
+  async demoTamperingLocalSyncItemDataTime() {
     const { syncItems } = await localDb.getAllSyncItems();
     await localDb.withTransaction(
       // EIndexedDBBucketNames.cloudSync,

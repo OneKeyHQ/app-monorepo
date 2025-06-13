@@ -1,7 +1,4 @@
-import {
-  NotImplemented,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -121,7 +118,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const path = fullPath ? prefixPath : '';
 
-    const displayAddress = getDisplayAddress({
+    const displayAddress: string = await getDisplayAddress({
       address,
       chainId: networkInfo.chainId,
     });

@@ -1338,7 +1338,7 @@ class ServiceAccount extends ServiceBase {
           id: accountId,
           type: EDBAccountType.VARIANT,
           name: '',
-          connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+          connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
           addresses: {},
           connectedAddresses: addresses, // TODO merge with addresses
           selectedAddress: {},
@@ -1365,7 +1365,7 @@ class ServiceAccount extends ServiceBase {
         id: accountId,
         type: EDBAccountType.VARIANT,
         name: '',
-        connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+        connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
         addresses: {},
         connectedAddresses: addresses, // TODO merge with addresses
         selectedAddress: {},
@@ -2529,7 +2529,7 @@ class ServiceAccount extends ServiceBase {
     xfp: string;
   }> => {
     const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
-    const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+    const buff = await sha256(bufferUtils.toBuffer(text, 'utf8'));
     const hash = bufferUtils.bytesToHex(buff);
 
     const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({

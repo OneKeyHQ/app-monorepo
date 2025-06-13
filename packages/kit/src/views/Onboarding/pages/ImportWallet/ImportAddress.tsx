@@ -227,9 +227,7 @@ function ImportAddress() {
         });
       try {
         if (!networksResp.publicKeyExportEnabled.has(networkIdText)) {
-          throw new OneKeyLocalError(
-            `Network not supported: ${networkIdText}`,
-          );
+          throw new OneKeyLocalError(`Network not supported: ${networkIdText}`);
         }
         const result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(

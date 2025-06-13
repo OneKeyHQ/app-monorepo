@@ -80,9 +80,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     }
     const indexed = this.buckets[bucketName];
     if (!indexed) {
-      throw new OneKeyLocalError(
-        `indexedDB bucket not found: ${bucketName}`,
-      );
+      throw new OneKeyLocalError(`indexedDB bucket not found: ${bucketName}`);
     }
     return indexed;
   }

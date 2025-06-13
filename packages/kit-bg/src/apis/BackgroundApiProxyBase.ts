@@ -151,9 +151,7 @@ export class BackgroundApiProxyBase
         backgroundMethodName = methodName;
       }
       if (!this.backgroundApi) {
-        throw new OneKeyLocalError(
-          'backgroundApi not found in non-ext env',
-        );
+        throw new OneKeyLocalError('backgroundApi not found in non-ext env');
       }
 
       const serviceApi = getBackgroundServiceApi({
