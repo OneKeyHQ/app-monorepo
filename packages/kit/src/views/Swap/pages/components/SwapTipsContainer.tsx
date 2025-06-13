@@ -16,6 +16,7 @@ const SwapTipsContainer = () => {
     <Alert
       type="info"
       title={swapTips.title}
+      titleNumberOfLines={2}
       closable={swapTips.userCanClose}
       onClose={() => {
         void backgroundApiProxy.simpleDb.swapConfigs.setSwapUserCloseTips(
