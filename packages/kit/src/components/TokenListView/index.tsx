@@ -48,6 +48,7 @@ type IProps = {
   withBuyAndReceive?: boolean;
   withNetwork?: boolean;
   withSmallBalanceTokens?: boolean;
+  withSwapAction?: boolean;
   inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
@@ -86,6 +87,7 @@ function TokenListViewCmp(props: IProps) {
     inTabList = false,
     withBuyAndReceive,
     withNetwork,
+    withSwapAction,
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
@@ -295,6 +297,7 @@ function TokenListViewCmp(props: IProps) {
           isAllNetworks={isAllNetworks}
           withNetwork={withNetwork}
           isTokenSelector={isTokenSelector}
+          withSwapAction={withSwapAction}
         />
       )}
       ListFooterComponent={

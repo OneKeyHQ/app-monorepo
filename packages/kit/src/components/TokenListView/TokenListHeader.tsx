@@ -19,12 +19,12 @@ function TokenListHeader({ tableLayout }: IProps) {
     <Stack testID="Wallet-Token-List-Header">
       {tableLayout ? (
         <XStack px="$5" py="$2" gap="$3">
-          <XStack flexGrow={1} flexBasis={0} gap={89}>
+          <XStack flexGrow={1} flexBasis={0} gap="$3">
             <SizableText
               flexGrow={1}
               flexBasis={0}
               color="$textSubdued"
-              size="$headingSm"
+              size="$bodyMdMedium"
             >
               {intl.formatMessage({ id: ETranslations.global_asset })}
             </SizableText>
@@ -35,9 +35,10 @@ function TokenListHeader({ tableLayout }: IProps) {
               // should replace by Table Component
               pl={platformEnv.isNativeIOSPad ? 44 : undefined}
               color="$textSubdued"
-              size="$headingSm"
+              size="$bodyMdMedium"
+              textAlign="right"
             >
-              {intl.formatMessage({ id: ETranslations.global_balance })}
+              {intl.formatMessage({ id: ETranslations.global_price })}
             </SizableText>
           </XStack>
           <Stack w="$8" />
@@ -49,19 +50,21 @@ function TokenListHeader({ tableLayout }: IProps) {
               // should replace by Table Component
               pl={platformEnv.isNativeIOSPad ? 48 : undefined}
               color="$textSubdued"
-              size="$headingSm"
+              size="$bodyMdMedium"
+              textAlign="right"
             >
-              {intl.formatMessage({ id: ETranslations.global_price })}
+              {intl.formatMessage({ id: ETranslations.global_balance })}
             </SizableText>
-            <SizableText
+            <Stack flexGrow={1} flexBasis={0} />
+            {/* <SizableText
               flexGrow={1}
               flexBasis={0}
               textAlign="right"
               color="$textSubdued"
-              size="$headingSm"
+              size="$bodyMdMedium"
             >
               {intl.formatMessage({ id: ETranslations.global_value })}
-            </SizableText>
+            </SizableText> */}
           </XStack>
         </XStack>
       ) : null}

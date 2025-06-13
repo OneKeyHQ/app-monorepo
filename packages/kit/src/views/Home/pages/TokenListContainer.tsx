@@ -1603,6 +1603,7 @@ function TokenListContainer(_props: ITabPageProps) {
       withPrice
       inTabList
       hideValue
+      withSwapAction
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
       onBuyToken={handleFiatCrypto}
