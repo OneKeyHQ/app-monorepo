@@ -181,7 +181,7 @@ const tsRules = {
     {
       selector: 'ThrowStatement > NewExpression[callee.name="Error"]',
       message:
-        'Direct use of "throw new Error" is not allowed. Use OneKeyPlainTextError or OneKeyError instead',
+        'Direct use of "throw new Error" is not allowed. Use OneKeyLocalError or OneKeyError instead',
     },
   ],
 };

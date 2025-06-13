@@ -4,7 +4,7 @@ import Realm from 'realm';
 
 import {
   LocalDBRecordNotFoundError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -288,7 +288,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         if (newRecord instanceof Realm.Object) {
           return newRecord;
         }
-        throw new OneKeyPlainTextError('newRecord is not a Relam.Object');
+        throw new OneKeyLocalError('newRecord is not a Relam.Object');
       }),
     );
     return Promise.resolve(undefined);
@@ -307,7 +307,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const recordKeys = Object.keys(record || {});
       recordKeys.forEach((key) => {
         if (!propertiesKeys.includes(key)) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             `Realm schema properties missing: ${name} ${key}`,
           );
         }

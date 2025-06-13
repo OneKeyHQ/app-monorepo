@@ -8,7 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -459,7 +459,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       indexedAccountId,
     });
     if (!walletId) {
-      throw new OneKeyPlainTextError('walletId is required');
+      throw new OneKeyLocalError('walletId is required');
     }
     if (
       accountUtils.isHdWallet({
@@ -473,7 +473,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       })
     ) {
       if (!indexedAccountId) {
-        throw new OneKeyPlainTextError('indexedAccountId is required');
+        throw new OneKeyLocalError('indexedAccountId is required');
       }
 
       const index = accountUtils.parseIndexedAccountId({
@@ -492,7 +492,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         skipCloseHardwareUiStateDialog,
       });
     }
-    throw new OneKeyPlainTextError('addDefaultNetworkAccounts unknown error');
+    throw new OneKeyLocalError('addDefaultNetworkAccounts unknown error');
   }
 
   async buildBatchCreateAccountsNetworksParams(params: {
@@ -905,7 +905,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   checkIfCancelled({ saveToDb }: { saveToDb: boolean | undefined }) {
     if (saveToDb && this.isCreateFlowCancelled) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.global_bulk_accounts_loading_error,
         }),
@@ -925,16 +925,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }) {
     if (!indexes) {
       if (isNil(fromIndex)) {
-        throw new OneKeyPlainTextError('fromIndex is required');
+        throw new OneKeyLocalError('fromIndex is required');
       }
       if (isNil(toIndex)) {
-        throw new OneKeyPlainTextError('toIndex is required');
+        throw new OneKeyLocalError('toIndex is required');
       }
       // eslint-disable-next-line no-param-reassign
       indexes = range(fromIndex, toIndex + 1);
     }
     if (!indexes || !indexes?.length) {
-      throw new OneKeyPlainTextError('indexes is required');
+      throw new OneKeyLocalError('indexes is required');
     }
     return indexes;
   }
@@ -991,12 +991,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
       isVerifyAddressAction,
     });
     if (networkUtils.isAllNetwork({ networkId })) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Batch Create Accounts ERROR:  All network not support',
       );
     }
     if (!this.progressInfo && saveToDb) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Batch Create Accounts ERROR:  progressInfo is required',
       );
     }
@@ -1116,7 +1116,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             try {
               this.checkIfCancelled({ saveToDb });
               if (isNil(account.pathIndex)) {
-                throw new OneKeyPlainTextError(
+                throw new OneKeyLocalError(
                   'batchBuildNetworkAccounts ERROR: pathIndex is required',
                 );
               }

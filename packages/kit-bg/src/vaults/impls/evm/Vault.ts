@@ -15,7 +15,7 @@ import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConst
 import {
   OneKeyError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -505,13 +505,13 @@ export default class Vault extends VaultBase {
       const { from, to, amount, tokenInfo, nftInfo, hexData } = transferInfo;
 
       if (!transferInfo.to) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: transferInfo.to is missing',
         );
       }
 
       if (!tokenInfo && !nftInfo) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
         );
       }
@@ -535,7 +535,7 @@ export default class Vault extends VaultBase {
 
       if (tokenInfo) {
         if (isNil(tokenInfo.decimals)) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals missing',
           );
         }
@@ -558,7 +558,7 @@ export default class Vault extends VaultBase {
 
         // token address is required when building erc20 token transfer
         if (!tokenInfo.address) {
-          throw new OneKeyPlainTextError(
+          throw new OneKeyLocalError(
             'buildEncodedTx ERROR: transferInfo.tokenInfo.address missing',
           );
         }
@@ -589,7 +589,7 @@ export default class Vault extends VaultBase {
       approveInfo as IApproveInfo;
 
     if (!tokenInfo) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }

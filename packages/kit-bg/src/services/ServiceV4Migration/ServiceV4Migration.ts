@@ -6,6 +6,7 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -17,7 +18,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   IncorrectPassword,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -108,7 +109,7 @@ class ServiceV4Migration extends ServiceBase {
   async getMigrationPasswordV5() {
     const pwd = this.migrationPayload?.v5password || '';
     if (!pwd) {
-      throw new OneKeyPlainTextError('Migration v5 password not set');
+      throw new OneKeyLocalError('Migration v5 password not set');
     }
     return pwd;
   }
@@ -119,7 +120,7 @@ class ServiceV4Migration extends ServiceBase {
       this.migrationPayload?.v5password ||
       '';
     if (!pwd) {
-      throw new OneKeyPlainTextError('Migration v4 password not set');
+      throw new OneKeyLocalError('Migration v4 password not set');
     }
     return pwd;
   }
@@ -128,8 +129,8 @@ class ServiceV4Migration extends ServiceBase {
     return this.migrationPayload;
   }
 
-  @backgroundMethod()
-  async testShowData() {
+  @backgroundMethodForDev()
+  async demoShowDataOfV4Migration() {
     const data = await v4dbHubs.v4reduxDb.reduxData;
     const simpleDbAccountHistory =
       await v4dbHubs.v4simpleDb.history.getAccountHistory({
@@ -474,7 +475,7 @@ class ServiceV4Migration extends ServiceBase {
             });
 
           if (!passwordRes?.password) {
-            throw new OneKeyPlainTextError('password not set');
+            throw new OneKeyLocalError('password not set');
           }
           return passwordRes?.password || '';
         },

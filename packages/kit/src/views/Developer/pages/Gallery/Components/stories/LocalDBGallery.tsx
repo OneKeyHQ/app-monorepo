@@ -1,4 +1,4 @@
-import { Button, Stack, Toast } from '@onekeyhq/components';
+import { Button, Dialog, Stack, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -401,6 +401,19 @@ function LocalDBDemo1() {
         }}
       >
         test
+      </Button>
+
+      <Button
+        onPress={async () => {
+          const r =
+            await backgroundApiProxy.serviceDemo.demoTestTransactionAutoCommit();
+          Dialog.debugMessage({
+            title: 'demoTestTransactionAutoCommit',
+            debugMessage: r,
+          });
+        }}
+      >
+        demoTestTransactionAutoCommit
       </Button>
     </Stack>
   );

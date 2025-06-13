@@ -57,6 +57,8 @@ export type IAppGlobals = {
     EIndexedDBBucketNames,
     IndexedDBPromised<IIndexedDBSchemaMap>
   >;
+  $$cryptoGlobal?: any;
+  $$cryptoNode?: any;
 };
 
 const appGlobals: IAppGlobals = {

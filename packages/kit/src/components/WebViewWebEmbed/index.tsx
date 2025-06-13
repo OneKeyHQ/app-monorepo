@@ -10,7 +10,7 @@ import {
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { EWebEmbedPostMessageType } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
@@ -67,7 +67,7 @@ export function WebViewWebEmbed({
         apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
       }
       if (!apiKey) {
-        throw new OneKeyPlainTextError('No REVENUECAT api key found');
+        throw new OneKeyLocalError('No REVENUECAT api key found');
       }
       setRevenuecatApiKey(apiKey);
     }

@@ -22,7 +22,11 @@ import type {
 
 import { ipcMessageKeys } from './config';
 
-import type { IDesktopSystemInfo } from './config';
+import type {
+  IDesktopIAPGetProductsParams,
+  IDesktopIAPGetProductsResult,
+  IDesktopSystemInfo,
+} from './config';
 import type { IMacBundleInfo } from './libs/utils';
 
 export interface IVerifyUpdateParams {
@@ -134,6 +138,9 @@ export type IDesktopAPI = {
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
   openLoggerFile: () => void;
   testCrash: () => void;
+  iapGetProducts: (
+    params: IDesktopIAPGetProductsParams,
+  ) => Promise<IDesktopIAPGetProductsResult>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -463,6 +470,8 @@ const desktopApi = Object.freeze({
     ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
+  iapGetProducts: async (params: IDesktopIAPGetProductsParams) =>
+    ipcRenderer.sendSync(ipcMessageKeys.IAP_GET_PRODUCTS, params),
 });
 
 globalThis.desktopApi = desktopApi;

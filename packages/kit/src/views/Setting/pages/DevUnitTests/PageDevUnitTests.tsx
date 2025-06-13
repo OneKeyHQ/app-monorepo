@@ -13,19 +13,20 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import {
-  AES256_IV_LENGTH,
-  PBKDF2_KEY_LENGTH,
-  PBKDF2_SALT_LENGTH,
-  aesCbcDecrypt,
-  aesCbcEncrypt,
-  keyFromPasswordAndSalt,
-} from '@onekeyhq/core/src/secret/crypto-functions';
-import {
   hash160,
   hmacSHA256,
   hmacSHA512,
   sha256,
 } from '@onekeyhq/core/src/secret/hash';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+
+const { aesCbcDecrypt: aesCbcDecryptAsync, aesCbcEncrypt: aesCbcEncryptAsync } =
+  appCrypto.aesCbc;
+
+const { keyFromPasswordAndSalt } = appCrypto.keyGen;
+
+const { AES256_IV_LENGTH, PBKDF2_KEY_LENGTH, PBKDF2_SALT_LENGTH } =
+  appCrypto.consts;
 
 // Test snapshots for validation
 const HASH_TEST_SNAPSHOTS = {
@@ -107,11 +108,11 @@ export default function PageDevUnitTests() {
   const [decryptedValid, setDecryptedValid] = useState<boolean | undefined>();
 
   // Hash Function Handlers
-  const handleHmac256Test = useCallback(() => {
+  const handleHmac256Test = useCallback(async () => {
     try {
       const key = Buffer.from(hmac256Key);
       const data = Buffer.from(hmac256Data);
-      const result = hmacSHA256(key, data);
+      const result = await hmacSHA256(key, data);
       const resultHex = result.toString('hex');
       setHmac256Output(resultHex);
 
@@ -129,11 +130,11 @@ export default function PageDevUnitTests() {
     }
   }, [hmac256Key, hmac256Data]);
 
-  const handleHmac512Test = useCallback(() => {
+  const handleHmac512Test = useCallback(async () => {
     try {
       const key = Buffer.from(hmac512Key);
       const data = Buffer.from(hmac512Data);
-      const result = hmacSHA512(key, data);
+      const result = await hmacSHA512(key, data);
       const resultHex = result.toString('hex');
       setHmac512Output(resultHex);
 
@@ -151,10 +152,10 @@ export default function PageDevUnitTests() {
     }
   }, [hmac512Key, hmac512Data]);
 
-  const handleSha256Test = useCallback(() => {
+  const handleSha256Test = useCallback(async () => {
     try {
       const data = Buffer.from(sha256Data);
-      const result = sha256(data);
+      const result = await sha256(data);
       const resultHex = result.toString('hex');
       setSha256Output(resultHex);
 
@@ -167,10 +168,10 @@ export default function PageDevUnitTests() {
     }
   }, [sha256Data]);
 
-  const handleHash160Test = useCallback(() => {
+  const handleHash160Test = useCallback(async () => {
     try {
       const data = Buffer.from(hash160Data);
-      const result = hash160(data);
+      const result = await hash160(data);
       const resultHex = result.toString('hex');
       setHash160Output(resultHex);
 
@@ -184,10 +185,10 @@ export default function PageDevUnitTests() {
   }, [hash160Data]);
 
   // Crypto Function Handlers
-  const handleKeyDerivationTest = useCallback(() => {
+  const handleKeyDerivationTest = useCallback(async () => {
     try {
       const salt = Buffer.from(saltHex, 'hex');
-      const result = keyFromPasswordAndSalt(password, salt);
+      const result = await keyFromPasswordAndSalt(password, salt);
       const resultHex = result.toString('hex');
       setDerivedKeyOutput(resultHex);
 
@@ -199,12 +200,12 @@ export default function PageDevUnitTests() {
     }
   }, [password, saltHex]);
 
-  const handleEncryptTest = useCallback(() => {
+  const handleEncryptTest = useCallback(async () => {
     try {
       const iv = Buffer.from(ivHex, 'hex');
       const key = Buffer.from(keyHex, 'hex');
       const data = Buffer.from(encryptData);
-      const result = aesCbcEncrypt({ iv, key, data });
+      const result = await aesCbcEncryptAsync({ iv, key, data });
       const resultHex = result.toString('hex');
       setEncryptedOutput(resultHex);
 
@@ -216,17 +217,17 @@ export default function PageDevUnitTests() {
     }
   }, [ivHex, keyHex, encryptData]);
 
-  const handleDecryptTest = useCallback(() => {
+  const handleDecryptTest = useCallback(async () => {
     try {
       const iv = Buffer.from(decryptIvHex, 'hex');
       const key = Buffer.from(decryptKeyHex, 'hex');
-      const encrypted = aesCbcEncrypt({
+      const encrypted = await aesCbcEncryptAsync({
         iv,
         key,
         data: Buffer.from(decryptData),
       });
 
-      const result = aesCbcDecrypt({ iv, key, data: encrypted });
+      const result = await aesCbcDecryptAsync({ iv, key, data: encrypted });
       const expected = result.toString('hex');
       setDecryptedOutput(expected);
       setDecryptedValid(expected === CRYPTO_TEST_SNAPSHOTS.aesCbcDecrypt);

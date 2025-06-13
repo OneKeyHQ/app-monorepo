@@ -13,7 +13,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
-  OneKeyPlainTextError,
+  OneKeyLocalError,
   PasswordNotSet,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
@@ -116,7 +116,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       id: DB_MAIN_CONTEXT_ID,
     });
     if (!ctx) {
-      throw new OneKeyPlainTextError('failed get local db context');
+      throw new OneKeyLocalError('failed get local db context');
     }
     return ctx;
   }
@@ -143,7 +143,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       await this.verifyPassword(oldPassword);
     }
     if (!oldPassword && !isCreateMode) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'changePassword ERROR: oldPassword is required',
       );
     }
@@ -179,7 +179,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
   }) {
     const db = await this.readyDb;
     if (!oldPassword || !newPassword) {
-      throw new OneKeyPlainTextError('password is required');
+      throw new OneKeyLocalError('password is required');
     }
 
     // update all credentials

@@ -3,7 +3,7 @@ import { ResourceType } from '@onekeyfe/hd-transport';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { Image } from 'react-native';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
@@ -184,7 +184,7 @@ export async function generateUploadNFTParams({
   const base64 = await imageUtils.getBase64FromImageUri({ uri: imageUri });
 
   if (!base64) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `Failed to get base64 from image uri: ${imageUri}`,
     );
   }

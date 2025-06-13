@@ -2,7 +2,7 @@
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { OneKeyPlainTextError } from '../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 import imageUtils from './imageUtils';
 
@@ -60,7 +60,7 @@ function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {
 
 // const toig = (imageData: ImageData, deviceModelInternal: IDeviceType) => {
 //   if (!deviceModelInformation[deviceModelInternal]) {
-//     throw new OneKeyPlainTextError(
+//     throw new OneKeyLocalError(
 //       `imageToCanvas ERROR: Device model not supported: ${deviceModelInternal}`,
 //     );
 //   }
@@ -115,7 +115,7 @@ async function imagePathToHex(
   deviceType: IDeviceType,
 ): Promise<string> {
   if (!deviceModelInformation[deviceType]) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `imagePathToHex ERROR: Device model not supported: ${deviceType}`,
     );
   }
@@ -127,7 +127,7 @@ async function imagePathToHex(
     uri: base64OrUri,
   });
   if (!base64) {
-    throw new OneKeyPlainTextError('imagePathToHex ERROR: base64 is null');
+    throw new OneKeyLocalError('imagePathToHex ERROR: base64 is null');
   }
 
   // image can be loaded to device without modifications -> it is in original quality

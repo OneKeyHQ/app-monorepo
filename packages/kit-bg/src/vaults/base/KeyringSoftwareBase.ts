@@ -10,7 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -74,7 +74,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
 
     const vault = this.vault as VaultBtc;
@@ -107,7 +107,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
     const { password, unsignedTx, addressEncoding } = params;
 
@@ -130,7 +130,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
     const { password, messages } = params;
     const account = await this.vault.getAccount();
@@ -156,7 +156,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
 
     const vault = this.vault as VaultBtc;
@@ -198,7 +198,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     } = {},
   ): Promise<Array<IDBSimpleAccount>> {
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
     const { name, importedCredential, password, networks, createAtNetwork } =
       params;
@@ -230,7 +230,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (onlyAvailableOnCertainNetworks) {
       addressUsed = addresses?.[createAtNetwork] || '';
       if (!addressUsed) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           `imported account address is empty of network: ${createAtNetwork}`,
         );
       }
@@ -267,7 +267,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     // },
   ): Promise<Array<IDBUtxoAccount>> {
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
     const { name, importedCredential, password, createAtNetwork, deriveInfo } =
       params;
@@ -292,7 +292,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       });
 
     if (isNil(xpub) || !addresses) {
-      throw new OneKeyPlainTextError('xpub or addresses is undefined');
+      throw new OneKeyLocalError('xpub or addresses is undefined');
     }
 
     const accountId = accountUtils.buildImportedAccountId({
@@ -329,7 +329,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         if (!this.coreApi) {
-          throw new OneKeyPlainTextError('coreApi is not defined');
+          throw new OneKeyLocalError('coreApi is not defined');
         }
         const credentials = await this.baseGetCredentialsInfo({ password });
         const { addresses: addressInfos } =
@@ -367,7 +367,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
         const credentials = await this.baseGetCredentialsInfo({ password });
         if (!this.coreApi) {
-          throw new OneKeyPlainTextError('coreApi is undefined');
+          throw new OneKeyLocalError('coreApi is undefined');
         }
 
         defaultLogger.account.accountCreatePerf.getAddressesFromHd();
@@ -413,7 +413,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const addressEncoding = deriveInfo?.addressEncoding;
 
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
 
     return this.coreApi.getExportedSecretKey({
@@ -435,7 +435,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   ): Promise<IGetPrivateKeysResult> {
     const { password, relPaths } = params;
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi is not defined');
+      throw new OneKeyLocalError('coreApi is not defined');
     }
 
     const account = await this.vault.getAccount();
