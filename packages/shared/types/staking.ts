@@ -820,10 +820,15 @@ export type IAvailableAsset = {
   name: string;
   symbol: string;
   logoURI: string;
+  apr: string;
   aprWithoutFee: string;
   tags: string[];
-  networkId: string;
   rewardUnit: IEarnRewardUnit;
+  protocols: Array<{
+    networkId: string;
+    provider: string;
+    vault: string;
+  }>;
 };
 
 export interface IEarnAtomData {

@@ -74,3 +74,18 @@ export enum EAvailableAssetsTypeEnum {
   NativeTokens = 'nativeTokens',
   Recommend = 'recommend',
 }
+
+export interface IEarnAvailableAsset {
+  name: string;
+  symbol: string;
+  logoURI: string;
+  apr: string;
+  aprWithoutFee: string;
+  tags: string[];
+  rewardUnit: string;
+  protocols: Array<{
+    networkId: string;
+    provider: string;
+    vault: string;
+  }>;
+}

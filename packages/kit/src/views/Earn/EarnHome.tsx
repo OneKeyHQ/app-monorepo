@@ -1,7 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -45,12 +44,9 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type {
-  IEarnAccount,
-  IEarnAccountToken,
-  IEarnRewardUnit,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -67,10 +63,6 @@ import { FAQPanel } from './components/FAQPanel';
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
-
-interface ITokenAccount extends IEarnAccountToken {
-  account: IEarnAccount;
-}
 
 const BANNER_TITLE_OFFSET = {
   desktop: '$5',
@@ -149,7 +141,7 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
 function RecommendedItem({
   token,
   ...rest
-}: { token?: ITokenAccount } & IYStackProps) {
+}: { token?: IEarnAvailableAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const [decorationColor, setDecorationColor] = useState<string | null>(null);
@@ -170,13 +162,15 @@ function RecommendedItem({
         await backgroundApiProxy.serviceStaking.getEarnAccount({
           indexedAccountId: indexedAccount?.id,
           accountId: account?.id ?? '',
-          networkId: token.account.networkId,
+          // 严谨处理，token.protocols 有多个 networkId 的情况
+          networkId: token.protocols[0]?.networkId,
         });
       await toTokenProviderListPage(navigation, {
         indexedAccountId:
           earnAccount?.account.indexedAccountId || indexedAccount?.id,
         accountId: earnAccount?.accountId || account?.id || '',
-        networkId: token.account.networkId,
+        // 严谨处理，token.protocols 有多个 networkId 的情况
+        networkId: token.protocols[0]?.networkId,
         symbol: token.symbol,
       });
     }
@@ -231,7 +225,10 @@ function RecommendedItem({
           <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
         </XStack>
         <SizableText size="$headingXl" pt="$4" pb="$1">
-          {buildAprText(token.aprWithoutFee, token.rewardUnit)}
+          {buildAprText(
+            token.aprWithoutFee,
+            token.rewardUnit as IEarnRewardUnit,
+          )}
         </SizableText>
       </YStack>
     </YStack>
@@ -285,22 +282,7 @@ function Recommended({
   const tokens = useMemo(() => {
     const recommendAssets =
       availableAssetsByType[EAvailableAssetsTypeEnum.Recommend] || [];
-    return recommendAssets.map(
-      (token) =>
-        ({
-          ...token,
-          account: {
-            networkId: token.networkId,
-          },
-          orderIndex: 0,
-          profit: '0',
-          balance: '0',
-          balanceParsed: '0',
-          fiatValue: '0',
-          address: '',
-          price: '0',
-        } as unknown as ITokenAccount),
-    );
+    return recommendAssets;
   }, [availableAssetsByType]);
 
   // Render skeleton when loading
@@ -595,26 +577,6 @@ function BasicEarnHome() {
         networkId: allNetworkId,
       });
 
-      const fetchAndUpdateAction = async () => {
-        if (!account && !indexedAccount) {
-          return;
-        }
-        const earnAccount =
-          await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-            accountId: account?.id ?? '',
-            networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-          });
-        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-        actions.current.updateEarnAccounts({
-          key: totalFiatMapKey,
-          earnAccount: {
-            ...earnAccountData,
-            ...earnAccount,
-          },
-        });
-      };
-
       const fetchAndUpdateOverview = async () => {
         if (!account && !indexedAccount) {
           return;
@@ -638,15 +600,11 @@ function BasicEarnHome() {
       };
 
       const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-      const fetchData = async () => {
-        await fetchAndUpdateAction();
-        await fetchAndUpdateOverview();
-      };
       if (earnAccountData) {
         await timerUtils.wait(350);
-        void fetchData();
+        await fetchAndUpdateOverview();
       } else {
-        await fetchData();
+        await fetchAndUpdateOverview();
       }
       return { loaded: true };
     },
