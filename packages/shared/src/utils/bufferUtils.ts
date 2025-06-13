@@ -27,9 +27,7 @@ function toBuffer(
     // buffer from hex string in default
     const buff = Buffer.from(data, encoding);
     if (buff.length === 0 && data.length > 0) {
-      throw new OneKeyLocalError(
-        `data not matched to encoding: ${encoding}`,
-      );
+      throw new OneKeyLocalError(`data not matched to encoding: ${encoding}`);
     }
     return buff;
   }

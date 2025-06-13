@@ -20,9 +20,7 @@ export function verifyEvmSignedTxMatched({
 }: IVerifyEvmSignedTxMatchedParams) {
   const txidFromRawTx = ethers.utils.keccak256(rawTx);
   if (txid !== txidFromRawTx || !txid || !txidFromRawTx) {
-    throw new OneKeyLocalError(
-      `EVM txid not match: ${txid}, ${txidFromRawTx}`,
-    );
+    throw new OneKeyLocalError(`EVM txid not match: ${txid}, ${txidFromRawTx}`);
   }
 
   const ethersTx = ethers.utils.parseTransaction(rawTx);

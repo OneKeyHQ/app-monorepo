@@ -2165,6 +2165,7 @@
   "remove_hidden_wallet_desc": "Hapus dompet tersembunyi ini? Pastikan Anda telah menyimpan passphrase.",
   "remove_private_key_account_desc": "Anda dapat memulihkan akun menggunakan kunci pribadi setelah penghapusan. Pastikan itu dicadangkan untuk menghindari kehilangan akses secara permanen.",
   "remove_standard_wallet": "Hapus Dompet Standar",
+  "remove_standard_wallet_desc": "Dana dan transaksi Anda tidak akan terlihat sampai Anda menghubungkan perangkat dan membuat ulang dompet standar.",
   "remove_wallet": "Hapus dompet",
   "remove_wallet_desc": "Pastikan Anda telah menulis frase pemulihan sebelum menghapus dompet. Jika tidak, Anda tidak akan dapat memulihkan dompet tersebut.",
   "remove_wallet_double_confirm_message": "Saya telah menulis frase pemulihan",

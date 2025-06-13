@@ -252,6 +252,8 @@ function HiddenWalletAddButton({
 
   return (
     <WalletListItemBaseView
+      opacity={wallet?.deprecated ? 0.5 : undefined}
+      disabled={wallet?.deprecated}
       name={intl.formatMessage({ id: ETranslations.global_hidden_wallet })}
       avatarView={
         <Icon name="PlusCircleOutline" color="$iconSubdued" size="$10" />
@@ -273,13 +275,16 @@ export function WalletListItem({
   onWalletPress,
   onWalletLongPress, // drag and drop
   isOthers,
+  badge,
   isEditMode,
   ...rest
 }: IWalletListItemProps) {
   let walletAvatarProps: IWalletAvatarProps = {
     wallet,
     status: 'default', // 'default' | 'connected';
+    badge,
   };
+  const media = useMedia();
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
   let onPress = () => wallet?.id && onWalletPress(wallet?.id);
@@ -337,6 +342,9 @@ export function WalletListItem({
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
             onWalletLongPress={onWalletLongPress}
+            {...(media.md && {
+              badge: Number(index) + 1,
+            })}
           />
         ))}
         {!isHiddenWallet ? (

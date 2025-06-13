@@ -41,6 +41,12 @@ const VARIANT_SIZE = {
     logoSize: '$4',
     relativeMargin: '$6',
   },
+  'medium': {
+    containerSize: '$8',
+    logoContainerSize: '$5',
+    logoSize: '$4',
+    relativeMargin: '$4',
+  },
   'small': {
     containerSize: '$6',
     logoContainerSize: '$4',

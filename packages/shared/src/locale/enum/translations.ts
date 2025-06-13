@@ -2170,6 +2170,7 @@
   remove_hidden_wallet_desc = 'remove_hidden_wallet_desc',
   remove_private_key_account_desc = 'remove_private_key_account_desc',
   remove_standard_wallet = 'remove_standard_wallet',
+  remove_standard_wallet_desc = 'remove_standard_wallet_desc',
   remove_wallet = 'remove_wallet',
   remove_wallet_desc = 'remove_wallet_desc',
   remove_wallet_double_confirm_message = 'remove_wallet_double_confirm_message',

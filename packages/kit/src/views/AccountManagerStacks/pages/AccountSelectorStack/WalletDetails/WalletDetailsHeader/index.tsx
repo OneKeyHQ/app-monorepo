@@ -1,10 +1,8 @@
 import { useMemo } from 'react';
 
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Stack, XStack, YStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerForDapp } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -17,7 +15,6 @@ import { showWalletAvatarEditDialog } from '@onekeyhq/kit/src/views/AccountManag
 import { WalletEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletEdit/WalletEditButton';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -42,7 +39,6 @@ export function WalletDetailsHeader({
   ...rest
 }: IWalletDetailsHeaderProps) {
   const [accountSelectorContextData] = useAccountSelectorContextDataAtom();
-  const intl = useIntl();
   const { selectedAccount } = useSelectedAccount({ num: num ?? 0 });
 
   const showAboutDevice =
@@ -57,17 +53,13 @@ export function WalletDetailsHeader({
     () => wallet?.type === WALLET_TYPE_HD && !wallet.backuped,
     [wallet],
   );
+  const isAvatarEditable = useMemo(
+    () => accountUtils.isHdWallet({ walletId: wallet?.id }) && editable,
+    [wallet, editable],
+  );
 
   return (
-    <YStack
-      testID="account-selector-header"
-      mt="$1"
-      mb="$2.5"
-      pb="$1"
-      borderBottomWidth={StyleSheet.hairlineWidth}
-      borderBottomColor="$neutral3"
-      {...rest}
-    >
+    <YStack testID="account-selector-header" py="$1" {...rest}>
       <ListItem gap="$1.5">
         <XStack gap="$1.5" alignItems="center" flex={1}>
           <Stack
@@ -75,7 +67,7 @@ export function WalletDetailsHeader({
             borderRadius="$2"
             p="$1"
             m="$-1"
-            {...(accountUtils.isHdWallet({ walletId: wallet?.id }) && {
+            {...(isAvatarEditable && {
               onPress: () =>
                 wallet ? showWalletAvatarEditDialog({ wallet }) : null,
               hoverStyle: {
@@ -95,7 +87,7 @@ export function WalletDetailsHeader({
           >
             <Stack>
               <WalletAvatar size="$8" wallet={wallet} />
-              {accountUtils.isHdWallet({ walletId: wallet?.id }) ? (
+              {isAvatarEditable ? (
                 <ListItem.Avatar.CornerIcon
                   name="MenuCircleHorSolid"
                   color="$iconSubdued"
@@ -109,7 +101,7 @@ export function WalletDetailsHeader({
         </XStack>
 
         {/* more edit button */}
-        {editable ? <WalletEditButton wallet={wallet} /> : null}
+        {editable ? <WalletEditButton num={num} wallet={wallet} /> : null}
 
         {/* single chain deriveType selector */}
         {linkedNetworkId &&

@@ -1,9 +1,6 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
-import {
-  InvalidMnemonic,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { InvalidMnemonic, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';

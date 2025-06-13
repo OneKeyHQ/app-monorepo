@@ -2,6 +2,11 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEqual, noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import {
+  type LayoutChangeEvent,
+  type LayoutRectangle,
+  StyleSheet,
+} from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
@@ -50,8 +55,6 @@ import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem
 import { AccountSelectorAddAccountButton } from './AccountSelectorAddAccountButton';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
-
-import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
 
 export interface IWalletDetailsProps {
   num: number;
@@ -386,15 +389,17 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             description={intl.formatMessage({
               id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
             })}
-            icon="InfoCircleOutline"
-            borderRadius={0}
-            borderLeftWidth={0}
-            borderRightWidth={0}
-            px={20}
+            mx="$5"
           />
         ) : null}
         {!isMockedStandardHwWallet ? (
-          <XStack px="$5" py="$2">
+          <XStack
+            mb="$2"
+            px="$5"
+            py="$2"
+            borderBottomWidth={StyleSheet.hairlineWidth}
+            borderBottomColor="$neutral3"
+          >
             <InputUnControlled
               leftIconName="SearchOutline"
               size="small"
@@ -412,27 +417,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               onChangeText={handleSearch}
             />
           </XStack>
-        ) : null}
-        {/* TODO: remove this */}
-        {editable ? (
-          <Button
-            testID="account-edit-button"
-            variant="tertiary"
-            alignSelf="flex-start"
-            $gtMd={{ top: '$0.5' }}
-            onPress={() => {
-              setEditMode((v) => !v);
-            }}
-            {...(editMode && {
-              color: '$textInteractive',
-              icon: 'CheckLargeOutline',
-              iconColor: '$iconSuccess',
-            })}
-          >
-            {editMode
-              ? intl.formatMessage({ id: ETranslations.global_done })
-              : intl.formatMessage({ id: ETranslations.global_edit })}
-          </Button>
         ) : null}
       </Stack>
     );
@@ -547,7 +531,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               selectedAccount={selectedAccount}
               accountsValue={accountsValue}
               linkNetwork={linkNetwork}
-              editMode={editMode}
+              editable={editable}
               accountsCount={accountsCount}
               focusedWalletInfo={focusedWalletInfo}
             />
@@ -616,7 +600,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     searchText,
     sectionData,
     selectedAccount,
-    setEditMode,
   ]);
 
   // Used to find out which deps cause redraws by binary search

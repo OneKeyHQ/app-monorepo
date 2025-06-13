@@ -2606,9 +2606,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     console.log('createHwWallet', features);
     const { connectId } = device;
     if (!connectId) {
-      throw new OneKeyLocalError(
-        'createHwWallet ERROR: connectId is required',
-      );
+      throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';

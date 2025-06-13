@@ -4,10 +4,7 @@ import sha256 from 'js-sha256';
 import { isString } from 'lodash';
 import { transactions, utils } from 'near-api-js';
 
-import {
-  NotImplemented,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';

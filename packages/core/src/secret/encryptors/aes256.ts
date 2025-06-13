@@ -67,9 +67,7 @@ async function decodePasswordAsync({
   // decode password if it is encoded
   if (isEncodedSensitiveText(password)) {
     if (platformEnv.isExtensionUi) {
-      throw new OneKeyLocalError(
-        'decodePassword can NOT be called from UI',
-      );
+      throw new OneKeyLocalError('decodePassword can NOT be called from UI');
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveTextAsync({

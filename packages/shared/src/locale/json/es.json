@@ -2165,6 +2165,7 @@
   "remove_hidden_wallet_desc": "¿Eliminar esta cartera oculta? Asegúrate de haber guardado la passphrase.",
   "remove_private_key_account_desc": "Puede restaurar la cuenta utilizando su clave privada después de eliminarla. Asegúrese de que esté respaldada para evitar la pérdida permanente de acceso.",
   "remove_standard_wallet": "Eliminar billetera estándar",
+  "remove_standard_wallet_desc": "Tus fondos y transacciones no serán visibles hasta que conectes tu dispositivo y vuelvas a crear una billetera estándar.",
   "remove_wallet": "Eliminar billetera",
   "remove_wallet_desc": "Asegúrate de haber anotado la frase de recuperación antes de eliminar la billetera. De lo contrario, no podrás recuperar la billetera.",
   "remove_wallet_double_confirm_message": "He escrito la frase de recuperación",

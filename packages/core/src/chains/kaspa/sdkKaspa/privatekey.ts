@@ -27,9 +27,7 @@ export function getTweakedPrivateKey(pri: Buffer, pub: Buffer): string {
   }
 
   if (!privateKey) {
-    throw new OneKeyLocalError(
-      'Private key is required for tweaking signer!',
-    );
+    throw new OneKeyLocalError('Private key is required for tweaking signer!');
   }
 
   const tweakedPrivateKey = ecc.privateAdd(

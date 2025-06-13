@@ -20,10 +20,7 @@ import {
   writeUInt64LEBN,
   writeUInt8,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
-import {
-  InvalidAddress,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { InvalidAddress, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';

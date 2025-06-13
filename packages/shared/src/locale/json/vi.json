@@ -2165,6 +2165,7 @@
   "remove_hidden_wallet_desc": "Xóa ví ẩn này? Hãy đảm bảo bạn đã lưu passphrase.",
   "remove_private_key_account_desc": "Bạn có thể khôi phục tài khoản bằng khóa riêng của nó sau khi xóa. Hãy đảm bảo nó đã được sao lưu để tránh mất quyền truy cập vĩnh viễn.",
   "remove_standard_wallet": "Xóa Ví Chuẩn",
+  "remove_standard_wallet_desc": "Tiền và giao dịch của bạn sẽ không hiển thị cho đến khi bạn kết nối thiết bị và tạo lại ví tiêu chuẩn.",
   "remove_wallet": "Xóa ví",
   "remove_wallet_desc": "Hãy chắc chắn bạn đã ghi lại cụm từ khôi phục trước khi gỡ ví đi. Nếu không, bạn sẽ không thể khôi phục lại ví.",
   "remove_wallet_double_confirm_message": "Tôi đã ghi lại cụm từ khôi phục",

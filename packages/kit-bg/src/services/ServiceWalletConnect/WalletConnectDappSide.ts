@@ -316,9 +316,7 @@ export class WalletConnectDappSide {
           v?.session?.topic,
         );
       });
-      throw new OneKeyLocalError(
-        'getOrCreateProvider ERROR: topic mismatched',
-      );
+      throw new OneKeyLocalError('getOrCreateProvider ERROR: topic mismatched');
     }
 
     return provider;

@@ -2165,6 +2165,7 @@
   "remove_hidden_wallet_desc": "Rimuovere questo portafoglio nascosto? Assicurati di aver salvato la passphrase.",
   "remove_private_key_account_desc": "Puoi ripristinare l'account utilizzando la sua chiave privata dopo la rimozione. Assicurati che sia salvata per evitare la perdita permanente dell'accesso.",
   "remove_standard_wallet": "Rimuovi portafoglio standard",
+  "remove_standard_wallet_desc": "I tuoi fondi e le tue transazioni non saranno visibili finché non colleghi il dispositivo e ricrei un portafoglio standard.",
   "remove_wallet": "Rimuovi portafoglio",
   "remove_wallet_desc": "Assicurati di aver annotato la frase di recupero prima di rimuovere il portafoglio. Altrimenti, non sarai in grado di recuperare il portafoglio.",
   "remove_wallet_double_confirm_message": "Ho annotato la frase di recupero",

@@ -2165,6 +2165,7 @@
   "remove_hidden_wallet_desc": "移除這個隱藏錢包？請確保您已保存 passphrase。",
   "remove_private_key_account_desc": "您可以在刪除後使用其私鑰恢復帳戶。請確保已備份，以避免永久失去訪問權限。",
   "remove_standard_wallet": "移除標準錢包",
+  "remove_standard_wallet_desc": "在您連接裝置並重新建立標準錢包之前，您的資金和交易將不會顯示。",
   "remove_wallet": "移除錢包",
   "remove_wallet_desc": "在刪除錢包之前，請確保你已寫下助記詞。否則，你將無法恢復錢包。",
   "remove_wallet_double_confirm_message": "我已經寫下了助記詞",
