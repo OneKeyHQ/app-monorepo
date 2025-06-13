@@ -141,7 +141,7 @@ const DialogFooterContainer = ({ children }: PropsWithChildren) => {
 
 export function Footer(props: IDialogFooterProps) {
   const intl = useIntl();
-  const [confirmLoading, setConfirmLoading] = useState(false);
+  const { confirmLoading, setConfirmLoading } = useContext(DialogContext);
   const { props: restProps, onConfirm } = useDialogFooterProps(props);
   const onConfirmWithLoading = useCallback(async () => {
     try {
@@ -151,7 +151,7 @@ export function Footer(props: IDialogFooterProps) {
       await timerUtils.wait(300); // wait for animation done
       setConfirmLoading(false);
     }
-  }, [onConfirm]);
+  }, [onConfirm, setConfirmLoading]);
   const {
     showFooter,
     showCancelButton,

@@ -117,15 +117,16 @@ function DialogFrame({
   forceMount,
 }: IDialogProps) {
   const intl = useIntl();
-  const { footerRef } = useContext(DialogContext);
+  const { footerRef, confirmLoading } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const onBackdropPress = useMemo(
-    () => (dismissOnOverlayPress ? onClose : undefined),
-    [dismissOnOverlayPress, onClose],
-  );
   const handleBackdropPress = useCallback(() => {
-    void onBackdropPress?.();
-  }, [onBackdropPress]);
+    if (confirmLoading) {
+      return;
+    }
+    if (dismissOnOverlayPress) {
+      void onClose?.();
+    }
+  }, [confirmLoading, dismissOnOverlayPress, onClose]);
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
@@ -359,6 +360,8 @@ function BaseDialogContainer(
   const [isOpenState, changeIsOpenState] = useState(true);
   const isControlled = !isNil(open);
   const isOpen = isControlled ? open : isOpenState;
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
   const changeIsOpen = useCallback(
     (value: boolean) => {
       if (isControlled) {
@@ -394,6 +397,8 @@ function BaseDialogContainer(
 
   const contextValue = useMemo(
     () => ({
+      confirmLoading,
+      setConfirmLoading,
       dialogInstance: {
         close: handleClose,
         ref: formRef,
@@ -404,7 +409,7 @@ function BaseDialogContainer(
         props: undefined,
       },
     }),
-    [handleClose, handleIsExist],
+    [confirmLoading, handleClose, handleIsExist],
   );
 
   const handleOpen = useCallback(() => {

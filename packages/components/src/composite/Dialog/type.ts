@@ -22,6 +22,8 @@ import type {
 } from 'tamagui';
 
 export type IDialogContextType = {
+  confirmLoading: boolean;
+  setConfirmLoading: (loading: boolean) => void;
   dialogInstance: IDialogInstanceRef;
   footerRef: {
     notifyUpdate?: () => void;

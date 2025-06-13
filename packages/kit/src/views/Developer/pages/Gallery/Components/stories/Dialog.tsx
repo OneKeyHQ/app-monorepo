@@ -192,7 +192,7 @@ function ContentFooter({
         setTimeout(() => {
           onConfirm(checkState);
           resolve();
-        }, 1500);
+        }, 5500);
       }),
     [checkState, onConfirm],
   );
@@ -206,7 +206,7 @@ function ContentFooter({
       <Dialog.Footer
         onConfirm={handleConfirm}
         onCancel={handleCancel}
-        onConfirmText="Accept(wait 1.5s)"
+        onConfirmText="Accept(wait 5.5s)"
         onCancelText="Noop"
       />
     </YStack>
