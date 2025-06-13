@@ -6,7 +6,6 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { PrimeGlobalEffect } from '../hooks/PrimeGlobalEffect';
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
   const appId = PRIVY_APP_ID;
@@ -33,7 +32,6 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      <PrimeGlobalEffect />
       {children}
     </PrivyProviderBase>
   );
