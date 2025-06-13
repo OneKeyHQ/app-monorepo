@@ -110,12 +110,10 @@ function BatchCreateAccountButton({
 export function AccountSelectorAddAccountButton({
   num,
   isOthersUniversal,
-  section,
   focusedWalletInfo,
 }: {
   num: number;
   isOthersUniversal: boolean;
-  section: IAccountSelectorAccountsListSectionData;
   focusedWalletInfo:
     | {
         wallet: IDBWallet;
@@ -133,6 +131,7 @@ export function AccountSelectorAddAccountButton({
   const { createQrWalletByAccount } = useCreateQrWallet();
   const { activeAccount } = useActiveAccount({ num });
   const activeNetworkId = activeAccount?.network?.id;
+  const walletId = focusedWalletInfo?.wallet?.id;
 
   const { serviceAccount } = backgroundApiProxy;
 
@@ -161,13 +160,13 @@ export function AccountSelectorAddAccountButton({
         return;
       }
       if (isOthersUniversal) {
-        if (section.walletId === WALLET_TYPE_WATCHING) {
+        if (walletId === WALLET_TYPE_WATCHING) {
           handleImportWatchingAccount();
         }
-        if (section.walletId === WALLET_TYPE_IMPORTED) {
+        if (walletId === WALLET_TYPE_IMPORTED) {
           handleImportPrivatekeyAccount();
         }
-        if (section.walletId === WALLET_TYPE_EXTERNAL) {
+        if (walletId === WALLET_TYPE_EXTERNAL) {
           handleAddExternalAccount();
         }
         return;
@@ -190,10 +189,10 @@ export function AccountSelectorAddAccountButton({
         const focusedWalletId = focusedWallet?.id;
 
         await serviceAccount.generateWalletsMissingMetaWithUserInteraction({
-          walletId: section.walletId,
+          walletId: walletId || '',
         });
         const c = await serviceAccount.addHDNextIndexedAccount({
-          walletId: section.walletId,
+          walletId: walletId || '',
         });
         console.log('addHDNextIndexedAccount>>>', c);
         await actions.current.updateSelectedAccountForHdOrHwAccount({
