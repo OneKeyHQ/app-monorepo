@@ -76,9 +76,7 @@ export const registerWebAuth = async (credId?: string) => {
     throw new OneKeyLocalError('Not support web auth');
   }
   if (!navigator?.credentials) {
-    throw new OneKeyLocalError(
-      'navigator.credentials API is not available',
-    );
+    throw new OneKeyLocalError('navigator.credentials API is not available');
   }
   try {
     if (credId) {

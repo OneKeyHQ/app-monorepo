@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import crypto from 'crypto';
 
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   IncorrectPassword,
   OneKeyLocalError,
@@ -9,16 +11,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import {
-  AES256_IV_LENGTH,
-  ENCRYPTED_DATA_OFFSET,
-  PBKDF2_SALT_LENGTH,
-  aesCbcDecrypt,
-  aesCbcEncrypt,
-  keyFromPasswordAndSalt,
-} from '../crypto-functions';
-
 import { xorDecrypt, xorEncrypt } from './xor';
+
+const {
+  AES256_IV_LENGTH,
+  PBKDF2_KEY_LENGTH,
+  PBKDF2_SALT_LENGTH,
+  ENCRYPTED_DATA_OFFSET,
+} = appCrypto.consts;
+
+const { aesCbcDecryptSync, aesCbcDecrypt, aesCbcEncrypt, aesCbcEncryptSync } =
+  appCrypto.aesCbc;
+
+const { keyFromPasswordAndSalt } = appCrypto.keyGen;
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
@@ -52,13 +57,11 @@ async function decodePasswordAsync({
   key,
   ignoreLogger,
   allowRawPassword,
-  useRnJsCrypto,
 }: {
   password: string;
   key?: string;
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
-  useRnJsCrypto?: boolean;
 }): Promise<string> {
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
@@ -67,16 +70,13 @@ async function decodePasswordAsync({
   // decode password if it is encoded
   if (isEncodedSensitiveText(password)) {
     if (platformEnv.isExtensionUi) {
-      throw new OneKeyLocalError(
-        'decodePassword can NOT be called from UI',
-      );
+      throw new OneKeyLocalError('decodePassword can NOT be called from UI');
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveTextAsync({
       encodedText: password,
       key,
       ignoreLogger,
-      useRnJsCrypto,
     });
   }
   if (
@@ -123,26 +123,28 @@ export type IEncryptAsyncParams = {
   password: string;
   data: Buffer | string;
   allowRawPassword?: boolean;
-  useRnJsCrypto?: boolean;
+  useWebembedApi?: boolean;
+  customSalt?: Buffer | string;
+  customIv?: Buffer | string;
+  customDecodePasswordKey?: string;
 };
 async function encryptAsync({
   password,
   data,
   allowRawPassword,
-  useRnJsCrypto,
+  useWebembedApi,
+  customSalt,
+  customIv,
+  customDecodePasswordKey,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
-  if (!useRnJsCrypto) {
-    console.log('encryptAsync useRnJsCrypto', useRnJsCrypto);
-    // console.log('encryptAsync useRnJsCrypto', useRnJsCrypto);
-  }
 
   if (
+    useWebembedApi &&
     platformEnv.isNative &&
     !platformEnv.isJest &&
-    !useRnJsCrypto &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
     const webembedApiProxy = (
@@ -153,6 +155,8 @@ async function encryptAsync({
       // data,
       data: bufferUtils.bytesToHex(data),
       allowRawPassword,
+      customIv: customIv ? bufferUtils.bytesToHex(customIv) : undefined,
+      customSalt: customSalt ? bufferUtils.bytesToHex(customSalt) : undefined,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
@@ -160,6 +164,7 @@ async function encryptAsync({
   const passwordDecoded = await decodePasswordAsync({
     password,
     allowRawPassword,
+    key: customDecodePasswordKey,
   });
 
   if (!passwordDecoded) {
@@ -168,19 +173,49 @@ async function encryptAsync({
 
   const dataBuffer = bufferUtils.toBuffer(data);
 
-  const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
-  const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
-  return Buffer.concat([
-    salt,
+  const salt: Buffer = bufferUtils.toBuffer(
+    customSalt || crypto.randomBytes(PBKDF2_SALT_LENGTH),
+  );
+  const iv: Buffer = bufferUtils.toBuffer(
+    customIv || crypto.randomBytes(AES256_IV_LENGTH),
+  );
+
+  // in web environment, if async function is executed in indexedDB.transaction, it will cause the transaction to be committed prematurely, so here use synchronous function
+  // ------------------------------------------------------------
+
+  // const key: Buffer = platformEnv.isNative
+  //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
+  //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
+  // const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+
+  // const dataEncrypted = platformEnv.isNative
+  //   ? await aesCbcEncrypt({
+  //       data: dataBuffer,
+  //       key,
+  //       iv,
+  //       //
+  //     })
+  //   : aesCbcEncryptSync({
+  //       data: dataBuffer,
+  //       key,
+  //       iv,
+  //     });
+  // const dataEncrypted = await aesCbcEncrypt({
+  //   data: dataBuffer,
+  //   key,
+  //   iv,
+  //   //
+  // });
+
+  const dataEncrypted = await aesCbcEncrypt({
+    data: dataBuffer,
+    key,
     iv,
-    aesCbcEncrypt({
-      data: dataBuffer,
-      key,
-      iv,
-      //
-    }),
-  ]);
+    //
+  });
+
+  return Buffer.concat([salt, iv, dataEncrypted]);
 }
 
 export type IDecryptAsyncParams = {
@@ -188,7 +223,7 @@ export type IDecryptAsyncParams = {
   data: Buffer | string;
   allowRawPassword?: boolean;
   ignoreLogger?: boolean;
-  useRnJsCrypto?: boolean; // useRnJsCrypto or webembedApi
+  useWebembedApi?: boolean;
 };
 /**
  * The recommended asynchronous decryption method
@@ -202,18 +237,16 @@ async function decryptAsync({
   data,
   allowRawPassword,
   ignoreLogger,
-  useRnJsCrypto,
+  useWebembedApi,
 }: IDecryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
-  if (!useRnJsCrypto) {
-    // console.log('decryptAsync useRnJsCrypto', useRnJsCrypto);
-  }
+
   if (
+    useWebembedApi &&
     platformEnv.isNative &&
     !platformEnv.isJest &&
-    !useRnJsCrypto &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
     const webembedApiProxy = (
@@ -237,7 +270,6 @@ async function decryptAsync({
     password,
     allowRawPassword,
     ignoreLogger: true,
-    useRnJsCrypto,
   });
   if (!passwordDecoded) {
     throw new IncorrectPassword();
@@ -252,7 +284,12 @@ async function decryptAsync({
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
   }
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
+
+  // const key: Buffer = platformEnv.isNative
+  //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
+  //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();
   }
@@ -266,18 +303,26 @@ async function decryptAsync({
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAES();
     }
-    // TODO make to async call RN_AES(@metamask/react-native-aes-crypto)
-    // const aesDecryptData = await RN_AES.decrypt(
-    //   dataBuffer.slice(ENCRYPTED_DATA_OFFSET).toString('base64'),
-    //   key.toString('base64'),
-    //   iv.toString('base64'),
-    // );
 
-    const aesDecryptData = aesCbcDecrypt({
-      data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+    // const aesDecryptData = platformEnv.isNative
+    //   ? await aesCbcDecrypt({
+    //       data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+    //       key,
+    //       iv,
+    //     })
+    //   : aesCbcDecryptSync({
+    //       data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+    //       key,
+    //       iv,
+    //     });
+
+    const encryptedData = dataBuffer.slice(ENCRYPTED_DATA_OFFSET);
+    const aesDecryptData = await aesCbcDecrypt({
+      data: encryptedData,
       key,
       iv,
     });
+
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAESDone();
     }
@@ -352,14 +397,12 @@ async function decodeSensitiveTextAsync({
   key,
   ignoreLogger,
   allowRawPassword,
-  useRnJsCrypto,
 }: {
   encodedText: string;
   key?: string;
   // avoid recursive call log output order confusion
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
-  useRnJsCrypto?: boolean;
 }): Promise<string> {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -374,7 +417,6 @@ async function decodeSensitiveTextAsync({
         ),
         ignoreLogger,
         allowRawPassword,
-        useRnJsCrypto,
       });
       return decrypted.toString('utf-8');
     }
@@ -393,11 +435,13 @@ async function decodeSensitiveTextAsync({
 async function encodeSensitiveTextAsync({
   text,
   key,
-  useRnJsCrypto,
+  customIv,
+  customSalt,
 }: {
   text: string;
   key?: string;
-  useRnJsCrypto?: boolean;
+  customSalt?: Buffer;
+  customIv?: Buffer;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -410,7 +454,7 @@ async function encodeSensitiveTextAsync({
       platformEnv.isDev
     ) {
       // try to decode it to verify if encode by same key
-      await decodeSensitiveTextAsync({ encodedText: text, useRnJsCrypto });
+      await decodeSensitiveTextAsync({ encodedText: text });
     }
     return text;
   }
@@ -425,7 +469,8 @@ async function encodeSensitiveTextAsync({
         password: theKey,
         data: Buffer.from(text, 'utf-8'),
         allowRawPassword: true,
-        useRnJsCrypto,
+        customSalt,
+        customIv,
       })
     ).toString('hex');
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;

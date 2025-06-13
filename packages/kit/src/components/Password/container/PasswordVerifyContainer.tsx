@@ -216,7 +216,6 @@ const PasswordVerifyContainer = ({
                 password: '',
                 isBiologyAuth: true,
                 passwordMode,
-                useRnJsCrypto: true,
               });
           }
           if (biologyAuthRes) {
@@ -308,13 +307,11 @@ const PasswordVerifyContainer = ({
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: finalPassword,
-            useRnJsCrypto: true,
           });
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
             passwordMode,
-            useRnJsCrypto: true,
           });
         setPasswordAtom((v) => ({
           ...v,

@@ -403,9 +403,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new OneKeyLocalError(
-              'use sdk allNetworkGetAddress instead',
-            );
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // defaultLogger.account.accountCreatePerf.sdkBtcGetPublicKey();

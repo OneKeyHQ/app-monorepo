@@ -870,9 +870,7 @@ class ServiceDApp extends ServiceBase {
         );
 
       if (!activeAccount.account) {
-        throw new OneKeyLocalError(
-          'Switch network failed, account not found',
-        );
+        throw new OneKeyLocalError('Switch network failed, account not found');
       }
 
       updatedAccountInfo = {

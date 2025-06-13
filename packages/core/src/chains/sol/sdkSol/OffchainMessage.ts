@@ -212,16 +212,12 @@ export class OffchainMessage {
 
   private static validateSignerPublicKeys(signerPublicKeys: Uint8Array[]) {
     if (signerPublicKeys.length === 0) {
-      throw new OneKeyLocalError(
-        'At least one signer public key is required',
-      );
+      throw new OneKeyLocalError('At least one signer public key is required');
     }
 
     for (const pubkey of signerPublicKeys) {
       if (pubkey.length !== 32) {
-        throw new OneKeyLocalError(
-          'Each signer public key must be 32 bytes',
-        );
+        throw new OneKeyLocalError('Each signer public key must be 32 bytes');
       }
     }
   }

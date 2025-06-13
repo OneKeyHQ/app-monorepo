@@ -35,9 +35,7 @@ export class V4MigrationManagerBase {
     const impl = networkUtils.getNetworkImpl({ networkId });
     const coreApi = getCoreChainApiScopeByImpl({ impl });
     if (!coreApi) {
-      throw new OneKeyLocalError(
-        `No coreApi found for networkId ${networkId}`,
-      );
+      throw new OneKeyLocalError(`No coreApi found for networkId ${networkId}`);
     }
     return coreApi;
   }

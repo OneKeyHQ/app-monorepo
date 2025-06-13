@@ -41,9 +41,9 @@ import {
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
@@ -395,6 +395,10 @@ function MoreActionContentGrid() {
     });
   }, [navigation]);
 
+  const handleCustomerSupport = useCallback(() => {
+    void showIntercom();
+  }, []);
+
   const openNotificationsModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
@@ -453,6 +457,15 @@ function MoreActionContentGrid() {
         trackID: 'wallet-settings',
       },
       {
+        title: intl.formatMessage({
+          id: ETranslations.settings_contact_us,
+        }),
+        icon: 'HelpSupportOutline',
+        onPress: handleCustomerSupport,
+        testID: 'customer-support',
+        trackID: 'wallet-customer-support',
+      },
+      {
         title: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
         lottieSrc:
           themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
@@ -484,6 +497,7 @@ function MoreActionContentGrid() {
     badge,
     firstTimeGuideOpened,
     gtMd,
+    handleCustomerSupport,
     handleDeviceManagement,
     handleScan,
     handleSettings,

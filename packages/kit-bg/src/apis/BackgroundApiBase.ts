@@ -209,9 +209,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const { method, params } = request;
 
     if (!origin) {
-      throw new OneKeyLocalError(
-        'BackgroundApi [payload.origin] is required.',
-      );
+      throw new OneKeyLocalError('BackgroundApi [payload.origin] is required.');
     }
 
     if (!internal && !scope) {
@@ -281,9 +279,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   sendForProvider(providerName: IInjectedProviderNamesStrings): any {
     if (!providerName) {
-      throw new OneKeyLocalError(
-        'sendForProvider: providerName is required.',
-      );
+      throw new OneKeyLocalError('sendForProvider: providerName is required.');
     }
     if (!this.sendForProviderMaps[providerName]) {
       this.sendForProviderMaps[providerName] =

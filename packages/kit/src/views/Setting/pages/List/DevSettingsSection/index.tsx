@@ -800,6 +800,19 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+
+      <SectionPressItem
+        title="In-App-Purchase(Mac)"
+        subtitle="设备信息"
+        onPress={async () => {
+          const products = await desktopApi.iapGetProducts({
+            productIDs: ['Prime_Yearly', 'Prime_Monthly'],
+          });
+          Dialog.debugMessage({
+            debugMessage: products,
+          });
+        }}
+      />
     </Section>
   );
 };

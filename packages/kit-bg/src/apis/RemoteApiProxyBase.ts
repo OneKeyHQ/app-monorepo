@@ -36,9 +36,7 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
     if (remoteApiType === 'webEmbedApi') {
       errorMessage += ' please run "yarn app:web-embed:build" again';
       if (!platformEnv.isWebEmbed) {
-        throw new OneKeyLocalError(
-          'webEmbedApi is only available in webEmbed',
-        );
+        throw new OneKeyLocalError('webEmbedApi is only available in webEmbed');
       }
     }
 

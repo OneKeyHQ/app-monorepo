@@ -7,10 +7,7 @@ import {
 } from '@ckb-lumos/helpers';
 import { ResultFormatter } from '@ckb-lumos/rpc';
 
-import {
-  ConvertTxError,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { ConvertTxError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import type ClientCkb from '../sdkCkb/ClientCkb';

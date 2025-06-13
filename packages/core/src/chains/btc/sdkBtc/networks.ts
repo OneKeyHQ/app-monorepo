@@ -213,9 +213,7 @@ export function getBtcForkNetwork(
   }
   const network = extendedNetworks[chainCode];
   if (typeof network === 'undefined' || !network) {
-    throw new OneKeyLocalError(
-      `Network not found. chainCode: ${chainCode}`,
-    );
+    throw new OneKeyLocalError(`Network not found. chainCode: ${chainCode}`);
   }
 
   network.networkChainCode = chainCode;

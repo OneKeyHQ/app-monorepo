@@ -366,9 +366,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
             )
           ) {
             logger.error('mas permission denied');
-            throw new OneKeyLocalError(
-              ERRORS.MAS_DISK_PATH_PERMISSION_DENIED,
-            );
+            throw new OneKeyLocalError(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
           }
         }
 
