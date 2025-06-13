@@ -449,8 +449,9 @@ export const useLaunchEvents = (): void => {
   }, [isLocked]);
 };
 
-const getBuilderNumber = (builderNumber?: string) =>
-  builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+const getBuilderNumber = (builderNumber?: string) => {
+  return builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+};
 export const useCheckUpdateOnDesktop =
   platformEnv.isDesktop &&
   !platformEnv.isMas &&
