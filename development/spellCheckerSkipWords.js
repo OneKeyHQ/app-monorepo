@@ -744,6 +744,7 @@ module.exports = [
   'terra2',
   'testnet',
   'Testnet',
+  'textarea',
   'textgroup',
   'Themeable',
   'thor',
