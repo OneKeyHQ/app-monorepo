@@ -256,6 +256,7 @@ function Recommended({
   isFetchingAccounts: boolean;
 }) {
   const actions = useEarnActions();
+  const { md } = useMedia();
   const [{ availableAssetsByType = {} }] = useEarnAtom();
 
   // Get recommended assets
@@ -352,7 +353,7 @@ function Recommended({
                 key={token.symbol}
                 p="$1.5"
                 flexBasis={
-                  platformEnv.isExtension && !platformEnv.isDesktop
+                  md
                     ? '50%' // Extension small screen: 2 per row
                     : '25%' // Desktop: 4 per row
                 }
