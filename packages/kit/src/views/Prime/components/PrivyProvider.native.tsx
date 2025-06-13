@@ -1,5 +1,5 @@
 import {
-  PrivyElements,
+  // PrivyElements,
   PrivyProvider as PrivyProviderBase,
 } from '@privy-io/expo';
 
@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { PrimeGlobalEffect } from '../hooks/PrimeGlobalEffect';
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
   const appId = PRIVY_APP_ID;
@@ -23,8 +22,7 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PrivyProviderBase appId={appId} clientId={clientId}>
-      <PrivyElements />
-      <PrimeGlobalEffect />
+      {/* <PrivyElements /> */}
       {children}
     </PrivyProviderBase>
   );

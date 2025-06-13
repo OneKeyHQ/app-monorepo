@@ -21,8 +21,11 @@ import {
   TWITTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import openUrlUtils, {
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { handleOpenDevMode } from '../../utils/devMode';
 
@@ -37,12 +40,22 @@ type ISocialButtonProps = {
   icon: ComponentProps<typeof IconButton>['icon'];
   url: string;
   text: string;
+  openInApp?: boolean;
 };
 
-const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
+const SocialButton: FC<ISocialButtonProps> = ({
+  icon,
+  url,
+  text,
+  openInApp = false,
+}) => {
   const onPress = useCallback(() => {
-    openUrlExternal(url);
-  }, [url]);
+    if (openInApp) {
+      openUrlUtils.openUrlInApp(url, text);
+    } else {
+      openUrlExternal(url);
+    }
+  }, [url, text, openInApp]);
   return (
     <Tooltip
       renderTrigger={
@@ -51,6 +64,31 @@ const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
           width="$14"
           height="$14"
           icon={icon}
+          borderRadius="$full"
+          onPress={onPress}
+        />
+      }
+      renderContent={text}
+      placement="top"
+    />
+  );
+};
+
+// Special Support Button component that uses showIntercom
+const SupportButton: FC<{ text: string }> = ({ text }) => {
+  const onPress = useCallback(() => {
+    // Then show intercom support
+    void showIntercom();
+  }, []);
+
+  return (
+    <Tooltip
+      renderTrigger={
+        <IconButton
+          bg="$bgSubdued"
+          width="$14"
+          height="$14"
+          icon="HelpSupportOutline"
           borderRadius="$full"
           onPress={onPress}
         />
@@ -100,6 +138,11 @@ const SocialButtonGroup = () => {
             icon="GithubBrand"
             url={GITHUB_URL}
             text={intl.formatMessage({ id: ETranslations.global_github })}
+          />
+          <SupportButton
+            text={intl.formatMessage({
+              id: ETranslations.settings_contact_us,
+            })}
           />
         </XStack>
       </XStack>
