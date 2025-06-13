@@ -21,6 +21,7 @@ import {
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -423,6 +424,13 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
   }
 };
 
+export const useIntercomInit = () => {
+  useEffect(() => {
+    // 初始化 Intercom
+    void initIntercom();
+  }, []);
+};
+
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
   const [isLocked] = useAppIsLockedAtom();
@@ -512,5 +520,6 @@ export function Bootstrap() {
   useDesktopEvents();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
+  useIntercomInit();
   return null;
 }
