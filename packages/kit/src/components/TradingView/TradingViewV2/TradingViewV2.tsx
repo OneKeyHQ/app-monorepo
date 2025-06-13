@@ -2,16 +2,12 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
 
 import { useTradingViewV2 } from './useTradingViewV2';
+// import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
 
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
@@ -39,7 +35,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
 
   const {
     onLoadEnd,
-    tradingViewUrl = 'http://localhost:5173/',
+    tradingViewUrl = 'http://localhost:5173/?mode=dev',
     tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
     networkId = 'sol--101',
     interval = '1D',
@@ -55,13 +51,14 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     timeTo,
   });
 
+  // Periodically send fetched K-line data to the WebView
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (webRef.current) {
         webRef.current.sendMessageViaInjectedScript({
           type: 'tradingview',
           payload: {
-            kineData, // Pass kine data to WebView
+            kineData, // Pass K-line data to WebView
           },
         });
       }
@@ -72,92 +69,8 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     };
   }, [kineData]);
 
-  // WebSocket integration for real-time market data
-  useEffect(() => {
-    const initWebSocket = async () => {
-      try {
-        const instanceId =
-          await backgroundApiProxy.serviceSetting.getInstanceId();
-
-        console.log('instanceId', instanceId);
-        await backgroundApiProxy.serviceMarketWS.connect(instanceId);
-
-        // await backgroundApiProxy.serviceMarketWS.subscribeTokenTxs({
-        //   networkId,
-        //   tokenAddress,
-        // });
-
-        await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
-          networkId,
-          tokenAddress,
-        });
-      } catch (error) {
-        console.error('Failed to initialize market WebSocket:', error);
-      }
-    };
-
-    void initWebSocket();
-
-    return () => {
-      // void backgroundApiProxy.serviceMarketWS.unsubscribe({
-      //   channel: 'tokenTxs',
-      //   networkId,
-      //   tokenAddress,
-      // });
-      // void backgroundApiProxy.serviceMarketWS.unsubscribe({
-      //   channel: 'ohlcv',
-      //   networkId,
-      //   tokenAddress,
-      // });
-      void backgroundApiProxy.serviceMarketWS.disconnect();
-    };
-  }, [networkId, tokenAddress]);
-
-  // Listen for market data events
-  useEffect(() => {
-    const handleMarketDataUpdate = (payload: {
-      channel: string;
-      networkId: string;
-      tokenAddress: string;
-      data: any;
-    }) => {
-      // Only handle events for our specific token and network
-      if (
-        payload.networkId === networkId &&
-        payload.tokenAddress === tokenAddress
-      ) {
-        if (payload.channel === 'ohlcv') {
-          console.log('ohlcvData', payload.data);
-
-          if (webRef.current) {
-            webRef.current.sendMessageViaInjectedScript({
-              type: 'tradingview-ohlcv',
-              payload: { ohlcvData: payload.data },
-            });
-          }
-        } else if (payload.channel === 'tokenTxs') {
-          if (webRef.current) {
-            webRef.current.sendMessageViaInjectedScript({
-              type: 'tradingview-realtime',
-              payload: { marketData: payload.data },
-            });
-          }
-        }
-      }
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.MarketWSDataUpdate,
-      handleMarketDataUpdate,
-    );
-
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.MarketWSDataUpdate,
-        handleMarketDataUpdate,
-      );
-    };
-  }, [networkId, tokenAddress]);
+  // Handle WebSocket connection and real-time data forwarding
+  // useTradingViewV2WebSocket({ networkId, tokenAddress, webRef });
 
   const customReceiveHandler = useCallback((...args: any[]) => {
     console.log('customReceiveHandler', args);
