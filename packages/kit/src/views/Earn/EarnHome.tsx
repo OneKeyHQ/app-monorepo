@@ -44,7 +44,10 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import type {
+  IEarnAvailableAsset,
+  IEarnAvailableAssetProtocol,
+} from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 
@@ -86,11 +89,13 @@ const toTokenProviderListPage = async (
     accountId,
     indexedAccountId,
     symbol,
+    protocols,
   }: {
     networkId: string;
     accountId: string;
     indexedAccountId?: string;
     symbol: string;
+    protocols: IEarnAvailableAssetProtocol[];
   },
 ) => {
   defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
@@ -99,6 +104,24 @@ const toTokenProviderListPage = async (
     indexedAccountId,
     networkId,
   });
+
+  if (protocols.length === 1) {
+    const protocol = protocols[0];
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.ProtocolDetailsV2,
+      params: {
+        networkId: protocol.networkId,
+        accountId: earnAccount?.accountId || accountId,
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccountId,
+        symbol,
+        provider: protocol.provider,
+        vault: protocol.vault,
+      },
+    });
+    return;
+  }
+
   navigation.pushModal(EModalRoutes.StakingModal, {
     screen: EModalStakingRoutes.AssetProtocolList,
     params: {
@@ -162,16 +185,15 @@ function RecommendedItem({
         await backgroundApiProxy.serviceStaking.getEarnAccount({
           indexedAccountId: indexedAccount?.id,
           accountId: account?.id ?? '',
-          // 严谨处理，token.protocols 有多个 networkId 的情况
           networkId: token.protocols[0]?.networkId,
         });
       await toTokenProviderListPage(navigation, {
         indexedAccountId:
           earnAccount?.account.indexedAccountId || indexedAccount?.id,
         accountId: earnAccount?.accountId || account?.id || '',
-        // 严谨处理，token.protocols 有多个 networkId 的情况
         networkId: token.protocols[0]?.networkId,
         symbol: token.symbol,
+        protocols: token.protocols,
       });
     }
   }, [accountInfo, navigation, token]);
@@ -650,6 +672,7 @@ function BasicEarnHome() {
       accountId: string;
       indexedAccountId?: string;
       symbol: string;
+      protocols: IEarnAvailableAssetProtocol[];
     }) => {
       await toTokenProviderListPage(navigation, params);
     },

@@ -22,6 +22,7 @@ import {
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 
@@ -93,6 +94,7 @@ interface IAvailableAssetsTabViewListProps {
     accountId: string;
     indexedAccountId?: string;
     symbol: string;
+    protocols: IEarnAvailableAssetProtocol[];
   }) => Promise<void>;
 }
 
@@ -220,10 +222,10 @@ export function AvailableAssetsTabViewList({
                   name,
                   logoURI,
                   aprWithoutFee,
-                  networkId,
                   symbol,
                   rewardUnit,
                   tags = [],
+                  protocols,
                 },
                 index,
               ) => (
@@ -232,10 +234,11 @@ export function AvailableAssetsTabViewList({
                   key={`${name}-${index}`}
                   onPress={async () => {
                     await onTokenPress?.({
-                      networkId,
+                      networkId: protocols[0]?.networkId || '',
                       accountId: account?.id ?? '',
                       indexedAccountId: indexedAccount?.id,
                       symbol,
+                      protocols,
                     });
                   }}
                   avatarProps={{

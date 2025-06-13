@@ -75,6 +75,12 @@ export enum EAvailableAssetsTypeEnum {
   Recommend = 'recommend',
 }
 
+export interface IEarnAvailableAssetProtocol {
+  networkId: string;
+  provider: string;
+  vault?: string;
+}
+
 export interface IEarnAvailableAsset {
   name: string;
   symbol: string;
@@ -83,9 +89,5 @@ export interface IEarnAvailableAsset {
   aprWithoutFee: string;
   tags: string[];
   rewardUnit: string;
-  protocols: Array<{
-    networkId: string;
-    provider: string;
-    vault: string;
-  }>;
+  protocols: IEarnAvailableAssetProtocol[];
 }
