@@ -210,6 +210,34 @@ function MobileBrowser() {
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const handleGoBackHome = useCallback(async () => {
+    // Execute blur() to hide keyboard on the current webview
+    if (activeTabId) {
+      const webviewRef = webviewRefs[activeTabId];
+      if (webviewRef?.innerRef) {
+        try {
+          // Inject JavaScript to blur any focused input elements
+          (webviewRef.innerRef as WebView)?.injectJavaScript(`
+            try {
+              if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+              }
+              // Also try to blur any input elements that might be focused
+              const inputs = document.querySelectorAll('input, textarea');
+              inputs.forEach(function(input) {
+                if (input === document.activeElement) {
+                  input.blur();
+                }
+              });
+            } catch (e) {
+              console.error('Error blurring elements:', e);
+            }
+          `);
+        } catch (error) {
+          console.error('Error injecting blur script:', error);
+        }
+      }
+    }
+
     try {
       await takeScreenshot();
     } catch (e) {
@@ -222,7 +250,7 @@ function MobileBrowser() {
         navigation.switchTab(ETabRoutes.Discovery);
       }
     });
-  }, [takeScreenshot, setDisplayHomePage, navigation]);
+  }, [takeScreenshot, setDisplayHomePage, navigation, activeTabId]);
 
   useAndroidHardwareBack({
     displayHomePage,
