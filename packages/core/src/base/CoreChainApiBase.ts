@@ -17,7 +17,7 @@ import type {
 
 import {
   batchGetPrivateKeys,
-  batchGetPublicKeysAsync,
+  batchGetPublicKeys,
   decryptAsync,
   decryptImportedCredential,
   ed25519,
@@ -217,7 +217,7 @@ export abstract class CoreChainApiBase {
         indexFormatted,
       );
     } else {
-      pubkeyInfos = await batchGetPublicKeysAsync({
+      pubkeyInfos = await batchGetPublicKeys({
         curveName: curve,
         hdCredential,
         password,

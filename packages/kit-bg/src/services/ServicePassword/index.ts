@@ -103,14 +103,8 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async encodeSensitiveText({
-    text,
-    useRnJsCrypto,
-  }: {
-    text: string;
-    useRnJsCrypto?: boolean;
-  }): Promise<string> {
-    return Promise.resolve(encodeSensitiveTextAsync({ text, useRnJsCrypto }));
+  async encodeSensitiveText({ text }: { text: string }): Promise<string> {
+    return Promise.resolve(encodeSensitiveTextAsync({ text }));
   }
 
   @backgroundMethod()
@@ -177,14 +171,10 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async decodeSensitiveText({
     encodedText,
-    useRnJsCrypto,
   }: {
     encodedText: string;
-    useRnJsCrypto?: boolean;
   }): Promise<string> {
-    return Promise.resolve(
-      await decodeSensitiveTextAsync({ encodedText, useRnJsCrypto }),
-    );
+    return Promise.resolve(await decodeSensitiveTextAsync({ encodedText }));
   }
 
   @backgroundMethod()
@@ -208,13 +198,7 @@ export default class ServicePassword extends ServiceBase {
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
   }
 
-  async setCachedPassword({
-    password,
-    useRnJsCrypto,
-  }: {
-    password: string;
-    useRnJsCrypto?: boolean;
-  }): Promise<string> {
+  async setCachedPassword({ password }: { password: string }): Promise<string> {
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
@@ -229,13 +213,11 @@ export default class ServicePassword extends ServiceBase {
       const prevPasswordRaw = prevPassword
         ? await this.decodeSensitiveText({
             encodedText: prevPassword,
-            useRnJsCrypto,
           })
         : '';
       const newPasswordRaw = password
         ? await this.decodeSensitiveText({
             encodedText: password,
-            useRnJsCrypto,
           })
         : '';
       if (password && prevPasswordRaw !== newPasswordRaw) {
@@ -305,11 +287,7 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
-  async getBiologyAuthPassword({
-    useRnJsCrypto,
-  }: {
-    useRnJsCrypto?: boolean;
-  } = {}): Promise<string> {
+  async getBiologyAuthPassword(): Promise<string> {
     const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
       await this.setBiologyAuthEnable(false);
@@ -320,7 +298,7 @@ export default class ServicePassword extends ServiceBase {
       this.handleBiologyAuthError(authRes);
     }
     try {
-      const pwd = await biologyAuthUtils.getPassword({ useRnJsCrypto });
+      const pwd = await biologyAuthUtils.getPassword();
       ensureSensitiveTextEncoded(pwd);
       return pwd;
     } catch (e) {
@@ -355,16 +333,13 @@ export default class ServicePassword extends ServiceBase {
   async validatePasswordValidRules({
     password,
     passwordMode,
-    useRnJsCrypto,
   }: {
     passwordMode: EPasswordMode;
     password: string;
-    useRnJsCrypto?: boolean;
   }): Promise<void> {
     ensureSensitiveTextEncoded(password);
     const realPassword = await decodePasswordAsync({
       password,
-      useRnJsCrypto,
     });
     // **** length matched
     if (
@@ -385,21 +360,17 @@ export default class ServicePassword extends ServiceBase {
   async validatePasswordSame({
     newPassword,
     password,
-    useRnJsCrypto,
   }: {
     newPassword: string;
     password: string;
-    useRnJsCrypto?: boolean;
   }): Promise<void> {
     ensureSensitiveTextEncoded(password);
     ensureSensitiveTextEncoded(newPassword);
     const realPassword = await decodePasswordAsync({
       password,
-      useRnJsCrypto,
     });
     const realNewPassword = await decodePasswordAsync({
       password: newPassword,
-      useRnJsCrypto,
     });
     if (realPassword === realNewPassword) {
       throw new OneKeyErrors.PasswordUpdateSameFailed();
@@ -411,13 +382,11 @@ export default class ServicePassword extends ServiceBase {
     passwordMode,
     newPassword,
     skipDBVerify,
-    useRnJsCrypto,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
-    useRnJsCrypto?: boolean;
   }): Promise<void> {
     ensureSensitiveTextEncoded(password);
     if (newPassword) {
@@ -427,22 +396,19 @@ export default class ServicePassword extends ServiceBase {
       await this.validatePasswordValidRules({
         password,
         passwordMode,
-        useRnJsCrypto,
       });
     } else {
       await this.validatePasswordValidRules({
         password: newPassword,
         passwordMode,
-        useRnJsCrypto,
       });
       await this.validatePasswordSame({
         newPassword,
         password,
-        useRnJsCrypto,
       });
     }
     if (!skipDBVerify) {
-      await localDb.verifyPassword({ password, useRnJsCrypto });
+      await localDb.verifyPassword({ password });
     }
   }
 
@@ -569,28 +535,22 @@ export default class ServicePassword extends ServiceBase {
     password,
     passwordMode,
     isBiologyAuth,
-    useRnJsCrypto,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     isBiologyAuth?: boolean;
-    useRnJsCrypto?: boolean;
   }): Promise<string> {
     let verifyingPassword = password;
     if (isBiologyAuth) {
-      verifyingPassword = await this.getBiologyAuthPassword({
-        useRnJsCrypto,
-      });
+      verifyingPassword = await this.getBiologyAuthPassword();
     }
     ensureSensitiveTextEncoded(verifyingPassword);
     await this.validatePassword({
       password: verifyingPassword,
       passwordMode,
-      useRnJsCrypto,
     });
     await this.setCachedPassword({
       password: verifyingPassword,
-      useRnJsCrypto,
     });
     if (verifyingPassword) {
       void (async () => {

@@ -16,10 +16,7 @@ import type {
   IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import {
-  NotImplemented,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -327,9 +324,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyLocalError(
-              'use sdk allNetworkGetAddress instead',
-            );
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 

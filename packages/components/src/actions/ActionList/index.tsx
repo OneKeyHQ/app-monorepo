@@ -44,6 +44,7 @@ export interface IActionListItemProps {
   description?: string;
   destructive?: boolean;
   onPress?: (close: () => void) => void | Promise<boolean | void>;
+  onClose?: () => void;
   disabled?: boolean;
   testID?: string;
   trackID?: string;
@@ -303,7 +304,10 @@ function BasicActionList({
       key={item.label}
       disabled={item.disabled}
       {...item}
-      onClose={handleActionListClose}
+      onClose={() => {
+        handleActionListClose();
+        item.onClose?.();
+      }}
     />
   );
   return (

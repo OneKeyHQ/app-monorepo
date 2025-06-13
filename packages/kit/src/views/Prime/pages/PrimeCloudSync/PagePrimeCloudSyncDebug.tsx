@@ -518,7 +518,7 @@ function DebugPanel() {
       <Button
         mt="$4"
         onPress={() => {
-          void backgroundApiProxy.servicePrimeCloudSync.debugCopyDevice();
+          void backgroundApiProxy.servicePrimeCloudSync.demoCopyDevice();
         }}
       >
         copyDevice
@@ -571,7 +571,7 @@ function DebugPanel() {
       </Button>
       <Button
         onPress={async () => {
-          await backgroundApiProxy.servicePrimeCloudSync.debugClearSyncItemPwdHash();
+          await backgroundApiProxy.servicePrimeCloudSync.demoClearSyncItemPwdHash();
           Toast.success({
             title: 'success',
             message: '清理完成后，在另一个客户端上修改主密码，然后同步',
@@ -582,7 +582,7 @@ function DebugPanel() {
       </Button>
       <Button
         onPress={async () => {
-          await backgroundApiProxy.servicePrimeCloudSync.debugTamperingLocalSyncItemData();
+          await backgroundApiProxy.servicePrimeCloudSync.demoTamperingLocalSyncItemData();
           Toast.success({
             title: 'success',
           });
@@ -592,7 +592,7 @@ function DebugPanel() {
       </Button>
       <Button
         onPress={async () => {
-          await backgroundApiProxy.servicePrimeCloudSync.debugTamperingLocalSyncItemDataTime();
+          await backgroundApiProxy.servicePrimeCloudSync.demoTamperingLocalSyncItemDataTime();
           Toast.success({
             title: 'success',
           });

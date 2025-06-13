@@ -85,6 +85,7 @@ class EllipticECWrapper implements ICurveForKD {
     ]);
   }
 
+  // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#public-parent-key--public-child-key
   getChildPublicKey(IL: Buffer, parentPublicKey: Buffer): Buffer | null {
     checkBufferIsNotEmpty(IL);
     checkBufferIsNotEmpty(parentPublicKey);

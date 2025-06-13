@@ -2,10 +2,7 @@ import BigNumber from 'bignumber.js';
 import { sign } from 'ripple-keypairs';
 import { deriveAddress, encode, encodeForSigning, hashes } from 'xrpl';
 
-import {
-  NotImplemented,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';

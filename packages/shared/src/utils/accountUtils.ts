@@ -171,9 +171,7 @@ function formatUtxoPath(path: string): string {
 
   // Check if the path starts with 'm'
   if (parts[0] !== 'm') {
-    throw new OneKeyLocalError(
-      'Invalid UTXO path: path should start with "m"',
-    );
+    throw new OneKeyLocalError('Invalid UTXO path: path should start with "m"');
   }
 
   // Check if the path has at least three hardened levels
