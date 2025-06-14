@@ -43,6 +43,52 @@ export function WalletRenameButton({
         alignItems="center"
         borderRadius="$2"
         {...(canRename && {
+          role: 'button',
+          onPress: async () => {
+            if (!canRename) {
+              return;
+            }
+            if (
+              wallet &&
+              wallet?.id &&
+              accountUtils.isHwWallet({ walletId: wallet?.id }) &&
+              !accountUtils.isHwHiddenWallet({
+                wallet,
+              })
+            ) {
+              showHardwareLabelSetDialog(
+                {
+                  wallet,
+                },
+                {
+                  onSubmit: async (name) => {
+                    await backgroundApiProxy.serviceHardware.setDeviceLabel({
+                      walletId: wallet?.id || '',
+                      label: name,
+                    });
+                  },
+                },
+              );
+            } else {
+              showRenameDialog(wallet.name, {
+                nameHistoryInfo: {
+                  entityId: wallet.id,
+                  entityType: EChangeHistoryEntityType.Wallet,
+                  contentType: EChangeHistoryContentType.Name,
+                },
+                disabledMaxLengthLabel: true,
+                onSubmit: async (name) => {
+                  if (wallet?.id && name) {
+                    await serviceAccount.setWalletNameAndAvatar({
+                      walletId: wallet?.id,
+                      name,
+                      shouldCheckDuplicate: true,
+                    });
+                  }
+                },
+              });
+            }
+          },
           userSelect: 'none',
           hoverStyle: {
             bg: '$bgHover',
@@ -58,51 +104,6 @@ export function WalletRenameButton({
             outlineStyle: 'solid',
           },
         })}
-        onPress={async () => {
-          if (!canRename) {
-            return;
-          }
-          if (
-            wallet &&
-            wallet?.id &&
-            accountUtils.isHwWallet({ walletId: wallet?.id }) &&
-            !accountUtils.isHwHiddenWallet({
-              wallet,
-            })
-          ) {
-            showHardwareLabelSetDialog(
-              {
-                wallet,
-              },
-              {
-                onSubmit: async (name) => {
-                  await backgroundApiProxy.serviceHardware.setDeviceLabel({
-                    walletId: wallet?.id || '',
-                    label: name,
-                  });
-                },
-              },
-            );
-          } else {
-            showRenameDialog(wallet.name, {
-              nameHistoryInfo: {
-                entityId: wallet.id,
-                entityType: EChangeHistoryEntityType.Wallet,
-                contentType: EChangeHistoryContentType.Name,
-              },
-              disabledMaxLengthLabel: true,
-              onSubmit: async (name) => {
-                if (wallet?.id && name) {
-                  await serviceAccount.setWalletNameAndAvatar({
-                    walletId: wallet?.id,
-                    name,
-                    shouldCheckDuplicate: true,
-                  });
-                }
-              },
-            });
-          }
-        }}
         {...rest}
       >
         <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>

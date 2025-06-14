@@ -63,11 +63,11 @@ export function WalletDetailsHeader({
       <ListItem gap="$1.5">
         <XStack gap="$1.5" alignItems="center" flex={1}>
           <Stack
-            role="button"
             borderRadius="$2"
             p="$1"
             m="$-1"
             {...(isAvatarEditable && {
+              role: 'button',
               onPress: () =>
                 wallet ? showWalletAvatarEditDialog({ wallet }) : null,
               hoverStyle: {

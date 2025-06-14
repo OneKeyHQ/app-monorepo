@@ -66,7 +66,11 @@ function WalletEditButtonView({
     return accountUtils.isHdWallet({ walletId: wallet?.id });
   }, [wallet]);
 
+  // qr wallet can not batch create account
   const canBatchCreateAccount = useMemo(() => {
+    if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      return false;
+    }
     return (
       accountUtils.isHdWallet({ walletId: wallet?.id }) ||
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
