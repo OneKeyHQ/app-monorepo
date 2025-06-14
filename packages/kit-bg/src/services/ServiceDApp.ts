@@ -1404,7 +1404,17 @@ class ServiceDApp extends ServiceBase {
       focusedWallet: homeAccountSelectorInfo?.focusedWallet ?? '',
     };
 
-    // 5. if different, update dapp connection account
+    // 5. if new account is the same as the original account, return the original account
+    if (
+      this.isConnectionAccountInfoEqual(
+        connectedAccountInfo,
+        newConnectedAccountInfo,
+      )
+    ) {
+      return connectedAccountInfo;
+    }
+
+    // 6. if different, update dapp connection account
     await this.updateConnectionSession({
       accountSelectorNum: connectedAccountInfo.num ?? 0,
       origin,
@@ -1415,6 +1425,37 @@ class ServiceDApp extends ServiceBase {
     void this.emitSwitchNetworkEvents();
 
     return newConnectedAccountInfo;
+  }
+
+  private isConnectionAccountInfoEqual(
+    a: Partial<IConnectionAccountInfo>,
+    b: Partial<IConnectionAccountInfo>,
+  ): boolean {
+    const keys = [
+      'num',
+      'accountId',
+      'address',
+      'networkId',
+      'networkImpl',
+      'deriveType',
+      'walletId',
+      'indexedAccountId',
+      'othersWalletAccountId',
+      'focusedWallet',
+    ] as const;
+
+    for (const key of keys) {
+      const aHas = key in a;
+      const bHas = key in b;
+      if (aHas && bHas) {
+        if (a[key] !== b[key]) return false;
+      } else if (aHas !== bHas) {
+        // One has the property, the other does not
+        return false;
+      }
+      // If both don't have the property, treat as equal
+    }
+    return true;
   }
 
   private emitSwitchNetworkEvents() {
