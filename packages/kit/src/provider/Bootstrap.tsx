@@ -19,6 +19,10 @@ import {
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -494,6 +498,25 @@ export const useCheckUpdateOnDesktop =
       }
     : noop;
 
+export const useClearStorageOnExtension = platformEnv.isExtension
+  ? () => {
+      useEffect(() => {
+        appEventBus.on(EAppEventBusNames.ClearStorageOnExtension, () => {
+          try {
+            globalThis.localStorage.clear();
+          } catch {
+            console.error('window.localStorage.clear() error');
+          }
+          try {
+            globalThis.sessionStorage.clear();
+          } catch {
+            console.error('window.sessionStorage.clear() error');
+          }
+        });
+      }, []);
+    }
+  : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -521,5 +544,6 @@ export function Bootstrap() {
   useLaunchEvents();
   useCheckUpdateOnDesktop();
   useIntercomInit();
+  useClearStorageOnExtension();
   return null;
 }
