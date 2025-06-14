@@ -204,7 +204,7 @@ function CurrentConnectionModal() {
             </SizableText>
           </ListItem>
           <ListItem
-            key="manage-connection"
+            key="align-account-settings"
             onPress={onPressAlignAccountSettings}
           >
             <SizableText size="$bodyMd">
