@@ -113,7 +113,6 @@ function SingleAccountAddressSelectorTriggerWrapper({
 }
 
 function DAppConnectExtensionFloatingTrigger() {
-  console.log('DAppConnectExtensionFloatingTrigger render - v2');
   const { result, refreshConnectionInfo } = useActiveTabDAppInfo();
 
   const memoizedResult = useMemo(() => result, [result]);
