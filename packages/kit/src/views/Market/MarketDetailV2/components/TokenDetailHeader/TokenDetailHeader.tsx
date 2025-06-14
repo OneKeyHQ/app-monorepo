@@ -17,7 +17,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { MarketStar } from '../../../components/MarketStar';
+import { MarketStarV2 } from '../../../components/MarketStarV2';
 
 export function TokenDetailHeader({
   tokenDetail,
@@ -190,12 +190,15 @@ export function TokenDetailHeader({
           </SizableText>
         </YStack>
 
-        <MarketStar
-          coingeckoId={symbol}
-          mr="$-2"
-          size="medium"
-          from={EWatchlistFrom.details}
-        />
+        {networkId && address ? (
+          <MarketStarV2
+            chainId={networkId}
+            contractAddress={address}
+            mr="$-2"
+            size="medium"
+            from={EWatchlistFrom.details}
+          />
+        ) : null}
       </XStack>
     </XStack>
   );

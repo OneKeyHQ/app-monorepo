@@ -7,9 +7,11 @@ import { type IMarketToken } from '../../MarketTokenData';
 import { useDesktopColumns } from './useDesktopColumns';
 import { useMobileColumns } from './useMobileColumns';
 
-export const useMarketTokenColumns = (): ITableColumn<IMarketToken>[] => {
-  const desktopColumns = useDesktopColumns();
-  const mobileColumns = useMobileColumns();
+export const useMarketTokenColumns = (
+  networkId?: string,
+): ITableColumn<IMarketToken>[] => {
+  const desktopColumns = useDesktopColumns(networkId);
+  const mobileColumns = useMobileColumns(networkId);
 
   return useMemo(() => {
     if (desktopColumns.length > 0) {

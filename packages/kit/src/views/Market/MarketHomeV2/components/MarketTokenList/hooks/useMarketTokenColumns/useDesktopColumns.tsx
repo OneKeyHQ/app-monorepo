@@ -8,15 +8,19 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
-export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
+export const useDesktopColumns = (
+  networkId?: string,
+): ITableColumn<IMarketToken>[] => {
   const { md } = useMedia();
 
   const [settings] = useSettingsPersistAtom();
@@ -26,6 +30,23 @@ export const useDesktopColumns = (): ITableColumn<IMarketToken>[] => {
   if (md) return [];
 
   return [
+    {
+      title: '',
+      dataIndex: 'star',
+      columnWidth: 50,
+      render: (_, record) => (
+        <MarketStarV2
+          chainId={networkId || ''}
+          contractAddress={record.address}
+          from={EWatchlistFrom.catalog}
+          size="small"
+        />
+      ),
+      renderSkeleton: () => (
+        <Skeleton width={24} height={24} borderRadius="$full" />
+      ),
+      align: 'center',
+    },
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',

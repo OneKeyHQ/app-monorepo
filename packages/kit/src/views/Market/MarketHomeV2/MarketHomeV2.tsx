@@ -3,14 +3,13 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing } from 'react-native';
 
 import { Page } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
 import useHomePageWidth from '../../Home/hooks/useHomePageWidth';
-import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
 
 import { MarketFilterBar } from './components/MarketFilterBar';
 import { MarketTokenList } from './components/MarketTokenList';
@@ -76,11 +75,9 @@ export function MarketHomeV2() {
       }}
       enabledNum={[0]}
     >
-      <MarketWatchListProviderMirror
-        storeName={EJotaiContextStoreNames.marketWatchList}
-      >
+      <ProviderJotaiContextMarketV2>
         <MarketHome />
-      </MarketWatchListProviderMirror>
+      </ProviderJotaiContextMarketV2>
     </AccountSelectorProviderMirror>
   );
 }

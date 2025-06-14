@@ -76,7 +76,7 @@ function MarketTokenList({
     [handleSortChange],
   );
 
-  const marketTokenColumns = useMarketTokenColumns();
+  const marketTokenColumns = useMarketTokenColumns(networkId);
 
   // Convert string values to numbers for the API
   const minLiquidity = liquidityFilter?.min

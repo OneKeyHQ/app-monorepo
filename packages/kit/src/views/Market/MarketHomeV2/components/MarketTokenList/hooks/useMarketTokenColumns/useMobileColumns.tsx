@@ -6,7 +6,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { type IMarketToken } from '../../MarketTokenData';
 
-export const useMobileColumns = (): ITableColumn<IMarketToken>[] => {
+export const useMobileColumns = (
+  networkId?: string,
+): ITableColumn<IMarketToken>[] => {
   const { md } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
