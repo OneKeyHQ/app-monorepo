@@ -1,30 +1,32 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-import MarketNetworkFilter from './MarketNetworkFilter';
-import MarketTokenListNetworkSelectorSkeleton from './MarketTokenListNetworkSelectorSkeleton';
+import MarketTokenListNetworkSelectorNormal from './MarketTokenListNetworkSelectorNormal';
+import MarketTokenListNetworkSelectorSmall from './MarketTokenListNetworkSelectorSmall';
 
-import type { IMarketNetworkFilterRef } from './MarketNetworkFilter';
+import type { IMarketTokenListNetworkSelectorNormalRef } from './MarketTokenListNetworkSelectorNormal';
 
 interface IMarketTokenListNetworkSelectorProps {
   selectedNetworkId?: string;
   onSelectNetworkId?: (networkId: string) => void;
   forceLoading?: boolean;
+  size?: 'normal' | 'small';
 }
 
 function MarketTokenListNetworkSelector({
   selectedNetworkId,
   onSelectNetworkId,
   forceLoading,
+  size = 'normal',
 }: IMarketTokenListNetworkSelectorProps) {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >();
-  const marketNetworkFilterRef = useRef<IMarketNetworkFilterRef>(null);
+  const normalComponentRef =
+    useRef<IMarketTokenListNetworkSelectorNormalRef>(null);
 
   const { result: marketChainsData, isLoading } = usePromiseResult(
     () => backgroundApiProxy.serviceMarketV2.fetchMarketChains(),
@@ -68,28 +70,36 @@ function MarketTokenListNetworkSelector({
     (network: ISwapNetwork) => {
       onSelectCurrentNetwork(network);
 
-      // 使用 setTimeout 确保状态更新后再滚动
-      setTimeout(() => {
-        marketNetworkFilterRef.current?.scrollToNetwork(network.networkId);
-      }, 100);
+      // Only scroll for normal size
+      if (size === 'normal') {
+        normalComponentRef.current?.scrollToNetwork(network.networkId);
+      }
     },
-    [onSelectCurrentNetwork],
+    [onSelectCurrentNetwork, size],
   );
 
+  if (size === 'small') {
+    return (
+      <MarketTokenListNetworkSelectorSmall
+        marketNetworks={marketNetworks}
+        currentSelectNetwork={currentSelectNetwork}
+        onSelectCurrentNetwork={onSelectCurrentNetwork}
+        isLoading={isLoading}
+        forceLoading={forceLoading}
+      />
+    );
+  }
+
   return (
-    <Stack paddingVertical="$3" paddingHorizontal="$5">
-      {isLoading || forceLoading ? (
-        <MarketTokenListNetworkSelectorSkeleton />
-      ) : (
-        <MarketNetworkFilter
-          ref={marketNetworkFilterRef}
-          networks={marketNetworks}
-          selectedNetwork={currentSelectNetwork}
-          onSelectNetwork={onSelectCurrentNetwork}
-          onMoreNetworkSelect={handleMoreNetworkSelect}
-        />
-      )}
-    </Stack>
+    <MarketTokenListNetworkSelectorNormal
+      ref={normalComponentRef}
+      marketNetworks={marketNetworks}
+      currentSelectNetwork={currentSelectNetwork}
+      onSelectCurrentNetwork={onSelectCurrentNetwork}
+      handleMoreNetworkSelect={handleMoreNetworkSelect}
+      isLoading={isLoading}
+      forceLoading={forceLoading}
+    />
   );
 }
 

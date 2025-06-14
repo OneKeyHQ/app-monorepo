@@ -1,17 +1,15 @@
-import { useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { XStack } from '@onekeyhq/components';
 
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
-import { MarketFilterBarSkeleton } from './MarketFilterBarSkeleton';
-
 import type { ILiquidityFilter } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
-export interface IMarketFilterBarProps {
+export interface IMarketFilterBarSmallProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
   liquidityFilter?: ILiquidityFilter;
@@ -21,17 +19,22 @@ export interface IMarketFilterBarProps {
   isLoading?: boolean;
 }
 
-export function MarketFilterBar({
+function MarketFilterBarSmall({
   selectedNetworkId,
-  timeRange = '24h',
+  timeRange = '5m',
   liquidityFilter,
   onNetworkIdChange,
   onTimeRangeChange,
   onLiquidityFilterChange,
   isLoading = false,
-}: IMarketFilterBarProps) {
+}: IMarketFilterBarSmallProps) {
   const [currentTimeRange, setCurrentTimeRange] =
     useState<ITimeRangeSelectorValue>(timeRange);
+
+  // Sync with external timeRange prop
+  useEffect(() => {
+    setCurrentTimeRange(timeRange);
+  }, [timeRange]);
 
   const handleTimeRangeChange = (value: ITimeRangeSelectorValue) => {
     setCurrentTimeRange(value);
@@ -47,32 +50,32 @@ export function MarketFilterBar({
   };
 
   if (isLoading) {
-    return <MarketFilterBarSkeleton />;
+    return null; // Could add skeleton later if needed
   }
 
   return (
-    <YStack gap="$3">
+    <XStack alignItems="center" gap="$3" px="$5" py="$3">
       {/* Network Selector */}
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
         onSelectNetworkId={handleNetworkIdChange}
-        size="normal"
+        size="small"
         forceLoading={isLoading}
       />
 
-      <XStack gap="$3">
-        {/* Time Range Selector */}
-        <TimeRangeSelector
-          value={currentTimeRange}
-          onChange={handleTimeRangeChange}
-        />
+      {/* Time Range Selector */}
+      <TimeRangeSelector
+        value={currentTimeRange}
+        onChange={handleTimeRangeChange}
+      />
 
-        {/* Liquidity Filter */}
-        <LiquidityFilterControl
-          value={liquidityFilter}
-          onApply={handleLiquidityFilterApply}
-        />
-      </XStack>
-    </YStack>
+      {/* Liquidity Filter */}
+      <LiquidityFilterControl
+        value={liquidityFilter}
+        onApply={handleLiquidityFilterApply}
+      />
+    </XStack>
   );
 }
+
+export default memo(MarketFilterBarSmall);

@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
 import { IconButton } from '@onekeyhq/components';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -27,14 +26,12 @@ export const useStarV2Checked = ({
 
   // Calculate checked state based on atom data
   const checked = useMemo(() => {
-    if (!isMounted) return false;
+    if (!isMounted || watchListData.length === 0) return false;
     return !!watchListData?.find(
       (item) =>
         item.chainId === chainId && item.contractAddress === contractAddress,
     );
   }, [watchListData, isMounted, chainId, contractAddress]);
-
-  const isFocused = useIsFocused();
 
   const handlePress = useCallback(async () => {
     if (checked) {

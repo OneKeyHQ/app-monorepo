@@ -2,13 +2,13 @@ import { memo } from 'react';
 
 import { Skeleton, XStack } from '@onekeyhq/components';
 
-interface IMarketTokenListNetworkSelectorSkeletonProps {
+interface IMarketTokenListNetworkSelectorNormalSkeletonProps {
   count?: number;
 }
 
-function MarketTokenListNetworkSelectorSkeleton({
+function MarketTokenListNetworkSelectorNormalSkeleton({
   count = 6,
-}: IMarketTokenListNetworkSelectorSkeletonProps) {
+}: IMarketTokenListNetworkSelectorNormalSkeletonProps) {
   return (
     <XStack
       py="$1"
@@ -36,8 +36,8 @@ function MarketTokenListNetworkSelectorSkeleton({
   );
 }
 
-const MarketTokenListNetworkSelectorSkeletonComponent = memo(
-  MarketTokenListNetworkSelectorSkeleton,
+const MarketTokenListNetworkSelectorNormalSkeletonComponent = memo(
+  MarketTokenListNetworkSelectorNormalSkeleton,
 );
 
-export default MarketTokenListNetworkSelectorSkeletonComponent;
+export default MarketTokenListNetworkSelectorNormalSkeletonComponent;
