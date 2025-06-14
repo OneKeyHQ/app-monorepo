@@ -481,9 +481,7 @@ export function EnterPhase({
       <Stack pb="$5">
         <Alert
           title={intl.formatMessage({
-            id: isSingleInput
-              ? ETranslations.global_enter_passphrase_alert
-              : ETranslations.global_add_hidden_wallet,
+            id: ETranslations.global_enter_passphrase_alert,
           })}
           type="warning"
         />

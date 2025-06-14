@@ -396,7 +396,7 @@ class ServiceHardware extends ServiceBase {
           defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
             action: newUiRequestType,
             connectId,
-            payload: null,
+            payload: newPayload,
           });
 
           if (NEW_DIALOG_EVENTS.includes(newUiRequestType)) {

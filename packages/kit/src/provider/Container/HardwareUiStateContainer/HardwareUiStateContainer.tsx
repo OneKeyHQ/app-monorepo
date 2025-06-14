@@ -217,7 +217,9 @@ function HardwareSingletonDialogCmp(
         await serviceSetting.setHiddenWalletImmediately(hideImmediately);
       };
       title = intl.formatMessage({
-        id: ETranslations.global_enter_passphrase,
+        id: isSingleInput
+          ? ETranslations.global_enter_passphrase
+          : ETranslations.global_add_hidden_wallet,
       });
       content = (
         <EnterPhase
