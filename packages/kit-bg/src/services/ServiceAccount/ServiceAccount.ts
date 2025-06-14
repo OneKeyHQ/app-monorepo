@@ -2852,6 +2852,13 @@ class ServiceAccount extends ServiceBase {
       walletId,
       isRemoveToMocked,
     });
+
+    // WARNING:
+    // Use setTimeout to change React Native's render scheduling to avoid exceptions penetrating the scheduler and causing crashes.
+    // If using React 19, it should not crash in React Native. Need to wait for RN upgrade to 0.79 to remove this code.
+    if (platformEnv.isNative) {
+      await timerUtils.wait(1500);
+    }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
       walletId,

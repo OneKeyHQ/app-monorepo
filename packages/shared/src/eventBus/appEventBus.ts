@@ -287,6 +287,7 @@ export interface IAppEventBusPayload {
     tokenAddress: string;
     data: any;
   };
+  [EAppEventBusNames.ClearStorageOnExtension]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

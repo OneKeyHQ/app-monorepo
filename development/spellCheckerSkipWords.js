@@ -459,6 +459,7 @@ module.exports = [
   'Millis',
   'millisatoshis',
   'mins',
+  'mintable',
   'mipd',
   'mixpanel',
   'Mixpanel',
