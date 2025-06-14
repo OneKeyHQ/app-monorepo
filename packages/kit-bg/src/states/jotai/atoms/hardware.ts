@@ -56,7 +56,10 @@ export type IHardwareUiPayload = {
   connectId: string;
   deviceMode: EOneKeyDeviceMode;
   isBootloaderMode?: boolean;
+  // request passphrase
   passphraseState?: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
+  existsAttachPinUser?: boolean; // use attach pin, REQUEST_PASSPHRASE_ON_DEVICE only
+  // firmware update tip
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;
   };

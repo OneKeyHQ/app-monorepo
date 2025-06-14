@@ -471,7 +471,6 @@ function ConnectByUSBOrBLE() {
     try {
       return await backgroundApiProxy.serviceHardware.connect({
         device,
-        awaitBonded: true,
       });
     } catch (error: any) {
       if (error instanceof OneKeyHardwareError) {
@@ -705,12 +704,50 @@ function ConnectByUSBOrBLE() {
       isFirmwareVerified,
     }: {
       device: SearchDevice;
+      features: IOneKeyDeviceFeatures;
       isFirmwareVerified?: boolean;
     }) => {
-      const features =
+      setIsChecking(true);
+      void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
+        connectId: device.connectId ?? '',
+      });
+
+      let features =
         await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
           connectId: device.connectId ?? '',
         });
+
+      console.log('========>>>>> selectAddWalletType unlockDevice', {
+        connectId: device.connectId,
+        unlocked: features.unlocked,
+      });
+
+      if (!features.unlocked) {
+        // fallback to get features after unlock
+        features = await backgroundApiProxy.serviceHardware
+          .unlockDevice({
+            connectId: device.connectId ?? '',
+          })
+          .then((res) => {
+            void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog(
+              {
+                connectId: device.connectId ?? '',
+              },
+            );
+            return res;
+          })
+          .catch((error) => {
+            void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+              {
+                connectId: device.connectId ?? '',
+                hardClose: true,
+                skipDelayClose: true,
+              },
+            );
+            setIsChecking(false);
+            throw error;
+          });
+      }
 
       const unlockedAttachPin = features.unlocked_attach_pin;
       const unlocked = features.unlocked;
@@ -743,6 +780,13 @@ function ConnectByUSBOrBLE() {
             onlyStandardWallet = false;
           } else {
             setIsChecking(false);
+            void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+              {
+                connectId: device.connectId ?? '',
+                hardClose: true,
+                skipDelayClose: true,
+              },
+            );
             return;
           }
         }
@@ -757,7 +801,7 @@ function ConnectByUSBOrBLE() {
         onlyStandardWallet = true;
       }
 
-      void createHwWallet({
+      await createHwWallet({
         device,
         isFirmwareVerified,
         features,
@@ -791,6 +835,10 @@ function ConnectByUSBOrBLE() {
 
       try {
         stopScan();
+
+        void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
+          connectId: device.connectId ?? '',
+        });
 
         const handleBootloaderMode = (existsFirmware: boolean) => {
           fwUpdateActions.showBootloaderMode({
@@ -866,6 +914,12 @@ function ConnectByUSBOrBLE() {
             device,
           })
         ) {
+          void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+            connectId: device.connectId ?? '',
+            hardClose: false,
+            skipDelayClose: true,
+            deviceResetToHome: false,
+          });
           await showFirmwareVerifyDialog({
             device,
             features,
@@ -879,6 +933,7 @@ function ConnectByUSBOrBLE() {
               await selectAddWalletType({
                 device,
                 isFirmwareVerified: checked,
+                features,
               });
             },
             onClose: () => {
@@ -893,7 +948,7 @@ function ConnectByUSBOrBLE() {
           return;
         }
 
-        await selectAddWalletType({ device });
+        await selectAddWalletType({ device, features });
       } catch (error) {
         console.error('handleHwWalletCreateFlow error:', error);
         scanDevice();

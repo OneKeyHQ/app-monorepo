@@ -224,6 +224,7 @@ function HardwareSingletonDialogCmp(
       content = (
         <EnterPhase
           isSingleInput={isSingleInput}
+          allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,

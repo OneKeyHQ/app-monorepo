@@ -408,11 +408,13 @@ interface IEnterPhaseFormValues {
 
 export function EnterPhase({
   isSingleInput,
+  allowUseAttachPin,
   onConfirm,
   switchOnDevice,
   switchOnDeviceAttachPin,
 }: {
   isSingleInput?: boolean;
+  allowUseAttachPin?: boolean;
   onConfirm: (p: {
     passphrase: string;
     save: boolean;
@@ -666,21 +668,23 @@ export function EnterPhase({
       >
         {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
       </Button> */}
-      <Button
-        m="$0"
-        mt="$2.5"
-        $md={
-          {
-            size: 'large',
-          } as any
-        }
-        variant="secondary"
-        onPress={handleSwitchOnDeviceAttachPin}
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_enter_hidden_wallet_pin,
-        })}
-      </Button>
+      {allowUseAttachPin ? (
+        <Button
+          m="$0"
+          mt="$2.5"
+          $md={
+            {
+              size: 'large',
+            } as any
+          }
+          variant="secondary"
+          onPress={handleSwitchOnDeviceAttachPin}
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_enter_hidden_wallet_pin,
+          })}
+        </Button>
+      ) : null}
     </Stack>
   );
 }

@@ -337,6 +337,10 @@ class ServiceHardware extends ServiceBase {
       newPayload.firmwareProgressType = originEvent.payload.progressType;
     }
 
+    if (originEvent.type === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
+      newPayload.existsAttachPinUser = originEvent.payload.existsAttachPinUser;
+    }
+
     return {
       uiRequestType: newUiRequestType,
       payload: newPayload,
@@ -550,7 +554,6 @@ class ServiceHardware extends ServiceBase {
     device,
   }: {
     device: SearchDevice;
-    awaitBonded?: boolean;
   }): Promise<Features | undefined> {
     const { connectId } = device;
     if (!connectId) {
@@ -578,13 +581,12 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async unlockDevice({ connectId }: { connectId: string }) {
-    // only unlock device when device is locked
-    return this.getPassphraseStateBase({
-      connectId,
-      forceInputPassphrase: false,
-      useEmptyPassphrase: true,
-    });
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceUnlock(connectId, {}),
+    );
   }
 
   cancelTimer: ReturnType<typeof setTimeout> | undefined;
