@@ -162,7 +162,6 @@ function DAppConnectExtensionFloatingTrigger() {
 
   const navigation = useAppNavigation();
   const handlePressFloatingButton = useCallback(() => {
-    console.log('handlePressFloatingButton called');
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
       screen: EDAppConnectionModal.CurrentConnectionModal,
       params: {
