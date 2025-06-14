@@ -279,6 +279,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UnlockApp]: {
     jobId: string;
   };
+  [EAppEventBusNames.AddressBookUpdate]: undefined;
+  [EAppEventBusNames.ClearStorageOnExtension]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
