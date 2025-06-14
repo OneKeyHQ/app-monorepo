@@ -130,12 +130,8 @@ function DAppConnectExtensionFloatingTrigger() {
   const handlePressFloatingButton = useCallback(() => {
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
       screen: EDAppConnectionModal.CurrentConnectionModal,
-      params: {
-        origin: memoizedResult?.origin ?? '',
-        faviconUrl: memoizedResult?.faviconUrl ?? '',
-      },
     });
-  }, [memoizedResult, navigation]);
+  }, [navigation]);
 
   const onDisconnect = useCallback(async () => {
     if (memoizedResult?.connectedAccountsInfo?.[0].storageType) {

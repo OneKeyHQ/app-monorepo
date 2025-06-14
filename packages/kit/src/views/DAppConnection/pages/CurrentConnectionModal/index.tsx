@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect, useRoute } from '@react-navigation/core';
+import { useFocusEffect } from '@react-navigation/core';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -20,7 +20,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDAppConnectionModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -31,20 +30,16 @@ import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappC
 
 import { useShouldUpdateConnectedAccount } from '../../../Discovery/hooks/useDAppNotifyChanges';
 import { DAppAccountListItem } from '../../components/DAppAccountList';
-
-import type { RouteProp } from '@react-navigation/core';
+import useActiveTabDAppInfo from '../../hooks/useActiveTabDAppInfo';
 
 function CurrentConnectionModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const route =
-    useRoute<
-      RouteProp<
-        IDAppConnectionModalParamList,
-        EDAppConnectionModal.CurrentConnectionModal
-      >
-    >();
-  const { faviconUrl, origin } = route.params;
+  const { result } = useActiveTabDAppInfo();
+
+  // Memoize result to avoid unnecessary re-renders
+  const memoizedResult = useMemo(() => result, [result]);
+
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
 
   const [accountsInfo, setAccountsInfo] = useState<
@@ -52,7 +47,11 @@ function CurrentConnectionModal() {
   >([]);
 
   const shouldRefreshWhenPageGoBack = useRef(false);
+  const lastUrlRef = useRef<string>('');
+  const lastHasConnectionRef = useRef<boolean>(false);
+
   const fetchAccountsInfo = useCallback(async () => {
+    const origin = memoizedResult?.origin;
     if (!origin) {
       setAccountsInfo(null);
       return;
@@ -64,7 +63,25 @@ function CurrentConnectionModal() {
       return;
     }
     setAccountsInfo(connectedAccountsInfo);
-  }, [origin, navigation]);
+  }, [memoizedResult?.origin, navigation]);
+
+  useEffect(() => {
+    const currentUrl = memoizedResult?.origin ?? '';
+    const currentHasConnection = Boolean(
+      memoizedResult?.connectedAccountsInfo?.length,
+    );
+
+    if (
+      currentUrl !== lastUrlRef.current && // url changed
+      currentHasConnection && // new url has connection
+      lastHasConnectionRef.current // last url had connection
+    ) {
+      void fetchAccountsInfo();
+    }
+
+    lastUrlRef.current = currentUrl;
+    lastHasConnectionRef.current = currentHasConnection;
+  }, [memoizedResult, fetchAccountsInfo]);
 
   useFocusEffect(() => {
     if (shouldRefreshWhenPageGoBack.current) {
@@ -99,13 +116,13 @@ function CurrentConnectionModal() {
   const onDisconnect = useCallback(async () => {
     if (accountsInfo?.[0].storageType) {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
-        origin,
+        origin: memoizedResult?.origin ?? '',
         storageType: accountsInfo?.[0].storageType,
         entry: 'ExtPanel',
       });
       navigation.pop();
     }
-  }, [origin, accountsInfo, navigation]);
+  }, [memoizedResult?.origin, accountsInfo, navigation]);
 
   return (
     <Page>
@@ -115,7 +132,7 @@ function CurrentConnectionModal() {
       <Page.Body>
         <XStack p="$5" gap="$3">
           <Image size="$10" borderRadius="$2">
-            <Image.Source src={faviconUrl} />
+            <Image.Source src={memoizedResult?.faviconUrl} />
             <Image.Fallback>
               <Icon size="$10" name="GlobusOutline" />
             </Image.Fallback>
@@ -125,7 +142,9 @@ function CurrentConnectionModal() {
           </Image>
           <YStack>
             <SizableText size="$bodyLgMedium">
-              {new URL(origin).hostname}
+              {memoizedResult?.origin
+                ? new URL(memoizedResult.origin).hostname
+                : ''}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSuccess">
               {intl.formatMessage({ id: ETranslations.global_connected })}
@@ -136,7 +155,7 @@ function CurrentConnectionModal() {
           <AccountSelectorProviderMirror
             config={{
               sceneName: EAccountSelectorSceneName.discover,
-              sceneUrl: origin,
+              sceneUrl: memoizedResult?.origin ?? '',
             }}
             enabledNum={accountsInfo.map((account) => account.num)}
             availableNetworksMap={accountsInfo.reduce((acc, account) => {
@@ -158,7 +177,7 @@ function CurrentConnectionModal() {
                     compressionUiMode
                     handleAccountChanged={async (accountChangedParams) => {
                       await handleAccountInfoChanged({
-                        origin,
+                        origin: memoizedResult?.origin ?? '',
                         accountSelectorNum: account.num,
                         prevAccountInfo: account,
                         accountChangedParams,
