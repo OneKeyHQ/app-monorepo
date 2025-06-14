@@ -45,9 +45,6 @@ export function WalletRenameButton({
         {...(canRename && {
           role: 'button',
           onPress: async () => {
-            if (!canRename) {
-              return;
-            }
             if (
               wallet &&
               wallet?.id &&
