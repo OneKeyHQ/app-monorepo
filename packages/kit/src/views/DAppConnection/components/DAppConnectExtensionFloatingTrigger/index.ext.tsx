@@ -146,7 +146,11 @@ function SingleAccountAddressSelectorTriggerWrapper({
 }
 
 function DAppConnectExtensionFloatingTrigger() {
+  console.log('DAppConnectExtensionFloatingTrigger render - v2');
   const { result, refreshConnectionInfo } = useActiveTabDAppInfo();
+
+  const memoizedResult = useMemo(() => result, [result]);
+
   const {
     shouldSwitchAccount,
     isSwitching,
@@ -154,38 +158,42 @@ function DAppConnectExtensionFloatingTrigger() {
     switchProcessText,
     onSwitchAccount,
     onCancelSwitchAccount,
-  } = useDappAccountSwitch({ result, refreshConnectionInfo });
+  } = useDappAccountSwitch({ result: memoizedResult, refreshConnectionInfo });
 
   const navigation = useAppNavigation();
   const handlePressFloatingButton = useCallback(() => {
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
       screen: EDAppConnectionModal.CurrentConnectionModal,
       params: {
-        origin: result?.origin ?? '',
-        faviconUrl: result?.faviconUrl ?? '',
+        origin: memoizedResult?.origin ?? '',
+        faviconUrl: memoizedResult?.faviconUrl ?? '',
       },
     });
-  }, [result, navigation]);
+  }, [memoizedResult, navigation]);
 
   const onDisconnect = useCallback(async () => {
-    if (result?.connectedAccountsInfo?.[0].storageType) {
+    if (memoizedResult?.connectedAccountsInfo?.[0].storageType) {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
-        origin: result?.origin ?? '',
-        storageType: result?.connectedAccountsInfo?.[0].storageType,
+        origin: memoizedResult?.origin ?? '',
+        storageType: memoizedResult?.connectedAccountsInfo?.[0].storageType,
         entry: 'ExtFloatingTrigger',
       });
       void refreshConnectionInfo();
     }
-  }, [result?.origin, result?.connectedAccountsInfo, refreshConnectionInfo]);
+  }, [
+    memoizedResult?.origin,
+    memoizedResult?.connectedAccountsInfo,
+    refreshConnectionInfo,
+  ]);
 
   const renderAccountTrigger = useCallback(() => {
-    if (result?.connectedAccountsInfo?.length === 1) {
+    if (memoizedResult?.connectedAccountsInfo?.length === 1) {
       return (
         <SingleAccountAddressSelectorTriggerWrapper
           hideAccountSelectorTrigger={hideAccountSelectorTrigger}
         >
           <SingleAccountAddressSelectorTriggerWithProvider
-            result={result}
+            result={memoizedResult}
             refreshConnectionInfo={refreshConnectionInfo}
           />
         </SingleAccountAddressSelectorTriggerWrapper>
@@ -209,7 +217,7 @@ function DAppConnectExtensionFloatingTrigger() {
         }}
         onPress={() => {}}
       >
-        {result?.networkIcons.slice(0, 2).map((icon, index) => (
+        {memoizedResult?.networkIcons.slice(0, 2).map((icon, index) => (
           <Token
             key={icon}
             size="xs"
@@ -225,24 +233,23 @@ function DAppConnectExtensionFloatingTrigger() {
           />
         ))}
         <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
-          {result?.addressLabel}
+          {memoizedResult?.addressLabel}
         </SizableText>
         <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
       </XStack>
     );
-  }, [result, hideAccountSelectorTrigger, refreshConnectionInfo]);
+  }, [memoizedResult, hideAccountSelectorTrigger, refreshConnectionInfo]);
 
-  const renderSyncDappAccountToHomeProvider = useMemo(
-    () => (
+  const renderSyncDappAccountToHomeProvider = useMemo(() => {
+    return (
       <SyncDappAccountToHomeProvider
-        origin={result?.origin ?? ''}
-        dAppAccountInfos={result?.connectedAccountsInfo ?? null}
+        origin={memoizedResult?.origin ?? ''}
+        dAppAccountInfos={memoizedResult?.connectedAccountsInfo ?? null}
       />
-    ),
-    [result?.connectedAccountsInfo, result?.origin],
-  );
+    );
+  }, [memoizedResult?.connectedAccountsInfo, memoizedResult?.origin]);
 
-  if (!result?.showFloatingPanel) {
+  if (!memoizedResult?.showFloatingPanel) {
     return null;
   }
 
@@ -308,7 +315,9 @@ function DAppConnectExtensionFloatingTrigger() {
             borderWidth="$px"
           >
             <Image.Source
-              src={result?.faviconUrl || result?.originFaviconUrl}
+              src={
+                memoizedResult?.faviconUrl || memoizedResult?.originFaviconUrl
+              }
             />
             <Image.Fallback>
               <Icon size="$10" name="GlobusOutline" />
@@ -334,7 +343,7 @@ function DAppConnectExtensionFloatingTrigger() {
         </Stack>
         <YStack flex={1} alignItems="flex-start">
           <SizableText size="$bodyMdMedium" numberOfLines={1}>
-            {result?.connectLabel}
+            {memoizedResult?.connectLabel}
           </SizableText>
           {renderAccountTrigger()}
         </YStack>
