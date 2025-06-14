@@ -121,7 +121,7 @@ class ServiceApp extends ServiceBase {
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');
 
     if (!platformEnv.isNative) {
-      if (platformEnv.isRuntimeBrowser) {
+      if (platformEnv.isRuntimeBrowser || platformEnv.isExtensionBackground) {
         try {
           const storageBuckets = (globalThis.navigator as INavigator)
             .storageBuckets;
@@ -142,7 +142,7 @@ class ServiceApp extends ServiceBase {
         defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
       }
 
-      if (platformEnv.isRuntimeBrowser) {
+      if (platformEnv.isRuntimeBrowser || platformEnv.isExtensionBackground) {
         const shouldDeleteAllOtherIndexedDBs = true;
         try {
           if (globalThis?.indexedDB && shouldDeleteAllOtherIndexedDBs) {
@@ -185,6 +185,7 @@ class ServiceApp extends ServiceBase {
         );
       }
 
+      // clear localStorage/sessionStorage
       if (platformEnv.isRuntimeBrowser) {
         try {
           globalThis.localStorage.clear();
@@ -196,6 +197,9 @@ class ServiceApp extends ServiceBase {
         } catch {
           console.error('window.sessionStorage.clear() error');
         }
+      } else if (platformEnv.isExtensionBackground) {
+        appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, undefined);
+        await timerUtils.wait(1200);
       }
 
       if (platformEnv.isExtension) {
