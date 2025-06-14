@@ -165,6 +165,29 @@ class ServiceMarketV2 extends ServiceBase {
     const { data } = response.data;
     return data;
   }
+
+  @backgroundMethod()
+  async fetchMarketTokenListBatch({
+    tokenAddressList,
+  }: {
+    tokenAddressList: {
+      contractAddress: string;
+      chainId: string;
+      isNative: boolean;
+    }[];
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.post<{
+      code: number;
+      message: string;
+      data: import('@onekeyhq/shared/types/marketV2').IMarketTokenBatchListResponse;
+    }>('/utility/v2/market/token/list/batch', {
+      tokenAddressList,
+    });
+
+    const { data } = response.data;
+    return data;
+  }
 }
 
 export default ServiceMarketV2;

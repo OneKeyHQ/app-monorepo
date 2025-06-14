@@ -198,3 +198,7 @@ export interface IMarketTokenHolder {
 export interface IMarketTokenHoldersResponse {
   list: IMarketTokenHolder[];
 }
+
+export interface IMarketTokenBatchListResponse {
+  list: IMarketTokenListItem[];
+}
