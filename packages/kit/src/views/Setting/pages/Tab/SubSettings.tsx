@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Page, XStack, YStack } from '@onekeyhq/components';
+import { Divider, Page, YStack } from '@onekeyhq/components';
 import { TabSubStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -17,7 +17,9 @@ type ISettingName = (typeof SettingsConfig)[number]['translationId'];
 export function SubSettingsPage({ name }: { name: ISettingName }) {
   const intl = useIntl();
   const configList = useMemo(() => {
-    return SettingsConfig.find((item) => item.translationId === name)?.configs;
+    return SettingsConfig.find(
+      (item) => item.translationId === name,
+    )?.configs.filter((item) => item && item.length);
   }, [name]);
   return (
     <Page scrollEnabled>
@@ -29,7 +31,8 @@ export function SubSettingsPage({ name }: { name: ISettingName }) {
       <Page.Body>
         <YStack gap="$4" px="$4">
           {configList?.map((item, index) => {
-            return Array.isArray(item) && item.length ? (
+            const list = Array.isArray(item) ? item.filter(Boolean) : [];
+            return list.length ? (
               <YStack
                 key={index}
                 bg="$bgSubdued"
@@ -37,16 +40,20 @@ export function SubSettingsPage({ name }: { name: ISettingName }) {
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$borderSubdued"
               >
-                {item.map((i) => {
+                {list.map((i, idx) => {
                   return i ? (
-                    <ListItem
-                      key={i?.icon ?? index}
-                      icon={i?.icon as IKeyOfIcons}
-                      title={intl.formatMessage({
-                        id: (i?.translationId as ETranslations) ?? '',
-                      })}
-                      drillIn
-                    />
+                    <>
+                      <ListItem
+                        py="$3"
+                        key={i?.icon ?? idx}
+                        icon={i?.icon as IKeyOfIcons}
+                        title={intl.formatMessage({
+                          id: (i?.translationId as ETranslations) ?? '',
+                        })}
+                        drillIn
+                      />
+                      {idx !== list.length - 1 ? <Divider mx="$5" /> : null}
+                    </>
                   ) : null;
                 })}
               </YStack>
