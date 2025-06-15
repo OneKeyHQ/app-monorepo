@@ -6,10 +6,10 @@ import { StyleSheet } from 'react-native';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Divider, Page, YStack } from '@onekeyhq/components';
 import { TabSubStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useSettingsConfig } from './config';
+import { TabSettingsListItem } from './ListItem';
 
 type ISettingName = ReturnType<
   typeof useSettingsConfig
@@ -25,7 +25,7 @@ function Grid({
   return item?.renderElement ? (
     item.renderElement
   ) : (
-    <ListItem
+    <TabSettingsListItem
       py="$3"
       px="$5"
       mx={0}

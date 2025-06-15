@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
+import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -8,20 +10,28 @@ import {
   ECloudBackupRoutes,
   EDAppConnectionModal,
   ELiteCardRoutes,
-  EModalAddressBookRoutes,
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
-import { LanguageListItem } from './CustomElement';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
+
+import {
+  BiologyAuthListItem,
+  LanguageListItem,
+  ThemeListItem,
+} from './CustomElement';
 
 export const useSettingsConfig = () => {
   const navigation = useAppNavigation();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const onPressAddressBook = useShowAddressBook({
+    useNewModal: false,
+  });
+  const biometricAuthInfo = useBiometricAuthInfo();
   return useMemo(
     () => [
       {
@@ -114,10 +124,14 @@ export const useSettingsConfig = () => {
             {
               icon: 'DollarOutline',
               translationId: ETranslations.settings_default_currency,
+              onPress: () => {
+                navigation.push(EModalSettingRoutes.SettingCurrencyModal);
+              },
             },
             {
               icon: 'PaletteOutline',
               translationId: ETranslations.settings_theme,
+              renderElement: <ThemeListItem />,
             },
           ],
           [
@@ -125,7 +139,9 @@ export const useSettingsConfig = () => {
               ? {
                   icon: 'BellOutline',
                   translationId: ETranslations.global_notifications,
-                  navigateTo: EModalSettingRoutes.SettingNotifications,
+                  onPress: () => {
+                    navigation.push(EModalSettingRoutes.SettingNotifications);
+                  },
                 }
               : undefined,
           ],
@@ -134,7 +150,11 @@ export const useSettingsConfig = () => {
               ? {
                   icon: 'MenuCircleHorOutline',
                   translationId: ETranslations.setting_floating_icon,
-                  navigateTo: EModalSettingRoutes.SettingFloatingIconModal,
+                  onPress: () => {
+                    navigation.push(
+                      EModalSettingRoutes.SettingFloatingIconModal,
+                    );
+                  },
                 }
               : undefined,
           ],
@@ -148,7 +168,9 @@ export const useSettingsConfig = () => {
             {
               icon: 'ContactsOutline',
               translationId: ETranslations.settings_address_book,
-              navigateTo: EModalAddressBookRoutes.ListItemModal,
+              onPress: () => {
+                void onPressAddressBook();
+              },
             },
           ],
           [
@@ -157,20 +179,31 @@ export const useSettingsConfig = () => {
                   icon: 'RefreshCcwOutline',
                   translationId:
                     ETranslations.settings_account_sync_modal_title,
-                  navigateTo: EModalSettingRoutes.SettingAlignPrimaryAccount,
+                  onPress: () => {
+                    navigation.push(
+                      EModalSettingRoutes.SettingAlignPrimaryAccount,
+                    );
+                  },
                 }
               : undefined,
             {
               icon: 'LabOutline',
               translationId: ETranslations.global_customize_transaction,
-              navigateTo: EModalSettingRoutes.SettingCustomTransaction,
+              onPress: () => {
+                defaultLogger.setting.page.enterCustomizeTransaction();
+                navigation.push(EModalSettingRoutes.SettingCustomTransaction);
+              },
             },
           ],
           [
             {
               icon: 'BranchesOutline',
               translationId: ETranslations.settings_account_derivation_path,
-              navigateTo: EModalSettingRoutes.SettingAccountDerivationModal,
+              onPress: () => {
+                navigation.push(
+                  EModalSettingRoutes.SettingAccountDerivationModal,
+                );
+              },
             },
           ],
         ],
@@ -181,8 +214,9 @@ export const useSettingsConfig = () => {
         configs: [
           [
             {
-              translationId: ETranslations.global_face_id,
-              renderElement: () => 'face_id',
+              translationId: biometricAuthInfo.titleId,
+              icon: biometricAuthInfo.icon,
+              renderElement: <BiologyAuthListItem />,
             },
             {
               icon: 'ClockTimeHistoryOutline',
@@ -297,6 +331,12 @@ export const useSettingsConfig = () => {
         ],
       },
     ],
-    [navigation, isPrimeSubscriptionActive],
+    [
+      biometricAuthInfo.titleId,
+      biometricAuthInfo.icon,
+      navigation,
+      isPrimeSubscriptionActive,
+      onPressAddressBook,
+    ],
   );
 };
