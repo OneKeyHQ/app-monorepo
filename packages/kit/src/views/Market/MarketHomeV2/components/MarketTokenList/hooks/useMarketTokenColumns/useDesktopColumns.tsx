@@ -2,7 +2,6 @@ import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  Icon,
   IconButton,
   NumberSizeableText,
   Skeleton,
