@@ -40,7 +40,18 @@ import {
   ThemeListItem,
 } from './CustomElement';
 
-export const useSettingsConfig = () => {
+export interface ISubSettingConfig {
+  icon: string;
+  translationId: ETranslations;
+  onPress?: () => void;
+  renderElement?: React.ReactNode;
+}
+
+export const useSettingsConfig: () => {
+  icon: string;
+  translationId: ETranslations;
+  configs?: (ISubSettingConfig | undefined | null)[];
+}[] = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -494,6 +505,7 @@ export const useSettingsConfig = () => {
       requestUrl,
       userAgreementUrl,
       privacyPolicyUrl,
+      copyText,
     ],
   );
 };
