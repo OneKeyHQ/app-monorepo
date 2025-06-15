@@ -24,7 +24,7 @@ export function SubSettingsPage({ name }: { name: ISettingName }) {
   const isTabNavigator = useIsTabNavigator();
   const configList = useMemo(() => {
     return settingsConfig
-      .find((item) => item?.translationId === name)
+      .find((item) => item?.title === name)
       ?.configs.filter((item) => item && item.length);
   }, [name, settingsConfig]);
   return (
