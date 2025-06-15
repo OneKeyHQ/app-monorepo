@@ -1,6 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Semaphore } from 'async-mutex';
-import { debounce } from 'lodash';
+import { debounce, isEqual, pick } from 'lodash';
 
 import type {
   IEncodedTx,
@@ -1443,19 +1443,7 @@ class ServiceDApp extends ServiceBase {
       'othersWalletAccountId',
       'focusedWallet',
     ] as const;
-
-    for (const key of keys) {
-      const aHas = key in a;
-      const bHas = key in b;
-      if (aHas && bHas) {
-        if (a[key] !== b[key]) return false;
-      } else if (aHas !== bHas) {
-        // One has the property, the other does not
-        return false;
-      }
-      // If both don't have the property, treat as equal
-    }
-    return true;
+    return isEqual(pick(a, keys), pick(b, keys));
   }
 
   private emitSwitchNetworkEvents() {
