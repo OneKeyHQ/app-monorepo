@@ -1,4 +1,4 @@
-import { type ReactElement, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -7,34 +7,21 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Icon,
-  IconButton,
   NavCloseButton,
   SearchBar,
   SizableText,
-  TabSubStackNavigator,
   XStack,
   YStack,
-  useIsHorizontalLayout,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ECloudBackupRoutes,
-  EDAppConnectionModal,
-  ELiteCardRoutes,
-  EModalAddressBookRoutes,
-  EModalKeyTagRoutes,
-  EModalRoutes,
-  EModalSettingRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 
 import { useOnLock } from '../List/DefaultSection';
 
-import { SettingsConfig } from './config';
+import { useSettingsConfig } from './config';
 import { SubSettings } from './SubSettings';
 
 import type {
@@ -153,22 +140,25 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
 function SettingsTabNavigator() {
   const intl = useIntl();
-  const tabScreens = SettingsConfig.map(
-    ({ icon, translationId, ...options }) => (
-      <Tab.Screen
-        key={translationId}
-        name={translationId}
-        options={{
-          ...options,
-          tabBarLabel: intl.formatMessage({ id: translationId }),
-          tabBarIcon: () => icon,
-          // @ts-expect-error BottomTabBar V7
-          tabBarPosition: 'left',
-        }}
-      >
-        {() => <SubSettings name={translationId} />}
-      </Tab.Screen>
-    ),
+  const settingsConfig = useSettingsConfig();
+  const tabScreens = useMemo(
+    () =>
+      settingsConfig.map(({ icon, translationId, ...options }) => (
+        <Tab.Screen
+          key={translationId}
+          name={translationId}
+          options={{
+            ...options,
+            tabBarLabel: intl.formatMessage({ id: translationId }),
+            tabBarIcon: () => icon,
+            // @ts-expect-error BottomTabBar V7
+            tabBarPosition: 'left',
+          }}
+        >
+          {() => <SubSettings name={translationId} />}
+        </Tab.Screen>
+      )),
+    [settingsConfig, intl],
   );
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => <SideBar {...props} />,
