@@ -8,6 +8,7 @@ import { type IMarketToken } from '../../MarketTokenData';
 
 export const useMobileColumns = (
   networkId?: string,
+  _watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
   const { md } = useMedia();
   const [settings] = useSettingsPersistAtom();

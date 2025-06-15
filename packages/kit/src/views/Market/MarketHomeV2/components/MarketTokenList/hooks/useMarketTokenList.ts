@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  getNetworkLogoUri,
+  transformApiItemToToken,
+} from '../utils/tokenListHelpers';
 
 import type { IMarketToken } from '../MarketTokenData';
 
@@ -17,44 +20,11 @@ interface IUseMarketTokenListParams {
   maxLiquidity?: number;
 }
 
-function getNetworkLogoUri(networkId: string): string {
-  const networks = getPresetNetworks();
-  const network = networks.find((n) => n.id === networkId);
-  return network?.logoURI || '';
-}
-
-function transformApiDataToComponentData(
-  apiData: IMarketTokenListItem[],
-  networkLogoUri: string,
-): IMarketToken[] {
-  return apiData.map((item, index) => ({
-    id: item.address || `${index}`,
-    name: item.name,
-    symbol: item.symbol,
-    address: item.address,
-    price: parseFloat(item.price || '0'),
-    change24h: parseFloat(item.priceChange24hPercent || '0'),
-    marketCap: parseFloat(item.marketCap || '0'),
-    liquidity: parseFloat(item.tvl || '0'),
-    transactions: parseInt(item.trade24hCount || '0', 10),
-    uniqueTraders: parseInt(item.uniqueWallet24h || '0', 10),
-    holders: item.holders || 0,
-    turnover: parseFloat(item.volume24h || '0'),
-    volume24hChangePercent: parseFloat(item.volume24hChangePercent || '0'),
-    tokenImageUri: item.logoUrl || '',
-    networkLogoUri,
-    walletInfo: {
-      buy: parseInt(item.buy24hCount || '0', 10),
-      sell: parseInt(item.sell24hCount || '0', 10),
-    },
-  }));
-}
-
 export function useMarketTokenList({
   networkId,
   sortBy,
   sortType,
-  pageSize = 10,
+  pageSize = 20,
   minLiquidity,
   maxLiquidity,
 }: IUseMarketTokenListParams) {
@@ -100,9 +70,12 @@ export function useMarketTokenList({
     }
 
     const networkLogoUri = getNetworkLogoUri(networkId);
-    const transformed = transformApiDataToComponentData(
-      apiResult.list,
-      networkLogoUri,
+    const transformed = apiResult.list.map((item, idx) =>
+      transformApiItemToToken(item, {
+        chainId: networkId,
+        networkLogoUri,
+        index: idx,
+      }),
     );
     setTransformedData(transformed);
   }, [apiResult, networkId]);

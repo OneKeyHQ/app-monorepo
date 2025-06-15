@@ -2,11 +2,13 @@ import { useCallback, useState } from 'react';
 
 import { Pagination, Stack, Table, XStack } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { parseValueToNumber } from '../../utils';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
+import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from './hooks/useToDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
@@ -56,10 +58,24 @@ function MarketTokenList({
     [],
   );
 
-  // 表格头部行回调，处理排序
+  // ---------------- WATCHLIST ------------------
+  const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
+  const [watchlistState] = useMarketWatchListV2Atom();
+  const watchlistItems = watchlistState.data;
+
+  // 表格头部行回调，处理排序 / watchlist toggle
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      // 检查列是否支持排序
+      // Star column toggle watchlist
+      if (column.dataIndex === 'star') {
+        return {
+          onPress: () => {
+            setShowWatchlistOnly((prev) => !prev);
+          },
+        };
+      }
+
+      // Sorting logic
       const sortKey =
         SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
 
@@ -73,10 +89,13 @@ function MarketTokenList({
 
       return undefined;
     },
-    [handleSortChange],
+    [handleSortChange, setShowWatchlistOnly],
   );
 
-  const marketTokenColumns = useMarketTokenColumns(networkId);
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    showWatchlistOnly,
+  );
 
   // Convert string values to numbers for the API
   const minLiquidity = liquidityFilter?.min
@@ -86,15 +105,27 @@ function MarketTokenList({
     ? parseValueToNumber(liquidityFilter.max)
     : undefined;
 
+  // Call hooks unconditionally to follow React rules
+  const watchlistResult = useMarketWatchlistTokenList({
+    watchlist: watchlistItems || [],
+    sortBy: currentSortBy,
+    sortType: currentSortType,
+    pageSize,
+    minLiquidity,
+    maxLiquidity,
+  });
+
+  const normalResult = useMarketTokenList({
+    networkId,
+    sortBy: currentSortBy,
+    sortType: currentSortType,
+    pageSize,
+    minLiquidity,
+    maxLiquidity,
+  });
+
   const { data, isLoading, currentPage, setCurrentPage, totalPages } =
-    useMarketTokenList({
-      networkId,
-      sortBy: currentSortBy, // 使用内部状态
-      sortType: currentSortType, // 使用内部状态
-      pageSize,
-      minLiquidity,
-      maxLiquidity,
-    });
+    showWatchlistOnly ? watchlistResult : normalResult;
 
   // Show skeleton only on initial load (when there's no data yet)
   // This provides better UX by avoiding skeleton flash during pagination

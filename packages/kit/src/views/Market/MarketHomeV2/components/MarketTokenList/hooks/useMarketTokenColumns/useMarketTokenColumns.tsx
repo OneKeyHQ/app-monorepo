@@ -9,9 +9,10 @@ import { useMobileColumns } from './useMobileColumns';
 
 export const useMarketTokenColumns = (
   networkId?: string,
+  watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
-  const desktopColumns = useDesktopColumns(networkId);
-  const mobileColumns = useMobileColumns(networkId);
+  const desktopColumns = useDesktopColumns(networkId, watchlistActive);
+  const mobileColumns = useMobileColumns(networkId, watchlistActive);
 
   return useMemo(() => {
     if (desktopColumns.length > 0) {

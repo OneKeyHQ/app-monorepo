@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   Icon,
+  IconButton,
   NumberSizeableText,
   Skeleton,
   XStack,
@@ -20,6 +21,7 @@ import type { IMarketToken } from '../../MarketTokenData';
 
 export const useDesktopColumns = (
   networkId?: string,
+  watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -27,12 +29,22 @@ export const useDesktopColumns = (
 
   return [
     {
-      title: (<Icon name="StarOutline" size="$4" />) as any,
+      title: (
+        <IconButton
+          pointerEvents="none"
+          variant="tertiary"
+          size="small"
+          icon={watchlistActive ? 'StarSolid' : 'StarOutline'}
+          iconProps={{
+            color: watchlistActive ? '$iconActive' : '$iconDisabled',
+          }}
+        />
+      ) as any,
       dataIndex: 'star',
       columnWidth: 50,
       render: (_, record) => (
         <MarketStarV2
-          chainId={networkId || ''}
+          chainId={record.chainId || networkId || ''}
           contractAddress={record.address}
           from={EWatchlistFrom.catalog}
           size="small"

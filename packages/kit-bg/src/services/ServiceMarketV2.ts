@@ -13,8 +13,8 @@ import type {
   IMarketTokenHoldersResponse,
   IMarketTokenKineResponse,
   IMarketTokenListResponse,
-  IMarketTokenTransactionsResponse,
   IMarketTokenSecurity,
+  IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
@@ -359,6 +359,7 @@ class ServiceMarketV2 extends ServiceBase {
       },
     });
     const { data } = response.data;
+
     return data;
   }
 }

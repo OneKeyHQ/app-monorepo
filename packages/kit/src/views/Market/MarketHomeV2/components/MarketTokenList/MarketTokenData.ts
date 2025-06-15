@@ -15,4 +15,5 @@ export interface IMarketToken {
   tokenImageUri: string;
   networkLogoUri: string;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
+  chainId?: string;
 }
