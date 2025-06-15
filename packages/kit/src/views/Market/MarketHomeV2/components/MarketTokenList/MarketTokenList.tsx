@@ -1,4 +1,7 @@
 import { useCallback, useState } from 'react';
+import type { ReactNode } from 'react';
+
+import { ScrollView } from 'react-native';
 
 import { Pagination, Stack, Table, XStack } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
@@ -13,6 +16,7 @@ import { useToDetailPage } from './hooks/useToDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
 import type { ILiquidityFilter } from '../../types';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 // 支持排序的字段映射
 const SORTABLE_COLUMNS = {
@@ -29,6 +33,18 @@ type IMarketTokenListProps = {
   onItemPress?: (item: IMarketToken) => void;
   pageSize?: number;
   liquidityFilter?: ILiquidityFilter;
+  /**
+   * Custom toolbar element that will be rendered above the token list table.
+   * Useful for placing extra action buttons or controls that relate to the
+   * current list view (e.g. refresh button, export menu, etc.)
+   */
+  toolbar?: ReactNode;
+  /**
+   * Callback fired when the list scroll position changes. `offsetY` is the
+   * vertical scroll distance in pixels. It can be used by parent components
+   * to react to scroll, such as collapsing toolbars.
+   */
+  onScrollOffsetChange?: (offsetY: number) => void;
 };
 
 function MarketTokenList({
@@ -38,6 +54,8 @@ function MarketTokenList({
   onItemPress,
   pageSize = 20,
   liquidityFilter,
+  toolbar,
+  onScrollOffsetChange,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
@@ -136,20 +154,52 @@ function MarketTokenList({
       <Stack
         className="normal-scrollbar"
         $platform-web={{
-          overflow: 'auto',
+          // Enable horizontal scrolling while keeping vertical overflow visible so that
+          // the Table component can manage its own vertical scroll and keep the header sticky.
+          overflowX: 'auto',
         }}
         flex={1}
         width="100%"
       >
+        {/* render custom toolbar if provided */}
+        {/* Stack acts as outer container; scroll captured inside ScrollView via renderScrollComponent */}
+        {toolbar ? (
+          <Stack width={1466} mb="$3">
+            {toolbar}
+          </Stack>
+        ) : null}
+        {/* here */}
         <Stack width={1466}>
           {showSkeleton ? (
             <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
           ) : (
             <Table<IMarketToken>
+              stickyHeader
               columns={marketTokenColumns}
               dataSource={data}
               keyExtractor={(item) => item.id}
               onHeaderRow={handleHeaderRow}
+              // Inject custom scroll component if callback provided
+              renderScrollComponent={
+                onScrollOffsetChange
+                  ? (props) => (
+                      <ScrollView
+                        {...props}
+                        onScroll={(
+                          e: NativeSyntheticEvent<NativeScrollEvent>,
+                        ) => {
+                          onScrollOffsetChange?.(
+                            e.nativeEvent?.contentOffset?.y ?? 0,
+                          );
+                          // Call original onScroll if exists
+                          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,react/prop-types
+                          (props as any)?.onScroll?.(e);
+                        }}
+                        scrollEventThrottle={16}
+                      />
+                    )
+                  : undefined
+              }
               onRow={
                 onItemPress
                   ? (item) => ({
