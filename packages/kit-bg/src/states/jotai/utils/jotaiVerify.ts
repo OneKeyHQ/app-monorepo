@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 function ensureNotPromise<T>(value: T) {
   const valueLikePromise = value as
@@ -11,7 +11,7 @@ function ensureNotPromise<T>(value: T) {
     valueLikePromise.status
   ) {
     debugger;
-    throw new OneKeyPlainTextError('jotai value should not be a promise');
+    throw new OneKeyLocalError('jotai value should not be a promise');
   }
 }
 

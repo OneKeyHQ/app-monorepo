@@ -11,7 +11,7 @@ import {
   parseISO,
 } from 'date-fns';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ETranslations, type ILocaleSymbol } from '../locale';
 import { appLocale } from '../locale/appLocale';
@@ -29,7 +29,7 @@ export const parseToDateFnsLocale = (localeSymbol: ILocaleSymbol) => {
 
   if (dateLocale) return dateLocale;
 
-  throw new OneKeyPlainTextError(`Unhandled localeSymbol: ${localeSymbol}`);
+  throw new OneKeyLocalError(`Unhandled localeSymbol: ${localeSymbol}`);
 };
 
 export type IFormatDateOptions = {

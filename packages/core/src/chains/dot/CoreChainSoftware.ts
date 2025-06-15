@@ -5,7 +5,7 @@ import { merge } from 'lodash';
 import {
   Expect24WordsMnemonicError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -76,14 +76,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new OneKeyPlainTextError('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return `0x${(
         await decryptAsync({ password, data: privateKeyRaw })
       ).toString('hex')}`;
     }
-    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async baseGetPrivateKeys({
@@ -130,7 +130,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       privateKeys[''] = encryptPrivateKey;
     }
     if (!Object.keys(privateKeys).length) {
-      throw new OneKeyPlainTextError('No private keys found');
+      throw new OneKeyLocalError('No private keys found');
     }
     return privateKeys;
   }
@@ -152,7 +152,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     if (!unsignedTx.rawTxUnsigned) {
-      throw new OneKeyPlainTextError('rawTxUnsigned is undefined');
+      throw new OneKeyLocalError('rawTxUnsigned is undefined');
     }
     const [signature] = await signer.sign(
       bufferUtils.toBuffer(bufferUtils.hexToBytes(unsignedTx.rawTxUnsigned)),

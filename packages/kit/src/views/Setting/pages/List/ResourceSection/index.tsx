@@ -97,7 +97,7 @@ export const ResourceSection = () => {
       <UrlExternalListItem
         icon="EditOutline"
         title={intl.formatMessage({
-          id: ETranslations.settings_submit_request,
+          id: ETranslations.global_contact_us,
         })}
         url={requestUrl}
         drillIn

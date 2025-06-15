@@ -1,7 +1,7 @@
 import { injected } from '@wagmi/core';
 import { createStore as createMipd } from 'mipd';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { EventData } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { createEmitter } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -65,7 +65,7 @@ export class EvmConnectorManager {
     // const provider2 = providerDetail.provider as any;
 
     if (!provider) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `EVM EIP6963 provider not found: ${info.rdns}`,
       );
     }
@@ -103,7 +103,7 @@ export class EvmConnectorManager {
           if (!isAuthorized) {
             const accounts = await innerConnector.getAccounts();
             const chainId = await innerConnector.getChainId();
-            // throw new OneKeyPlainTextError('Wallet is disconnected');
+            // throw new OneKeyLocalError('Wallet is disconnected');
             return {
               accounts,
               chainId,

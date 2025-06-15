@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { memoFn } from '../utils/cacheUtils';
 
@@ -88,7 +88,7 @@ export const getNetworkIdsMap = memoFn(() => {
     return memo;
   }, {} as Record<INetworkShortCode, string>);
   if (checkErrors.length) {
-    throw new OneKeyPlainTextError(checkErrors.join('\n'));
+    throw new OneKeyLocalError(checkErrors.join('\n'));
   }
   return r;
 });

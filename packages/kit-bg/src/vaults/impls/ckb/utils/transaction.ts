@@ -7,10 +7,7 @@ import {
 } from '@ckb-lumos/helpers';
 import { ResultFormatter } from '@ckb-lumos/rpc';
 
-import {
-  ConvertTxError,
-  OneKeyPlainTextError,
-} from '@onekeyhq/shared/src/errors';
+import { ConvertTxError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import type ClientCkb from '../sdkCkb/ClientCkb';
@@ -71,7 +68,7 @@ export function serializeTransactionMessage(
 
   const signingEntries = txSkeletonWithMessage.get('signingEntries');
   if (signingEntries?.size === 0) {
-    throw new OneKeyPlainTextError('No signingEntries');
+    throw new OneKeyLocalError('No signingEntries');
   }
   const message = signingEntries.get(0)?.message;
   return {

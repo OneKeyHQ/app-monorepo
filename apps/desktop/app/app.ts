@@ -11,6 +11,8 @@ import {
   BrowserWindow,
   Menu,
   app,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  inAppPurchase,
   ipcMain,
   nativeTheme,
   powerMonitor,
@@ -27,7 +29,7 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
@@ -39,6 +41,7 @@ import type {
 import appDevOnlyApi from './appDevOnlyApi';
 import appNotification from './appNotification';
 import appPermission from './appPermission';
+import appIAP from './appIAP';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -64,7 +67,7 @@ initSentry();
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
-const APP_NAME = 'OneKey Wallet';
+const APP_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
@@ -603,6 +606,7 @@ function createMainWindow() {
   appNotification.init(subModuleInitParams);
   appPermission.init(subModuleInitParams);
   appDevOnlyApi.init(subModuleInitParams);
+  appIAP.init(subModuleInitParams);
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
@@ -816,7 +820,7 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
-    throw new OneKeyPlainTextError('Test Electron Native crash');
+    throw new OneKeyLocalError('Test Electron Native crash');
   });
 
   ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {

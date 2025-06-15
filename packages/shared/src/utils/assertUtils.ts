@@ -11,7 +11,7 @@ import {
 } from 'lodash';
 
 import appGlobals from '../appGlobals';
-import { OneKeyPlainTextError } from '../errors/errors/plainTextError';
+import { OneKeyLocalError } from '../errors/errors/localError';
 import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
@@ -29,7 +29,7 @@ export const check = (statement: any, orError?: IErrorType) => {
     orError = orError || 'Invalid statement';
     // eslint-disable-next-line no-param-reassign
     orError =
-      orError instanceof Error ? orError : new OneKeyPlainTextError(orError);
+      orError instanceof Error ? orError : new OneKeyLocalError(orError);
 
     throw orError;
   }
@@ -52,11 +52,11 @@ export const checkIsUndefined = (something: any, orError?: IErrorType) => {
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
-    // `throw new OneKeyPlainTextError()` won't print error object in iOS/Android,
+    // `throw new OneKeyLocalError()` won't print error object in iOS/Android,
     //    so we print it manually by `console.error()`
     console.error(msg, ...args);
   }
-  throw new OneKeyPlainTextError(msg);
+  throw new OneKeyLocalError(msg);
 }
 
 export function isSerializable(obj: any, keyPath?: string[]) {
@@ -159,7 +159,7 @@ export function ensureSerializable(
           );
         }
 
-        throw new OneKeyPlainTextError('Object should be serializable');
+        throw new OneKeyLocalError('Object should be serializable');
       }
     }
   }
@@ -191,12 +191,12 @@ export function ensurePromiseObject(
 export function ensureRunOnBackground() {
   // eslint-disable-next-line import/no-named-as-default-member
   if (!platformEnv.isJest && platformEnv.isExtensionUi) {
-    throw new OneKeyPlainTextError('this code can not run on UI');
+    throw new OneKeyLocalError('this code can not run on UI');
   }
 }
 
 export function ensureRunOnNative() {
   if (!platformEnv.isJest && !platformEnv.isNative) {
-    throw new OneKeyPlainTextError('this code can not run on non-native');
+    throw new OneKeyLocalError('this code can not run on non-native');
   }
 }

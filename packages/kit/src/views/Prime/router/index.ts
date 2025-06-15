@@ -12,6 +12,7 @@ const PrimeCloudSync = LazyLoadPage(() => import('../pages/PrimeCloudSync'));
 const PrimeCloudSyncDebug = LazyLoadPage(
   () => import('../pages/PrimeCloudSync/PagePrimeCloudSyncDebug'),
 );
+const PrimeFeatures = LazyLoadPage(() => import('../pages/PrimeFeatures'));
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
   EPrimePages,
@@ -32,5 +33,9 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeCloudSyncDebug,
     component: PrimeCloudSyncDebug,
+  },
+  {
+    name: EPrimePages.PrimeFeatures,
+    component: PrimeFeatures,
   },
 ];

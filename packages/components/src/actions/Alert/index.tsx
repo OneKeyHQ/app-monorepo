@@ -48,6 +48,7 @@ export type IAlertProps = {
   type?: IAlertType;
   fullBleed?: boolean;
   title?: string;
+  titleNumberOfLines?: number;
   description?: string;
   descriptionComponent?: React.ReactNode;
   closable?: boolean;
@@ -130,6 +131,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
     closable,
     type,
     fullBleed,
+    titleNumberOfLines,
     action,
     onClose: onCloseProp,
     children,
@@ -164,6 +166,9 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
           <SizableText
             size="$bodyMdMedium"
             color={isDanger ? dangerTextColor : undefined}
+            {...(titleNumberOfLines
+              ? { numberOfLines: titleNumberOfLines }
+              : {})}
           >
             {title}
           </SizableText>

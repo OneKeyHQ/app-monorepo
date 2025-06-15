@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { defaultLogger } from '../../logger/logger';
 import RNFS from '../react-native-fs';
@@ -69,7 +69,7 @@ export const downloadPackage: IDownloadPackage = async ({
   }
   await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !latestVersion) {
-    throw new OneKeyPlainTextError('Invalid version or downloadUrl');
+    throw new OneKeyLocalError('Invalid version or downloadUrl');
   }
   const filePath = buildFilePath(latestVersion);
   await AutoUpdateModule.downloadAPK({

@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ELightningUnit } from '../../types/lightning';
 
@@ -8,7 +8,7 @@ import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
 
 function nilError(message: string): number {
-  throw new OneKeyPlainTextError(message);
+  throw new OneKeyLocalError(message);
 }
 
 export interface IChainValueConvertOptions {
@@ -28,6 +28,7 @@ function convertChainValueToGwei({
 }: IChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -network.feeMeta.decimals ??
         nilError('convertFeeValueToGwei ERROR: network.feeDecimals missing'),
     )
@@ -54,6 +55,7 @@ function convertChainValueToAmount({
 }: IChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -network.decimals ??
         nilError('convertFeeValueToNative ERROR: network.decimals missing'),
     )
@@ -95,6 +97,7 @@ function convertTokenChainValueToAmount({
 }: ITokenChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -token.decimals ??
         nilError(
           'convertTokenChainValueToAmount ERROR: token.decimals missing',

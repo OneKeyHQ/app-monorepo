@@ -3,7 +3,7 @@ import { Children, createContext, useContext, useMemo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { Badge } from '../../content';
 import {
@@ -103,7 +103,7 @@ const StepperContext = createContext<IStepperContextProps | undefined>(
 export function useStepperContext() {
   const context = useContext(StepperContext);
   if (!context) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       'useStepperContext must be used within a StepProvider',
     );
   }

@@ -2,7 +2,7 @@ import { isString } from 'lodash';
 
 // import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -34,7 +34,7 @@ export abstract class CoreChainScopeBase {
 
   protected _createApiProxy(apiName: string) {
     if (this.apiProxyCache[apiName] !== undefined) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `CoreChainScopeBase _createApiProxy ERROR, apiName already defined: ${apiName}`,
       );
     }
@@ -47,7 +47,7 @@ export abstract class CoreChainScopeBase {
           async (...args: any[]) => {
             const method = prop;
             if (!isString(method)) {
-              throw new OneKeyPlainTextError(
+              throw new OneKeyLocalError(
                 'FlowLogger api method must be string',
               );
             }
@@ -69,7 +69,7 @@ export abstract class CoreChainScopeBase {
             // });
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             if (!apiInstance || !apiInstance[method]) {
-              throw new OneKeyPlainTextError(
+              throw new OneKeyLocalError(
                 `coreApi method not defined: coreChainApi.${this.scopeName}.${apiName}.${method}`,
               );
             }

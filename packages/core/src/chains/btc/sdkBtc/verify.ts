@@ -1,6 +1,6 @@
 import { isEqual, isEqualWith } from 'lodash';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -15,7 +15,7 @@ export function verifyBtcSignedPsbtMatched({
 }) {
   if (!unsignedPsbt || !signedPsbt) {
     // psbt not found
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage({
         id: ETranslations.feedback_psbt_not_found,
       }),
@@ -24,7 +24,7 @@ export function verifyBtcSignedPsbtMatched({
   const isEqualFn = isEqual;
   if (!isEqualFn(unsignedPsbt.txInputs, signedPsbt.txInputs)) {
     // psbt inputs not matched
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage({
         id: ETranslations.feedback_psbt_inputs_mismatch,
       }),
@@ -32,7 +32,7 @@ export function verifyBtcSignedPsbtMatched({
   }
   if (!isEqualFn(unsignedPsbt.txOutputs, signedPsbt.txOutputs)) {
     // psbt outputs not matched
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage({
         id: ETranslations.feedback_psbt_outputs_mismatch,
       }),
@@ -58,7 +58,7 @@ export function verifyBtcSignedPsbtMatched({
     )
   ) {
     // psbt uuid not matched
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage({
         id: ETranslations.feedback_psbt_uuid_mismatch,
       }),
