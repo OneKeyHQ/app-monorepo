@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
@@ -11,7 +12,12 @@ import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthIn
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  APP_STORE_LINK,
+  BRIDGE_STATUS_URL,
+  EXT_RATE_URL,
+  PLAY_STORE_LINK,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,7 +47,7 @@ import {
 } from './CustomElement';
 
 export interface ISubSettingConfig {
-  icon: string;
+  icon: string | IKeyOfIcons;
   translationId: ETranslations;
   onPress?: () => void;
   renderElement?: React.ReactNode;
@@ -50,7 +56,7 @@ export interface ISubSettingConfig {
 export const useSettingsConfig: () => {
   icon: string;
   translationId: ETranslations;
-  configs?: (ISubSettingConfig | undefined | null)[];
+  configs: (ISubSettingConfig | undefined | null)[][];
 }[] = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const intl = useIntl();
@@ -407,6 +413,22 @@ export const useSettingsConfig: () => {
               ? {
                   icon: 'StarOutline',
                   translationId: ETranslations.settings_rate_app,
+                  onPress: () => {
+                    if (platformEnv.isExtension) {
+                      let url = EXT_RATE_URL.chrome;
+                      if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
+                      window.open(
+                        url,
+                        intl.formatMessage({
+                          id: ETranslations.settings_rate_app,
+                        }),
+                      );
+                    } else if (platformEnv.isNativeAndroidGooglePlay) {
+                      openUrlExternal(PLAY_STORE_LINK);
+                    } else if (platformEnv.isNativeIOS) {
+                      openUrlExternal(APP_STORE_LINK);
+                    }
+                  },
                 }
               : undefined,
           ],
