@@ -3,7 +3,13 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Dialog, SizableText, Stack, useClipboard, useMedia } from '@onekeyhq/components';
+import {
+  Dialog,
+  SizableText,
+  Stack,
+  useClipboard,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
@@ -11,7 +17,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   APP_STORE_LINK,
   BRIDGE_STATUS_URL,
@@ -35,6 +44,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
+import { DevSettingsSection } from '../List/DevSettingsSection';
 import { exportLogs } from '../List/ResourceSection/StateLogsItem/logs';
 
 import {
@@ -78,6 +88,7 @@ export const useSettingsConfig: () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const requestUrl = useHelpLink({ path: 'requests/new' });
   const helpCenterUrl = useHelpLink({ path: '' });
+  const [devSettings] = useDevSettingsPersistAtom();
   return useMemo(
     () => [
       {
@@ -519,12 +530,28 @@ export const useSettingsConfig: () => {
           ],
         ],
       },
+      devSettings.enabled
+        ? {
+            icon: 'CodeOutline',
+            translationId: ETranslations.global_dev_mode,
+            configs: [
+              [
+                {
+                  icon: 'CodeOutline',
+                  translationId: ETranslations.global_dev_mode,
+                  renderElement: <DevSettingsSection />,
+                },
+              ],
+            ],
+          }
+        : undefined,
     ],
     [
       biometricAuthInfo.titleId,
       biometricAuthInfo.icon,
       isPasswordSet,
       appUpdateInfo.isNeedUpdate,
+      devSettings.enabled,
       navigation,
       isPrimeSubscriptionActive,
       onPressAddressBook,
