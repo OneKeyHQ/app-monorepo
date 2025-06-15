@@ -6,6 +6,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Divider, Page, ScrollView, SearchBar } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useOnLock } from '../List/DefaultSection';
 
@@ -23,8 +24,8 @@ export function SettingList() {
   return (
     <Page>
       <Page.Header
+        headerShown
         title={intl.formatMessage({ id: ETranslations.global_settings })}
-        headerShown={true}
       />
       <Page.Body>
         <SearchBar />
@@ -41,14 +42,16 @@ export function SettingList() {
             }}
           />
           <Divider />
-          {settingsConfig.map(({ icon, translationId, ...options }) => (
+          {settingsConfig.map(({ icon, translationId }) => (
             <TabSettingsListItem
               drillIn
               key={translationId}
               icon={icon as IKeyOfIcons}
               title={intl.formatMessage({ id: translationId })}
               onPress={() => {
-                navigation.push(translationId);
+                navigation.push(EModalSettingRoutes.SettingListSubModal, {
+                  name: translationId,
+                });
               }}
             />
           ))}
