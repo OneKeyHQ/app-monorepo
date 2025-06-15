@@ -30,8 +30,12 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 
 import { useOnLock } from '../List/DefaultSection';
+
+import { SettingsConfig } from './config';
+import { SubSettings } from './SubSettings';
 
 import type {
   BottomTabBarProps,
@@ -39,263 +43,6 @@ import type {
 } from '@react-navigation/bottom-tabs';
 
 const Tab = createBottomTabNavigator();
-
-function Setting1() {
-  return <SizableText>Setting1</SizableText>;
-}
-
-function Setting2() {
-  return <SizableText>Setting2</SizableText>;
-}
-
-function Setting3() {
-  return <SizableText>Setting3</SizableText>;
-}
-
-function Setting4() {
-  return <SizableText>Setting4</SizableText>;
-}
-
-function Setting5() {
-  return <SizableText>Setting5</SizableText>;
-}
-
-function Setting6() {
-  return <SizableText>Setting6</SizableText>;
-}
-
-function Setting7() {
-  return <SizableText>Setting7</SizableText>;
-}
-
-const TAB_CONFIGS: {
-  icon: IKeyOfIcons;
-  translationId: ETranslations;
-  children: () => ReactElement;
-}[] = [
-  {
-    icon: 'CloudUploadSolid',
-    translationId: ETranslations.global_backup,
-    children: () => (
-      <TabSubStackNavigator
-        config={[
-          {
-            name: 'a',
-            component: Setting1,
-          },
-        ]}
-      />
-    ),
-  },
-  {
-    icon: 'SettingsSolid',
-    translationId: ETranslations.global_preferences,
-    children: () => (
-      <TabSubStackNavigator
-        config={[
-          {
-            name: 'b',
-            component: Setting2,
-          },
-        ]}
-      />
-    ),
-  },
-  {
-    icon: 'WalletSolid',
-    translationId: ETranslations.global_wallet,
-    children: () => (
-      <TabSubStackNavigator
-        config={[
-          {
-            name: 'c',
-            component: Setting3,
-          },
-        ]}
-      />
-    ),
-  },
-  {
-    icon: 'Shield2CheckSolid',
-    translationId: ETranslations.global_security,
-    children: () => (
-      <TabSubStackNavigator
-        config={[
-          {
-            name: 'd',
-            component: Setting4,
-          },
-        ]}
-      />
-    ),
-  },
-  {
-    icon: 'GlobusSolid',
-    translationId: ETranslations.global_network,
-    children: () => (
-      <TabSubStackNavigator
-        config={[
-          {
-            name: 'e',
-            component: Setting5,
-          },
-        ]}
-      />
-    ),
-  },
-  {
-    icon: 'InfoCircleSolid',
-    translationId: ETranslations.global_about,
-    children: () => (
-      <TabSubStackNavigator
-        config={[
-          {
-            name: 'f',
-            component: Setting6,
-          },
-        ]}
-      />
-    ),
-  },
-  {
-    icon: 'CodeSolid',
-    translationId: ETranslations.global_dev_mode,
-    children: () => (
-      <TabSubStackNavigator
-        config={[
-          {
-            name: 'g',
-            component: Setting7,
-          },
-        ]}
-      />
-    ),
-  },
-];
-
-const SettingsConfig = [
-  {
-    icon: 'CloudUploadSolid',
-    translationId: ETranslations.global_backup,
-    configs: [
-      [
-        platformEnv.isNative
-          ? {
-              icon: 'RepeatOutline',
-              translationId: platformEnv.isNativeAndroid
-                ? ETranslations.settings_google_drive_backup
-                : ETranslations.settings_icloud_backup,
-              navigateTo: ECloudBackupRoutes.CloudBackupHome,
-            }
-          : null,
-        {
-          icon: 'CloudOutline',
-          translationId: ETranslations.global_onekey_cloud,
-        },
-      ],
-      [
-        platformEnv.isNative
-          ? {
-              icon: 'OnekeyLiteOutline',
-              translationId: ETranslations.global_onekey_lite,
-              navigateTo: ELiteCardRoutes.LiteCardHome,
-            }
-          : undefined,
-        {
-          icon: 'OnekeyKeytagOutline',
-          translationId: ETranslations.global_onekey_keytag,
-          navigateTo: EModalKeyTagRoutes.UserOptions,
-        },
-      ].filter(Boolean),
-    ],
-  },
-  {
-    icon: 'SettingsSolid',
-    translationId: ETranslations.global_preferences,
-    configs: [
-      [
-        platformEnv.isExtension
-          ? {
-              icon: 'ThumbtackOutline',
-              translationId: ETranslations.settings_default_wallet_settings,
-              navigateTo: EDAppConnectionModal.DefaultWalletSettingsModal,
-            }
-          : undefined,
-      ].filter(Boolean),
-      [
-        {
-          icon: 'TranslateOutline',
-          translationId: ETranslations.global_language,
-        },
-        {
-          icon: 'DollarOutline',
-          translationId: ETranslations.settings_default_currency,
-        },
-        {
-          icon: 'PaletteOutline',
-          translationId: ETranslations.settings_theme,
-        },
-      ],
-      [
-        !platformEnv.isWeb
-          ? {
-              icon: 'BellOutline',
-              translationId: ETranslations.global_notifications,
-              navigateTo: EModalSettingRoutes.SettingNotifications,
-            }
-          : undefined,
-      ].filter(Boolean),
-      [
-        platformEnv.isExtension
-          ? {
-              icon: 'MenuCircleHorOutline',
-              translationId: ETranslations.setting_floating_icon,
-              navigateTo: EModalSettingRoutes.SettingFloatingIconModal,
-            }
-          : undefined,
-      ].filter(Boolean),
-    ],
-  },
-  {
-    icon: 'WalletSolid',
-    translationId: ETranslations.global_wallet,
-    configs: [
-      [
-        {
-          icon: 'ContactsOutline',
-          translationId: ETranslations.settings_address_book,
-          navigateTo: EModalAddressBookRoutes.ListItemModal,
-        },
-      ],
-      [
-        !platformEnv.isWeb
-          ? {
-              icon: 'RefreshCcwOutline',
-              translationId: ETranslations.settings_account_sync_modal_title,
-              navigateTo: EModalSettingRoutes.SettingAlignPrimaryAccount,
-            }
-          : undefined,
-        {
-          icon: 'LabOutline',
-          translationId: ETranslations.global_customize_transaction,
-          navigateTo: EModalSettingRoutes.SettingCustomTransaction,
-        },
-      ].filter(Boolean),
-      [
-        {
-          icon: 'BranchesOutline',
-          translationId: ETranslations.settings_account_derivation_path,
-          navigateTo: EModalSettingRoutes.SettingAccountDerivationModal,
-        },
-      ],
-    ],
-  },
-  {
-    icon: 'Shield2CheckSolid',
-    translationId: ETranslations.global_security,
-    configs: [[{}]],
-  },
-];
 
 function TabItemView({
   isActive,
@@ -406,8 +153,8 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
 function SettingsTabNavigator() {
   const intl = useIntl();
-  const tabScreens = TAB_CONFIGS.map(
-    ({ icon, translationId, children, ...options }) => (
+  const tabScreens = SettingsConfig.map(
+    ({ icon, translationId, ...options }) => (
       <Tab.Screen
         key={translationId}
         name={translationId}
@@ -419,7 +166,7 @@ function SettingsTabNavigator() {
           tabBarPosition: 'left',
         }}
       >
-        {children}
+        {() => <SubSettings name={translationId} />}
       </Tab.Screen>
     ),
   );
