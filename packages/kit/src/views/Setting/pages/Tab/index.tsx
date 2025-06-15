@@ -12,7 +12,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
@@ -22,7 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOnLock } from '../List/DefaultSection';
 
-import { useSettingsConfig } from './config';
+import { useIsTabNavigator, useSettingsConfig } from './config';
 import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
 
@@ -185,8 +184,7 @@ function SettingsTabNavigator() {
 }
 
 export default function SettingTab() {
-  const { gtMd } = useMedia();
-  const isTabNavigator = platformEnv.isNativeIOSPad || gtMd;
+  const isTabNavigator = useIsTabNavigator();
   const appNavigation = useAppNavigation();
   useLayoutEffect(() => {
     if (isTabNavigator) {

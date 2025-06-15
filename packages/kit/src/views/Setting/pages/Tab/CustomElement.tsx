@@ -2,14 +2,23 @@ import { Suspense, useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
+import type {
+  IKeyOfIcons,
+  IPageNavigationProp,
+  ISelectItem,
+} from '@onekeyhq/components';
 import {
   ActionList,
   Badge,
   Dialog,
+  IconButton,
   Select,
+  SizableText,
   Toast,
+  Tooltip,
   XStack,
+  YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
@@ -19,25 +28,36 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import {
+  useAppUpdatePersistAtom,
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  GITHUB_URL,
+  ONEKEY_URL,
+  TWITTER_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import openUrlUtils, {
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useLocaleOptions, useResetApp } from '../../hooks';
 
 import { TabSettingsListItem } from './ListItem';
+import { handleOpenDevMode } from '../../utils/devMode';
 
 export function LanguageListItem() {
   const locales = useLocaleOptions();
@@ -342,5 +362,134 @@ export function ListVersionItem() {
     >
       <ListItem.Text primary={platformEnv.version} align="right" />
     </TabSettingsListItem>
+  );
+}
+
+function SocialButton({
+  icon,
+  url,
+  text,
+  openInApp = false,
+}: {
+  icon: IKeyOfIcons;
+  url: string;
+  text: string;
+  openInApp?: boolean;
+}) {
+  const onPress = useCallback(() => {
+    if (openInApp) {
+      openUrlUtils.openUrlInApp(url, text);
+    } else {
+      openUrlExternal(url);
+    }
+  }, [url, text, openInApp]);
+  return (
+    <Tooltip
+      renderTrigger={
+        <IconButton
+          bg="$bgSubdued"
+          width="$14"
+          height="$14"
+          icon={icon}
+          borderRadius="$full"
+          onPress={onPress}
+        />
+      }
+      renderContent={text}
+      placement="top"
+    />
+  );
+}
+
+// Special Support Button component that uses showIntercom
+function SupportButton({ text }: { text: string }) {
+  const onPress = useCallback(() => {
+    // Then show intercom support
+    void showIntercom();
+  }, []);
+
+  return (
+    <Tooltip
+      renderTrigger={
+        <IconButton
+          bg="$bgSubdued"
+          width="$14"
+          height="$14"
+          icon="HelpSupportOutline"
+          borderRadius="$full"
+          onPress={onPress}
+        />
+      }
+      renderContent={text}
+      placement="top"
+    />
+  );
+}
+
+export function SocialButtonGroup() {
+  const intl = useIntl();
+  const { copyText } = useClipboard();
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const versionString = intl.formatMessage(
+    {
+      id: ETranslations.settings_version_versionnum,
+    },
+    {
+      'versionNum': `${platformEnv.version ?? ''} ${
+        platformEnv.buildNumber ?? ''
+      }`,
+    },
+  );
+  const handlePress = useCallback(() => {
+    void handleOpenDevMode(() =>
+      copyText(`${versionString}-${platformEnv.githubSHA || ''}`),
+    );
+  }, [copyText, versionString]);
+  return (
+    <YStack pt="$20">
+      <XStack justifyContent="center">
+        <XStack gap="$3" paddingVertical="$3" my="$3">
+          <SocialButton
+            icon="OnekeyBrand"
+            url={ONEKEY_URL}
+            text={intl.formatMessage({
+              id: ETranslations.global_official_website,
+            })}
+          />
+          <SocialButton
+            icon="Xbrand"
+            url={TWITTER_URL}
+            text={intl.formatMessage({ id: ETranslations.global_x })}
+          />
+          <SocialButton
+            icon="GithubBrand"
+            url={GITHUB_URL}
+            text={intl.formatMessage({ id: ETranslations.global_github })}
+          />
+          <SupportButton
+            text={intl.formatMessage({
+              id: ETranslations.settings_contact_us,
+            })}
+          />
+        </XStack>
+      </XStack>
+      <YStack
+        jc="center"
+        p="$4"
+        ai="center"
+        userSelect="none"
+        testID="setting-version"
+      >
+        <SizableText color="$textSubdued" onPress={handlePress}>
+          {versionString}
+        </SizableText>
+        {!appUpdateInfo.latestVersion ||
+        appUpdateInfo.latestVersion === platformEnv.version ? (
+          <SizableText color="$textSubdued" textAlign="center">
+            {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
+          </SizableText>
+        ) : null}
+      </YStack>
+    </YStack>
   );
 }

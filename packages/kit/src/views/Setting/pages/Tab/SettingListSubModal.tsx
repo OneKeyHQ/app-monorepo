@@ -7,13 +7,14 @@ import { RouteProps } from 'react-router-dom';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Divider, Page, YStack } from '@onekeyhq/components';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSettingRoutes,
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { useSettingsConfig } from './config';
+import { useIsTabNavigator, useSettingsConfig } from './config';
+import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -51,6 +52,7 @@ function Grid({
 export function SubSettingsPage({ name }: { name: ISettingName }) {
   const intl = useIntl();
   const settingsConfig = useSettingsConfig();
+  const isTabNavigator = useIsTabNavigator();
   const configList = useMemo(() => {
     return settingsConfig
       .find((item) => item.translationId === name)
@@ -88,6 +90,9 @@ export function SubSettingsPage({ name }: { name: ISettingName }) {
             ) : null;
           })}
         </YStack>
+        {isTabNavigator && name === ETranslations.global_about ? (
+          <SocialButtonGroup />
+        ) : null}
       </Page.Body>
     </Page>
   );

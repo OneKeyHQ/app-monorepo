@@ -3,7 +3,13 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Divider, Page, ScrollView, SearchBar } from '@onekeyhq/components';
+import {
+  Divider,
+  Page,
+  ScrollView,
+  SearchBar,
+  XStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
@@ -11,6 +17,7 @@ import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { useOnLock } from '../List/DefaultSection';
 
 import { useSettingsConfig } from './config';
+import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
 
 export function SettingList() {
@@ -28,7 +35,9 @@ export function SettingList() {
         title={intl.formatMessage({ id: ETranslations.global_settings })}
       />
       <Page.Body>
-        <SearchBar />
+        <XStack px="$5" pb="$4">
+          <SearchBar />
+        </XStack>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{ pb: '$5' }}
@@ -55,6 +64,7 @@ export function SettingList() {
               }}
             />
           ))}
+          <SocialButtonGroup />
         </ScrollView>
       </Page.Body>
     </Page>
