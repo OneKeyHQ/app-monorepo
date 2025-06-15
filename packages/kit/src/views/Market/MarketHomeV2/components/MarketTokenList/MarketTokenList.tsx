@@ -110,29 +110,31 @@ function MarketTokenList({
         flex={1}
         width="100%"
       >
-        {showSkeleton ? (
-          <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
-        ) : (
-          <Table<IMarketToken>
-            columns={marketTokenColumns}
-            dataSource={data}
-            keyExtractor={(item) => item.id}
-            onHeaderRow={handleHeaderRow}
-            onRow={
-              onItemPress
-                ? (item) => ({
-                    onPress: () => onItemPress(item),
-                  })
-                : (item) => ({
-                    onPress: () =>
-                      toDetailPage({
-                        tokenAddress: item.address,
-                        networkId,
-                      }),
-                  })
-            }
-          />
-        )}
+        <Stack width={1466}>
+          {showSkeleton ? (
+            <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
+          ) : (
+            <Table<IMarketToken>
+              columns={marketTokenColumns}
+              dataSource={data}
+              keyExtractor={(item) => item.id}
+              onHeaderRow={handleHeaderRow}
+              onRow={
+                onItemPress
+                  ? (item) => ({
+                      onPress: () => onItemPress(item),
+                    })
+                  : (item) => ({
+                      onPress: () =>
+                        toDetailPage({
+                          tokenAddress: item.address,
+                          networkId,
+                        }),
+                    })
+              }
+            />
+          )}
+        </Stack>
       </Stack>
 
       {/* Hide pagination during skeleton loading */}

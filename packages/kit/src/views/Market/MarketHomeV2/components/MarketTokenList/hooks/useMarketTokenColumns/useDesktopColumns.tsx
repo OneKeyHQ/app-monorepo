@@ -2,11 +2,11 @@ import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
+  Icon,
   NumberSizeableText,
   Skeleton,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -21,17 +21,13 @@ import type { IMarketToken } from '../../MarketTokenData';
 export const useDesktopColumns = (
   networkId?: string,
 ): ITableColumn<IMarketToken>[] => {
-  const { md } = useMedia();
-
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
 
-  if (md) return [];
-
   return [
     {
-      title: '',
+      title: (<Icon name="StarOutline" size="$4" />) as any,
       dataIndex: 'star',
       columnWidth: 50,
       render: (_, record) => (
@@ -45,12 +41,11 @@ export const useDesktopColumns = (
       renderSkeleton: () => (
         <Skeleton width={24} height={24} borderRadius="$full" />
       ),
-      align: 'center',
     },
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: 200,
+      columnWidth: 230,
       render: (_, record) => (
         <TokenIdentityItem
           tokenLogoURI={record.tokenImageUri}
@@ -83,7 +78,7 @@ export const useDesktopColumns = (
     {
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
-      columnWidth: 100,
+      columnProps: { flex: 1 },
       render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
@@ -94,12 +89,11 @@ export const useDesktopColumns = (
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={70} height={16} />,
-      align: 'right',
     },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
       dataIndex: 'change24h',
-      columnWidth: 100,
+      columnProps: { flex: 1 },
       render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
@@ -111,12 +105,11 @@ export const useDesktopColumns = (
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={60} height={16} />,
-      align: 'right',
     },
     {
       title: intl.formatMessage({ id: ETranslations.global_market_cap }),
       dataIndex: 'marketCap',
-      columnWidth: 100,
+      columnProps: { flex: 1 },
       render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
@@ -127,12 +120,11 @@ export const useDesktopColumns = (
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={80} height={16} />,
-      align: 'right',
     },
     {
       title: intl.formatMessage({ id: ETranslations.global_liquidity }),
       dataIndex: 'liquidity',
-      columnWidth: 150,
+      columnProps: { flex: 1.2 },
       render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
@@ -143,17 +135,16 @@ export const useDesktopColumns = (
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={100} height={16} />,
-      align: 'right',
     },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
       dataIndex: 'transactions',
-      columnWidth: 100,
+      columnProps: { flex: 1 },
       render: (text: number, record) => (
         <Txns transactions={text} walletInfo={record.walletInfo} />
       ),
       renderSkeleton: () => (
-        <YStack gap="$1" alignItems="flex-end">
+        <YStack gap="$1" alignItems="flex-start">
           <Skeleton width={50} height={14} />
           <XStack gap="$1">
             <Skeleton width={20} height={12} />
@@ -161,36 +152,33 @@ export const useDesktopColumns = (
           </XStack>
         </YStack>
       ),
-      align: 'right',
     },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
       dataIndex: 'uniqueTraders',
-      columnWidth: 100,
+      columnProps: { flex: 1 },
       render: (text: number) => (
         <NumberSizeableText size="$bodyMd" formatter="balance">
           {text}
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={60} height={16} />,
-      align: 'right',
     },
     {
       title: 'Holders',
       dataIndex: 'holders',
-      columnWidth: 100,
+      columnProps: { flex: 1 },
       render: (text: number) => (
         <NumberSizeableText size="$bodyMd" formatter="balance">
           {text}
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={60} height={16} />,
-      align: 'right',
     },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
       dataIndex: 'turnover',
-      columnWidth: 120,
+      columnProps: { flex: 1.1 },
       render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
@@ -201,7 +189,6 @@ export const useDesktopColumns = (
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={100} height={16} />,
-      align: 'right',
     },
   ];
 };
