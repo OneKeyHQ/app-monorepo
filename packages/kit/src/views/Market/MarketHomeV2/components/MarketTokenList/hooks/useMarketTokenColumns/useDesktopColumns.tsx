@@ -98,7 +98,7 @@ export const useDesktopColumns = (
     },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
-      dataIndex: 'priceChange24hPercent',
+      dataIndex: 'change24h',
       columnWidth: 100,
       render: (text: number) => (
         <NumberSizeableText

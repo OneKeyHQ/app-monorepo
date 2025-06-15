@@ -17,7 +17,7 @@ const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
   turnover: 'v24hUSD',
-  volume24hChangePercent: 'v24hChangePercent',
+  change24h: 'v24hChangePercent',
 } as const;
 
 type IMarketTokenListProps = {
