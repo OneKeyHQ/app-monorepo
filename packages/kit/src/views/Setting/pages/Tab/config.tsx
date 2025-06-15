@@ -1,8 +1,17 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
+import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,22 +25,36 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
+import { exportLogs } from '../List/ResourceSection/StateLogsItem/logs';
 
 import {
   BiologyAuthListItem,
+  CleanDataListItem,
+  HardwareTransportTypeListItem,
   LanguageListItem,
+  ListVersionItem,
   ThemeListItem,
 } from './CustomElement';
 
 export const useSettingsConfig = () => {
+  const appUpdateInfo = useAppUpdateInfo();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
   });
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
+  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+  const requestUrl = useHelpLink({ path: 'requests/new' });
+  const helpCenterUrl = useHelpLink({ path: '' });
   return useMemo(
     () => [
       {
@@ -221,30 +244,70 @@ export const useSettingsConfig = () => {
             {
               icon: 'ClockTimeHistoryOutline',
               translationId: ETranslations.settings_auto_lock,
-              navigateTo: EModalSettingRoutes.SettingAppAutoLockModal,
+              onPress: () => {
+                navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
+              },
             },
             {
               icon: 'KeyOutline',
-              translationId: ETranslations.global_change_passcode,
+              translationId: isPasswordSet
+                ? ETranslations.global_change_passcode
+                : ETranslations.global_set_passcode,
+              onPress: async () => {
+                if (isPasswordSet) {
+                  const oldEncodedPassword =
+                    await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                      {
+                        reason: EReasonForNeedPassword.Security,
+                      },
+                    );
+                  const dialog = Dialog.show({
+                    title: intl.formatMessage({
+                      id: ETranslations.global_change_passcode,
+                    }),
+                    renderContent: (
+                      <PasswordUpdateContainer
+                        oldEncodedPassword={oldEncodedPassword.password}
+                        onUpdateRes={async (data) => {
+                          if (data) {
+                            await dialog.close();
+                          }
+                        }}
+                      />
+                    ),
+                    showFooter: false,
+                  });
+                } else {
+                  void backgroundApiProxy.servicePassword.promptPasswordVerify();
+                }
+              },
             },
           ],
           [
             {
               icon: 'LinkOutline',
               translationId: ETranslations.settings_connected_sites,
-              navigateTo: EDAppConnectionModal.ConnectionList,
+              onPress: () => {
+                navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+                  screen: EDAppConnectionModal.ConnectionList,
+                });
+              },
             },
             {
               icon: 'NoteOutline',
               translationId: ETranslations.settings_signature_record,
-              navigateTo: EModalSettingRoutes.SettingSignatureRecordModal,
+              onPress: () => {
+                navigation.push(
+                  EModalSettingRoutes.SettingSignatureRecordModal,
+                );
+              },
             },
           ],
           [
             {
               icon: 'FolderDeleteOutline',
               translationId: ETranslations.settings_clear_data,
-              navigateTo: EModalSettingRoutes.SettingClearAppCache,
+              renderElement: <CleanDataListItem />,
             },
           ],
         ],
@@ -255,26 +318,48 @@ export const useSettingsConfig = () => {
         configs: [
           [
             {
-              icon: 'GlobeOutline',
+              icon: 'GlobusOutline',
               translationId:
                 ETranslations.custom_network_add_network_action_text,
-              navigateTo: EModalSettingRoutes.SettingCustomNetwork,
+              onPress: () => {
+                defaultLogger.setting.page.enterCustomRPC();
+                navigation.push(EModalSettingRoutes.SettingCustomNetwork);
+              },
             },
             {
               icon: 'BezierNodesOutline',
               translationId: ETranslations.custom_rpc_title,
-              navigateTo: EModalSettingRoutes.SettingCustomNetwork,
+              onPress: () => {
+                defaultLogger.setting.page.enterCustomRPC();
+                navigation.push(EModalSettingRoutes.SettingCustomRPC);
+              },
             },
-            {
-              icon: 'UsbOutline',
-              renderElement: () => 'usb',
-            },
+            platformEnv.isSupportWebUSB
+              ? {
+                  icon: 'UsbOutline',
+                  translationId: ETranslations.device_hardware_communication,
+                  renderElement: <HardwareTransportTypeListItem />,
+                }
+              : undefined,
+            platformEnv.isExtension || platformEnv.isWeb
+              ? {
+                  icon: 'ApiConnectionOutline',
+                  translationId: ETranslations.settings_hardware_bridge_status,
+                  onPress: () => {
+                    openUrlExternal(BRIDGE_STATUS_URL);
+                  },
+                }
+              : undefined,
           ],
           [
             {
               icon: 'FileDownloadOutline',
               translationId: ETranslations.settings_export_network_config_label,
-              navigateTo: EModalSettingRoutes.SettingExportCustomNetworkConfig,
+              onPress: () => {
+                navigation.push(
+                  EModalSettingRoutes.SettingExportCustomNetworkConfig,
+                );
+              },
             },
           ],
         ],
@@ -286,15 +371,24 @@ export const useSettingsConfig = () => {
           [
             {
               icon: 'InfoCircleOutline',
-              translationId: ETranslations.settings_whats_new,
+              translationId: appUpdateInfo.isNeedUpdate
+                ? ETranslations.settings_app_update_available
+                : ETranslations.settings_whats_new,
+              renderElement: <ListVersionItem />,
             },
             {
               icon: 'HelpSupportOutline',
               translationId: ETranslations.settings_help_center,
+              onPress: () => {
+                openUrlExternal(helpCenterUrl);
+              },
             },
             {
               icon: 'EditOutline',
               translationId: ETranslations.global_contact_us,
+              onPress: () => {
+                openUrlExternal(requestUrl);
+              },
             },
             platformEnv.isExtension ||
             platformEnv.isNativeAndroidGooglePlay ||
@@ -309,23 +403,79 @@ export const useSettingsConfig = () => {
             {
               icon: 'PeopleOutline',
               translationId: ETranslations.settings_user_agreement,
+              onPress: () => {
+                openUrlExternal(userAgreementUrl);
+              },
             },
             {
               icon: 'FileTextOutline',
               translationId: ETranslations.settings_privacy_policy,
+              onPress: () => {
+                openUrlExternal(privacyPolicyUrl);
+              },
             },
           ],
           [
             {
               icon: 'ShortcutsCustom',
               translationId: ETranslations.settings_shortcuts,
-              navigateTo: EModalShortcutsRoutes.ShortcutsPreview,
+              onPress: () => {
+                navigation.pushModal(EModalRoutes.ShortcutsModal, {
+                  screen: EModalShortcutsRoutes.ShortcutsPreview,
+                });
+              },
             },
           ],
           [
             {
               icon: 'FileDownloadOutline',
               translationId: ETranslations.settings_export_state_logs,
+              onPress: () => {
+                Dialog.show({
+                  icon: 'FileDownloadOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_export_state_logs,
+                  }),
+                  renderContent: (
+                    <Stack>
+                      <SizableText size="$bodyLg">
+                        {intl.formatMessage({
+                          id: ETranslations.settings_logs_do_not_include_sensitive_data,
+                        })}
+                      </SizableText>
+                      <Stack h="$5" />
+                      <SizableText size="$bodyLg">
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.settings_export_state_logs_desc,
+                          },
+                          {
+                            email: (
+                              <SizableText
+                                size="$bodyLg"
+                                textDecorationLine="underline"
+                                onPress={() => copyText('hi@onekey.so')}
+                              >
+                                hi@onekey.so
+                              </SizableText>
+                            ),
+                          },
+                        )}
+                      </SizableText>
+                    </Stack>
+                  ),
+                  confirmButtonProps: {
+                    variant: 'primary',
+                  },
+                  onConfirmText: intl.formatMessage({
+                    id: ETranslations.global_export,
+                  }),
+                  onConfirm: () => {
+                    const str = new Date().toISOString().replace(/[-:.]/g, '');
+                    void exportLogs(`OneKeyLogs-${str}`);
+                  },
+                });
+              },
             },
           ],
         ],
@@ -334,9 +484,16 @@ export const useSettingsConfig = () => {
     [
       biometricAuthInfo.titleId,
       biometricAuthInfo.icon,
+      isPasswordSet,
+      appUpdateInfo.isNeedUpdate,
       navigation,
       isPrimeSubscriptionActive,
       onPressAddressBook,
+      intl,
+      helpCenterUrl,
+      requestUrl,
+      userAgreementUrl,
+      privacyPolicyUrl,
     ],
   );
 };
