@@ -69,11 +69,14 @@ export const useIsTabNavigator = () => {
   return isTabNavigator;
 };
 
-export const useSettingsConfig: () => {
-  icon: string;
-  translationId: ETranslations;
-  configs: (ISubSettingConfig | undefined | null)[][];
-}[] = () => {
+export const useSettingsConfig: () => (
+  | {
+      icon: string;
+      translationId: ETranslations;
+      configs: (ISubSettingConfig | undefined | null)[][];
+    }
+  | undefined
+)[] = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const intl = useIntl();
   const navigation = useAppNavigation();

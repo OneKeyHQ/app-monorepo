@@ -51,19 +51,21 @@ export function SettingList() {
             }}
           />
           <Divider />
-          {settingsConfig.map(({ icon, translationId }) => (
-            <TabSettingsListItem
-              drillIn
-              key={translationId}
-              icon={icon as IKeyOfIcons}
-              title={intl.formatMessage({ id: translationId })}
-              onPress={() => {
-                navigation.push(EModalSettingRoutes.SettingListSubModal, {
-                  name: translationId,
-                });
-              }}
-            />
-          ))}
+          {settingsConfig.map((config) =>
+            config ? (
+              <TabSettingsListItem
+                drillIn
+                key={config.translationId}
+                icon={config.icon as IKeyOfIcons}
+                title={intl.formatMessage({ id: config.translationId })}
+                onPress={() => {
+                  navigation.push(EModalSettingRoutes.SettingListSubModal, {
+                    name: config.translationId,
+                  });
+                }}
+              />
+            ) : null,
+          )}
           <SocialButtonGroup />
         </ScrollView>
       </Page.Body>
