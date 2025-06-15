@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -16,12 +16,14 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOnLock } from '../List/DefaultSection';
 
 import { useSettingsConfig } from './config';
+import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
 
 import type {
@@ -131,7 +133,9 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
         isActive={false}
         options={{
           tabBarIcon: () => 'LockOutline',
-          title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
+          tabBarLabel: intl.formatMessage({
+            id: ETranslations.settings_lock_now,
+          }),
         }}
       />
     </YStack>
@@ -183,5 +187,13 @@ function SettingsTabNavigator() {
 export default function SettingTab() {
   const { gtMd } = useMedia();
   const isTabNavigator = platformEnv.isNativeIOSPad || gtMd;
-  return isTabNavigator ? <SettingsTabNavigator /> : null;
+  const appNavigation = useAppNavigation();
+  useLayoutEffect(() => {
+    if (isTabNavigator) {
+      appNavigation.setOptions({
+        headerShown: !isTabNavigator,
+      });
+    }
+  }, [appNavigation, isTabNavigator]);
+  return isTabNavigator ? <SettingsTabNavigator /> : <SettingList />;
 }
