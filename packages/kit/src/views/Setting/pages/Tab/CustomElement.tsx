@@ -476,6 +476,7 @@ export function SocialButtonGroup() {
       <YStack
         jc="center"
         p="$4"
+        pt={0}
         ai="center"
         userSelect="none"
         testID="setting-version"
