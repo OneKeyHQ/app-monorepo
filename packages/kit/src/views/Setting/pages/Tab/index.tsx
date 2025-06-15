@@ -146,22 +146,28 @@ function SettingsTabNavigator() {
   const settingsConfig = useSettingsConfig();
   const tabScreens = useMemo(
     () =>
-      settingsConfig.map(({ icon, translationId, ...options }) => (
-        <Tab.Screen
-          key={translationId}
-          name={translationId}
-          options={{
-            ...options,
-            tabBarLabel: intl.formatMessage({ id: translationId }),
-            tabBarIcon: () => icon,
-            // @ts-expect-error BottomTabBar V7
-            tabBarPosition: 'left',
-          }}
-        >
-          {() => <SubSettings name={translationId} />}
-        </Tab.Screen>
-      )),
-    [settingsConfig, intl],
+      settingsConfig.map((config) => {
+        if (!config) {
+          return null;
+        }
+        const { icon, title, ...options } = config;
+        return (
+          <Tab.Screen
+            key={title}
+            name={title}
+            options={{
+              ...options,
+              tabBarLabel: title,
+              tabBarIcon: () => icon,
+              // @ts-expect-error BottomTabBar V7
+              tabBarPosition: 'left',
+            }}
+          >
+            {() => <SubSettings name={title} />}
+          </Tab.Screen>
+        )
+      }),
+    [settingsConfig],
   );
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => <SideBar {...props} />,

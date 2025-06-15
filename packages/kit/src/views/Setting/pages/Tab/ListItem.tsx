@@ -1,15 +1,13 @@
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { YStack } from '@onekeyhq/components';
 import type {
   IKeyOfIcons,
-  type IStackProps,
-  type IStackStyle,
+  IStackProps,
+  IStackStyle,
 } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ISubSettingConfig } from './config';
 
@@ -37,8 +35,6 @@ export function TabSettingsListGrid({
 }: {
   item: ISubSettingConfig | undefined | null;
 }) {
-  const intl = useIntl();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return item?.renderElement ? (
     item.renderElement
   ) : (
@@ -48,11 +44,9 @@ export function TabSettingsListGrid({
       mx={0}
       borderRadius={0}
       onPress={item?.onPress}
-      key={item?.icon ?? item?.translationId}
+      key={item?.icon ?? item?.title}
       icon={item?.icon as IKeyOfIcons}
-      title={intl.formatMessage({
-        id: (item?.translationId as ETranslations) ?? '',
-      })}
+      title={item?.title}
       drillIn
     />
   );

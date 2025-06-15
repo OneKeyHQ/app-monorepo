@@ -55,12 +55,12 @@ export function SettingList() {
             config ? (
               <TabSettingsListItem
                 drillIn
-                key={config.translationId}
+                key={config.title}
                 icon={config.icon as IKeyOfIcons}
-                title={intl.formatMessage({ id: config.translationId })}
+                title={config.title}
                 onPress={() => {
                   navigation.push(EModalSettingRoutes.SettingListSubModal, {
-                    name: config.translationId,
+                    name: config.title,
                   });
                 }}
               />
