@@ -96,15 +96,17 @@ export const useSettingsConfig: () => (
     () => [
       {
         icon: 'CloudUploadSolid',
-        translationId: ETranslations.global_backup,
+        translationId: intl.formatMessage({ id: ETranslations.global_backup }),
         configs: [
           [
             platformEnv.isNative
               ? {
                   icon: 'RepeatOutline',
-                  translationId: platformEnv.isNativeAndroid
-                    ? ETranslations.settings_google_drive_backup
-                    : ETranslations.settings_icloud_backup,
+                  translationId: intl.formatMessage({
+                    id: platformEnv.isNativeAndroid
+                      ? ETranslations.settings_google_drive_backup
+                      : ETranslations.settings_icloud_backup,
+                  }),
                   onPress: () => {
                     navigation.pushModal(EModalRoutes.CloudBackupModal, {
                       screen: ECloudBackupRoutes.CloudBackupHome,
@@ -114,7 +116,9 @@ export const useSettingsConfig: () => (
               : null,
             {
               icon: 'CloudSyncOutline',
-              translationId: ETranslations.global_onekey_cloud,
+              translationId: intl.formatMessage({
+                id: ETranslations.global_onekey_cloud,
+              }),
               onPress: () => {
                 if (isPrimeSubscriptionActive) {
                   navigation.pushModal(EModalRoutes.PrimeModal, {
@@ -137,7 +141,9 @@ export const useSettingsConfig: () => (
             platformEnv.isNative
               ? {
                   icon: 'OnekeyLiteOutline',
-                  translationId: ETranslations.global_onekey_lite,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.global_onekey_lite,
+                  }),
                   onPress: () => {
                     navigation.pushModal(EModalRoutes.LiteCardModal, {
                       screen: ELiteCardRoutes.LiteCardHome,
@@ -147,7 +153,9 @@ export const useSettingsConfig: () => (
               : undefined,
             {
               icon: 'OnekeyKeytagOutline',
-              translationId: ETranslations.global_onekey_keytag,
+              translationId: intl.formatMessage({
+                id: ETranslations.global_onekey_keytag,
+              }),
               onPress: () => {
                 defaultLogger.setting.page.enterKeyTag();
                 navigation.pushModal(EModalRoutes.KeyTagModal, {
@@ -160,13 +168,17 @@ export const useSettingsConfig: () => (
       },
       {
         icon: 'SettingsSolid',
-        translationId: ETranslations.global_preferences,
+        translationId: intl.formatMessage({
+          id: ETranslations.global_preferences,
+        }),
         configs: [
           [
             platformEnv.isExtension
               ? {
                   icon: 'ThumbtackOutline',
-                  translationId: ETranslations.settings_default_wallet_settings,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.settings_default_wallet_settings,
+                  }),
                   onPress: () => {
                     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
                       screen: EDAppConnectionModal.DefaultWalletSettingsModal,
@@ -178,19 +190,25 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'TranslateOutline',
-              translationId: ETranslations.global_language,
+              translationId: intl.formatMessage({
+                id: ETranslations.global_language,
+              }),
               renderElement: <LanguageListItem />,
             },
             {
               icon: 'DollarOutline',
-              translationId: ETranslations.settings_default_currency,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_default_currency,
+              }),
               onPress: () => {
                 navigation.push(EModalSettingRoutes.SettingCurrencyModal);
               },
             },
             {
               icon: 'PaletteOutline',
-              translationId: ETranslations.settings_theme,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_theme,
+              }),
               renderElement: <ThemeListItem />,
             },
           ],
@@ -198,7 +216,9 @@ export const useSettingsConfig: () => (
             !platformEnv.isWeb
               ? {
                   icon: 'BellOutline',
-                  translationId: ETranslations.global_notifications,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.global_notifications,
+                  }),
                   onPress: () => {
                     navigation.push(EModalSettingRoutes.SettingNotifications);
                   },
@@ -209,7 +229,9 @@ export const useSettingsConfig: () => (
             platformEnv.isExtension
               ? {
                   icon: 'MenuCircleHorOutline',
-                  translationId: ETranslations.setting_floating_icon,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.setting_floating_icon,
+                  }),
                   onPress: () => {
                     navigation.push(
                       EModalSettingRoutes.SettingFloatingIconModal,
@@ -222,12 +244,16 @@ export const useSettingsConfig: () => (
       },
       {
         icon: 'WalletSolid',
-        translationId: ETranslations.global_wallet,
+        translationId: intl.formatMessage({
+          id: ETranslations.global_wallet,
+        }),
         configs: [
           [
             {
               icon: 'ContactsOutline',
-              translationId: ETranslations.settings_address_book,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_address_book,
+              }),
               onPress: () => {
                 void onPressAddressBook();
               },
@@ -237,8 +263,9 @@ export const useSettingsConfig: () => (
             !platformEnv.isWeb
               ? {
                   icon: 'RefreshCcwOutline',
-                  translationId:
-                    ETranslations.settings_account_sync_modal_title,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.settings_account_sync_modal_title,
+                  }),
                   onPress: () => {
                     navigation.push(
                       EModalSettingRoutes.SettingAlignPrimaryAccount,
@@ -248,7 +275,9 @@ export const useSettingsConfig: () => (
               : undefined,
             {
               icon: 'LabOutline',
-              translationId: ETranslations.global_customize_transaction,
+              translationId: intl.formatMessage({
+                id: ETranslations.global_customize_transaction,
+              }),
               onPress: () => {
                 defaultLogger.setting.page.enterCustomizeTransaction();
                 navigation.push(EModalSettingRoutes.SettingCustomTransaction);
@@ -258,7 +287,9 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'BranchesOutline',
-              translationId: ETranslations.settings_account_derivation_path,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_account_derivation_path,
+              }),
               onPress: () => {
                 navigation.push(
                   EModalSettingRoutes.SettingAccountDerivationModal,
@@ -270,7 +301,9 @@ export const useSettingsConfig: () => (
       },
       {
         icon: 'Shield2CheckSolid',
-        translationId: ETranslations.global_security,
+        translationId: intl.formatMessage({
+          id: ETranslations.global_security,
+        }),
         configs: [
           [
             {
@@ -280,7 +313,9 @@ export const useSettingsConfig: () => (
             },
             {
               icon: 'ClockTimeHistoryOutline',
-              translationId: ETranslations.settings_auto_lock,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_auto_lock,
+              }),
               onPress: () => {
                 navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
               },
@@ -323,7 +358,9 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'LinkOutline',
-              translationId: ETranslations.settings_connected_sites,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_connected_sites,
+              }),
               onPress: () => {
                 navigation.pushModal(EModalRoutes.DAppConnectionModal, {
                   screen: EDAppConnectionModal.ConnectionList,
@@ -332,7 +369,9 @@ export const useSettingsConfig: () => (
             },
             {
               icon: 'NoteOutline',
-              translationId: ETranslations.settings_signature_record,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_signature_record,
+              }),
               onPress: () => {
                 navigation.push(
                   EModalSettingRoutes.SettingSignatureRecordModal,
@@ -343,7 +382,9 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'FolderDeleteOutline',
-              translationId: ETranslations.settings_clear_data,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_clear_data,
+              }),
               renderElement: <CleanDataListItem />,
             },
           ],
@@ -356,8 +397,9 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'GlobusOutline',
-              translationId:
-                ETranslations.custom_network_add_network_action_text,
+              translationId: intl.formatMessage({
+                id: ETranslations.custom_network_add_network_action_text,
+              }),
               onPress: () => {
                 defaultLogger.setting.page.enterCustomRPC();
                 navigation.push(EModalSettingRoutes.SettingCustomNetwork);
@@ -365,7 +407,9 @@ export const useSettingsConfig: () => (
             },
             {
               icon: 'BezierNodesOutline',
-              translationId: ETranslations.custom_rpc_title,
+              translationId: intl.formatMessage({
+                id: ETranslations.custom_rpc_title,
+              }),
               onPress: () => {
                 defaultLogger.setting.page.enterCustomRPC();
                 navigation.push(EModalSettingRoutes.SettingCustomRPC);
@@ -374,14 +418,18 @@ export const useSettingsConfig: () => (
             platformEnv.isSupportWebUSB
               ? {
                   icon: 'UsbOutline',
-                  translationId: ETranslations.device_hardware_communication,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.device_hardware_communication,
+                  }),
                   renderElement: <HardwareTransportTypeListItem />,
                 }
               : undefined,
             platformEnv.isExtension || platformEnv.isWeb
               ? {
                   icon: 'ApiConnectionOutline',
-                  translationId: ETranslations.settings_hardware_bridge_status,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.settings_hardware_bridge_status,
+                  }),
                   onPress: () => {
                     openUrlExternal(BRIDGE_STATUS_URL);
                   },
@@ -391,7 +439,9 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'FileDownloadOutline',
-              translationId: ETranslations.settings_export_network_config_label,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_export_network_config_label,
+              }),
               onPress: () => {
                 navigation.push(
                   EModalSettingRoutes.SettingExportCustomNetworkConfig,
@@ -408,21 +458,27 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'InfoCircleOutline',
-              translationId: appUpdateInfo.isNeedUpdate
-                ? ETranslations.settings_app_update_available
-                : ETranslations.settings_whats_new,
+              translationId: intl.formatMessage({
+                id: appUpdateInfo.isNeedUpdate
+                  ? ETranslations.settings_app_update_available
+                  : ETranslations.settings_whats_new,
+              }),
               renderElement: <ListVersionItem />,
             },
             {
               icon: 'HelpSupportOutline',
-              translationId: ETranslations.settings_help_center,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_help_center,
+              }),
               onPress: () => {
                 openUrlExternal(helpCenterUrl);
               },
             },
             {
               icon: 'EditOutline',
-              translationId: ETranslations.global_contact_us,
+              translationId: intl.formatMessage({
+                id: ETranslations.global_contact_us,
+              }),
               onPress: () => {
                 openUrlExternal(requestUrl);
               },
@@ -432,7 +488,9 @@ export const useSettingsConfig: () => (
             platformEnv.isNativeIOS
               ? {
                   icon: 'StarOutline',
-                  translationId: ETranslations.settings_rate_app,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.settings_rate_app,
+                  }),
                   onPress: () => {
                     if (platformEnv.isExtension) {
                       let url = EXT_RATE_URL.chrome;
@@ -455,14 +513,18 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'PeopleOutline',
-              translationId: ETranslations.settings_user_agreement,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_user_agreement,
+              }),
               onPress: () => {
                 openUrlExternal(userAgreementUrl);
               },
             },
             {
               icon: 'FileTextOutline',
-              translationId: ETranslations.settings_privacy_policy,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_privacy_policy,
+              }),
               onPress: () => {
                 openUrlExternal(privacyPolicyUrl);
               },
@@ -471,7 +533,9 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'ShortcutsCustom',
-              translationId: ETranslations.settings_shortcuts,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_shortcuts,
+              }),
               onPress: () => {
                 navigation.pushModal(EModalRoutes.ShortcutsModal, {
                   screen: EModalShortcutsRoutes.ShortcutsPreview,
@@ -482,7 +546,9 @@ export const useSettingsConfig: () => (
           [
             {
               icon: 'FileDownloadOutline',
-              translationId: ETranslations.settings_export_state_logs,
+              translationId: intl.formatMessage({
+                id: ETranslations.settings_export_state_logs,
+              }),
               onPress: () => {
                 Dialog.show({
                   icon: 'FileDownloadOutline',
@@ -536,12 +602,16 @@ export const useSettingsConfig: () => (
       devSettings.enabled
         ? {
             icon: 'CodeOutline',
-            translationId: ETranslations.global_dev_mode,
+            translationId: intl.formatMessage({
+              id: ETranslations.global_dev_mode,
+            }),
             configs: [
               [
                 {
                   icon: 'CodeOutline',
-                  translationId: ETranslations.global_dev_mode,
+                  translationId: intl.formatMessage({
+                    id: ETranslations.global_dev_mode,
+                  }),
                   renderElement: <DevSettingsSection />,
                 },
               ],
