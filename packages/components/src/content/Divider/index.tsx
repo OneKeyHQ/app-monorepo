@@ -1,8 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Separator, styled } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import type { GetProps } from 'tamagui';
 
 export const Divider = styled(Separator, {
@@ -19,11 +17,3 @@ export const Divider = styled(Separator, {
 });
 
 export type IDivider = GetProps<typeof Divider>;
-
-export function TinyDivider() {
-  return (
-    <Divider
-      transform={platformEnv.isNative ? undefined : [{ scaleY: 0.333 }]}
-    />
-  );
-}

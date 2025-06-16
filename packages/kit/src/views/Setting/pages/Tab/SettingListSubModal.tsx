@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
-import { Page, TinyDivider, XStack, YStack } from '@onekeyhq/components';
+import { Divider, Page, XStack, YStack } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -86,7 +86,7 @@ export function SubSettingsPage({
                         <TabSettingsListGrid item={i} />
                         {idx !== list.length - 1 ? (
                           <XStack mx="$5">
-                            <TinyDivider />
+                            <Divider />
                           </XStack>
                         ) : null}
                       </>
