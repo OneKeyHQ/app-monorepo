@@ -6,6 +6,7 @@ import type {
   IDialogLoadingProps,
   IQrcodeDrawType,
 } from '@onekeyhq/components';
+import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -34,6 +35,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { FuseResult } from 'fuse.js';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -282,6 +284,14 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.SettingsSearchResult]: {
+    list: {
+      title: string;
+      icon: string;
+      configs: FuseResult<ISubSettingConfig>[];
+    }[];
+    searchText: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

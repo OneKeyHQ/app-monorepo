@@ -37,6 +37,7 @@ export const useBiometricAuthInfo = () => {
     }
 
     return {
+      titleId,
       title: intl.formatMessage({ id: titleId }),
       icon,
     };
