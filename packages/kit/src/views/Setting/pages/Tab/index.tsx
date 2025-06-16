@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
+  Divider,
   Icon,
   NavCloseButton,
   SearchBar,
@@ -75,7 +76,6 @@ function TabItemView({
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
-  const appNavigation = useAppNavigation();
   const intl = useIntl();
   const tabs = useMemo(
     () =>
@@ -117,18 +117,12 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   }, [onLock]);
   const { top } = useSafeAreaInsets();
   const { onSearch } = useSearch();
-  const handleClose = useCallback(() => {
-    appNavigation.popStack();
-  }, [appNavigation]);
   return (
     <YStack w={192} bg="$bgSubdued" pt={top} px="$3">
-      <XStack h="$16" gap="$4" ai="center">
-        <NavCloseButton onPress={handleClose} />
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.global_settings })}
-        </SizableText>
+      <XStack my="$2.5">
+        <SearchBar onSearchTextChange={onSearch} size="small" />
       </XStack>
-      <SearchBar onSearchTextChange={onSearch} />
+      <Divider />
       <YStack flex={1} pt="$3">
         {tabs}
       </YStack>
