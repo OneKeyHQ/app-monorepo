@@ -579,7 +579,7 @@ function BasicTable<T>({
           renderPlaceholder={renderPlaceholder}
           ListHeaderComponent={
             <>
-              {TableHeaderComponent ? <TableHeaderComponent /> : null}
+              {TableHeaderComponent}
               {stickyHeader ? null : headerRow}
             </>
           }
@@ -605,7 +605,7 @@ function BasicTable<T>({
           renderItem={handleRenderItem}
           ListHeaderComponent={
             <>
-              {TableHeaderComponent ? <TableHeaderComponent /> : null}
+              {TableHeaderComponent}
               {stickyHeader ? null : headerRow}
             </>
           }
