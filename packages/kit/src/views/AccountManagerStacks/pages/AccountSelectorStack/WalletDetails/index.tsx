@@ -568,7 +568,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     linkedNetworkId,
     listViewLayout.height,
     num,
+    searchText,
     sectionData,
+    sectionDataOriginal?.length,
     selectedAccount,
   ]);
 
