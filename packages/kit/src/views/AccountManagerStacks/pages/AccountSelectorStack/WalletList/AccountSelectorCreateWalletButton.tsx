@@ -39,7 +39,7 @@ export function AccountSelectorCreateWalletButton() {
         variant="primary"
       />
       <SizableText textAlign="center" size="$bodySm" mt="$1">
-        {intl.formatMessage({ id: ETranslations.global_add_wallet })}
+        {intl.formatMessage({ id: ETranslations.global_wallet })}
       </SizableText>
     </Stack>
   );
