@@ -9,7 +9,9 @@ import type {
 import {
   Divider,
   Icon,
+  IconButton,
   Image,
+  NavBackButton,
   Page,
   SizableText,
   Stack,
@@ -17,6 +19,7 @@ import {
   Theme,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import CloseButton from '@onekeyhq/components/src/composite/Banner/CloseButton';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
@@ -234,8 +237,8 @@ export default function PagePrimeFeatures() {
   }, [intl, selectedFeature, showAllFeatures]);
 
   const showPaginationButton = true;
-  const showCloseButton = true;
   const isHovering = true;
+  const showCloseButton = false;
 
   const renderPagination = useCallback(
     ({
@@ -378,10 +381,20 @@ export default function PagePrimeFeatures() {
     showAllFeatures,
   ]);
 
-  return (
+  const page = (
     <Page scrollEnabled>
-      <Page.Header title="Prime Features" />
+      <Theme name="dark">
+        <Page.Header
+          headerShown={false}
+          title={intl.formatMessage({
+            id: ETranslations.prime_features_title,
+          })}
+        />
+      </Theme>
+      <Page.BackButton />
+
       <Page.Body>
+        <Stack h="$14" />
         <Swiper
           height="100%"
           position="relative"
@@ -417,10 +430,9 @@ export default function PagePrimeFeatures() {
         onConfirm={shouldShowConfirmButton ? subscribe : undefined}
         onConfirmText={(() => {
           if (!showAllFeatures) {
-            // return intl.formatMessage({
-            //   id: ETranslations.prime_about_onekey_prime,
-            // });
-            return 'About OneKey Prime';
+            return intl.formatMessage({
+              id: ETranslations.prime_about_onekey_prime,
+            });
           }
 
           if (!packages?.length) {
@@ -450,4 +462,7 @@ export default function PagePrimeFeatures() {
       />
     </Page>
   );
+
+  return <Theme name="dark">{page}</Theme>;
+  // return page;
 }
