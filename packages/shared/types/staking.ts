@@ -500,9 +500,7 @@ export interface IEarnActivateActionIcon {
   data: {
     title: IEarnText;
     description: IEarnText[];
-    checkboxes: {
-      text: IEarnText;
-    }[];
+    checkboxes: IEarnText[];
   };
 }
 
@@ -559,13 +557,15 @@ export interface IEarnWithdrawAction {
   };
 }
 
-export enum EWithdrawType {
+export enum EStakingActionType {
   Withdraw = 'withdraw',
   WithdrawOrder = 'withdrawOrder',
+  Deposit = 'deposit',
+  Activate = 'activate',
 }
 
 export interface IEarnWithdrawActionIcon {
-  type: EWithdrawType;
+  type: EStakingActionType;
   disabled: boolean;
   text: IEarnText;
   data: {
@@ -575,7 +575,7 @@ export interface IEarnWithdrawActionIcon {
 }
 
 export interface IEarnWithdrawOrderActionIcon {
-  type: EWithdrawType;
+  type: EStakingActionType;
   disabled: boolean;
   text: IEarnText;
   data: {
