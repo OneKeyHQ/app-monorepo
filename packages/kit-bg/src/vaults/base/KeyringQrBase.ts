@@ -9,7 +9,7 @@ import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequest
 import {
   NotImplemented,
   OneKeyErrorAirGapInvalidQrCode,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -78,7 +78,7 @@ export abstract class KeyringQrBase extends KeyringBase {
   ): Promise<T> {
     const wallet = await localDb.getWallet({ walletId: this.walletId });
     if (!wallet.associatedDevice) {
-      throw new OneKeyPlainTextError('associatedDevice not found');
+      throw new OneKeyLocalError('associatedDevice not found');
     }
     const device = await localDb.getDevice(wallet.associatedDevice);
     const path = await this.vault.getAccountPath();
@@ -94,7 +94,7 @@ export abstract class KeyringQrBase extends KeyringBase {
     let xfp = airGapAccount?.xfp || wallet.xfp;
     xfp = accountUtils.getShortXfp({ xfp: xfp || '' });
     if (!xfp) {
-      throw new OneKeyPlainTextError('xfp not found');
+      throw new OneKeyLocalError('xfp not found');
     }
     const signRequestUr = await options.signRequestUrBuilder({
       requestId,

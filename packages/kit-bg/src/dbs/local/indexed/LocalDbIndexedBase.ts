@@ -8,7 +8,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IndexedDBObjectStorePromised,
@@ -158,7 +158,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       //   // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
       //   const bucket = await storageBuckets?.open('hello-world', bucketOptions);
       //   if (!bucket?.indexedDB) {
-      //     throw new OneKeyPlainTextError(`Failed to open bucket indexedDB: ${bucketName}`);
+      //     throw new OneKeyLocalError(`Failed to open bucket indexedDB: ${bucketName}`);
       //   }
       //   idb = bucket.indexedDB;
       // }
@@ -211,7 +211,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     try {
       await this._initDBRecords(db);
     } catch (error) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `Failed to init db records: ${(error as Error)?.message}`,
       );
     }
@@ -280,7 +280,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       alwaysCreate: true,
     });
     if (!tx.stores) {
-      throw new OneKeyPlainTextError('tx.stores is undefined');
+      throw new OneKeyLocalError('tx.stores is undefined');
     }
     const { Context: contextStore, Wallet: walletStore } = tx.stores;
     await Promise.all([

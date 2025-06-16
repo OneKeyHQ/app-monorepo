@@ -1,6 +1,6 @@
 import { Script } from '@onekeyfe/kaspa-core-lib';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { BASE_KAS_TO_P2SH_ADDRESS } from '../constant';
 import { EKaspaSignType } from '../publickey';
@@ -126,7 +126,7 @@ const getKaspaApi = async () => {
         params;
 
       if (!encodedTx.commitScriptHex) {
-        throw new OneKeyPlainTextError('Invalid P2SH commitScriptHex');
+        throw new OneKeyLocalError('Invalid P2SH commitScriptHex');
       }
 
       const privateKey = new PrivateKey(tweakedPrivateKey);
@@ -171,7 +171,7 @@ const getKaspaApi = async () => {
       const { accountAddress, encodedTx, isTestnet, signatures } = params;
 
       if (!encodedTx.commitScriptHex) {
-        throw new OneKeyPlainTextError('Invalid P2SH commitScriptHex');
+        throw new OneKeyLocalError('Invalid P2SH commitScriptHex');
       }
 
       const revealTx = await createKRC20RevealTx({

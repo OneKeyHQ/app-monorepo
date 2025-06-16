@@ -96,4 +96,6 @@ export enum EAppEventBusNames {
   // Unlocked = 'Unlocked',
   // HttpServerRequest = 'HttpServerRequest',
   AddressBookUpdate = 'AddressBookUpdate',
+  ClearStorageOnExtension = 'ClearStorageOnExtension',
+  SettingsSearchResult = 'SettingsSearchResult',
 }

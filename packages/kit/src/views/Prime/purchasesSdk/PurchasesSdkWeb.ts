@@ -2,7 +2,7 @@ import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -17,7 +17,7 @@ export default class PurchasesSdkWeb extends PurchasesSdkWebBase {
       apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
     }
     if (!apiKey) {
-      throw new OneKeyPlainTextError('No REVENUECAT api key found');
+      throw new OneKeyLocalError('No REVENUECAT api key found');
     }
     return apiKey;
   }

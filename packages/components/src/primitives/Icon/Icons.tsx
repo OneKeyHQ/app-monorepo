@@ -433,6 +433,10 @@ const icons = {
       : import("./react/outline/ChevronRightSmall"),
   ChevronTopOutline: () => import("./react/outline/ChevronTop"),
   ChevronTopSmallOutline: () => import("./react/outline/ChevronTopSmall"),
+  ChevronTriangleDownSmallOutline: () =>
+    import("./react/outline/ChevronTriangleDownSmall"),
+  ChevronTriangleUpSmallOutline: () =>
+    import("./react/outline/ChevronTriangleUpSmall"),
   ChromecastOutline: () => import("./react/outline/Chromecast"),
   CirclePlaceholderOffOutline: () =>
     import("./react/outline/CirclePlaceholderOff"),

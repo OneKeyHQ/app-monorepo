@@ -85,6 +85,7 @@ export function createChartDom(
     chart.applyOptions({ width: domNode.clientWidth });
   };
   chart.subscribeCrosshairMove(({ time, seriesPrices }) => {
+    // @ts-expect-error
     onHover({ time, price: seriesPrices.values().next().value });
   });
   chart.timeScale().fitContent();

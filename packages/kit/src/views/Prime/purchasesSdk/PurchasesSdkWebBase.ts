@@ -1,6 +1,6 @@
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { PurchasesSdkBase } from './PurchasesSdkBase';
 
@@ -24,7 +24,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
     const { apiKey, userId } = params;
     if (!userId) {
-      throw new OneKeyPlainTextError('No userId found');
+      throw new OneKeyLocalError('No userId found');
     }
     Purchases.configure(apiKey, userId);
   }
@@ -76,7 +76,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       const packages = await this.getPaywallPackages();
       const paywallPackage = packages.find((p) => p.identifier === packageId);
       if (!paywallPackage) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'purchasePaywallPackage ERROR: Invalid packageId',
         );
       }

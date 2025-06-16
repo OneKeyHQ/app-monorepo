@@ -1,7 +1,7 @@
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import {
@@ -91,7 +91,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new OneKeyPlainTextError('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return bs58.encode(
@@ -101,7 +101,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         ]),
       );
     }
-    throw new OneKeyPlainTextError(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -127,7 +127,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       checkIsDefined(account.pub || account.pubKey),
     );
     if (!nativeTx) {
-      throw new OneKeyPlainTextError('nativeTx is null');
+      throw new OneKeyLocalError('nativeTx is null');
     }
 
     return signTransaction({
@@ -158,7 +158,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       return bs58.encode(signature);
     }
 
-    throw new OneKeyPlainTextError('signMessage not supported');
+    throw new OneKeyLocalError('signMessage not supported');
   }
 
   override async getAddressFromPrivate(

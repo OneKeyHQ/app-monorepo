@@ -32,7 +32,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -481,12 +481,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         forceSelectToNetworkId,
       } = params;
       if (othersWalletAccount && indexedAccount) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both defined',
         );
       }
       if (!othersWalletAccount && !indexedAccount) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both undefined',
         );
       }
@@ -494,7 +494,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         accountId: indexedAccount?.id || othersWalletAccount?.id || '',
       });
       if (!walletId) {
-        throw new OneKeyPlainTextError(
+        throw new OneKeyLocalError(
           'confirmSelectAccount ERROR: walletId is undefined',
         );
       }
@@ -923,12 +923,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
+          const shouldCreateHiddenWalletOnly = Boolean(
+            params?.features?.passphrase_protection,
+          );
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               {
                 ...params,
-                isMockedStandardHwWallet: true,
+                isMockedStandardHwWallet: shouldCreateHiddenWalletOnly,
                 skipDeviceCancel: true,
               },
               {
@@ -943,7 +946,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               }
             | undefined;
           // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
-          if (device && device.featuresInfo?.passphrase_protection) {
+          if (device && shouldCreateHiddenWalletOnly) {
             // wait previous action done, wait device ready
             if (!params.hideCheckingDeviceLoading) {
               await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
@@ -1022,7 +1025,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const qrDevice = params?.qrDevice;
           const airGapAccounts = params?.airGapAccounts;
           if (!qrDevice) {
-            throw new OneKeyPlainTextError('qrDevice is required');
+            throw new OneKeyLocalError('qrDevice is required');
           }
           const result = await serviceAccount.createQrWallet({
             qrDevice,

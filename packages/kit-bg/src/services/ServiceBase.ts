@@ -2,6 +2,7 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   OneKeyErrorPrimeLoginExceedDeviceLimit,
@@ -199,7 +200,7 @@ export default class ServiceBase {
     }
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoDialogLoadingSample() {
     await this.withDialogLoading(
       {

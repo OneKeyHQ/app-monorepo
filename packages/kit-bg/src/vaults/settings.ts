@@ -32,7 +32,7 @@ import {
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -52,12 +52,12 @@ function validateVaultSettings({
 }) {
   if (process.env.NODE_ENV !== 'production') {
     if (!settings.accountDeriveInfo.default) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `no default accountDeriveInfo found in vault settings: ${networkId}`,
       );
     }
     if (!Object.isFrozen(settings)) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${networkId}`,
       );
     }
@@ -66,7 +66,7 @@ function validateVaultSettings({
 
 export async function getVaultSettings({ networkId }: { networkId: string }) {
   if (!networkId) {
-    throw new OneKeyPlainTextError('networkId is not defined');
+    throw new OneKeyLocalError('networkId is not defined');
   }
   const impl = networkUtils.getNetworkImpl({ networkId });
   const settingsLoader: Record<
@@ -109,7 +109,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
   };
   const loader = settingsLoader[impl];
   if (!loader) {
-    throw new OneKeyPlainTextError(`no settings found: impl=${impl}`);
+    throw new OneKeyLocalError(`no settings found: impl=${impl}`);
   }
   const settings = (await settingsLoader[impl]()).default;
   validateVaultSettings({ settings, networkId });
@@ -142,7 +142,7 @@ export async function getVaultSettingsAccountDeriveInfo({
     info = settings.accountDeriveInfo[deriveType as 'default'];
   }
   if (!info) {
-    throw new OneKeyPlainTextError(
+    throw new OneKeyLocalError(
       `no accountDeriveInfo found in vault settings: ${networkId} ${deriveType}`,
     );
   }

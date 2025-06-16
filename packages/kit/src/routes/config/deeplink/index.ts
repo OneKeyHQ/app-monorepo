@@ -14,7 +14,7 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -180,7 +180,7 @@ async function processDeepLinkWalletConnect({
       // V1
       if (queryParams?.bridge && queryParams?.key) {
         // wcUri = url;
-        throw new OneKeyPlainTextError('WalletConnect V1 is not supported');
+        throw new OneKeyLocalError('WalletConnect V1 is not supported');
       }
       // V2
       // eslint-disable-next-line spellcheck/spell-checker

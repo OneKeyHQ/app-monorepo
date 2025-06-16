@@ -6,7 +6,7 @@ import 'setimmediate';
 import { createRoot } from 'react-dom/client';
 
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   initSentry,
   withSentryHOC,
@@ -20,7 +20,7 @@ const WithSentryHOC = withSentryHOC(App, SentryErrorBoundaryFallback);
 
 function renderApp() {
   const root = globalThis.document.querySelector('#root');
-  if (!root) throw new OneKeyPlainTextError('No root element found!');
+  if (!root) throw new OneKeyLocalError('No root element found!');
   createRoot(root).render(<WithSentryHOC />);
 }
 

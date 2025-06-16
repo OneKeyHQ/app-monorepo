@@ -258,30 +258,32 @@ describe('Nexa Utils Tests', () => {
     ).toBe('nexatest:nqtsq5g5x3fqjd6kx8tf8l9rseg5rnrdupfwz9uhauzga026');
   });
 
-  it('Nexa Utils Sgin Transaction', () => {
+  it('Nexa Utils Sgin Transaction', async () => {
     const privateKey =
       '91632aaa4de97d24c58ff234aa371c7a7c8363808a73fa9189cb5ee3d55a0cd3';
     const digest =
       'ae11c0c8f2576bd05fcde9d0d1f78f0fdaf679476d499c8cd366b81b476350fc';
     expect(
-      sign(Buffer.from(privateKey, 'hex'), Buffer.from(digest, 'hex')).toString(
-        'hex',
-      ),
+      (
+        await sign(Buffer.from(privateKey, 'hex'), Buffer.from(digest, 'hex'))
+      ).toString('hex'),
     ).toBe(
       'dbe0b176c8f425321302aa42d144544f3a7701d07d1666c0a90a642e0351b22a6e687b2c08030415c714843111bac0cfe6ba5e5aac4acb166caee9ae35e12dba',
     );
   });
 
-  it('Nexa Utils Sgin Transaction With signatureBuffer', () => {
+  it('Nexa Utils Sgin Transaction With signatureBuffer', async () => {
     const privateKey =
       '91632aaa4de97d24c58ff234aa371c7a7c8363808a73fa9189cb5ee3d55a0cd3';
     const signatureBuffer =
       '0094d3de9aa564a4fa760a6b16c76a0a15b724c38b39a7249215e397ed1bbf07d40084af2da0940d66153580ce18b185ac78ca4237d3ccaec3dfb32f4fd4134fb63bb13029ce7b1f559ef5e747fcac439f1455a2ec7c5f09b72290795e70665044026cad7049e07c205ae2c4f11bae23b1ead0de47bd52031fdc875e74b590e784c9228a0000000000';
-    const digest = sha256sha256(Buffer.from(signatureBuffer, 'hex'));
+    const digest = await sha256sha256(Buffer.from(signatureBuffer, 'hex'));
     expect(digest.toString('hex')).toBe(
       'fe1717e9f1d1315ab2a6048fcb51231f56a88512d1ed1ce552045bf7a9225b4d',
     );
-    expect(sign(Buffer.from(privateKey, 'hex'), digest).toString('hex')).toBe(
+    expect(
+      (await sign(Buffer.from(privateKey, 'hex'), digest)).toString('hex'),
+    ).toBe(
       '7e5edff03500cec509bf55c4983560de8f794a88ae3539f7804cf2c34cad39d73ef115cf8d8cfa25ec841b38c123c19740a971a7de188319eaac5c4db897ce51',
     );
   });

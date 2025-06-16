@@ -56,7 +56,7 @@ const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
   EOneKeyErrorClassNames.OneKeyError,
-  EOneKeyErrorClassNames.OneKeyPlainTextError,
+  EOneKeyErrorClassNames.OneKeyLocalError,
   EOneKeyErrorClassNames.OneKeyHardwareError,
   EOneKeyErrorClassNames.OneKeyAppError,
   EOneKeyErrorClassNames.OneKeyServerApiError,

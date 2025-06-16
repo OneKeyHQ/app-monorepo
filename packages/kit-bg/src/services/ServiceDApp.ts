@@ -1,6 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Semaphore } from 'async-mutex';
-import { debounce } from 'lodash';
+import { debounce, isEqual, pick } from 'lodash';
 
 import type {
   IEncodedTx,
@@ -18,7 +18,7 @@ import {
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -88,7 +88,7 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   }
 
   if (!networkImpls) {
-    throw new OneKeyPlainTextError('networkImpl not found');
+    throw new OneKeyLocalError('networkImpl not found');
   }
   return {
     storageType,
@@ -132,10 +132,10 @@ class ServiceDApp extends ServiceBase {
       try {
         return await new Promise((resolve, reject) => {
           if (!request.origin) {
-            throw new OneKeyPlainTextError('origin is required');
+            throw new OneKeyLocalError('origin is required');
           }
           if (!request.scope) {
-            throw new OneKeyPlainTextError('scope is required');
+            throw new OneKeyLocalError('scope is required');
           }
           const id = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -274,7 +274,7 @@ class ServiceDApp extends ServiceBase {
     skipBackupCheck?: boolean;
   }) {
     if (!accountId || !networkId) {
-      throw new OneKeyPlainTextError('accountId and networkId required');
+      throw new OneKeyLocalError('accountId and networkId required');
     }
     return this.openModal({
       request,
@@ -427,7 +427,7 @@ class ServiceDApp extends ServiceBase {
     walletConnectTopic?: string;
   }) {
     if (storageType === 'walletConnect' && !walletConnectTopic) {
-      throw new OneKeyPlainTextError('walletConnectTopic is required');
+      throw new OneKeyLocalError('walletConnectTopic is required');
     }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
@@ -831,7 +831,7 @@ class ServiceDApp extends ServiceBase {
         networkId: newNetworkId,
       });
     if (!containsNetwork) {
-      throw new OneKeyPlainTextError('Network not found');
+      throw new OneKeyLocalError('Network not found');
     }
     const { shouldSwitchNetwork, isDifferentNetworkImpl } =
       await this.getSwitchNetworkInfo(params);
@@ -870,9 +870,7 @@ class ServiceDApp extends ServiceBase {
         );
 
       if (!activeAccount.account) {
-        throw new OneKeyPlainTextError(
-          'Switch network failed, account not found',
-        );
+        throw new OneKeyLocalError('Switch network failed, account not found');
       }
 
       updatedAccountInfo = {
@@ -1406,7 +1404,17 @@ class ServiceDApp extends ServiceBase {
       focusedWallet: homeAccountSelectorInfo?.focusedWallet ?? '',
     };
 
-    // 5. if different, update dapp connection account
+    // 5. if new account is the same as the original account, return the original account
+    if (
+      this.isConnectionAccountInfoEqual(
+        connectedAccountInfo,
+        newConnectedAccountInfo,
+      )
+    ) {
+      return connectedAccountInfo;
+    }
+
+    // 6. if different, update dapp connection account
     await this.updateConnectionSession({
       accountSelectorNum: connectedAccountInfo.num ?? 0,
       origin,
@@ -1417,6 +1425,25 @@ class ServiceDApp extends ServiceBase {
     void this.emitSwitchNetworkEvents();
 
     return newConnectedAccountInfo;
+  }
+
+  private isConnectionAccountInfoEqual(
+    a: Partial<IConnectionAccountInfo>,
+    b: Partial<IConnectionAccountInfo>,
+  ): boolean {
+    const keys = [
+      'num',
+      'accountId',
+      'address',
+      'networkId',
+      'networkImpl',
+      'deriveType',
+      'walletId',
+      'indexedAccountId',
+      'othersWalletAccountId',
+      'focusedWallet',
+    ] as const;
+    return isEqual(pick(a, keys), pick(b, keys));
   }
 
   private emitSwitchNetworkEvents() {

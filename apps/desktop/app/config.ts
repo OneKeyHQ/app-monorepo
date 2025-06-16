@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import type { Contexts } from '@sentry/core';
 import type { Systeminformation } from 'systeminformation';
 
@@ -15,6 +16,16 @@ export type IDesktopSystemInfo = {
   cpu: Systeminformation.CpuData;
   os: Systeminformation.OsData;
   sentryContexts: Contexts;
+};
+
+export type IDesktopIAPGetProductsParams = {
+  productIDs: string[];
+};
+export type IDesktopIAPGetProductsResult = {
+  bundleId: string;
+  canMakePayments: boolean;
+  productIDs: string[];
+  products: Electron.Product[];
 };
 
 export const ipcMessageKeys = {
@@ -123,4 +134,13 @@ export const ipcMessageKeys = {
   NOTIFICATION_GET_PERMISSION: 'notification/getPermission',
   NOTIFICATION_SET_BADGE: 'notification/setBadge',
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
+
+  // IAP
+  IAP_GET_PRODUCTS: 'iap/getProducts',
+  // IAP_CAN_MAKE_PAYMENTS: 'iap/canMakePayments',
+  // IAP_BUY_PRODUCT: 'iap/buyProduct',
+  // IAP_GET_PROMOTION_RIGHTS: 'iap/getPromotionRights',
+  // IAP_GET_PROMOTION_RIGHTS_STATUS: 'iap/getPromotionRightsStatus',
+  // IAP_GET_PROMOTION_RIGHTS_STATUS_RES: 'iap/getPromotionRightsStatus/res',
+  // IAP_GET_PROMOTION_RIGHTS_STATUS_ERROR: 'iap/getPromotionRightsStatus/error',
 };

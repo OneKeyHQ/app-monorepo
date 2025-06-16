@@ -1,10 +1,9 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EGalleryRoutes,
   EModalReferFriendsRoutes,
   EModalRoutes,
-  EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
   ERootRoutes,
@@ -71,7 +70,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   //           `Duplicate screen name found: "${name}" at paths:`,
   //           existingPaths.join(', '),
   //         );
-  //         throw new OneKeyPlainTextError(
+  //         throw new OneKeyLocalError(
   //           `Duplicate screen name "${name}" found at: ${existingPaths.join(
   //             ', ',
   //           )}`,
@@ -95,7 +94,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       if (platformEnv.isDev) {
         if (!screen) {
           try {
-            throw new OneKeyPlainTextError(`screen ${screenName} not found`);
+            throw new OneKeyLocalError(`screen ${screenName} not found`);
           } catch (error) {
             console.error(error);
           }
@@ -177,16 +176,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showParams: true,
     // },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.ReferFriendsModal}${EModalReferFriendsRoutes.ReferAFriend}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingProtectModal}`]:
       {
         showUrl: true,
         showParams: false,

@@ -6,17 +6,18 @@ import type {
   IDialogLoadingProps,
   IQrcodeDrawType,
 } from '@onekeyhq/components';
+import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
-import { defaultLogger } from '../logger/logger';
+// import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
@@ -34,6 +35,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { FuseResult } from 'fuse.js';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -281,6 +283,15 @@ export interface IAppEventBusPayload {
     jobId: string;
   };
   [EAppEventBusNames.AddressBookUpdate]: undefined;
+  [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.SettingsSearchResult]: {
+    list: {
+      title: string;
+      icon: string;
+      configs: FuseResult<ISubSettingConfig>[];
+    }[];
+    searchText: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -392,9 +403,6 @@ class AppEventBusClass extends CrossEventEmitter {
     isRemote?: boolean;
   }) {
     const { type, payload, isRemote } = params;
-    defaultLogger.app.eventBus.emitToSelf({
-      eventName: type,
-    });
     const payloadCloned = cloneDeep(payload);
     try {
       // @ts-ignore
@@ -432,7 +440,7 @@ class AppEventBusClass extends CrossEventEmitter {
 
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'offscreen or webembed event bus not support yet.',
       );
     }

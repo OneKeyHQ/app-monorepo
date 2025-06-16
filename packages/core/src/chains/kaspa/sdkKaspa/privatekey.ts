@@ -2,7 +2,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { PrivateKey } from '@onekeyfe/kaspa-core-lib';
 
 import { tapTweakHash } from '@onekeyhq/core/src/secret/bip340';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import ecc from '../../../secret/nobleSecp256k1Wrapper';
 
@@ -27,9 +27,7 @@ export function getTweakedPrivateKey(pri: Buffer, pub: Buffer): string {
   }
 
   if (!privateKey) {
-    throw new OneKeyPlainTextError(
-      'Private key is required for tweaking signer!',
-    );
+    throw new OneKeyLocalError('Private key is required for tweaking signer!');
   }
 
   const tweakedPrivateKey = ecc.privateAdd(

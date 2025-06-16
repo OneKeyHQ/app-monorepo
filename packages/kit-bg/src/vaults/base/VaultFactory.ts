@@ -1,4 +1,4 @@
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IMemoizeeOptions } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -42,7 +42,7 @@ export class VaultFactory {
     opt: IVaultFactoryOptions,
   ): Promise<VaultBase> => {
     if (!this.backgroundApi) {
-      throw new OneKeyPlainTextError('backgroundApi not set yet');
+      throw new OneKeyLocalError('backgroundApi not set yet');
     }
     const options: IVaultOptions = {
       ...opt,

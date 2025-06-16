@@ -19,10 +19,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  NotImplemented,
-  OneKeyPlainTextError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -139,7 +136,7 @@ export type IKeyringMapKey = IDBWalletType;
 
 if (platformEnv.isExtensionUi) {
   debugger;
-  throw new OneKeyPlainTextError(
+  throw new OneKeyLocalError(
     'engine/VaultBase is not allowed imported from ui',
   );
 }
@@ -187,7 +184,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
     if (!this.coreApi) {
-      throw new OneKeyPlainTextError('coreApi not defined in Vault');
+      throw new OneKeyLocalError('coreApi not defined in Vault');
     }
     try {
       const networkInfo = await this.getCoreApiNetworkInfo();
@@ -506,7 +503,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     const txid: string = signedTx?.txid || decodedTx?.txid || '';
     if (!txid) {
-      throw new OneKeyPlainTextError('buildHistoryTx txid not found');
+      throw new OneKeyLocalError('buildHistoryTx txid not found');
     }
 
     const { accountId, networkId } = decodedTx;
@@ -1120,7 +1117,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         networkId: this.networkId,
       })
     ) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         `account impl not matched to network: ${
           this.networkId
         } ${account.id?.slice(0, 30)}`,
@@ -1185,7 +1182,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       (!address && !addressDetail.allowEmptyAddress) ||
       !addressDetail.isValid
     ) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'VaultBase.getAccount ERROR: address is invalid',
       );
     }

@@ -34,7 +34,7 @@ import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-noti
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -1162,7 +1162,7 @@ const DialogGallery = () => {
                       Toast.error({
                         title: 'This is an error dialog',
                       });
-                      throw new OneKeyPlainTextError('test');
+                      throw new OneKeyLocalError('test');
                     },
                   });
                 }}

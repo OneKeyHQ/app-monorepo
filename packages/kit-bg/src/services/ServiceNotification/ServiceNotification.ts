@@ -6,7 +6,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyPlainTextError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -132,7 +132,7 @@ export default class ServiceNotification extends ServiceBase {
       defaultLogger.notification.common.notificationInitOk();
     }
     if (!this._notificationProvider) {
-      throw new OneKeyPlainTextError('notification provider not init');
+      throw new OneKeyLocalError('notification provider not init');
     }
     return this._notificationProvider;
   }
@@ -376,7 +376,7 @@ export default class ServiceNotification extends ServiceBase {
     }
 
     if (!permission.isSupported) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'Notification is not supported on your device',
       );
     }
@@ -1159,6 +1159,6 @@ export default class ServiceNotification extends ServiceBase {
     if (notificationProvider?.webSocketProvider) {
       return notificationProvider.webSocketProvider.ping(params);
     }
-    throw new OneKeyPlainTextError('WebSocket provider not found');
+    throw new OneKeyLocalError('WebSocket provider not found');
   }
 }

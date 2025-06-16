@@ -24,7 +24,7 @@ import {
   InvalidAddress,
   LowerTransactionAmountError,
   OneKeyInternalError,
-  OneKeyPlainTextError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -116,7 +116,7 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new OneKeyPlainTextError(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
       );
     }
@@ -125,12 +125,17 @@ export default class Vault extends VaultBase {
     const { path, addresses, xpub } = dbAccount;
     const network = await this.getNetwork();
     const { decimals, feeMeta } = network;
-    const utxos = await this._collectUTXOsInfoByApi({
-      address: dbAccount.address,
-      path,
-      addresses,
-      xpub,
-    });
+    const utxos = (
+      await this._collectUTXOsInfoByApi({
+        address: dbAccount.address,
+        path,
+        addresses,
+        xpub,
+      })
+    )
+      // Native transfer filter datumHash is null
+      .filter((utxo) => utxo.datum_hash == null);
+
     const amountBN = new BigNumber(amount);
 
     let output;
