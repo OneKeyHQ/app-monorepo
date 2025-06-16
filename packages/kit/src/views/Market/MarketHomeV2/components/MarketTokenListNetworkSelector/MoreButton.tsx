@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -16,12 +16,14 @@ interface IMoreButtonProps
   extends Omit<IButtonProps, 'children'>,
     Omit<INetworksSearchPanelProps, 'networkId'> {
   selectedNetworkId?: string;
+  customTrigger?: (isOpen: boolean, onPress: () => void) => ReactNode;
 }
 
 const MoreButton: FC<IMoreButtonProps> = ({
   networks = [],
   selectedNetworkId,
   onNetworkSelect,
+  customTrigger,
   ...rest
 }) => {
   const intl = useIntl();
@@ -30,6 +32,33 @@ const MoreButton: FC<IMoreButtonProps> = ({
   const handleNetworkSelect = (network: ISwapNetwork) => {
     onNetworkSelect?.(network);
     setIsOpen(false);
+  };
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const renderTrigger = () => {
+    if (customTrigger) {
+      return customTrigger(isOpen, handleToggle);
+    }
+
+    return (
+      <Button
+        m="$0.5"
+        size="small"
+        variant="tertiary"
+        iconAfter={
+          isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+        }
+        iconColor="$iconSubdued"
+        color="$textSubdued"
+        onPress={handleToggle}
+        {...rest}
+      >
+        {intl.formatMessage({ id: ETranslations.global_more })}
+      </Button>
+    );
   };
 
   return (
@@ -44,21 +73,7 @@ const MoreButton: FC<IMoreButtonProps> = ({
           onNetworkSelect={handleNetworkSelect}
         />
       }
-      renderTrigger={
-        <Button
-          m="$0.5"
-          size="small"
-          variant="tertiary"
-          iconAfter={
-            isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
-          }
-          iconColor="$iconSubdued"
-          color="$textSubdued"
-          {...rest}
-        >
-          {intl.formatMessage({ id: ETranslations.global_more })}
-        </Button>
-      }
+      renderTrigger={renderTrigger()}
     />
   );
 };
