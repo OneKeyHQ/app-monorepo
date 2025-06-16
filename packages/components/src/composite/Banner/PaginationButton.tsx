@@ -14,11 +14,13 @@ export function PaginationButton({
   onPress,
   isVisible,
   isHovering,
+  theme,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
   isVisible: boolean;
   isHovering?: boolean;
+  theme?: 'light' | 'dark';
 }) {
   const icon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
@@ -55,7 +57,7 @@ export function PaginationButton({
         icon={icon}
         onPress={onPress}
         iconProps={hoverOpacity}
-        theme="light"
+        theme={theme}
       />
     </Animated.View>
   );
