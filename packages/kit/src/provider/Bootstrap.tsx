@@ -19,8 +19,13 @@ import {
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -423,6 +428,13 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
   }
 };
 
+export const useIntercomInit = () => {
+  useEffect(() => {
+    // 初始化 Intercom
+    void initIntercom();
+  }, []);
+};
+
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
   const [isLocked] = useAppIsLockedAtom();
@@ -449,8 +461,9 @@ export const useLaunchEvents = (): void => {
   }, [isLocked]);
 };
 
-const getBuilderNumber = (builderNumber?: string) =>
-  builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+const getBuilderNumber = (builderNumber?: string) => {
+  return builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+};
 export const useCheckUpdateOnDesktop =
   platformEnv.isDesktop &&
   !platformEnv.isMas &&
@@ -485,6 +498,25 @@ export const useCheckUpdateOnDesktop =
       }
     : noop;
 
+export const useClearStorageOnExtension = platformEnv.isExtension
+  ? () => {
+      useEffect(() => {
+        appEventBus.on(EAppEventBusNames.ClearStorageOnExtension, () => {
+          try {
+            globalThis.localStorage.clear();
+          } catch {
+            console.error('window.localStorage.clear() error');
+          }
+          try {
+            globalThis.sessionStorage.clear();
+          } catch {
+            console.error('window.sessionStorage.clear() error');
+          }
+        });
+      }, []);
+    }
+  : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -511,5 +543,7 @@ export function Bootstrap() {
   useDesktopEvents();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
+  useIntercomInit();
+  useClearStorageOnExtension();
   return null;
 }

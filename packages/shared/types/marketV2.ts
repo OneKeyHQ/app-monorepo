@@ -114,3 +114,52 @@ export interface IMarketTokenListResponse {
   list: IMarketTokenListItem[];
   hasNext: boolean;
 }
+
+export interface IMarketTokenSecurity {
+  antiWhaleModifiable: string;
+  buyTax: string;
+  canTakeBackOwnership: string;
+  cannotBuy: string;
+  cannotSellAll: string;
+  creatorAddress: string;
+  creatorBalance: string;
+  creatorPercentage: string;
+  externalCall: string;
+  hiddenOwner: string;
+  holderCount: string;
+  honeypotWithSameCreator: string;
+  isAntiWhale: string;
+  isBlacklisted: string;
+  isHoneypot: string;
+  isInDex: string;
+  isMintable: string;
+  isOpenSource: string;
+  isProxy: string;
+  isWhitelisted: string;
+  lpHolderCount: string;
+  lpHolders: Array<{
+    address: string;
+    tag: string;
+    value: string | null;
+    is_contract: number;
+    balance: string;
+    percent: string;
+    NFT_list: any;
+    is_locked: number;
+  }>;
+  lpTotalSupply: string;
+  ownerAddress: string;
+  ownerBalance: string;
+  ownerChangeBalance: string;
+  ownerPercentage: string;
+  personalSlippageModifiable: string;
+  sellTax: string;
+  slippageModifiable: string;
+  tokenName: string;
+  tokenSymbol: string;
+  totalSupply: string;
+  tradingCooldown: string;
+  transferPausable: string;
+  trustList: string;
+  [key: string]: unknown;
+}

@@ -87,6 +87,28 @@ declare global {
     $$autoPrintErrorIgnore?: boolean;
     $$autoToastErrorTriggered?: boolean;
   }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  interface Promise<T> {
+    toString(
+      PromiseToStringNotAllowed1: boolean,
+      PromiseToStringNotAllowed2: string,
+      PromiseToStringNotAllowed3: number,
+      PromiseToStringNotAllowed4: null,
+      PromiseToStringNotAllowed5: undefined,
+    ): string;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  interface Buffer {
+    toString(
+      BufferToStringIsNotSafeInNative: boolean,
+      UseBufferUtilsInstead: boolean,
+      // encoding?: BufferEncoding,
+      // start?: number,
+      // end?: number,
+    ): string;
+  }
 }
 
 declare const self: ServiceWorkerGlobalScope;

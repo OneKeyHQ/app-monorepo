@@ -500,9 +500,7 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   async callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     if (!platformEnv.isNative) {
-      throw new OneKeyLocalError(
-        'call webembed api only support native env',
-      );
+      throw new OneKeyLocalError('call webembed api only support native env');
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 

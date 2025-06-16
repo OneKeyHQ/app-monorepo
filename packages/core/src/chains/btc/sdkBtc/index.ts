@@ -97,18 +97,14 @@ export function tweakSigner(
   // new Uint8Array(privKey.buffer) return 8192 length on NODE.js 20
   let privateKey: Uint8Array | null = new Uint8Array(privKey);
   if (!privateKey) {
-    throw new OneKeyLocalError(
-      'Private key is required for tweaking signer!',
-    );
+    throw new OneKeyLocalError('Private key is required for tweaking signer!');
   }
   if (publicKey[0] === 3) {
     privateKey = ecc.privateNegate(privateKey);
   }
 
   if (!privateKey) {
-    throw new OneKeyLocalError(
-      'Private key is required for tweaking signer!',
-    );
+    throw new OneKeyLocalError('Private key is required for tweaking signer!');
   }
 
   if (opts.needTweak) {
@@ -700,7 +696,7 @@ export async function getAddressFromXpub({
       const index = part.endsWith("'")
         ? parseInt(part.slice(0, -1), 10) + 2 ** 31
         : parseInt(part, 10);
-      extendedKey = CKDPub(curve, extendedKey, index);
+      extendedKey = await CKDPub(curve, extendedKey, index);
       cache.set(relPath, extendedKey);
     }
 

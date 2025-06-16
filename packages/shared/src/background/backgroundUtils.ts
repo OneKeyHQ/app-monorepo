@@ -279,9 +279,7 @@ export async function waitForDataLoaded({
   }
   clearTimeout(timer);
   if (timeoutReject) {
-    throw new OneKeyLocalError(
-      `waitForDataLoaded: ${logName ?? ''} timeout`,
-    );
+    throw new OneKeyLocalError(`waitForDataLoaded: ${logName ?? ''} timeout`);
   }
 }
 
@@ -416,14 +414,10 @@ export function getBackgroundServiceApi({
     if (serviceName.includes('@')) {
       const [nameSpace, name] = serviceName.split('@');
       if (!nameSpace) {
-        throw new OneKeyLocalError(
-          `service nameSpace not found: ${nameSpace}`,
-        );
+        throw new OneKeyLocalError(`service nameSpace not found: ${nameSpace}`);
       }
       if (!backgroundApi[nameSpace]) {
-        throw new OneKeyLocalError(
-          `service nameSpace not found: ${nameSpace}`,
-        );
+        throw new OneKeyLocalError(`service nameSpace not found: ${nameSpace}`);
       }
       serviceApi = backgroundApi[nameSpace][name];
     } else {

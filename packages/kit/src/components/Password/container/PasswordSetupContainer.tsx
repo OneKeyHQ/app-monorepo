@@ -142,6 +142,9 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
           onCancel: () => {
             onSetupRes(setUpPasswordRes);
           },
+          onClose: () => {
+            onSetupRes(setUpPasswordRes);
+          },
         });
       } catch (e) {
         console.log('e.stack', (e as Error)?.stack);

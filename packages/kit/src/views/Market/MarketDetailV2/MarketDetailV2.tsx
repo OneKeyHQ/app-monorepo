@@ -55,6 +55,7 @@ function MarketDetail({
       />
       <Page.Body>
         <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
+
         <XStack>
           <TradingView
             mode="realtime"

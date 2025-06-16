@@ -18,6 +18,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStar } from '../../../components/MarketStar';
+import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 export function TokenDetailHeader({
   tokenDetail,
@@ -121,6 +122,13 @@ export function TokenDetailHeader({
 
             {/* Social Links */}
             <XStack ai="center" gap="$2" mt="$1">
+              {tokenDetail?.address && networkId ? (
+                <TokenSecurityAlert
+                  tokenAddress={tokenDetail?.address}
+                  networkId={networkId}
+                />
+              ) : null}
+
               {website ? (
                 <IconButton
                   size="small"
