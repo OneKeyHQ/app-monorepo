@@ -6,13 +6,13 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { CreateAccountView } from './CreateAccountView';
+import { TokenActionsView } from './TokenActionsView';
 import { TokenBalanceView } from './TokenBalanceView';
 import { TokenIconView } from './TokenIconView';
 import { TokenNameView } from './TokenNameView';
 import { TokenPriceChangeView } from './TokenPriceChangeView';
 import { TokenPriceView } from './TokenPriceView';
 import { TokenValueView } from './TokenValueView';
-import { TokenActionsView } from './TokenActionsView';
 
 export type ITokenListItemProps = {
   token: IAccountToken;
@@ -160,12 +160,12 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             flexBasis: 0,
           })}
         >
-          <TokenActionsView $key={token.$key ?? ''} />
+          <TokenActionsView token={token} />
         </Stack>
       );
     }
     return null;
-  }, [token.$key, withSwapAction, tableLayout]);
+  }, [withSwapAction, tableLayout, token]);
 
   return (
     <ListItem
@@ -196,7 +196,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       <Stack w="$8" />
       <Stack
         flexDirection={isTokenSelector ? 'column' : 'column-reverse'}
-        alignItems="flex-end"
+        alignItems="center"
         flexShrink={1}
         {...(tableLayout && {
           flexDirection: 'row',

@@ -1,33 +1,97 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
+import { useAccountData } from '../../hooks/useAccountData';
+import { useUserWalletProfile } from '../../hooks/useUserWalletProfile';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 import type { XStackProps } from 'tamagui';
 
 type IProps = {
-  $key: string;
+  token: IAccountToken;
 } & XStackProps;
 
 function TokenActionsView(props: IProps) {
-  const { $key, ...rest } = props;
+  const { token, ...rest } = props;
   const intl = useIntl();
-  const [tokenListMap] = useTokenListMapAtom();
-  const token = tokenListMap[$key || ''];
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { network, deriveType } = useAccountData({
+    accountId: token.accountId,
+    networkId: token.networkId,
+  });
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const navigation = useAppNavigation();
+
+  const handleTokenOnSwap = useCallback(() => {
+    defaultLogger.wallet.walletActions.actionTrade({
+      walletType: activeAccount?.wallet?.type ?? '',
+      networkId: token.networkId ?? activeAccount?.network?.id ?? '',
+      source: 'homeTokenList',
+      tradeType: ESwapTabSwitchType.SWAP,
+      isSoftwareWalletOnlyUser,
+    });
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: token.networkId ?? activeAccount?.network?.id ?? '',
+        importFromToken: {
+          contractAddress: token.address,
+          symbol: token.symbol,
+          networkId: token.networkId ?? activeAccount?.network?.id ?? '',
+          isNative: token.isNative,
+          decimals: token.decimals,
+          name: token.name,
+          logoURI: token.logoURI,
+          networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+        },
+        importDeriveType: deriveType,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      },
+    });
+  }, [
+    activeAccount?.wallet?.type,
+    activeAccount?.network?.id,
+    activeAccount?.network?.logoURI,
+    token.networkId,
+    token.address,
+    token.symbol,
+    token.isNative,
+    token.decimals,
+    token.name,
+    token.logoURI,
+    isSoftwareWalletOnlyUser,
+    navigation,
+    network?.logoURI,
+    deriveType,
+  ]);
 
   const content = useMemo(
     () => (
       <XStack {...rest}>
-        <Button size="small" variant="secondary">
+        <Button
+          size="small"
+          variant="secondary"
+          cursor="pointer"
+          onPress={handleTokenOnSwap}
+        >
           {intl.formatMessage({ id: ETranslations.global_swap })}
         </Button>
       </XStack>
     ),
-    [intl, rest],
+    [handleTokenOnSwap, intl, rest],
   );
 
   if (!token) {
