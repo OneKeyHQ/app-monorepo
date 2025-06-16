@@ -716,25 +716,39 @@ const ProtocolDetailsPage = () => {
             showKYCDialog({
               actionData: item,
               onConfirm: async (checkboxStates: boolean[]) => {
-                // All checkboxes must be checked to proceed
                 if (checkboxStates.every(Boolean)) {
-                  // TODO: implement KYC activation logic
-                  console.log(
-                    'KYC activate confirmed with checkbox states:',
-                    checkboxStates,
+                  await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
+                    {
+                      networkId,
+                      provider,
+                      symbol,
+                      accountAddress: earnAccount?.accountAddress ?? '',
+                      signature: '',
+                      message: '',
+                    },
                   );
-                } else {
-                  throw new OneKeyLocalError(
-                    'All checkboxes must be checked to proceed',
-                  );
+                  setTimeout(() => {
+                    void run();
+                  }, 300);
+                  return Promise.resolve();
                 }
+                throw new OneKeyLocalError(
+                  'All checkboxes must be checked to proceed',
+                );
               },
             });
           }
         },
       } as IButtonProps,
     };
-  }, [earnAccount?.accountAddress, detailInfo?.actions]);
+  }, [
+    earnAccount?.accountAddress,
+    detailInfo?.actions,
+    networkId,
+    provider,
+    symbol,
+    run,
+  ]);
 
   const SUBSCRIPTION_ACTION_TYPES = useMemo(
     () => [
