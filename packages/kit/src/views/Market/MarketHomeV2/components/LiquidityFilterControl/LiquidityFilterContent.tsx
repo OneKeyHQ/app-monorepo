@@ -51,38 +51,40 @@ function LiquidityFilterContent({
     setSelectedPreset(undefined);
     setMinValue(undefined);
     setMaxValue(undefined);
-    // Directly apply reset and close popover
     onApply?.({ min: undefined, max: undefined });
     onClose?.();
   };
 
-  const liquidityText = intl.formatMessage({
-    id: ETranslations.global_liquidity,
-  });
+  const renderPresetRow = (startIndex: number, endIndex: number) => (
+    <XStack gap="$3">
+      {presetValues.slice(startIndex, endIndex).map((preset) => (
+        <Button
+          flex={1}
+          key={preset}
+          variant={selectedPreset === preset ? 'primary' : 'secondary'}
+          onPress={() => handlePresetPress(preset)}
+        >
+          ≥ {preset}
+        </Button>
+      ))}
+    </XStack>
+  );
 
   return (
     <Stack gap="$4" p="$4" minWidth={280} {...rest}>
       <Stack gap="$3">
-        <Heading size="$headingMd">{liquidityText} ($)</Heading>
-
-        <XStack gap="$2" flexWrap="wrap">
-          {presetValues.map((preset) => (
-            <Button
-              key={preset}
-              variant={selectedPreset === preset ? 'primary' : 'secondary'}
-              size="small"
-              onPress={() => handlePresetPress(preset)}
-            >
-              ≥ {preset}
-            </Button>
-          ))}
-        </XStack>
+        {renderPresetRow(0, 2)}
+        {renderPresetRow(2, 4)}
       </Stack>
 
       <Stack gap="$3">
         <XStack gap="$3">
           <Stack flex={1} gap="$2">
-            <Heading size="$headingSm">Min</Heading>
+            <Heading size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_custom_fliters_min,
+              })}
+            </Heading>
             <Input
               placeholder="0"
               value={minValue}
@@ -90,7 +92,11 @@ function LiquidityFilterContent({
             />
           </Stack>
           <Stack flex={1} gap="$2">
-            <Heading size="$headingSm">Max</Heading>
+            <Heading size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_custom_fliters_max,
+              })}
+            </Heading>
             <Input
               placeholder="∞"
               value={maxValue}
@@ -101,10 +107,12 @@ function LiquidityFilterContent({
 
         <XStack gap="$3">
           <Button variant="secondary" flex={1} onPress={handleClear}>
-            Clear
+            {intl.formatMessage({ id: ETranslations.global_clear })}
           </Button>
           <Button variant="primary" flex={1} onPress={handleApply}>
-            Apply
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_custom_fliters_apply,
+            })}
           </Button>
         </XStack>
       </Stack>
