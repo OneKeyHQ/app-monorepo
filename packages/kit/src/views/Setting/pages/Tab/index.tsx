@@ -75,6 +75,7 @@ function TabItemView({
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
+  const appNavigation = useAppNavigation();
   const intl = useIntl();
   const tabs = useMemo(
     () =>
@@ -116,10 +117,13 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   }, [onLock]);
   const { top } = useSafeAreaInsets();
   const { onSearch } = useSearch();
+  const handleClose = useCallback(() => {
+    appNavigation.popStack();
+  }, [appNavigation]);
   return (
     <YStack w={192} bg="$bgSubdued" pt={top} px="$3">
       <XStack h="$16" gap="$4" ai="center">
-        <NavCloseButton />
+        <NavCloseButton onPress={handleClose} />
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.global_settings })}
         </SizableText>
