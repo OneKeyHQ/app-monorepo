@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { call } from '@wagmi/core';
 
-import { Divider, Page, YStack } from '@onekeyhq/components';
+import { Page, TinyDivider, XStack, YStack } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -85,7 +84,11 @@ export function SubSettingsPage({
                     return i ? (
                       <>
                         <TabSettingsListGrid item={i} />
-                        {idx !== list.length - 1 ? <Divider mx="$5" /> : null}
+                        {idx !== list.length - 1 ? (
+                          <XStack mx="$5">
+                            <TinyDivider />
+                          </XStack>
+                        ) : null}
                       </>
                     ) : null;
                   })}

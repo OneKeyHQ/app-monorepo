@@ -4,10 +4,10 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
-  Divider,
   Page,
   ScrollView,
   SearchBar,
+  TinyDivider,
   XStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -59,7 +59,8 @@ export function SettingList() {
                   await handleLock();
                 }}
               />
-              <Divider />
+              <TinyDivider />
+
               {settingsConfig.map((config) =>
                 config ? (
                   <TabSettingsListItem
