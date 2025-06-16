@@ -368,16 +368,17 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   );
 }
 
-export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
+export function AccountSelectorTriggerAddressSingle({
+  num,
+  onPress,
+}: {
+  num: number;
+  onPress: () => void;
+}) {
   const intl = useIntl();
   const {
     activeAccount: { account, network },
-    showAccountSelector,
   } = useAccountSelectorTrigger({ num, linkNetwork: true });
-
-  const handlePress = useCallback(async () => {
-    showAccountSelector();
-  }, [showAccountSelector]);
 
   const [showNoAddress, setShowNoAddress] = useState(false);
 
@@ -427,7 +428,7 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
       }}
       onPress={(event) => {
         event.stopPropagation();
-        void handlePress();
+        onPress?.();
       }}
       userSelect="none"
     >

@@ -43,10 +43,7 @@ export type IDAppConnectionModalParamList = {
     networkInfo: IAddEthereumChainParameter;
   };
   [EDAppConnectionModal.AddCustomTokenModal]: IAddCustomTokenRouteParams;
-  [EDAppConnectionModal.CurrentConnectionModal]: {
-    origin: string;
-    faviconUrl: string;
-  };
+  [EDAppConnectionModal.CurrentConnectionModal]: undefined;
   [EDAppConnectionModal.DefaultWalletSettingsModal]: undefined;
   // WebLN
   [EDAppConnectionModal.MakeInvoice]: IRequestInvoiceArgs & {
