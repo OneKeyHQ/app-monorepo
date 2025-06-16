@@ -142,7 +142,6 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 function SettingsTabNavigator() {
-  const intl = useIntl();
   const settingsConfig = useSettingsConfig();
   const tabScreens = useMemo(
     () =>
