@@ -1,4 +1,5 @@
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -133,4 +134,13 @@ export const { atom: createAccountStateAtom, use: useCreateAccountStateAtom } =
   }>({
     token: null,
     isCreating: false,
+  });
+
+export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
+  contextAtom<{
+    sortType: ETokenListSortType;
+    sortDirection: 'desc' | 'asc';
+  }>({
+    sortType: ETokenListSortType.Value,
+    sortDirection: 'desc',
   });

@@ -6,7 +6,7 @@ import { LogToServer } from '../../../base/decorators';
 type IWalletActionBaseParams = {
   walletType: string;
   networkId: string;
-  source: 'homePage' | 'tokenDetails' | 'earn' | 'swap';
+  source: 'homePage' | 'tokenDetails' | 'homeTokenList' | 'earn' | 'swap';
   isSoftwareWalletOnlyUser: boolean;
 };
 
