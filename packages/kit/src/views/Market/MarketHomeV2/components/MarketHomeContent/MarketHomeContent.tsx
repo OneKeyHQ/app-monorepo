@@ -21,7 +21,6 @@ interface IMarketHomeContentProps {
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
   activeTab: string;
-  onTabChange: (tabId: string) => void;
 }
 
 export function MarketHomeContent({
@@ -29,7 +28,6 @@ export function MarketHomeContent({
   selectedNetworkId,
   liquidityFilter,
   activeTab,
-  onTabChange,
 }: IMarketHomeContentProps) {
   // Show compact filter bar after user scrolls past the initial large bar.
   const [showSmallBar, setShowSmallBar] = useState(false);

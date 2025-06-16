@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,7 +16,6 @@ export function MarketMobileTabs({
 }: IMarketMobileTabsProps) {
   const intl = useIntl();
   const initialIndex = selectedTab === 'watchlist' ? 0 : 1;
-  const [selectedIndex, setSelectedIndex] = useState(initialIndex);
 
   const headerData = useMemo(
     () => [
@@ -36,7 +35,6 @@ export function MarketMobileTabs({
     );
 
   const handleTabChange = (index: number) => {
-    setSelectedIndex(index);
     const tabId = headerData[index]?.id;
     if (tabId) {
       onTabChange?.(tabId);
