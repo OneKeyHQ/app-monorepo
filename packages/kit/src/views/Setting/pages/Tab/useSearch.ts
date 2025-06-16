@@ -43,6 +43,7 @@ export const useSearch = () => {
   const searchTextRef = useRef<string>('');
   const onSearch = useCallback(
     (searchText: string) => {
+      searchTextRef.current = searchText;
       const result = searchFuse.search(searchText);
       if (result.length === 0) {
         setSearchResult([]);

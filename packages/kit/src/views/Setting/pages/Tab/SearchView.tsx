@@ -9,11 +9,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 
 import type { ISettingsSearchResult } from './useSearch';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function SearchView({
   sections,

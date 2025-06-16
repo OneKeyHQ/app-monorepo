@@ -37,6 +37,7 @@ export function SettingList() {
         headerShown
         title={intl.formatMessage({ id: ETranslations.global_settings })}
       />
+      {console.log('searchResult--', isSearching, searchResult)}
       <Page.Body>
         <XStack px="$5" pb="$4">
           <SearchBar onSearchTextChange={onSearch} />
@@ -46,6 +47,8 @@ export function SettingList() {
           contentContainerStyle={{ pb: '$5' }}
         >
           {isSearching ? (
+            <SearchView sections={searchResult} isSearching={isSearching} />
+          ) : (
             <>
               <TabSettingsListItem
                 drillIn
@@ -75,8 +78,6 @@ export function SettingList() {
               )}
               <SocialButtonGroup />
             </>
-          ) : (
-            <SearchView sections={searchResult} isSearching={isSearching} />
           )}
         </ScrollView>
       </Page.Body>
