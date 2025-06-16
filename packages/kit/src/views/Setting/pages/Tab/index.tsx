@@ -117,7 +117,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { top } = useSafeAreaInsets();
   const { onSearch } = useSearch();
   return (
-    <YStack w={192} bg="$bg" pt={top} px="$3">
+    <YStack w={192} bg="$bgSubdued" pt={top} px="$3">
       <XStack h="$16" gap="$4" ai="center">
         <NavCloseButton />
         <SizableText size="$headingLg">
