@@ -33,11 +33,13 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EWithdrawType } from '@onekeyhq/shared/types/staking';
 import type {
+  IEarnDetailActions,
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
   IEarnWithdrawOrderActionIcon,
   IProtocolInfo,
   IStakeEarnDetail,
+  ISubscriptionAction,
 } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -54,7 +56,6 @@ import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarn
 import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
-import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 import {
   useHandleStake,
@@ -90,16 +91,10 @@ function ManagersSection({
 
 function SubscriptionSection({
   subscriptionValue,
-  onConfirmText,
-  confirmButtonProps,
-  onCancelText,
-  cancelButtonProps,
+  subscriptionActions,
 }: {
   subscriptionValue: IStakeEarnDetail['subscriptionValue'];
-  onConfirmText: IPageFooterProps['onConfirmText'];
-  confirmButtonProps: IPageFooterProps['confirmButtonProps'];
-  onCancelText: IPageFooterProps['onCancelText'];
-  cancelButtonProps: IPageFooterProps['cancelButtonProps'];
+  subscriptionActions: ISubscriptionAction[];
 }) {
   const media = useMedia();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -107,28 +102,16 @@ function SubscriptionSection({
     if (!media.gtMd) {
       return null;
     }
-    // if (shouldRegisterBeforeStake) {
-    //   return (
-    //     <XStack gap="$2">
-    //       <Button {...registerButtonProps}>
-    //         {intl.formatMessage({ id: ETranslations.earn_register })}
-    //       </Button>
-    //     </XStack>
-    //   );
-    // }
     return (
       <XStack gap="$2">
-        <Button {...cancelButtonProps}>{onCancelText}</Button>
-        <Button {...confirmButtonProps}>{onConfirmText}</Button>
+        {subscriptionActions.map((action) => (
+          <Button key={action.text} {...action.buttonProps}>
+            {action.text ?? ''}
+          </Button>
+        ))}
       </XStack>
     );
-  }, [
-    cancelButtonProps,
-    confirmButtonProps,
-    media.gtMd,
-    onCancelText,
-    onConfirmText,
-  ]);
+  }, [media.gtMd, subscriptionActions]);
   const isZero = useMemo(() => {
     return !subscriptionValue.fiatValue || subscriptionValue.fiatValue === '0';
   }, [subscriptionValue.fiatValue]);
@@ -694,21 +677,21 @@ const ProtocolDetailsPage = () => {
   //   return false;
   // }, []);
 
-  const depositButtonProps = useMemo(() => {
+  const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
     return {
-      props: {
+      text: item?.text.text,
+      buttonProps: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         variant: 'primary',
         loading: stakeLoading,
         display: item ? undefined : 'none',
         onPress: onStake,
       } as IButtonProps,
-      text: item?.text.text,
     };
   }, [detailInfo?.actions, earnAccount?.accountAddress, stakeLoading, onStake]);
 
-  const withdrawButtonProps = useMemo(() => {
+  const withdrawActionProps = useMemo(() => {
     const item: IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon =
       detailInfo?.actions?.find(
         (i) =>
@@ -717,7 +700,7 @@ const ProtocolDetailsPage = () => {
       ) as IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon;
     return {
       text: item?.text.text,
-      props: {
+      buttonProps: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         display: item ? undefined : 'none',
         onPress: () => onWithdraw(item?.type || EWithdrawType.Withdraw),
@@ -725,34 +708,86 @@ const ProtocolDetailsPage = () => {
     };
   }, [earnAccount?.accountAddress, onWithdraw, detailInfo?.actions]);
 
+  const activateActionProps = useMemo(() => {
+    const item = detailInfo?.actions?.find((i) => i.type === 'activate');
+    return {
+      text: item?.text.text,
+      buttonProps: {
+        disabled: !earnAccount?.accountAddress || item?.disabled,
+        display: item ? undefined : 'none',
+        variant: 'primary',
+        onPress: () => {
+          // TODO: implement activate
+          console.log('activate');
+        },
+      } as IButtonProps,
+    };
+  }, [earnAccount?.accountAddress, detailInfo?.actions]);
+
+  const SUBSCRIPTION_ACTION_TYPES = useMemo(
+    () => [
+      EWithdrawType.Withdraw,
+      EWithdrawType.WithdrawOrder,
+      'deposit',
+      'activate',
+    ],
+    [],
+  );
+
+  const getButtonPropsForAction = useCallback(
+    (action: IEarnDetailActions) => {
+      switch (action.type) {
+        case 'deposit':
+          return depositActionProps;
+        case EWithdrawType.Withdraw:
+          return withdrawActionProps;
+        case EWithdrawType.WithdrawOrder:
+          return withdrawActionProps;
+        case 'activate':
+          return activateActionProps;
+        default:
+          return undefined;
+      }
+    },
+    [depositActionProps, withdrawActionProps, activateActionProps],
+  );
+
+  const subscriptionActions = useMemo<ISubscriptionAction[]>(() => {
+    if (!detailInfo?.actions) {
+      return [];
+    }
+    // Sort by SUBSCRIPTION_ACTION_TYPES order
+    return SUBSCRIPTION_ACTION_TYPES.map((actionType) => {
+      const action = detailInfo.actions.find((a) => a.type === actionType);
+      return action ? getButtonPropsForAction(action) : null;
+    }).filter(Boolean);
+  }, [detailInfo?.actions, getButtonPropsForAction, SUBSCRIPTION_ACTION_TYPES]);
+
   const renderPageFooter = useCallback(() => {
-    if (media.gtMd) {
+    if (media.gtMd || !subscriptionActions.length) {
       return null;
     }
-    // if (shouldRegisterBeforeStake) {
-    //   return (
-    //     <Page.Footer
-    //       onConfirmText={intl.formatMessage({
-    //         id: ETranslations.earn_register,
-    //       })}
-    //       confirmButtonProps={registerButtonProps}
-    //     />
-    //   );
-    // }
+
+    // Only one action: use as Confirm Button
+    if (subscriptionActions.length === 1) {
+      return (
+        <Page.Footer
+          onConfirmText={subscriptionActions[0].text}
+          confirmButtonProps={subscriptionActions[0].buttonProps}
+        />
+      );
+    }
+
+    // Two or more actions: first as Cancel Button, second as Confirm Button
     return (
       <Page.Footer
-        onConfirmText={depositButtonProps.text}
-        confirmButtonProps={depositButtonProps.props}
-        onCancelText={withdrawButtonProps.text}
-        cancelButtonProps={withdrawButtonProps.props}
+        onCancelText={subscriptionActions[0].text}
+        cancelButtonProps={subscriptionActions[0].buttonProps}
+        onConfirmText={subscriptionActions[1].text}
+        confirmButtonProps={subscriptionActions[1].buttonProps}
       />
     );
-  }, [
-    media.gtMd,
-    depositButtonProps.text,
-    depositButtonProps.props,
-    withdrawButtonProps,
-  ]);
+  }, [media.gtMd, subscriptionActions]);
 
   const now = useMemo(() => Date.now(), []);
   const contextValue = useMemo(
@@ -804,10 +839,7 @@ const ProtocolDetailsPage = () => {
                     <>
                       <SubscriptionSection
                         subscriptionValue={detailInfo.subscriptionValue}
-                        onConfirmText={depositButtonProps.text}
-                        confirmButtonProps={depositButtonProps.props}
-                        onCancelText={withdrawButtonProps.text}
-                        cancelButtonProps={withdrawButtonProps.props}
+                        subscriptionActions={subscriptionActions}
                       />
                       <AlertSection alerts={detailInfo.alerts} />
                       <Divider />

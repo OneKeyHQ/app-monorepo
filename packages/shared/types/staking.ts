@@ -1,6 +1,7 @@
 import type {
   ColorTokens,
   IBadgeType,
+  IButtonProps,
   IKeyOfIcons,
 } from '@onekeyhq/components';
 
@@ -360,6 +361,11 @@ interface ISubscriptionValue {
   };
 }
 
+export interface ISubscriptionAction {
+  text: string | undefined;
+  buttonProps: IButtonProps;
+}
+
 interface IEarnBadge {
   badgeType: 'success' | 'warning';
   badgeSize: 'sm' | 'lg';
@@ -487,12 +493,26 @@ export interface IEarnPortfolioActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnActivateActionIcon {
+  type: 'activate';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    title: IEarnText;
+    description: IEarnText[];
+    checkboxes: {
+      text: IEarnText;
+    }[];
+  };
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
   | IEarnClaimActionIcon
   | IEarnHistoryActionIcon
-  | IEarnPortfolioActionIcon;
+  | IEarnPortfolioActionIcon
+  | IEarnActivateActionIcon;
 
 interface IEarnGridItem {
   title: IEarnText;
@@ -563,6 +583,13 @@ export interface IEarnWithdrawOrderActionIcon {
   };
 }
 
+export type IEarnDetailActions =
+  | IEarnDepositActionIcon
+  | IEarnWithdrawActionIcon
+  | IEarnHistoryActionIcon
+  | IEarnWithdrawOrderActionIcon
+  | IEarnActivateActionIcon;
+
 export interface IStakeEarnDetail {
   protection?: {
     title: IEarnText;
@@ -578,12 +605,7 @@ export interface IStakeEarnDetail {
     description: IEarnText;
     button: IEarnActionIcon;
   };
-  actions: (
-    | IEarnDepositActionIcon
-    | IEarnWithdrawActionIcon
-    | IEarnHistoryActionIcon
-    | IEarnWithdrawOrderActionIcon
-  )[];
+  actions: IEarnDetailActions[];
   subscriptionValue: ISubscriptionValue;
   protocol: IProtocolInfo;
   countDownAlert: {
