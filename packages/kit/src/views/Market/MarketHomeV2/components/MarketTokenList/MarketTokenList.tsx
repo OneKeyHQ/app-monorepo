@@ -164,16 +164,7 @@ function MarketTokenList({
 
   return (
     <>
-      <Stack
-        className="normal-scrollbar"
-        $platform-web={{
-          // Enable horizontal scrolling while keeping vertical overflow visible so that
-          // the Table component can manage its own vertical scroll and keep the header sticky.
-          overflowX: 'auto',
-        }}
-        flex={1}
-        width="100%"
-      >
+      <Stack className="normal-scrollbar" flex={1} width="100%">
         {/* render custom toolbar if provided */}
         {toolbar ? (
           <Stack width={md ? '100%' : 1466} mb="$3">
@@ -181,7 +172,7 @@ function MarketTokenList({
           </Stack>
         ) : null}
         {/* here */}
-        <Stack width={md ? '100%' : 1466}>
+        <Stack width={md ? '100%' : 1466} height={600}>
           {showSkeleton ? (
             <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
           ) : (
