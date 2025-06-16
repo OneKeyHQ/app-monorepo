@@ -45,9 +45,7 @@ export function V4MigrationGetStarted({
       Toast.message({
         title: 'V4Migration Not supported in web dapp mode',
       });
-      throw new OneKeyLocalError(
-        'V4Migration Not supported in web dapp mode',
-      );
+      throw new OneKeyLocalError('V4Migration Not supported in web dapp mode');
     }
     const startMigration = async () => {
       try {

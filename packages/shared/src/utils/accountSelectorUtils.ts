@@ -38,9 +38,7 @@ function buildAccountSelectorSceneId({
 }): string {
   if (sceneName === EAccountSelectorSceneName.discover) {
     if (!sceneUrl) {
-      throw new OneKeyLocalError(
-        'buildSceneId ERROR: sceneUrl is required',
-      );
+      throw new OneKeyLocalError('buildSceneId ERROR: sceneUrl is required');
     }
     const origin = uriUtils.getOriginFromUrl({ url: sceneUrl });
     if (origin !== sceneUrl) {

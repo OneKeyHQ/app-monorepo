@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { NumberSizeableText } from '@onekeyhq/components';
@@ -16,22 +16,20 @@ function TokenPriceChangeView(props: IProps) {
   const token = tokenListMap[$key];
   const priceChange = token?.price24h ?? 0;
 
-  const content = useMemo(() => {
-    const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-      priceChange,
-    });
-    return (
-      <NumberSizeableText
-        formatter="priceChange"
-        formatterOptions={{ showPlusMinusSigns }}
-        color={changeColor}
-        {...rest}
-      >
-        {priceChange}
-      </NumberSizeableText>
-    );
-  }, [priceChange, rest]);
-  return content;
+  const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
+    priceChange,
+  });
+
+  return (
+    <NumberSizeableText
+      formatter="priceChange"
+      formatterOptions={{ showPlusMinusSigns }}
+      color={changeColor}
+      {...rest}
+    >
+      {priceChange}
+    </NumberSizeableText>
+  );
 }
 
-export { TokenPriceChangeView };
+export default memo(TokenPriceChangeView);

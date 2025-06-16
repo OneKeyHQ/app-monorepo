@@ -6,6 +6,7 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -128,8 +129,8 @@ class ServiceV4Migration extends ServiceBase {
     return this.migrationPayload;
   }
 
-  @backgroundMethod()
-  async testShowData() {
+  @backgroundMethodForDev()
+  async demoShowDataOfV4Migration() {
     const data = await v4dbHubs.v4reduxDb.reduxData;
     const simpleDbAccountHistory =
       await v4dbHubs.v4simpleDb.history.getAccountHistory({

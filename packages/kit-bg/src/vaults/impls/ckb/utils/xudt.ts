@@ -355,9 +355,7 @@ export async function transfer(
     changeAmount.gt(0) &&
     changeCapacity.lt(minimalCellCapacityCompatible(changeCell))
   ) {
-    throw new OneKeyLocalError(
-      'Not enough capacity for change in from infos!',
-    );
+    throw new OneKeyLocalError('Not enough capacity for change in from infos!');
   }
 
   return txSkeleton;

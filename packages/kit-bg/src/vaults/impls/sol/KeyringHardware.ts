@@ -94,9 +94,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new OneKeyLocalError(
-              'use sdk allNetworkGetAddress instead',
-            );
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.solGetAddress(connectId, deviceId, {
@@ -265,9 +263,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
 
-          throw new OneKeyLocalError(
-            'signMessage not supported on hardware',
-          );
+          throw new OneKeyLocalError('signMessage not supported on hardware');
         },
       ),
     );

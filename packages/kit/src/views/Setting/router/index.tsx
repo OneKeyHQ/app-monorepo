@@ -23,8 +23,11 @@ const SettingCurrencyModal = LazyLoadPage(
 const SettingClearAppCacheModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/ClearAppCache'),
 );
-const SettingListModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/List'),
+// const SettingListModal = LazyLoadPage(
+//   () => import('@onekeyhq/kit/src/views/Setting/pages/List'),
+// );
+const SettingTabModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Tab'),
 );
 const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
@@ -90,14 +93,21 @@ const CustomTransactionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomTransaction'),
 );
 
+const SettingListSubModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Tab/SettingListSubModal'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
 >[] = [
   {
     name: EModalSettingRoutes.SettingListModal,
-    component: SettingListModal,
+    component: SettingTabModal,
     rewrite: '/',
+    options: {
+      headerShown: false,
+    },
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
@@ -171,6 +181,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingFloatingIconModal,
     component: FloatingIconModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingListSubModal,
+    component: SettingListSubModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

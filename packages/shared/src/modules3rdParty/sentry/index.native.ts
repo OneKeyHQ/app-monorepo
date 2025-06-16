@@ -53,7 +53,12 @@ export const withSentryHOC = (
 ): ComponentType<any> =>
   withErrorBoundary(withProfiler(wrap(Component)), {
     onError: (error, info) => {
-      console.error('error', error, info);
+      console.error('withErrorBoundary', error, info);
+      appGlobals.$defaultLogger?.app.error.log(
+        `${
+          typeof error === 'string' ? error : (error as Error)?.message || ''
+        } ${typeof info === 'string' ? info : ''}`,
+      );
     },
     fallback: errorBoundaryFallback,
   });

@@ -222,6 +222,8 @@ export { default as ChevronRightSmall } from './ChevronRightSmall';
 export { default as ChevronRight } from './ChevronRight';
 export { default as ChevronTopSmall } from './ChevronTopSmall';
 export { default as ChevronTop } from './ChevronTop';
+export { default as ChevronTriangleDownSmall } from './ChevronTriangleDownSmall';
+export { default as ChevronTriangleUpSmall } from './ChevronTriangleUpSmall';
 export { default as Chromecast } from './Chromecast';
 export { default as CirclePlaceholderOff } from './CirclePlaceholderOff';
 export { default as CirclePlaceholderOn } from './CirclePlaceholderOn';

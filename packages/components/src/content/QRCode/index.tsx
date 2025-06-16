@@ -291,9 +291,7 @@ export function QRCode({
     let timerId: ReturnType<typeof setInterval>;
     if (isAnimatedCode) {
       if (!valueUr) {
-        throw new OneKeyLocalError(
-          'valueUr is required for animated QRCode',
-        );
+        throw new OneKeyLocalError('valueUr is required for animated QRCode');
       }
       const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder({
         ur: valueUr,

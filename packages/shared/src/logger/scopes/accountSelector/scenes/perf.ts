@@ -59,7 +59,7 @@ export class AccountSelectorPerfScene extends BaseScene {
     selectedAccount,
     editMode,
   }: {
-    editMode: boolean;
+    editMode?: boolean;
     selectedAccount: IAccountSelectorSelectedAccount;
   }) {
     return [selectedAccount, editMode];

@@ -16,9 +16,12 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
@@ -88,6 +91,8 @@ export default function PrimeDashboard() {
   const isFocusedRef = useRef(isFocused);
   isFocusedRef.current = isFocused;
 
+  const navigation = useAppNavigation();
+
   useEffect(() => {
     const fn = async () => {
       // isFocused won't be triggered when Login Dialog is open or closed
@@ -125,13 +130,22 @@ export default function PrimeDashboard() {
       if (!shouldShowSubscriptionPlans) {
         return [];
       }
-      return platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.();
+      const pkgList = await (platformEnv.isNative
+        ? getPackagesNative?.()
+        : getPackagesWeb?.());
+      return pkgList;
     },
     [getPackagesNative, getPackagesWeb, shouldShowSubscriptionPlans],
     {
       watchLoading: true,
     },
   );
+
+  const selectedPackage = useMemo(() => {
+    return packages?.find(
+      (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+    );
+  }, [packages, selectedSubscriptionPeriod]);
 
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
   const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
@@ -176,10 +190,23 @@ export default function PrimeDashboard() {
   return (
     <>
       <Theme name="dark">
-        <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
-          <Page.Close>
-            <IconButton icon="CrossedLargeOutline" variant="tertiary" />
-          </Page.Close>
+        <Page.CloseButton />
+        <Stack position="absolute" right="$5" top={top || '$5'} zIndex="$5">
+          <IconButton
+            onPress={() => {
+              // navigation.push(EModalRoutes.PrimeModal, {
+              //   screen: EPrimePages.PrimeFeatures,
+              // });
+
+              navigation.push(EPrimePages.PrimeFeatures, {
+                showAllFeatures: true,
+                selectedFeature: EPrimeFeatures.OneKeyCloud,
+                selectedSubscriptionPeriod,
+              });
+            }}
+            icon="QuestionmarkOutline"
+            variant="tertiary"
+          />
         </Stack>
         <Page scrollEnabled>
           <Page.Header headerShown={false} />
@@ -210,7 +237,9 @@ export default function PrimeDashboard() {
 
             {isReady ? (
               <>
-                <PrimeBenefitsList />
+                <PrimeBenefitsList
+                  selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                />
               </>
             ) : (
               <Spinner my="$10" />
@@ -258,7 +287,7 @@ export default function PrimeDashboard() {
           {shouldShowConfirmButton ? (
             <Page.Footer>
               <Stack
-                flexDirection="row"
+                flexDirection="row-reverse"
                 justifyContent="space-between"
                 alignItems="center"
                 gap="$2.5"
@@ -268,8 +297,6 @@ export default function PrimeDashboard() {
                   flexDirection: 'column',
                 }}
               >
-                {shouldShowConfirmButton ? <PrimeTermsAndPrivacy /> : null}
-
                 <Page.FooterActions
                   p="$0"
                   $md={{
@@ -284,10 +311,32 @@ export default function PrimeDashboard() {
                       : undefined
                   }
                   onConfirm={shouldShowConfirmButton ? subscribe : undefined}
-                  onConfirmText={intl.formatMessage({
-                    id: ETranslations.prime_subscribe,
-                  })}
+                  onConfirmText={(() => {
+                    if (!packages?.length) {
+                      return intl.formatMessage({
+                        id: ETranslations.prime_subscribe,
+                      });
+                    }
+                    return selectedSubscriptionPeriod === 'P1Y'
+                      ? intl.formatMessage(
+                          {
+                            id: ETranslations.prime_subscribe_yearly_price,
+                          },
+                          {
+                            price: selectedPackage?.pricePerYearString,
+                          },
+                        )
+                      : intl.formatMessage(
+                          {
+                            id: ETranslations.prime_subscribe_monthly_price,
+                          },
+                          {
+                            price: selectedPackage?.pricePerMonthString,
+                          },
+                        );
+                  })()}
                 />
+                {shouldShowConfirmButton ? <PrimeTermsAndPrivacy /> : null}
               </Stack>
             </Page.Footer>
           ) : null}

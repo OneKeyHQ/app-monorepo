@@ -74,6 +74,8 @@ build({
     'process.env.SENTRY_DSN_DESKTOP': JSON.stringify(
       process.env.SENTRY_DSN_DESKTOP || '',
     ),
+    'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
+    'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
     'process.env.SENTRY_DSN_MAS': JSON.stringify(
       process.env.SENTRY_DSN_MAS || '',
     ),
@@ -86,6 +88,7 @@ build({
     'process.env.SENTRY_DSN_REACT_NATIVE': JSON.stringify(
       process.env.SENTRY_DSN_REACT_NATIVE || '',
     ),
+    'process.env.ONEKEY_PLATFORM': JSON.stringify('desktop'),
     'process.env.SENTRY_DSN_WEB': JSON.stringify(
       process.env.SENTRY_DSN_WEB || '',
     ),

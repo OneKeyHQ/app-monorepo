@@ -16,7 +16,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types'
 
 const Stack = createStackNavigator();
 
-function TabSubStackNavigator({
+function BasicTabSubStackNavigator({
   config,
 }: {
   config: ITabSubNavigatorConfig<string, any>[];
@@ -48,7 +48,9 @@ function TabSubStackNavigator({
   );
 }
 
-const TabSubStackNavigatorMemo = memo(TabSubStackNavigator);
+const TabSubStackNavigatorMemo = memo(BasicTabSubStackNavigator);
+
+export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const Tab = createBottomTabNavigator();
 

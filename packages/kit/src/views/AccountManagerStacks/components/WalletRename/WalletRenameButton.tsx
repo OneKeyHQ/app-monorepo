@@ -35,86 +35,88 @@ export function WalletRenameButton({
   }, [editable, wallet?.id]);
 
   return (
-    <XStack
-      flex={1}
-      py="$1"
-      px="$1.5"
-      alignItems="center"
-      userSelect="none"
-      borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      focusable
-      focusVisibleStyle={{
-        outlineOffset: 2,
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
-      onPress={async () => {
-        if (!canRename) {
-          return;
-        }
-        if (
-          wallet &&
-          wallet?.id &&
-          accountUtils.isHwWallet({ walletId: wallet?.id }) &&
-          !accountUtils.isHwHiddenWallet({
-            wallet,
-          })
-        ) {
-          showHardwareLabelSetDialog(
-            {
-              wallet,
-            },
-            {
-              onSubmit: async (name) => {
-                await backgroundApiProxy.serviceHardware.setDeviceLabel({
-                  walletId: wallet?.id || '',
-                  label: name,
-                });
-              },
-            },
-          );
-        } else {
-          showRenameDialog(wallet.name, {
-            nameHistoryInfo: {
-              entityId: wallet.id,
-              entityType: EChangeHistoryEntityType.Wallet,
-              contentType: EChangeHistoryContentType.Name,
-            },
-            disabledMaxLengthLabel: true,
-            onSubmit: async (name) => {
-              if (wallet?.id && name) {
-                await serviceAccount.setWalletNameAndAvatar({
-                  walletId: wallet?.id,
-                  name,
-                  shouldCheckDuplicate: true,
-                });
-              }
-            },
-          });
-        }
-      }}
-      {...rest}
-    >
-      <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>
-        {wallet?.name}
-      </SizableText>
-      {canRename ? (
-        <Icon
-          flexShrink={0}
-          name="PencilSolid"
-          size="$4"
-          color="$iconSubdued"
-        />
-      ) : null}
+    <>
+      <XStack
+        py="$1"
+        px="$1.5"
+        flexShrink={1}
+        alignItems="center"
+        borderRadius="$2"
+        {...(canRename && {
+          role: 'button',
+          onPress: async () => {
+            if (
+              wallet &&
+              wallet?.id &&
+              accountUtils.isHwWallet({ walletId: wallet?.id }) &&
+              !accountUtils.isHwHiddenWallet({
+                wallet,
+              })
+            ) {
+              showHardwareLabelSetDialog(
+                {
+                  wallet,
+                },
+                {
+                  onSubmit: async (name) => {
+                    await backgroundApiProxy.serviceHardware.setDeviceLabel({
+                      walletId: wallet?.id || '',
+                      label: name,
+                    });
+                  },
+                },
+              );
+            } else {
+              showRenameDialog(wallet.name, {
+                nameHistoryInfo: {
+                  entityId: wallet.id,
+                  entityType: EChangeHistoryEntityType.Wallet,
+                  contentType: EChangeHistoryContentType.Name,
+                },
+                disabledMaxLengthLabel: true,
+                onSubmit: async (name) => {
+                  if (wallet?.id && name) {
+                    await serviceAccount.setWalletNameAndAvatar({
+                      walletId: wallet?.id,
+                      name,
+                      shouldCheckDuplicate: true,
+                    });
+                  }
+                },
+              });
+            }
+          },
+          userSelect: 'none',
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+          focusable: true,
+          focusVisibleStyle: {
+            outlineOffset: 2,
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineStyle: 'solid',
+          },
+        })}
+        {...rest}
+      >
+        <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>
+          {wallet?.name}
+        </SizableText>
+        {canRename ? (
+          <Icon
+            flexShrink={0}
+            name="PencilSolid"
+            size="$4"
+            color="$iconSubdued"
+          />
+        ) : null}
+      </XStack>
       {wallet.type === WALLET_TYPE_HD && !wallet.backuped ? (
-        <Badge badgeSize="sm" badgeType="critical" ml="$1">
+        <Badge ml="auto" badgeSize="sm" badgeType="critical">
           <Badge.Text>
             {intl.formatMessage({
               id: ETranslations.wallet_backup_status_not_backed_up,
@@ -122,6 +124,6 @@ export function WalletRenameButton({
           </Badge.Text>
         </Badge>
       ) : null}
-    </XStack>
+    </>
   );
 }
