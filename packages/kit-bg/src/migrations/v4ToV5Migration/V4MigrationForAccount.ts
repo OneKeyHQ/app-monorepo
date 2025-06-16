@@ -623,8 +623,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     v4account: IV4DBAccount;
     v5wallet: IDBWallet;
   }) {
-    const { serviceAccount, servicePassword, serviceNetwork } =
-      this.backgroundApi;
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
 
     return v4dbHubs.logger.runAsyncWithCatch(
       async () => {
@@ -860,9 +859,6 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     onAccountMigrated,
     isResumeMode,
   }: IV4RunWalletMigrationParams) {
-    const { serviceAccount, servicePassword, serviceNetwork } =
-      this.backgroundApi;
-
     const v4accounts: IV4DBAccount[] = await v4dbHubs.logger.runAsyncWithCatch(
       async () =>
         this.getV4AccountsOfWallet({
@@ -1609,8 +1605,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     onWalletMigrated,
     isResumeMode,
   }: IV4RunWalletMigrationParams) {
-    const { serviceAccount, servicePassword, serviceNetwork } =
-      this.backgroundApi;
+    const { serviceAccount, servicePassword } = this.backgroundApi;
     const mnemonic = await v4dbHubs.logger.runAsyncWithCatch(
       async () => {
         const { mnemonic: mnemonicText } = await this.revealV4HdMnemonic({
