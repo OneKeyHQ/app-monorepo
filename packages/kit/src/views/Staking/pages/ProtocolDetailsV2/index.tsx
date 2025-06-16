@@ -3,7 +3,7 @@ import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IPageFooterProps } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -24,6 +24,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -31,8 +32,9 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EWithdrawType } from '@onekeyhq/shared/types/staking';
+import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
+  IEarnActivateActionIcon,
   IEarnDetailActions,
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
@@ -54,6 +56,7 @@ import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
 import { GridItem } from '../../components/ProtocolDetails/GridItemV2';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
 import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
+import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -606,7 +609,7 @@ const ProtocolDetailsPage = () => {
   ]);
 
   const onWithdraw = useCallback(
-    async (withdrawType: EWithdrawType) => {
+    async (withdrawType: EStakingActionType) => {
       await handleWithdraw({
         withdrawType,
         protocolInfo,
@@ -667,16 +670,6 @@ const ProtocolDetailsPage = () => {
   const intl = useIntl();
   const media = useMedia();
 
-  // const falconUSDfRegister = useFalconUSDfRegister();
-  // const shouldRegisterBeforeStake = useMemo(() => {
-  //   // if (
-  //   //   earnUtils.isFalconProvider({ providerName: detailInfo?.provider.name ?? '' })
-  //   // ) {
-  //   //   return !detailInfo?.hasRegister;
-  //   // }
-  //   return false;
-  // }, []);
-
   const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
     return {
@@ -695,21 +688,23 @@ const ProtocolDetailsPage = () => {
     const item: IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon =
       detailInfo?.actions?.find(
         (i) =>
-          i.type === EWithdrawType.Withdraw ||
-          i.type === EWithdrawType.WithdrawOrder,
+          i.type === EStakingActionType.Withdraw ||
+          i.type === EStakingActionType.WithdrawOrder,
       ) as IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon;
     return {
       text: item?.text.text,
       buttonProps: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         display: item ? undefined : 'none',
-        onPress: () => onWithdraw(item?.type || EWithdrawType.Withdraw),
+        onPress: () => onWithdraw(item?.type || EStakingActionType.Withdraw),
       } as IButtonProps,
     };
   }, [earnAccount?.accountAddress, onWithdraw, detailInfo?.actions]);
 
   const activateActionProps = useMemo(() => {
-    const item = detailInfo?.actions?.find((i) => i.type === 'activate');
+    const item = detailInfo?.actions?.find(
+      (i) => i.type === EStakingActionType.Activate,
+    ) as IEarnActivateActionIcon | undefined;
     return {
       text: item?.text.text,
       buttonProps: {
@@ -717,8 +712,25 @@ const ProtocolDetailsPage = () => {
         display: item ? undefined : 'none',
         variant: 'primary',
         onPress: () => {
-          // TODO: implement activate
-          console.log('activate');
+          if (item) {
+            showKYCDialog({
+              actionData: item,
+              onConfirm: async (checkboxStates: boolean[]) => {
+                // All checkboxes must be checked to proceed
+                if (checkboxStates.every(Boolean)) {
+                  // TODO: implement KYC activation logic
+                  console.log(
+                    'KYC activate confirmed with checkbox states:',
+                    checkboxStates,
+                  );
+                } else {
+                  throw new OneKeyLocalError(
+                    'All checkboxes must be checked to proceed',
+                  );
+                }
+              },
+            });
+          }
         },
       } as IButtonProps,
     };
@@ -726,10 +738,10 @@ const ProtocolDetailsPage = () => {
 
   const SUBSCRIPTION_ACTION_TYPES = useMemo(
     () => [
-      EWithdrawType.Withdraw,
-      EWithdrawType.WithdrawOrder,
-      'deposit',
-      'activate',
+      EStakingActionType.Withdraw,
+      EStakingActionType.WithdrawOrder,
+      EStakingActionType.Deposit,
+      EStakingActionType.Activate,
     ],
     [],
   );
@@ -737,13 +749,13 @@ const ProtocolDetailsPage = () => {
   const getButtonPropsForAction = useCallback(
     (action: IEarnDetailActions) => {
       switch (action.type) {
-        case 'deposit':
+        case EStakingActionType.Deposit:
           return depositActionProps;
-        case EWithdrawType.Withdraw:
+        case EStakingActionType.Withdraw:
           return withdrawActionProps;
-        case EWithdrawType.WithdrawOrder:
+        case EStakingActionType.WithdrawOrder:
           return withdrawActionProps;
-        case 'activate':
+        case EStakingActionType.Activate:
           return activateActionProps;
         default:
           return undefined;
