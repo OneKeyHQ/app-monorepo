@@ -24,6 +24,7 @@ export function TimeRangeSelector({
 
   return (
     <SegmentControl
+      display="none"
       value={value}
       onChange={(v) => handleValueChange(v as ITimeRangeSelectorValue)}
       options={defaultOptions}

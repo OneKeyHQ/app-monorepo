@@ -164,60 +164,69 @@ function MarketTokenList({
 
   return (
     <>
-      <Stack className="normal-scrollbar" flex={1} width="100%">
+      <Stack flex={1} width="100%">
         {/* render custom toolbar if provided */}
         {toolbar ? (
-          <Stack width={md ? '100%' : 1466} mb="$3">
+          <Stack width="100%" mb="$3">
             {toolbar}
           </Stack>
         ) : null}
-        {/* here */}
-        <Stack width={md ? '100%' : 1466} height={600}>
-          {showSkeleton ? (
-            <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
-          ) : (
-            <Table<IMarketToken>
-              stickyHeader
-              columns={marketTokenColumns}
-              dataSource={data}
-              keyExtractor={(item) => item.id}
-              onHeaderRow={handleHeaderRow}
-              // Inject custom scroll component if callback provided
-              renderScrollComponent={
-                onScrollOffsetChange
-                  ? (props) => (
-                      <ScrollView
-                        {...props}
-                        onScroll={(
-                          e: NativeSyntheticEvent<NativeScrollEvent>,
-                        ) => {
-                          onScrollOffsetChange?.(
-                            e.nativeEvent?.contentOffset?.y ?? 0,
-                          );
-                          // Call original onScroll if exists
-                          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,react/prop-types
-                          (props as any)?.onScroll?.(e);
-                        }}
-                        scrollEventThrottle={16}
-                      />
-                    )
-                  : undefined
-              }
-              onRow={
-                onItemPress
-                  ? (item) => ({
-                      onPress: () => onItemPress(item),
-                    })
-                  : (item) => ({
-                      onPress: () =>
-                        toDetailPage({
-                          tokenAddress: item.address,
-                          networkId,
-                        }),
-                    })
-              }
-            />
-          )}
+
+        {/* Table container with horizontal scroll support */}
+        <Stack
+          className="normal-scrollbar"
+          style={{
+            flex: 1,
+            overflowX: 'auto',
+          }}
+        >
+          <Stack minWidth={md ? '100%' : 1466} height="100%">
+            {showSkeleton ? (
+              <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
+            ) : (
+              <Table<IMarketToken>
+                stickyHeader
+                columns={marketTokenColumns}
+                dataSource={data}
+                keyExtractor={(item) => item.id}
+                onHeaderRow={handleHeaderRow}
+                // Inject custom scroll component if callback provided
+                renderScrollComponent={
+                  onScrollOffsetChange
+                    ? (props) => (
+                        <ScrollView
+                          {...props}
+                          onScroll={(
+                            e: NativeSyntheticEvent<NativeScrollEvent>,
+                          ) => {
+                            onScrollOffsetChange?.(
+                              e.nativeEvent?.contentOffset?.y ?? 0,
+                            );
+                            // Call original onScroll if exists
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,react/prop-types
+                            (props as any)?.onScroll?.(e);
+                          }}
+                          scrollEventThrottle={16}
+                        />
+                      )
+                    : undefined
+                }
+                onRow={
+                  onItemPress
+                    ? (item) => ({
+                        onPress: () => onItemPress(item),
+                      })
+                    : (item) => ({
+                        onPress: () =>
+                          toDetailPage({
+                            tokenAddress: item.address,
+                            networkId,
+                          }),
+                      })
+                }
+              />
+            )}
+          </Stack>
         </Stack>
       </Stack>
 
