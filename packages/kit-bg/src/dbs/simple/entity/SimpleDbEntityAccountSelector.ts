@@ -176,6 +176,9 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       networkId,
     });
     const deriveType = map?.[key];
+    if (networkUtils.isBTCNetwork(networkId) && deriveType === undefined) {
+      return 'BIP86'; // Taproot
+    }
     return deriveType;
   }
 
