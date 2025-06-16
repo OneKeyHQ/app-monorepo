@@ -45,11 +45,6 @@ type IMarketTokenListProps = {
    * current list view (e.g. refresh button, export menu, etc.)
    */
   toolbar?: ReactNode;
-  /**
-   * Callback fired when the list scroll position changes. `offsetY` is the
-   * vertical scroll distance in pixels. It can be used by parent components
-   * to react to scroll, such as collapsing toolbars.
-   */
   onScrollOffsetChange?: (offsetY: number) => void;
   /**
    * If provided, the list will initially display only tokens in the user's

@@ -1,6 +1,9 @@
+import { useIntl } from 'react-intl';
+
 import type { ITableColumn } from '@onekeyhq/components';
 import { NumberSizeableText, XStack, useMedia } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
@@ -13,12 +16,13 @@ export const useMobileColumns = (
   const { md } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+  const intl = useIntl();
 
   if (!md) return [];
 
   return [
     {
-      title: '',
+      title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'tokenInfo',
       columnWidth: '50%',
       render: (_, record: IMarketToken) => {
@@ -35,7 +39,7 @@ export const useMobileColumns = (
       },
     },
     {
-      title: '',
+      title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnWidth: '25%',
       render: (_, record: IMarketToken) => {
@@ -56,7 +60,7 @@ export const useMobileColumns = (
       },
     },
     {
-      title: '',
+      title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
       dataIndex: 'change',
       columnWidth: '25%',
       render: (_, record: IMarketToken) => {
