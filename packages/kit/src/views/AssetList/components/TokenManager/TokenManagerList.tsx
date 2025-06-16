@@ -14,7 +14,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
+import TokenIconView from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';

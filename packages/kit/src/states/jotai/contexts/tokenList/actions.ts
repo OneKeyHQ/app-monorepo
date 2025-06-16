@@ -11,7 +11,11 @@ import {
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  ETokenListSortType,
+  IAccountToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -32,6 +36,7 @@ import {
   smallBalanceTokensFiatValueAtom,
   tokenListAtom,
   tokenListMapAtom,
+  tokenListSortAtom,
   tokenListStateAtom,
 } from './atoms';
 
@@ -88,16 +93,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             sourceTokens: tokens,
             targetTokens: newTokens,
             mergeDeriveAssets: mergeDerive,
-          });
-
-          const tokenListMap = get(allTokenListMapAtom());
-
-          newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
-            map: {
-              ...tokenListMap,
-              ...(payload.map || {}),
-            },
           });
 
           set(allTokenListAtom(), {
@@ -184,11 +179,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             ...tokenListMap,
             ...(payload.map || {}),
           };
-
-          newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
-            map: mergedTokenListMap,
-          });
 
           const index = newTokens.findIndex((token) =>
             new BigNumber(
@@ -520,6 +510,32 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateTokenListSort = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        sortType: ETokenListSortType;
+        sortDirection?: 'desc' | 'asc';
+      },
+    ) => {
+      const { sortType } = get(tokenListSortAtom());
+
+      if (payload.sortType !== sortType) {
+        set(tokenListSortAtom(), {
+          sortType: payload.sortType,
+          sortDirection: 'desc',
+        });
+        return;
+      }
+
+      set(tokenListSortAtom(), (v) => ({
+        ...v,
+        ...payload,
+      }));
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -559,6 +575,8 @@ export function useTokenListActions() {
   const updateActiveAccountTokenListState =
     actions.updateActiveAccountTokenListState.use();
 
+  const updateTokenListSort = actions.updateTokenListSort.use();
+
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
@@ -576,5 +594,6 @@ export function useTokenListActions() {
     updateCreateAccountState,
     refreshActiveAccountTokenList,
     updateActiveAccountTokenListState,
+    updateTokenListSort,
   });
 }
