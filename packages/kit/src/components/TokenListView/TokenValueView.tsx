@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -20,29 +20,21 @@ function TokenValueView(props: IProps) {
 
   const token = tokenListMap[$key];
 
-  const fiatValue = useMemo(
-    () => new BigNumber(token?.fiatValue ?? 0),
-    [token?.fiatValue],
-  );
-
-  const content = useMemo(
-    () => (
-      <NumberSizeableTextWrapper
-        formatter="value"
-        formatterOptions={{ currency: settings.currencyInfo.symbol }}
-        {...rest}
-      >
-        {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-      </NumberSizeableTextWrapper>
-    ),
-    [fiatValue, rest, settings.currencyInfo.symbol],
-  );
+  const fiatValue = new BigNumber(token?.fiatValue ?? 0);
 
   if (!token) {
     return null;
   }
 
-  return content;
+  return (
+    <NumberSizeableTextWrapper
+      formatter="value"
+      formatterOptions={{ currency: settings.currencyInfo.symbol }}
+      {...rest}
+    >
+      {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
+    </NumberSizeableTextWrapper>
+  );
 }
 
-export { TokenValueView };
+export default memo(TokenValueView);

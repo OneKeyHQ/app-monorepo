@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -62,43 +62,30 @@ function TokenActionsView(props: IProps) {
       },
     });
   }, [
-    activeAccount?.wallet?.type,
-    activeAccount?.network?.id,
-    activeAccount?.network?.logoURI,
-    token.networkId,
-    token.address,
-    token.symbol,
-    token.isNative,
-    token.decimals,
-    token.name,
-    token.logoURI,
+    activeAccount,
+    token,
     isSoftwareWalletOnlyUser,
     navigation,
-    network?.logoURI,
+    network,
     deriveType,
   ]);
-
-  const content = useMemo(
-    () => (
-      <XStack {...rest}>
-        <Button
-          size="small"
-          variant="secondary"
-          cursor="pointer"
-          onPress={handleTokenOnSwap}
-        >
-          {intl.formatMessage({ id: ETranslations.global_swap })}
-        </Button>
-      </XStack>
-    ),
-    [handleTokenOnSwap, intl, rest],
-  );
 
   if (!token) {
     return null;
   }
 
-  return content;
+  return (
+    <XStack {...rest}>
+      <Button
+        size="small"
+        variant="secondary"
+        cursor="pointer"
+        onPress={handleTokenOnSwap}
+      >
+        {intl.formatMessage({ id: ETranslations.global_swap })}
+      </Button>
+    </XStack>
+  );
 }
 
-export { TokenActionsView };
+export default memo(TokenActionsView);

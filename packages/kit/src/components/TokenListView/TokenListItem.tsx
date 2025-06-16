@@ -5,9 +5,9 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { CreateAccountView } from './CreateAccountView';
-import { TokenActionsView } from './TokenActionsView';
-import { TokenBalanceView } from './TokenBalanceView';
+import CreateAccountView from './CreateAccountView';
+import TokenActionsView from './TokenActionsView';
+import TokenBalanceView from './TokenBalanceView';
 import { TokenIconView } from './TokenIconView';
 import { TokenNameView } from './TokenNameView';
 import { TokenPriceChangeView } from './TokenPriceChangeView';

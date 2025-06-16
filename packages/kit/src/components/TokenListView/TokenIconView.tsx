@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { useAccountData } from '../../hooks/useAccountData';
 import { Token } from '../Token';
 
@@ -27,4 +29,4 @@ function TokenIconView(props: IProps) {
   return <Token size="lg" tokenImageUri={icon} />;
 }
 
-export { TokenIconView };
+export default memo(TokenIconView);

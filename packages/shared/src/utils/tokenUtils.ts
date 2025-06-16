@@ -132,7 +132,7 @@ export function sortTokensByFiatValue({
   };
   sortDirection?: 'desc' | 'asc';
 }) {
-  return tokens.sort((a, b) => {
+  return [...tokens].sort((a, b) => {
     const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? 0);
     const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? 0);
 
@@ -159,7 +159,7 @@ export function sortTokensByPrice({
   };
   sortDirection?: 'desc' | 'asc';
 }) {
-  return tokens.sort((a, b) => {
+  return [...tokens].sort((a, b) => {
     const aPrice = new BigNumber(map[a.$key]?.price ?? 0);
     const bPrice = new BigNumber(map[b.$key]?.price ?? 0);
 
@@ -182,9 +182,9 @@ export function sortTokensByName({
   tokens: IAccountToken[];
   sortDirection?: 'desc' | 'asc';
 }): IAccountToken[] {
-  return tokens.sort((a, b) => {
-    const aName = a.name?.toLowerCase();
-    const bName = b.name?.toLowerCase();
+  return [...tokens].sort((a, b) => {
+    const aName = a.name?.toLowerCase() ?? '';
+    const bName = b.name?.toLowerCase() ?? '';
 
     if (sortDirection === 'desc') {
       return bName.localeCompare(aName);
@@ -195,7 +195,7 @@ export function sortTokensByName({
 }
 
 export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
-  return tokens.sort((a, b) => {
+  return [...tokens].sort((a, b) => {
     if (!isNil(a.order) && !isNil(b.order)) {
       return new BigNumber(a.order).comparedTo(b.order);
     }
