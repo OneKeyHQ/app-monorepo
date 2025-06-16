@@ -504,13 +504,27 @@ export interface IEarnActivateActionIcon {
   };
 }
 
+export interface IEarnReceiveActionIcon {
+  type: 'receive';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnTradeActionIcon {
+  type: 'trade';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
   | IEarnClaimActionIcon
   | IEarnHistoryActionIcon
   | IEarnPortfolioActionIcon
-  | IEarnActivateActionIcon;
+  | IEarnActivateActionIcon
+  | IEarnReceiveActionIcon
+  | IEarnTradeActionIcon;
 
 interface IEarnGridItem {
   title: IEarnText;
@@ -562,6 +576,8 @@ export enum EStakingActionType {
   WithdrawOrder = 'withdrawOrder',
   Deposit = 'deposit',
   Activate = 'activate',
+  Receive = 'receive',
+  Trade = 'trade',
 }
 
 export interface IEarnWithdrawActionIcon {

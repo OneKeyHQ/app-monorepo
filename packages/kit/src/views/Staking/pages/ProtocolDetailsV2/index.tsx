@@ -36,7 +36,9 @@ import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnActivateActionIcon,
   IEarnDetailActions,
+  IEarnReceiveActionIcon,
   IEarnTokenInfo,
+  IEarnTradeActionIcon,
   IEarnWithdrawActionIcon,
   IEarnWithdrawOrderActionIcon,
   IProtocolInfo,
@@ -59,6 +61,7 @@ import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEvents
 import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { useHandleSwap } from '../../hooks/useHandleSwap';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 import {
   useHandleStake,
@@ -510,6 +513,7 @@ const ProtocolDetailsPage = () => {
 
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
+  const { handleSwap } = useHandleSwap();
 
   // const { result: trackingResp, run: refreshTracking } = usePromiseResult(
   //   async () => {
@@ -750,12 +754,56 @@ const ProtocolDetailsPage = () => {
     run,
   ]);
 
+  const receiveActionProps = useMemo(() => {
+    const item = detailInfo?.actions?.find(
+      (i) => i.type === EStakingActionType.Receive,
+    ) as IEarnReceiveActionIcon | undefined;
+    return {
+      text: item?.text.text,
+      buttonProps: {
+        disabled: !earnAccount?.accountAddress || item?.disabled,
+        display: item ? undefined : 'none',
+        onPress: () => {},
+      } as IButtonProps,
+    };
+  }, [detailInfo?.actions, earnAccount?.accountAddress]);
+
+  const tradeActionProps = useMemo(() => {
+    const item = detailInfo?.actions?.find(
+      (i) => i.type === EStakingActionType.Trade,
+    ) as IEarnTradeActionIcon | undefined;
+    return {
+      text: item?.text.text,
+      buttonProps: {
+        disabled: !earnAccount?.accountAddress || item?.disabled,
+        display: item ? undefined : 'none',
+        variant: 'primary',
+        onPress: async () => {
+          if (detailInfo?.subscriptionValue?.token) {
+            await handleSwap({
+              token: detailInfo.subscriptionValue.token.info,
+              networkId,
+            });
+          }
+        },
+      } as IButtonProps,
+    };
+  }, [
+    detailInfo?.actions,
+    earnAccount?.accountAddress,
+    detailInfo?.subscriptionValue?.token,
+    handleSwap,
+    networkId,
+  ]);
+
   const SUBSCRIPTION_ACTION_TYPES = useMemo(
     () => [
       EStakingActionType.Withdraw,
       EStakingActionType.WithdrawOrder,
       EStakingActionType.Deposit,
       EStakingActionType.Activate,
+      EStakingActionType.Receive,
+      EStakingActionType.Trade,
     ],
     [],
   );
@@ -771,11 +819,21 @@ const ProtocolDetailsPage = () => {
           return withdrawActionProps;
         case EStakingActionType.Activate:
           return activateActionProps;
+        case EStakingActionType.Receive:
+          return receiveActionProps;
+        case EStakingActionType.Trade:
+          return tradeActionProps;
         default:
           return undefined;
       }
     },
-    [depositActionProps, withdrawActionProps, activateActionProps],
+    [
+      depositActionProps,
+      withdrawActionProps,
+      activateActionProps,
+      receiveActionProps,
+      tradeActionProps,
+    ],
   );
 
   const subscriptionActions = useMemo<ISubscriptionAction[]>(() => {
