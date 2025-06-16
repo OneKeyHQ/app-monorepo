@@ -92,6 +92,7 @@ function isSolanaNetworkByNetworkId(networkId?: string) {
 }
 
 function isBTCNetwork(networkId?: string) {
+  // networkId === getNetworkIdsMap().rbtc // TODO
   return (
     networkId === getNetworkIdsMap().btc ||
     networkId === getNetworkIdsMap().tbtc ||
