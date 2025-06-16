@@ -17,22 +17,28 @@ interface IMarketHomeContentMobileProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
+  activeTab: string;
+  onTabChange: (tabId: string) => void;
 }
 
 export function MarketHomeContentMobile({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
+  activeTab,
+  onTabChange,
 }: IMarketHomeContentMobileProps) {
   return (
     <>
-      <MarketMobileTabs />
+      <MarketMobileTabs selectedTab={activeTab} onTabChange={onTabChange} />
 
       {/* Static Content Below */}
       <MarketFilterBarSmall {...filterBarProps} />
       <MarketTokenList
         networkId={selectedNetworkId}
         liquidityFilter={liquidityFilter}
+        defaultShowWatchlistOnly={activeTab === 'watchlist'}
+        key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
       />
     </>
   );

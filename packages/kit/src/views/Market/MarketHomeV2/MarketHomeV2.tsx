@@ -22,6 +22,9 @@ function MarketHome() {
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({});
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
+  // 添加Tab状态管理，放在最外层以支持响应式联动
+  const [activeTab, setActiveTab] = useState<string>('trending');
+
   const filterBarProps = {
     selectedNetworkId,
     timeRange,
@@ -35,6 +38,8 @@ function MarketHome() {
     filterBarProps,
     selectedNetworkId,
     liquidityFilter,
+    activeTab,
+    onTabChange: setActiveTab,
   };
 
   return (

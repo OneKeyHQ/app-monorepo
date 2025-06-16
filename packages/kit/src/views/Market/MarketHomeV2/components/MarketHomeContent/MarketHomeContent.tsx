@@ -20,12 +20,16 @@ interface IMarketHomeContentProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
+  activeTab: string;
+  onTabChange: (tabId: string) => void;
 }
 
 export function MarketHomeContent({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
+  activeTab,
+  onTabChange,
 }: IMarketHomeContentProps) {
   // Show compact filter bar after user scrolls past the initial large bar.
   const [showSmallBar, setShowSmallBar] = useState(false);
@@ -58,6 +62,8 @@ export function MarketHomeContent({
         networkId={selectedNetworkId}
         liquidityFilter={liquidityFilter}
         onScrollOffsetChange={handleScrollOffsetChange}
+        defaultShowWatchlistOnly={activeTab === 'watchlist'}
+        key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
       />
     </>
   );
