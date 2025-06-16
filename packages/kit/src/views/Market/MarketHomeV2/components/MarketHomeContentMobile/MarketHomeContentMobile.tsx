@@ -1,6 +1,3 @@
-import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
-import { MarketTokenList } from '../MarketTokenList';
-
 import { MarketMobileTabs } from './MarketMobileTabs';
 
 import type { ILiquidityFilter } from '../../types';
@@ -29,17 +26,12 @@ export function MarketHomeContentMobile({
   onTabChange,
 }: IMarketHomeContentMobileProps) {
   return (
-    <>
-      <MarketMobileTabs selectedTab={activeTab} onTabChange={onTabChange} />
-
-      {/* Static Content Below */}
-      <MarketFilterBarSmall {...filterBarProps} />
-      <MarketTokenList
-        networkId={selectedNetworkId}
-        liquidityFilter={liquidityFilter}
-        defaultShowWatchlistOnly={activeTab === 'watchlist'}
-        key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
-      />
-    </>
+    <MarketMobileTabs
+      selectedTab={activeTab}
+      onTabChange={onTabChange}
+      filterBarProps={filterBarProps}
+      selectedNetworkId={selectedNetworkId}
+      liquidityFilter={liquidityFilter}
+    />
   );
 }
