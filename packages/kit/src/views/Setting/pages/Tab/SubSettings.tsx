@@ -2,7 +2,7 @@ import { TabSubStackNavigator } from '@onekeyhq/components/src/layouts/Navigatio
 
 import { SubSettingsPage } from './SettingListSubModal';
 
-export function SubSettings({ name }: { name: ISettingName }) {
+export function SubSettings({ name }: { name: string }) {
   return (
     <TabSubStackNavigator
       // eslint-disable-next-line react/no-unstable-nested-components
