@@ -96,7 +96,7 @@ function BasicSidebarBanner() {
   ) : null;
 }
 
-function NotificationButton() {
+function _NotificationButton() {
   const appNavigation = useAppNavigation();
   const openNotificationsModal = useCallback(async () => {
     appNavigation.pushModal(EModalRoutes.NotificationsModal, {

@@ -46,7 +46,6 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useModalExitPrevent } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateHooks';
 import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
 
 import ActionBuy from './ActionBuy';
