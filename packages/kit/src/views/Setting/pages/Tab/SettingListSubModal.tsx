@@ -73,29 +73,25 @@ export function SubSettingsPage({
       <Page.Header title={name} />
       <Page.Body>
         <YStack gap="$4" px="$4">
-          {isSearching ? (
-            <SearchView sections={searchResult} isSearching={isSearching} />
-          ) : (
-            configList?.map((item) => {
-              const list = Array.isArray(item) ? item.filter(Boolean) : [];
-              return list.length ? (
-                <TabSettingsSection>
-                  {list.map((i, idx) => {
-                    return i ? (
-                      <>
-                        <TabSettingsListGrid item={i} />
-                        {idx !== list.length - 1 ? (
-                          <XStack mx="$5">
-                            <Divider />
-                          </XStack>
-                        ) : null}
-                      </>
-                    ) : null;
-                  })}
-                </TabSettingsSection>
-              ) : null;
-            })
-          )}
+          {configList?.map((item) => {
+            const list = Array.isArray(item) ? item.filter(Boolean) : [];
+            return list.length ? (
+              <TabSettingsSection>
+                {list.map((i, idx) => {
+                  return i ? (
+                    <>
+                      <TabSettingsListGrid item={i} />
+                      {idx !== list.length - 1 ? (
+                        <XStack mx="$5">
+                          <Divider />
+                        </XStack>
+                      ) : null}
+                    </>
+                  ) : null;
+                })}
+              </TabSettingsSection>
+            ) : null;
+          })}
         </YStack>
         {isTabNavigator && name === ETranslations.global_about ? (
           <SocialButtonGroup />
