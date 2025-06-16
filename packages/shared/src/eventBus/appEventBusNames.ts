@@ -97,4 +97,5 @@ export enum EAppEventBusNames {
   // HttpServerRequest = 'HttpServerRequest',
   AddressBookUpdate = 'AddressBookUpdate',
   ClearStorageOnExtension = 'ClearStorageOnExtension',
+  SettingsSearchResult = 'SettingsSearchResult',
 }
