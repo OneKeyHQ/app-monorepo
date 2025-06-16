@@ -184,12 +184,14 @@ export function Banner<T extends IBannerData>({
               isVisible={currentIndex !== 0 ? isHovering : false}
               direction="previous"
               onPress={gotToPrevIndex}
+              theme="light"
             />
 
             <PaginationButton
               isVisible={currentIndex !== data.length - 1 ? isHovering : false}
               direction="next"
               onPress={goToNextIndex}
+              theme="light"
             />
           </>
         ) : null}

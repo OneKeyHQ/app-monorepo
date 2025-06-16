@@ -1,8 +1,17 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, NumberSizeableText, Stack } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  NumberSizeableText,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -47,6 +56,17 @@ function TokenListFooter(props: IProps) {
     smallBalanceTokenList;
 
   const isSearchMode = searchKey.length >= SEARCH_KEY_MIN_LENGTH;
+  const helpText = useMemo(
+    () => [
+      intl.formatMessage({
+        id: ETranslations.low_value_assets_desc_out_of_range,
+      }),
+      intl.formatMessage({
+        id: ETranslations.low_value_assets_desc,
+      }),
+    ],
+    [intl],
+  );
 
   const handleOnPressLowValueTokens = useCallback(() => {
     if (!account || !network || !wallet || smallBalanceTokens.length === 0)
@@ -55,14 +75,7 @@ function TokenListFooter(props: IProps) {
       screen: EModalAssetListRoutes.TokenList,
       params: {
         title: intl.formatMessage({ id: ETranslations.low_value_assets }),
-        helpText: [
-          intl.formatMessage({
-            id: ETranslations.low_value_assets_desc_out_of_range,
-          }),
-          intl.formatMessage({
-            id: ETranslations.low_value_assets_desc,
-          }),
-        ],
+        helpText,
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
@@ -87,6 +100,7 @@ function TokenListFooter(props: IProps) {
     smallBalanceTokenListMap,
     smallBalanceTokens,
     wallet,
+    helpText,
   ]);
 
   return (
@@ -105,7 +119,6 @@ function TokenListFooter(props: IProps) {
             />
           </Stack>
           <ListItem.Text
-            flex={1}
             primary={`${smallBalanceTokens.length} ${intl.formatMessage({
               id: ETranslations.low_value_assets,
             })}`}
@@ -113,10 +126,40 @@ function TokenListFooter(props: IProps) {
               primaryTextProps: { size: '$bodyMdMedium' },
             })}
           />
+          {tableLayout ? (
+            <Popover
+              title={intl.formatMessage({ id: ETranslations.low_value_assets })}
+              renderTrigger={
+                <IconButton
+                  size="small"
+                  variant="tertiary"
+                  icon="QuestionmarkOutline"
+                />
+              }
+              renderContent={
+                <YStack p="$5" gap="$2">
+                  {helpText.map((text, index) => (
+                    <XStack key={index} gap="$2">
+                      <Stack
+                        w="$1.5"
+                        h="$1.5"
+                        bg="$textSubdued"
+                        borderRadius="$full"
+                        mt="$2"
+                      />
+                      <SizableText size="$bodyMd">{text}</SizableText>
+                    </XStack>
+                  ))}
+                </YStack>
+              }
+            />
+          ) : null}
           <NumberSizeableText
             size={tableLayout ? '$bodyMd' : '$bodyLgMedium'}
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            flex={1}
+            textAlign="right"
           >
             {smallBalanceTokensFiatValue}
           </NumberSizeableText>

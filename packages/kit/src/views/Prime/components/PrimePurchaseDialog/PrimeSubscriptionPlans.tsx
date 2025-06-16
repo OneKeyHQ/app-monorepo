@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,7 +11,6 @@ import {
   Theme,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -109,8 +108,6 @@ export function PrimeSubscriptionPlans({
   ) => void;
 }) {
   const intl = useIntl();
-
-  const { gtMd } = useMedia();
 
   const autoRenewText = useMemo(() => {
     const selectedPackage = packages?.find(

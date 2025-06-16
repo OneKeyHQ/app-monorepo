@@ -30,18 +30,6 @@ export type IAccountDeriveInfoMapBtc = IAccountDeriveInfoMapBase & {
 export type IAccountDeriveTypesBtc = keyof IAccountDeriveInfoMapBtc;
 
 const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
-  default: {
-    namePrefix: 'BTC Nested SegWit',
-    label: 'Nested SegWit',
-    template: `m/49'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
-    coinType: COINTYPE_BTC,
-    coinName: COINNAME_BTC,
-    addressEncoding: EAddressEncodings.P2SH_P2WPKH,
-    descI18n: {
-      id: ETranslations.p2wpkh_desc,
-      data: {},
-    },
-  },
   BIP86: {
     namePrefix: 'BTC Taproot',
     label: 'Taproot',
@@ -54,6 +42,20 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
       data: {},
     },
   },
+
+  default: {
+    namePrefix: 'BTC Nested SegWit',
+    label: 'Nested SegWit',
+    template: `m/49'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+    coinType: COINTYPE_BTC,
+    coinName: COINNAME_BTC,
+    addressEncoding: EAddressEncodings.P2SH_P2WPKH,
+    descI18n: {
+      id: ETranslations.p2wpkh_desc,
+      data: {},
+    },
+  },
+
   BIP84: {
     namePrefix: 'BTC Native SegWit',
     label: 'Native SegWit',

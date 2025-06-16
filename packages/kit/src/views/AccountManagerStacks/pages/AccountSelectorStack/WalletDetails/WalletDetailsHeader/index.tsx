@@ -22,7 +22,6 @@ import type { IWalletDetailsProps } from '..';
 
 type IWalletDetailsHeaderProps = {
   editable?: boolean;
-  editMode: boolean;
   linkedNetworkId?: string;
 } & IListItemProps &
   Partial<IWalletDetailsProps>;
@@ -31,7 +30,6 @@ export function WalletDetailsHeader({
   wallet,
   device,
   editable,
-  editMode,
   linkedNetworkId,
   num,
   title,
