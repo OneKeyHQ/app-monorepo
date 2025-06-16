@@ -9,6 +9,9 @@ import type {
 import {
   Divider,
   Icon,
+  IconButton,
+  Image,
+  NavBackButton,
   Page,
   SizableText,
   Stack,
@@ -16,6 +19,7 @@ import {
   Theme,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import CloseButton from '@onekeyhq/components/src/composite/Banner/CloseButton';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
@@ -115,56 +119,96 @@ export default function PagePrimeFeatures() {
     const allFeatures: IFeatureItemInfo[] = [
       {
         id: EPrimeFeatures.OneKeyCloud,
-        banner: <Icon size="$20" name="OnekeyPrimeDarkColored" />,
-        title: 'OneKey Cloud',
-        description:
-          'Automatically back up app usage data and synchronize seamlessly across devices.',
+        banner: (
+          <Image
+            w="100%"
+            h={200}
+            source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_onekey_cloud,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_onekey_cloud_desc,
+        }),
         details: [
           {
             icon: 'LinkOutline',
-            title: 'Seamless Cross-Device Sync',
-            description:
-              'Sync your OneKey data instantly across desktop, mobile app, and more.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_onekey_cloud_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_onekey_cloud_detail_one_desc,
+            }),
           },
           {
             icon: 'ArchiveBoxOutline',
-            title: 'Sync Key Data Types',
-            description:
-              'Covers wallet/account names, watch-only addresses, custom tokens/networks, etc.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_onekey_cloud_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_onekey_cloud_detail_two_desc,
+            }),
           },
         ],
       },
 
       {
         id: EPrimeFeatures.BulkCopyAddresses,
-        banner: <Icon size="$20" name="OnekeyPrimeDarkColored" />,
-        title: 'Bulk copy addresses',
-        description: 'Easily select or generate addresses for bulk copying.',
+        banner: (
+          <Image
+            w="100%"
+            h={200}
+            source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_bulk_copy_addresses,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_bulk_copy_addresses_desc,
+        }),
         details: [
           {
             icon: 'OrganisationOutline',
-            title: 'Wide Chain Support',
-            description:
-              'Export addresses for BTC, ETH, EVM & more, with flexible derivation paths.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_one_desc,
+            }),
           },
           {
             icon: 'WalletCryptoOutline',
-            title: 'All Wallet Compatible',
-            description:
-              'Batch export from all your software and hardware wallets.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_two_desc,
+            }),
           },
           {
             icon: 'DownloadOutline',
-            title: 'Full or Custom Export',
-            description:
-              'Export all addresses for a chosen network, or generate targeted custom ranges.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_three_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_three_desc,
+            }),
           },
         ],
       },
 
       {
         id: EPrimeFeatures.DeviceManagement,
-        banner: <Icon size="$20" name="OnekeyPrimeDarkColored" />,
+        banner: (
+          <Image
+            w="100%"
+            h={200}
+            source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
+          />
+        ),
         title: 'Device management',
         description: 'Access Prime on up to 5 devices.',
         details: [
@@ -190,11 +234,11 @@ export default function PagePrimeFeatures() {
       data,
       index: index ?? 0,
     };
-  }, [selectedFeature, showAllFeatures]);
+  }, [intl, selectedFeature, showAllFeatures]);
 
   const showPaginationButton = true;
-  const showCloseButton = true;
   const isHovering = true;
+  const showCloseButton = false;
 
   const renderPagination = useCallback(
     ({
@@ -337,10 +381,20 @@ export default function PagePrimeFeatures() {
     showAllFeatures,
   ]);
 
-  return (
+  const page = (
     <Page scrollEnabled>
-      <Page.Header title="Prime Features" />
+      <Theme name="dark">
+        <Page.Header
+          headerShown={false}
+          title={intl.formatMessage({
+            id: ETranslations.prime_features_title,
+          })}
+        />
+      </Theme>
+      <Page.BackButton />
+
       <Page.Body>
+        <Stack h="$14" />
         <Swiper
           height="100%"
           position="relative"
@@ -376,10 +430,9 @@ export default function PagePrimeFeatures() {
         onConfirm={shouldShowConfirmButton ? subscribe : undefined}
         onConfirmText={(() => {
           if (!showAllFeatures) {
-            // return intl.formatMessage({
-            //   id: ETranslations.prime_about_onekey_prime,
-            // });
-            return 'About OneKey Prime';
+            return intl.formatMessage({
+              id: ETranslations.prime_about_onekey_prime,
+            });
           }
 
           if (!packages?.length) {
@@ -409,4 +462,7 @@ export default function PagePrimeFeatures() {
       />
     </Page>
   );
+
+  return <Theme name="dark">{page}</Theme>;
+  // return page;
 }

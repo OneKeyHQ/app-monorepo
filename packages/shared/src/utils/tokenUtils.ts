@@ -124,24 +124,78 @@ export function getFilteredTokenBySearchKey({
 export function sortTokensByFiatValue({
   tokens,
   map = {},
+  sortDirection = 'desc',
 }: {
   tokens: IAccountToken[];
   map?: {
     [key: string]: ITokenFiat;
   };
+  sortDirection?: 'desc' | 'asc';
 }) {
-  return tokens.sort((a, b) => {
+  return [...tokens].sort((a, b) => {
     const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? 0);
     const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? 0);
 
-    return new BigNumber(bFiat.isNaN() ? 0 : bFiat).comparedTo(
-      new BigNumber(aFiat.isNaN() ? 0 : aFiat),
+    if (sortDirection === 'desc') {
+      return new BigNumber(bFiat.isNaN() ? 0 : bFiat).comparedTo(
+        new BigNumber(aFiat.isNaN() ? 0 : aFiat),
+      );
+    }
+
+    return new BigNumber(aFiat.isNaN() ? 0 : aFiat).comparedTo(
+      new BigNumber(bFiat.isNaN() ? 0 : bFiat),
     );
   });
 }
 
+export function sortTokensByPrice({
+  tokens,
+  map = {},
+  sortDirection = 'desc',
+}: {
+  tokens: IAccountToken[];
+  map?: {
+    [key: string]: ITokenFiat;
+  };
+  sortDirection?: 'desc' | 'asc';
+}) {
+  return [...tokens].sort((a, b) => {
+    const aPrice = new BigNumber(map[a.$key]?.price ?? 0);
+    const bPrice = new BigNumber(map[b.$key]?.price ?? 0);
+
+    if (sortDirection === 'desc') {
+      return new BigNumber(bPrice.isNaN() ? 0 : bPrice).comparedTo(
+        new BigNumber(aPrice.isNaN() ? 0 : aPrice),
+      );
+    }
+
+    return new BigNumber(aPrice.isNaN() ? 0 : aPrice).comparedTo(
+      new BigNumber(bPrice.isNaN() ? 0 : bPrice),
+    );
+  });
+}
+
+export function sortTokensByName({
+  tokens,
+  sortDirection = 'desc',
+}: {
+  tokens: IAccountToken[];
+  sortDirection?: 'desc' | 'asc';
+}): IAccountToken[] {
+  return [...tokens].sort((a, b) => {
+    const aName = a.name?.toLowerCase() ?? '';
+    const bName = b.name?.toLowerCase() ?? '';
+
+    if (sortDirection === 'desc') {
+      return bName.localeCompare(aName);
+    }
+
+    return aName.localeCompare(bName);
+  });
+}
+
 export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
-  return tokens.sort((a, b) => {
+  return [...tokens].sort((a, b) => {
     if (!isNil(a.order) && !isNil(b.order)) {
       return new BigNumber(a.order).comparedTo(b.order);
     }

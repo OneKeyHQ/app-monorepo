@@ -1075,13 +1075,10 @@ function TokenListContainer(_props: ITabPageProps) {
         ...smallBalanceTokenListMap,
       };
 
-      let mergedTokens = sortTokensByFiatValue({
-        tokens: [
-          ...tokenList.tokens,
-          ...smallBalanceTokenList.smallBalanceTokens,
-        ],
-        map: mergeTokenListMap,
-      });
+      let mergedTokens = [
+        ...tokenList.tokens,
+        ...smallBalanceTokenList.smallBalanceTokens,
+      ];
 
       const index = mergedTokens.findIndex((token) =>
         new BigNumber(mergeTokenListMap[token.$key]?.fiatValue ?? 0).isZero(),
@@ -1110,11 +1107,6 @@ function TokenListContainer(_props: ITabPageProps) {
             acc.plus(mergeTokenListMap[token.$key].fiatValue ?? '0'),
           new BigNumber(0),
         );
-
-      riskyTokenList.riskyTokens = sortTokensByFiatValue({
-        tokens: riskyTokenList.riskyTokens,
-        map: riskyTokenListMap,
-      });
 
       updateAccountWorth({
         accountId: account?.id ?? '',
@@ -1603,6 +1595,7 @@ function TokenListContainer(_props: ITabPageProps) {
       withPrice
       inTabList
       hideValue
+      withSwapAction
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
       onBuyToken={handleFiatCrypto}
