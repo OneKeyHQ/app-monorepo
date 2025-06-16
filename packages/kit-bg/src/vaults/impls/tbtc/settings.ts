@@ -25,14 +25,6 @@ type IAccountDeriveInfoMapBtc = IAccountDeriveInfoMapBase & {
 };
 // TODO make build method
 const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
-  default: {
-    namePrefix: 'TBTC Nested SegWit',
-    label: 'Nested SegWit',
-    template: `m/49'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
-    coinType: COINTYPE_TBTC,
-    coinName: COINNAME_TBTC,
-    addressEncoding: EAddressEncodings.P2SH_P2WPKH,
-  },
   BIP86: {
     namePrefix: 'TBTC Taproot',
     label: 'Taproot',
@@ -41,6 +33,16 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinName: COINNAME_TBTC,
     addressEncoding: EAddressEncodings.P2TR,
   },
+
+  default: {
+    namePrefix: 'TBTC Nested SegWit',
+    label: 'Nested SegWit',
+    template: `m/49'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+    coinType: COINTYPE_TBTC,
+    coinName: COINNAME_TBTC,
+    addressEncoding: EAddressEncodings.P2SH_P2WPKH,
+  },
+
   BIP84: {
     namePrefix: 'TBTC Native SegWit',
     label: 'Native SegWit',

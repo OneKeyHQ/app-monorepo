@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
 
@@ -16,24 +16,19 @@ function TokenBalanceView(props: IProps) {
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key || ''];
 
-  const content = useMemo(
-    () => (
-      <NumberSizeableTextWrapper
-        formatter="balance"
-        formatterOptions={{ tokenSymbol: symbol }}
-        {...rest}
-      >
-        {token?.balanceParsed ?? '0'}
-      </NumberSizeableTextWrapper>
-    ),
-    [rest, symbol, token?.balanceParsed],
-  );
-
   if (!token) {
     return null;
   }
 
-  return content;
+  return (
+    <NumberSizeableTextWrapper
+      formatter="balance"
+      formatterOptions={{ tokenSymbol: symbol }}
+      {...rest}
+    >
+      {token?.balanceParsed ?? '0'}
+    </NumberSizeableTextWrapper>
+  );
 }
 
-export { TokenBalanceView };
+export default memo(TokenBalanceView);

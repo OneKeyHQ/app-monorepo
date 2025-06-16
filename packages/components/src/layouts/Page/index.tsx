@@ -5,7 +5,7 @@ import { withStaticProperties } from 'tamagui';
 import { Portal } from '../../hocs';
 
 import { PageBody } from './PageBody';
-import { PageClose } from './PageClose';
+import { PageBackButton, PageClose, PageCloseButton } from './PageClose';
 import { PageContainer } from './PageContainer';
 import { PageContext } from './PageContext';
 import { Every, PageEvery } from './PageEvery';
@@ -92,6 +92,8 @@ export const Page = withStaticProperties(PageProvider, {
   CancelButton: FooterCancelButton,
   ConfirmButton: FooterConfirmButton,
   Close: PageClose,
+  CloseButton: PageCloseButton,
+  BackButton: PageBackButton,
   Every,
 });
 

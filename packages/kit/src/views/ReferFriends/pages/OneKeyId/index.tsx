@@ -81,37 +81,40 @@ export default function OneKeyId() {
             />
           </Stack>
           <YStack>
-            <ListItem
-              userSelect="none"
-              drillIn={isPrimeAvailable}
-              renderAvatar={
-                <XStack
-                  borderRadius="$3"
-                  bg="$brand7"
-                  w="$12"
-                  h="$12"
-                  ai="center"
-                  jc="center"
-                >
-                  <Icon name="PrimeSolid" color="$brand12" size="$6" />
-                </XStack>
-              }
-              title="OneKey Prime"
-              subtitle={intl.formatMessage({
-                id: ETranslations.id_prime,
-              })}
-              onPress={toPrimePage}
-            >
-              {isPrimeAvailable ? null : (
-                <Badge badgeSize="sm">
-                  <Badge.Text>
-                    {intl.formatMessage({
-                      id: ETranslations.id_prime_soon,
-                    })}
-                  </Badge.Text>
-                </Badge>
-              )}
-            </ListItem>
+            {isPrimeAvailable ? (
+              <ListItem
+                userSelect="none"
+                drillIn={isPrimeAvailable}
+                renderAvatar={
+                  <XStack
+                    borderRadius="$3"
+                    bg="$brand7"
+                    w="$12"
+                    h="$12"
+                    ai="center"
+                    jc="center"
+                  >
+                    <Icon name="PrimeSolid" color="$brand12" size="$6" />
+                  </XStack>
+                }
+                title="OneKey Prime"
+                subtitle={intl.formatMessage({
+                  id: ETranslations.id_prime,
+                })}
+                onPress={toPrimePage}
+              >
+                {isPrimeAvailable ? null : (
+                  <Badge badgeSize="sm">
+                    <Badge.Text>
+                      {intl.formatMessage({
+                        id: ETranslations.id_prime_soon,
+                      })}
+                    </Badge.Text>
+                  </Badge>
+                )}
+              </ListItem>
+            ) : null}
+
             <ListItem
               drillIn
               userSelect="none"

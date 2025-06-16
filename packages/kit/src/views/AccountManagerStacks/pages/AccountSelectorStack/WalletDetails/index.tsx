@@ -22,7 +22,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
-  useAccountSelectorEditModeAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
@@ -60,7 +59,7 @@ export interface IWalletDetailsProps {
 
 function WalletDetailsView({ num }: IWalletDetailsProps) {
   const intl = useIntl();
-  const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
+  // const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
   const { serviceAccount, serviceAccountSelector, serviceNetwork } =
     backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
@@ -74,7 +73,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const { createQrWallet } = useCreateQrWallet();
 
   defaultLogger.accountSelector.perf.renderAccountsList({
-    editMode,
     selectedAccount,
   });
 
@@ -460,7 +458,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           }
           ListEmptyComponent={<EmptyView />}
           contentContainerStyle={{ pb: '$3' }}
-          extraData={[selectedAccount.indexedAccountId, editMode]}
+          extraData={[
+            selectedAccount.indexedAccountId,
+            // editMode,
+            editable,
+          ]}
           // {...(wallet?.type !== 'others' && {
           //   ListHeaderComponent: (
           //     <WalletOptions editMode={editMode} wallet={wallet} />
@@ -550,7 +552,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsValue,
     actions,
     createQrWallet,
-    editMode,
     editable,
     focusedWalletInfo,
     getItemLayout,
@@ -580,7 +581,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       accountsCount,
       accountsValue,
       actions,
-      editMode, // toggle editMode
+      // editMode, // toggle editMode
       editable,
       focusedWalletInfo,
       handleLayoutForHeader,
@@ -611,7 +612,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsCount,
     accountsValue,
     actions,
-    editMode,
+    // editMode,
     editable,
     focusedWalletInfo,
     handleLayoutForHeader,
@@ -629,17 +630,16 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       <WalletDetailsHeader
         wallet={focusedWalletInfo?.wallet}
         device={focusedWalletInfo?.device}
-        titleProps={{
-          opacity: editMode && editable ? 0 : 1,
-        }}
-        editMode={editMode}
         editable={editable}
         linkedNetworkId={linkedNetworkId}
         num={num}
-        {...(!editMode && {
-          title,
-        })}
+        title={title}
       />
+
+      {focusedWalletInfo?.wallet?.id && isHiddenWallet && editable ? (
+        <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
+      ) : null}
+
       {!isMockedStandardHwWallet &&
       sectionDataOriginal?.length &&
       focusedWalletInfo?.wallet?.id ? (
@@ -647,10 +647,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           searchText={searchText}
           onSearchTextChange={setSearchText}
         />
-      ) : null}
-
-      {focusedWalletInfo?.wallet?.id && isHiddenWallet && editMode ? (
-        <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
       ) : null}
 
       {sectionListMemo}

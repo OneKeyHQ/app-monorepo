@@ -59,6 +59,7 @@ export enum ESwapSource {
   WALLET_TAB = 'wallet_tab',
   WALLET_HOME = 'wallet_home',
   TOKEN_DETAIL = 'token_detail',
+  WALLET_HOME_TOKEN_LIST = 'wallet_home_token_list',
   EARN = 'earn',
   MARKET = 'market',
   TAB = 'tab',
