@@ -37,7 +37,7 @@ export function TabSettingsListGrid({
   titleMatch,
 }: {
   item: ISubSettingConfig | undefined | null;
-  titleMatch: IFuseResultMatch | undefined;
+  titleMatch?: IFuseResultMatch | undefined;
 }) {
   return item?.renderElement ? (
     item.renderElement
