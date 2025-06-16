@@ -37,7 +37,6 @@ export function SettingList() {
         headerShown
         title={intl.formatMessage({ id: ETranslations.global_settings })}
       />
-      {console.log('searchResult--', isSearching, searchResult)}
       <Page.Body>
         <XStack px="$5" pb="$4">
           <SearchBar onSearchTextChange={onSearch} />
