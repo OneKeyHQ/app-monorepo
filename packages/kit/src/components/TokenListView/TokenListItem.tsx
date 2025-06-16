@@ -8,11 +8,11 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import CreateAccountView from './CreateAccountView';
 import TokenActionsView from './TokenActionsView';
 import TokenBalanceView from './TokenBalanceView';
-import { TokenIconView } from './TokenIconView';
-import { TokenNameView } from './TokenNameView';
-import { TokenPriceChangeView } from './TokenPriceChangeView';
-import { TokenPriceView } from './TokenPriceView';
-import { TokenValueView } from './TokenValueView';
+import TokenIconView from './TokenIconView';
+import TokenNameView from './TokenNameView';
+import TokenPriceChangeView from './TokenPriceChangeView';
+import TokenPriceView from './TokenPriceView';
+import TokenValueView from './TokenValueView';
 
 export type ITokenListItemProps = {
   token: IAccountToken;
