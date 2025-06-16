@@ -20,7 +20,7 @@ export function MarketMobileTabs() {
   // Suppress TS type mismatch by casting.
   const renderTitle = (item: { id: string }) =>
     item.id === 'watchlist' ? (
-      <Icon name="StarOutline" size="$5" />
+      <Icon name="StarOutline" size="$4" />
     ) : (
       intl.formatMessage({ id: ETranslations.market_trending })
     );

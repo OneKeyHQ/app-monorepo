@@ -3,7 +3,13 @@ import type { ReactNode } from 'react';
 
 import { ScrollView } from 'react-native';
 
-import { Pagination, Stack, Table, XStack } from '@onekeyhq/components';
+import {
+  Pagination,
+  Stack,
+  Table,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
@@ -159,6 +165,8 @@ function MarketTokenList({
   // This provides better UX by avoiding skeleton flash during pagination
   const showSkeleton = isLoading && data.length === 0;
 
+  const { md } = useMedia();
+
   return (
     <>
       <Stack
@@ -172,14 +180,13 @@ function MarketTokenList({
         width="100%"
       >
         {/* render custom toolbar if provided */}
-        {/* Stack acts as outer container; scroll captured inside ScrollView via renderScrollComponent */}
         {toolbar ? (
-          <Stack width={1466} mb="$3">
+          <Stack width={md ? '100%' : 1466} mb="$3">
             {toolbar}
           </Stack>
         ) : null}
         {/* here */}
-        <Stack width={1466}>
+        <Stack width={md ? '100%' : 1466}>
           {showSkeleton ? (
             <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
           ) : (

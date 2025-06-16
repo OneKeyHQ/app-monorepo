@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import type { ITableColumn } from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
 
 import { type IMarketToken } from '../../MarketTokenData';
 
@@ -14,11 +15,10 @@ export const useMarketTokenColumns = (
   const desktopColumns = useDesktopColumns(networkId, watchlistActive);
   const mobileColumns = useMobileColumns(networkId, watchlistActive);
 
-  return useMemo(() => {
-    if (desktopColumns.length > 0) {
-      return desktopColumns;
-    }
+  const { md } = useMedia();
 
-    return mobileColumns;
-  }, [desktopColumns, mobileColumns]);
+  return useMemo(
+    () => (md ? mobileColumns : desktopColumns),
+    [md, mobileColumns, desktopColumns],
+  );
 };
