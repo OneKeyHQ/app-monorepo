@@ -24,6 +24,7 @@ import { useOnLock } from '../List/DefaultSection';
 import { useIsTabNavigator, useSettingsConfig } from './config';
 import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
+import { useSearch } from './useSearch';
 
 import type {
   BottomTabBarProps,
@@ -114,6 +115,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
     await onLock();
   }, [onLock]);
   const { top } = useSafeAreaInsets();
+  const { onSearch } = useSearch();
   return (
     <YStack w={192} bg="$bg" pt={top} px="$3">
       <XStack h="$16" gap="$4" ai="center">
@@ -122,7 +124,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           {intl.formatMessage({ id: ETranslations.global_settings })}
         </SizableText>
       </XStack>
-      <SearchBar />
+      <SearchBar onSearchTextChange={onSearch} />
       <YStack flex={1} pt="$3">
         {tabs}
       </YStack>
@@ -164,7 +166,7 @@ function SettingsTabNavigator() {
           >
             {() => <SubSettings name={title} />}
           </Tab.Screen>
-        )
+        );
       }),
     [settingsConfig],
   );

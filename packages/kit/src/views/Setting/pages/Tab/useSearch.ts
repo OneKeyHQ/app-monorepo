@@ -2,6 +2,10 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { groupBy } from 'lodash';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import { useSettingsConfig } from './config';
@@ -45,19 +49,18 @@ export const useSearch = () => {
     (searchText: string) => {
       searchTextRef.current = searchText;
       const result = searchFuse.search(searchText);
-      if (result.length === 0) {
-        setSearchResult([]);
-        return;
-      }
       const sections = groupBy(result, 'item.sectionTitle');
       const keys = Object.keys(sections);
-      setSearchResult(
-        keys.map((key) => ({
-          title: key,
-          icon: sections[key][0]?.item?.sectionIcon || '',
-          configs: sections[key] as FuseResult<ISubSettingConfig>[],
-        })),
-      );
+      const list = keys.map((key) => ({
+        title: key,
+        icon: sections[key][0]?.item?.sectionIcon || '',
+        configs: sections[key] as FuseResult<ISubSettingConfig>[],
+      }));
+      setSearchResult(list);
+      appEventBus.emit(EAppEventBusNames.SettingsSearchResult, {
+        list,
+        searchText,
+      });
     },
     [searchFuse],
   );
