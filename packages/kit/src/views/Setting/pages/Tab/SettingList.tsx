@@ -19,6 +19,8 @@ import { useOnLock } from '../List/DefaultSection';
 import { useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
+import { SearchView } from './SearchView';
+import { useSearch } from './useSearch';
 
 export function SettingList() {
   const intl = useIntl();
@@ -28,6 +30,7 @@ export function SettingList() {
   }, [onLock]);
   const navigation = useAppNavigation();
   const settingsConfig = useSettingsConfig();
+  const { onSearch, searchResult, isSearching } = useSearch();
   return (
     <Page>
       <Page.Header
@@ -36,37 +39,45 @@ export function SettingList() {
       />
       <Page.Body>
         <XStack px="$5" pb="$4">
-          <SearchBar />
+          <SearchBar onSearchTextChange={onSearch} />
         </XStack>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{ pb: '$5' }}
         >
-          <TabSettingsListItem
-            drillIn
-            title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
-            icon="LockOutline"
-            onPress={async () => {
-              await handleLock();
-            }}
-          />
-          <Divider />
-          {settingsConfig.map((config) =>
-            config ? (
+          {isSearching ? (
+            <>
               <TabSettingsListItem
                 drillIn
-                key={config.title}
-                icon={config.icon as IKeyOfIcons}
-                title={config.title}
-                onPress={() => {
-                  navigation.push(EModalSettingRoutes.SettingListSubModal, {
-                    name: config.title,
-                  });
+                title={intl.formatMessage({
+                  id: ETranslations.settings_lock_now,
+                })}
+                icon="LockOutline"
+                onPress={async () => {
+                  await handleLock();
                 }}
               />
-            ) : null,
+              <Divider />
+              {settingsConfig.map((config) =>
+                config ? (
+                  <TabSettingsListItem
+                    drillIn
+                    key={config.title}
+                    icon={config.icon as IKeyOfIcons}
+                    title={config.title}
+                    onPress={() => {
+                      navigation.push(EModalSettingRoutes.SettingListSubModal, {
+                        name: config.title,
+                      });
+                    }}
+                  />
+                ) : null,
+              )}
+              <SocialButtonGroup />
+            </>
+          ) : (
+            <SearchView sections={searchResult} isSearching={isSearching} />
           )}
-          <SocialButtonGroup />
         </ScrollView>
       </Page.Body>
     </Page>

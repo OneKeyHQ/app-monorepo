@@ -3,37 +3,40 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Accordion,
+  Empty,
   Icon,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 
-import type { ISubSettingConfig } from './config';
+import type { ISettingsSearchResult } from './useSearch';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function SearchView({
   sections,
+  isSearching,
 }: {
-  sections: {
-    titleId: string;
-    icon: string;
-    configs: ISubSettingConfig[];
-  }[];
+  sections: ISettingsSearchResult[];
+  isSearching: boolean;
 }) {
   const intl = useIntl();
-  return (
-    <YStack gap="$4">
+  if (!isSearching) {
+    return null;
+  }
+  return sections.length ? (
+    <YStack gap="$4" px="$5">
       {sections.map((section) => (
         <Accordion
           overflow="hidden"
           width="100%"
           type="multiple"
-          key={section.titleId}
+          key={section.title}
+          defaultValue={[section.title]}
         >
-          <Accordion.Item value={section.titleId}>
+          <Accordion.Item value={section.title}>
             <Accordion.Trigger
               unstyled
               flexDirection="row"
@@ -52,11 +55,7 @@ export function SearchView({
                 <>
                   <XStack gap="$1.5" alignItems="center">
                     <Icon name={section.icon as IKeyOfIcons} size="$5" />
-                    <SizableText size="$bodyMd">
-                      {intl.formatMessage({
-                        id: section.titleId as ETranslations,
-                      })}
-                    </SizableText>
+                    <SizableText size="$bodyMd">{section.title}</SizableText>
                   </XStack>
                   <XStack>
                     <YStack
@@ -86,8 +85,9 @@ export function SearchView({
                 <TabSettingsSection>
                   {section.configs.map((config) => (
                     <TabSettingsListGrid
-                      key={config.translationId}
-                      item={config}
+                      key={config.item.title}
+                      item={config.item}
+                      titleMatch={config.matches?.[0]}
                     />
                   ))}
                 </TabSettingsSection>
@@ -96,6 +96,15 @@ export function SearchView({
           </Accordion.Item>
         </Accordion>
       ))}
+    </YStack>
+  ) : (
+    <YStack flex={1} ai="center" jc="center">
+      <Empty
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+      />
     </YStack>
   );
 }

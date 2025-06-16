@@ -322,9 +322,11 @@ export const useSettingsConfig: () => (
             },
             {
               icon: 'KeyOutline',
-              title: isPasswordSet
-                ? ETranslations.global_change_passcode
-                : ETranslations.global_set_passcode,
+              title: intl.formatMessage({
+                id: isPasswordSet
+                  ? ETranslations.global_change_passcode
+                  : ETranslations.global_set_passcode,
+              }),
               onPress: async () => {
                 if (isPasswordSet) {
                   const oldEncodedPassword =
