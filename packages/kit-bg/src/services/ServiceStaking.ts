@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { omit } from 'lodash';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
@@ -436,9 +437,16 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async verifyRegisterSignMessage(params: IVerifyRegisterSignMessageParams) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
+    let verifyParams = params;
+    if (earnUtils.isEthenaProvider({ providerName: params.provider })) {
+      verifyParams = omit(params, [
+        'signature',
+        'message',
+      ]) as IVerifyRegisterSignMessageParams;
+    }
     const resp = await client.post<{
       data: IEarnRegisterSignMessageResponse;
-    }>(`/earn/v1/verify-sig`, params);
+    }>(`/earn/v1/verify-sig`, verifyParams);
     return resp.data.data;
   }
 
