@@ -1,6 +1,8 @@
 import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
 import { MarketTokenList } from '../MarketTokenList';
 
+import { MarketMobileTabs } from './MarketMobileTabs';
+
 import type { ILiquidityFilter } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
@@ -24,6 +26,9 @@ export function MarketHomeContentMobile({
 }: IMarketHomeContentMobileProps) {
   return (
     <>
+      <MarketMobileTabs />
+
+      {/* Static Content Below */}
       <MarketFilterBarSmall {...filterBarProps} />
       <MarketTokenList
         networkId={selectedNetworkId}

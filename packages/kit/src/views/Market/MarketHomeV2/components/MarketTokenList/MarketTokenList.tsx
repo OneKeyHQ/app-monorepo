@@ -45,6 +45,13 @@ type IMarketTokenListProps = {
    * to react to scroll, such as collapsing toolbars.
    */
   onScrollOffsetChange?: (offsetY: number) => void;
+  /**
+   * If provided, the list will initially display only tokens in the user's
+   * watchlist. This prop controls the *initial* state only; users can still
+   * toggle between watchlist-only and full list by tapping the star column
+   * header.
+   */
+  defaultShowWatchlistOnly?: boolean;
 };
 
 function MarketTokenList({
@@ -56,6 +63,7 @@ function MarketTokenList({
   liquidityFilter,
   toolbar,
   onScrollOffsetChange,
+  defaultShowWatchlistOnly,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
@@ -77,7 +85,9 @@ function MarketTokenList({
   );
 
   // ---------------- WATCHLIST ------------------
-  const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
+  const [showWatchlistOnly, setShowWatchlistOnly] = useState(
+    defaultShowWatchlistOnly ?? false,
+  );
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
 
