@@ -1,21 +1,16 @@
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Button, InputUnControlled, XStack } from '@onekeyhq/components';
+import { InputUnControlled, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function AccountSearchBar({
   searchText,
   onSearchTextChange,
-  editMode,
-  onEditModeChange,
-  editable,
 }: {
   searchText: string;
   onSearchTextChange: (text: string) => void;
-  editMode: boolean;
-  onEditModeChange: (fn: (editMode: boolean) => boolean) => void;
-  editable: boolean;
 }) {
   const intl = useIntl();
 
@@ -24,7 +19,13 @@ export function AccountSearchBar({
   }, 300);
 
   return (
-    <XStack px="$5" py="$2" gap="$2">
+    <XStack
+      mb="$2"
+      px="$5"
+      py="$2"
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      borderBottomColor="$neutral3"
+    >
       <InputUnControlled
         leftIconName="SearchOutline"
         size="small"
@@ -41,26 +42,6 @@ export function AccountSearchBar({
         defaultValue={searchText}
         onChangeText={handleSearch}
       />
-      {editable ? (
-        <Button
-          testID="account-edit-button"
-          variant="tertiary"
-          alignSelf="flex-start"
-          $gtMd={{ top: '$0.5' }}
-          onPress={() => {
-            onEditModeChange((v) => !v);
-          }}
-          {...(editMode && {
-            color: '$textInteractive',
-            icon: 'CheckLargeOutline',
-            iconColor: '$iconSuccess',
-          })}
-        >
-          {editMode
-            ? intl.formatMessage({ id: ETranslations.global_done })
-            : intl.formatMessage({ id: ETranslations.global_edit })}
-        </Button>
-      ) : null}
     </XStack>
   );
 }

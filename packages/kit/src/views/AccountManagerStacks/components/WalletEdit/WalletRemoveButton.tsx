@@ -27,11 +27,11 @@ export function WalletRemoveButton({
 
   const label = useMemo(() => {
     if (accountUtils.isHwHiddenWallet({ wallet })) {
-      return 'Remove hidden wallet';
+      return intl.formatMessage({ id: ETranslations.remove_hidden_wallet });
     }
     if (accountUtils.isHwOrQrWallet({ walletId: wallet?.id })) {
       if (isRemoveToMocked) {
-        return 'Remove standard wallet';
+        return intl.formatMessage({ id: ETranslations.remove_standard_wallet });
       }
       return intl.formatMessage({
         id: ETranslations.remove_device,
@@ -44,7 +44,8 @@ export function WalletRemoveButton({
 
   return (
     <ActionList.Item
-      icon={isRemoveToMocked ? 'XCircleOutline' : 'DeleteOutline'}
+      icon={isRemoveToMocked ? 'DeleteOutline' : 'XCircleOutline'}
+      destructive
       label={label}
       onClose={onClose}
       onPress={() => {
