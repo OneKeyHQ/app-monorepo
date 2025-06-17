@@ -43,6 +43,9 @@ export function TabSettingsListGrid({
   return item?.renderElement ? (
     cloneElement(item.renderElement, {
       titleMatch,
+      title: item.title,
+      icon: item.icon as IKeyOfIcons,
+      onPress: item?.onPress,
     })
   ) : (
     <TabSettingsListItem

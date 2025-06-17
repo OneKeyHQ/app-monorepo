@@ -51,6 +51,7 @@ import { exportLogs } from '../List/ResourceSection/StateLogsItem/logs';
 import {
   BiologyAuthListItem,
   CleanDataListItem,
+  CurrencyListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
@@ -219,9 +220,7 @@ export const useSettingsConfig: () => (
               title: intl.formatMessage({
                 id: ETranslations.settings_default_currency,
               }),
-              onPress: () => {
-                navigation.push(EModalSettingRoutes.SettingCurrencyModal);
-              },
+              renderElement: <CurrencyListItem />,
             },
             {
               icon: 'PaletteOutline',

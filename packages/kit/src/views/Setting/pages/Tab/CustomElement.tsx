@@ -60,11 +60,44 @@ import { handleOpenDevMode } from '../../utils/devMode';
 
 import { TabSettingsListItem } from './ListItem';
 
+export interface ICustomElementProps {
+  titleMatch?: IFuseResultMatch;
+  title?: string;
+  icon?: IKeyOfIcons;
+  onPress?: () => void;
+}
+
+export function CurrencyListItem({
+  titleMatch,
+  title,
+  icon,
+}: ICustomElementProps) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingCurrencyModal);
+  }, [navigation]);
+  const [settings] = useSettingsPersistAtom();
+  const text = settings.currencyInfo?.id ?? '';
+  return (
+    <ListItem
+      userSelect="none"
+      icon={icon}
+      title={title}
+      titleMatch={titleMatch}
+      drillIn
+      onPress={onPress}
+    >
+      <ListItem.Text primary={text.toUpperCase()} align="right" />
+    </ListItem>
+  );
+}
+
 export function LanguageListItem({
   titleMatch,
-}: {
-  titleMatch?: IFuseResultMatch;
-}) {
+  title,
+  icon,
+}: ICustomElementProps) {
   const locales = useLocaleOptions();
   const intl = useIntl();
   const [{ locale }] = useSettingsPersistAtom();
@@ -81,7 +114,7 @@ export function LanguageListItem({
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({ id: ETranslations.global_language })}
+      title={title || ''}
       items={locales}
       value={locale}
       onChange={onChange}
@@ -91,8 +124,8 @@ export function LanguageListItem({
       renderTrigger={({ label }) => (
         <ListItem
           userSelect="none"
-          icon="TranslateOutline"
-          title={intl.formatMessage({ id: ETranslations.global_language })}
+          icon={icon}
+          title={title}
           titleMatch={titleMatch}
         >
           <XStack>
@@ -107,9 +140,9 @@ export function LanguageListItem({
 
 export function ThemeListItem({
   titleMatch,
-}: {
-  titleMatch?: IFuseResultMatch;
-}) {
+  title,
+  icon,
+}: ICustomElementProps) {
   const [{ theme }] = useSettingsPersistAtom();
   const { setFreezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const intl = useIntl();
@@ -149,7 +182,7 @@ export function ThemeListItem({
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({ id: ETranslations.settings_theme })}
+      title={title || ''}
       items={options}
       value={theme}
       onChange={onChange}
@@ -157,8 +190,8 @@ export function ThemeListItem({
       renderTrigger={({ label }) => (
         <TabSettingsListItem
           userSelect="none"
-          icon="PaletteOutline"
-          title={intl.formatMessage({ id: ETranslations.settings_theme })}
+          icon={icon}
+          title={title}
           titleMatch={titleMatch}
         >
           <XStack>
@@ -173,15 +206,13 @@ export function ThemeListItem({
 
 function SuspenseBiologyAuthListItem({
   titleMatch,
-}: {
-  titleMatch?: IFuseResultMatch;
-}) {
+  title,
+  icon,
+}: ICustomElementProps) {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  const { title, icon } = useBiometricAuthInfo();
-
   return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
     <TabSettingsListItem icon={icon} title={title} titleMatch={titleMatch}>
       <UniversalContainerWithSuspense />
@@ -191,21 +222,25 @@ function SuspenseBiologyAuthListItem({
 
 export function BiologyAuthListItem({
   titleMatch,
-}: {
-  titleMatch?: IFuseResultMatch;
-}) {
+  title,
+  icon,
+}: ICustomElementProps) {
   return (
     <Suspense fallback={null}>
-      <SuspenseBiologyAuthListItem titleMatch={titleMatch} />
+      <SuspenseBiologyAuthListItem
+        titleMatch={titleMatch}
+        title={title}
+        icon={icon}
+      />
     </Suspense>
   );
 }
 
 export function CleanDataListItem({
   titleMatch,
-}: {
-  titleMatch?: IFuseResultMatch;
-}) {
+  title,
+  icon,
+}: ICustomElementProps) {
   const intl = useIntl();
   const resetApp = useResetApp();
   const navigation =
@@ -216,12 +251,12 @@ export function CleanDataListItem({
   return (
     <ActionList
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({ id: ETranslations.settings_clear_data })}
+      title={title || ''}
       renderTrigger={
         <TabSettingsListItem
-          title={intl.formatMessage({ id: ETranslations.settings_clear_data })}
+          title={title}
           titleMatch={titleMatch}
-          icon="FolderDeleteOutline"
+          icon={icon}
           testID="setting-clear-data"
         >
           <ListItem.DrillIn name="ChevronDownSmallOutline" />
@@ -278,10 +313,9 @@ export function CleanDataListItem({
 
 export function HardwareTransportTypeListItem({
   titleMatch,
-}: {
-  titleMatch?: IFuseResultMatch;
-}) {
-  const intl = useIntl();
+  title,
+  icon,
+}: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
 
   const transportOptions = useMemo(() => {
@@ -330,9 +364,7 @@ export function HardwareTransportTypeListItem({
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({
-        id: ETranslations.device_hardware_communication,
-      })}
+      title={title || ''}
       items={transportOptions}
       value={hardwareTransportType}
       onChange={onChange}
@@ -340,10 +372,8 @@ export function HardwareTransportTypeListItem({
       renderTrigger={({ label }) => (
         <TabSettingsListItem
           userSelect="none"
-          icon="UsbOutline"
-          title={intl.formatMessage({
-            id: ETranslations.device_hardware_communication,
-          })}
+          icon={icon}
+          title={title}
           titleMatch={titleMatch}
         >
           <XStack>
@@ -358,10 +388,9 @@ export function HardwareTransportTypeListItem({
 
 export function ListVersionItem({
   titleMatch,
-}: {
-  titleMatch?: IFuseResultMatch;
-}) {
-  const intl = useIntl();
+  title,
+  icon,
+}: ICustomElementProps) {
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
@@ -369,11 +398,9 @@ export function ListVersionItem({
   return appUpdateInfo.isNeedUpdate ? (
     <TabSettingsListItem
       onPress={handleToUpdatePreviewPage}
-      icon="InfoCircleOutline"
       iconProps={{ color: '$textInfo' }}
-      title={intl.formatMessage({
-        id: ETranslations.settings_app_update_available,
-      })}
+      title={title}
+      icon={icon}
       titleMatch={titleMatch}
       titleProps={{ color: '$textInfo' }}
       drillIn
@@ -390,8 +417,8 @@ export function ListVersionItem({
   ) : (
     <TabSettingsListItem
       onPress={appUpdateInfo.onViewReleaseInfo}
-      icon="InfoCircleOutline"
-      title={intl.formatMessage({ id: ETranslations.settings_whats_new })}
+      icon={icon}
+      title={title}
       titleMatch={titleMatch}
       drillIn
     >
