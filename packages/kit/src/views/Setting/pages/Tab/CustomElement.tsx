@@ -3,9 +3,11 @@ import { Suspense, useCallback, useContext, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type {
+  IIconProps,
   IKeyOfIcons,
   IPageNavigationProp,
   ISelectItem,
+  IStackProps,
 } from '@onekeyhq/components';
 import {
   ActionList,
@@ -59,6 +61,7 @@ import { useLocaleOptions, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
+import { useIsTabNavigator } from './config';
 import { TabSettingsListItem } from './ListItem';
 
 export interface ICustomElementProps {
@@ -463,12 +466,14 @@ function SocialButton({
   icon,
   url,
   text,
+  size,
   openInApp = false,
 }: {
   icon: IKeyOfIcons;
   url: string;
   text: string;
   openInApp?: boolean;
+  size?: IStackProps['h'];
 }) {
   const onPress = useCallback(() => {
     if (openInApp) {
@@ -482,9 +487,8 @@ function SocialButton({
       renderTrigger={
         <IconButton
           bg="$bgSubdued"
-          width="$14"
-          height="$14"
           icon={icon}
+          iconSize={size as IIconProps['size']}
           borderRadius="$full"
           onPress={onPress}
         />
@@ -496,7 +500,13 @@ function SocialButton({
 }
 
 // Special Support Button component that uses showIntercom
-function SupportButton({ text }: { text: string }) {
+function SupportButton({
+  text,
+  size,
+}: {
+  text: string;
+  size: IStackProps['h'];
+}) {
   const onPress = useCallback(() => {
     // Then show intercom support
     void showIntercom();
@@ -507,8 +517,7 @@ function SupportButton({ text }: { text: string }) {
       renderTrigger={
         <IconButton
           bg="$bgSubdued"
-          width="$14"
-          height="$14"
+          iconSize={size as IIconProps['size']}
           icon="HelpSupportOutline"
           borderRadius="$full"
           onPress={onPress}
@@ -524,6 +533,7 @@ export function SocialButtonGroup() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const isTabNavigator = useIsTabNavigator();
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
@@ -539,48 +549,57 @@ export function SocialButtonGroup() {
       copyText(`${versionString}-${platformEnv.githubSHA || ''}`),
     );
   }, [copyText, versionString]);
+  const socialButtonSize = isTabNavigator ? '$5' : '$14';
   return (
-    <YStack pt="$20">
-      <XStack justifyContent="center">
-        <XStack gap="$3" paddingVertical="$3" my="$3">
+    <YStack py="$4" gap="$3">
+      <XStack gap="$3">
+        <XStack gap={isTabNavigator ? '$1.5' : '$3'}>
           <SocialButton
             icon="OnekeyBrand"
             url={ONEKEY_URL}
             text={intl.formatMessage({
               id: ETranslations.global_official_website,
             })}
+            size={socialButtonSize}
           />
           <SocialButton
             icon="Xbrand"
             url={TWITTER_URL}
             text={intl.formatMessage({ id: ETranslations.global_x })}
+            size={socialButtonSize}
           />
           <SocialButton
             icon="GithubBrand"
             url={GITHUB_URL}
             text={intl.formatMessage({ id: ETranslations.global_github })}
+            size={socialButtonSize}
           />
           <SupportButton
             text={intl.formatMessage({
               id: ETranslations.settings_contact_us,
             })}
+            size={socialButtonSize}
           />
         </XStack>
       </XStack>
       <YStack
+        gap="$1.5"
         jc="center"
-        p="$4"
-        pt={0}
-        ai="center"
+        px={isTabNavigator ? '$2' : '$4'}
+        ai={isTabNavigator ? 'flex-start' : 'center'}
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText color="$textSubdued" onPress={handlePress}>
+        <SizableText
+          color="$textDisabled"
+          size="$bodySmMedium"
+          onPress={handlePress}
+        >
           {versionString}
         </SizableText>
         {!appUpdateInfo.latestVersion ||
         appUpdateInfo.latestVersion === platformEnv.version ? (
-          <SizableText color="$textSubdued" textAlign="center">
+          <SizableText color="$textDisabled" size="$bodySmMedium" ai="center">
             {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
           </SizableText>
         ) : null}
