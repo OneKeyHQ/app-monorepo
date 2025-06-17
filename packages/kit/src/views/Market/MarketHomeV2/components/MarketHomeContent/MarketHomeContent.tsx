@@ -1,4 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
+
+import { useDebouncedCallback } from 'use-debounce';
 
 import { Stack } from '@onekeyhq/components';
 
@@ -32,9 +34,14 @@ export function MarketHomeContent({
 }: IMarketHomeContentProps) {
   const [showSmallBar, setShowSmallBar] = useState(false);
 
-  const handleScrollOffsetChange = useCallback((offsetY: number) => {
+  // Use a debounced callback to avoid excessive state updates during fast scroll events
+  const handleScrollOffsetChange = useDebouncedCallback((offsetY: number) => {
     setShowSmallBar(offsetY > 50);
-  }, []);
+  }, 50);
+
+  useEffect(() => {
+    setShowSmallBar(false);
+  }, [selectedNetworkId]);
 
   return (
     <>
