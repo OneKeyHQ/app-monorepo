@@ -8,7 +8,7 @@ import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
@@ -61,7 +61,7 @@ export interface ISubSettingConfig {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
   };
-  onPress?: () => void;
+  onPress?: (navigation?: ReturnType<typeof useAppNavigation>) => void;
   renderElement?: React.ReactElement;
 }
 
@@ -94,7 +94,6 @@ export type ISettingsConfig = (
 export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -123,8 +122,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       ? ETranslations.settings_google_drive_backup
                       : ETranslations.settings_icloud_backup,
                   }),
-                  onPress: () => {
-                    navigation.pushModal(EModalRoutes.CloudBackupModal, {
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.CloudBackupModal, {
                       screen: ECloudBackupRoutes.CloudBackupHome,
                     });
                   },
@@ -139,13 +138,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 badgeSize: 'sm',
                 badgeText: 'Prime',
               },
-              onPress: () => {
+              onPress: (navigation) => {
                 if (isPrimeSubscriptionActive) {
-                  navigation.pushModal(EModalRoutes.PrimeModal, {
+                  navigation?.pushModal(EModalRoutes.PrimeModal, {
                     screen: EPrimePages.PrimeCloudSync,
                   });
                 } else {
-                  navigation.pushModal(EModalRoutes.PrimeModal, {
+                  navigation?.pushModal(EModalRoutes.PrimeModal, {
                     screen: EPrimePages.PrimeFeatures,
                     params: {
                       showAllFeatures: false,
@@ -164,8 +163,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_lite,
                   }),
-                  onPress: () => {
-                    navigation.pushModal(EModalRoutes.LiteCardModal, {
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.LiteCardModal, {
                       screen: ELiteCardRoutes.LiteCardHome,
                     });
                   },
@@ -176,9 +175,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_onekey_keytag,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 defaultLogger.setting.page.enterKeyTag();
-                navigation.pushModal(EModalRoutes.KeyTagModal, {
+                navigation?.pushModal(EModalRoutes.KeyTagModal, {
                   screen: EModalKeyTagRoutes.UserOptions,
                 });
               },
@@ -200,8 +199,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_default_wallet_settings,
                   }),
-                  onPress: () => {
-                    navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.DAppConnectionModal, {
                       screen: EDAppConnectionModal.DefaultWalletSettingsModal,
                     });
                   },
@@ -238,8 +237,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
-                  onPress: () => {
-                    navigation.push(EModalSettingRoutes.SettingNotifications);
+                  onPress: (
+                    navigation?: ReturnType<typeof useAppNavigation>,
+                  ) => {
+                    navigation?.push(EModalSettingRoutes.SettingNotifications);
                   },
                 }
               : undefined,
@@ -251,8 +252,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.setting_floating_icon,
                   }),
-                  onPress: () => {
-                    navigation.push(
+                  onPress: (navigation) => {
+                    navigation?.push(
                       EModalSettingRoutes.SettingFloatingIconModal,
                     );
                   },
@@ -286,8 +287,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_sync_modal_title,
                   }),
-                  onPress: () => {
-                    navigation.push(
+                  onPress: (navigation) => {
+                    navigation?.push(
                       EModalSettingRoutes.SettingAlignPrimaryAccount,
                     );
                   },
@@ -298,9 +299,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_customize_transaction,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 defaultLogger.setting.page.enterCustomizeTransaction();
-                navigation.push(EModalSettingRoutes.SettingCustomTransaction);
+                navigation?.push(EModalSettingRoutes.SettingCustomTransaction);
               },
             },
           ],
@@ -310,8 +311,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_account_derivation_path,
               }),
-              onPress: () => {
-                navigation.push(
+              onPress: (navigation) => {
+                navigation?.push(
                   EModalSettingRoutes.SettingAccountDerivationModal,
                 );
               },
@@ -382,8 +383,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_connected_sites,
               }),
-              onPress: () => {
-                navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+              onPress: (navigation) => {
+                navigation?.pushModal(EModalRoutes.DAppConnectionModal, {
                   screen: EDAppConnectionModal.ConnectionList,
                 });
               },
@@ -393,8 +394,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_signature_record,
               }),
-              onPress: () => {
-                navigation.push(
+              onPress: (navigation) => {
+                navigation?.push(
                   EModalSettingRoutes.SettingSignatureRecordModal,
                 );
               },
@@ -424,9 +425,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.custom_network_add_network_action_text,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 defaultLogger.setting.page.enterCustomRPC();
-                navigation.push(EModalSettingRoutes.SettingCustomNetwork);
+                navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
               },
             },
             {
@@ -434,9 +435,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.custom_rpc_title,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 defaultLogger.setting.page.enterCustomRPC();
-                navigation.push(EModalSettingRoutes.SettingCustomRPC);
+                navigation?.push(EModalSettingRoutes.SettingCustomRPC);
               },
             },
             platformEnv.isSupportWebUSB
@@ -454,7 +455,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_hardware_bridge_status,
                   }),
-                  onPress: () => {
+                  onPress: (navigation) => {
                     openUrlExternal(BRIDGE_STATUS_URL);
                   },
                 }
@@ -466,8 +467,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_network_config_label,
               }),
-              onPress: () => {
-                navigation.push(
+              onPress: (navigation) => {
+                navigation?.push(
                   EModalSettingRoutes.SettingExportCustomNetworkConfig,
                 );
               },
@@ -497,7 +498,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_help_center,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 openUrlExternal(helpCenterUrl);
               },
             },
@@ -506,7 +507,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_contact_us,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 openUrlExternal(requestUrl);
               },
             },
@@ -518,7 +519,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_rate_app,
                   }),
-                  onPress: () => {
+                  onPress: (navigation) => {
                     if (platformEnv.isExtension) {
                       let url = EXT_RATE_URL.chrome;
                       if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
@@ -543,7 +544,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_user_agreement,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 openUrlExternal(userAgreementUrl);
               },
             },
@@ -552,7 +553,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_privacy_policy,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 openUrlExternal(privacyPolicyUrl);
               },
             },
@@ -564,8 +565,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_shortcuts,
                   }),
-                  onPress: () => {
-                    navigation.pushModal(EModalRoutes.ShortcutsModal, {
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.ShortcutsModal, {
                       screen: EModalShortcutsRoutes.ShortcutsPreview,
                     });
                   },
@@ -578,7 +579,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: () => {
+              onPress: (navigation) => {
                 Dialog.show({
                   icon: 'FileDownloadOutline',
                   title: intl.formatMessage({
@@ -665,7 +666,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isPasswordSet,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
-      navigation,
       isPrimeSubscriptionActive,
       onPressAddressBook,
       helpCenterUrl,
