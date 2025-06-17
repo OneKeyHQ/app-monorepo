@@ -83,7 +83,10 @@ export type ISettingsConfig = (
       icon: string;
       title: string;
       name: ESettingsTabNames;
-      Component?: ComponentType<{ name: string }>;
+      Component?: ComponentType<{
+        name: string;
+        settingsConfig: ISettingsConfig;
+      }>;
       configs: (ISubSettingConfig | undefined | null)[][];
     }
   | undefined
