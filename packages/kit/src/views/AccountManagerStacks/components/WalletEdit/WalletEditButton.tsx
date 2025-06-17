@@ -183,16 +183,16 @@ function WalletEditButtonView({
             </>
           ) : null}
 
-          {showRemoveDeviceButton ? (
+          {showRemoveWalletButton ? (
             <WalletRemoveButton
+              isRemoveToMocked
               wallet={wallet}
               onClose={handleActionListClose}
             />
           ) : null}
 
-          {showRemoveWalletButton ? (
+          {showRemoveDeviceButton ? (
             <WalletRemoveButton
-              isRemoveToMocked
               wallet={wallet}
               onClose={handleActionListClose}
             />
