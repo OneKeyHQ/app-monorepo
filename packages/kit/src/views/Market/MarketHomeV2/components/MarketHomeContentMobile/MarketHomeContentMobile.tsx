@@ -32,11 +32,9 @@ export function MarketHomeContentMobile({
   activeTab,
   onTabChange,
 }: IMarketHomeContentMobileProps) {
-  // Page components with actual market content
   const WatchlistPageComponent = useCallback(
     () => (
       <Stack flex={1}>
-        <MarketFilterBarSmall {...filterBarProps} />
         <MarketTokenList
           networkId={selectedNetworkId}
           liquidityFilter={liquidityFilter}
@@ -44,7 +42,7 @@ export function MarketHomeContentMobile({
         />
       </Stack>
     ),
-    [filterBarProps, selectedNetworkId, liquidityFilter],
+    [selectedNetworkId, liquidityFilter],
   );
 
   const TrendingPageComponent = useCallback(

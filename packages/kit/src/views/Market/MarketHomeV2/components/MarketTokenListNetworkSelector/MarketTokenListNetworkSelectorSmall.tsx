@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Button, Image, SizableText, XStack } from '@onekeyhq/components';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import MarketTokenListNetworkSelectorSmallSkeleton from './MarketTokenListNetworkSelectorSmallSkeleton';
@@ -22,23 +22,12 @@ interface ICustomTriggerProps {
 
 const CustomTrigger = memo(
   ({ isOpen, onPress, currentSelectNetwork }: ICustomTriggerProps) => (
-    <XStack
+    <Button
       onPress={onPress}
-      hoverStyle={{
-        opacity: 0.8,
-      }}
-      pressStyle={{
-        opacity: 0.6,
-      }}
-      cursor="pointer"
-      alignItems="center"
-      justifyContent="space-between"
-      paddingVertical="$2"
-      paddingHorizontal="$2"
-      borderRadius="$2"
-      backgroundColor="$bgSubdued"
+      variant="tertiary"
+      size="small"
+      iconAfter={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
     >
-      {/* Current Network Display */}
       <XStack alignItems="center" gap="$2" flex={1}>
         {currentSelectNetwork?.logoURI ? (
           <Image
@@ -52,13 +41,7 @@ const CustomTrigger = memo(
           {currentSelectNetwork?.name || 'Select Network'}
         </SizableText>
       </XStack>
-
-      <Icon
-        name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-        size="$4"
-        color="$iconSubdued"
-      />
-    </XStack>
+    </Button>
   ),
 );
 
@@ -85,22 +68,16 @@ function MarketTokenListNetworkSelectorSmall({
   );
 
   if (isLoading || forceLoading) {
-    return (
-      <Stack paddingVertical="$3" paddingHorizontal="$5">
-        <MarketTokenListNetworkSelectorSmallSkeleton />
-      </Stack>
-    );
+    return <MarketTokenListNetworkSelectorSmallSkeleton />;
   }
 
   return (
-    <Stack paddingVertical="$3" paddingHorizontal="$5">
-      <MoreButton
-        networks={marketNetworks}
-        selectedNetworkId={currentSelectNetwork?.networkId}
-        onNetworkSelect={onSelectCurrentNetwork}
-        customTrigger={customTrigger}
-      />
-    </Stack>
+    <MoreButton
+      networks={marketNetworks}
+      selectedNetworkId={currentSelectNetwork?.networkId}
+      onNetworkSelect={onSelectCurrentNetwork}
+      customTrigger={customTrigger}
+    />
   );
 }
 
