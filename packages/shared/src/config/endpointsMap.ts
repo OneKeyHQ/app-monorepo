@@ -107,7 +107,7 @@ type IEndpointCheckResponse = {
 
 const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
   try {
-    const requestUrl = `https://wallet.${ONEKEY_API_HOST}/wallet/v1/endpoint`;
+    const requestUrl = `https://by-wallet.${ONEKEY_API_HOST}/wallet/v1/endpoint`;
 
     // Create clean axios instance without interceptors
     const cleanAxios = axios.create({
@@ -134,36 +134,20 @@ const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
       .wait(timerUtils.getTimeDurationMs({ seconds: 2 }))
       .then(() => 'timeout' as const);
 
-    // Use Promise.allSettled to race between API call and timeout
-    const results = await Promise.allSettled([
-      apiRequestPromise,
-      timeoutPromise,
-    ]);
-
-    // Check if API request completed successfully within 2 seconds
-    const apiResult = results[0];
-    const timeoutResult = results[1];
+    // Use Promise.race to get the first completed result
+    const result = await Promise.race([apiRequestPromise, timeoutPromise]);
 
     // If timeout reached first, return no prefix
-    if (
-      timeoutResult.status === 'fulfilled' &&
-      timeoutResult.value === 'timeout'
-    ) {
+    if (result === 'timeout') {
       console.warn(
         'Endpoint prefix check timed out after 2s, using default endpoints',
       );
       return undefined;
     }
 
-    // If API request succeeded, check the response
-    if (apiResult.status === 'fulfilled') {
-      const response = apiResult.value;
-      if (
-        response.data?.code === 0 &&
-        response.data?.data?.withByPrefix === true
-      ) {
-        return 'by';
-      }
+    // If API request completed first, check the response
+    if (result.data?.code === 0 && result.data?.data?.withByPrefix === true) {
+      return 'by';
     }
 
     return undefined; // No prefix needed or API failed
