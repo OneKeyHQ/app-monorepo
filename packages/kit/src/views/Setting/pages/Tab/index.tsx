@@ -111,7 +111,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           />
         );
       }),
-    [routes, state.index, state.key, descriptors, navigation],
+    [routes, state.index, state.key, descriptors, navigation, previousTabRoute],
   );
 
   const { top, bottom } = useSafeAreaInsets();
