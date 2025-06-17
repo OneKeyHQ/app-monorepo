@@ -1,10 +1,4 @@
-import {
-  forwardRef,
-  memo,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from 'react';
+import { forwardRef, memo, useImperativeHandle, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
@@ -58,7 +52,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
     );
 
     return (
-      <Stack paddingVertical="$3" paddingHorizontal="$5">
+      <Stack>
         {isLoading || forceLoading ? (
           <MarketTokenListNetworkSelectorNormalSkeleton />
         ) : (
