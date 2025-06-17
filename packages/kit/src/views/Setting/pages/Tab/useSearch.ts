@@ -63,7 +63,6 @@ export const useSearch = () => {
         icon: sections[key][0]?.item?.sectionIcon || '',
         configs: sections[key] as FuseResult<ISubSettingConfig>[],
       }));
-      setSearchResult(list);
       if (isTabNavigator) {
         rootNavigationRef.current?.navigate(
           EModalSettingRoutes.SettingListModal,
@@ -71,17 +70,29 @@ export const useSearch = () => {
             screen: ESettingsTabNames.Search,
           },
         );
-        appEventBus.emit(EAppEventBusNames.SettingsSearchResult, {
-          list,
-          searchText,
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.SettingsSearchResult,
+          payload: {
+            list,
+            searchText,
+          },
+          cloned: false,
         });
+      } else {
+        setSearchResult(list);
       }
     },
     [isTabNavigator, searchFuse],
   );
-  return {
-    isSearching: searchTextRef.current.length > 0,
-    searchResult,
-    onSearch,
-  };
+  return isTabNavigator
+    ? {
+        isSearching: false,
+        searchResult: [],
+        onSearch,
+      }
+    : {
+        isSearching: searchTextRef.current.length > 0,
+        searchResult,
+        onSearch,
+      };
 };

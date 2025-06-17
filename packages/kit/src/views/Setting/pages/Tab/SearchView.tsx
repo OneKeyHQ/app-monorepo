@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,6 +15,8 @@ import {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 
@@ -126,6 +128,25 @@ export function SearchViewPage() {
       configs: FuseResult<ISubSettingConfig>[];
     }[]
   >([]);
+  const title = useMemo(() => {
+    return (
+      <SizableText color="$textSubdued" size="$headingLg">
+        {intl.formatMessage(
+          {
+            id: ETranslations.settings_search_title,
+          },
+          {
+            keyword: (
+              <SizableText color="$text" size="$headingLg">
+                {searchText}
+              </SizableText>
+            ),
+          },
+        )}
+      </SizableText>
+    );
+  }, [intl, searchText]);
+
   useEffect(() => {
     const callback = ({
       list,
@@ -146,18 +167,10 @@ export function SearchViewPage() {
       appEventBus.off(EAppEventBusNames.SettingsSearchResult, callback);
     };
   }, []);
-  console.log('searchText', searchText, searchResult);
   const isSearching = searchText.length > 0;
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage(
-          {
-            id: ETranslations.settings_search_title,
-          },
-          { keyword: searchText },
-        )}
-      />
+      <Page.Header title={title as unknown as string} />
       <Page.Body>
         <SearchView isSearching={isSearching} sections={searchResult} />
       </Page.Body>
