@@ -1900,6 +1900,8 @@
   passphrase_allowed_characters_desc = 'passphrase_allowed_characters_desc',
   passphrase_allowed_characters_title = 'passphrase_allowed_characters_title',
   passphrase_character_limit = 'passphrase_character_limit',
+  passphrase_disabled_dialog_desc = 'passphrase_disabled_dialog_desc',
+  passphrase_disabled_dialog_title = 'passphrase_disabled_dialog_title',
   prime_about_onekey_prime = 'prime.about_onekey_prime',
   prime_agree_to_terms = 'prime.agree_to_terms',
   prime_agree_to_terms_privacy = 'prime.agree_to_terms_privacy',

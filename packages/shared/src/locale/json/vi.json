@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "Chữ cái, số & ký hiệu (ASCII 32-126)",
   "passphrase_allowed_characters_title": "Các ký tự được phép",
   "passphrase_character_limit": "Tối đa 50 ký tự",
+  "passphrase_disabled_dialog_desc": "Bật Passphrase trên thiết bị của bạn để tạo ví ẩn.",
+  "passphrase_disabled_dialog_title": "Không thể tạo ví ẩn",
   "prime.about_onekey_prime": "Tìm hiểu OneKey Prime",
   "prime.agree_to_terms": "Tiếp tục có nghĩa là bạn đồng ý với <link>Điều khoản OneKey Prime</link>.",
   "prime.agree_to_terms_privacy": "Khi đăng ký OneKey Prime, bạn đồng ý với <termsTag>Điều khoản Dịch vụ OneKey Prime</termsTag> và <privacyTag>Chính sách Bảo mật</privacyTag>.",

@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "字母、数字和符号（ASCII 32-126）",
   "passphrase_allowed_characters_title": "允许的字符",
   "passphrase_character_limit": "最多 50 个字符",
+  "passphrase_disabled_dialog_desc": "在您的设备上启用 Passphrase 以创建隐藏钱包。",
+  "passphrase_disabled_dialog_title": "无法创建隐藏钱包",
   "prime.about_onekey_prime": "了解 OneKey Prime",
   "prime.agree_to_terms": "继续表示您同意 <link>OneKey Prime Terms</link>。",
   "prime.agree_to_terms_privacy": "订阅 OneKey Prime 即表示您同意 <termsTag>OneKey Prime 服务条款</termsTag> 和 <privacyTag>隐私政策</privacyTag>。",
