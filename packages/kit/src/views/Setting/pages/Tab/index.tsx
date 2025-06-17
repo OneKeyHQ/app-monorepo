@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
+import { Keyboard } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -19,7 +20,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { HideOnSideBarTabNames, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
-import { SubSettings } from './SubSettings';
+import { SubSearchSettings, SubSettings } from './SubSettings';
 import { useIsTabNavigator } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
@@ -28,7 +29,6 @@ import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
-import { Keyboard } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 
@@ -164,7 +164,7 @@ function SettingsTabNavigator() {
           }}
         >
           {Component
-            ? () => <Component name={title} settingsConfig={settingsConfig} />
+            ? () => <SubSearchSettings name={title} />
             : () => (
                 <SubSettings name={title} settingsConfig={settingsConfig} />
               )}
