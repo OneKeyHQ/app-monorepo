@@ -52,6 +52,9 @@ export const useSearch = () => {
 
   const isTabNavigator = useIsTabNavigator();
   const searchTextRef = useRef<string>('');
+  const previousTabRoute = useRef<ESettingsTabNames>(
+    settingsConfig[0]?.name || ESettingsTabNames.Backup,
+  );
   const onSearch = useCallback(
     (searchText: string) => {
       searchTextRef.current = searchText;
@@ -67,7 +70,10 @@ export const useSearch = () => {
         rootNavigationRef.current?.navigate(
           EModalSettingRoutes.SettingListModal,
           {
-            screen: ESettingsTabNames.Search,
+            screen:
+              searchText.length === 0 && previousTabRoute.current
+                ? previousTabRoute.current
+                : ESettingsTabNames.Search,
           },
         );
         appEventBus.emitToSelf({
@@ -84,15 +90,19 @@ export const useSearch = () => {
     },
     [isTabNavigator, searchFuse],
   );
-  return isTabNavigator
-    ? {
-        isSearching: false,
-        searchResult: [],
-        onSearch,
-      }
-    : {
-        isSearching: searchTextRef.current.length > 0,
-        searchResult,
-        onSearch,
-      };
+  return useMemo(() => {
+    return isTabNavigator
+      ? {
+          isSearching: false,
+          searchResult: [],
+          onSearch,
+          previousTabRoute,
+        }
+      : {
+          isSearching: searchTextRef.current.length > 0,
+          searchResult,
+          onSearch,
+          previousTabRoute,
+        };
+  }, [isTabNavigator, onSearch, previousTabRoute, searchResult]);
 };
