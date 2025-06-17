@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
+import { forceRefreshEndpointCheck } from '../config/endpointsMap';
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
@@ -32,6 +33,72 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 const refreshNetInfo = debounce(() => {
   appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
 }, 2500);
+
+// Helper function to check if we should attempt fallback
+async function shouldAttemptFallback(
+  config: AxiosRequestConfig,
+  errorOrBusinessCode?: AxiosError | number,
+): Promise<boolean> {
+  if (!config) return false;
+
+  try {
+    // Check if this is already a fallback request
+    if ((config as any)._isFallbackRequest) return false;
+
+    // Check if this is a OneKey domain request
+    const isOneKeyDomain = await checkRequestIsOneKeyDomain({
+      config: config as any,
+    });
+    if (!isOneKeyDomain) return false;
+
+    // Check if the URL uses by- prefix
+    const url = config.baseURL || config.url || '';
+    const hasByPrefix = /^https:\/\/by-/.test(url);
+    if (!hasByPrefix) return false;
+
+    // If no error/code provided, fallback based on prefix only
+    if (errorOrBusinessCode === undefined) return true;
+
+    // Handle business error (number)
+    if (typeof errorOrBusinessCode === 'number') {
+      // Any non-zero business code indicates failure and warrants fallback
+      return errorOrBusinessCode !== 0;
+    }
+
+    // Handle network error (AxiosError)
+    const error = errorOrBusinessCode;
+    const isNetworkError =
+      error.code === AxiosError.ERR_NETWORK ||
+      error.message === 'Network Error';
+    const isServerError =
+      error.response?.status && error.response.status >= 500;
+    const isTimeoutError = error.code === AxiosError.ETIMEDOUT;
+
+    return isNetworkError || isServerError || isTimeoutError;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Helper function to create fallback config with removed prefix
+function createFallbackConfig(
+  originalConfig: AxiosRequestConfig,
+): AxiosRequestConfig {
+  const newConfig = { ...originalConfig };
+
+  // Remove by- prefix from URL
+  if (newConfig.baseURL) {
+    newConfig.baseURL = newConfig.baseURL.replace(/^https:\/\/by-/, 'https://');
+  }
+  if (newConfig.url) {
+    newConfig.url = newConfig.url.replace(/^https:\/\/by-/, 'https://');
+  }
+
+  // Mark as fallback request to prevent loops
+  (newConfig as any)._isFallbackRequest = true;
+
+  return newConfig;
+}
 
 axios.interceptors.request.use(async (config) => {
   if (config.timeout === undefined) {
@@ -99,6 +166,28 @@ axios.interceptors.response.use(
     const data = response.data as IOneKeyAPIBaseResponse;
 
     if ((config as any).autoHandleError !== false && data.code !== 0) {
+      // Check if we should attempt fallback for business errors
+      if (await shouldAttemptFallback(config, data.code)) {
+        try {
+          const fallbackConfig = createFallbackConfig(config);
+          forceRefreshEndpointCheck(); // Clear prefix cache immediately
+
+          // Create new axios instance to avoid interceptor loops
+          const fallbackAxios = axios.create({
+            timeout: config.timeout || 30_000,
+          });
+
+          const fallbackResponse = await fallbackAxios.request(fallbackConfig);
+          return fallbackResponse;
+        } catch (fallbackError) {
+          // If fallback also fails, continue with original error handling
+          console.warn(
+            'Business error fallback request also failed:',
+            fallbackError,
+          );
+        }
+      }
+
       const requestIdKey = HEADER_REQUEST_ID_KEY;
       if (platformEnv.isDev) {
         console.error(requestIdKey, config.headers[requestIdKey]);
@@ -137,7 +226,30 @@ axios.interceptors.response.use(
     return response;
   },
   async (error) => {
-    const { response } = error;
+    const { response, config: originalConfig } = error;
+
+    // Check if we should attempt fallback
+    if (
+      originalConfig &&
+      (await shouldAttemptFallback(originalConfig, error))
+    ) {
+      try {
+        const fallbackConfig = createFallbackConfig(originalConfig);
+        forceRefreshEndpointCheck(); // Clear prefix cache immediately
+
+        // Create new axios instance to avoid interceptor loops
+        const fallbackAxios = axios.create({
+          timeout: originalConfig.timeout || 30_000,
+        });
+
+        const fallbackResponse = await fallbackAxios.request(fallbackConfig);
+        return fallbackResponse;
+      } catch (fallbackError) {
+        // If fallback also fails, continue with original error handling
+        console.warn('Fallback request also failed:', fallbackError);
+      }
+    }
+
     if (response?.status && response?.config) {
       const config = response.config;
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({

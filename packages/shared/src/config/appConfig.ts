@@ -63,14 +63,19 @@ export const buildServiceEndpoint = ({
   serviceName,
   env,
   isWebSocket,
+  prefix,
 }: {
   serviceName: EServiceEndpointEnum;
   env: IEndpointEnv;
   isWebSocket?: boolean;
-}) =>
-  `${isWebSocket ? 'wss' : 'https'}://${serviceName}.${
-    env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST
-  }`;
+  prefix?: string;
+}) => {
+  const baseHost = env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST;
+  const prefixedServiceName = prefix ? `${prefix}-${serviceName}` : serviceName;
+  return `${
+    isWebSocket ? 'wss' : 'https'
+  }://${prefixedServiceName}.${baseHost}`;
+};
 
 export const CHAIN_SELECTOR_LOGO =
   'https://uni.onekey-asset.com/static/logo/chain_selector_logo.png';
