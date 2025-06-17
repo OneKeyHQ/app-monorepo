@@ -1109,7 +1109,11 @@ class ServiceStaking extends ServiceBase {
           networkId,
           accountId,
         });
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.id,
+      });
       return {
+        walletId,
         accountId: account.id,
         networkId,
         accountAddress,
@@ -1138,7 +1142,11 @@ class ServiceStaking extends ServiceBase {
           networkId,
           accountId: networkAccount.id,
         });
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: networkAccount.id,
+      });
       return {
+        walletId,
         accountId: networkAccount.id,
         networkId,
         accountAddress,
