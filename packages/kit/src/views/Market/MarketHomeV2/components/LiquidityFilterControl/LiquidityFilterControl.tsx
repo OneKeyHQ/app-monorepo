@@ -31,8 +31,10 @@ function LiquidityFilterControl({
     id: ETranslations.global_liquidity,
   });
   const buttonText = formatLiquidityFilterDisplay(valueProp, liquidityText);
-  const hasFilter = valueProp && (valueProp.min || valueProp.max);
   const popoverTitle = `${liquidityText} ($)`;
+
+  // Check if there are any filter values applied
+  const hasFilterValue = Boolean(valueProp && (valueProp.min || valueProp.max));
 
   return (
     <Popover
@@ -41,8 +43,9 @@ function LiquidityFilterControl({
       onOpenChange={setIsOpen}
       renderTrigger={
         <Button
-          variant={hasFilter ? 'primary' : 'secondary'}
+          variant="tertiary"
           size="small"
+          iconAfter={!hasFilterValue ? 'ChevronDownSmallOutline' : undefined}
           {...rest}
         >
           {buttonText}

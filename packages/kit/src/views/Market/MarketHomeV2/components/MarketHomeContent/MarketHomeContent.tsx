@@ -30,38 +30,43 @@ export function MarketHomeContent({
   liquidityFilter,
   activeTab,
 }: IMarketHomeContentProps) {
-  // Show compact filter bar after user scrolls past the initial large bar.
   const [showSmallBar, setShowSmallBar] = useState(false);
 
   const handleScrollOffsetChange = useCallback((offsetY: number) => {
-    // Threshold can be tweaked; 100px works well for desktop list.
-    setShowSmallBar(offsetY > 10);
+    setShowSmallBar(offsetY > 50);
   }, []);
 
   return (
     <>
       <Stack>
         {/* Normal (large) filter bar shown when list is at top */}
-        <MarketFilterBar {...filterBarProps} />
+        <Stack
+          opacity={showSmallBar ? 0 : 1}
+          height={showSmallBar ? 50 : 120}
+          animation="quick"
+        >
+          <MarketFilterBar {...filterBarProps} />
+        </Stack>
 
-        {showSmallBar ? (
-          <Stack
-            position="absolute"
-            bottom={0}
-            left={0}
-            right={0}
-            zIndex={1000}
-          >
-            <MarketFilterBarSmall {...filterBarProps} />
-          </Stack>
-        ) : undefined}
+        <Stack
+          position="absolute"
+          top={showSmallBar ? -50 : 0}
+          left={0}
+          right={0}
+          zIndex={1000}
+          opacity={showSmallBar ? 1 : 0}
+          pointerEvents={showSmallBar ? 'auto' : 'none'}
+          animation="quick"
+        >
+          <MarketFilterBarSmall {...filterBarProps} />
+        </Stack>
       </Stack>
 
       <MarketTokenList
         networkId={selectedNetworkId}
         liquidityFilter={liquidityFilter}
         onScrollOffsetChange={handleScrollOffsetChange}
-        defaultShowWatchlistOnly
+        defaultShowWatchlistOnly={activeTab === EMarketHomeTab.Watchlist}
         key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
       />
     </>
