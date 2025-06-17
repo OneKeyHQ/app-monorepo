@@ -1,6 +1,7 @@
 import { forwardRef, memo, useImperativeHandle, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import type { IPopoverProps } from '@onekeyhq/components';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import MarketNetworkFilter from './MarketNetworkFilter';
@@ -15,6 +16,7 @@ interface IMarketTokenListNetworkSelectorNormalProps {
   handleMoreNetworkSelect: (network: ISwapNetwork) => void;
   isLoading?: boolean;
   forceLoading?: boolean;
+  placement?: IPopoverProps['placement'];
 }
 
 export interface IMarketTokenListNetworkSelectorNormalRef {
@@ -33,6 +35,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       handleMoreNetworkSelect,
       isLoading,
       forceLoading,
+      placement,
     },
     ref,
   ) => {
@@ -62,6 +65,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
             selectedNetwork={currentSelectNetwork}
             onSelectNetwork={onSelectCurrentNetwork}
             onMoreNetworkSelect={handleMoreNetworkSelect}
+            placement={placement}
           />
         )}
       </Stack>

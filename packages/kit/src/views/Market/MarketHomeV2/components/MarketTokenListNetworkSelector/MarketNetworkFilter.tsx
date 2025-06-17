@@ -3,6 +3,7 @@ import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ScrollView, XStack } from '@onekeyhq/components';
+import type { IPopoverProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
@@ -17,6 +18,7 @@ interface ISwapNetworkToggleGroupProps {
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
   onMoreNetworkSelect: (network: ISwapNetwork) => void;
+  placement?: IPopoverProps['placement'];
 }
 
 export interface IMarketNetworkFilterRef {
@@ -28,7 +30,13 @@ const MarketNetworkFilter = forwardRef<
   ISwapNetworkToggleGroupProps
 >(
   (
-    { networks, selectedNetwork, onSelectNetwork, onMoreNetworkSelect },
+    {
+      networks,
+      selectedNetwork,
+      onSelectNetwork,
+      onMoreNetworkSelect,
+      placement,
+    },
     ref,
   ) => {
     const intl = useIntl();
@@ -122,6 +130,7 @@ const MarketNetworkFilter = forwardRef<
           networks={networks}
           selectedNetworkId={selectedNetwork?.networkId}
           onNetworkSelect={onMoreNetworkSelect}
+          placement={placement}
         />
       </XStack>
     );

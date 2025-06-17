@@ -61,6 +61,7 @@ function MarketFilterBarSmall({
         onSelectNetworkId={handleNetworkIdChange}
         size="small"
         forceLoading={isLoading}
+        placement="bottom-start"
       />
 
       {/* Time Range Selector */}

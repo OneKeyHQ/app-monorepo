@@ -50,7 +50,7 @@ export function MarketHomeContent({
 
         <Stack
           position="absolute"
-          top={showSmallBar ? -50 : 0}
+          top={showSmallBar ? 0 : -50}
           left={0}
           right={0}
           zIndex={1000}

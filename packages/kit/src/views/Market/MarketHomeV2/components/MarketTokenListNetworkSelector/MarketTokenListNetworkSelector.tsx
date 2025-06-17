@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { IPopoverProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
@@ -14,6 +15,7 @@ interface IMarketTokenListNetworkSelectorProps {
   onSelectNetworkId?: (networkId: string) => void;
   forceLoading?: boolean;
   size?: 'normal' | 'small';
+  placement?: IPopoverProps['placement'];
 }
 
 function MarketTokenListNetworkSelector({
@@ -21,6 +23,7 @@ function MarketTokenListNetworkSelector({
   onSelectNetworkId,
   forceLoading,
   size = 'normal',
+  placement,
 }: IMarketTokenListNetworkSelectorProps) {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
@@ -86,6 +89,7 @@ function MarketTokenListNetworkSelector({
         onSelectCurrentNetwork={onSelectCurrentNetwork}
         isLoading={isLoading}
         forceLoading={forceLoading}
+        placement={placement}
       />
     );
   }
@@ -99,6 +103,7 @@ function MarketTokenListNetworkSelector({
       handleMoreNetworkSelect={handleMoreNetworkSelect}
       isLoading={isLoading}
       forceLoading={forceLoading}
+      placement={placement}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Popover } from '@onekeyhq/components';
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IPopoverProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
@@ -17,6 +17,7 @@ interface IMoreButtonProps
     Omit<INetworksSearchPanelProps, 'networkId'> {
   selectedNetworkId?: string;
   customTrigger?: (isOpen: boolean, onPress: () => void) => ReactNode;
+  placement?: IPopoverProps['placement'];
 }
 
 const MoreButton: FC<IMoreButtonProps> = ({
@@ -24,6 +25,7 @@ const MoreButton: FC<IMoreButtonProps> = ({
   selectedNetworkId,
   onNetworkSelect,
   customTrigger,
+  placement,
   ...rest
 }) => {
   const intl = useIntl();
@@ -63,9 +65,10 @@ const MoreButton: FC<IMoreButtonProps> = ({
 
   return (
     <Popover
-      title="Select Network"
+      title={intl.formatMessage({ id: ETranslations.global_select_network })}
       open={isOpen}
       onOpenChange={setIsOpen}
+      placement={placement}
       renderContent={
         <NetworksSearchPanel
           networks={networks}
