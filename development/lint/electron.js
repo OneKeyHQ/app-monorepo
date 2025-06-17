@@ -27,7 +27,7 @@ try {
   if (!fs.existsSync(distAppPath)) {
     throw new Error(`Build output file not found: ${distAppPath}`);
   }
-  const expectedAppName = 'APP_NAME = "OneKey Walletaaaa"';
+  const expectedAppName = 'APP_NAME = "OneKey Wallet"';
   try {
     const shellCommand = `grep '${expectedAppName}' "${distAppPath}"`;
     console.log(shellCommand);
