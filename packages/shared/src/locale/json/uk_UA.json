@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "Літери, цифри та символи (ASCII 32-126)",
   "passphrase_allowed_characters_title": "Дозволені символи",
   "passphrase_character_limit": "Максимум 50 символів",
+  "passphrase_disabled_dialog_desc": "Увімкніть Passphrase на вашому пристрої, щоб створювати приховані гаманці.",
+  "passphrase_disabled_dialog_title": "Не вдається створити прихований гаманець",
   "prime.about_onekey_prime": "Дізнайтеся про OneKey Prime",
   "prime.agree_to_terms": "Продовжуючи, ви погоджуєтеся з <link>OneKey Prime Terms</link>.",
   "prime.agree_to_terms_privacy": "Оформлюючи підписку на OneKey Prime, ви приймаєте <termsTag>Умови використання OneKey Prime</termsTag> та <privacyTag>Політику конфіденційності</privacyTag>.",

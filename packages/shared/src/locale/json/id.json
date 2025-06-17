@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "Huruf, angka & simbol (ASCII 32-126)",
   "passphrase_allowed_characters_title": "Karakter yang diizinkan",
   "passphrase_character_limit": "Maksimal 50 karakter",
+  "passphrase_disabled_dialog_desc": "Aktifkan Passphrase di perangkat Anda untuk membuat dompet tersembunyi.",
+  "passphrase_disabled_dialog_title": "Tidak dapat membuat dompet tersembunyi",
   "prime.about_onekey_prime": "Mengenal OneKey Prime",
   "prime.agree_to_terms": "Melanjutkan berarti Anda setuju dengan <link>OneKey Prime Terms</link>.",
   "prime.agree_to_terms_privacy": "Dengan berlangganan OneKey Prime, Anda menyetujui <termsTag>Syarat dan Ketentuan OneKey Prime</termsTag> serta <privacyTag>Kebijakan Privasi</privacyTag>.",

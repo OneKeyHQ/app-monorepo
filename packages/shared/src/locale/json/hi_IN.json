@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "अक्षर, संख्या और प्रतीक (ASCII 32-126)",
   "passphrase_allowed_characters_title": "अनुमत वर्ण",
   "passphrase_character_limit": "अधिकतम 50 वर्ण",
+  "passphrase_disabled_dialog_desc": "अपने डिवाइस पर Passphrase सक्षम करें ताकि छिपे हुए वॉलेट बनाए जा सकें।",
+  "passphrase_disabled_dialog_title": "छिपा हुआ वॉलेट नहीं बना सकते",
   "prime.about_onekey_prime": "OneKey Prime का परिचय",
   "prime.agree_to_terms": "जारी रखने का मतलब है कि आप <link>OneKey Prime Terms</link> से सहमत हैं।",
   "prime.agree_to_terms_privacy": "OneKey Prime की सदस्यता लेने से आप <termsTag>OneKey Prime की शर्तों</termsTag> और <privacyTag>गोपनीयता नीति</privacyTag> से सहमति देते हैं।",
