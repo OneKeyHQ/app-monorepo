@@ -20,7 +20,7 @@ import type { ColorTokens, FontSizeTokens, ThemeableStackProps } from 'tamagui';
 
 export interface IButtonProps extends ThemeableStackProps {
   type?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
-  size?: 'small' | 'medium' | 'large';
+  size?: 'xsmall' | 'small' | 'medium' | 'large';
   variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive';
   icon?: IKeyOfIcons;
   iconAfter?: IKeyOfIcons;
@@ -133,6 +133,12 @@ export const getSharedButtonStyles = ({
 const useSizeStyles = (size: IButtonProps['size']) =>
   useMemo(() => {
     const sizes = {
+      xsmall: {
+        py: '$0.5',
+        px: '$2',
+        borderRadius: getTokenValue('$size.2'),
+        textVariant: '$bodySmMedium',
+      },
       small: {
         py: '$1',
         px: '$2.5',
@@ -168,7 +174,14 @@ function ButtonIcon({
   size,
   ...props
 }: Pick<IButtonProps, 'size'> & Omit<IIconProps, 'size'>) {
-  return <Icon size={size === 'small' ? '$4.5' : '$5'} {...props} />;
+  let iconSize = '$5';
+  if (size === 'xsmall') {
+    iconSize = '$4';
+  } else if (size === 'small') {
+    iconSize = '$4.5';
+  }
+
+  return <Icon size={iconSize} {...props} />;
 }
 
 type ISharedFrameStylesProps = {

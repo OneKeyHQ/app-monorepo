@@ -45,6 +45,8 @@ function LiquidityFilterControl({
         <Button
           variant="tertiary"
           size="small"
+          color="$text"
+          iconColor="$icon"
           iconAfter={!hasFilterValue ? 'ChevronDownSmallOutline' : undefined}
           {...rest}
         >

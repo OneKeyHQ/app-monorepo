@@ -62,13 +62,15 @@ export function MarketHomeContent({
         </Stack>
       </Stack>
 
-      <MarketTokenList
-        networkId={selectedNetworkId}
-        liquidityFilter={liquidityFilter}
-        onScrollOffsetChange={handleScrollOffsetChange}
-        defaultShowWatchlistOnly={activeTab === EMarketHomeTab.Watchlist}
-        key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
-      />
+      <Stack px="$5" flex={1}>
+        <MarketTokenList
+          networkId={selectedNetworkId}
+          liquidityFilter={liquidityFilter}
+          onScrollOffsetChange={handleScrollOffsetChange}
+          defaultShowWatchlistOnly={activeTab === EMarketHomeTab.Watchlist}
+          key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
+        />
+      </Stack>
     </>
   );
 }

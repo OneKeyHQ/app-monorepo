@@ -5,6 +5,7 @@ import {
   IconButton,
   NumberSizeableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -30,9 +31,11 @@ export const useDesktopColumns = (
     {
       title: (
         <IconButton
+          ml="$1"
           pointerEvents="none"
           variant="tertiary"
           size="small"
+          iconSize="$4"
           icon={watchlistActive ? 'StarSolid' : 'StarOutline'}
           iconProps={{
             color: watchlistActive ? '$iconActive' : '$iconDisabled',
@@ -42,12 +45,14 @@ export const useDesktopColumns = (
       dataIndex: 'star',
       columnWidth: 50,
       render: (_, record) => (
-        <MarketStarV2
-          chainId={record.chainId || networkId || ''}
-          contractAddress={record.address}
-          from={EWatchlistFrom.catalog}
-          size="small"
-        />
+        <Stack pl="$2">
+          <MarketStarV2
+            chainId={record.chainId || networkId || ''}
+            contractAddress={record.address}
+            from={EWatchlistFrom.catalog}
+            size="small"
+          />
+        </Stack>
       ),
       renderSkeleton: () => (
         <Skeleton width={24} height={24} borderRadius="$full" />

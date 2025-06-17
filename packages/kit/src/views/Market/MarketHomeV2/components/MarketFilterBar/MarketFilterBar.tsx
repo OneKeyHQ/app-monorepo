@@ -60,7 +60,7 @@ export function MarketFilterBar({
         forceLoading={isLoading}
       />
 
-      <XStack gap="$3">
+      <XStack gap="$3" pl="$5" pr="$5">
         {/* Time Range Selector */}
         <TimeRangeSelector
           value={currentTimeRange}
