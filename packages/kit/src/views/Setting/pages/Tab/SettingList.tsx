@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,6 +9,7 @@ import {
   ScrollView,
   SearchBar,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -16,7 +17,7 @@ import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useOnLock } from '../List/DefaultSection';
 
-import { useSettingsConfig } from './config';
+import { HideOnSideBarTabNames, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
 import { SearchView } from './SearchView';
@@ -30,6 +31,11 @@ export function SettingList() {
   }, [onLock]);
   const navigation = useAppNavigation();
   const settingsConfig = useSettingsConfig();
+  const filteredSettingsConfig = useMemo(() => {
+    return settingsConfig.filter(
+      (config) => config && !HideOnSideBarTabNames.includes(config?.name),
+    );
+  }, [settingsConfig]);
   const { onSearch, searchResult, isSearching } = useSearch();
   return (
     <Page>
@@ -41,45 +47,38 @@ export function SettingList() {
         <XStack px="$5" pb="$4">
           <SearchBar onSearchTextChange={onSearch} />
         </XStack>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ pb: '$10' }}
-        >
-          {isSearching ? (
-            <SearchView sections={searchResult} isSearching={isSearching} />
-          ) : (
-            <>
-              <TabSettingsListItem
-                drillIn
-                title={intl.formatMessage({
-                  id: ETranslations.settings_lock_now,
-                })}
-                icon="LockOutline"
-                onPress={async () => {
-                  await handleLock();
-                }}
-              />
-              <Divider />
-
-              {settingsConfig.map((config) =>
-                config ? (
-                  <TabSettingsListItem
-                    drillIn
-                    key={config.title}
-                    icon={config.icon as IKeyOfIcons}
-                    title={config.title}
-                    onPress={() => {
-                      navigation.push(EModalSettingRoutes.SettingListSubModal, {
-                        name: config.title,
-                      });
-                    }}
-                  />
-                ) : null,
-              )}
-              <SocialButtonGroup />
-            </>
-          )}
-        </ScrollView>
+        <YStack flex={1}>
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={{ pb: '$10' }}
+          >
+            {isSearching ? (
+              <SearchView sections={searchResult} isSearching={isSearching} />
+            ) : (
+              <>
+                {filteredSettingsConfig.map((config) =>
+                  config ? (
+                    <TabSettingsListItem
+                      drillIn
+                      key={config.title}
+                      icon={config.icon as IKeyOfIcons}
+                      title={config.title}
+                      onPress={() => {
+                        navigation.push(
+                          EModalSettingRoutes.SettingListSubModal,
+                          {
+                            name: config.title,
+                          },
+                        );
+                      }}
+                    />
+                  ) : null,
+                )}
+              </>
+            )}
+          </ScrollView>
+        </YStack>
+        <SocialButtonGroup />
       </Page.Body>
     </Page>
   );
