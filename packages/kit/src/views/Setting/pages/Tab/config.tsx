@@ -62,7 +62,7 @@ export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
   onPress?: () => void;
-  renderElement?: React.ReactNode;
+  renderElement?: React.ReactElement;
 }
 
 export const useIsTabNavigator = () => {
@@ -328,7 +328,7 @@ export const useSettingsConfig: () => (
         configs: [
           [
             {
-              title: biometricAuthInfo.titleId,
+              title: biometricAuthInfo.title,
               icon: biometricAuthInfo.icon,
               renderElement: <BiologyAuthListItem />,
             },
@@ -659,7 +659,8 @@ export const useSettingsConfig: () => (
       },
     ],
     [
-      biometricAuthInfo.titleId,
+      intl,
+      biometricAuthInfo.title,
       biometricAuthInfo.icon,
       isPasswordSet,
       appUpdateInfo.isNeedUpdate,
@@ -667,7 +668,6 @@ export const useSettingsConfig: () => (
       navigation,
       isPrimeSubscriptionActive,
       onPressAddressBook,
-      intl,
       helpCenterUrl,
       requestUrl,
       userAgreementUrl,

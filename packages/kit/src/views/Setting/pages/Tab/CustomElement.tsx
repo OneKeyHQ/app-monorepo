@@ -45,6 +45,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
@@ -59,7 +60,11 @@ import { handleOpenDevMode } from '../../utils/devMode';
 
 import { TabSettingsListItem } from './ListItem';
 
-export function LanguageListItem() {
+export function LanguageListItem({
+  titleMatch,
+}: {
+  titleMatch?: IFuseResultMatch;
+}) {
   const locales = useLocaleOptions();
   const intl = useIntl();
   const [{ locale }] = useSettingsPersistAtom();
@@ -72,7 +77,7 @@ export function LanguageListItem() {
       backgroundApiProxy.serviceApp.restartApp();
     }, 0);
   }, []);
-
+  console.log('titleMatch', titleMatch);
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
@@ -88,6 +93,7 @@ export function LanguageListItem() {
           userSelect="none"
           icon="TranslateOutline"
           title={intl.formatMessage({ id: ETranslations.global_language })}
+          titleMatch={titleMatch}
         >
           <XStack>
             <ListItem.Text primary={label} align="right" />
@@ -99,7 +105,11 @@ export function LanguageListItem() {
   );
 }
 
-export function ThemeListItem() {
+export function ThemeListItem({
+  titleMatch,
+}: {
+  titleMatch?: IFuseResultMatch;
+}) {
   const [{ theme }] = useSettingsPersistAtom();
   const { setFreezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const intl = useIntl();
@@ -149,6 +159,7 @@ export function ThemeListItem() {
           userSelect="none"
           icon="PaletteOutline"
           title={intl.formatMessage({ id: ETranslations.settings_theme })}
+          titleMatch={titleMatch}
         >
           <XStack>
             <ListItem.Text primary={label} align="right" />
@@ -160,7 +171,11 @@ export function ThemeListItem() {
   );
 }
 
-function SuspenseBiologyAuthListItem() {
+function SuspenseBiologyAuthListItem({
+  titleMatch,
+}: {
+  titleMatch?: IFuseResultMatch;
+}) {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
@@ -168,21 +183,29 @@ function SuspenseBiologyAuthListItem() {
   const { title, icon } = useBiometricAuthInfo();
 
   return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
-    <TabSettingsListItem icon={icon} title={title}>
+    <TabSettingsListItem icon={icon} title={title} titleMatch={titleMatch}>
       <UniversalContainerWithSuspense />
     </TabSettingsListItem>
   ) : null;
 }
 
-export function BiologyAuthListItem() {
+export function BiologyAuthListItem({
+  titleMatch,
+}: {
+  titleMatch?: IFuseResultMatch;
+}) {
   return (
     <Suspense fallback={null}>
-      <SuspenseBiologyAuthListItem />
+      <SuspenseBiologyAuthListItem titleMatch={titleMatch} />
     </Suspense>
   );
 }
 
-export function CleanDataListItem() {
+export function CleanDataListItem({
+  titleMatch,
+}: {
+  titleMatch?: IFuseResultMatch;
+}) {
   const intl = useIntl();
   const resetApp = useResetApp();
   const navigation =
@@ -197,6 +220,7 @@ export function CleanDataListItem() {
       renderTrigger={
         <TabSettingsListItem
           title={intl.formatMessage({ id: ETranslations.settings_clear_data })}
+          titleMatch={titleMatch}
           icon="FolderDeleteOutline"
           testID="setting-clear-data"
         >
@@ -252,7 +276,11 @@ export function CleanDataListItem() {
   );
 }
 
-export function HardwareTransportTypeListItem() {
+export function HardwareTransportTypeListItem({
+  titleMatch,
+}: {
+  titleMatch?: IFuseResultMatch;
+}) {
   const intl = useIntl();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
 
@@ -316,6 +344,7 @@ export function HardwareTransportTypeListItem() {
           title={intl.formatMessage({
             id: ETranslations.device_hardware_communication,
           })}
+          titleMatch={titleMatch}
         >
           <XStack>
             <ListItem.Text primary={label} align="right" />
@@ -327,7 +356,11 @@ export function HardwareTransportTypeListItem() {
   );
 }
 
-export function ListVersionItem() {
+export function ListVersionItem({
+  titleMatch,
+}: {
+  titleMatch?: IFuseResultMatch;
+}) {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
@@ -341,6 +374,7 @@ export function ListVersionItem() {
       title={intl.formatMessage({
         id: ETranslations.settings_app_update_available,
       })}
+      titleMatch={titleMatch}
       titleProps={{ color: '$textInfo' }}
       drillIn
     >
@@ -358,6 +392,7 @@ export function ListVersionItem() {
       onPress={appUpdateInfo.onViewReleaseInfo}
       icon="InfoCircleOutline"
       title={intl.formatMessage({ id: ETranslations.settings_whats_new })}
+      titleMatch={titleMatch}
       drillIn
     >
       <ListItem.Text primary={platformEnv.version} align="right" />

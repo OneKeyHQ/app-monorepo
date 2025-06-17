@@ -8,6 +8,7 @@ import {
   Empty,
   Icon,
   Page,
+  ScrollView,
   SizableText,
   XStack,
   YStack,
@@ -15,8 +16,6 @@ import {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 
@@ -172,7 +171,12 @@ export function SearchViewPage() {
     <Page>
       <Page.Header title={title as unknown as string} />
       <Page.Body>
-        <SearchView isSearching={isSearching} sections={searchResult} />
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={{ pb: '$10' }}
+        >
+          <SearchView isSearching={isSearching} sections={searchResult} />
+        </ScrollView>
       </Page.Body>
     </Page>
   );

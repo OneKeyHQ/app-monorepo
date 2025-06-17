@@ -12,6 +12,7 @@ import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem'
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import type { ISubSettingConfig } from './config';
+import { cloneElement } from 'react';
 
 export function TabSettingsSection(props: IStackProps & IStackStyle) {
   return (
@@ -40,7 +41,9 @@ export function TabSettingsListGrid({
   titleMatch?: IFuseResultMatch | undefined;
 }) {
   return item?.renderElement ? (
-    item.renderElement
+    cloneElement(item.renderElement, {
+      titleMatch,
+    })
   ) : (
     <TabSettingsListItem
       py="$3"

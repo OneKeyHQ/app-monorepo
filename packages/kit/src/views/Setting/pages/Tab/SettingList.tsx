@@ -43,7 +43,7 @@ export function SettingList() {
         </XStack>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ pb: '$5' }}
+          contentContainerStyle={{ pb: '$10' }}
         >
           {isSearching ? (
             <SearchView sections={searchResult} isSearching={isSearching} />

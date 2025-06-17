@@ -66,5 +66,5 @@ export default function SettingListSubModal() {
       RouteProp<IModalSettingParamList, EModalSettingRoutes.SettingListSubModal>
     >();
   const { name } = route.params || {};
-  return <SubSettingsPage name={name as ISettingName} showSearchView={false} />;
+  return <SubSettingsPage name={name as ISettingName} />;
 }
