@@ -78,7 +78,7 @@ export enum ESettingsTabNames {
 
 export const HideOnSideBarTabNames = [ESettingsTabNames.Search];
 
-export const useSettingsConfig: () => (
+export type ISettingsConfig = (
   | {
       icon: string;
       title: string;
@@ -87,7 +87,8 @@ export const useSettingsConfig: () => (
       configs: (ISubSettingConfig | undefined | null)[][];
     }
   | undefined
-)[] = () => {
+)[];
+export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const intl = useIntl();
   const navigation = useAppNavigation();

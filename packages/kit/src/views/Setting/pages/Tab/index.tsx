@@ -153,8 +153,10 @@ function SettingsTabNavigator() {
           }}
         >
           {Component
-            ? () => <Component name={title} />
-            : () => <SubSettings name={title} />}
+            ? () => <Component name={title} settingsConfig={settingsConfig} />
+            : () => (
+                <SubSettings name={title} settingsConfig={settingsConfig} />
+              )}
         </Tab.Screen>
       );
     });
