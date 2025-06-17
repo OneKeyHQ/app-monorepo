@@ -1,6 +1,9 @@
 import { memo } from 'react';
 
+import type { ITabSubNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { TabSubStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+
+import { BasicModalSettingStack } from '../../router';
 
 import { SearchViewPage } from './SearchView';
 import { SubSettingsPage } from './SubSettingsPage';
@@ -25,6 +28,10 @@ function BasicSubSettings({
             <SubSettingsPage name={name} settingsConfig={settingsConfig} />
           ),
         },
+        ...(BasicModalSettingStack as unknown as ITabSubNavigatorConfig<
+          any,
+          any
+        >[]),
       ]}
     />
   );
@@ -40,6 +47,10 @@ function BasicSubSearchSettings({ name }: { name: string }) {
           // eslint-disable-next-line react/no-unstable-nested-components
           component: () => <SearchViewPage />,
         },
+        ...(BasicModalSettingStack as unknown as ITabSubNavigatorConfig<
+          any,
+          any
+        >[]),
       ]}
     />
   );
