@@ -60,8 +60,8 @@ import { useLocaleOptions, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
-import { useIsTabNavigator } from './config';
 import { TabSettingsListItem } from './ListItem';
+import { useIsTabNavigator } from './useIsTabNavigator';
 
 export interface ICustomElementProps {
   titleMatch?: IFuseResultMatch;

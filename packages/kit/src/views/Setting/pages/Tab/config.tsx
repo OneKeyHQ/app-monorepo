@@ -71,12 +71,6 @@ export interface ISubSettingConfig {
   renderElement?: React.ReactElement;
 }
 
-export const useIsTabNavigator = () => {
-  const { gtMd } = useMedia();
-  const isTabNavigator = platformEnv.isNativeIOSPad || gtMd;
-  return isTabNavigator;
-};
-
 export enum ESettingsTabNames {
   Backup = 'Backup',
   Preferences = 'Preferences',

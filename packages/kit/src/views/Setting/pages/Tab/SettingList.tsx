@@ -1,10 +1,9 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
-  Divider,
   Page,
   ScrollView,
   SearchBar,
@@ -15,8 +14,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
-import { useOnLock } from '../List/DefaultSection';
-
 import { HideOnSideBarTabNames, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
@@ -25,10 +22,6 @@ import { useSearch } from './useSearch';
 
 export function SettingList() {
   const intl = useIntl();
-  const onLock = useOnLock();
-  const handleLock = useCallback(async () => {
-    await onLock();
-  }, [onLock]);
   const navigation = useAppNavigation();
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {

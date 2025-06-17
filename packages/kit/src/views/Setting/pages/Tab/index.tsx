@@ -16,14 +16,11 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
-import {
-  HideOnSideBarTabNames,
-  useIsTabNavigator,
-  useSettingsConfig,
-} from './config';
+import { HideOnSideBarTabNames, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
+import { useIsTabNavigator } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
 import type { ESettingsTabNames } from './config';

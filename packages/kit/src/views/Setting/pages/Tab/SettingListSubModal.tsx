@@ -8,8 +8,9 @@ import type {
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { useIsTabNavigator, useSettingsConfig } from './config';
+import { useSettingsConfig } from './config';
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
+import { useIsTabNavigator } from './useIsTabNavigator';
 
 import type { RouteProp } from '@react-navigation/core';
 

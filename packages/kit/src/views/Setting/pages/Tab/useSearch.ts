@@ -10,11 +10,8 @@ import {
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
-import {
-  ESettingsTabNames,
-  useIsTabNavigator,
-  useSettingsConfig,
-} from './config';
+import { ESettingsTabNames, useSettingsConfig } from './config';
+import { useIsTabNavigator } from './useIsTabNavigator';
 
 import type { ISubSettingConfig } from './config';
 import type { FuseResult } from 'fuse.js';
