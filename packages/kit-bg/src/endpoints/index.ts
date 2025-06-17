@@ -1,30 +1,38 @@
 import { filter, forEach } from 'lodash';
 
-import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
+import {
+  getEndpointsMapWithDynamicPrefix,
+  forceRefreshEndpointCheck as sharedForceRefreshEndpointCheck,
+} from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EServiceEndpointEnum,
   IEndpointDomainWhiteList,
   IEndpointInfo,
 } from '@onekeyhq/shared/types/endpoint';
 
-import { devSettingsPersistAtom } from '../states/jotai/atoms';
+// Track last endpoints to detect changes and clear cache
+let lastEndpointsString: string | undefined;
 
 export async function getEndpoints() {
-  if (platformEnv.isWebEmbed) {
-    const enableTestEndpoint =
-      globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false;
-    return getEndpointsMapByDevSettings({
-      enabled: enableTestEndpoint,
-      settings: {
-        enableTestEndpoint,
-      },
-    });
+  const endpoints = await getEndpointsMapWithDynamicPrefix();
+
+  // Clear HTTP client cache if endpoints changed
+  const currentEndpointsString = JSON.stringify(endpoints);
+  if (lastEndpointsString !== currentEndpointsString) {
+    appApiClient.clearClientCache();
+    lastEndpointsString = currentEndpointsString;
   }
-  const settings = await devSettingsPersistAtom.get();
-  return getEndpointsMapByDevSettings(settings);
+
+  return endpoints;
+}
+
+// Export method to force refresh endpoint check
+export function forceRefreshEndpointCheck() {
+  sharedForceRefreshEndpointCheck();
+  lastEndpointsString = undefined;
 }
 
 export async function getEndpointInfo({

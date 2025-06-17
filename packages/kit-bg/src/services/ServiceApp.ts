@@ -25,6 +25,7 @@ import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
@@ -44,6 +45,11 @@ class ServiceApp extends ServiceBase {
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async getEndpointInfo({ name }: { name: EServiceEndpointEnum }) {
+    return this.getClientEndpointInfo(name);
   }
 
   @backgroundMethod()
