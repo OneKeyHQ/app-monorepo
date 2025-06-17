@@ -90,16 +90,46 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   },
 };
 
-export const getEndpointsMapByDevSettings = (devSettings: {
-  enabled: boolean;
-  settings?: {
-    enableTestEndpoint?: boolean;
-  };
-}) => {
-  if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
-    return endpointsMap.test;
+export const getEndpointsMapByDevSettings = (
+  devSettings: {
+    enabled: boolean;
+    settings?: {
+      enableTestEndpoint?: boolean;
+    };
+  },
+  options?: {
+    prefix?: string;
+  },
+) => {
+  const env: IEndpointEnv =
+    devSettings.enabled && devSettings.settings?.enableTestEndpoint
+      ? 'test'
+      : 'prod';
+
+  if (options?.prefix && env === 'prod') {
+    // Generate prefixed endpoints for production only
+    const prefixedEndpoints: IServiceEndpoint = {} as IServiceEndpoint;
+    Object.entries(EServiceEndpointEnum).forEach(([, serviceName]) => {
+      prefixedEndpoints[serviceName] = buildServiceEndpoint({
+        serviceName,
+        env,
+        prefix: options.prefix,
+      });
+      // Handle WebSocket endpoint separately
+      if (serviceName === EServiceEndpointEnum.Notification) {
+        prefixedEndpoints[EServiceEndpointEnum.NotificationWebSocket] =
+          buildServiceEndpoint({
+            serviceName,
+            env,
+            prefix: options.prefix,
+            isWebSocket: true,
+          });
+      }
+    });
+    return prefixedEndpoints;
   }
-  return endpointsMap.prod;
+
+  return endpointsMap[env];
 };
 
 export async function getEndpointByServiceName(
