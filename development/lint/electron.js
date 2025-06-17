@@ -34,7 +34,7 @@ try {
     const grepResult = execSync(shellCommand, { encoding: 'utf-8' });
     console.log('grepResult:', grepResult);
     if (grepResult === '') {
-      throw new Error('grep command should not return output when using -q flag');
+      throw new Error('grep command should not return output');
     }
   } catch (grepError) {
     throw new Error(
