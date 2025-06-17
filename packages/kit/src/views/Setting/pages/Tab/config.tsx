@@ -4,13 +4,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Dialog,
-  SizableText,
-  Stack,
-  useClipboard,
-  useMedia,
-} from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
