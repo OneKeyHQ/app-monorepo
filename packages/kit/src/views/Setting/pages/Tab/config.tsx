@@ -558,17 +558,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
-            {
-              icon: 'ShortcutsCustom',
-              title: intl.formatMessage({
-                id: ETranslations.settings_shortcuts,
-              }),
-              onPress: () => {
-                navigation.pushModal(EModalRoutes.ShortcutsModal, {
-                  screen: EModalShortcutsRoutes.ShortcutsPreview,
-                });
-              },
-            },
+            platformEnv.isDesktop
+              ? {
+                  icon: 'ShortcutsCustom',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_shortcuts,
+                  }),
+                  onPress: () => {
+                    navigation.pushModal(EModalRoutes.ShortcutsModal, {
+                      screen: EModalShortcutsRoutes.ShortcutsPreview,
+                    });
+                  },
+                }
+              : undefined,
           ],
           [
             {
