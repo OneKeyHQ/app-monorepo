@@ -28,7 +28,7 @@ export function SubSettingsPage({ name }: { name: ISettingName }) {
     <Page scrollEnabled>
       <Page.Header title={name} />
       <Page.Body>
-        <YStack gap="$4" px="$4" pt={isTabNavigator ? '$3' : undefined}>
+        <YStack gap="$4" px="$4" pt={isTabNavigator ? undefined : '$3'}>
           {configList?.map((item) => {
             const list = Array.isArray(item) ? item.filter(Boolean) : [];
             return list.length ? (
