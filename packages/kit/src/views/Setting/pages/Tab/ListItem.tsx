@@ -1,8 +1,11 @@
+import { cloneElement } from 'react';
+
 import { FuseResultMatch } from 'fuse.js';
 import { StyleSheet } from 'react-native';
 
-import { YStack } from '@onekeyhq/components';
+import { Badge, YStack } from '@onekeyhq/components';
 import type {
+  IBadgeProps,
   IKeyOfIcons,
   IStackProps,
   IStackStyle,
@@ -12,7 +15,6 @@ import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem'
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import type { ISubSettingConfig } from './config';
-import { cloneElement } from 'react';
 
 export function TabSettingsSection(props: IStackProps & IStackStyle) {
   return (
@@ -46,6 +48,7 @@ export function TabSettingsListGrid({
       title: item.title,
       icon: item.icon as IKeyOfIcons,
       onPress: item?.onPress,
+      badgeProps: item?.badgeProps,
     })
   ) : (
     <TabSettingsListItem
@@ -59,6 +62,14 @@ export function TabSettingsListGrid({
       icon={item?.icon as IKeyOfIcons}
       title={item?.title}
       drillIn
-    />
+    >
+      {item?.badgeProps ? (
+        <Badge
+          badgeSize={item.badgeProps.badgeSize as IBadgeProps['badgeSize']}
+        >
+          <Badge.Text>{item.badgeProps.badgeText}</Badge.Text>
+        </Badge>
+      ) : null}
+    </TabSettingsListItem>
   );
 }

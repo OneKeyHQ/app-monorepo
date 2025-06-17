@@ -49,6 +49,7 @@ import { DevSettingsSection } from '../List/DevSettingsSection';
 import { exportLogs } from '../List/ResourceSection/StateLogsItem/logs';
 
 import {
+  AutoLockListItem,
   BiologyAuthListItem,
   CleanDataListItem,
   CurrencyListItem,
@@ -62,6 +63,10 @@ import { SubSearchSettings } from './SubSettings';
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
+  badgeProps?: {
+    badgeSize: 'sm' | 'md' | 'lg';
+    badgeText: string;
+  };
   onPress?: () => void;
   renderElement?: React.ReactElement;
 }
@@ -138,6 +143,10 @@ export const useSettingsConfig: () => (
               title: intl.formatMessage({
                 id: ETranslations.global_onekey_cloud,
               }),
+              badgeProps: {
+                badgeSize: 'sm',
+                badgeText: 'Prime',
+              },
               onPress: () => {
                 if (isPrimeSubscriptionActive) {
                   navigation.pushModal(EModalRoutes.PrimeModal, {
@@ -336,9 +345,7 @@ export const useSettingsConfig: () => (
               title: intl.formatMessage({
                 id: ETranslations.settings_auto_lock,
               }),
-              onPress: () => {
-                navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
-              },
+              renderElement: <AutoLockListItem />,
             },
             {
               icon: 'KeyOutline',

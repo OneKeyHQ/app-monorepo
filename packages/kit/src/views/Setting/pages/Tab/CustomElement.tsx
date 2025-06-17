@@ -57,6 +57,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useLocaleOptions, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
+import { useOptions } from '../AppAutoLock/useOptions';
 
 import { TabSettingsListItem } from './ListItem';
 
@@ -425,6 +426,37 @@ export function ListVersionItem({
       <ListItem.Text primary={platformEnv.version} align="right" />
     </TabSettingsListItem>
   );
+}
+
+export function AutoLockListItem({
+  titleMatch,
+  title,
+  icon,
+}: ICustomElementProps) {
+  const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
+  }, [navigation]);
+  const options = useOptions();
+  const text = useMemo(() => {
+    const option = options.find(
+      (item) => item.value === String(appLockDuration),
+    );
+    return option?.title ?? '';
+  }, [options, appLockDuration]);
+  return isPasswordSet ? (
+    <ListItem
+      onPress={onPress}
+      icon={icon}
+      title={title}
+      titleMatch={titleMatch}
+      drillIn
+    >
+      <ListItem.Text primary={text} align="right" />
+    </ListItem>
+  ) : null;
 }
 
 function SocialButton({
