@@ -533,6 +533,7 @@ export function SocialButtonGroup() {
         jc="center"
         px={isTabNavigator ? '$2' : '$4'}
         ai={isTabNavigator ? 'flex-start' : 'center'}
+        pt={platformEnv.isNativeIOSPad ? '$3' : undefined}
         userSelect="none"
         testID="setting-version"
       >
