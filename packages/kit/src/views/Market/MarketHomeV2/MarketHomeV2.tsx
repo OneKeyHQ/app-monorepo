@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -28,14 +28,17 @@ function MarketHome() {
     EMarketHomeTab.Trending,
   );
 
-  const filterBarProps = {
-    selectedNetworkId,
-    timeRange,
-    liquidityFilter,
-    onNetworkIdChange: setSelectedNetworkId,
-    onTimeRangeChange: setTimeRange,
-    onLiquidityFilterChange: setLiquidityFilter,
-  };
+  const filterBarProps = useMemo(
+    () => ({
+      selectedNetworkId,
+      timeRange,
+      liquidityFilter,
+      onNetworkIdChange: setSelectedNetworkId,
+      onTimeRangeChange: setTimeRange,
+      onLiquidityFilterChange: setLiquidityFilter,
+    }),
+    [selectedNetworkId, timeRange, liquidityFilter],
+  );
 
   const commonProps = {
     filterBarProps,
