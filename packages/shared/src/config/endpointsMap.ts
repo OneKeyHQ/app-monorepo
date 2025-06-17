@@ -106,6 +106,10 @@ type IEndpointCheckResponse = {
 };
 
 const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
+  // In serviceWorker, axios is not working
+  if (platformEnv.isExtension) {
+    return undefined;
+  }
   try {
     const requestUrl = `https://by-wallet.${ONEKEY_API_HOST}/wallet/v1/endpoint`;
 
