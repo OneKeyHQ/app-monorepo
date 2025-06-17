@@ -27,6 +27,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EModalReceiveRoutes,
+  EModalRoutes,
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -763,10 +765,28 @@ const ProtocolDetailsPage = () => {
       buttonProps: {
         disabled: !earnAccount?.accountAddress || item?.disabled,
         display: item ? undefined : 'none',
-        onPress: () => {},
+        onPress: () => {
+          appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveToken,
+            params: {
+              networkId,
+              accountId: earnAccount?.accountId ?? '',
+              walletId: earnAccount?.walletId,
+              token: detailInfo?.subscriptionValue?.token.info,
+            },
+          });
+        },
       } as IButtonProps,
     };
-  }, [detailInfo?.actions, earnAccount?.accountAddress]);
+  }, [
+    detailInfo?.actions,
+    earnAccount?.walletId,
+    earnAccount?.accountId,
+    earnAccount?.accountAddress,
+    networkId,
+    detailInfo?.subscriptionValue?.token.info,
+    appNavigation,
+  ]);
 
   const tradeActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find(
