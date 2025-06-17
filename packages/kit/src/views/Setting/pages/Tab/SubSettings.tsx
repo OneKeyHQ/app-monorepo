@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { TabSubStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 
 import { SearchViewPage } from './SearchView';
@@ -5,7 +7,7 @@ import { SubSettingsPage } from './SubSettingsPage';
 
 import type { ISettingsConfig } from './config';
 
-export function SubSettings({
+function BasicSubSettings({
   name,
   settingsConfig,
 }: {
@@ -27,8 +29,9 @@ export function SubSettings({
     />
   );
 }
+export const SubSettings = memo(BasicSubSettings);
 
-export function SubSearchSettings({ name }: { name: string }) {
+function BasicSubSearchSettings({ name }: { name: string }) {
   return (
     <TabSubStackNavigator
       config={[
@@ -41,3 +44,5 @@ export function SubSearchSettings({ name }: { name: string }) {
     />
   );
 }
+
+export const SubSearchSettings = memo(BasicSubSearchSettings);
