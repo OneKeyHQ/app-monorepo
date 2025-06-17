@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
   const appId = PRIVY_APP_ID;
   const clientId = PRIVY_MOBILE_CLIENT_ID;

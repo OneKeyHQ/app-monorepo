@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "ตัวอักษร, ตัวเลข & สัญลักษณ์ (ASCII 32-126)",
   "passphrase_allowed_characters_title": "ตัวอักษรที่อนุญาต",
   "passphrase_character_limit": "สูงสุด 50 ตัวอักษร",
+  "passphrase_disabled_dialog_desc": "เปิดใช้งาน Passphrase บนอุปกรณ์ของคุณเพื่อสร้างกระเป๋าเงินที่ซ่อนอยู่",
+  "passphrase_disabled_dialog_title": "ไม่สามารถสร้างกระเป๋าเงินที่ซ่อนได้",
   "prime.about_onekey_prime": "ทำความรู้จัก OneKey Prime",
   "prime.agree_to_terms": "การดำเนินการต่อหมายความว่าคุณยอมรับ <link>OneKey Prime Terms</link>.",
   "prime.agree_to_terms_privacy": "การสมัครสมาชิก OneKey Prime หมายความว่าคุณยอมรับ <termsTag>ข้อกำหนดการใช้งาน OneKey Prime</termsTag> และ <privacyTag>นโยบายความเป็นส่วนตัว</privacyTag>",

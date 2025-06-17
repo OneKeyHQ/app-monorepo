@@ -55,9 +55,9 @@ import openUrlUtils, {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useLocaleOptions, useResetApp } from '../../hooks';
+import { handleOpenDevMode } from '../../utils/devMode';
 
 import { TabSettingsListItem } from './ListItem';
-import { handleOpenDevMode } from '../../utils/devMode';
 
 export function LanguageListItem() {
   const locales = useLocaleOptions();

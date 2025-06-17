@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "문자, 숫자 및 기호 (ASCII 32-126)",
   "passphrase_allowed_characters_title": "허용된 문자",
   "passphrase_character_limit": "최대 50자",
+  "passphrase_disabled_dialog_desc": "기기에 Passphrase를 활성화하여 숨겨진 지갑을 생성하세요.",
+  "passphrase_disabled_dialog_title": "숨겨진 지갑을 생성할 수 없습니다",
   "prime.about_onekey_prime": "OneKey Prime 알아보기",
   "prime.agree_to_terms": "계속 진행하면 <link>OneKey Prime Terms</link>에 동의하는 것으로 간주됩니다.",
   "prime.agree_to_terms_privacy": "OneKey Prime 구독 시 <termsTag>OneKey Prime 이용약관</termsTag> 및 <privacyTag>개인정보 처리방침</privacyTag> 에 동의하게 됩니다。",
