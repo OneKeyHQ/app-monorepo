@@ -81,6 +81,7 @@ function TabItemView({
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
   const intl = useIntl();
+  const { onSearch, previousTabRoute } = useSearch();
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
@@ -96,6 +97,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
             target: route.key,
             canPreventDefault: true,
           });
+          previousTabRoute.current = route.name as ESettingsTabNames;
           if (!focus && !event.defaultPrevented) {
             navigation.dispatch({
               ...CommonActions.navigate({
@@ -124,7 +126,6 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
     await onLock();
   }, [onLock]);
   const { top } = useSafeAreaInsets();
-  const { onSearch } = useSearch();
   return (
     <YStack w={192} bg="$bgSubdued" pt={top} px="$3">
       <XStack my="$2.5">
