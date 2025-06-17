@@ -113,7 +113,7 @@ function showMainWindow() {
 const initMenu = () => {
   const template = [
     {
-      label: app.name,
+      label: APP_TITLE_NAME,
       submenu: [
         {
           role: isMac ? 'about' : undefined,
