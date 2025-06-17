@@ -77,6 +77,8 @@ export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
+
+  override className = EOneKeyErrorClassNames.DeviceNotOpenedPassphrase;
 }
 
 export class DeviceOpenedPassphrase extends OneKeyHardwareError {

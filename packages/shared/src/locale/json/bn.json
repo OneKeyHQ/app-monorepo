@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "অক্ষর, সংখ্যা এবং প্রতীক (ASCII 32-126)",
   "passphrase_allowed_characters_title": "অনুমোদিত অক্ষর",
   "passphrase_character_limit": "সর্বোচ্চ ৫০ অক্ষর",
+  "passphrase_disabled_dialog_desc": "আপনার ডিভাইসে Passphrase সক্রিয় করুন গোপন ওয়ালেট তৈরি করতে।",
+  "passphrase_disabled_dialog_title": "গোপন ওয়ালেট তৈরি করা যাচ্ছে না",
   "prime.about_onekey_prime": "OneKey Prime পরিচিতি",
   "prime.agree_to_terms": "চালিয়ে যাওয়া মানে আপনি <link>OneKey Prime Terms</link> এর সাথে সম্মত হচ্ছেন।",
   "prime.agree_to_terms_privacy": "OneKey Prime-এ সাবস্ক্রাইব করার মাধ্যমে আপনি <termsTag>OneKey Prime শর্তাবলী</termsTag> এবং <privacyTag>গোপনীয়তা নীতি</privacyTag> মেনে নিচ্ছেন।",
