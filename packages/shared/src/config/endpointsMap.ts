@@ -111,7 +111,7 @@ const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
 
     // Create clean axios instance without interceptors
     const cleanAxios = axios.create({
-      timeout: 3000,
+      timeout: timerUtils.getTimeDurationMs({ seconds: 2 }),
       baseURL: undefined,
     });
 
@@ -121,19 +121,52 @@ const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
 
     const requiredHeaders = await getRequestHeaders();
 
-    const response = await cleanAxios.get<IEndpointCheckResponse>(requestUrl, {
-      headers: requiredHeaders,
-    });
+    // Create API request promise
+    const apiRequestPromise = cleanAxios.get<IEndpointCheckResponse>(
+      requestUrl,
+      {
+        headers: requiredHeaders,
+      },
+    );
 
-    // Check response format and success status
+    // Create 2-second timeout promise
+    const timeoutPromise = timerUtils
+      .wait(timerUtils.getTimeDurationMs({ seconds: 2 }))
+      .then(() => 'timeout' as const);
+
+    // Use Promise.allSettled to race between API call and timeout
+    const results = await Promise.allSettled([
+      apiRequestPromise,
+      timeoutPromise,
+    ]);
+
+    // Check if API request completed successfully within 2 seconds
+    const apiResult = results[0];
+    const timeoutResult = results[1];
+
+    // If timeout reached first, return no prefix
     if (
-      response.data?.code === 0 &&
-      response.data?.data?.withByPrefix === true
+      timeoutResult.status === 'fulfilled' &&
+      timeoutResult.value === 'timeout'
     ) {
-      return 'by';
+      console.warn(
+        'Endpoint prefix check timed out after 2s, using default endpoints',
+      );
+      return undefined;
     }
 
-    return undefined; // No prefix needed
+    // If API request succeeded, check the response
+    if (apiResult.status === 'fulfilled') {
+      const response = apiResult.value;
+      if (
+        response.data?.code === 0 &&
+        response.data?.data?.withByPrefix === true
+      ) {
+        return 'by';
+      }
+    }
+
+    return undefined; // No prefix needed or API failed
   } catch (error) {
     return undefined; // Use default endpoints when check fails
   }
