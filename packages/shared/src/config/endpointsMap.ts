@@ -98,8 +98,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
 
 // Dynamic endpoint prefix check for shared layer
 type IEndpointCheckResponse = {
+  code: number;
+  message: string;
   data: {
-    needsPrefix: boolean;
+    withByPrefix: boolean;
   };
 };
 
@@ -123,8 +125,15 @@ const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
       headers: requiredHeaders,
     });
 
-    const needsPrefix = true;
-    return needsPrefix ? 'by' : undefined;
+    // Check response format and success status
+    if (
+      response.data?.code === 0 &&
+      response.data?.data?.withByPrefix === true
+    ) {
+      return 'by';
+    }
+
+    return undefined; // No prefix needed
   } catch (error) {
     return undefined; // Use default endpoints when check fails
   }

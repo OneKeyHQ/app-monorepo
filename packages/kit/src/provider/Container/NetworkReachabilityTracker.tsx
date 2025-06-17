@@ -59,6 +59,9 @@ const useNetInfo = () => {
   }, [devSettings]);
 
   useEffect(() => {
+    if (!walletEndpoint) {
+      return;
+    }
     void checkNetInfo(walletEndpoint);
     const callback = () => {
       refreshNetInfo();
