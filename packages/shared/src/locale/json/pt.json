@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "Letras, números e símbolos (ASCII 32-126)",
   "passphrase_allowed_characters_title": "Caracteres permitidos",
   "passphrase_character_limit": "Máximo 50 caracteres",
+  "passphrase_disabled_dialog_desc": "Ative a Passphrase no seu dispositivo para criar carteiras ocultas.",
+  "passphrase_disabled_dialog_title": "Não é possível criar carteira oculta",
   "prime.about_onekey_prime": "Conheça o OneKey Prime",
   "prime.agree_to_terms": "Ao continuar, você concorda com os <link>OneKey Prime Terms</link>.",
   "prime.agree_to_terms_privacy": "Ao subscrever o OneKey Prime, está a concordar com os <termsTag>Termos de Serviço do OneKey Prime</termsTag> e a <privacyTag>Política de Privacidade</privacyTag>.",
