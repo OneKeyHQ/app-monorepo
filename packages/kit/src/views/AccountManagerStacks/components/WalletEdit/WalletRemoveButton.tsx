@@ -44,7 +44,7 @@ export function WalletRemoveButton({
 
   return (
     <ActionList.Item
-      icon={isRemoveToMocked ? 'DeleteOutline' : 'XCircleOutline'}
+      icon={isRemoveToMocked ? 'DeleteOutline' : 'EjectOutline'}
       destructive
       label={label}
       onClose={onClose}
