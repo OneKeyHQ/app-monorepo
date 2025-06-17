@@ -42,6 +42,9 @@ export default class ServiceBase {
 
   backgroundApi: IBackgroundApi;
 
+  getClientEndpointInfo = async (name: EServiceEndpointEnum) =>
+    getEndpointInfo({ name });
+
   getClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getClient(await getEndpointInfo({ name }));
 
