@@ -122,7 +122,12 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       </XStack>
       <Divider />
       <YStack flex={1} pt="$3">
-        <ScrollView contentContainerStyle={{ pb: '$10' }}>{tabs}</ScrollView>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ pb: '$10' }}
+        >
+          {tabs}
+        </ScrollView>
       </YStack>
       <YStack bg="$bgSubdued">
         <Divider />

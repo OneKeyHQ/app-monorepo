@@ -43,6 +43,7 @@ export function SettingList() {
         <YStack flex={1}>
           <ScrollView
             contentInsetAdjustmentBehavior="automatic"
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ pb: '$10' }}
           >
             {isSearching ? (

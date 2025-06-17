@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -127,24 +127,6 @@ export function SearchViewPage() {
       configs: FuseResult<ISubSettingConfig>[];
     }[]
   >([]);
-  const title = useMemo(() => {
-    return (
-      <SizableText color="$textSubdued" size="$headingLg">
-        {intl.formatMessage(
-          {
-            id: ETranslations.settings_search_title,
-          },
-          {
-            keyword: (
-              <SizableText color="$text" size="$headingLg">
-                {searchText}
-              </SizableText>
-            ),
-          },
-        )}
-      </SizableText>
-    );
-  }, [intl, searchText]);
 
   useEffect(() => {
     const callback = ({
@@ -167,12 +149,31 @@ export function SearchViewPage() {
     };
   }, []);
   const isSearching = searchText.length > 0;
+  const renderHeaderTitle = useCallback(() => {
+    return (
+      <SizableText color="$textSubdued" size="$headingLg">
+        {intl.formatMessage(
+          {
+            id: ETranslations.settings_search_title,
+          },
+          {
+            keyword: (
+              <SizableText color="$text" size="$headingLg">
+                {searchText}
+              </SizableText>
+            ),
+          },
+        )}
+      </SizableText>
+    );
+  }, [intl, searchText]);
   return (
     <Page>
-      <Page.Header title={title as unknown as string} />
+      <Page.Header headerTitle={renderHeaderTitle} />
       <Page.Body>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
           <SearchView isSearching={isSearching} sections={searchResult} />

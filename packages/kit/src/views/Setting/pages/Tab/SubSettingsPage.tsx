@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 
-import { Divider, Page, XStack, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  Page,
+  ScrollView,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 import { useIsTabNavigator } from './useIsTabNavigator';
@@ -26,30 +32,35 @@ export function SubSettingsPage({
   }, [name, settingsConfig]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header title={name} />
       <Page.Body>
-        <YStack gap="$4" px="$4" pt={isTabNavigator ? undefined : '$3'}>
-          {configList?.map((item) => {
-            const list = Array.isArray(item) ? item.filter(Boolean) : [];
-            return list.length ? (
-              <TabSettingsSection>
-                {list.map((i, idx) => {
-                  return i ? (
-                    <>
-                      <TabSettingsListGrid item={i} />
-                      {idx !== list.length - 1 ? (
-                        <XStack mx="$5">
-                          <Divider />
-                        </XStack>
-                      ) : null}
-                    </>
-                  ) : null;
-                })}
-              </TabSettingsSection>
-            ) : null;
-          })}
-        </YStack>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ pb: '$10' }}
+        >
+          <YStack gap="$4" px="$4" pt={isTabNavigator ? undefined : '$3'}>
+            {configList?.map((item) => {
+              const list = Array.isArray(item) ? item.filter(Boolean) : [];
+              return list.length ? (
+                <TabSettingsSection>
+                  {list.map((i, idx) => {
+                    return i ? (
+                      <>
+                        <TabSettingsListGrid item={i} />
+                        {idx !== list.length - 1 ? (
+                          <XStack mx="$5">
+                            <Divider />
+                          </XStack>
+                        ) : null}
+                      </>
+                    ) : null;
+                  })}
+                </TabSettingsSection>
+              ) : null;
+            })}
+          </YStack>
+        </ScrollView>
       </Page.Body>
     </Page>
   );
