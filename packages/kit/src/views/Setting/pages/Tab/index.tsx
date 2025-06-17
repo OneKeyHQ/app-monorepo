@@ -117,9 +117,9 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
     [routes, state.index, state.key, descriptors, navigation],
   );
 
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   return (
-    <YStack w={192} bg="$bgSubdued" pt={top} px="$3">
+    <YStack w={192} bg="$bgSubdued" pt={top} pb={bottom} px="$3">
       <XStack my="$2.5">
         <SearchBar onSearchTextChange={onSearch} size="small" />
       </XStack>
