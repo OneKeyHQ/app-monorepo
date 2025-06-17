@@ -1,12 +1,18 @@
+import axios from 'axios';
+
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
+import platformEnv from '../platformEnv';
+import { getRequestHeaders } from '../request/Interceptor';
 import requestHelper from '../request/requestHelper';
+import { memoizee } from '../utils/cacheUtils';
+import timerUtils from '../utils/timerUtils';
 
-import { buildServiceEndpoint } from './appConfig';
+import { ONEKEY_API_HOST, buildServiceEndpoint } from './appConfig';
 
 // Only OneKey endpoints are allowed here.
 export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
@@ -90,6 +96,46 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   },
 };
 
+// Dynamic endpoint prefix check for shared layer
+type IEndpointCheckResponse = {
+  data: {
+    needsPrefix: boolean;
+  };
+};
+
+const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
+  try {
+    const requestUrl = `https://wallet.${ONEKEY_API_HOST}/wallet/v1/endpoint`;
+
+    // Create clean axios instance without interceptors
+    const cleanAxios = axios.create({
+      timeout: 3000,
+      baseURL: undefined,
+    });
+
+    // Clear interceptors to avoid side effects
+    cleanAxios.interceptors.request.clear();
+    cleanAxios.interceptors.response.clear();
+
+    const requiredHeaders = await getRequestHeaders();
+
+    const response = await cleanAxios.get<IEndpointCheckResponse>(requestUrl, {
+      headers: requiredHeaders,
+    });
+
+    const needsPrefix = true;
+    return needsPrefix ? 'by' : undefined;
+  } catch (error) {
+    return undefined; // Use default endpoints when check fails
+  }
+};
+
+const checkEndpointPrefix = memoizee(checkEndpointPrefixRaw, {
+  promise: true,
+  maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+  max: 1,
+});
+
 export const getEndpointsMapByDevSettings = (
   devSettings: {
     enabled: boolean;
@@ -132,10 +178,47 @@ export const getEndpointsMapByDevSettings = (
   return endpointsMap[env];
 };
 
+// Get endpoints with dynamic prefix checking
+export async function getEndpointsMapWithDynamicPrefix() {
+  // Get settings based on environment
+  let settings: {
+    enabled: boolean;
+    settings?: { enableTestEndpoint?: boolean };
+  };
+
+  if (platformEnv.isWebEmbed) {
+    const enableTestEndpoint =
+      globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false;
+    settings = {
+      enabled: enableTestEndpoint,
+      settings: { enableTestEndpoint },
+    };
+  } else {
+    settings = await requestHelper.getDevSettingsPersistAtom();
+  }
+
+  // Check endpoint prefix for production environment only
+  const shouldCheckPrefix =
+    !settings.enabled || !settings.settings?.enableTestEndpoint;
+  let currentPrefix: string | undefined;
+
+  if (shouldCheckPrefix) {
+    currentPrefix = await checkEndpointPrefix();
+  }
+
+  return getEndpointsMapByDevSettings(settings, {
+    prefix: currentPrefix,
+  });
+}
+
 export async function getEndpointByServiceName(
   serviceName: EServiceEndpointEnum,
 ) {
-  const devSettings = await requestHelper.getDevSettingsPersistAtom();
-  const map = getEndpointsMapByDevSettings(devSettings);
+  const map = await getEndpointsMapWithDynamicPrefix();
   return map[serviceName];
+}
+
+// Export method to force refresh endpoint check
+export function forceRefreshEndpointCheck() {
+  void checkEndpointPrefix.clear();
 }
