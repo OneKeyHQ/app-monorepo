@@ -188,7 +188,7 @@ function MarketTokenList({
                 stickyHeader
                 columns={marketTokenColumns}
                 dataSource={data}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.address + item.symbol}
                 onHeaderRow={handleHeaderRow}
                 // Inject custom scroll component if callback provided
                 renderScrollComponent={

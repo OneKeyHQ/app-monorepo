@@ -680,11 +680,11 @@ function TableSkeleton<T>({
 }) {
   return (
     <YStack>
-      {new Array(count).fill(0).map((i) => (
+      {new Array(count).fill(0).map((_, index) => (
         <TableSkeletonRow
-          index={i}
+          index={index}
           columns={columns}
-          key={i}
+          key={index}
           rowProps={rowProps}
         />
       ))}

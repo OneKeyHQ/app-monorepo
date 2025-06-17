@@ -5,132 +5,56 @@ import { useIntl } from 'react-intl';
 import { Icon, Stack, Tab } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
-import { MarketTokenList } from '../MarketTokenList';
+import { EMarketHomeTab } from '../../types';
 
-import type { ILiquidityFilter } from '../../types';
-import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
+import type { IMarketHomeTabValue } from '../../types';
 
 interface IMarketMobileTabsProps {
-  selectedTab?: string;
-  onTabChange?: (tabId: string) => void;
+  selectedTab?: IMarketHomeTabValue;
+  onTabChange?: (tabId: IMarketHomeTabValue) => void;
   watchlistContent?: React.ComponentType;
   trendingContent?: React.ComponentType;
-  filterBarProps?: {
-    selectedNetworkId: string;
-    timeRange: ITimeRangeSelectorValue;
-    liquidityFilter: ILiquidityFilter;
-    onNetworkIdChange: (networkId: string) => void;
-    onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-    onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
-  };
-  selectedNetworkId?: string;
-  liquidityFilter?: ILiquidityFilter;
 }
 
-// Page components with actual market content
-const WatchlistPage = ({
-  filterBarProps,
-  selectedNetworkId,
-  liquidityFilter,
-}: {
-  filterBarProps?: IMarketMobileTabsProps['filterBarProps'];
-  selectedNetworkId?: string;
-  liquidityFilter?: ILiquidityFilter;
-}) => (
-  <Stack flex={1}>
-    {filterBarProps ? <MarketFilterBarSmall {...filterBarProps} /> : null}
-    <MarketTokenList
-      networkId={selectedNetworkId}
-      liquidityFilter={liquidityFilter}
-      defaultShowWatchlistOnly
-    />
-  </Stack>
-);
-
-const TrendingPage = ({
-  filterBarProps,
-  selectedNetworkId,
-  liquidityFilter,
-}: {
-  filterBarProps?: IMarketMobileTabsProps['filterBarProps'];
-  selectedNetworkId?: string;
-  liquidityFilter?: ILiquidityFilter;
-}) => (
-  <Stack flex={1}>
-    {filterBarProps ? <MarketFilterBarSmall {...filterBarProps} /> : null}
-    <MarketTokenList
-      networkId={selectedNetworkId}
-      liquidityFilter={liquidityFilter}
-      defaultShowWatchlistOnly={false}
-    />
-  </Stack>
-);
+// Default empty page components
+const WatchlistPage = () => <Stack flex={1} />;
+const TrendingPage = () => <Stack flex={1} />;
 
 export function MarketMobileTabs({
-  selectedTab = 'trending',
+  selectedTab = EMarketHomeTab.Trending,
   onTabChange,
-  watchlistContent: WatchlistContent,
-  trendingContent: TrendingContent,
-  filterBarProps,
-  selectedNetworkId,
-  liquidityFilter,
+  watchlistContent: WatchlistContent = WatchlistPage,
+  trendingContent: TrendingContent = TrendingPage,
 }: IMarketMobileTabsProps) {
   const intl = useIntl();
-  const initialIndex = selectedTab === 'watchlist' ? 0 : 1;
+  const initialIndex = selectedTab === EMarketHomeTab.Watchlist ? 0 : 1;
 
-  const tabData = useMemo(() => {
-    // Use custom components if provided, otherwise use default pages with market content
-    const WatchlistPageComponent =
-      WatchlistContent ||
-      (() => (
-        <WatchlistPage
-          filterBarProps={filterBarProps}
-          selectedNetworkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-        />
-      ));
-
-    const TrendingPageComponent =
-      TrendingContent ||
-      (() => (
-        <TrendingPage
-          filterBarProps={filterBarProps}
-          selectedNetworkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-        />
-      ));
-
-    return [
+  const tabData = useMemo(
+    () => [
       {
-        id: 'watchlist',
+        id: EMarketHomeTab.Watchlist,
         title: 'watchlist',
-        page: WatchlistPageComponent,
+        page: WatchlistContent,
       },
       {
-        id: 'trending',
+        id: EMarketHomeTab.Trending,
         title: 'trending',
-        page: TrendingPageComponent,
+        page: TrendingContent,
       },
-    ];
-  }, [
-    WatchlistContent,
-    TrendingContent,
-    filterBarProps,
-    selectedNetworkId,
-    liquidityFilter,
-  ]);
+    ],
+    [WatchlistContent, TrendingContent],
+  );
 
   // Custom title render: star icon for watchlist tab, translated text for trending
-  const renderTitle = (item: { id: string }) =>
-    item.id === 'watchlist' ? (
+  const renderTitle = (item: { id: IMarketHomeTabValue }) =>
+    item.id === EMarketHomeTab.Watchlist ? (
       <Icon name="StarOutline" size="$4" />
     ) : (
       intl.formatMessage({ id: ETranslations.market_trending })
     );
 
   const handleTabChange = (index: number) => {
-    const tabId = tabData[index]?.id;
+    const tabId = tabData[index]?.id as IMarketHomeTabValue;
     if (tabId) {
       onTabChange?.(tabId);
     }

@@ -1,6 +1,13 @@
+import { useCallback } from 'react';
+
+import { Stack } from '@onekeyhq/components';
+
+import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
+import { MarketTokenList } from '../MarketTokenList';
+
 import { MarketMobileTabs } from './MarketMobileTabs';
 
-import type { ILiquidityFilter } from '../../types';
+import type { ILiquidityFilter, IMarketHomeTabValue } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 interface IMarketHomeContentMobileProps {
@@ -14,8 +21,8 @@ interface IMarketHomeContentMobileProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
-  activeTab: string;
-  onTabChange: (tabId: string) => void;
+  activeTab: IMarketHomeTabValue;
+  onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
 export function MarketHomeContentMobile({
@@ -25,13 +32,41 @@ export function MarketHomeContentMobile({
   activeTab,
   onTabChange,
 }: IMarketHomeContentMobileProps) {
+  // Page components with actual market content
+  const WatchlistPageComponent = useCallback(
+    () => (
+      <Stack flex={1}>
+        <MarketFilterBarSmall {...filterBarProps} />
+        <MarketTokenList
+          networkId={selectedNetworkId}
+          liquidityFilter={liquidityFilter}
+          defaultShowWatchlistOnly
+        />
+      </Stack>
+    ),
+    [filterBarProps, selectedNetworkId, liquidityFilter],
+  );
+
+  const TrendingPageComponent = useCallback(
+    () => (
+      <Stack flex={1}>
+        <MarketFilterBarSmall {...filterBarProps} />
+        <MarketTokenList
+          networkId={selectedNetworkId}
+          liquidityFilter={liquidityFilter}
+          defaultShowWatchlistOnly={false}
+        />
+      </Stack>
+    ),
+    [filterBarProps, selectedNetworkId, liquidityFilter],
+  );
+
   return (
     <MarketMobileTabs
       selectedTab={activeTab}
       onTabChange={onTabChange}
-      filterBarProps={filterBarProps}
-      selectedNetworkId={selectedNetworkId}
-      liquidityFilter={liquidityFilter}
+      watchlistContent={WatchlistPageComponent}
+      trendingContent={TrendingPageComponent}
     />
   );
 }

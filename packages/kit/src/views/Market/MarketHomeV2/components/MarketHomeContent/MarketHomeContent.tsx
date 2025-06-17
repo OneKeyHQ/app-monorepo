@@ -2,11 +2,12 @@ import { useCallback, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 
+import { EMarketHomeTab } from '../../types';
 import { MarketFilterBar } from '../MarketFilterBar';
 import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
 import { MarketTokenList } from '../MarketTokenList';
 
-import type { ILiquidityFilter } from '../../types';
+import type { ILiquidityFilter, IMarketHomeTabValue } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
 interface IMarketHomeContentProps {
@@ -20,7 +21,7 @@ interface IMarketHomeContentProps {
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
-  activeTab: string;
+  activeTab: IMarketHomeTabValue;
 }
 
 export function MarketHomeContent({
@@ -60,7 +61,7 @@ export function MarketHomeContent({
         networkId={selectedNetworkId}
         liquidityFilter={liquidityFilter}
         onScrollOffsetChange={handleScrollOffsetChange}
-        defaultShowWatchlistOnly={activeTab === 'watchlist'}
+        defaultShowWatchlistOnly
         key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
       />
     </>

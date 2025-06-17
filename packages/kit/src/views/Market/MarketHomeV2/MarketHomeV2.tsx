@@ -10,9 +10,10 @@ import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/mar
 
 import { MarketHomeContent } from './components/MarketHomeContent';
 import { MarketHomeContentMobile } from './components/MarketHomeContentMobile';
+import { EMarketHomeTab } from './types';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
-import type { ILiquidityFilter } from './types';
+import type { ILiquidityFilter, IMarketHomeTabValue } from './types';
 
 function MarketHome() {
   const { md } = useMedia();
@@ -23,7 +24,9 @@ function MarketHome() {
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
   // 添加Tab状态管理，放在最外层以支持响应式联动
-  const [activeTab, setActiveTab] = useState<string>('trending');
+  const [activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
+    EMarketHomeTab.Trending,
+  );
 
   const filterBarProps = {
     selectedNetworkId,
