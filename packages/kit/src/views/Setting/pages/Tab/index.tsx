@@ -2,12 +2,12 @@ import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Divider,
   Icon,
+  ScrollView,
   SearchBar,
   XStack,
   YStack,
@@ -15,16 +15,13 @@ import {
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { useOnLock } from '../List/DefaultSection';
 
 import {
   HideOnSideBarTabNames,
   useIsTabNavigator,
   useSettingsConfig,
 } from './config';
+import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
 import { useSearch } from './useSearch';
@@ -80,7 +77,6 @@ function TabItemView({
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
-  const intl = useIntl();
   const { onSearch, previousTabRoute } = useSearch();
   const tabs = useMemo(
     () =>
@@ -121,10 +117,6 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
     [routes, state.index, state.key, descriptors, navigation],
   );
 
-  const onLock = useOnLock();
-  const handleLock = useCallback(async () => {
-    await onLock();
-  }, [onLock]);
   const { top } = useSafeAreaInsets();
   return (
     <YStack w={192} bg="$bgSubdued" pt={top} px="$3">
@@ -133,19 +125,12 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       </XStack>
       <Divider />
       <YStack flex={1} pt="$3">
-        {tabs}
+        <ScrollView contentContainerStyle={{ pb: '$10' }}>{tabs}</ScrollView>
       </YStack>
-      <TabItemView
-        key="lock"
-        onPress={handleLock}
-        isActive={false}
-        options={{
-          tabBarIcon: () => 'LockOutline',
-          tabBarLabel: intl.formatMessage({
-            id: ETranslations.settings_lock_now,
-          }),
-        }}
-      />
+      <YStack bg="$bgSubdued">
+        <Divider />
+        <SocialButtonGroup />
+      </YStack>
     </YStack>
   );
 }
