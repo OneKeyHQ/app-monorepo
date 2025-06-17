@@ -19,3 +19,26 @@ try {
   );
   exit(1);
 }
+
+
+  // Check if APP_NAME is correctly set to "OneKey Wallet"
+  const distAppPath = path.join(desktopPath, 'app', 'dist', 'app.js');
+  console.log(distAppPath);
+  if (!fs.existsSync(distAppPath)) {
+    throw new Error(`Build output file not found: ${distAppPath}`);
+  }
+  
+  const expectedAppName = 'APP_NAME = "OneKey Wallet"';
+  
+  try {
+    const grepResult = execSync(`grep '${expectedAppName}' "${distAppPath}"`, { encoding: 'utf-8' });
+    console.log('grepResult:', grepResult);
+    if (grepResult === '') {
+      throw new Error('grep command should not return output when using -q flag');
+    }
+  } catch (grepError) {
+    throw new Error(
+      `APP_NAME must be set to "OneKey Wallet" in the built app.js file. ` +
+      `Expected: ${expectedAppName}`
+    );
+  }
