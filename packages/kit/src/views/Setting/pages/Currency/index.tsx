@@ -4,8 +4,13 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { INavSearchBarProps } from '@onekeyhq/components';
-import { Empty, Page, SectionList } from '@onekeyhq/components';
-import {} from '@onekeyhq/components/src/layouts/SectionList';
+import {
+  Empty,
+  Page,
+  SearchBar,
+  SectionList,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -139,17 +144,9 @@ export default function SettingCurrencyModal() {
     [currency?.id],
   );
 
-  const headerSearchBarOptions = useMemo(
-    () =>
-      ({
-        onChangeText: ({ nativeEvent }) => {
-          const afterTrim = nativeEvent.text.trim();
-          onChangeText(afterTrim);
-        },
-        placeholder: intl.formatMessage({ id: ETranslations.global_search }),
-      } as INavSearchBarProps),
-    [intl],
-  );
+  const handleChangeText = useCallback((searchText: string) => {
+    onChangeText(searchText.trim());
+  }, []);
 
   return (
     <Page>
@@ -157,9 +154,21 @@ export default function SettingCurrencyModal() {
         title={intl.formatMessage({
           id: ETranslations.settings_default_currency,
         })}
-        headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
+        <XStack px="$5" w="100%">
+          <SearchBar
+            containerProps={{
+              alignSelf: 'stretch',
+              mb: '$4',
+            }}
+            size="small"
+            onChangeText={handleChangeText}
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search,
+            })}
+          />
+        </XStack>
         <SectionList
           estimatedItemSize={60}
           ListEmptyComponent={
