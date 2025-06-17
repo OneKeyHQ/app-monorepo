@@ -186,10 +186,8 @@ function SettingsTabNavigator() {
       tabBar={tabBarCallback}
       screenOptions={{
         headerShown: false,
-        freezeOnBlur: true,
-        // Native Load all tabs at once
-        // Web Lazy load
-        lazy: !platformEnv.isNative,
+        freezeOnBlur: false,
+        lazy: false,
       }}
     >
       {tabScreens}
