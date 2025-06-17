@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,50 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+let shouldShowHdOrHwAccountRemoveDialog = true;
+
+function useRemoveAccountFn() {
+  const [loading, setLoading] = useState(false);
+  const actions = useAccountSelectorActions();
+
+  const removeFn = useCallback(
+    async ({
+      indexedAccount,
+      account,
+      accountsCount,
+      closeDialog,
+    }: {
+      indexedAccount: IDBIndexedAccount | undefined;
+      account: IDBAccount | undefined;
+      accountsCount: number;
+      closeDialog?: (extra?: { flag?: string }) => Promise<void> | void;
+    }) => {
+      try {
+        setLoading(true);
+        await actions.current.removeAccount({
+          indexedAccount,
+          account,
+          isRemoveLastOthersAccount: accountsCount <= 1,
+        });
+        // Toast.success({
+        //   title: intl.formatMessage({
+        //     // TODO remove success not changed success
+        //     id: ETranslations.feedback_change_saved,
+        //   }),
+        // });
+      } finally {
+        setLoading(false);
+        await closeDialog?.();
+      }
+    },
+    [actions],
+  );
+  return {
+    loading,
+    removeFn,
+  };
+}
+
 export function AccountRemoveDialog({
   indexedAccount,
   account,
@@ -25,32 +69,24 @@ export function AccountRemoveDialog({
   account?: IDBAccount;
   accountsCount: number;
 }) {
-  const actions = useAccountSelectorActions();
-  const [loading, setLoading] = useState(false);
+  const { loading, removeFn } = useRemoveAccountFn();
+  const intl = useIntl();
   return (
     <Dialog.Footer
       confirmButtonProps={{
-        variant: 'destructive',
+        variant: indexedAccount && !account ? 'primary' : 'destructive',
         loading,
       }}
+      onConfirmText={intl.formatMessage({
+        id: ETranslations.global_remove,
+      })}
       onConfirm={async ({ close }) => {
-        try {
-          setLoading(true);
-          await actions.current.removeAccount({
-            indexedAccount,
-            account,
-            isRemoveLastOthersAccount: accountsCount <= 1,
-          });
-          // Toast.success({
-          //   title: intl.formatMessage({
-          //     // TODO remove success not changed success
-          //     id: ETranslations.feedback_change_saved,
-          //   }),
-          // });
-        } finally {
-          setLoading(false);
-          await close();
-        }
+        await removeFn({
+          indexedAccount,
+          account,
+          accountsCount,
+          closeDialog: close,
+        });
       }}
     />
   );
@@ -71,9 +107,13 @@ export function showAccountRemoveDialog({
   account?: IDBAccount;
   config: IAccountSelectorContextData | undefined;
 }) {
+  if (indexedAccount && !account) {
+    shouldShowHdOrHwAccountRemoveDialog = false;
+  }
+
   return Dialog.show({
     icon: 'ErrorOutline',
-    tone: 'destructive',
+    tone: indexedAccount && !account ? 'default' : 'destructive',
     title,
     description,
     renderContent: config ? (
@@ -123,26 +163,55 @@ export function AccountRemoveButton({
     return intl.formatMessage({ id: ETranslations.remove_account_desc });
   }, [account, indexedAccount, intl]);
 
+  const { loading, removeFn } = useRemoveAccountFn();
+
   return (
     <ActionList.Item
       icon="DeleteOutline"
       label={intl.formatMessage({ id: ETranslations.global_remove })}
       destructive
+      isLoading={loading}
       onClose={onClose}
       onPress={async () => {
-        showAccountRemoveDialog({
-          accountsCount,
-          config,
-          title: intl.formatMessage(
-            { id: ETranslations.global_remove_account_name },
-            {
-              account: name,
-            },
-          ),
-          description: desc,
-          account,
-          indexedAccount,
-        });
+        let shouldShowDialog = true;
+
+        if (account && !indexedAccount) {
+          if (
+            accountUtils.isWatchingAccount({ accountId: account.id }) ||
+            accountUtils.isExternalAccount({
+              accountId: account.id,
+            })
+          ) {
+            shouldShowDialog = false;
+          }
+        }
+
+        if (indexedAccount && !account) {
+          shouldShowDialog = shouldShowHdOrHwAccountRemoveDialog;
+        }
+
+        if (shouldShowDialog) {
+          showAccountRemoveDialog({
+            accountsCount,
+            config,
+            title: intl.formatMessage(
+              { id: ETranslations.global_remove_account_name },
+              {
+                account: name,
+              },
+            ),
+            description: desc,
+            account,
+            indexedAccount,
+          });
+        } else {
+          await removeFn({
+            account,
+            indexedAccount,
+            accountsCount,
+            closeDialog: onClose,
+          });
+        }
       }}
     />
   );

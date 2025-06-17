@@ -71,6 +71,12 @@ function WalletEditButtonView({
     if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
       return false;
     }
+    if (
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id }) &&
+      wallet?.isMocked
+    ) {
+      return false;
+    }
     return (
       accountUtils.isHdWallet({ walletId: wallet?.id }) ||
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })

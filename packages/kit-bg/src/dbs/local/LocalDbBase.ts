@@ -1180,7 +1180,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       (await this.getWalletSafe({
         walletId,
       }));
-    if (wallet) {
+    if (wallet && !wallet?.isMocked) {
       // TODO performance
       const allIndexedAccounts0 =
         allIndexedAccounts ||
@@ -2487,7 +2487,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this.buildCreateHDAndHWWalletResult({
       walletId: dbWalletId,
       addedHdAccountIndex,
-      isOverrideWallet: Boolean(existingWallet),
+      isOverrideWallet: Boolean(existingWallet && !existingWallet?.isMocked),
       // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
@@ -2849,7 +2849,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this.buildCreateHDAndHWWalletResult({
       walletId: dbWalletId,
       addedHdAccountIndex,
-      isOverrideWallet: Boolean(existingWallet),
+      isOverrideWallet: Boolean(existingWallet && !existingWallet?.isMocked),
       // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
