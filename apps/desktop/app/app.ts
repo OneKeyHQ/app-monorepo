@@ -67,7 +67,10 @@ initSentry();
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
-const APP_NAME = 'OneKey';
+// WARNING: This name cannot be changed as it affects Electron data storage.
+// Changing it will cause the system to generate new storage, preventing users from accessing their existing data.
+const APP_NAME = 'OneKey Wallet';
+const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
@@ -110,7 +113,7 @@ function showMainWindow() {
 const initMenu = () => {
   const template = [
     {
-      label: app.name,
+      label: APP_TITLE_NAME,
       submenu: [
         {
           role: isMac ? 'about' : undefined,
@@ -422,7 +425,7 @@ function createMainWindow() {
   }
   const browserWindow = new BrowserWindow({
     show: false,
-    title: APP_NAME,
+    title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
     trafficLightPosition: { x: 20, y: 18 },
@@ -1048,7 +1051,6 @@ if (!singleInstance && !process.mas) {
     }
   });
 
-  app.name = APP_NAME;
   app.on('ready', async () => {
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
