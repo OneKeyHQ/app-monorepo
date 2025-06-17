@@ -246,14 +246,12 @@ function HiddenWalletAddButton({
   const { createHiddenWallet, isLoading } = useAddHiddenWalletButton();
   const intl = useIntl();
 
-  if (!isEditMode) {
+  if (!isEditMode || wallet?.deprecated) {
     return null;
   }
 
   return (
     <WalletListItemBaseView
-      opacity={wallet?.deprecated ? 0.5 : undefined}
-      disabled={wallet?.deprecated}
       name={intl.formatMessage({ id: ETranslations.global_hidden_wallet })}
       avatarView={
         <Icon name="PlusCircleOutline" color="$iconSubdued" size="$10" />

@@ -23,6 +23,7 @@ import { ErrorToastContainer } from './ErrorToastContainer';
 import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
+import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
@@ -115,6 +116,7 @@ export function Container() {
           <PortalBodyContainer />
           <PageTrackerContainer />
           <ErrorToastContainer />
+          <GlobalErrorHandlerContainer />
           <ForceFirmwareUpdateContainer />
           {process.env.NODE_ENV !== 'production' ? (
             <>

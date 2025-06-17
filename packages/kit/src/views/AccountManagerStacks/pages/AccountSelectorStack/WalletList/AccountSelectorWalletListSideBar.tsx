@@ -181,7 +181,8 @@ export function AccountSelectorWalletListSideBar({
       if (
         accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
         !accountUtils.isHwHiddenWallet({ wallet }) &&
-        isEditableRouteParams
+        isEditableRouteParams &&
+        !wallet?.deprecated
       ) {
         _hiddenWalletsLength += 1; // create hidden wallet button
       }

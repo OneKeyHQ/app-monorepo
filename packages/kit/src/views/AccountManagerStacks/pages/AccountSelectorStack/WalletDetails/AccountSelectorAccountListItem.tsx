@@ -228,6 +228,9 @@ export function AccountSelectorAccountListItem({
   );
 
   const actionButton = useMemo(() => {
+    if (isCreatingAddress) {
+      return null;
+    }
     if (editable) {
       return (
         <AccountEditButton
@@ -265,6 +268,7 @@ export function AccountSelectorAccountListItem({
     }
     return null;
   }, [
+    isCreatingAddress,
     editable,
     shouldShowCreateAddressButton,
     accountsCount,
@@ -450,10 +454,12 @@ export function AccountSelectorAccountListItem({
           bg: '$bgActive',
         })}
       />
-      {/* The value of top should be change if the height of the item is changed, since we can not use percentage value in translateY for keeping the Icon central aligned in React Native */}
-      <Stack position="absolute" right="$5" top={18}>
-        {actionButton}
-      </Stack>
+      {isCreatingAddress ? null : (
+        /* The value of top should be change if the height of the item is changed, since we can not use percentage value in translateY for keeping the Icon central aligned in React Native */
+        <Stack position="absolute" right="$5" top={18}>
+          {actionButton}
+        </Stack>
+      )}
     </Stack>
   );
 }

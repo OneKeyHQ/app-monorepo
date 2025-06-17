@@ -126,8 +126,7 @@ class LegacyIndexedDb {
       'versionchange'
     >;
   }) {
-    const { db, transaction, newVersion } = options;
-    const currentStoreNames = db.objectStoreNames;
+    const { db, transaction } = options;
 
     // create new stores
     const storeNamesToAdd = Object.values(ELocalDBStoreNames);

@@ -1,6 +1,12 @@
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
+export enum ETokenListSortType {
+  Name = 'name',
+  Price = 'price',
+  Value = 'value',
+}
+
 export type IToken = {
   decimals: number;
   name: string;

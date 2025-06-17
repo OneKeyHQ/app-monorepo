@@ -39,9 +39,9 @@ import type {
 } from '@onekeyhq/shared/types/desktop';
 
 import appDevOnlyApi from './appDevOnlyApi';
+import appIAP from './appIAP';
 import appNotification from './appNotification';
 import appPermission from './appPermission';
-import appIAP from './appIAP';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';

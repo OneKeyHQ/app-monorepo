@@ -4,17 +4,12 @@ import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
 export function EarnText({
   text,
-  color,
-  size,
-  ...props
+  ...localTextProps
 }: { text?: IEarnText } & IHyperlinkTextProps) {
+  const { text: textString, ...remoteTextProps } = text || {};
   return text ? (
-    <FormatHyperlinkText
-      color={text.color || color}
-      size={text.size || size}
-      {...props}
-    >
-      {text.text}
+    <FormatHyperlinkText {...localTextProps} {...remoteTextProps}>
+      {textString}
     </FormatHyperlinkText>
   ) : null;
 }

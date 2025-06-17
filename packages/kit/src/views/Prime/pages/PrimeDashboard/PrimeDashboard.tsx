@@ -190,11 +190,7 @@ export default function PrimeDashboard() {
   return (
     <>
       <Theme name="dark">
-        <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
-          <Page.Close>
-            <IconButton icon="CrossedLargeOutline" variant="tertiary" />
-          </Page.Close>
-        </Stack>
+        <Page.CloseButton />
         <Stack position="absolute" right="$5" top={top || '$5'} zIndex="$5">
           <IconButton
             onPress={() => {

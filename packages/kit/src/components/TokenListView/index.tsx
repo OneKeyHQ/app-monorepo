@@ -14,8 +14,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import {
+  getFilteredTokenBySearchKey,
+  sortTokensByFiatValue,
+  sortTokensByName,
+  sortTokensByPrice,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  ETokenListSortType,
+  type IAccountToken,
+} from '@onekeyhq/shared/types/token';
 
 import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
@@ -26,6 +34,8 @@ import {
   useSearchTokenStateAtom,
   useSmallBalanceTokenListAtom,
   useTokenListAtom,
+  useTokenListMapAtom,
+  useTokenListSortAtom,
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
@@ -48,6 +58,7 @@ type IProps = {
   withBuyAndReceive?: boolean;
   withNetwork?: boolean;
   withSmallBalanceTokens?: boolean;
+  withSwapAction?: boolean;
   inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
@@ -86,6 +97,7 @@ function TokenListViewCmp(props: IProps) {
     inTabList = false,
     withBuyAndReceive,
     withNetwork,
+    withSwapAction,
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
@@ -106,6 +118,7 @@ function TokenListViewCmp(props: IProps) {
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
+  const [tokenListMap] = useTokenListMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
@@ -137,26 +150,56 @@ function TokenListViewCmp(props: IProps) {
 
   const [searchTokenList] = useSearchTokenListAtom();
 
-  const filteredTokens = useMemo(
-    () =>
-      getFilteredTokenBySearchKey({
-        tokens,
-        searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
-        searchAll,
-        searchTokenList: isTokenSelector
-          ? tokenSelectorSearchTokenList.tokens
-          : searchTokenList.tokens,
-      }),
-    [
+  const [{ sortType, sortDirection }] = useTokenListSortAtom();
+
+  const filteredTokens = useMemo(() => {
+    const resp = getFilteredTokenBySearchKey({
       tokens,
-      isTokenSelector,
-      tokenSelectorSearchKey,
-      searchKey,
+      searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
       searchAll,
-      tokenSelectorSearchTokenList.tokens,
-      searchTokenList.tokens,
-    ],
-  );
+      searchTokenList: isTokenSelector
+        ? tokenSelectorSearchTokenList.tokens
+        : searchTokenList.tokens,
+    });
+
+    if (!isTokenSelector) {
+      if (sortType === ETokenListSortType.Price) {
+        return sortTokensByPrice({
+          tokens: resp,
+          sortDirection,
+          map: tokenListMap,
+        });
+      }
+
+      if (sortType === ETokenListSortType.Value) {
+        return sortTokensByFiatValue({
+          tokens: resp,
+          sortDirection,
+          map: tokenListMap,
+        });
+      }
+
+      if (sortType === ETokenListSortType.Name) {
+        return sortTokensByName({
+          tokens: resp,
+          sortDirection,
+        });
+      }
+    }
+
+    return resp;
+  }, [
+    tokens,
+    isTokenSelector,
+    tokenSelectorSearchKey,
+    searchKey,
+    searchAll,
+    tokenSelectorSearchTokenList.tokens,
+    searchTokenList.tokens,
+    sortType,
+    sortDirection,
+    tokenListMap,
+  ]);
 
   const { listViewProps, listViewRef, onLayout } =
     useTabListScroll<IAccountToken>({
@@ -295,6 +338,7 @@ function TokenListViewCmp(props: IProps) {
           isAllNetworks={isAllNetworks}
           withNetwork={withNetwork}
           isTokenSelector={isTokenSelector}
+          withSwapAction={withSwapAction}
         />
       )}
       ListFooterComponent={
