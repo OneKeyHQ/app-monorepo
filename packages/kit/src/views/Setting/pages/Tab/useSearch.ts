@@ -2,13 +2,19 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { groupBy } from 'lodash';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
-import { useSettingsConfig } from './config';
+import {
+  ESettingsTabNames,
+  useIsTabNavigator,
+  useSettingsConfig,
+} from './config';
 
 import type { ISubSettingConfig } from './config';
 import type { FuseResult } from 'fuse.js';
@@ -44,6 +50,7 @@ export const useSearch = () => {
     shouldSort: false,
   });
 
+  const isTabNavigator = useIsTabNavigator();
   const searchTextRef = useRef<string>('');
   const onSearch = useCallback(
     (searchText: string) => {
@@ -57,12 +64,20 @@ export const useSearch = () => {
         configs: sections[key] as FuseResult<ISubSettingConfig>[],
       }));
       setSearchResult(list);
-      appEventBus.emit(EAppEventBusNames.SettingsSearchResult, {
-        list,
-        searchText,
-      });
+      if (isTabNavigator) {
+        rootNavigationRef.current?.navigate(
+          EModalSettingRoutes.SettingListModal,
+          {
+            screen: ESettingsTabNames.Search,
+          },
+        );
+        appEventBus.emit(EAppEventBusNames.SettingsSearchResult, {
+          list,
+          searchText,
+        });
+      }
     },
-    [searchFuse],
+    [isTabNavigator, searchFuse],
   );
   return {
     isSearching: searchTextRef.current.length > 0,

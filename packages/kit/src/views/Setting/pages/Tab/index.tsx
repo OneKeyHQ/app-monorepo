@@ -8,9 +8,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Divider,
   Icon,
-  NavCloseButton,
   SearchBar,
-  SizableText,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -22,11 +20,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOnLock } from '../List/DefaultSection';
 
-import { useIsTabNavigator, useSettingsConfig } from './config';
+import {
+  HideOnSideBarTabNames,
+  useIsTabNavigator,
+  useSettingsConfig,
+} from './config';
 import { SettingList } from './SettingList';
 import { SubSettings } from './SubSettings';
 import { useSearch } from './useSearch';
 
+import type { ESettingsTabNames } from './config';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
@@ -56,18 +59,19 @@ function TabItemView({
   }, [options]);
 
   const contentMemo = useMemo(
-    () => (
-      <DesktopTabItem
-        onPress={options.tabbarOnPress ?? onPress}
-        trackId={options.trackId}
-        aria-current={isActive ? 'page' : undefined}
-        selected={isActive}
-        tabBarStyle={options.tabBarStyle}
-        // @ts-expect-error
-        icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-        label={(options.tabBarLabel ?? '') as string}
-      />
-    ),
+    () =>
+      options.tabBarLabel ? (
+        <DesktopTabItem
+          onPress={options.tabbarOnPress ?? onPress}
+          trackId={options.trackId}
+          aria-current={isActive ? 'page' : undefined}
+          selected={isActive}
+          tabBarStyle={options.tabBarStyle}
+          // @ts-expect-error
+          icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+          label={options.tabBarLabel as string}
+        />
+      ) : null,
     [isActive, onPress, options],
   );
 
@@ -82,6 +86,10 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       routes.map((route, index) => {
         const focus = index === state.index;
         const { options } = descriptors[route.key];
+
+        if (HideOnSideBarTabNames.includes(route.name as ESettingsTabNames)) {
+          return null;
+        }
         const onPress = () => {
           const event = navigation.emit({
             type: 'tabPress',
@@ -143,31 +151,32 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
 function SettingsTabNavigator() {
   const settingsConfig = useSettingsConfig();
-  const tabScreens = useMemo(
-    () =>
-      settingsConfig.map((config) => {
-        if (!config) {
-          return null;
-        }
-        const { icon, title, ...options } = config;
-        return (
-          <Tab.Screen
-            key={title}
-            name={title}
-            options={{
-              ...options,
-              tabBarLabel: title,
-              tabBarIcon: () => icon,
-              // @ts-expect-error BottomTabBar V7
-              tabBarPosition: 'left',
-            }}
-          >
-            {() => <SubSettings name={title} />}
-          </Tab.Screen>
-        );
-      }),
-    [settingsConfig],
-  );
+  const tabScreens = useMemo(() => {
+    const items = settingsConfig.map((config) => {
+      if (!config) {
+        return null;
+      }
+      const { icon, title, name, Component, ...options } = config;
+      return (
+        <Tab.Screen
+          key={title}
+          name={name}
+          options={{
+            ...options,
+            tabBarLabel: title,
+            tabBarIcon: () => icon,
+            // @ts-expect-error BottomTabBar V7
+            tabBarPosition: 'left',
+          }}
+        >
+          {Component
+            ? () => <Component name={title} />
+            : () => <SubSettings name={title} />}
+        </Tab.Screen>
+      );
+    });
+    return items;
+  }, [settingsConfig]);
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => <SideBar {...props} />,
     [],

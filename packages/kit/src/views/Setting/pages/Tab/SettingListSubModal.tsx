@@ -1,12 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
 import { Divider, Page, XStack, YStack } from '@onekeyhq/components';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSettingRoutes,
@@ -18,19 +14,11 @@ import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 import { SearchView } from './SearchView';
 
-import type { ISubSettingConfig } from './config';
 import type { RouteProp } from '@react-navigation/core';
-import type { FuseResult } from 'fuse.js';
 
 type ISettingName = string;
 
-export function SubSettingsPage({
-  name,
-  showSearchView = true,
-}: {
-  name: ISettingName;
-  showSearchView?: boolean;
-}) {
+export function SubSettingsPage({ name }: { name: ISettingName }) {
   const settingsConfig = useSettingsConfig();
   const isTabNavigator = useIsTabNavigator();
   const configList = useMemo(() => {
@@ -38,36 +26,7 @@ export function SubSettingsPage({
       .find((item) => item?.title === name)
       ?.configs.filter((item) => item && item.length);
   }, [name, settingsConfig]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResult, setSearchResult] = useState<
-    {
-      title: string;
-      icon: string;
-      configs: FuseResult<ISubSettingConfig>[];
-    }[]
-  >([]);
-  useEffect(() => {
-    if (showSearchView) {
-      const callback = ({
-        list,
-        searchText,
-      }: {
-        list: {
-          title: string;
-          icon: string;
-          configs: FuseResult<ISubSettingConfig>[];
-        }[];
-        searchText: string;
-      }) => {
-        setIsSearching(searchText?.length > 0);
-        setSearchResult(list ?? []);
-      };
-      appEventBus.on(EAppEventBusNames.SettingsSearchResult, callback);
-      return () => {
-        appEventBus.off(EAppEventBusNames.SettingsSearchResult, callback);
-      };
-    }
-  }, [showSearchView]);
+
   return (
     <Page scrollEnabled>
       <Page.Header title={name} />

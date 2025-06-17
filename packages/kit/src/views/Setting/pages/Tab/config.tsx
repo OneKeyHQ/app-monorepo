@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -55,6 +56,7 @@ import {
   ListVersionItem,
   ThemeListItem,
 } from './CustomElement';
+import { SubSearchSettings } from './SubSettings';
 
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
@@ -69,10 +71,25 @@ export const useIsTabNavigator = () => {
   return isTabNavigator;
 };
 
+export enum ESettingsTabNames {
+  Backup = 'Backup',
+  Preferences = 'Preferences',
+  Wallet = 'Wallet',
+  Security = 'Security',
+  Network = 'Network',
+  About = 'About',
+  Search = 'Search',
+  Dev = 'Dev',
+}
+
+export const HideOnSideBarTabNames = [ESettingsTabNames.Search];
+
 export const useSettingsConfig: () => (
   | {
       icon: string;
       title: string;
+      name: ESettingsTabNames;
+      Component?: ComponentType<{ name: string }>;
       configs: (ISubSettingConfig | undefined | null)[][];
     }
   | undefined
@@ -95,6 +112,7 @@ export const useSettingsConfig: () => (
   return useMemo(
     () => [
       {
+        name: ESettingsTabNames.Backup,
         icon: 'CloudUploadSolid',
         title: intl.formatMessage({ id: ETranslations.global_backup }),
         configs: [
@@ -167,6 +185,7 @@ export const useSettingsConfig: () => (
         ],
       },
       {
+        name: ESettingsTabNames.Preferences,
         icon: 'SettingsSolid',
         title: intl.formatMessage({
           id: ETranslations.global_preferences,
@@ -243,6 +262,7 @@ export const useSettingsConfig: () => (
         ],
       },
       {
+        name: ESettingsTabNames.Wallet,
         icon: 'WalletSolid',
         title: intl.formatMessage({
           id: ETranslations.global_wallet,
@@ -300,6 +320,7 @@ export const useSettingsConfig: () => (
         ],
       },
       {
+        name: ESettingsTabNames.Security,
         icon: 'Shield2CheckSolid',
         title: intl.formatMessage({
           id: ETranslations.global_security,
@@ -393,6 +414,7 @@ export const useSettingsConfig: () => (
         ],
       },
       {
+        name: ESettingsTabNames.Network,
         icon: 'GlobusSolid',
         title: intl.formatMessage({
           id: ETranslations.global_network,
@@ -456,6 +478,7 @@ export const useSettingsConfig: () => (
         ],
       },
       {
+        name: ESettingsTabNames.About,
         icon: 'InfoCircleSolid',
         title: intl.formatMessage({
           id: ETranslations.global_about,
@@ -608,6 +631,7 @@ export const useSettingsConfig: () => (
       devSettings.enabled
         ? {
             icon: 'CodeOutline',
+            name: ESettingsTabNames.Dev,
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
             }),
@@ -624,6 +648,15 @@ export const useSettingsConfig: () => (
             ],
           }
         : undefined,
+      {
+        icon: 'SearchOutline',
+        name: ESettingsTabNames.Search,
+        title: intl.formatMessage({
+          id: ETranslations.settings_search_title,
+        }),
+        configs: [],
+        Component: SubSearchSettings,
+      },
     ],
     [
       biometricAuthInfo.titleId,

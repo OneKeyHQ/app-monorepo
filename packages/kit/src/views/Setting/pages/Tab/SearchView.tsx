@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -5,15 +7,20 @@ import {
   Accordion,
   Empty,
   Icon,
+  Page,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 
+import type { ISubSettingConfig } from './config';
 import type { ISettingsSearchResult } from './useSearch';
+import type { FuseResult } from 'fuse.js';
 
 export function SearchView({
   sections,
@@ -106,5 +113,54 @@ export function SearchView({
         })}
       />
     </YStack>
+  );
+}
+
+export function SearchViewPage() {
+  const intl = useIntl();
+  const [searchText, setSearchText] = useState('');
+  const [searchResult, setSearchResult] = useState<
+    {
+      title: string;
+      icon: string;
+      configs: FuseResult<ISubSettingConfig>[];
+    }[]
+  >([]);
+  useEffect(() => {
+    const callback = ({
+      list,
+      searchText: searchTextString,
+    }: {
+      list: {
+        title: string;
+        icon: string;
+        configs: FuseResult<ISubSettingConfig>[];
+      }[];
+      searchText: string;
+    }) => {
+      setSearchResult(list ?? []);
+      setSearchText(searchTextString);
+    };
+    appEventBus.on(EAppEventBusNames.SettingsSearchResult, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SettingsSearchResult, callback);
+    };
+  }, []);
+  console.log('searchText', searchText, searchResult);
+  const isSearching = searchText.length > 0;
+  return (
+    <Page>
+      <Page.Header
+        title={intl.formatMessage(
+          {
+            id: ETranslations.settings_search_title,
+          },
+          { keyword: searchText },
+        )}
+      />
+      <Page.Body>
+        <SearchView isSearching={isSearching} sections={searchResult} />
+      </Page.Body>
+    </Page>
   );
 }
