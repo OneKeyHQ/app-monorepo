@@ -1,4 +1,4 @@
-import { cloneElement, useMemo } from 'react';
+import { cloneElement, useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -13,6 +13,7 @@ import type {
 } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import { type ISubSettingConfig } from './config';
@@ -57,6 +58,10 @@ export function TabSettingsListGrid({
       size: (isTabNavigator ? '$5' : '$6') as IIconProps['size'],
     };
   }, [isTabNavigator]);
+  const appNavigation = useAppNavigation();
+  const onPress = useCallback(() => {
+    item?.onPress?.(appNavigation);
+  }, [item, appNavigation]);
   return item?.renderElement ? (
     cloneElement(item.renderElement, {
       titleMatch,
@@ -75,7 +80,7 @@ export function TabSettingsListGrid({
       titleMatch={titleMatch}
       titleProps={titleProps}
       borderRadius={0}
-      onPress={item?.onPress}
+      onPress={onPress}
       key={item?.icon ?? item?.title}
       icon={item?.icon as IKeyOfIcons}
       iconProps={iconProps}
