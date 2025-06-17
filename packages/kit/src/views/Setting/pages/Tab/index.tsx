@@ -28,6 +28,7 @@ import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
+import { Keyboard } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 
@@ -74,7 +75,7 @@ function TabItemView({
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
-  const { onSearch, previousTabRoute } = useSearch();
+  const { onSearch, onFocus, previousTabRoute } = useSearch();
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
@@ -85,6 +86,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           return null;
         }
         const onPress = () => {
+          Keyboard.dismiss();
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
@@ -118,7 +120,11 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   return (
     <YStack w={192} bg="$bgSubdued" pt={top} pb={bottom} px="$3">
       <XStack my="$2.5">
-        <SearchBar onSearchTextChange={onSearch} size="small" />
+        <SearchBar
+          onSearchTextChange={onSearch}
+          onFocus={onFocus}
+          size="small"
+        />
       </XStack>
       <Divider />
       <YStack flex={1} pt="$3">
