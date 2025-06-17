@@ -57,7 +57,7 @@ function ListVersionItem() {
   );
 }
 
-function ListShortcutsItem() {
+export function ListShortcutsItem() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toShortcutsPage = useCallback(() => {

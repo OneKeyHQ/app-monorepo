@@ -4,7 +4,7 @@ import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { Dialog, Stack } from '@onekeyhq/components';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,

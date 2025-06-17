@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BIP32Factory } from 'bip32';
 import {
   address as BitcoinJsAddress,
