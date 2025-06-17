@@ -1699,7 +1699,7 @@ function TxFeeEditor(props: IProps) {
         ...fee,
         feeBudget: {
           ...fee.feeBudget,
-          gasPrice: watchAllFields.gasSuiPrice,
+          gasPrice: gasPrice.toFixed(),
         },
       };
 

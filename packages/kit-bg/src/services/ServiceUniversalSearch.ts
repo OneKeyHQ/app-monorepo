@@ -24,6 +24,8 @@ import {
   sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -375,6 +377,7 @@ class ServiceUniversalSearch extends ServiceBase {
     // Always search for account names regardless of address validation
     const accountNameSearchPromise = this.searchAccountsByName({
       searchTerm: trimmedInput,
+      networkId,
     });
 
     // Step 1: Get supported networks and batch validate
@@ -643,8 +646,10 @@ class ServiceUniversalSearch extends ServiceBase {
 
   private async searchAccountsByName({
     searchTerm,
+    networkId,
   }: {
     searchTerm: string;
+    networkId?: string;
   }): Promise<IUniversalSearchSingleResult> {
     const {
       serviceAccount,
@@ -689,6 +694,35 @@ class ServiceUniversalSearch extends ServiceBase {
               accounts: [{ accountId: i.item.id }],
             })
           )?.[0];
+
+          let account: INetworkAccount | undefined;
+          let addressInfo: IAddressValidation | undefined;
+
+          if (networkId && !networkUtils.isAllNetwork({ networkId })) {
+            const deriveType =
+              await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId,
+                },
+              );
+            account = await this.backgroundApi.serviceAccount.getNetworkAccount(
+              {
+                accountId: undefined,
+                indexedAccountId: i.item.id,
+                networkId,
+                deriveType,
+              },
+            );
+
+            if (account) {
+              addressInfo =
+                await this.backgroundApi.serviceValidator.localValidateAddress({
+                  networkId,
+                  address: account.address,
+                });
+            }
+          }
+
           return {
             wallet,
             indexedAccount: i.item,
@@ -700,8 +734,8 @@ class ServiceUniversalSearch extends ServiceBase {
             },
             score: i.score,
             network: undefined,
-            account: undefined,
-            addressInfo: undefined,
+            account,
+            addressInfo,
           };
         } catch (e) {
           console.error('Failed to get indexed account data:', e);

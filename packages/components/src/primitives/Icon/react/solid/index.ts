@@ -346,6 +346,7 @@ export { default as Earth } from './Earth';
 export { default as EditList } from './EditList';
 export { default as Edit } from './Edit';
 export { default as Education } from './Education';
+export { default as Eject } from './Eject';
 export { default as Email2Notification } from './Email2Notification';
 export { default as Email2 } from './Email2';
 export { default as Email } from './Email';
