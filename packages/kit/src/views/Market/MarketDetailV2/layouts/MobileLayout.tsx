@@ -23,7 +23,12 @@ export function MobileLayout({
   return (
     <>
       {/* Header */}
-      <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
+      <TokenDetailHeader
+        tokenDetail={tokenDetail}
+        networkId={networkId}
+        showStats={false}
+        showMediaAndSecurity={false}
+      />
 
       {/* Main Content (temporary same as desktop; will adjust later) */}
       <YStack flex={1}>
