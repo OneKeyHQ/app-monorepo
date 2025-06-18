@@ -60,9 +60,11 @@ function MarketDetail({
             <Stack flex={1}>
               <TradingView
                 mode="realtime"
-                identifier="BTCUSDT"
-                baseToken="BTC"
+                identifier="binance"
+                baseToken={tokenDetail?.symbol ?? ''}
                 targetToken="USDT"
+                tokenAddress={tokenAddress}
+                networkId={networkId}
                 onLoadEnd={() => {}}
               />
             </Stack>

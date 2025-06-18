@@ -33,14 +33,18 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
 
+  // Calculate the current timestamp in seconds once per render.
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+
   const {
     onLoadEnd,
     tradingViewUrl = 'http://localhost:5173/?mode=dev',
     tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
     networkId = 'sol--101',
     interval = '1D',
-    timeFrom = 1_723_593_600,
-    timeTo = 1_749_513_600,
+    // Default to a one-year window: from now minus one year to now.
+    timeFrom = 1,
+    timeTo = nowInSeconds,
   } = props;
 
   const { kineData } = useTradingViewV2({
@@ -50,6 +54,8 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     timeFrom,
     timeTo,
   });
+
+  console.log('kineData', kineData);
 
   // Periodically send fetched K-line data to the WebView
   useEffect(() => {
