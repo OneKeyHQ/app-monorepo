@@ -164,7 +164,7 @@ function SettingsTabNavigator() {
           }}
         >
           {Component
-            ? () => <SubSearchSettings name={title} />
+            ? () => <Component name={title} settingsConfig={settingsConfig} />
             : () => (
                 <SubSettings name={title} settingsConfig={settingsConfig} />
               )}
