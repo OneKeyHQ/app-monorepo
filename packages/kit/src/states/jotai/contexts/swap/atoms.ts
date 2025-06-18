@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapProviderSort,
+  mevSwapNetworks,
   swapProviderRecommendApprovedWeights,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -41,6 +42,14 @@ const {
   contextAtomMethod,
 } = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
+
+// swap mev config
+export const { atom: swapMevConfigAtom, use: useSwapMevConfigAtom } =
+  contextAtom<{
+    swapMevNetConfig: string[];
+  }>({
+    swapMevNetConfig: mevSwapNetworks,
+  });
 
 // swap bridge limit switch
 export const { atom: swapTypeSwitchAtom, use: useSwapTypeSwitchAtom } =
