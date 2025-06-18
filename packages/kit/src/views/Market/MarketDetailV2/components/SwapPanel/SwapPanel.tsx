@@ -143,17 +143,12 @@ export function SwapPanel(props: ISwapPanelProps) {
 
   if (media.md) {
     return (
-      <>
-        <Button onPress={() => showSwapDialog(ESwapDirection.BUY)} mr="$2.5">
-          {intl.formatMessage({ id: ETranslations.global_buy })}
-        </Button>
-        <Button
-          onPress={() => showSwapDialog(ESwapDirection.SELL)}
-          variant="secondary"
-        >
-          {intl.formatMessage({ id: ETranslations.global_sell })}
-        </Button>
-      </>
+      <Button
+        variant="primary"
+        onPress={() => showSwapDialog(ESwapDirection.BUY)}
+      >
+        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+      </Button>
     );
   }
 
