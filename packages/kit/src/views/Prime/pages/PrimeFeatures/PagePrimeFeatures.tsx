@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type {
   IKeyOfIcons,
@@ -19,6 +20,7 @@ import {
   Theme,
   XStack,
   YStack,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import CloseButton from '@onekeyhq/components/src/composite/Banner/CloseButton';
@@ -103,6 +105,7 @@ export default function PagePrimeFeatures() {
   const navigation = useAppNavigation();
   const keyExtractor = useCallback((item: IFeatureItemInfo) => item.title, []);
   const renderItem = useCallback(({ item }: { item: IFeatureItemInfo }) => {
+    // return null;
     return <FeaturesItem {...item} />;
   }, []);
 
@@ -111,6 +114,14 @@ export default function PagePrimeFeatures() {
   const showAllFeatures = route.params?.showAllFeatures;
   const selectedSubscriptionPeriod = route.params?.selectedSubscriptionPeriod;
   const intl = useIntl();
+  const { gtMd } = useMedia();
+
+  const bannerHeight = useMemo(() => {
+    if (gtMd) {
+      return 200;
+    }
+    return 200;
+  }, [gtMd]);
 
   const dataInfo = useMemo<{
     data: IFeatureItemInfo[];
@@ -122,7 +133,7 @@ export default function PagePrimeFeatures() {
         banner: (
           <Image
             w="100%"
-            h={200}
+            h={bannerHeight}
             source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
           />
         ),
@@ -159,7 +170,7 @@ export default function PagePrimeFeatures() {
         banner: (
           <Image
             w="100%"
-            h={200}
+            h={bannerHeight}
             source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
           />
         ),
@@ -205,7 +216,7 @@ export default function PagePrimeFeatures() {
         banner: (
           <Image
             w="100%"
-            h={200}
+            h={bannerHeight}
             source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
           />
         ),
@@ -234,9 +245,10 @@ export default function PagePrimeFeatures() {
       data,
       index: index ?? 0,
     };
-  }, [intl, selectedFeature, showAllFeatures]);
+  }, [bannerHeight, intl, selectedFeature, showAllFeatures]);
 
-  const showPaginationButton = true;
+  // PaginationButton will cause native crash
+  const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
   const showCloseButton = false;
 
@@ -251,11 +263,11 @@ export default function PagePrimeFeatures() {
           <XStack
             testID="prime-features-pagination"
             gap="$1"
-            position="absolute"
-            right={0}
+            // position="absolute"
+            // right={0}
+            // bottom="$10"
             width="100%"
             jc="center"
-            bottom="$2"
             // {...hoverOpacity}
             // {...indicatorContainerStyle}
           >
@@ -381,86 +393,98 @@ export default function PagePrimeFeatures() {
     showAllFeatures,
   ]);
 
+  const { height: windowHeight } = useWindowDimensions();
+  const { top, bottom } = useSafeAreaInsets();
+  const height = useMemo(() => {
+    if (platformEnv.isNative) {
+      const TAB_BAR_HEIGHT = 54;
+      return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;
+    }
+    return '100%';
+  }, [windowHeight, top, bottom]);
+
   const page = (
-    <Page scrollEnabled>
-      <Theme name="dark">
-        <Page.Header
-          headerShown={false}
-          title={intl.formatMessage({
-            id: ETranslations.prime_features_title,
-          })}
-        />
-      </Theme>
+    <>
       <Page.BackButton />
+      <Page scrollEnabled>
+        <Theme name="dark">
+          <Page.Header
+            headerShown={false}
+            title={intl.formatMessage({
+              id: ETranslations.prime_features_title,
+            })}
+          />
+        </Theme>
 
-      <Page.Body>
-        <Stack h="$14" />
-        <Swiper
-          height="100%"
-          position="relative"
-          index={index}
-          onChangeIndex={onIndexChange}
-          // autoplay
-          // autoplayLoop
-          // autoplayLoopKeepAnimation
-          // autoplayDelayMs={3000}
-          keyExtractor={keyExtractor}
-          data={dataInfo.data}
-          renderItem={renderItem}
-          renderPagination={renderPagination}
-          overflow="hidden"
-          borderRadius="$3"
-          onPointerEnter={() => {
-            // setIsHoveringThrottled(true);
-          }}
-          onPointerLeave={() => {
-            // setIsHoveringThrottled(false);
-          }}
+        <Page.Body>
+          <Stack h={60} />
+          <Swiper
+            height={height}
+            position="relative"
+            index={index}
+            onChangeIndex={onIndexChange}
+            // autoplay
+            // autoplayLoop
+            // autoplayLoopKeepAnimation
+            // autoplayDelayMs={3000}
+            keyExtractor={keyExtractor}
+            data={dataInfo.data}
+            renderItem={renderItem}
+            renderPagination={renderPagination}
+            overflow="hidden"
+            borderRadius="$3"
+            onPointerEnter={() => {
+              // setIsHoveringThrottled(true);
+            }}
+            onPointerLeave={() => {
+              // setIsHoveringThrottled(false);
+            }}
+          />
+        </Page.Body>
+        <Page.Footer
+          confirmButtonProps={
+            shouldShowConfirmButton
+              ? {
+                  loading: !showAllFeatures ? false : isSubscribeLazyLoading,
+                  disabled: !showAllFeatures ? false : isPackagesLoading,
+                }
+              : undefined
+          }
+          onConfirm={shouldShowConfirmButton ? subscribe : undefined}
+          onConfirmText={(() => {
+            if (!showAllFeatures) {
+              return intl.formatMessage({
+                id: ETranslations.prime_about_onekey_prime,
+              });
+            }
+
+            if (!packages?.length) {
+              return intl.formatMessage({
+                id: ETranslations.prime_subscribe,
+              });
+            }
+
+            return selectedSubscriptionPeriod === 'P1Y'
+              ? intl.formatMessage(
+                  {
+                    id: ETranslations.prime_subscribe_yearly_price,
+                  },
+                  {
+                    price: selectedPackage?.pricePerYearString,
+                  },
+                )
+              : intl.formatMessage(
+                  {
+                    id: ETranslations.prime_subscribe_monthly_price,
+                  },
+                  {
+                    price: selectedPackage?.pricePerMonthString,
+                  },
+                );
+          })()}
         />
-      </Page.Body>
-      <Page.Footer
-        confirmButtonProps={
-          shouldShowConfirmButton
-            ? {
-                loading: !showAllFeatures ? false : isSubscribeLazyLoading,
-                disabled: !showAllFeatures ? false : isPackagesLoading,
-              }
-            : undefined
-        }
-        onConfirm={shouldShowConfirmButton ? subscribe : undefined}
-        onConfirmText={(() => {
-          if (!showAllFeatures) {
-            return intl.formatMessage({
-              id: ETranslations.prime_about_onekey_prime,
-            });
-          }
-
-          if (!packages?.length) {
-            return intl.formatMessage({
-              id: ETranslations.prime_subscribe,
-            });
-          }
-
-          return selectedSubscriptionPeriod === 'P1Y'
-            ? intl.formatMessage(
-                {
-                  id: ETranslations.prime_subscribe_yearly_price,
-                },
-                {
-                  price: selectedPackage?.pricePerYearString,
-                },
-              )
-            : intl.formatMessage(
-                {
-                  id: ETranslations.prime_subscribe_monthly_price,
-                },
-                {
-                  price: selectedPackage?.pricePerMonthString,
-                },
-              );
-        })()}
-      />
-    </Page>
+      </Page>
+    </>
   );
 
   return <Theme name="dark">{page}</Theme>;

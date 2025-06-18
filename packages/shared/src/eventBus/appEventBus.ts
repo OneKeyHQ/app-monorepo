@@ -292,6 +292,9 @@ export interface IAppEventBusPayload {
     }[];
     searchText: string;
   };
+  [EAppEventBusNames.CheckEndpointPrefix]: {
+    cleanAppClientCache?: boolean;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -401,9 +404,10 @@ class AppEventBusClass extends CrossEventEmitter {
     type: EAppEventBusNames;
     payload: any;
     isRemote?: boolean;
+    cloned?: boolean;
   }) {
-    const { type, payload, isRemote } = params;
-    const payloadCloned = cloneDeep(payload);
+    const { type, payload, isRemote, cloned = true } = params;
+    const payloadCloned = cloned ? cloneDeep(payload) : payload;
     try {
       // @ts-ignore
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

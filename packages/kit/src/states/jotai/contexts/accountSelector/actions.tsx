@@ -1002,12 +1002,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
             await timerUtils.wait(100);
           }
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-            skipDeviceCancel: false,
-            hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-          });
+          if (wallet && indexedAccount) {
+            await this.addDefaultNetworkAccounts.call(set, {
+              wallet,
+              indexedAccount,
+              skipDeviceCancel: false,
+              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+            });
+          }
         },
       }),
   );

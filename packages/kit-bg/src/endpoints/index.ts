@@ -1,10 +1,7 @@
 import { filter, forEach } from 'lodash';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
-import {
-  getEndpointsMapWithDynamicPrefix,
-  forceRefreshEndpointCheck as sharedForceRefreshEndpointCheck,
-} from '@onekeyhq/shared/src/config/endpointsMap';
+import { getEndpointsMapWithDynamicPrefix } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
@@ -27,12 +24,6 @@ export async function getEndpoints() {
   }
 
   return endpoints;
-}
-
-// Export method to force refresh endpoint check
-export function forceRefreshEndpointCheck() {
-  sharedForceRefreshEndpointCheck();
-  lastEndpointsString = undefined;
 }
 
 export async function getEndpointInfo({
