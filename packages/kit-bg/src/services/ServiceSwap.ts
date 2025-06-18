@@ -2247,7 +2247,7 @@ export default class ServiceSwap extends ServiceBase {
     } catch (e) {
       console.error(e);
       return {
-        swapMevNetConfig: [],
+        swapMevNetConfig: null,
       };
     }
   }
