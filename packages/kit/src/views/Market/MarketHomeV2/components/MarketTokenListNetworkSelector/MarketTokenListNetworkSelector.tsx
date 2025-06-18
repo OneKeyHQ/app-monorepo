@@ -5,8 +5,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-import MarketTokenListNetworkSelectorNormal from './MarketTokenListNetworkSelectorNormal';
-import MarketTokenListNetworkSelectorSmall from './MarketTokenListNetworkSelectorSmall';
+import { MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
+import { MarketTokenListNetworkSelectorSmall } from './MarketTokenListNetworkSelectorSmall';
 
 import type { IMarketTokenListNetworkSelectorNormalRef } from './MarketTokenListNetworkSelectorNormal';
 
@@ -108,6 +108,4 @@ function MarketTokenListNetworkSelector({
   );
 }
 
-const MarketTokenListNetworkSelectorComponent = MarketTokenListNetworkSelector;
-
-export default MarketTokenListNetworkSelectorComponent;
+export { MarketTokenListNetworkSelector };

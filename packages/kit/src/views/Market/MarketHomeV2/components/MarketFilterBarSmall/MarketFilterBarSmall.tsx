@@ -79,4 +79,4 @@ function MarketFilterBarSmall({
   );
 }
 
-export default MarketFilterBarSmall;
+export { MarketFilterBarSmall };

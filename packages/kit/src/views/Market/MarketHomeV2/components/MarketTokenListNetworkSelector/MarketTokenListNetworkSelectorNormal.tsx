@@ -4,8 +4,8 @@ import { Stack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-import MarketNetworkFilter from './MarketNetworkFilter';
-import MarketTokenListNetworkSelectorNormalSkeleton from './MarketTokenListNetworkSelectorNormalSkeleton';
+import { MarketNetworkFilter } from './MarketNetworkFilter';
+import { MarketTokenListNetworkSelectorNormalSkeleton } from './MarketTokenListNetworkSelectorNormalSkeleton';
 
 import type { IMarketNetworkFilterRef } from './MarketNetworkFilter';
 
@@ -80,4 +80,4 @@ const MarketTokenListNetworkSelectorNormalComponent = memo(
   MarketTokenListNetworkSelectorNormal,
 );
 
-export default MarketTokenListNetworkSelectorNormalComponent;
+export { MarketTokenListNetworkSelectorNormalComponent as MarketTokenListNetworkSelectorNormal };

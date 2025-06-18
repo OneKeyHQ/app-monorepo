@@ -21,4 +21,4 @@ const MarketTokenListNetworkSelectorSmallSkeletonComponent = memo(
   MarketTokenListNetworkSelectorSmallSkeleton,
 );
 
-export default MarketTokenListNetworkSelectorSmallSkeletonComponent;
+export { MarketTokenListNetworkSelectorSmallSkeletonComponent as MarketTokenListNetworkSelectorSmallSkeleton };

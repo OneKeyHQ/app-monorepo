@@ -1,5 +1,5 @@
-export { default as MarketTokenListNetworkSelector } from './MarketTokenListNetworkSelector';
-export { default as MarketTokenListNetworkSelectorSmall } from './MarketTokenListNetworkSelectorSmall';
-export { default as MarketTokenListNetworkSelectorSmallSkeleton } from './MarketTokenListNetworkSelectorSmallSkeleton';
-export { default as MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
-export { default as MarketTokenListNetworkSelectorNormalSkeleton } from './MarketTokenListNetworkSelectorNormalSkeleton';
+export { MarketTokenListNetworkSelector } from './MarketTokenListNetworkSelector';
+export { MarketTokenListNetworkSelectorSmall } from './MarketTokenListNetworkSelectorSmall';
+export { MarketTokenListNetworkSelectorSmallSkeleton } from './MarketTokenListNetworkSelectorSmallSkeleton';
+export { MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
+export { MarketTokenListNetworkSelectorNormalSkeleton } from './MarketTokenListNetworkSelectorNormalSkeleton';

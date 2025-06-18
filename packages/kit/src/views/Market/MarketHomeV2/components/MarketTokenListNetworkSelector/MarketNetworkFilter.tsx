@@ -139,4 +139,6 @@ const MarketNetworkFilter = forwardRef<
 
 MarketNetworkFilter.displayName = 'MarketNetworkFilter';
 
-export default memo(MarketNetworkFilter);
+const MarketNetworkFilterComponent = memo(MarketNetworkFilter);
+
+export { MarketNetworkFilterComponent as MarketNetworkFilter };

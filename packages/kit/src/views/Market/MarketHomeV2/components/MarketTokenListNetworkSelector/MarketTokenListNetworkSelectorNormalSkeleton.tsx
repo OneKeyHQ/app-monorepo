@@ -40,4 +40,4 @@ const MarketTokenListNetworkSelectorNormalSkeletonComponent = memo(
   MarketTokenListNetworkSelectorNormalSkeleton,
 );
 
-export default MarketTokenListNetworkSelectorNormalSkeletonComponent;
+export { MarketTokenListNetworkSelectorNormalSkeletonComponent as MarketTokenListNetworkSelectorNormalSkeleton };

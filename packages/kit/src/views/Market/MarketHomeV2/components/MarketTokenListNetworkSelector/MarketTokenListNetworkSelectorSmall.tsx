@@ -4,7 +4,7 @@ import { Button, Image, SizableText, XStack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-import MarketTokenListNetworkSelectorSmallSkeleton from './MarketTokenListNetworkSelectorSmallSkeleton';
+import { MarketTokenListNetworkSelectorSmallSkeleton } from './MarketTokenListNetworkSelectorSmallSkeleton';
 import { MoreButton } from './MoreButton';
 
 interface IMarketTokenListNetworkSelectorSmallProps {
@@ -89,4 +89,4 @@ const MarketTokenListNetworkSelectorSmallComponent = memo(
   MarketTokenListNetworkSelectorSmall,
 );
 
-export default MarketTokenListNetworkSelectorSmallComponent;
+export { MarketTokenListNetworkSelectorSmallComponent as MarketTokenListNetworkSelectorSmall };
