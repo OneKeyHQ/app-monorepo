@@ -36,7 +36,7 @@ export function MarketHomeContent({
 
   // Use a debounced callback to avoid excessive state updates during fast scroll events
   const handleScrollOffsetChange = useDebouncedCallback((offsetY: number) => {
-    setShowSmallBar(offsetY > 50);
+    setShowSmallBar(offsetY > 20);
   }, 50);
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export function MarketHomeContent({
           top={showSmallBar ? 0 : -50}
           left={0}
           right={0}
-          zIndex={1000}
+          zIndex={100}
           opacity={showSmallBar ? 1 : 0}
           pointerEvents={showSmallBar ? 'auto' : 'none'}
           animation="quick"

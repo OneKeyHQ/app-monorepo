@@ -28,25 +28,23 @@ function MarketHome() {
     EMarketHomeTab.Trending,
   );
 
-  const filterBarProps = useMemo(
+  const commonProps = useMemo(
     () => ({
+      filterBarProps: {
+        selectedNetworkId,
+        timeRange,
+        liquidityFilter,
+        onNetworkIdChange: setSelectedNetworkId,
+        onTimeRangeChange: setTimeRange,
+        onLiquidityFilterChange: setLiquidityFilter,
+      },
       selectedNetworkId,
-      timeRange,
       liquidityFilter,
-      onNetworkIdChange: setSelectedNetworkId,
-      onTimeRangeChange: setTimeRange,
-      onLiquidityFilterChange: setLiquidityFilter,
+      activeTab,
+      onTabChange: setActiveTab,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter],
+    [selectedNetworkId, timeRange, liquidityFilter, activeTab],
   );
-
-  const commonProps = {
-    filterBarProps,
-    selectedNetworkId,
-    liquidityFilter,
-    activeTab,
-    onTabChange: setActiveTab,
-  };
 
   return (
     <Page>

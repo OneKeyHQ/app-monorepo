@@ -79,4 +79,4 @@ function MarketFilterBarSmall({
   );
 }
 
-export default memo(MarketFilterBarSmall);
+export default MarketFilterBarSmall;

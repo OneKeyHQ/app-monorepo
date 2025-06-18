@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { IPopoverProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -25,9 +25,6 @@ function MarketTokenListNetworkSelector({
   size = 'normal',
   placement,
 }: IMarketTokenListNetworkSelectorProps) {
-  const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
-    ISwapNetwork | undefined
-  >();
   const normalComponentRef =
     useRef<IMarketTokenListNetworkSelectorNormalRef>(null);
 
@@ -50,20 +47,22 @@ function MarketTokenListNetworkSelector({
     );
   }, [marketChainsData]);
 
-  // Set default selected network when networks are loaded
+  // Derive currently selected network purely from props to keep component stateless.
+  const currentSelectNetwork = useMemo(() => {
+    if (!selectedNetworkId) return undefined;
+    return marketNetworks.find((n) => n.networkId === selectedNetworkId);
+  }, [marketNetworks, selectedNetworkId]);
+
+  // When the list of networks changes, ensure the parent gets an initial networkId if none provided.
   useEffect(() => {
-    if (marketNetworks.length > 0 && !currentSelectNetwork) {
-      const defaultNetwork = selectedNetworkId
-        ? marketNetworks.find((n) => n.networkId === selectedNetworkId) ||
-          marketNetworks[0]
-        : marketNetworks[0];
-      setCurrentSelectNetwork(defaultNetwork);
+    if (marketNetworks.length === 0) return;
+    if (!selectedNetworkId) {
+      onSelectNetworkId?.(marketNetworks[0].networkId);
     }
-  }, [marketNetworks, currentSelectNetwork, selectedNetworkId]);
+  }, [marketNetworks, selectedNetworkId, onSelectNetworkId]);
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
-      setCurrentSelectNetwork(network);
       onSelectNetworkId?.(network.networkId);
     },
     [onSelectNetworkId],
@@ -72,14 +71,15 @@ function MarketTokenListNetworkSelector({
   const handleMoreNetworkSelect = useCallback(
     (network: ISwapNetwork) => {
       onSelectCurrentNetwork(network);
-
-      // Only scroll for normal size
-      if (size === 'normal') {
-        normalComponentRef.current?.scrollToNetwork(network.networkId);
-      }
     },
-    [onSelectCurrentNetwork, size],
+    [onSelectCurrentNetwork],
   );
+
+  useEffect(() => {
+    if (selectedNetworkId) {
+      normalComponentRef.current?.scrollToNetwork(selectedNetworkId);
+    }
+  }, [selectedNetworkId]);
 
   if (size === 'small') {
     return (
@@ -108,8 +108,6 @@ function MarketTokenListNetworkSelector({
   );
 }
 
-const MarketTokenListNetworkSelectorComponent = memo(
-  MarketTokenListNetworkSelector,
-);
+const MarketTokenListNetworkSelectorComponent = MarketTokenListNetworkSelector;
 
 export default MarketTokenListNetworkSelectorComponent;
