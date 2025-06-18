@@ -6,8 +6,8 @@ const hairlineWidth =
   globalThis &&
   'devicePixelRatio' in globalThis &&
   typeof globalThis.devicePixelRatio === 'number'
-    ? MIN_WIDTH
-    : Math.min(MIN_WIDTH, 1 / globalThis.devicePixelRatio);
+    ? Math.min(MIN_WIDTH, 1 / globalThis.devicePixelRatio)
+    : MIN_WIDTH;
 
 // Override the StyleSheet object with our custom hairlineWidth
 Object.defineProperty(StyleSheet, 'hairlineWidth', {
