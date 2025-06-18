@@ -58,6 +58,7 @@ const WithdrawOptions = () => {
         tokenInfo,
         identity: item.id,
         amount: item.amount,
+        fromPage: EModalStakingRoutes.WithdrawOptions,
         onSuccess: () => {
           // pop to portfolio details page
           setTimeout(() => appNavigation.pop(), 4);

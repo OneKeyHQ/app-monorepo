@@ -50,6 +50,7 @@ export type IModalStakingParamList = {
     rate?: string;
     identity?: string;
     amount?: string;
+    fromPage?: EModalStakingRoutes.WithdrawOptions;
     onSuccess?: () => void;
   };
   [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
