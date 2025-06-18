@@ -26,7 +26,7 @@ export function TabSettingsSection(props: IStackProps & IStackStyle) {
       overflow="hidden"
       borderRadius="$2.5"
       borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
+      borderColor="$neutral3"
       {...props}
     />
   );
@@ -50,7 +50,7 @@ export function TabSettingsListGrid({
     return {
       size: (isTabNavigator
         ? '$bodyMdMedium'
-        : '$bodyMd') as ISizableTextProps['size'],
+        : '$bodyLgMedium') as ISizableTextProps['size'],
     };
   }, [isTabNavigator]);
   const iconProps = useMemo(() => {
