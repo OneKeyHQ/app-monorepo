@@ -14,7 +14,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
-import { HideOnSideBarTabNames, useSettingsConfig } from './config';
+import { useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
 import { SearchView } from './SearchView';
@@ -25,9 +25,7 @@ export function SettingList() {
   const navigation = useAppNavigation();
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
-    return settingsConfig.filter(
-      (config) => config && !HideOnSideBarTabNames.includes(config?.name),
-    );
+    return settingsConfig.filter((config) => config && !config.isHidden);
   }, [settingsConfig]);
   const { onSearch, searchResult, isSearching } = useSearch();
   return (
@@ -53,10 +51,13 @@ export function SettingList() {
                 {filteredSettingsConfig.map((config) =>
                   config ? (
                     <TabSettingsListItem
+                      {...config.tabBarItemStyle}
                       drillIn
                       key={config.title}
                       icon={config.icon as IKeyOfIcons}
+                      iconProps={config.tabBarIconStyle}
                       title={config.title}
+                      titleProps={config.tabBarLabelStyle}
                       onPress={() => {
                         navigation.push(
                           EModalSettingRoutes.SettingListSubModal,
