@@ -281,6 +281,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.CheckEndpointPrefix]: {
+    cleanAppClientCache?: boolean;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
