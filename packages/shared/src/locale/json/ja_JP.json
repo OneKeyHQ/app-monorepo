@@ -1895,6 +1895,8 @@
   "passphrase_allowed_characters_desc": "文字、数字、記号（ASCII 32-126）",
   "passphrase_allowed_characters_title": "使用可能な文字",
   "passphrase_character_limit": "最大50文字",
+  "passphrase_disabled_dialog_desc": "デバイスでPassphraseを有効にして、隠しウォレットを作成しましょう。",
+  "passphrase_disabled_dialog_title": "隠しウォレットを作成できません",
   "prime.about_onekey_prime": "OneKey Primeのご紹介",
   "prime.agree_to_terms": "続行することで、<link>OneKey Prime Terms</link>に同意したことになります。",
   "prime.agree_to_terms_privacy": "OneKey Prime をご購読いただくことで、<termsTag>OneKey Prime 利用規約</termsTag> および <privacyTag>プライバシーポリシー</privacyTag> に同意したものとみなされます。",

@@ -71,6 +71,12 @@ function WalletEditButtonView({
     if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
       return false;
     }
+    if (
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id }) &&
+      wallet?.isMocked
+    ) {
+      return false;
+    }
     return (
       accountUtils.isHdWallet({ walletId: wallet?.id }) ||
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
@@ -177,16 +183,16 @@ function WalletEditButtonView({
             </>
           ) : null}
 
-          {showRemoveDeviceButton ? (
+          {showRemoveWalletButton ? (
             <WalletRemoveButton
+              isRemoveToMocked
               wallet={wallet}
               onClose={handleActionListClose}
             />
           ) : null}
 
-          {showRemoveWalletButton ? (
+          {showRemoveDeviceButton ? (
             <WalletRemoveButton
-              isRemoveToMocked
               wallet={wallet}
               onClose={handleActionListClose}
             />

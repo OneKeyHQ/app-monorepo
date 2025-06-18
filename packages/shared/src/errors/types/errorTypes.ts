@@ -44,6 +44,7 @@ export enum EOneKeyErrorClassNames {
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
   WebDeviceNotFoundOrNeedsPermission = 'WebDeviceNotFoundOrNeedsPermission',
+  DeviceNotOpenedPassphrase = 'DeviceNotOpenedPassphrase',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

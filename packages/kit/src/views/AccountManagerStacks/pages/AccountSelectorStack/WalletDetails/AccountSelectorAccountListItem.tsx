@@ -228,6 +228,9 @@ export function AccountSelectorAccountListItem({
   );
 
   const actionButton = useMemo(() => {
+    if (isCreatingAddress) {
+      return null;
+    }
     if (editable) {
       return (
         <AccountEditButton
@@ -265,6 +268,7 @@ export function AccountSelectorAccountListItem({
     }
     return null;
   }, [
+    isCreatingAddress,
     editable,
     shouldShowCreateAddressButton,
     accountsCount,

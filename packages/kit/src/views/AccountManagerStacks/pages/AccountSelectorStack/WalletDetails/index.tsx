@@ -374,6 +374,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         )}
         {isDeprecatedWallet ? (
           <Alert
+            fullBleed
             type="warning"
             title={intl.formatMessage({
               id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
@@ -381,7 +382,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             description={intl.formatMessage({
               id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
             })}
-            mx="$5"
           />
         ) : null}
       </Stack>
@@ -430,6 +430,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                     features: focusedWalletInfo?.device?.featuresInfo,
                   });
                 }}
+                disabled={isDeprecatedWallet}
               >
                 {intl.formatMessage({
                   id: ETranslations.global_standard_wallet,

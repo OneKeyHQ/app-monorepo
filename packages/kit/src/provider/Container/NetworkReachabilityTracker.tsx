@@ -1,13 +1,17 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 
 import { configureNetInfo, refreshNetInfo } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
+import {
+  getEndpointByServiceName,
+  getEndpointsMapByDevSettings,
+} from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 const REACHABILITY_LONG_TIMEOUT = 60 * 1000;
 const REACHABILITY_SHORT_TIMEOUT = 5 * 1000;
@@ -24,12 +28,41 @@ const checkNetInfo = async (endpoint: string) => {
 
 const useNetInfo = () => {
   const [devSettings] = useDevSettingsPersistAtom();
-  const walletEndpoints = useMemo(
-    () => getEndpointsMapByDevSettings(devSettings).wallet,
-    [devSettings],
-  );
+  const [walletEndpoint, setWalletEndpoint] = useState<string>('');
+
   useEffect(() => {
-    void checkNetInfo(walletEndpoints);
+    let isCancelled = false;
+
+    const fetchEndpoint = async () => {
+      try {
+        const endpoint = await getEndpointByServiceName(
+          EServiceEndpointEnum.Wallet,
+        );
+        if (!isCancelled) {
+          setWalletEndpoint(endpoint);
+        }
+      } catch (error) {
+        // Fallback to static endpoint on error
+        if (!isCancelled) {
+          const fallbackEndpoint =
+            getEndpointsMapByDevSettings(devSettings).wallet;
+          setWalletEndpoint(fallbackEndpoint);
+        }
+      }
+    };
+
+    void fetchEndpoint();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [devSettings]);
+
+  useEffect(() => {
+    if (!walletEndpoint) {
+      return;
+    }
+    void checkNetInfo(walletEndpoint);
     const callback = () => {
       refreshNetInfo();
     };
@@ -37,7 +70,7 @@ const useNetInfo = () => {
     return () => {
       appEventBus.off(EAppEventBusNames.RefreshNetInfo, callback);
     };
-  }, [walletEndpoints]);
+  }, [walletEndpoint]);
 };
 
 export function NetworkReachabilityTracker() {

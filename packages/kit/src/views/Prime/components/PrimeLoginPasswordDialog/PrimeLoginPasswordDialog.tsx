@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import zxcvbn from 'zxcvbn';
@@ -90,8 +90,6 @@ export function PrimeLoginPasswordDialog({
   promiseId: number;
   richTextDescription?: string;
 }) {
-  const [confirmPassword, setConfirmPassword] = useState('');
-
   const intl = useIntl();
 
   const isRegister = data?.isRegister;
