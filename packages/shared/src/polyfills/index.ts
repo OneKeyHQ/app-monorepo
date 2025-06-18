@@ -8,7 +8,6 @@ import './polyfillsPlatform';
 import './reactCreateElementShim';
 import '../modules3rdParty/cross-crypto/verify';
 import '../request';
-import './styleShim';
 
 // import { normalizeRequestLibs } from '../request/normalize';
 import timerUtils from '../utils/timerUtils';

@@ -39,7 +39,7 @@ export function GlobalErrorHandlerContainer() {
           }),
           renderContent: (
             <Anchor
-              href="https://help.onekey.so/hc/articles/9925655882383-Passphrases-and-hidden-wallets"
+              href="https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets"
               color="$textInfo"
               size="$bodyMd"
               textDecorationLine="underline"

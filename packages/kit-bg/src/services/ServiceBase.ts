@@ -72,10 +72,12 @@ export default class ServiceBase {
           return r;
         },
         (error) => {
+          const errorData = error as {
+            data: { code: number; message: string };
+          };
+          const errorMessage: string | undefined = errorData?.data?.message;
           // check invalid token and logout
-          const errorCode: number | undefined = (
-            error as { data: { code: number } }
-          )?.data?.code;
+          const errorCode: number | undefined = errorData?.data?.code;
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
           if ([90_002, 90_003, 90_008].includes(errorCode)) {
@@ -83,20 +85,28 @@ export default class ServiceBase {
               EAppEventBusNames.PrimeLoginInvalidToken,
               undefined,
             );
-            throw new OneKeyErrorPrimeLoginInvalidToken();
+            throw new OneKeyErrorPrimeLoginInvalidToken({
+              message: errorMessage,
+            });
           }
           if ([90_004].includes(errorCode)) {
             appEventBus.emit(
               EAppEventBusNames.PrimeExceedDeviceLimit,
               undefined,
             );
-            throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
+            throw new OneKeyErrorPrimeLoginExceedDeviceLimit({
+              message: errorMessage,
+            });
           }
           if ([90_005].includes(errorCode)) {
-            throw new OneKeyErrorPrimePaidMembershipRequired();
+            throw new OneKeyErrorPrimePaidMembershipRequired({
+              message: errorMessage,
+            });
           }
           if ([90_006].includes(errorCode)) {
-            const e = new OneKeyErrorPrimeMasterPasswordInvalid();
+            const e = new OneKeyErrorPrimeMasterPasswordInvalid({
+              message: errorMessage,
+            });
             void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfLocalPasswordInvalid(
               {
                 error: e,

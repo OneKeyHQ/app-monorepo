@@ -3,7 +3,12 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IIconProps,
+  IKeyOfIcons,
+  ISizableTextProps,
+  IStackStyle,
+} from '@onekeyhq/components';
 import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
@@ -76,13 +81,15 @@ export enum ESettingsTabNames {
   Dev = 'Dev',
 }
 
-export const HideOnSideBarTabNames = [ESettingsTabNames.Search];
-
 export type ISettingsConfig = (
   | {
       icon: string;
       title: string;
       name: ESettingsTabNames;
+      isHidden?: boolean;
+      tabBarItemStyle?: IStackStyle;
+      tabBarIconStyle?: IIconProps;
+      tabBarLabelStyle?: ISizableTextProps;
       Component?: ComponentType<{
         name: string;
         settingsConfig: ISettingsConfig;
@@ -636,6 +643,15 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
             }),
+            tabBarItemStyle: {
+              backgroundColor: '$bgCritical',
+            },
+            tabBarIconStyle: {
+              color: '$iconCritical',
+            },
+            tabBarLabelStyle: {
+              color: '$textCritical',
+            },
             configs: [
               [
                 {
@@ -655,6 +671,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         title: intl.formatMessage({
           id: ETranslations.settings_search_title,
         }),
+        isHidden: true,
         configs: [],
         Component: SubSearchSettings,
       },

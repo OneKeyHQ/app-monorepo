@@ -4,7 +4,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
 import { Keyboard } from 'react-native';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IIconProps,
+  IKeyOfIcons,
+  ISizableTextProps,
+  IStackStyle,
+} from '@onekeyhq/components';
 import {
   Divider,
   Icon,
@@ -17,10 +22,10 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
-import { HideOnSideBarTabNames, useSettingsConfig } from './config';
+import { useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
-import { SubSearchSettings, SubSettings } from './SubSettings';
+import { SubSettings } from './SubSettings';
 import { useIsTabNavigator } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
@@ -42,6 +47,10 @@ function TabItemView({
   options: BottomTabNavigationOptions & {
     tabbarOnPress?: () => void;
     trackId?: string;
+    tabBarItemStyle?: IStackStyle;
+    tabBarIconStyle?: IIconProps;
+    tabBarLabelStyle?: ISizableTextProps;
+    isHidden?: boolean;
   };
 }) {
   useMemo(() => {
@@ -55,13 +64,16 @@ function TabItemView({
 
   const contentMemo = useMemo(
     () =>
-      options.tabBarLabel ? (
+      !options.isHidden && options.tabBarLabel ? (
         <DesktopTabItem
           onPress={options.tabbarOnPress ?? onPress}
           trackId={options.trackId}
           aria-current={isActive ? 'page' : undefined}
           selected={isActive}
           tabBarStyle={options.tabBarStyle}
+          tabBarItemStyle={options.tabBarItemStyle}
+          tabBarIconStyle={options.tabBarIconStyle}
+          tabBarLabelStyle={options.tabBarLabelStyle}
           // @ts-expect-error
           icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
           label={options.tabBarLabel as string}
@@ -81,10 +93,6 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       routes.map((route, index) => {
         const focus = index === state.index;
         const { options } = descriptors[route.key];
-
-        if (HideOnSideBarTabNames.includes(route.name as ESettingsTabNames)) {
-          return null;
-        }
         const onPress = () => {
           Keyboard.dismiss();
           const event = navigation.emit({
@@ -109,7 +117,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
             key={route.key}
             onPress={onPress}
             isActive={focus}
-            options={options}
+            options={options as any}
           />
         );
       }),

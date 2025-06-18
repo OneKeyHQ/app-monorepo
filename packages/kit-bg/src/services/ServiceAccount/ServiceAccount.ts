@@ -2373,12 +2373,13 @@ class ServiceAccount extends ServiceBase {
           });
 
         if (!passphraseState) {
-          throw new DeviceNotOpenedPassphrase({
+          const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
             payload: {
               connectId,
               deviceId: dbDevice.deviceId ?? undefined,
             },
           });
+          throw deviceNotOpenedPassphraseError;
         }
 
         // TODO save remember states

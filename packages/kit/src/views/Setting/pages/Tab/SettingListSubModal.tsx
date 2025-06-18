@@ -7,7 +7,7 @@ import type {
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { HideOnSideBarTabNames, useSettingsConfig } from './config';
+import { useSettingsConfig } from './config';
 import { SubSettingsPage } from './SubSettingsPage';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -22,9 +22,7 @@ export default function SettingListSubModal() {
   const { name } = route.params || {};
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
-    return settingsConfig.filter(
-      (config) => config && !HideOnSideBarTabNames.includes(config?.name),
-    );
+    return settingsConfig.filter((config) => config && !config.isHidden);
   }, [settingsConfig]);
   return (
     <SubSettingsPage
