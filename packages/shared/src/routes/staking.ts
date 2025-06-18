@@ -27,6 +27,7 @@ type IBaseRouteParams = {
 interface IDetailPageInfoParams extends IBaseRouteParams {
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
+  fromPage?: EModalStakingRoutes.WithdrawOptions;
 }
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
