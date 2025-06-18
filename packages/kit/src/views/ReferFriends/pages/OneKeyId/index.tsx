@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useUpdateEffect,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -25,6 +26,7 @@ import {
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
 
@@ -35,6 +37,7 @@ export default function OneKeyId() {
     navigation.push(EModalReferFriendsRoutes.InviteReward);
   }, [navigation]);
   const { isPrimeAvailable } = usePrimeAvailable();
+  const { isLoggedIn, logout } = usePrimeAuthV2();
 
   const toPrimePage = useCallback(async () => {
     if (isPrimeAvailable) {
@@ -47,6 +50,15 @@ export default function OneKeyId() {
       });
     }
   }, [navigation, isPrimeAvailable]);
+
+  useUpdateEffect(() => {
+    if (!isLoggedIn) {
+      setTimeout(() => {
+        navigation.popStack();
+        void logout();
+      }, 600);
+    }
+  }, [isLoggedIn, navigation, logout]);
 
   return (
     <Page scrollEnabled>

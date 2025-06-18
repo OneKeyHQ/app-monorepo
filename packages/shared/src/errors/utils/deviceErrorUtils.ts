@@ -159,8 +159,11 @@ export function convertDeviceError(
       return new HardwareErrors.InvalidPassphrase({ payload });
     case HardwareErrorCode.DeviceOpenedPassphrase:
       return new HardwareErrors.DeviceOpenedPassphrase({ payload });
-    case HardwareErrorCode.DeviceNotOpenedPassphrase:
-      return new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
+    case HardwareErrorCode.DeviceNotOpenedPassphrase: {
+      const deviceNotOpenedPassphraseError =
+        new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
+      return deviceNotOpenedPassphraseError;
+    }
     case HardwareErrorCode.PinCancelled:
       return new HardwareErrors.PinCancelled({ payload });
     case HardwareErrorCode.UnexpectPassphrase:
