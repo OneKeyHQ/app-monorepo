@@ -18,8 +18,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   type OneKeyError,
@@ -522,6 +524,17 @@ export function EnumBasicDialogContentContainer({
     [intl, onContinuePress, showRiskyWarning],
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  const [canSkipUnofficialDeviceState, setCanSkipUnofficialDeviceState] =
+    useState(false);
+
+  const canSkipUnofficialDevice = useMemo(() => {
+    // return canSkipUnofficialDeviceState;
+    return platformEnv.isDev || canSkipUnofficialDeviceState;
+  }, [canSkipUnofficialDeviceState]);
+
   const content = useMemo(() => {
     switch (contentType) {
       case EFirmwareAuthenticationDialogContentType.default:
@@ -670,12 +683,18 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected,
-                })}
-                <SizableText>{`(${errorObj.code})`}</SizableText>
-              </Dialog.Title>
+              <MultipleClickStack
+                onPress={() => {
+                  setCanSkipUnofficialDeviceState(true);
+                }}
+              >
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_unofficial_device_detected,
+                  })}
+                  <SizableText>{`(${errorObj.code})`}</SizableText>
+                </Dialog.Title>
+              </MultipleClickStack>
               <Dialog.Description>
                 {intl.formatMessage({
                   id: ETranslations.device_auth_unofficial_device_detected_help_text,
@@ -693,7 +712,7 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {platformEnv.isDev ? (
+            {canSkipUnofficialDevice ? (
               <Button
                 $md={
                   {
@@ -712,11 +731,17 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected,
-                })}
-              </Dialog.Title>
+              <MultipleClickStack
+                onPress={() => {
+                  setCanSkipUnofficialDeviceState(true);
+                }}
+              >
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_unofficial_device_detected,
+                  })}
+                </Dialog.Title>
+              </MultipleClickStack>
               <Dialog.Description>
                 {intl.formatMessage({
                   id: ETranslations.device_auth_unofficial_device_detected_help_text,
@@ -740,7 +765,7 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {platformEnv.isDev ? (
+            {canSkipUnofficialDevice ? (
               <Button
                 mt="$5"
                 $md={
@@ -834,6 +859,7 @@ export function EnumBasicDialogContentContainer({
     certificateResult,
     versionCompareResult,
     useNewProcess,
+    canSkipUnofficialDevice,
   ]);
   return <YStack>{content}</YStack>;
 }
