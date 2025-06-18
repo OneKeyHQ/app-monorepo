@@ -117,7 +117,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
             key={route.key}
             onPress={onPress}
             isActive={focus}
-            options={options}
+            options={options as any}
           />
         );
       }),

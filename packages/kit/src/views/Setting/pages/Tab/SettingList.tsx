@@ -51,10 +51,13 @@ export function SettingList() {
                 {filteredSettingsConfig.map((config) =>
                   config ? (
                     <TabSettingsListItem
+                      {...config.tabBarItemStyle}
                       drillIn
                       key={config.title}
                       icon={config.icon as IKeyOfIcons}
+                      iconProps={config.tabBarIconStyle}
                       title={config.title}
+                      titleProps={config.tabBarLabelStyle}
                       onPress={() => {
                         navigation.push(
                           EModalSettingRoutes.SettingListSubModal,

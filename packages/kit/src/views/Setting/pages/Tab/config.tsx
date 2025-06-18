@@ -3,7 +3,12 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons, IStackStyle } from '@onekeyhq/components';
+import type {
+  IIconProps,
+  IKeyOfIcons,
+  ISizableTextProps,
+  IStackStyle,
+} from '@onekeyhq/components';
 import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
@@ -83,8 +88,8 @@ export type ISettingsConfig = (
       name: ESettingsTabNames;
       isHidden?: boolean;
       tabBarItemStyle?: IStackStyle;
-      tabBarIconStyle?: IStackStyle;
-      tabBarLabelStyle?: IStackStyle;
+      tabBarIconStyle?: IIconProps;
+      tabBarLabelStyle?: ISizableTextProps;
       Component?: ComponentType<{
         name: string;
         settingsConfig: ISettingsConfig;
