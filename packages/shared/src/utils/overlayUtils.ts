@@ -8,6 +8,7 @@ export const SHEET_AND_DIALOG_Z_INDEX = 1e5 - 1;
 //  the z-index of the Dialog is 1e5.
 //  the z-index of the Toast is 1e5.
 //  the z-index of the Popover 15e4.
+export const SHEET_POPOVER_Z_INDEX = 150_000;
 
 //  the z-index of burnt toast is 1e6.
 export const TOAST_Z_INDEX = 1e6;
