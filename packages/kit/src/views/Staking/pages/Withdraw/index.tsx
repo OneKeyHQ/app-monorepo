@@ -10,10 +10,8 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EModalStakingRoutes,
-  IModalStakingParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -124,6 +122,24 @@ const WithdrawPage = () => {
     return resp;
   }, [accountId, networkId, providerName, tokenSymbol, identity, vault]);
 
+  const balance = useMemo(() => {
+    if (route.params.fromPage === EModalStakingRoutes.WithdrawOptions) {
+      return BigNumber(initialAmount ?? 0).toFixed();
+    }
+    return earnUtils.isMorphoProvider({ providerName })
+      ? BigNumber(protocolInfo?.maxUnstakeAmount ?? active ?? 0).toFixed()
+      : BigNumber(active ?? 0)
+          .plus(overflow ?? 0)
+          .toFixed();
+  }, [
+    route.params.fromPage,
+    active,
+    initialAmount,
+    providerName,
+    protocolInfo?.maxUnstakeAmount,
+    overflow,
+  ]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -137,15 +153,7 @@ const WithdrawPage = () => {
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={price}
           decimals={token?.decimals}
-          balance={
-            earnUtils.isMorphoProvider({ providerName })
-              ? BigNumber(
-                  protocolInfo?.maxUnstakeAmount ?? active ?? 0,
-                ).toFixed()
-              : BigNumber(active ?? initialAmount ?? 0)
-                  .plus(overflow ?? 0)
-                  .toFixed()
-          }
+          balance={balance}
           accountId={accountId}
           networkId={networkId}
           initialAmount={initialAmount}
