@@ -2,30 +2,29 @@ import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
+  Divider,
   Icon,
-  NavCloseButton,
+  ScrollView,
   SearchBar,
-  SizableText,
   XStack,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOnLock } from '../List/DefaultSection';
-
-import { useIsTabNavigator, useSettingsConfig } from './config';
+import { HideOnSideBarTabNames, useSettingsConfig } from './config';
+import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
-import { SubSettings } from './SubSettings';
+import { SubSearchSettings, SubSettings } from './SubSettings';
+import { useIsTabNavigator } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
+import type { ESettingsTabNames } from './config';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
@@ -55,18 +54,19 @@ function TabItemView({
   }, [options]);
 
   const contentMemo = useMemo(
-    () => (
-      <DesktopTabItem
-        onPress={options.tabbarOnPress ?? onPress}
-        trackId={options.trackId}
-        aria-current={isActive ? 'page' : undefined}
-        selected={isActive}
-        tabBarStyle={options.tabBarStyle}
-        // @ts-expect-error
-        icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-        label={(options.tabBarLabel ?? '') as string}
-      />
-    ),
+    () =>
+      options.tabBarLabel ? (
+        <DesktopTabItem
+          onPress={options.tabbarOnPress ?? onPress}
+          trackId={options.trackId}
+          aria-current={isActive ? 'page' : undefined}
+          selected={isActive}
+          tabBarStyle={options.tabBarStyle}
+          // @ts-expect-error
+          icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+          label={options.tabBarLabel as string}
+        />
+      ) : null,
     [isActive, onPress, options],
   );
 
@@ -75,18 +75,24 @@ function TabItemView({
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
-  const intl = useIntl();
+  const { onSearch, onFocus, previousTabRoute } = useSearch();
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
         const focus = index === state.index;
         const { options } = descriptors[route.key];
+
+        if (HideOnSideBarTabNames.includes(route.name as ESettingsTabNames)) {
+          return null;
+        }
         const onPress = () => {
+          Keyboard.dismiss();
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
             canPreventDefault: true,
           });
+          previousTabRoute.current = route.name as ESettingsTabNames;
           if (!focus && !event.defaultPrevented) {
             navigation.dispatch({
               ...CommonActions.navigate({
@@ -107,69 +113,66 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           />
         );
       }),
-    [routes, state.index, state.key, descriptors, navigation],
+    [routes, state.index, state.key, descriptors, navigation, previousTabRoute],
   );
 
-  const onLock = useOnLock();
-  const handleLock = useCallback(async () => {
-    await onLock();
-  }, [onLock]);
-  const { top } = useSafeAreaInsets();
-  const { onSearch } = useSearch();
+  const { top, bottom } = useSafeAreaInsets();
   return (
-    <YStack w={192} bg="$bg" pt={top} px="$3">
-      <XStack h="$16" gap="$4" ai="center">
-        <NavCloseButton />
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.global_settings })}
-        </SizableText>
+    <YStack w={192} bg="$bgSubdued" pt={top} pb={bottom} px="$3">
+      <XStack my="$2.5">
+        <SearchBar
+          onSearchTextChange={onSearch}
+          onFocus={onFocus}
+          size="small"
+        />
       </XStack>
-      <SearchBar onSearchTextChange={onSearch} />
+      <Divider />
       <YStack flex={1} pt="$3">
-        {tabs}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ pb: '$10' }}
+        >
+          {tabs}
+        </ScrollView>
       </YStack>
-      <TabItemView
-        key="lock"
-        onPress={handleLock}
-        isActive={false}
-        options={{
-          tabBarIcon: () => 'LockOutline',
-          tabBarLabel: intl.formatMessage({
-            id: ETranslations.settings_lock_now,
-          }),
-        }}
-      />
+      <YStack bg="$bgSubdued">
+        <Divider />
+        <SocialButtonGroup />
+      </YStack>
     </YStack>
   );
 }
 
 function SettingsTabNavigator() {
   const settingsConfig = useSettingsConfig();
-  const tabScreens = useMemo(
-    () =>
-      settingsConfig.map((config) => {
-        if (!config) {
-          return null;
-        }
-        const { icon, title, ...options } = config;
-        return (
-          <Tab.Screen
-            key={title}
-            name={title}
-            options={{
-              ...options,
-              tabBarLabel: title,
-              tabBarIcon: () => icon,
-              // @ts-expect-error BottomTabBar V7
-              tabBarPosition: 'left',
-            }}
-          >
-            {() => <SubSettings name={title} />}
-          </Tab.Screen>
-        );
-      }),
-    [settingsConfig],
-  );
+  const tabScreens = useMemo(() => {
+    const items = settingsConfig.map((config) => {
+      if (!config) {
+        return null;
+      }
+      const { icon, title, name, Component, ...options } = config;
+      return (
+        <Tab.Screen
+          key={title}
+          name={name}
+          options={{
+            ...options,
+            tabBarLabel: title,
+            tabBarIcon: () => icon,
+            // @ts-expect-error BottomTabBar V7
+            tabBarPosition: 'left',
+          }}
+        >
+          {Component
+            ? () => <Component name={title} settingsConfig={settingsConfig} />
+            : () => (
+                <SubSettings name={title} settingsConfig={settingsConfig} />
+              )}
+        </Tab.Screen>
+      );
+    });
+    return items;
+  }, [settingsConfig]);
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => <SideBar {...props} />,
     [],
@@ -179,10 +182,8 @@ function SettingsTabNavigator() {
       tabBar={tabBarCallback}
       screenOptions={{
         headerShown: false,
-        freezeOnBlur: true,
-        // Native Load all tabs at once
-        // Web Lazy load
-        lazy: !platformEnv.isNative,
+        freezeOnBlur: false,
+        lazy: false,
       }}
     >
       {tabScreens}
