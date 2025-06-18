@@ -33,6 +33,7 @@ const WithdrawPage = () => {
     identity,
     amount: initialAmount,
     onSuccess,
+    fromPage,
   } = route.params;
 
   const token = tokenInfo?.token;
@@ -123,7 +124,7 @@ const WithdrawPage = () => {
   }, [accountId, networkId, providerName, tokenSymbol, identity, vault]);
 
   const balance = useMemo(() => {
-    if (route.params.fromPage === EModalStakingRoutes.WithdrawOptions) {
+    if (fromPage === EModalStakingRoutes.WithdrawOptions) {
       return BigNumber(initialAmount ?? 0).toFixed();
     }
     return earnUtils.isMorphoProvider({ providerName })
@@ -132,12 +133,12 @@ const WithdrawPage = () => {
           .plus(overflow ?? 0)
           .toFixed();
   }, [
-    route.params.fromPage,
-    active,
-    initialAmount,
+    fromPage,
     providerName,
     protocolInfo?.maxUnstakeAmount,
+    active,
     overflow,
+    initialAmount,
   ]);
 
   return (
