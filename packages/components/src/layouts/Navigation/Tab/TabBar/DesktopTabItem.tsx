@@ -16,7 +16,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
-import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
+import type {
+  IIconProps,
+  IKeyOfIcons,
+  ISizableTextProps,
+  IStackStyle,
+  Stack,
+} from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,6 +44,9 @@ export interface IDesktopTabItemProps {
   label?: string;
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  tabBarItemStyle?: IStackStyle;
+  tabBarIconStyle?: IIconProps;
+  tabBarLabelStyle?: ISizableTextProps;
   actionList?: IActionListSection[];
   shortcutKey?: EShortcutEvents | string[];
   showTooltip?: boolean;
@@ -82,6 +91,9 @@ export function DesktopTabItem(
     label,
     selected,
     tabBarStyle,
+    tabBarItemStyle,
+    tabBarIconStyle,
+    tabBarLabelStyle,
     actionList,
     avatarSrc,
     showAvatar = false,
@@ -136,6 +148,7 @@ export function DesktopTabItem(
   const trigger = useMemo(
     () => (
       <XStack
+        {...tabBarItemStyle}
         alignItems="center"
         py={size === 'small' ? '$1.5' : '$2'}
         $gtMd={{
@@ -169,6 +182,7 @@ export function DesktopTabItem(
             name={icon}
             color={selected ? '$iconActive' : '$iconSubdued'}
             size="$5"
+            {...tabBarIconStyle}
           />
         ) : null}
         {showAvatar ? (
@@ -181,6 +195,7 @@ export function DesktopTabItem(
             mx="$2"
             color="$text"
             size="$bodyMd"
+            {...tabBarLabelStyle}
           >
             {label}
           </SizableText>
@@ -224,21 +239,24 @@ export function DesktopTabItem(
       </XStack>
     ),
     [
-      actionList,
-      avatarSrc,
-      icon,
-      intl,
+      tabBarItemStyle,
+      size,
+      selected,
       isContextMenuOpened,
       isHovered,
-      label,
-      onClose,
       onMouseEnter,
       onMouseLeave,
       reloadOnPress,
       rest,
-      selected,
+      icon,
+      tabBarIconStyle,
       showAvatar,
-      size,
+      avatarSrc,
+      label,
+      tabBarLabelStyle,
+      actionList,
+      intl,
+      onClose,
       children,
     ],
   );
