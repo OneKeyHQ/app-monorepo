@@ -50,7 +50,7 @@ export function SubSettingsPage({
                         <TabSettingsListGrid item={i} />
                         {idx !== list.length - 1 ? (
                           <XStack mx="$5">
-                            <Divider />
+                            <Divider borderColor="$neutral3" />
                           </XStack>
                         ) : null}
                       </>
