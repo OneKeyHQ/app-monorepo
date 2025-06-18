@@ -43,6 +43,44 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   const renderFirstColumn = useCallback(() => {
     if (!tableLayout && !isTokenSelector) {
       return (
+        <XStack alignItems="center" gap="$3" flex={1}>
+          <TokenIconView
+            networkId={token.networkId}
+            icon={token.logoURI}
+            isAllNetworks={isAllNetworks}
+          />
+          <YStack flex={1}>
+            <TokenNameView
+              name={token.symbol}
+              isNative={token.isNative}
+              isAllNetworks={isAllNetworks}
+              networkId={token.networkId}
+              withNetwork={withNetwork}
+              textProps={{
+                size: '$bodyLgMedium',
+                flexShrink: 0,
+              }}
+            />
+            <XStack alignItems="center" gap="$1">
+              <TokenPriceView
+                $key={token.$key ?? ''}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+              <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
+            </XStack>
+          </YStack>
+        </XStack>
+      );
+    }
+
+    return (
+      <XStack alignItems="center" gap="$3" flexGrow={1} flexBasis={0}>
+        <TokenIconView
+          networkId={token.networkId}
+          icon={token.logoURI}
+          isAllNetworks={isAllNetworks}
+        />
         <YStack flex={1}>
           <TokenNameView
             name={token.symbol}
@@ -51,45 +89,21 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             networkId={token.networkId}
             withNetwork={withNetwork}
             textProps={{
-              size: '$bodyLgMedium',
+              size: '$bodyMdMedium',
               flexShrink: 0,
             }}
           />
-          <XStack alignItems="center" gap="$0.5">
-            <TokenPriceView
-              $key={token.$key ?? ''}
-              size="$bodyMd"
-              color="$textSubdued"
-            />
-            <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
-          </XStack>
+          <TokenNameView
+            name={token.name}
+            // name={token.accountId || ''}
+            networkId={token.networkId}
+            textProps={{
+              size: '$bodyMd',
+              color: '$textSubdued',
+            }}
+          />
         </YStack>
-      );
-    }
-
-    return (
-      <YStack flex={1}>
-        <TokenNameView
-          name={token.symbol}
-          isNative={token.isNative}
-          isAllNetworks={isAllNetworks}
-          networkId={token.networkId}
-          withNetwork={withNetwork}
-          textProps={{
-            size: '$bodyLgMedium',
-            flexShrink: 0,
-          }}
-        />
-        <TokenNameView
-          name={token.name}
-          // name={token.accountId || ''}
-          networkId={token.networkId}
-          textProps={{
-            size: '$bodyMd',
-            color: '$textSubdued',
-          }}
-        />
-      </YStack>
+      </XStack>
     );
   }, [token, isAllNetworks, withNetwork, tableLayout, isTokenSelector]);
 
@@ -99,8 +113,8 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     }
 
     return (
-      <YStack alignItems="flex-end" flex={1}>
-        <TokenPriceView $key={token.$key ?? ''} size="$bodyLgMedium" />
+      <YStack alignItems="flex-end" flexGrow={1} flexBasis={0} maxWidth="$36">
+        <TokenPriceView $key={token.$key ?? ''} size="$bodyMdMedium" />
         <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
       </YStack>
     );
@@ -135,7 +149,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         <TokenValueView
           hideValue={hideValue}
           numberOfLines={1}
-          size="$bodyLgMedium"
+          size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
           $key={token.$key ?? ''}
         />
         <TokenBalanceView
@@ -176,42 +190,14 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       }}
       {...rest}
     >
-      <XStack
-        flexGrow={1}
-        flexBasis={0}
-        minWidth={96}
-        alignItems="center"
-        gap="$3"
-      >
-        <TokenIconView
-          networkId={token.networkId}
-          icon={token.logoURI}
-          isAllNetworks={isAllNetworks}
-        />
-        <XStack flex={1} alignItems="center">
-          {renderFirstColumn()}
-          {renderSecondColumn()}
-        </XStack>
-      </XStack>
-      <Stack w="$8" />
-      <Stack
-        flexDirection={isTokenSelector ? 'column' : 'column-reverse'}
-        alignItems="center"
-        flexShrink={1}
-        {...(tableLayout && {
-          flexDirection: 'row',
-          flexGrow: 1,
-          flexBasis: 0,
-        })}
-      >
-        <CreateAccountView
-          networkId={token.networkId ?? ''}
-          $key={token.$key ?? ''}
-        />
-        {renderThirdColumn()}
-
-        {renderFourthColumn()}
-      </Stack>
+      {renderFirstColumn()}
+      {renderSecondColumn()}
+      <CreateAccountView
+        networkId={token.networkId ?? ''}
+        $key={token.$key ?? ''}
+      />
+      {renderThirdColumn()}
+      {renderFourthColumn()}
     </ListItem>
   );
 }
