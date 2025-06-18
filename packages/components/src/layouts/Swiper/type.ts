@@ -1,4 +1,9 @@
-import type { ComponentType, PropsWithChildren, ReactElement, ReactNode } from 'react';
+import type {
+  ComponentType,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 
 import type { IListViewProps } from '../ListView/list';
 import type { ListRenderItem } from 'react-native';
