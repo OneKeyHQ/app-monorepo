@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -30,14 +31,18 @@ export function useClipboard() {
     [intl],
   );
 
-  const clearText = useCallback(() => {
-    void setStringAsync('');
+  const debounceToastClearSuccess = useDebouncedCallback(() => {
     Toast.success({
       title: intl.formatMessage({
         id: ETranslations.feedback_pasted_and_cleared,
       }),
     });
-  }, [intl]);
+  }, 250);
+
+  const clearText = useCallback(() => {
+    void setStringAsync('');
+    debounceToastClearSuccess();
+  }, [debounceToastClearSuccess]);
 
   const onPasteClearText = useCallback(
     (event: IPasteEventParams) => {
