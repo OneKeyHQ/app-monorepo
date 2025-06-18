@@ -533,7 +533,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     void (async () => {
       const swapConfigs =
         await backgroundApiProxy.serviceSwap.fetchSwapConfigs();
-      if (swapConfigs.swapMevNetConfig.length) {
+      if (swapConfigs?.swapMevNetConfig?.length) {
         setSwapMevConfig({
           swapMevNetConfig: swapConfigs.swapMevNetConfig,
         });
