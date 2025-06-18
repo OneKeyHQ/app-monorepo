@@ -6,6 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   OneKeyLocalError,
   PrimeLoginDialogCancelError,
@@ -105,7 +106,16 @@ class ServicePrime extends ServiceBase {
       return;
     }
     const client = await this.getPrimeClient();
-    await client.post('/prime/v1/user/logout');
+    try {
+      await client.post('/prime/v1/user/logout');
+    } catch (e) {
+      console.error(e);
+      const error = e as OneKeyError | undefined;
+      if (error && error?.key === 'id.login_expired_description') {
+        error.autoToast = false;
+      }
+      throw e;
+    }
     await this.setPrimePersistAtomNotLoggedIn();
   }
 
