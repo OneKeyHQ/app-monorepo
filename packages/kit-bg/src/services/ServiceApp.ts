@@ -134,11 +134,29 @@ class ServiceApp extends ServiceBase {
         ),
       ]);
 
-      // Handle timeout
+      // Handle timeout - set to not use prefix
       if (result === 'timeout') {
         console.warn(
-          'Endpoint prefix check timed out after 2s, using default endpoints',
+          'Endpoint prefix check timed out after 2s, switching to default endpoints',
         );
+
+        // Get current stored prefix to check if it changed
+        const currentStoredPrefix = await appStorage.getItem(
+          'ONEKEY_ENDPOINT_USE_PREFIX',
+        );
+        const newPrefixValue = 'false';
+
+        // Store false to disable prefix usage
+        await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', newPrefixValue);
+
+        // Only clear cache if the prefix setting actually changed
+        if (currentStoredPrefix !== newPrefixValue) {
+          // Clear HTTP client cache to use new endpoints
+          appApiClient.clearClientCache();
+          console.log(
+            'Dynamic endpoint check: timeout - switched to default endpoints',
+          );
+        }
         return;
       }
 
