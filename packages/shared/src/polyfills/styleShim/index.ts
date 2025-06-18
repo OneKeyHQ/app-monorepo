@@ -10,9 +10,11 @@ const hairlineWidth =
     : MIN_WIDTH;
 
 // Override the StyleSheet object with our custom hairlineWidth
-Object.defineProperty(StyleSheet, 'hairlineWidth', {
-  value: hairlineWidth,
-  writable: false,
-  enumerable: true,
-  configurable: true,
-});
+if (StyleSheet && StyleSheet.hairlineWidth) {
+  Object.defineProperty(StyleSheet, 'hairlineWidth', {
+    value: hairlineWidth,
+    writable: false,
+    enumerable: true,
+    configurable: true,
+  });
+}
