@@ -3,9 +3,11 @@ import { Suspense, useCallback, useContext, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type {
+  IIconProps,
   IKeyOfIcons,
   IPageNavigationProp,
   ISelectItem,
+  ISizableTextProps,
 } from '@onekeyhq/components';
 import {
   ActionList,
@@ -25,7 +27,6 @@ import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/Bio
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import {
   useAppUpdatePersistAtom,
@@ -45,6 +46,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
@@ -56,12 +58,41 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useLocaleOptions, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
+import { useOptions } from '../AppAutoLock/useOptions';
 
 import { TabSettingsListItem } from './ListItem';
+import { useIsTabNavigator } from './useIsTabNavigator';
 
-export function LanguageListItem() {
+export interface ICustomElementProps {
+  titleMatch?: IFuseResultMatch;
+  title?: string;
+  titleProps?: ISizableTextProps;
+  iconProps?: IIconProps;
+  icon?: IKeyOfIcons;
+  onPress?: () => void;
+}
+
+export function CurrencyListItem(props: ICustomElementProps) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingCurrencyModal);
+  }, [navigation]);
+  const [settings] = useSettingsPersistAtom();
+  const text = settings.currencyInfo?.id ?? '';
+  return (
+    <TabSettingsListItem {...props} userSelect="none" drillIn onPress={onPress}>
+      <ListItem.Text
+        primaryTextProps={props?.titleProps}
+        primary={text.toUpperCase()}
+        align="right"
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function LanguageListItem(props: ICustomElementProps) {
   const locales = useLocaleOptions();
-  const intl = useIntl();
   const [{ locale }] = useSettingsPersistAtom();
   const onChange = useCallback(async (text: string) => {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
@@ -72,11 +103,10 @@ export function LanguageListItem() {
       backgroundApiProxy.serviceApp.restartApp();
     }, 0);
   }, []);
-
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({ id: ETranslations.global_language })}
+      title={props?.title || ''}
       items={locales}
       value={locale}
       onChange={onChange}
@@ -84,22 +114,22 @@ export function LanguageListItem() {
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
-        <ListItem
-          userSelect="none"
-          icon="TranslateOutline"
-          title={intl.formatMessage({ id: ETranslations.global_language })}
-        >
+        <TabSettingsListItem {...props} userSelect="none">
           <XStack>
-            <ListItem.Text primary={label} align="right" />
+            <ListItem.Text
+              primaryTextProps={props?.titleProps}
+              primary={label}
+              align="right"
+            />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
-        </ListItem>
+        </TabSettingsListItem>
       )}
     />
   );
 }
 
-export function ThemeListItem() {
+export function ThemeListItem(props: ICustomElementProps) {
   const [{ theme }] = useSettingsPersistAtom();
   const { setFreezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const intl = useIntl();
@@ -139,19 +169,19 @@ export function ThemeListItem() {
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({ id: ETranslations.settings_theme })}
+      title={props?.title || ''}
       items={options}
       value={theme}
       onChange={onChange}
       placement="bottom-end"
       renderTrigger={({ label }) => (
-        <TabSettingsListItem
-          userSelect="none"
-          icon="PaletteOutline"
-          title={intl.formatMessage({ id: ETranslations.settings_theme })}
-        >
+        <TabSettingsListItem {...props} userSelect="none">
           <XStack>
-            <ListItem.Text primary={label} align="right" />
+            <ListItem.Text
+              primaryTextProps={props?.titleProps}
+              primary={label}
+              align="right"
+            />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
         </TabSettingsListItem>
@@ -160,29 +190,35 @@ export function ThemeListItem() {
   );
 }
 
-function SuspenseBiologyAuthListItem() {
+function SuspenseBiologyAuthListItem(props: ICustomElementProps) {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  const { title, icon } = useBiometricAuthInfo();
-
   return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
-    <TabSettingsListItem icon={icon} title={title}>
+    <TabSettingsListItem {...props}>
       <UniversalContainerWithSuspense />
     </TabSettingsListItem>
   ) : null;
 }
 
-export function BiologyAuthListItem() {
+export function BiologyAuthListItem({
+  titleMatch,
+  title,
+  icon,
+}: ICustomElementProps) {
   return (
     <Suspense fallback={null}>
-      <SuspenseBiologyAuthListItem />
+      <SuspenseBiologyAuthListItem
+        titleMatch={titleMatch}
+        title={title}
+        icon={icon}
+      />
     </Suspense>
   );
 }
 
-export function CleanDataListItem() {
+export function CleanDataListItem(props: ICustomElementProps) {
   const intl = useIntl();
   const resetApp = useResetApp();
   const navigation =
@@ -193,13 +229,9 @@ export function CleanDataListItem() {
   return (
     <ActionList
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({ id: ETranslations.settings_clear_data })}
+      title={props?.title || ''}
       renderTrigger={
-        <TabSettingsListItem
-          title={intl.formatMessage({ id: ETranslations.settings_clear_data })}
-          icon="FolderDeleteOutline"
-          testID="setting-clear-data"
-        >
+        <TabSettingsListItem {...props} testID="setting-clear-data">
           <ListItem.DrillIn name="ChevronDownSmallOutline" />
         </TabSettingsListItem>
       }
@@ -252,8 +284,7 @@ export function CleanDataListItem() {
   );
 }
 
-export function HardwareTransportTypeListItem() {
-  const intl = useIntl();
+export function HardwareTransportTypeListItem(props: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
 
   const transportOptions = useMemo(() => {
@@ -302,21 +333,13 @@ export function HardwareTransportTypeListItem() {
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={intl.formatMessage({
-        id: ETranslations.device_hardware_communication,
-      })}
+      title={props?.title || ''}
       items={transportOptions}
       value={hardwareTransportType}
       onChange={onChange}
       placement="bottom-end"
       renderTrigger={({ label }) => (
-        <TabSettingsListItem
-          userSelect="none"
-          icon="UsbOutline"
-          title={intl.formatMessage({
-            id: ETranslations.device_hardware_communication,
-          })}
-        >
+        <TabSettingsListItem {...props} userSelect="none">
           <XStack>
             <ListItem.Text primary={label} align="right" />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
@@ -327,20 +350,16 @@ export function HardwareTransportTypeListItem() {
   );
 }
 
-export function ListVersionItem() {
-  const intl = useIntl();
+export function ListVersionItem(props: ICustomElementProps) {
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
   }, [appUpdateInfo]);
   return appUpdateInfo.isNeedUpdate ? (
     <TabSettingsListItem
+      {...props}
       onPress={handleToUpdatePreviewPage}
-      icon="InfoCircleOutline"
       iconProps={{ color: '$textInfo' }}
-      title={intl.formatMessage({
-        id: ETranslations.settings_app_update_available,
-      })}
       titleProps={{ color: '$textInfo' }}
       drillIn
     >
@@ -355,14 +374,38 @@ export function ListVersionItem() {
     </TabSettingsListItem>
   ) : (
     <TabSettingsListItem
+      {...props}
       onPress={appUpdateInfo.onViewReleaseInfo}
-      icon="InfoCircleOutline"
-      title={intl.formatMessage({ id: ETranslations.settings_whats_new })}
       drillIn
     >
       <ListItem.Text primary={platformEnv.version} align="right" />
     </TabSettingsListItem>
   );
+}
+
+export function AutoLockListItem(props: ICustomElementProps) {
+  const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
+  }, [navigation]);
+  const options = useOptions();
+  const text = useMemo(() => {
+    const option = options.find(
+      (item) => item.value === String(appLockDuration),
+    );
+    return option?.title ?? '';
+  }, [options, appLockDuration]);
+  return isPasswordSet ? (
+    <TabSettingsListItem {...props} onPress={onPress} drillIn>
+      <ListItem.Text
+        primaryTextProps={props?.titleProps}
+        primary={text}
+        align="right"
+      />
+    </TabSettingsListItem>
+  ) : null;
 }
 
 function SocialButton({
@@ -376,6 +419,9 @@ function SocialButton({
   text: string;
   openInApp?: boolean;
 }) {
+  const isTabNavigator = useIsTabNavigator();
+  const buttonSize = isTabNavigator ? undefined : '$14';
+  const size = isTabNavigator ? '$5' : '$6';
   const onPress = useCallback(() => {
     if (openInApp) {
       openUrlUtils.openUrlInApp(url, text);
@@ -387,10 +433,11 @@ function SocialButton({
     <Tooltip
       renderTrigger={
         <IconButton
+          w={buttonSize}
+          h={buttonSize}
           bg="$bgSubdued"
-          width="$14"
-          height="$14"
           icon={icon}
+          iconSize={size as IIconProps['size']}
           borderRadius="$full"
           onPress={onPress}
         />
@@ -403,6 +450,9 @@ function SocialButton({
 
 // Special Support Button component that uses showIntercom
 function SupportButton({ text }: { text: string }) {
+  const isTabNavigator = useIsTabNavigator();
+  const buttonSize = isTabNavigator ? undefined : '$14';
+  const size = isTabNavigator ? '$5' : '$6';
   const onPress = useCallback(() => {
     // Then show intercom support
     void showIntercom();
@@ -413,8 +463,9 @@ function SupportButton({ text }: { text: string }) {
       renderTrigger={
         <IconButton
           bg="$bgSubdued"
-          width="$14"
-          height="$14"
+          w={buttonSize}
+          h={buttonSize}
+          iconSize={size as IIconProps['size']}
           icon="HelpSupportOutline"
           borderRadius="$full"
           onPress={onPress}
@@ -430,6 +481,7 @@ export function SocialButtonGroup() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const isTabNavigator = useIsTabNavigator();
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
@@ -445,48 +497,56 @@ export function SocialButtonGroup() {
       copyText(`${versionString}-${platformEnv.githubSHA || ''}`),
     );
   }, [copyText, versionString]);
+  const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
+  const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   return (
-    <YStack pt="$20">
-      <XStack justifyContent="center">
-        <XStack gap="$3" paddingVertical="$3" my="$3">
-          <SocialButton
-            icon="OnekeyBrand"
-            url={ONEKEY_URL}
-            text={intl.formatMessage({
-              id: ETranslations.global_official_website,
-            })}
-          />
-          <SocialButton
-            icon="Xbrand"
-            url={TWITTER_URL}
-            text={intl.formatMessage({ id: ETranslations.global_x })}
-          />
-          <SocialButton
-            icon="GithubBrand"
-            url={GITHUB_URL}
-            text={intl.formatMessage({ id: ETranslations.global_github })}
-          />
-          <SupportButton
-            text={intl.formatMessage({
-              id: ETranslations.settings_contact_us,
-            })}
-          />
-        </XStack>
+    <YStack py="$4" gap={isTabNavigator ? '$3' : '$6'}>
+      <XStack
+        flex={1}
+        jc={isTabNavigator ? 'flex-start' : 'center'}
+        gap={isTabNavigator ? '$1.5' : '$3'}
+      >
+        <SocialButton
+          icon="OnekeyBrand"
+          url={ONEKEY_URL}
+          text={intl.formatMessage({
+            id: ETranslations.global_official_website,
+          })}
+        />
+        <SocialButton
+          icon="Xbrand"
+          url={TWITTER_URL}
+          text={intl.formatMessage({ id: ETranslations.global_x })}
+        />
+        <SocialButton
+          icon="GithubBrand"
+          url={GITHUB_URL}
+          text={intl.formatMessage({ id: ETranslations.global_github })}
+        />
+        <SupportButton
+          text={intl.formatMessage({
+            id: ETranslations.settings_contact_us,
+          })}
+        />
       </XStack>
       <YStack
         jc="center"
-        p="$4"
-        pt={0}
-        ai="center"
+        px={isTabNavigator ? '$2' : '$4'}
+        ai={isTabNavigator ? 'flex-start' : 'center'}
+        pt={platformEnv.isNativeIOSPad ? '$3' : undefined}
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText color="$textSubdued" onPress={handlePress}>
+        <SizableText color={textColor} size={textSize} onPress={handlePress}>
           {versionString}
         </SizableText>
         {!appUpdateInfo.latestVersion ||
         appUpdateInfo.latestVersion === platformEnv.version ? (
-          <SizableText color="$textSubdued" textAlign="center">
+          <SizableText
+            color={textColor}
+            size={textSize}
+            ai={isTabNavigator ? 'flex-start' : 'center'}
+          >
             {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
           </SizableText>
         ) : null}
