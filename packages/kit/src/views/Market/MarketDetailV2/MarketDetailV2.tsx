@@ -1,5 +1,5 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Page, XStack, useMedia } from '@onekeyhq/components';
 import {
   type ETabMarketV2Routes,
   ETabRoutes,
@@ -15,12 +15,11 @@ import {
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
-import { TradingView } from '../../../components/TradingView';
 import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
 
-import { InformationTabs, SwapPanel, TokenDetailHeader } from './components';
-import { TokenActivityOverview } from './components/TokenActivityOverview';
 import { useMarketDetail } from './hooks/useMarketDetail';
+import { DesktopLayout } from './layouts/DesktopLayout';
+import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
@@ -45,6 +44,8 @@ function MarketDetail({
     </XStack>
   );
 
+  const media = useMedia();
+
   return (
     <Page>
       <TabPageHeader
@@ -53,36 +54,19 @@ function MarketDetail({
         customHeaderLeftItems={customHeaderLeft}
       />
       <Page.Body>
-        <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
-
-        <XStack flex={1}>
-          <YStack flex={1}>
-            <Stack flex={1}>
-              <TradingView
-                mode="realtime"
-                identifier="binance"
-                baseToken={tokenDetail?.symbol ?? ''}
-                targetToken="USDT"
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                onLoadEnd={() => {}}
-              />
-            </Stack>
-
-            <Stack h={300}>
-              <InformationTabs
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-              />
-            </Stack>
-          </YStack>
-
-          <Stack w="$100">
-            <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
-
-            <TokenActivityOverview tokenDetail={tokenDetail} />
-          </Stack>
-        </XStack>
+        {media.gtMd ? (
+          <DesktopLayout
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            tokenDetail={tokenDetail}
+          />
+        ) : (
+          <MobileLayout
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            tokenDetail={tokenDetail}
+          />
+        )}
       </Page.Body>
     </Page>
   );
