@@ -33,7 +33,7 @@ interface ITxnsProps {
  */
 export function Txns({ transactions, walletInfo }: ITxnsProps) {
   return (
-    <YStack ai="flex-end" gap="$0.5">
+    <YStack gap="$0.5">
       {/* Total transactions */}
       <NumberSizeableText size="$bodyMd" formatter="marketCap">
         {transactions}
@@ -41,7 +41,7 @@ export function Txns({ transactions, walletInfo }: ITxnsProps) {
 
       {/* Wallet info breakdown */}
       {walletInfo ? (
-        <XStack ai="center" gap="$0.5">
+        <XStack gap="$0.5">
           <NumberSizeableText
             size="$bodySm"
             color="$textSuccess"
