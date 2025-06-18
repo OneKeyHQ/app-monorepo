@@ -4,7 +4,7 @@ import { SizableText, XStack } from '@onekeyhq/components';
 
 const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
-function TransactionsHeader() {
+function TransactionsHeaderBase() {
   return (
     <XStack
       px="$4"
@@ -36,4 +36,6 @@ function TransactionsHeader() {
   );
 }
 
-export default memo(TransactionsHeader);
+const TransactionsHeader = memo(TransactionsHeaderBase);
+
+export { TransactionsHeader };

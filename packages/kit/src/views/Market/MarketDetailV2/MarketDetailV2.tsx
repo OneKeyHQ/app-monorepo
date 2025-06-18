@@ -86,7 +86,7 @@ function MarketDetail({
   );
 }
 
-export default function MarketDetailWithProvider(
+function MarketDetailWithProvider(
   props: IPageScreenProps<
     ITabMarketV2ParamList,
     ETabMarketV2Routes.MarketDetail
@@ -106,3 +106,5 @@ export default function MarketDetailWithProvider(
     </AccountSelectorProviderMirror>
   );
 }
+
+export { MarketDetailWithProvider };

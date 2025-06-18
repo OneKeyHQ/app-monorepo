@@ -16,7 +16,7 @@ interface ITransactionItemProps {
   item: IMarketTokenTransaction;
 }
 
-function TransactionItem({ item }: ITransactionItemProps) {
+function TransactionItemBase({ item }: ITransactionItemProps) {
   const { copyText } = useClipboard();
 
   const handleCopyAddress = () => {
@@ -150,4 +150,6 @@ function TransactionItem({ item }: ITransactionItemProps) {
   );
 }
 
-export default memo(TransactionItem);
+const TransactionItem = memo(TransactionItemBase);
+
+export { TransactionItem };

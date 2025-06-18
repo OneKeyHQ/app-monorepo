@@ -5,16 +5,16 @@ import type { IListViewProps } from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
-import HolderItem from './HolderItem';
-import HoldersHeader from './HoldersHeader';
-import HoldersSkeleton from './HoldersSkeleton';
+import { HolderItem } from './HolderItem';
+import { HoldersHeader } from './HoldersHeader';
+import { HoldersSkeleton } from './HoldersSkeleton';
 
 interface IHoldersProps {
   tokenAddress: string;
   networkId: string;
 }
 
-function Holders({ tokenAddress, networkId }: IHoldersProps) {
+function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   const { holders, isRefreshing } = useMarketHolders({
     tokenAddress,
     networkId,
@@ -59,4 +59,6 @@ function Holders({ tokenAddress, networkId }: IHoldersProps) {
   );
 }
 
-export default memo(Holders);
+const Holders = memo(HoldersBase);
+
+export { Holders };

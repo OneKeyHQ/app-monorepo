@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import { Skeleton, XStack, YStack } from '@onekeyhq/components';
 
-function TransactionsSkeleton() {
+function TransactionsSkeletonBase() {
   return (
     <YStack gap="$3" p="$4">
       {Array.from({ length: 5 }).map((_, index) => (
@@ -21,4 +21,6 @@ function TransactionsSkeleton() {
   );
 }
 
-export default memo(TransactionsSkeleton);
+const TransactionsSkeleton = memo(TransactionsSkeletonBase);
+
+export { TransactionsSkeleton };

@@ -47,7 +47,7 @@ import { MarketTradeButton } from './components/MarketTradeButton';
 import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
-import MarketDetailV2 from './MarketDetailV2/MarketDetailV2';
+import { MarketDetailWithProvider as MarketDetailV2 } from './MarketDetailV2/MarketDetailV2';
 import { buildMarketFullUrl } from './marketUtils';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 

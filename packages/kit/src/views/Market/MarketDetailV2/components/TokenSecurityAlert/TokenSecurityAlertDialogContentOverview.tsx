@@ -9,7 +9,7 @@ type ITokenSecurityAlertDialogContentOverviewProps = {
   error: string | null;
 };
 
-function TokenSecurityAlertDialogContentOverview({
+function TokenSecurityAlertDialogContentOverviewBase({
   warningCount,
   totalChecks,
   loading,
@@ -53,4 +53,8 @@ function TokenSecurityAlertDialogContentOverview({
   );
 }
 
-export default memo(TokenSecurityAlertDialogContentOverview);
+const TokenSecurityAlertDialogContentOverview = memo(
+  TokenSecurityAlertDialogContentOverviewBase,
+);
+
+export { TokenSecurityAlertDialogContentOverview };

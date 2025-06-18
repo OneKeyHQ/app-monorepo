@@ -10,7 +10,7 @@ interface IHolderItemProps {
   index: number;
 }
 
-function HolderItem({ item, index }: IHolderItemProps) {
+function HolderItemBase({ item, index }: IHolderItemProps) {
   const { copyText } = useClipboard();
 
   const handleCopyAddress = () => {
@@ -116,4 +116,6 @@ function HolderItem({ item, index }: IHolderItemProps) {
   );
 }
 
-export default memo(HolderItem);
+const HolderItem = memo(HolderItemBase);
+
+export { HolderItem };

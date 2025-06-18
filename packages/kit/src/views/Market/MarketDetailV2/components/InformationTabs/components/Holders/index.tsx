@@ -1,3 +1,3 @@
-export { default } from './Holders';
-export { default as HolderItem } from './HolderItem';
-export { default as HoldersSkeleton } from './HoldersSkeleton';
+export { Holders } from './Holders';
+export { HolderItem } from './HolderItem';
+export { HoldersSkeleton } from './HoldersSkeleton';

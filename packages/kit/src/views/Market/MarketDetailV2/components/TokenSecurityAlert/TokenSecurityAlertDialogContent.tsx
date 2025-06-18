@@ -9,7 +9,7 @@ import {
 import type { IMarketTokenSecurity } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenSecurityAlertDialogContentItem } from './TokenSecurityAlertDialogContentItem';
-import TokenSecurityAlertDialogContentOverview from './TokenSecurityAlertDialogContentOverview';
+import { TokenSecurityAlertDialogContentOverview } from './TokenSecurityAlertDialogContentOverview';
 import { formatSecurityData } from './useTokenSecurity';
 
 type ITokenSecurityAlertDialogContentProps = {

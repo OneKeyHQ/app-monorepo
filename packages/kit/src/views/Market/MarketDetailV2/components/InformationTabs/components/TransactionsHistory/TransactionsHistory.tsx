@@ -5,9 +5,9 @@ import type { IListViewProps } from '@onekeyhq/components';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-import TransactionItem from './TransactionItem';
-import TransactionsHeader from './TransactionsHeader';
-import TransactionsSkeleton from './TransactionsSkeleton';
+import { TransactionItem } from './TransactionItem';
+import { TransactionsHeader } from './TransactionsHeader';
+import { TransactionsSkeleton } from './TransactionsSkeleton';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;

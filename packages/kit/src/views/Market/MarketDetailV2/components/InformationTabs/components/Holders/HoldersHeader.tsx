@@ -4,7 +4,7 @@ import { SizableText, XStack } from '@onekeyhq/components';
 
 const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
-function HoldersHeader() {
+function HoldersHeaderBase() {
   return (
     <XStack
       px="$4"
@@ -33,4 +33,6 @@ function HoldersHeader() {
   );
 }
 
-export default memo(HoldersHeader);
+const HoldersHeader = memo(HoldersHeaderBase);
+
+export { HoldersHeader };

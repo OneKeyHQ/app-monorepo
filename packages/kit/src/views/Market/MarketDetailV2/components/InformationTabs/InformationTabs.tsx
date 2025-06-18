@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { Tab } from '@onekeyhq/components';
 
-import Holders from './components/Holders';
+import { Holders } from './components/Holders';
 import { TransactionsHistory } from './components/TransactionsHistory';
 
 interface IInformationTabsProps {
