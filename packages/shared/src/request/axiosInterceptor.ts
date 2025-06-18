@@ -178,6 +178,37 @@ axios.interceptors.response.use(
           });
 
           const fallbackResponse = await fallbackAxios.request(fallbackConfig);
+
+          // Check if fallback response contains business error and handle toast
+          if (
+            fallbackResponse.data &&
+            typeof fallbackResponse.data === 'object'
+          ) {
+            const fallbackData =
+              fallbackResponse.data as IOneKeyAPIBaseResponse;
+            if (fallbackData.code !== 0) {
+              // Handle business error from fallback response
+              let autoToast = !!fallbackData?.message;
+              if (fallbackData.disableAutoToast) {
+                autoToast = false;
+              }
+
+              throw new OneKeyServerApiError({
+                autoToast,
+                disableFallbackMessage: true,
+                message:
+                  fallbackData?.translatedMessage ||
+                  fallbackData?.message ||
+                  'OneKeyServer Unknown Error',
+                code: fallbackData.code,
+                data: fallbackData,
+                requestId: `RequestId: ${
+                  fallbackConfig.headers?.[HEADER_REQUEST_ID_KEY] as string
+                }`,
+              });
+            }
+          }
+
           return fallbackResponse;
         } catch (fallbackError) {
           // If fallback also fails, continue with original error handling
@@ -185,6 +216,50 @@ axios.interceptors.response.use(
             'Business error fallback request also failed:',
             fallbackError,
           );
+
+          // Handle fallback errors properly
+          if (fallbackError instanceof AxiosError) {
+            if (fallbackError.response?.data) {
+              // Business error from fallback
+              const fallbackData = fallbackError.response
+                .data as IOneKeyAPIBaseResponse;
+              let autoToast = !!fallbackData?.message;
+              if (fallbackData.disableAutoToast) {
+                autoToast = false;
+              }
+
+              throw new OneKeyServerApiError({
+                autoToast,
+                disableFallbackMessage: true,
+                message:
+                  fallbackData?.translatedMessage ||
+                  fallbackData?.message ||
+                  'OneKeyServer Unknown Error',
+                code: fallbackData.code,
+                data: fallbackData,
+                requestId: `RequestId: ${
+                  config.headers[HEADER_REQUEST_ID_KEY] as string
+                }`,
+              });
+            } else if (
+              fallbackError.code === AxiosError.ERR_NETWORK ||
+              fallbackError.message === 'Network Error'
+            ) {
+              // Network error from fallback
+              const title = appLocale.intl.formatMessage({
+                id: ETranslations.global_network_error,
+              });
+              throw new OneKeyError({
+                name: fallbackError.name,
+                message: title,
+                className: EOneKeyErrorClassNames.AxiosNetworkError,
+                key: ETranslations.global_network_error,
+              });
+            }
+          }
+
+          // If we can't handle the fallback error specifically, throw the original error
+          throw fallbackError;
         }
       }
 
@@ -243,6 +318,36 @@ axios.interceptors.response.use(
         });
 
         const fallbackResponse = await fallbackAxios.request(fallbackConfig);
+
+        // Check if fallback response contains business error and handle toast
+        if (
+          fallbackResponse.data &&
+          typeof fallbackResponse.data === 'object'
+        ) {
+          const fallbackData = fallbackResponse.data as IOneKeyAPIBaseResponse;
+          if (fallbackData.code !== 0) {
+            // Handle business error from fallback response
+            let autoToast = !!fallbackData?.message;
+            if (fallbackData.disableAutoToast) {
+              autoToast = false;
+            }
+
+            throw new OneKeyServerApiError({
+              autoToast,
+              disableFallbackMessage: true,
+              message:
+                fallbackData?.translatedMessage ||
+                fallbackData?.message ||
+                'OneKeyServer Unknown Error',
+              code: fallbackData.code,
+              data: fallbackData,
+              requestId: `RequestId: ${
+                fallbackConfig.headers?.[HEADER_REQUEST_ID_KEY] as string
+              }`,
+            });
+          }
+        }
+
         return fallbackResponse;
       } catch (fallbackError) {
         // If fallback also fails, continue with original error handling
