@@ -2233,4 +2233,22 @@ export default class ServiceSwap extends ServiceBase {
       return undefined;
     }
   }
+
+  @backgroundMethod()
+  async fetchSwapConfigs() {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<{
+        data: {
+          swapMevNetConfig: string[];
+        };
+      }>('/swap/v1/swap-config');
+      return data?.data;
+    } catch (e) {
+      console.error(e);
+      return {
+        swapMevNetConfig: null,
+      };
+    }
+  }
 }

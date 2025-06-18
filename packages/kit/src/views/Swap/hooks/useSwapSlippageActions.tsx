@@ -7,7 +7,6 @@ import { Dialog } from '@onekeyhq/components';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
@@ -15,7 +14,10 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SlippageSettingDialog from '../../../components/SlippageSettingDialog';
-import { useSwapSlippageDialogOpeningAtom } from '../../../states/jotai/contexts/swap';
+import {
+  useSwapMevConfigAtom,
+  useSwapSlippageDialogOpeningAtom,
+} from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
@@ -24,6 +26,7 @@ export function useSwapSlippageActions() {
   const intl = useIntl();
   const { slippageItem, autoValue } = useSwapSlippagePercentageModeInfo();
   const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
+  const [swapMevConfig] = useSwapMevConfigAtom();
   const [, setSettings] = useSettingsAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const isMEV = useMemo(() => {
@@ -31,13 +34,14 @@ export function useSwapSlippageActions() {
       !accountUtils.isExternalWallet({
         walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
       }) &&
-      mevSwapNetworks.includes(
+      swapMevConfig.swapMevNetConfig.includes(
         swapFromAddressInfo.accountInfo?.network?.id ?? '',
       )
     );
   }, [
     swapFromAddressInfo.accountInfo?.wallet?.id,
     swapFromAddressInfo.accountInfo?.network?.id,
+    swapMevConfig.swapMevNetConfig,
   ]);
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const slippageOnSave = useCallback(

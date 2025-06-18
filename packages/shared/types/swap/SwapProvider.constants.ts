@@ -148,7 +148,13 @@ export interface ISwapProviderManager {
   serviceDisableNetworks?: ISwapNetwork[];
 }
 
-export const mevSwapNetworks = ['evm--1', 'evm--56', 'sui--mainnet'];
+export const mevSwapNetworks = [
+  'evm--1',
+  'evm--56',
+  'sui--mainnet',
+  'evm--8453',
+  'sol--101',
+];
 
 export const approvingIntervalSecondsDefault = 8;
 export const approvingIntervalSecondsEth = 20;
