@@ -142,7 +142,7 @@ const WithdrawPage = () => {
               ? BigNumber(
                   protocolInfo?.maxUnstakeAmount ?? active ?? 0,
                 ).toFixed()
-              : BigNumber(active ?? 0)
+              : BigNumber(active ?? initialAmount ?? 0)
                   .plus(overflow ?? 0)
                   .toFixed()
           }
