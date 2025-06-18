@@ -94,6 +94,14 @@ export function CurrencyListItem(props: ICustomElementProps) {
 export function LanguageListItem(props: ICustomElementProps) {
   const locales = useLocaleOptions();
   const [{ locale }] = useSettingsPersistAtom();
+
+  // Fix issue where en-US is deprecated but still exists in user settings
+  const options = useMemo(() => {
+    return locales.filter((item) => item.value !== 'en-US');
+  }, [locales]);
+  const value = useMemo(() => {
+    return locale === 'en-US' ? 'en' : locale;
+  }, [locale]);
   const onChange = useCallback(async (text: string) => {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
     setTimeout(() => {
@@ -107,8 +115,8 @@ export function LanguageListItem(props: ICustomElementProps) {
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
       title={props?.title || ''}
-      items={locales}
-      value={locale}
+      items={options}
+      value={value}
       onChange={onChange}
       placement="bottom-end"
       floatingPanelProps={{ maxHeight: 280 }}
