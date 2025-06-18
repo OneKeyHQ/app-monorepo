@@ -176,7 +176,7 @@ export function ThemeListItem(props: ICustomElementProps) {
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <TabSettingsListItem {...props} userSelect="none">
-          <XStack>
+          <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
               primary={label}
@@ -206,6 +206,8 @@ export function BiologyAuthListItem({
   titleMatch,
   title,
   icon,
+  titleProps,
+  iconProps,
 }: ICustomElementProps) {
   return (
     <Suspense fallback={null}>
@@ -213,6 +215,8 @@ export function BiologyAuthListItem({
         titleMatch={titleMatch}
         title={title}
         icon={icon}
+        titleProps={titleProps}
+        iconProps={iconProps}
       />
     </Suspense>
   );
@@ -500,7 +504,7 @@ export function SocialButtonGroup() {
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
   const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   return (
-    <YStack py="$4" gap={isTabNavigator ? '$3' : '$6'}>
+    <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
       <XStack
         flex={1}
         jc={isTabNavigator ? 'flex-start' : 'center'}
@@ -537,7 +541,12 @@ export function SocialButtonGroup() {
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText color={textColor} size={textSize} onPress={handlePress}>
+        <SizableText
+          color={textColor}
+          textAlign="center"
+          size={textSize}
+          onPress={handlePress}
+        >
           {versionString}
         </SizableText>
         {!appUpdateInfo.latestVersion ||

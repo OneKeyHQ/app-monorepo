@@ -57,6 +57,7 @@ export function SettingList() {
                       key={config.title}
                       icon={config.icon as IKeyOfIcons}
                       title={config.title}
+                      px="$7"
                       onPress={() => {
                         navigation.push(
                           EModalSettingRoutes.SettingListSubModal,

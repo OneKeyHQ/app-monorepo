@@ -631,7 +631,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       },
       devSettings.enabled
         ? {
-            icon: 'CodeOutline',
+            icon: 'CodeSolid',
             name: ESettingsTabNames.Dev,
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
