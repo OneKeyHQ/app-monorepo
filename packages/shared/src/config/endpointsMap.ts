@@ -1,18 +1,15 @@
-import axios from 'axios';
-
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import platformEnv from '../platformEnv';
-import { getRequestHeaders } from '../request/Interceptor';
 import requestHelper from '../request/requestHelper';
-import { memoizee } from '../utils/cacheUtils';
-import timerUtils from '../utils/timerUtils';
 
-import { ONEKEY_API_HOST, buildServiceEndpoint } from './appConfig';
+import { buildServiceEndpoint } from './appConfig';
 
 // Only OneKey endpoints are allowed here.
 export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
@@ -96,76 +93,6 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   },
 };
 
-// Dynamic endpoint prefix check for shared layer
-type IEndpointCheckResponse = {
-  code: number;
-  message: string;
-  data: {
-    withByPrefix: boolean;
-  };
-};
-
-const checkEndpointPrefixRaw = async (): Promise<string | undefined> => {
-  // In serviceWorker, axios is not working
-  if (platformEnv.isExtension) {
-    return undefined;
-  }
-  try {
-    const requestUrl = `https://by-wallet.${ONEKEY_API_HOST}/wallet/v1/endpoint`;
-
-    // Create clean axios instance without interceptors
-    const cleanAxios = axios.create({
-      timeout: timerUtils.getTimeDurationMs({ seconds: 2 }),
-      baseURL: undefined,
-    });
-
-    // Clear interceptors to avoid side effects
-    cleanAxios.interceptors.request.clear();
-    cleanAxios.interceptors.response.clear();
-
-    const requiredHeaders = await getRequestHeaders();
-
-    // Create API request promise
-    const apiRequestPromise = cleanAxios.get<IEndpointCheckResponse>(
-      requestUrl,
-      {
-        headers: requiredHeaders,
-      },
-    );
-
-    // Create 2-second timeout promise
-    const timeoutPromise = timerUtils
-      .wait(timerUtils.getTimeDurationMs({ seconds: 2 }))
-      .then(() => 'timeout' as const);
-
-    // Use Promise.race to get the first completed result
-    const result = await Promise.race([apiRequestPromise, timeoutPromise]);
-
-    // If timeout reached first, return no prefix
-    if (result === 'timeout') {
-      console.warn(
-        'Endpoint prefix check timed out after 2s, using default endpoints',
-      );
-      return undefined;
-    }
-
-    // If API request completed first, check the response
-    if (result.data?.code === 0 && result.data?.data?.withByPrefix === true) {
-      return 'by';
-    }
-
-    return undefined; // No prefix needed or API failed
-  } catch (error) {
-    return undefined; // Use default endpoints when check fails
-  }
-};
-
-const checkEndpointPrefix = memoizee(checkEndpointPrefixRaw, {
-  promise: true,
-  maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
-  max: 1,
-});
-
 export const getEndpointsMapByDevSettings = (
   devSettings: {
     enabled: boolean;
@@ -227,13 +154,29 @@ export async function getEndpointsMapWithDynamicPrefix() {
     settings = await requestHelper.getDevSettingsPersistAtom();
   }
 
-  // Check endpoint prefix for production environment only
-  const shouldCheckPrefix =
-    !settings.enabled || !settings.settings?.enableTestEndpoint;
-  let currentPrefix: string | undefined;
+  // For test environment, no prefix checking needed
+  const isTestEnv = settings.enabled && settings.settings?.enableTestEndpoint;
+  if (isTestEnv) {
+    return getEndpointsMapByDevSettings(settings);
+  }
 
-  if (shouldCheckPrefix) {
-    currentPrefix = await checkEndpointPrefix();
+  // Trigger endpoint check via event bus (ServiceApp will handle with memoizee)
+  appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
+    cleanAppClientCache: false,
+  });
+
+  // Read the stored endpoint prefix result from background service
+  let currentPrefix: string | undefined;
+  try {
+    const shouldUsePrefix = await appStorage.getItem(
+      'ONEKEY_ENDPOINT_USE_PREFIX',
+    );
+
+    if (shouldUsePrefix === 'true') {
+      currentPrefix = 'by';
+    }
+  } catch (error) {
+    console.warn('Failed to read endpoint prefix from storage:', error);
   }
 
   return getEndpointsMapByDevSettings(settings, {
@@ -248,7 +191,9 @@ export async function getEndpointByServiceName(
   return map[serviceName];
 }
 
-// Export method to force refresh endpoint check
 export function forceRefreshEndpointCheck() {
-  void checkEndpointPrefix.clear();
+  // Clear axios client cache and trigger new check via event
+  appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
+    cleanAppClientCache: true,
+  });
 }

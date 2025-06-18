@@ -292,6 +292,9 @@ export interface IAppEventBusPayload {
     }[];
     searchText: string;
   };
+  [EAppEventBusNames.CheckEndpointPrefix]: {
+    cleanAppClientCache?: boolean;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
