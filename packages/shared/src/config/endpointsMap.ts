@@ -162,7 +162,7 @@ export async function getEndpointsMapWithDynamicPrefix() {
 
   // Trigger endpoint check via event bus (ServiceApp will handle with memoizee)
   appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
-    forceRefresh: false,
+    cleanAppClientCache: false,
   });
 
   // Read the stored endpoint prefix result from background service
@@ -192,8 +192,8 @@ export async function getEndpointByServiceName(
 }
 
 export function forceRefreshEndpointCheck() {
-  // Clear memoizee cache and trigger new check via event
+  // Clear axios client cache and trigger new check via event
   appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
-    forceRefresh: true,
+    cleanAppClientCache: true,
   });
 }

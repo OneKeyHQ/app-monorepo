@@ -48,6 +48,9 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 class ServiceApp extends ServiceBase {
   unlockJobIds: string[] = [];
 
+  // Flag to track if bootstrap initialization is complete
+  private isBootstrapComplete = false;
+
   // Memoized endpoint check function (replaces original memoizee behavior)
   private checkDynamicEndpointMemoized = memoizee(
     async () => {
@@ -65,16 +68,30 @@ class ServiceApp extends ServiceBase {
 
     // Listen to endpoint check events (similar to ServiceAccount pattern)
     appEventBus.on(EAppEventBusNames.CheckEndpointPrefix, (data: unknown) => {
-      const { forceRefresh } = (data as { forceRefresh?: boolean }) || {};
+      // Only respond to events after bootstrap is complete to avoid extension environment issues
+      if (!this.isBootstrapComplete) {
+        console.log(
+          'ServiceApp: Ignoring endpoint check event before bootstrap completion',
+        );
+        return;
+      }
 
-      if (forceRefresh) {
-        // Clear memoizee cache for forced refresh
-        void this.forceCheckDynamicEndpoint();
+      const { cleanAppClientCache } =
+        (data as { cleanAppClientCache?: boolean }) || {};
+
+      if (cleanAppClientCache) {
+        appApiClient.clearClientCache();
       }
 
       // Trigger the check (with or without cache)
       void this.checkDynamicEndpoint();
     });
+  }
+
+  // Method to be called by ServiceBootstrap when initialization is complete
+  @backgroundMethod()
+  async setBootstrapComplete() {
+    this.isBootstrapComplete = true;
   }
 
   @backgroundMethod()
@@ -163,16 +180,6 @@ class ServiceApp extends ServiceBase {
         await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', 'false');
       }
     }
-  }
-
-  @backgroundMethod()
-  async forceCheckDynamicEndpoint() {
-    // Manual trigger for immediate checking (clears memoizee cache)
-    console.log('Manually triggering endpoint check');
-    // Clear cache first
-    void this.checkDynamicEndpointMemoized.clear();
-    // Then perform the check
-    return this.performEndpointCheck();
   }
 
   @backgroundMethod()

@@ -55,6 +55,7 @@ class ServiceBootstrap extends ServiceBase {
     void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
     void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
     void systemTimeUtils.startServerTimeInterval();
+    await this.backgroundApi.serviceApp.setBootstrapComplete();
   }
 
   async saveDevModeToSyncStorage() {
