@@ -55,9 +55,9 @@ const getBasicClient = async ({
   if (!endpoint || !name) {
     throw new OneKeyError('Invalid endpoint name.');
   }
-  // if (!endpoint.startsWith('https://')) {
-  //   throw new OneKeyError('Invalid endpoint, https only');
-  // }
+  if (!endpoint.startsWith('https://')) {
+    throw new OneKeyError('Invalid endpoint, https only');
+  }
 
   const timeout = 30 * 1000;
   const options =
@@ -133,11 +133,25 @@ const getRawDataClient = memoizee(
   },
 );
 
+const clearClientCache = () => {
+  // Clear all cached clients when endpoint changes
+  Object.keys(clients).forEach((key) => {
+    clients[key as EServiceEndpointEnum] = null;
+  });
+  Object.keys(rawDataClients).forEach((key) => {
+    rawDataClients[key as EServiceEndpointEnum] = null;
+  });
+  Object.keys(oneKeyIdAuthClients).forEach((key) => {
+    oneKeyIdAuthClients[key as EServiceEndpointEnum] = null;
+  });
+};
+
 const appApiClient = {
   getBasicClient,
   getClient,
   getRawDataClient,
   getOneKeyIdAuthClient,
+  clearClientCache,
 };
 export { appApiClient };
 
