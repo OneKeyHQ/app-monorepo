@@ -71,7 +71,7 @@ export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotOpenedPassphrase',
         defaultKey: ETranslations.hardware_not_opened_passphrase,
-        defaultAutoToast: true,
+        defaultAutoToast: false,
       }),
     );
   }
