@@ -123,13 +123,6 @@ export default function PagePrimeFeatures() {
     return 200;
   }, [gtMd]);
 
-  const bannerWidth = useMemo(() => {
-    if (gtMd) {
-      return 393;
-    }
-    return 393;
-  }, [gtMd]);
-
   const dataInfo = useMemo<{
     data: IFeatureItemInfo[];
     index: number;
@@ -139,7 +132,7 @@ export default function PagePrimeFeatures() {
         id: EPrimeFeatures.OneKeyCloud,
         banner: (
           <Image
-            w={bannerWidth}
+            w="100%"
             h={bannerHeight}
             source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
           />
@@ -176,7 +169,7 @@ export default function PagePrimeFeatures() {
         id: EPrimeFeatures.BulkCopyAddresses,
         banner: (
           <Image
-            w={bannerWidth}
+            w="100%"
             h={bannerHeight}
             source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
           />
@@ -222,7 +215,7 @@ export default function PagePrimeFeatures() {
         id: EPrimeFeatures.DeviceManagement,
         banner: (
           <Image
-            w={bannerWidth}
+            w="100%"
             h={bannerHeight}
             source={require('@onekeyhq/kit/assets/prime/device_management_banner.png')}
           />
