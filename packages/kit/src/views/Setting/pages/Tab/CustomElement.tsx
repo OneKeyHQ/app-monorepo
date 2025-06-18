@@ -352,8 +352,12 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <TabSettingsListItem {...props} userSelect="none">
-          <XStack>
-            <ListItem.Text primary={label} align="right" />
+          <XStack alignItems="center">
+            <ListItem.Text
+              primaryTextProps={props?.titleProps}
+              primary={label}
+              align="right"
+            />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
         </TabSettingsListItem>
@@ -363,6 +367,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
 }
 
 export function ListVersionItem(props: ICustomElementProps) {
+  const { iconProps, titleProps } = props;
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
@@ -371,8 +376,8 @@ export function ListVersionItem(props: ICustomElementProps) {
     <TabSettingsListItem
       {...props}
       onPress={handleToUpdatePreviewPage}
-      iconProps={{ color: '$textInfo' }}
-      titleProps={{ color: '$textInfo' }}
+      iconProps={{ ...iconProps, color: '$textInfo' }}
+      titleProps={{ ...titleProps, color: '$textInfo' }}
       drillIn
     >
       <ListItem.Text
@@ -390,7 +395,11 @@ export function ListVersionItem(props: ICustomElementProps) {
       onPress={appUpdateInfo.onViewReleaseInfo}
       drillIn
     >
-      <ListItem.Text primary={platformEnv.version} align="right" />
+      <ListItem.Text
+        primaryTextProps={props?.titleProps}
+        primary={platformEnv.version}
+        align="right"
+      />
     </TabSettingsListItem>
   );
 }
