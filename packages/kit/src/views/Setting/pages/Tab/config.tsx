@@ -137,7 +137,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : null,
             {
-              icon: 'CloudSyncOutline',
+              icon: 'CloudOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_onekey_cloud,
               }),

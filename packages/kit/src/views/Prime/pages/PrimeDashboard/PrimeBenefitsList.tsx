@@ -79,7 +79,7 @@ export function PrimeBenefitsList({
   return (
     <Stack py="$2">
       <PrimeBenefitsItem
-        icon="CloudSyncOutline"
+        icon="CloudOutline"
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
         })}
@@ -101,7 +101,7 @@ export function PrimeBenefitsList({
       <PrimeBenefitsItem
         icon="MultipleDevicesOutline"
         title={intl.formatMessage({
-          id: ETranslations.global_device_management,
+          id: ETranslations.global_prime_device_management,
         })}
         subtitle={intl.formatMessage({
           id: ETranslations.prime_device_management_desc,
