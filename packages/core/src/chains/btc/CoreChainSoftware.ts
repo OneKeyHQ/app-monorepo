@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import crypto from 'crypto';
 
 import { sha256 as _sha256 } from '@noble/hashes/sha256';

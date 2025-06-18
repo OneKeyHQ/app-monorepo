@@ -144,16 +144,14 @@ export function FAQSection({
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >
-                  <FormatHyperlinkText
+                  <EarnText
+                    text={description}
                     size="$bodyMd"
-                    color={description.color}
                     onAction={handleAction}
                     underlineTextProps={{
                       color: '$textInfo',
                     }}
-                  >
-                    {description.text}
-                  </FormatHyperlinkText>
+                  />
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>

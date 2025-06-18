@@ -3,7 +3,10 @@ import { isNil } from 'lodash';
 
 import type { IHardwareHomeScreenName } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/HardwareHomeScreen/hardwareHomeScreenData';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
+import {
+  FirmwareVersionTooLow,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
@@ -13,7 +16,10 @@ import localDb from '../../dbs/local/localDb';
 
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
-import type { IDBDeviceSettings as IDBDeviceDbSettings } from '../../dbs/local/types';
+import type {
+  IDBDevice,
+  IDBDeviceSettings as IDBDeviceDbSettings,
+} from '../../dbs/local/types';
 import type {
   DeviceSettingsParams,
   DeviceUploadResourceParams,
@@ -26,6 +32,8 @@ export type ISetInputPinOnSoftwareParams = {
 
 export type ISetPassphraseEnabledParams = {
   walletId: string;
+  connectId?: string;
+  featuresDeviceId?: string;
   passphraseEnabled: boolean;
 };
 
@@ -212,9 +220,25 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setPassphraseEnabled({
     walletId,
+    connectId,
+    featuresDeviceId,
     passphraseEnabled,
   }: ISetPassphraseEnabledParams) {
-    const device = await localDb.getWalletDevice({ walletId });
+    let device: IDBDevice | undefined;
+    if (walletId) {
+      device = await localDb.getWalletDevice({ walletId });
+    }
+    if (!device) {
+      if (connectId || featuresDeviceId) {
+        device = await localDb.getDeviceByQuery({
+          connectId,
+          featuresDeviceId,
+        });
+      }
+    }
+    if (!device) {
+      throw new OneKeyLocalError('Device not found');
+    }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.applySettingsToDevice(device.connectId, {

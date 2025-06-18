@@ -225,7 +225,7 @@ export class KeyringQr extends KeyringQrBase {
   }
 
   override async getVerifyAddressChainParams(
-    query: IQrWalletGetVerifyAddressChainParamsQuery,
+    _query: IQrWalletGetVerifyAddressChainParamsQuery,
   ): Promise<IQrWalletGetVerifyAddressChainParamsResult> {
     return {};
   }

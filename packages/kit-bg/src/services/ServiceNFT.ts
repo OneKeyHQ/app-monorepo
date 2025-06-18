@@ -323,7 +323,11 @@ class ServiceNFT extends ServiceBase {
         xpub,
       });
 
-    return localNFTs;
+    return localNFTs.map((nft) => ({
+      ...nft,
+      accountId,
+      networkId,
+    }));
   }
 
   _getNFTMemo = memoizee(

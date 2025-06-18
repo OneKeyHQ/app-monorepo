@@ -1,14 +1,12 @@
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Empty,
   Page,
   SizableText,
   Spinner,
-  Stack,
   Tab,
   XStack,
   YStack,

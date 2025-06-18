@@ -34,7 +34,7 @@ export function WalletAvatarBase({
   });
 
   if (isHidden) {
-    return <Icon size={size || '$10'} name="LockSolid" color="$iconSubdued" />;
+    return <Icon size={size || '$10'} name="LockSolid" />;
   }
 
   return (

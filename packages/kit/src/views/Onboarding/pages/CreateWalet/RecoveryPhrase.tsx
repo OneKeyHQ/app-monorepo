@@ -10,7 +10,6 @@ import {
   ActionList,
   Dialog,
   Page,
-  SecureView,
   SizableText,
   Stack,
   Toast,
@@ -229,26 +228,24 @@ export function RecoveryPhrase() {
           })}
         </SizableText>
 
-        <SecureView>
-          <XStack flexWrap="wrap" mx="$-1">
-            {phrases.map((phrase, index) => (
-              <Stack
-                key={index}
-                $md={{
-                  flexBasis: '50%',
-                }}
-                flexBasis="33.33%"
-                p="$1"
-              >
-                <FocusDisplayInput
-                  text={phrase}
-                  index={index}
-                  testID={`phrase-index${index}`}
-                />
-              </Stack>
-            ))}
-          </XStack>
-        </SecureView>
+        <XStack flexWrap="wrap" mx="$-1">
+          {phrases.map((phrase, index) => (
+            <Stack
+              key={index}
+              $md={{
+                flexBasis: '50%',
+              }}
+              flexBasis="33.33%"
+              p="$1"
+            >
+              <FocusDisplayInput
+                text={phrase}
+                index={index}
+                testID={`phrase-index${index}`}
+              />
+            </Stack>
+          ))}
+        </XStack>
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({

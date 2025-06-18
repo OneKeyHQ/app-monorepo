@@ -66,6 +66,7 @@ export class V4LocalDbIndexed extends V4LocalDbBase {
 
     // delete removed stores
     const storeNamesToRemove = difference(currentStoreNames, storeNamesToAdd);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const name of storeNamesToRemove) {
       // removeObjectStore / removeTable
       // db.deleteObjectStore(name);
