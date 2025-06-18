@@ -36,6 +36,10 @@ class ServiceBootstrap extends ServiceBase {
     } catch (error) {
       console.error(error);
     }
+
+    // Perform non-blocking endpoint check after core services are initialized
+    void this.backgroundApi.serviceApp.checkDynamicEndpoint();
+
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
     if (platformEnv.isExtension) {
