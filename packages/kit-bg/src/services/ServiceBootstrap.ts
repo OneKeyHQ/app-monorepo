@@ -49,7 +49,7 @@ class ServiceBootstrap extends ServiceBase {
         console.error(error);
       }
     }
-    void this.saveDevModeToSyncStorage();
+    void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
     void this.backgroundApi.serviceHardware.init();
     void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
     void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
@@ -57,14 +57,6 @@ class ServiceBootstrap extends ServiceBase {
     void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
     void systemTimeUtils.startServerTimeInterval();
     await this.backgroundApi.serviceApp.setBootstrapComplete();
-  }
-
-  async saveDevModeToSyncStorage() {
-    const devSettings = await devSettingsPersistAtom.get();
-    appStorage.syncStorage.set(
-      EAppSyncStorageKeys.onekey_developer_mode_enabled,
-      !!devSettings.enabled,
-    );
   }
 }
 
