@@ -10,6 +10,7 @@ import {
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
+  TokenStats,
 } from '../components';
 
 interface IMobileLayoutProps {
@@ -55,6 +56,9 @@ const createChartPageComponent = (
 const createOverviewPageComponent = (tokenDetail?: IMarketTokenDetailV2) => {
   const Component = () => (
     <>
+      {/* Token Stats */}
+      <TokenStats tokenDetail={tokenDetail} />
+
       {/* Activity overview (only in overview tab) */}
       <TokenActivityOverview tokenDetail={tokenDetail} />
     </>

@@ -27,6 +27,50 @@ interface IMarketMobileTabsProps {
   liquidityFilter: ILiquidityFilter;
 }
 
+// Extract component definitions outside render to prevent re-creation on each render
+const createWatchlistPageComponent = (
+  selectedNetworkId: string,
+  liquidityFilter: ILiquidityFilter,
+) => {
+  const Component = () => (
+    <Stack flex={1}>
+      <MarketTokenList
+        networkId={selectedNetworkId}
+        liquidityFilter={liquidityFilter}
+        defaultShowWatchlistOnly
+      />
+    </Stack>
+  );
+  Component.displayName = 'WatchlistPageComponent';
+  return Component;
+};
+
+const createTrendingPageComponent = (
+  filterBarProps: {
+    selectedNetworkId: string;
+    timeRange: ITimeRangeSelectorValue;
+    liquidityFilter: ILiquidityFilter;
+    onNetworkIdChange: (networkId: string) => void;
+    onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
+    onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
+  },
+  selectedNetworkId: string,
+  liquidityFilter: ILiquidityFilter,
+) => {
+  const Component = () => (
+    <Stack flex={1}>
+      <MarketFilterBarSmall {...filterBarProps} />
+      <MarketTokenList
+        networkId={selectedNetworkId}
+        liquidityFilter={liquidityFilter}
+        defaultShowWatchlistOnly={false}
+      />
+    </Stack>
+  );
+  Component.displayName = 'TrendingPageComponent';
+  return Component;
+};
+
 export function MarketMobileTabs({
   selectedTab = EMarketHomeTab.Trending,
   onTabChange,
@@ -37,30 +81,19 @@ export function MarketMobileTabs({
   const intl = useIntl();
   const initialIndex = selectedTab === EMarketHomeTab.Watchlist ? 0 : 1;
 
-  const WatchlistPageComponent = useCallback(
-    () => (
-      <Stack flex={1}>
-        <MarketTokenList
-          networkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-          defaultShowWatchlistOnly
-        />
-      </Stack>
-    ),
+  // Memoize page components
+  const WatchlistPageComponent = useMemo(
+    () => createWatchlistPageComponent(selectedNetworkId, liquidityFilter),
     [selectedNetworkId, liquidityFilter],
   );
 
-  const TrendingPageComponent = useCallback(
-    () => (
-      <Stack flex={1}>
-        <MarketFilterBarSmall {...filterBarProps} />
-        <MarketTokenList
-          networkId={selectedNetworkId}
-          liquidityFilter={liquidityFilter}
-          defaultShowWatchlistOnly={false}
-        />
-      </Stack>
-    ),
+  const TrendingPageComponent = useMemo(
+    () =>
+      createTrendingPageComponent(
+        filterBarProps,
+        selectedNetworkId,
+        liquidityFilter,
+      ),
     [filterBarProps, selectedNetworkId, liquidityFilter],
   );
 
