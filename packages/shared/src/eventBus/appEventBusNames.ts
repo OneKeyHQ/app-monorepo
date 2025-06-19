@@ -99,4 +99,5 @@ export enum EAppEventBusNames {
   MarketWSDataUpdate = 'MarketWSDataUpdate',
   ClearStorageOnExtension = 'ClearStorageOnExtension',
   SettingsSearchResult = 'SettingsSearchResult',
+  CheckEndpointPrefix = 'CheckEndpointPrefix',
 }
