@@ -24,8 +24,7 @@ export interface IDevSettings {
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
-  // use trading view test domain
-  useTradingViewTestDomain?: boolean;
+
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
   // strict signature alert display
