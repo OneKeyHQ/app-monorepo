@@ -11,13 +11,18 @@ export class SimpleDbEntityEarn extends SimpleDbEntityBase<IEarnAtomData> {
   @backgroundMethod()
   async getEarnData() {
     const data = await this.getRawData();
-    return data ?? { availableAssets: [] };
+    return (
+      data ?? {
+        availableAssetsByType: {},
+        earnAccount: {},
+      }
+    );
   }
 
   @backgroundMethod()
   async resetEarnData() {
     await this.setRawData({
-      availableAssets: [],
+      availableAssetsByType: {},
       earnAccount: {},
     });
   }
