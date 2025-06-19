@@ -60,7 +60,7 @@ function FeaturesItem({
 }: IFeatureItemInfo) {
   return (
     <Stack pb="$5" alignItems="center" justifyContent="center">
-      <Stack maxWidth={450} width="100%">
+      <Stack maxWidth={432} width="100%">
         <Stack alignItems="center" justifyContent="center">
           {banner}
         </Stack>
@@ -72,7 +72,7 @@ function FeaturesItem({
             {description}
           </SizableText>
         </Stack>
-        <Divider my="$6" />
+        <Divider my="$6" borderColor="$neutral3" />
         {details.map((detail, index) => {
           return (
             <ListItem
@@ -86,7 +86,7 @@ function FeaturesItem({
                 flex={1}
                 primary={
                   <XStack>
-                    <SizableText textAlign="left" size="$bodyLgMedium">
+                    <SizableText textAlign="left" size="$bodyMdMedium">
                       {detail.title}
                     </SizableText>
                   </XStack>
@@ -217,17 +217,33 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
-            source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
+            source={require('@onekeyhq/kit/assets/prime/device_management_banner.png')}
           />
         ),
-        title: 'Device management',
-        description: 'Access Prime on up to 5 devices.',
+        title: intl.formatMessage({
+          id: ETranslations.global_prime_device_management,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_device_management_desc,
+        }),
         details: [
           {
-            icon: 'LinkOutline',
-            title: 'Wide Chain Support',
-            description:
-              'Export addresses for BTC, ETH, EVM & more, with flexible derivation paths.',
+            icon: 'LaptopOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_device_management_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_device_management_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'SettingsOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_device_management_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_device_management_detail_two_desc,
+            }),
           },
         ],
       },
@@ -293,6 +309,7 @@ export default function PagePrimeFeatures() {
               isVisible={currentIndex !== 0 ? isHovering : false}
               direction="previous"
               onPress={gotToPrevIndex}
+              variant="tertiary"
             />
 
             <PaginationButton
@@ -301,6 +318,7 @@ export default function PagePrimeFeatures() {
               }
               direction="next"
               onPress={goToNextIndex}
+              variant="tertiary"
             />
           </>
         ) : null}
