@@ -49,7 +49,7 @@ export function WalletActionEarn(props: {
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
     const maxApr = Math.max(0, ...aprItems);
-    return { symbolInfo, maxApr };
+    return { symbolInfo, maxApr, protocolList };
   }, [networkId, tokenAddress]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
@@ -67,12 +67,29 @@ export function WalletActionEarn(props: {
       isSoftwareWalletOnlyUser,
     });
 
+    if (result?.protocolList?.length === 1) {
+      const protocol = result.protocolList[0];
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ProtocolDetailsV2,
+        params: {
+          networkId,
+          accountId,
+          indexedAccountId,
+          symbol,
+          provider: protocol.provider.name,
+          vault: protocol.provider.vault,
+        },
+      });
+      return;
+    }
+
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.AssetProtocolList,
       params: { networkId, accountId, symbol, indexedAccountId, filter: true },
     });
   }, [
     result?.symbolInfo?.symbol,
+    result?.protocolList,
     networkId,
     accountId,
     walletType,
