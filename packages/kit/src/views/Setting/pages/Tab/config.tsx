@@ -687,9 +687,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      isPasswordSet,
+      biologyAuthIsSupport,
+      webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
-      isPasswordSet,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
       isPrimeSubscriptionActive,
