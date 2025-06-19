@@ -4,3 +4,4 @@ export * from './TokenDetailHeader';
 export * from './TokenPriceChart';
 export * from './TokenSecurityAlert';
 export * from './TokenActivityOverview';
+export * from './InformationPanel/index';

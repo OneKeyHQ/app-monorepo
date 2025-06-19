@@ -3,6 +3,7 @@ import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
 import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  InformationPanel,
   InformationTabs,
   SwapPanel,
   TokenActivityOverview,
@@ -29,6 +30,9 @@ export function MobileLayout({
         showStats={false}
         showMediaAndSecurity={false}
       />
+
+      {/* Information Panel */}
+      <InformationPanel tokenDetail={tokenDetail} networkId={networkId} />
 
       {/* Main Content (temporary same as desktop; will adjust later) */}
       <YStack flex={1}>
