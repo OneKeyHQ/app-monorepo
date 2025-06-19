@@ -799,6 +799,7 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+      
       {platformEnv.isNativeAndroid ? (
         <SectionPressItem
           title="chekc webview version"
@@ -819,6 +820,60 @@ export const DevSettingsSection = () => {
           }}
         />
       ) : null}
+
+      <SectionPressItem
+        title="DesktopApiProxy"
+        subtitle="system.getSystemInfo"
+        onPress={async () => {
+          const systemInfo =
+            await globalThis.desktopApiProxy.system.getSystemInfo();
+          console.log('DesktopApiProxy systemInfo', systemInfo);
+          Dialog.debugMessage({
+            debugMessage: systemInfo,
+          });
+        }}
+      />
+
+      <SectionPressItem
+        title="DesktopApiProxy"
+        subtitle="inAppPurchase.getProducts"
+        onPress={async () => {
+          const products =
+            await globalThis.desktopApiProxy.inAppPurchase.getProducts({
+              productIDs: ['Prime_Yearly', 'Prime_Monthly'],
+            });
+          console.log('DesktopApiProxy products', products);
+          Dialog.debugMessage({
+            debugMessage: products,
+          });
+        }}
+      />
+
+      <SectionPressItem
+        title="DesktopApiProxy"
+        subtitle="inAppPurchase.canMakePayments"
+        onPress={async () => {
+          const canMakePayments =
+            await globalThis.desktopApiProxy.inAppPurchase.canMakePayments();
+          console.log('DesktopApiProxy canMakePayments', canMakePayments);
+          Dialog.debugMessage({
+            debugMessage: { canMakePayments },
+          });
+        }}
+      />
+
+      <SectionPressItem
+        title="DesktopApiProxy"
+        subtitle="inAppPurchase.testDelay"
+        onPress={async () => {
+          const result =
+            await globalThis.desktopApiProxy.inAppPurchase.testDelay();
+          console.log('DesktopApiProxy testDelay', result);
+          Dialog.debugMessage({
+            debugMessage: result,
+          });
+        }}
+      />
     </Section>
   );
 };

@@ -143,4 +143,8 @@ export const ipcMessageKeys = {
   // IAP_GET_PROMOTION_RIGHTS_STATUS: 'iap/getPromotionRightsStatus',
   // IAP_GET_PROMOTION_RIGHTS_STATUS_RES: 'iap/getPromotionRightsStatus/res',
   // IAP_GET_PROMOTION_RIGHTS_STATUS_ERROR: 'iap/getPromotionRightsStatus/error',
+
+  // Desktop API
+  DESKTOP_API_CALL: 'desktop/api/call',
+  DESKTOP_API_RESPONSE: 'desktop/api/response',
 };

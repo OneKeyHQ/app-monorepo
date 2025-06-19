@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-global-this */
 // used in babel config so must be commonjs format
 // can only access "process.env" here as it would be shared between buildtime and runtime
 const isJest =
@@ -18,6 +19,19 @@ const isExtEdge = process.env.EXT_CHANNEL === 'edge';
 
 const isE2E = process.env.E2E_MODE === 'true';
 
+const isRuntimeBrowser =
+  // eslint-disable-next-line unicorn/prefer-global-this
+  typeof window !== 'undefined' && !isNative;
+
+const isExtensionOffscreen =
+  isExtension &&
+  isRuntimeBrowser &&
+  window &&
+  window.location &&
+  window.location.pathname &&
+  window.location.pathname.startsWith &&
+  window.location.pathname.startsWith('/offscreen.html');
+
 module.exports = {
   isJest,
   isDev,
@@ -31,4 +45,6 @@ module.exports = {
   isExtFirefox,
   isExtEdge,
   isE2E,
+  isExtensionOffscreen,
+  isRuntimeBrowser,
 };

@@ -5,6 +5,8 @@ import path from 'path';
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
+import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import type {
   EDesktopStoreKeys,
   IDesktopAppState,
@@ -141,16 +143,24 @@ export type IDesktopAPI = {
   iapGetProducts: (
     params: IDesktopIAPGetProductsParams,
   ) => Promise<IDesktopIAPGetProductsResult>;
+
+  // Desktop API 异步调用方法
+  sendDesktopApiCall: (message: any) => void;
+  addDesktopApiResponseListener: (listener: (response: any) => void) => void;
+  removeDesktopApiResponseListener: (listener: (response: any) => void) => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
     desktopApi: IDesktopAPI;
+    desktopApiProxy: DesktopApiProxy; // 临时 any 类型
     INJECT_PATH: string;
   }
 
   // eslint-disable-next-line vars-on-top, no-var
   var desktopApi: IDesktopAPI;
+  // eslint-disable-next-line vars-on-top, no-var
+  var desktopApiProxy: DesktopApiProxy; // 临时 any 类型
 }
 
 ipcRenderer.on(
@@ -472,10 +482,34 @@ const desktopApi = Object.freeze({
     ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
   iapGetProducts: async (params: IDesktopIAPGetProductsParams) =>
     ipcRenderer.sendSync(ipcMessageKeys.IAP_GET_PRODUCTS, params),
+
+  // Desktop API 异步调用
+  sendDesktopApiCall: (message: any) => {
+    ipcRenderer.send(ipcMessageKeys.DESKTOP_API_CALL, message);
+  },
+
+  addDesktopApiResponseListener: (listener: (response: any) => void) => {
+    ipcRenderer.addListener(
+      ipcMessageKeys.DESKTOP_API_RESPONSE,
+      (_, response) => {
+        listener(response);
+      },
+    );
+  },
+
+  removeDesktopApiResponseListener: (listener: (response: any) => void) => {
+    ipcRenderer.removeListener(
+      ipcMessageKeys.DESKTOP_API_RESPONSE,
+      (_, response) => {
+        listener(response);
+      },
+    );
+  },
 });
 
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
+globalThis.desktopApiProxy = desktopApiProxy;
 
 if (!isMac) {
   globalThis.addEventListener('DOMContentLoaded', () => {

@@ -25,6 +25,7 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 import si from 'systeminformation';
 
+import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
@@ -103,6 +104,7 @@ const getSafelyMainWindow = () => {
   }
   return undefined;
 };
+globalThis.$getDesktopMainWindowSafe = getSafelyMainWindow;
 
 function showMainWindow() {
   const safelyMainWindow = getSafelyMainWindow();
@@ -825,6 +827,8 @@ function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash');
   });
+
+  desktopApi.desktopApiSetup();
 
   ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {
     void session.defaultSession.clearStorageData({
