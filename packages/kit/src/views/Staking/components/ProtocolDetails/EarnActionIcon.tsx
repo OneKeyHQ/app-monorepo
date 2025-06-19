@@ -87,7 +87,7 @@ export function ActionPopupContent({
       {bulletList?.length ? (
         <YStack pt="$2" gap="$2">
           {bulletList.map((text, index) => (
-            <XStack key={index} gap="$1" ai="center">
+            <XStack key={index} gap="$1" ai="flex-start">
               <XStack
                 h="$1"
                 w="$1"
@@ -99,6 +99,7 @@ export function ActionPopupContent({
               <SizableText
                 size={text.size || '$bodySm'}
                 color={text.color || '$textSubdued'}
+                numberOfLines={2}
               >
                 {text.text}
               </SizableText>

@@ -1,0 +1,307 @@
+import { useCallback, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
+import {
+  Badge,
+  IconButton,
+  SizableText,
+  Skeleton,
+  Tab,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useEarnActions,
+  useEarnAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
+
+// Helper function to build APR text
+const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
+
+// Skeleton component for loading state
+function AvailableAssetsSkeleton() {
+  const media = useMedia();
+
+  return (
+    <YStack
+      mx="$-5"
+      $gtLg={{
+        mx: 0,
+        overflow: 'hidden',
+        bg: '$bg',
+        borderRadius: '$3',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$borderSubdued',
+        borderCurve: 'continuous',
+      }}
+    >
+      {Array.from({ length: 4 }).map((_, index) => (
+        <ListItem
+          key={index}
+          mx="$0"
+          px="$4"
+          {...(media.gtLg
+            ? {
+                borderRadius: '$0',
+              }
+            : {})}
+          {...(index !== 0 && media.gtLg
+            ? {
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: '$borderSubdued',
+              }
+            : {})}
+        >
+          <XStack
+            flex={1}
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$4"
+          >
+            <XStack ai="center" gap="$4">
+              <Skeleton
+                width={media.gtLg ? '$8' : '$10'}
+                height={media.gtLg ? '$8' : '$10'}
+                radius="round"
+              />
+              <Skeleton w={60} h={20} borderRadius="$2" />
+            </XStack>
+
+            <Skeleton w={90} h={20} borderRadius="$2" />
+
+            <IconButton icon="ChevronRightSmallOutline" variant="tertiary" />
+          </XStack>
+        </ListItem>
+      ))}
+    </YStack>
+  );
+}
+
+interface IAvailableAssetsTabViewListProps {
+  onTokenPress?: (params: {
+    networkId: string;
+    accountId: string;
+    indexedAccountId?: string;
+    symbol: string;
+    protocols: IEarnAvailableAssetProtocol[];
+  }) => Promise<void>;
+}
+
+export function AvailableAssetsTabViewList({
+  onTokenPress,
+}: IAvailableAssetsTabViewListProps) {
+  const {
+    activeAccount: { account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+  const [{ availableAssetsByType = {} }] = useEarnAtom();
+  const actions = useEarnActions();
+  const intl = useIntl();
+  const media = useMedia();
+  const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+
+  const tabData = useMemo(
+    () => [
+      {
+        title: intl.formatMessage({ id: ETranslations.global_all }),
+        type: EAvailableAssetsTypeEnum.All,
+      },
+      {
+        title: 'Stable coins',
+        type: EAvailableAssetsTypeEnum.StableCoins,
+      },
+      {
+        title: 'Native tokens',
+        type: EAvailableAssetsTypeEnum.NativeTokens,
+      },
+    ],
+    [intl],
+  );
+
+  // Get filtered assets based on selected tab
+  const assets = useMemo(() => {
+    const currentTabType = tabData[selectedTabIndex]?.type;
+    return availableAssetsByType[currentTabType] || [];
+  }, [availableAssetsByType, selectedTabIndex, tabData]);
+
+  // Load data for the selected tab
+  const { isLoading } = usePromiseResult(
+    async () => {
+      const currentTabType = tabData[selectedTabIndex]?.type;
+      if (currentTabType) {
+        const tabAssets =
+          await backgroundApiProxy.serviceStaking.getAvailableAssets({
+            type: currentTabType,
+          });
+
+        // Update the corresponding data in atom
+        actions.current.updateAvailableAssetsByType(currentTabType, tabAssets);
+        return tabAssets;
+      }
+      return [];
+    },
+    [selectedTabIndex, tabData, actions],
+    {
+      watchLoading: true,
+    },
+  );
+
+  // Handle tab change
+  const handleTabChange = useCallback((index: number) => {
+    setSelectedTabIndex(index);
+  }, []);
+
+  if (assets.length || isLoading) {
+    return (
+      <YStack gap="$3">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_available_assets })}
+        </SizableText>
+        <Tab.Header
+          style={{
+            height: 28,
+            borderBottomWidth: 0,
+          }}
+          data={tabData}
+          itemContainerStyle={{
+            px: '$2',
+            mr: '$1',
+            cursor: 'default',
+          }}
+          itemTitleNormalStyle={{
+            color: '$textSubdued',
+            fontSize: 14,
+            fontWeight: '500',
+            lineHeight: 20,
+            letterSpacing: -0.15,
+          }}
+          itemTitleSelectedStyle={{
+            color: '$text',
+            fontSize: 14,
+            fontWeight: '500',
+            lineHeight: 20,
+            letterSpacing: -0.15,
+          }}
+          cursorStyle={{
+            height: '100%',
+            bg: '$bgActive',
+            borderRadius: '$2',
+            borderCurve: 'continuous',
+          }}
+          onSelectedPageIndex={handleTabChange}
+        />
+
+        {isLoading ? (
+          <AvailableAssetsSkeleton />
+        ) : (
+          <YStack
+            mx="$-5"
+            $gtLg={{
+              mx: 0,
+              overflow: 'hidden',
+              bg: '$bg',
+              borderRadius: '$3',
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: '$borderSubdued',
+              borderCurve: 'continuous',
+            }}
+          >
+            {assets.map(
+              (
+                {
+                  name,
+                  logoURI,
+                  aprWithoutFee,
+                  symbol,
+                  rewardUnit,
+                  badges = [],
+                  protocols,
+                },
+                index,
+              ) => (
+                <ListItem
+                  userSelect="none"
+                  key={`${name}-${index}`}
+                  onPress={async () => {
+                    await onTokenPress?.({
+                      networkId: protocols[0]?.networkId || '',
+                      accountId: account?.id ?? '',
+                      indexedAccountId: indexedAccount?.id,
+                      symbol,
+                      protocols,
+                    });
+                  }}
+                  avatarProps={{
+                    src: logoURI,
+                    fallbackProps: {
+                      borderRadius: '$full',
+                    },
+                    ...(media.gtLg
+                      ? {
+                          size: '$8',
+                        }
+                      : {}),
+                  }}
+                  {...(media.gtLg
+                    ? {
+                        drillIn: true,
+                        mx: '$0',
+                        px: '$4',
+                        borderRadius: '$0',
+                      }
+                    : {})}
+                  {...(index !== 0 && media.gtLg
+                    ? {
+                        borderTopWidth: StyleSheet.hairlineWidth,
+                        borderTopColor: '$borderSubdued',
+                      }
+                    : {})}
+                >
+                  <ListItem.Text
+                    flexGrow={1}
+                    flexBasis={0}
+                    primary={
+                      <XStack gap="$2" alignItems="center">
+                        <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+                        <XStack gap="$1">
+                          {badges.map((badge) => (
+                            <Badge
+                              key={badge.tag}
+                              badgeType={badge.badgeType}
+                              badgeSize="sm"
+                              userSelect="none"
+                            >
+                              <Badge.Text>{badge.tag}</Badge.Text>
+                            </Badge>
+                          ))}
+                        </XStack>
+                      </XStack>
+                    }
+                  />
+                  <ListItem.Text
+                    $gtLg={{
+                      flexGrow: 1,
+                      flexBasis: 0,
+                    }}
+                    primary={buildAprText(aprWithoutFee, rewardUnit)}
+                  />
+                </ListItem>
+              ),
+            )}
+          </YStack>
+        )}
+      </YStack>
+    );
+  }
+  return null;
+}
