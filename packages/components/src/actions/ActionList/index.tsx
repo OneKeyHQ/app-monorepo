@@ -320,7 +320,6 @@ function BasicActionList({
           p="$1"
           $md={{ p: '$3', pt: '$0' }}
           height={estimatedContentHeight}
-          onLayout={(e) => console.log(e.nativeEvent.layout.height)}
         >
           {items?.map(renderActionListItem)}
 
