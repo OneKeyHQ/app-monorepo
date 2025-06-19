@@ -1,4 +1,4 @@
-import { Stack, YStack } from '@onekeyhq/components';
+import { ScrollView, Stack } from '@onekeyhq/components';
 import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
 import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
@@ -35,17 +35,19 @@ export function MobileLayout({
       <InformationPanel tokenDetail={tokenDetail} networkId={networkId} />
 
       {/* Main Content (temporary same as desktop; will adjust later) */}
-      <YStack flex={1}>
+      <ScrollView flex={1}>
         {/* Trading view */}
-        <TradingView
-          mode="realtime"
-          identifier="binance"
-          baseToken={tokenDetail?.symbol ?? ''}
-          targetToken="USDT"
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-          onLoadEnd={() => {}}
-        />
+        <Stack h={300}>
+          <TradingView
+            mode="realtime"
+            identifier="binance"
+            baseToken={tokenDetail?.symbol ?? ''}
+            targetToken="USDT"
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            onLoadEnd={() => {}}
+          />
+        </Stack>
 
         {/* Info tabs */}
         <Stack h={300}>
@@ -56,7 +58,7 @@ export function MobileLayout({
         <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
 
         <TokenActivityOverview tokenDetail={tokenDetail} />
-      </YStack>
+      </ScrollView>
     </>
   );
 }
