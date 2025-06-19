@@ -1,4 +1,6 @@
-import { ScrollView, Stack } from '@onekeyhq/components';
+import { useMemo } from 'react';
+
+import { Stack, Tab } from '@onekeyhq/components';
 import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
 import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
@@ -16,11 +18,75 @@ interface IMobileLayoutProps {
   tokenDetail?: IMarketTokenDetailV2;
 }
 
+// Extract component definitions outside render to prevent re-creation on each render
+// prettier-ignore
+const createChartPageComponent = (
+  tokenAddress: string,
+  networkId: string,
+  tokenDetail?: IMarketTokenDetailV2,
+) => {
+  const Component = () => (
+    <>
+      {/* Information Panel */}
+      <InformationPanel tokenDetail={tokenDetail} networkId={networkId} />
+
+      <Stack h={300}>
+        <TradingView
+          mode="realtime"
+          identifier="binance"
+          baseToken={tokenDetail?.symbol ?? ''}
+          targetToken="USDT"
+          tokenAddress={tokenAddress}
+          networkId={networkId}
+          onLoadEnd={() => {}}
+        />
+      </Stack>
+
+      {/* Information tabs */}
+      <Stack h={300}>
+        <InformationTabs tokenAddress={tokenAddress} networkId={networkId} />
+      </Stack>
+    </>
+  );
+  Component.displayName = 'ChartPageComponent';
+  return Component;
+};
+
+const createOverviewPageComponent = (tokenDetail?: IMarketTokenDetailV2) => {
+  const Component = () => (
+    <>
+      {/* Activity overview (only in overview tab) */}
+      <TokenActivityOverview tokenDetail={tokenDetail} />
+    </>
+  );
+  Component.displayName = 'OverviewPageComponent';
+  return Component;
+};
+
 export function MobileLayout({
   tokenAddress,
   networkId,
   tokenDetail,
 }: IMobileLayoutProps) {
+  // Memoize Chart and Overview components to avoid re-creation on each render
+  const ChartPageComponent = useMemo(
+    () => createChartPageComponent(tokenAddress, networkId, tokenDetail),
+    [tokenAddress, networkId, tokenDetail],
+  );
+
+  const OverviewPageComponent = useMemo(
+    () => createOverviewPageComponent(tokenDetail),
+    [tokenDetail],
+  );
+
+  const tabs = useMemo(
+    () => [
+      { id: 'chart', title: 'Chart', page: ChartPageComponent },
+      { id: 'overview', title: 'Overview', page: OverviewPageComponent },
+    ],
+    [ChartPageComponent, OverviewPageComponent],
+  );
+
   return (
     <>
       {/* Header */}
@@ -31,34 +97,11 @@ export function MobileLayout({
         showMediaAndSecurity={false}
       />
 
-      {/* Information Panel */}
-      <InformationPanel tokenDetail={tokenDetail} networkId={networkId} />
+      {/* Main Content: Chart / Overview Tabs */}
+      <Tab data={tabs} />
 
-      {/* Main Content (temporary same as desktop; will adjust later) */}
-      <ScrollView flex={1}>
-        {/* Trading view */}
-        <Stack h={300}>
-          <TradingView
-            mode="realtime"
-            identifier="binance"
-            baseToken={tokenDetail?.symbol ?? ''}
-            targetToken="USDT"
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            onLoadEnd={() => {}}
-          />
-        </Stack>
-
-        {/* Info tabs */}
-        <Stack h={300}>
-          <InformationTabs tokenAddress={tokenAddress} networkId={networkId} />
-        </Stack>
-
-        {/* Swap panel and activity overview */}
-        <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
-
-        <TokenActivityOverview tokenDetail={tokenDetail} />
-      </ScrollView>
+      {/* Swap panel placed outside the tabs for global visibility */}
+      <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
     </>
   );
 }
