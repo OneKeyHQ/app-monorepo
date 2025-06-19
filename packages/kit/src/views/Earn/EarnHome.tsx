@@ -661,6 +661,14 @@ function BasicEarnHome() {
     },
   );
 
+  const { result: faqList } = usePromiseResult(
+    async () => backgroundApiProxy.serviceStaking.getFAQListForHome(),
+    [],
+    {
+      initResult: [],
+    },
+  );
+
   const navigation = useAppNavigation();
 
   const accountSelectorActions = useAccountSelectorActions();
@@ -845,7 +853,7 @@ function BasicEarnHome() {
                 <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
               </YStack>
               {/* FAQ Panel */}
-              {media.gtLg ? (
+              {media.gtLg && faqList.length > 0 ? (
                 <YStack
                   gap="$6"
                   py="$4"
@@ -858,13 +866,13 @@ function BasicEarnHome() {
                     w: EARN_RIGHT_PANEL_WIDTH,
                   }}
                 >
-                  <FAQPanel />
+                  <FAQPanel faqList={faqList} />
                 </YStack>
               ) : null}
             </YStack>
-            {media.gtLg ? null : (
+            {media.gtLg || faqList.length === 0 ? null : (
               <YStack mt="$1" px="$4" py="$4">
-                <FAQPanel />
+                <FAQPanel faqList={faqList} />
               </YStack>
             )}
           </YStack>

@@ -1204,6 +1204,27 @@ class ServiceStaking extends ServiceBase {
     );
   }
 
+  _getFAQListForHome = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const resp = await client.get<{
+        data: {
+          list: IEarnFAQList;
+        };
+      }>(`/earn/v1/faq/list`);
+      return resp.data.data.list;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getFAQListForHome() {
+    return this._getFAQListForHome();
+  }
+
   @backgroundMethod()
   async getFAQList(params: { provider: string; symbol: string }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
