@@ -287,8 +287,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_address_book,
               }),
-              onPress: () => {
-                void onPressAddressBook();
+              onPress: (navigation) => {
+                void onPressAddressBook(navigation);
               },
             },
           ],
