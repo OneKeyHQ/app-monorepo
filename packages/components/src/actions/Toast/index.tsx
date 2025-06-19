@@ -192,6 +192,12 @@ function toastMessage({
   position,
   onClose,
 }: IToastBaseProps) {
+  const handleClose = () => {
+    if (toastId) {
+      toastIdMap.delete(toastId);
+    }
+    onClose?.();
+  };
   if (platformEnv.isDev) {
     if (title?.length === 0) {
       throw new OneKeyLocalError(
@@ -210,13 +216,12 @@ function toastMessage({
       }
       toastIdMap.delete(toastId);
     }
-
     toastIdMap.set(toastId, [Date.now(), duration + 500]);
   }
   return showMessage({
     renderContent: (props) => (
       <ToastContent
-        onClose={onClose}
+        onClose={handleClose}
         title={title}
         maxWidth={props?.width}
         message={message}
