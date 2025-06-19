@@ -40,7 +40,7 @@ export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
 }
 
-export type IDesktopAPI = {
+type IDesktopAPILegacy = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   arch: string;
   platform: string;
@@ -152,15 +152,15 @@ export type IDesktopAPI = {
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
-    desktopApi: IDesktopAPI;
-    desktopApiProxy: DesktopApiProxy; // 临时 any 类型
+    desktopApi: IDesktopAPILegacy;
+    desktopApiProxy: DesktopApiProxy;
     INJECT_PATH: string;
   }
 
   // eslint-disable-next-line vars-on-top, no-var
-  var desktopApi: IDesktopAPI;
+  var desktopApi: IDesktopAPILegacy;
   // eslint-disable-next-line vars-on-top, no-var
-  var desktopApiProxy: DesktopApiProxy; // 临时 any 类型
+  var desktopApiProxy: DesktopApiProxy;
 }
 
 ipcRenderer.on(
