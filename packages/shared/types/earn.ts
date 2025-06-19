@@ -67,3 +67,27 @@ export interface IEarnPermitCacheKey {
   tokenAddress: string;
   amount: string;
 }
+
+export enum EAvailableAssetsTypeEnum {
+  All = 'all',
+  StableCoins = 'stableCoins',
+  NativeTokens = 'nativeTokens',
+  Recommend = 'recommend',
+}
+
+export interface IEarnAvailableAssetProtocol {
+  networkId: string;
+  provider: string;
+  vault?: string;
+}
+
+export interface IEarnAvailableAsset {
+  name: string;
+  symbol: string;
+  logoURI: string;
+  apr: string;
+  aprWithoutFee: string;
+  tags: string[];
+  rewardUnit: string;
+  protocols: IEarnAvailableAssetProtocol[];
+}
