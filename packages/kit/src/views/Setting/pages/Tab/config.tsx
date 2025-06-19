@@ -395,6 +395,15 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
+              icon: 'ShieldCheckDoneOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_protection,
+              }),
+              onPress: (navigation) => {
+                navigation?.push(EModalSettingRoutes.SettingProtectModal);
+              },
+            },
+            {
               icon: 'LinkOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_connected_sites,
