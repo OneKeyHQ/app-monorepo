@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Stack, Tab } from '@onekeyhq/components';
+import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EMarketHomeTab } from '../../types';
@@ -27,49 +27,60 @@ interface IMarketMobileTabsProps {
   liquidityFilter: ILiquidityFilter;
 }
 
-// Extract component definitions outside render to prevent re-creation on each render
-const createWatchlistPageComponent = (
-  selectedNetworkId: string,
-  liquidityFilter: ILiquidityFilter,
-) => {
-  const Component = () => (
-    <Stack flex={1}>
-      <MarketTokenList
-        networkId={selectedNetworkId}
-        liquidityFilter={liquidityFilter}
-        defaultShowWatchlistOnly
-      />
-    </Stack>
-  );
-  Component.displayName = 'WatchlistPageComponent';
-  return Component;
-};
+// Simple Tab Header Component
+interface ISimpleTabHeaderProps {
+  data: Array<{ id: IMarketHomeTabValue; title: string }>;
+  activeIndex: number;
+  onTabPress: (index: number) => void;
+  renderTitle: (
+    item: { id: IMarketHomeTabValue },
+    isActive: boolean,
+  ) => React.ReactNode;
+}
 
-const createTrendingPageComponent = (
-  filterBarProps: {
-    selectedNetworkId: string;
-    timeRange: ITimeRangeSelectorValue;
-    liquidityFilter: ILiquidityFilter;
-    onNetworkIdChange: (networkId: string) => void;
-    onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-    onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
-  },
-  selectedNetworkId: string,
-  liquidityFilter: ILiquidityFilter,
-) => {
-  const Component = () => (
-    <Stack flex={1}>
-      <MarketFilterBarSmall {...filterBarProps} />
-      <MarketTokenList
-        networkId={selectedNetworkId}
-        liquidityFilter={liquidityFilter}
-        defaultShowWatchlistOnly={false}
-      />
-    </Stack>
+function SimpleTabHeader({
+  data,
+  activeIndex,
+  onTabPress,
+  renderTitle,
+}: ISimpleTabHeaderProps) {
+  return (
+    <XStack
+      px="$5"
+      py="$3"
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
+    >
+      {data.map((item, index) => {
+        const isActive = index === activeIndex;
+        return (
+          <Button
+            key={item.id}
+            variant="tertiary"
+            size="small"
+            onPress={() => onTabPress(index)}
+            mr={index < data.length - 1 ? '$5' : '$0'}
+            borderBottomWidth="$0.5"
+            borderBottomColor={isActive ? '$borderInteractive' : 'transparent'}
+            opacity={isActive ? 1 : 0.6}
+            bg="transparent"
+          >
+            {typeof renderTitle(item, isActive) === 'string' ? (
+              <SizableText
+                size="$bodyMdMedium"
+                color={isActive ? '$textInteractive' : '$text'}
+              >
+                {renderTitle(item, isActive)}
+              </SizableText>
+            ) : (
+              <Stack>{renderTitle(item, isActive)}</Stack>
+            )}
+          </Button>
+        );
+      })}
+    </XStack>
   );
-  Component.displayName = 'TrendingPageComponent';
-  return Component;
-};
+}
 
 export function MarketMobileTabs({
   selectedTab = EMarketHomeTab.Trending,
@@ -79,22 +90,10 @@ export function MarketMobileTabs({
   liquidityFilter,
 }: IMarketMobileTabsProps) {
   const intl = useIntl();
-  const initialIndex = selectedTab === EMarketHomeTab.Watchlist ? 0 : 1;
 
-  // Memoize page components
-  const WatchlistPageComponent = useMemo(
-    () => createWatchlistPageComponent(selectedNetworkId, liquidityFilter),
-    [selectedNetworkId, liquidityFilter],
-  );
-
-  const TrendingPageComponent = useMemo(
-    () =>
-      createTrendingPageComponent(
-        filterBarProps,
-        selectedNetworkId,
-        liquidityFilter,
-      ),
-    [filterBarProps, selectedNetworkId, liquidityFilter],
+  // 管理当前激活的 tab index
+  const [activeIndex, setActiveIndex] = useState(
+    selectedTab === EMarketHomeTab.Watchlist ? 0 : 1,
   );
 
   const tabData = useMemo(
@@ -102,54 +101,77 @@ export function MarketMobileTabs({
       {
         id: EMarketHomeTab.Watchlist,
         title: 'watchlist',
-        page: WatchlistPageComponent,
       },
       {
         id: EMarketHomeTab.Trending,
         title: 'trending',
-        page: TrendingPageComponent,
       },
     ],
-    [WatchlistPageComponent, TrendingPageComponent],
+    [],
   );
 
   // Custom title render: star icon for watchlist tab, translated text for trending
   const renderTitle = useCallback(
-    (item: { id: IMarketHomeTabValue }) =>
+    (item: { id: IMarketHomeTabValue }, isActive: boolean) =>
       item.id === EMarketHomeTab.Watchlist ? (
-        <Icon name="StarOutline" size="$4" />
+        <Icon
+          name="StarOutline"
+          size="$4"
+          color={isActive ? '$textInteractive' : '$icon'}
+        />
       ) : (
         intl.formatMessage({ id: ETranslations.market_trending })
       ),
     [intl],
   );
 
-  // Move the headerProps object creation into a memo to keep a stable reference between renders
-  const headerProps = useMemo(
-    () => ({
-      showHorizontalScrollButton: false,
-      itemContainerStyle: { ml: 0, mr: '$5' },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      titleFromItem: renderTitle as any,
-      px: '$5',
-      py: '$3',
-    }),
-    [renderTitle],
+  const handleTabChange = useCallback(
+    (index: number) => {
+      const tabId = tabData[index]?.id as IMarketHomeTabValue;
+      if (tabId) {
+        setActiveIndex(index);
+        onTabChange?.(tabId);
+      }
+    },
+    [tabData, onTabChange],
   );
 
-  const handleTabChange = (index: number) => {
-    const tabId = tabData[index]?.id as IMarketHomeTabValue;
-    if (tabId) {
-      onTabChange?.(tabId);
-    }
-  };
+  const currentTab = tabData[activeIndex]?.id;
 
   return (
-    <Tab.Page
-      data={tabData}
-      initialScrollIndex={initialIndex}
-      onSelectedPageIndex={handleTabChange}
-      headerProps={headerProps}
-    />
+    <Stack flex={1}>
+      <SimpleTabHeader
+        data={tabData}
+        activeIndex={activeIndex}
+        onTabPress={handleTabChange}
+        renderTitle={renderTitle}
+      />
+      <Stack flex={1} position="relative">
+        {/* Watchlist Tab Content */}
+        <Stack
+          flex={1}
+          display={currentTab === EMarketHomeTab.Watchlist ? 'flex' : 'none'}
+        >
+          <MarketTokenList
+            networkId={selectedNetworkId}
+            liquidityFilter={liquidityFilter}
+            defaultShowWatchlistOnly
+          />
+        </Stack>
+
+        {/* Trending Tab Content */}
+        <Stack
+          flex={1}
+          display={currentTab === EMarketHomeTab.Trending ? 'flex' : 'none'}
+        >
+          <MarketFilterBarSmall {...filterBarProps} />
+          <MarketTokenList
+            networkId={selectedNetworkId}
+            liquidityFilter={liquidityFilter}
+            defaultShowWatchlistOnly={false}
+          />
+        </Stack>
+      </Stack>
+    </Stack>
   );
 }
