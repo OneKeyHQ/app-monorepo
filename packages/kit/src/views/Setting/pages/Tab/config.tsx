@@ -19,7 +19,9 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import {
   useDevSettingsPersistAtom,
+  usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
+  usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   APP_STORE_LINK,
@@ -106,6 +108,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     useNewModal: false,
   });
   const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const [{ isSupport: biologyAuthIsSupport }] =
+    usePasswordBiologyAuthInfoAtom();
+  const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
@@ -335,18 +340,22 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         }),
         configs: [
           [
-            {
-              title: biometricAuthInfo.title,
-              icon: biometricAuthInfo.icon,
-              renderElement: <BiologyAuthListItem />,
-            },
-            {
-              icon: 'ClockTimeHistoryOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_auto_lock,
-              }),
-              renderElement: <AutoLockListItem />,
-            },
+            isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport)
+              ? {
+                  title: biometricAuthInfo.title,
+                  icon: biometricAuthInfo.icon,
+                  renderElement: <BiologyAuthListItem />,
+                }
+              : null,
+            isPasswordSet
+              ? {
+                  icon: 'ClockTimeHistoryOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_auto_lock,
+                  }),
+                  renderElement: <AutoLockListItem />,
+                }
+              : null,
             {
               icon: 'KeyOutline',
               title: intl.formatMessage({
@@ -678,9 +687,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      isPasswordSet,
+      biologyAuthIsSupport,
+      webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
-      isPasswordSet,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
       isPrimeSubscriptionActive,
