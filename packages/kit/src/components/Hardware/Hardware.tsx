@@ -478,6 +478,10 @@ export function EnterPhase({
   const [secureEntry1, setSecureEntry1] = useState(true);
   // const [secureEntry2, setSecureEntry2] = useState(true);
 
+  // Watch passphrase input to control button state
+  const passphraseValue = form.watch('passphrase');
+  const isButtonDisabled = !passphraseValue || passphraseValue.trim() === '';
+
   return (
     <Stack>
       <Stack pb="$5">
@@ -651,6 +655,7 @@ export function EnterPhase({
           } as any
         }
         variant="primary"
+        disabled={isButtonDisabled}
         onPress={form.submit}
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}

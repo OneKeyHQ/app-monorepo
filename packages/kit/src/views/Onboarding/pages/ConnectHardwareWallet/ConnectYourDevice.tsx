@@ -749,64 +749,102 @@ function ConnectByUSBOrBLE() {
           });
       }
 
-      const unlockedAttachPin = features.unlocked_attach_pin;
-      const unlocked = features.unlocked;
+      const deviceState = {
+        unlockedAttachPin: features.unlocked_attach_pin,
+        unlocked: features.unlocked,
+        passphraseEnabled: Boolean(features.passphrase_protection),
+      };
 
-      console.log('Current hardware wallet State', {
-        unlockedAttachPin,
-        unlocked,
-      });
+      console.log('Current hardware wallet State', deviceState);
 
-      let onlyHiddenWallet: boolean | undefined;
-      let onlyStandardWallet: boolean | undefined;
+      // Helper function to close dialog and return early
+      const closeDialogAndReturn = async () => {
+        setIsChecking(false);
+        void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: device.connectId ?? '',
+          hardClose: true,
+          skipDelayClose: true,
+        });
+      };
 
-      // main pin unlocked, show select add wallet type dialog
-      if (!unlockedAttachPin && unlocked) {
-        const existsStandardWallet =
-          await backgroundApiProxy.serviceHardware.existsStandardWallet({
-            connectId: device.connectId ?? '',
-          });
+      // Determine wallet creation strategy
+      type IWalletCreationStrategy = {
+        createHiddenWalletOnly: boolean;
+        createStandardWalletOnly: boolean;
+      };
 
-        if (existsStandardWallet) {
-          onlyHiddenWallet = true;
-          onlyStandardWallet = false;
-        } else {
+      const getWalletCreationStrategy =
+        async (): Promise<IWalletCreationStrategy | null> => {
+          // Case 1: Device is locked - can only create standard wallet
+          if (!deviceState.unlocked) {
+            return {
+              createHiddenWalletOnly: false,
+              createStandardWalletOnly: true,
+            };
+          }
+
+          // Case 2: Attach PIN unlocked - hidden wallet mode
+          if (deviceState.unlockedAttachPin) {
+            return {
+              createHiddenWalletOnly: deviceState.passphraseEnabled,
+              createStandardWalletOnly: !deviceState.passphraseEnabled,
+            };
+          }
+
+          // Case 3: Main PIN unlocked - check existing wallets and user preference
+          const existsStandardWallet =
+            await backgroundApiProxy.serviceHardware.existsStandardWallet({
+              connectId: device.connectId ?? '',
+            });
+
+          if (existsStandardWallet) {
+            // Standard wallet exists, can only create hidden wallet if passphrase is enabled
+            return {
+              createHiddenWalletOnly: deviceState.passphraseEnabled,
+              createStandardWalletOnly: !deviceState.passphraseEnabled,
+            };
+          }
+
+          // No standard wallet exists
+          if (!deviceState.passphraseEnabled) {
+            // No passphrase support, can only create standard wallet
+            return {
+              createHiddenWalletOnly: false,
+              createStandardWalletOnly: true,
+            };
+          }
+
+          // Passphrase is enabled, let user choose
           const walletType = await showSelectAddWalletTypeDialog();
           if (walletType === 'Standard') {
-            onlyHiddenWallet = false;
-            onlyStandardWallet = true;
-          } else if (walletType === 'Hidden') {
-            onlyHiddenWallet = true;
-            onlyStandardWallet = false;
-          } else {
-            setIsChecking(false);
-            void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
-              {
-                connectId: device.connectId ?? '',
-                hardClose: true,
-                skipDelayClose: true,
-              },
-            );
-            return;
+            return {
+              createHiddenWalletOnly: false,
+              createStandardWalletOnly: true,
+            };
           }
-        }
-      } else if (unlockedAttachPin && unlocked) {
-        // only add hidden wallet
-        onlyHiddenWallet = true;
-        onlyStandardWallet = false;
-      } else {
-        // device is locked, only add standard wallet
-        // Unknown whether passphrase is enabled
-        onlyHiddenWallet = false;
-        onlyStandardWallet = true;
+          if (walletType === 'Hidden') {
+            return {
+              createHiddenWalletOnly: true,
+              createStandardWalletOnly: false,
+            };
+          }
+
+          // User cancelled
+          return null;
+        };
+
+      const strategy = await getWalletCreationStrategy();
+      if (!strategy) {
+        await closeDialogAndReturn();
+        return;
       }
 
       await createHwWallet({
         device,
         isFirmwareVerified,
         features,
-        createHiddenWalletOnly: onlyHiddenWallet,
-        createStandardWalletOnly: onlyStandardWallet,
+        createHiddenWalletOnly: strategy.createHiddenWalletOnly,
+        createStandardWalletOnly: strategy.createStandardWalletOnly,
       });
     },
     [showSelectAddWalletTypeDialog, createHwWallet],

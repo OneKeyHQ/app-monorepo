@@ -37,6 +37,7 @@ export function SelectAddWalletTypeDialogContent({
           })}
           drillIn
           onPress={onAddStandardWalletPress}
+          alignItems="flex-start"
         />
 
         <ListItem
@@ -51,6 +52,7 @@ export function SelectAddWalletTypeDialogContent({
           })}
           drillIn
           onPress={onAddHiddenWalletPress}
+          alignItems="flex-start"
         />
       </YStack>
     </YStack>
