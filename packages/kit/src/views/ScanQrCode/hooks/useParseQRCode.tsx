@@ -28,6 +28,7 @@ import {
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -67,17 +68,19 @@ const useParseQRCode = () => {
           raw: value,
         };
       }
-      const { defaultHandler, ...options } = params;
+      const { defaultHandler, popNavigation, ...options } = params;
+
+      const closeScanPage = async () => {
+        if (popNavigation) {
+          popNavigation();
+          await timerUtils.wait(120);
+        }
+      };
+
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
         value,
         options,
       );
-      // if (
-      //   result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
-      //   (result.data as IAnimationValue).fullData
-      // ) {
-      //   rootNavigationRef?.current?.goBack();
-      // }
 
       if (!options?.autoHandleResult) {
         return result;
@@ -86,6 +89,7 @@ const useParseQRCode = () => {
       switch (result.type) {
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
+          await closeScanPage();
           void urlAccountNavigation.pushUrlAccountPage(navigation, {
             networkId: urlAccountData.networkId,
             address: urlAccountData.address,
@@ -96,6 +100,7 @@ const useParseQRCode = () => {
           {
             const { coinGeckoId } = result.data as IMarketDetailValue;
             if (coinGeckoId) {
+              await closeScanPage();
               void marketNavigation.pushDetailPageFromDeeplink(navigation, {
                 coinGeckoId,
               });
@@ -103,6 +108,7 @@ const useParseQRCode = () => {
           }
           break;
         case EQRCodeHandlerType.SEND_PROTECTION:
+          await closeScanPage();
           navigation.pushModal(EModalRoutes.SettingModal, {
             screen: EModalSettingRoutes.SettingProtectModal,
           });
@@ -132,6 +138,8 @@ const useParseQRCode = () => {
                   networkId: network.id,
                   accountId: account.id,
                 });
+
+              await closeScanPage();
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxDataInput,
                 params: {
@@ -182,7 +190,88 @@ const useParseQRCode = () => {
                 tokenIdOnNetwork: chainValue.tokenAddress,
               });
               if (!token) {
-                showCopyDialog(value);
+                // showCopyDialog(value);
+                // navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                //   screen: EModalSignatureConfirmRoutes.TxSelectToken,
+                //   params: {
+                //     title: intl.formatMessage({
+                //       id: ETranslations.global_send,
+                //     }),
+                //     searchPlaceholder: intl.formatMessage({
+                //       id: ETranslations.global_search_asset,
+                //     }),
+                //     networkId: network.id,
+                //     accountId: account?.id ?? '',
+                //     tokens: {
+                //       data: allTokens.tokens,
+                //       keys: allTokens.keys,
+                //       map,
+                //     },
+                //     tokenListState,
+                //     closeAfterSelect: false,
+                //     onSelect: async (token: IToken) => {
+                //       const settings =
+                //         await backgroundApiProxy.serviceNetwork.getVaultSettings(
+                //           {
+                //             networkId: token.networkId ?? '',
+                //           },
+                //         );
+
+                //       if (
+                //         settings.mergeDeriveAssetsEnabled &&
+                //         network.isAllNetworks &&
+                //         !accountUtils.isOthersWallet({
+                //           walletId: wallet?.id ?? '',
+                //         })
+                //       ) {
+                //         const walletId = accountUtils.getWalletIdFromAccountId({
+                //           accountId: token.accountId ?? '',
+                //         });
+                //         navigation.push(
+                //           EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
+                //           {
+                //             networkId: token.networkId ?? '',
+                //             indexedAccountId: indexedAccount?.id ?? '',
+                //             walletId,
+                //             accountId: token.accountId ?? '',
+                //             actionType: EDeriveAddressActionType.Select,
+                //             token,
+                //             tokenMap: map,
+                //             onUnmounted: () => {},
+                //             onSelected: ({
+                //               account: a,
+                //             }: {
+                //               account: INetworkAccount;
+                //             }) => {
+                //               navigation.push(
+                //                 EModalSignatureConfirmRoutes.TxDataInput,
+                //                 {
+                //                   accountId: a.id,
+                //                   networkId: token.networkId ?? network.id,
+                //                   isNFT: false,
+                //                   token,
+                //                   isAllNetworks: network?.isAllNetworks,
+                //                 },
+                //               );
+                //             },
+                //           },
+                //         );
+                //         return;
+                //       }
+
+                //       navigation.push(
+                //         EModalSignatureConfirmRoutes.TxDataInput,
+                //         {
+                //           accountId: token.accountId ?? account?.id ?? '',
+                //           networkId: token.networkId ?? network.id,
+                //           isNFT: false,
+                //           token,
+                //           isAllNetworks: network?.isAllNetworks,
+                //         },
+                //       );
+                //     },
+                //   },
+                // });
                 break;
               }
             } else {
@@ -191,7 +280,7 @@ const useParseQRCode = () => {
                 accountId: account.id,
               });
             }
-
+            await closeScanPage();
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
               params: {
@@ -209,12 +298,12 @@ const useParseQRCode = () => {
           break;
         case EQRCodeHandlerType.WALLET_CONNECT:
           {
+            await closeScanPage();
             const wcValue = result.data as IWalletConnectValue;
             void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
         case EQRCodeHandlerType.ANIMATION_CODE:
-          rootNavigationRef?.current?.goBack();
           // eslint-disable-next-line no-case-declarations
           const toast = Toast.show({
             children: (
@@ -230,8 +319,9 @@ const useParseQRCode = () => {
                       key="1"
                       variant="primary"
                       size="small"
-                      onPressIn={() => {
-                        void toast.close();
+                      onPressIn={async () => {
+                        await closeScanPage();
+                        await toast.close();
                         navigation.pushModal(EModalRoutes.OnboardingModal, {
                           screen: EOnboardingPages.ConnectYourDevice,
                           params: {
@@ -265,6 +355,7 @@ const useParseQRCode = () => {
           if (defaultHandler) {
             defaultHandler(value);
           } else {
+            await closeScanPage();
             showCopyDialog(value);
           }
         }

@@ -116,6 +116,7 @@ export type IQRCodeHandlerParseOutsideOptions = {
   handlers: EQRCodeHandlerNames[];
   defaultHandler?: (value: string) => void;
   autoHandleResult?: boolean;
+  popNavigation?: () => void;
   account?: INetworkAccount;
   network?: IServerNetwork;
   tokens?: ITokenData;
