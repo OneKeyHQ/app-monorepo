@@ -1,6 +1,6 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
-import { InteractionManager } from 'react-native';
+import { InteractionManager, Keyboard } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -59,8 +59,16 @@ const useTriggerLabel = (value: string | number | undefined | boolean) => {
 function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const { changeOpenStatus, value, placeholder, disabled, labelInValue } =
     useContext(SelectContext);
+
   const handleTriggerPressed = useCallback(() => {
-    changeOpenStatus?.(true);
+    if (platformEnv.isNative && Keyboard.isVisible()) {
+      Keyboard.dismiss();
+      setTimeout(() => {
+        changeOpenStatus?.(true);
+      }, 100);
+    } else {
+      changeOpenStatus?.(true);
+    }
   }, [changeOpenStatus]);
   const renderTriggerOnPress = useCallback(
     (event: GestureResponderEvent) => {

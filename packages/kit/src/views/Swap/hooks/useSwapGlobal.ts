@@ -25,6 +25,7 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapMevConfigAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -38,6 +39,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
+  const [, setSwapMevConfig] = useSwapMevConfigAtom();
   const { syncNetworksSort, needChangeToken } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
@@ -526,6 +528,18 @@ export function useSwapInit(params?: ISwapInitParams) {
     setToToken,
     needChangeToken,
   ]);
+
+  useEffect(() => {
+    void (async () => {
+      const swapConfigs =
+        await backgroundApiProxy.serviceSwap.fetchSwapConfigs();
+      if (swapConfigs?.swapMevNetConfig) {
+        setSwapMevConfig({
+          swapMevNetConfig: swapConfigs.swapMevNetConfig,
+        });
+      }
+    })();
+  }, [setSwapMevConfig]);
 
   useEffect(() => {
     void (async () => {

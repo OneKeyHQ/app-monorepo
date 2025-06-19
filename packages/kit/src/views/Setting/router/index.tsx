@@ -97,18 +97,10 @@ const SettingListSubModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Tab/SettingListSubModal'),
 );
 
-export const ModalSettingStack: IModalFlowNavigatorConfig<
+export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
 >[] = [
-  {
-    name: EModalSettingRoutes.SettingListModal,
-    component: SettingTabModal,
-    rewrite: '/',
-    options: {
-      headerShown: false,
-    },
-  },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
     component: SettingCurrencyModal,
@@ -190,4 +182,19 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,
     IModalSettingParamList & IModalAddressBookParamList
   >[]),
+];
+
+export const ModalSettingStack: IModalFlowNavigatorConfig<
+  EModalSettingRoutes | EModalAddressBookRoutes,
+  IModalSettingParamList & IModalAddressBookParamList
+>[] = [
+  {
+    name: EModalSettingRoutes.SettingListModal,
+    component: SettingTabModal,
+    rewrite: '/',
+    options: {
+      headerShown: false,
+    },
+  },
+  ...BasicModalSettingStack,
 ];
