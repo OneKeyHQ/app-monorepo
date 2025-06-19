@@ -224,7 +224,7 @@ export function AvailableAssetsTabViewList({
                   aprWithoutFee,
                   symbol,
                   rewardUnit,
-                  tags = [],
+                  badges = [],
                   protocols,
                 },
                 index,
@@ -274,14 +274,14 @@ export function AvailableAssetsTabViewList({
                       <XStack gap="$2" alignItems="center">
                         <SizableText size="$bodyLgMedium">{symbol}</SizableText>
                         <XStack gap="$1">
-                          {tags.map((tag) => (
+                          {badges.map((badge) => (
                             <Badge
-                              key={tag}
-                              badgeType="success"
+                              key={badge.tag}
+                              badgeType={badge.badgeType}
                               badgeSize="sm"
                               userSelect="none"
                             >
-                              <Badge.Text>{tag}</Badge.Text>
+                              <Badge.Text>{badge.tag}</Badge.Text>
                             </Badge>
                           ))}
                         </XStack>
