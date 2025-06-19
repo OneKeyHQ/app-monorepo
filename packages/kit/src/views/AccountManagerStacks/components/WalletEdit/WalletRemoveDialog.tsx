@@ -110,10 +110,10 @@ export function getTitleAndDescription({
     return {
       isHwOrQr,
       title: appLocale.intl.formatMessage({
-        id: ETranslations.remove_wallet,
+        id: ETranslations.remove_standard_wallet,
       }),
       description: appLocale.intl.formatMessage({
-        id: ETranslations.remove_device_desc,
+        id: ETranslations.remove_standard_wallet_desc,
       }),
     };
   }

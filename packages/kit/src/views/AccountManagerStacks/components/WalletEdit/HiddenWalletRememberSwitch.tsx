@@ -2,53 +2,19 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import {
   ESwitchSize,
-  Icon,
-  Spinner,
-  Stack,
+  IconButton,
+  Popover,
+  SizableText,
   Switch,
+  XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
-import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-function WalletOptionItem({
-  label,
-  description,
-  icon,
-  iconColor = '$iconSubdued',
-  isLoading,
-  children,
-  drillIn,
-  testID,
-  ...rest
-}: Omit<IListItemProps, 'icon'> & {
-  label: ISizableTextProps['children'];
-  description?: string;
-  labelColor?: ISizableTextProps['color'];
-  icon?: IIconProps['name'];
-  iconColor?: IIconProps['color'];
-  isLoading?: boolean;
-  drillIn?: boolean;
-  testID?: string;
-}) {
-  return (
-    <ListItem userSelect="none" testID={testID} {...rest}>
-      {icon ? (
-        <Stack px="$2">
-          <Icon name={icon} color={iconColor} />
-        </Stack>
-      ) : null}
-      <ListItem.Text primary={label} secondary={description} flex={1} />
-      {children}
-      {isLoading ? <Spinner /> : null}
-    </ListItem>
-  );
-}
 
 export function HiddenWalletRememberSwitch({
   wallet,
@@ -59,16 +25,44 @@ export function HiddenWalletRememberSwitch({
   const intl = useIntl();
 
   return (
-    <WalletOptionItem
-      key={wallet?.id}
-      label={intl.formatMessage({
-        id: ETranslations.form_keep_hidden_wallet_label,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.form_keep_hidden_wallet_label_desc,
-      })}
-      drillIn={false}
-    >
+    <ListItem userSelect="none" key={wallet?.id}>
+      <XStack flex={1} gap="$2" alignItems="center">
+        <ListItem.Text
+          primary={intl.formatMessage({
+            id: ETranslations.form_keep_hidden_wallet_label,
+          })}
+        />
+        <Popover
+          title={intl.formatMessage({ id: ETranslations.global_hidden_wallet })}
+          placement="bottom-start"
+          renderTrigger={
+            <IconButton
+              variant="tertiary"
+              icon="InfoCircleOutline"
+              size="small"
+            />
+          }
+          renderContent={
+            <YStack
+              p="$5"
+              pt="$0"
+              $gtMd={{
+                p: '$4',
+              }}
+            >
+              <SizableText
+                $gtMd={{
+                  size: '$bodyMd',
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.form_keep_hidden_wallet_label_desc,
+                })}
+              </SizableText>
+            </YStack>
+          }
+        />
+      </XStack>
       <Switch
         size={ESwitchSize.small}
         value={val}
@@ -89,6 +83,6 @@ export function HiddenWalletRememberSwitch({
           }
         }}
       />
-    </WalletOptionItem>
+    </ListItem>
   );
 }

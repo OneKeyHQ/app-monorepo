@@ -433,6 +433,10 @@ const icons = {
       : import("./react/outline/ChevronRightSmall"),
   ChevronTopOutline: () => import("./react/outline/ChevronTop"),
   ChevronTopSmallOutline: () => import("./react/outline/ChevronTopSmall"),
+  ChevronTriangleDownSmallOutline: () =>
+    import("./react/outline/ChevronTriangleDownSmall"),
+  ChevronTriangleUpSmallOutline: () =>
+    import("./react/outline/ChevronTriangleUpSmall"),
   ChromecastOutline: () => import("./react/outline/Chromecast"),
   CirclePlaceholderOffOutline: () =>
     import("./react/outline/CirclePlaceholderOff"),
@@ -593,6 +597,7 @@ const icons = {
   EditOutline: () => import("./react/outline/Edit"),
   EditListOutline: () => import("./react/outline/EditList"),
   EducationOutline: () => import("./react/outline/Education"),
+  EjectOutline: () => import("./react/outline/Eject"),
   EmailOutline: () => import("./react/outline/Email"),
   Email2Outline: () => import("./react/outline/Email2"),
   Email2NotificationOutline: () => import("./react/outline/Email2Notification"),
@@ -1511,6 +1516,7 @@ const icons = {
   EditSolid: () => import("./react/solid/Edit"),
   EditListSolid: () => import("./react/solid/EditList"),
   EducationSolid: () => import("./react/solid/Education"),
+  EjectSolid: () => import("./react/solid/Eject"),
   EmailSolid: () => import("./react/solid/Email"),
   Email2Solid: () => import("./react/solid/Email2"),
   Email2NotificationSolid: () => import("./react/solid/Email2Notification"),

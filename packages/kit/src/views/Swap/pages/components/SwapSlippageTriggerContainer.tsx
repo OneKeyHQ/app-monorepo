@@ -5,10 +5,10 @@ import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { useSwapMevConfigAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
-  mevSwapNetworks,
   swapSlippageDecimal,
   swapSlippageWillAheadMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -34,6 +34,7 @@ const SwapSlippageTriggerContainer = ({
 }: ISwapSlippageTriggerContainerProps) => {
   const intl = useIntl();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const [swapMevConfig] = useSwapMevConfigAtom();
   const displaySlippage = useMemo(
     () =>
       new BigNumber(slippageItem.value)
@@ -63,7 +64,7 @@ const SwapSlippageTriggerContainer = ({
         {!accountUtils.isExternalWallet({
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         }) &&
-        mevSwapNetworks.includes(
+        swapMevConfig.swapMevNetConfig.includes(
           swapFromAddressInfo.accountInfo?.network?.id ?? '',
         ) ? (
           <Icon name="ShieldCheckDoneSolid" size="$4" color="$iconSuccess" />
@@ -85,6 +86,7 @@ const SwapSlippageTriggerContainer = ({
       slippageItem.value,
       swapFromAddressInfo.accountInfo?.network?.id,
       swapFromAddressInfo.accountInfo?.wallet?.id,
+      swapMevConfig.swapMevNetConfig,
     ],
   );
   return (

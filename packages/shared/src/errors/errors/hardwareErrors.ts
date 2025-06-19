@@ -71,12 +71,14 @@ export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotOpenedPassphrase',
         defaultKey: ETranslations.hardware_not_opened_passphrase,
-        defaultAutoToast: true,
+        defaultAutoToast: false,
       }),
     );
   }
 
   override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
+
+  override className = EOneKeyErrorClassNames.DeviceNotOpenedPassphrase;
 }
 
 export class DeviceOpenedPassphrase extends OneKeyHardwareError {

@@ -1,6 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Semaphore } from 'async-mutex';
-import { debounce } from 'lodash';
+import { debounce, isEqual, pick } from 'lodash';
 
 import type {
   IEncodedTx,
@@ -1404,7 +1404,17 @@ class ServiceDApp extends ServiceBase {
       focusedWallet: homeAccountSelectorInfo?.focusedWallet ?? '',
     };
 
-    // 5. if different, update dapp connection account
+    // 5. if new account is the same as the original account, return the original account
+    if (
+      this.isConnectionAccountInfoEqual(
+        connectedAccountInfo,
+        newConnectedAccountInfo,
+      )
+    ) {
+      return connectedAccountInfo;
+    }
+
+    // 6. if different, update dapp connection account
     await this.updateConnectionSession({
       accountSelectorNum: connectedAccountInfo.num ?? 0,
       origin,
@@ -1415,6 +1425,25 @@ class ServiceDApp extends ServiceBase {
     void this.emitSwitchNetworkEvents();
 
     return newConnectedAccountInfo;
+  }
+
+  private isConnectionAccountInfoEqual(
+    a: Partial<IConnectionAccountInfo>,
+    b: Partial<IConnectionAccountInfo>,
+  ): boolean {
+    const keys = [
+      'num',
+      'accountId',
+      'address',
+      'networkId',
+      'networkImpl',
+      'deriveType',
+      'walletId',
+      'indexedAccountId',
+      'othersWalletAccountId',
+      'focusedWallet',
+    ] as const;
+    return isEqual(pick(a, keys), pick(b, keys));
   }
 
   private emitSwitchNetworkEvents() {

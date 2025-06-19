@@ -60,8 +60,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       'versionchange'
     >;
   }): null {
-    const { db, transaction, newVersion, bucketName, nativeDB } = options;
-    const currentStoreNames = db.objectStoreNames;
+    const { db, transaction, bucketName, nativeDB } = options;
 
     // create new stores
     const storeNamesToAdd = Object.values(ELocalDBStoreNames);
@@ -321,7 +320,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     >;
     storeName: T;
   }): IDBObjectStore {
-    const { db, tx, storeName, nativeDB } = params;
+    const { storeName, nativeDB } = params;
     return nativeDB.createObjectStore(storeName, { keyPath: 'id' });
   }
 

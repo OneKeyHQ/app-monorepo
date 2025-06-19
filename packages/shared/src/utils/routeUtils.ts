@@ -4,7 +4,6 @@ import {
   EGalleryRoutes,
   EModalReferFriendsRoutes,
   EModalRoutes,
-  EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
   ERootRoutes,
@@ -177,16 +176,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showParams: true,
     // },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.ReferFriendsModal}${EModalReferFriendsRoutes.ReferAFriend}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingProtectModal}`]:
       {
         showUrl: true,
         showParams: false,

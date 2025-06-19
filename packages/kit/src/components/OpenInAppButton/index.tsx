@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';

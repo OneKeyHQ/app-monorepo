@@ -6,6 +6,7 @@ import type {
   IDialogLoadingProps,
   IQrcodeDrawType,
 } from '@onekeyhq/components';
+import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -34,6 +35,7 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { FuseResult } from 'fuse.js';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -281,6 +283,18 @@ export interface IAppEventBusPayload {
     jobId: string;
   };
   [EAppEventBusNames.AddressBookUpdate]: undefined;
+  [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.SettingsSearchResult]: {
+    list: {
+      title: string;
+      icon: string;
+      configs: FuseResult<ISubSettingConfig>[];
+    }[];
+    searchText: string;
+  };
+  [EAppEventBusNames.CheckEndpointPrefix]: {
+    cleanAppClientCache?: boolean;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -390,9 +404,10 @@ class AppEventBusClass extends CrossEventEmitter {
     type: EAppEventBusNames;
     payload: any;
     isRemote?: boolean;
+    cloned?: boolean;
   }) {
-    const { type, payload, isRemote } = params;
-    const payloadCloned = cloneDeep(payload);
+    const { type, payload, isRemote, cloned = true } = params;
+    const payloadCloned = cloned ? cloneDeep(payload) : payload;
     try {
       // @ts-ignore
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

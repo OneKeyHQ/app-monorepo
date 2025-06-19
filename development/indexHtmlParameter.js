@@ -14,6 +14,7 @@ function createEjsParams({ filename = '', platform = '', browser = '' }) {
     platform,
     browser,
     htmlHeadPreloadCode,
+    LANG_ISO_CODE: 'en',
     currentVersion: process.env.VERSION,
     isDev: process.env.NODE_ENV === 'development',
   };

@@ -36,6 +36,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
+          check-latest: true
           scope: '@onekeyhq'
 
       - name: Get yarn cache directory path
@@ -53,14 +54,14 @@ jobs:
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
+          NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn --mode=skip-build && yarn setup:env && yarn patch-package
 
       - name: Run Tests
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
+          NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn test
 

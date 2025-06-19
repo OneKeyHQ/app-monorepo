@@ -1002,12 +1002,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
             await timerUtils.wait(100);
           }
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-            skipDeviceCancel: false,
-            hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-          });
+          if (wallet && indexedAccount) {
+            await this.addDefaultNetworkAccounts.call(set, {
+              wallet,
+              indexedAccount,
+              skipDeviceCancel: false,
+              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+            });
+          }
         },
       }),
   );
@@ -1909,9 +1911,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             const { wallets } = await serviceAccount.getAllHdHwQrWallets();
             for (const wallet0 of wallets) {
               if (
-                await serviceAccount.isWalletHasIndexedAccounts({
+                !wallet0?.isMocked &&
+                (await serviceAccount.isWalletHasIndexedAccounts({
                   walletId: wallet0.id,
-                })
+                }))
               ) {
                 selectedWallet = wallet0;
                 selectedWalletId = selectedWallet?.id;

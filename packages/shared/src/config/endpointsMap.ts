@@ -1,9 +1,12 @@
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
 
 import { buildServiceEndpoint } from './appConfig';
@@ -90,22 +93,112 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   },
 };
 
-export const getEndpointsMapByDevSettings = (devSettings: {
-  enabled: boolean;
-  settings?: {
-    enableTestEndpoint?: boolean;
-  };
-}) => {
-  if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
-    return endpointsMap.test;
+export const getEndpointsMapByDevSettings = (
+  devSettings: {
+    enabled: boolean;
+    settings?: {
+      enableTestEndpoint?: boolean;
+    };
+  },
+  options?: {
+    prefix?: string;
+  },
+) => {
+  const env: IEndpointEnv =
+    devSettings.enabled && devSettings.settings?.enableTestEndpoint
+      ? 'test'
+      : 'prod';
+
+  if (options?.prefix && env === 'prod') {
+    // Generate prefixed endpoints for production only
+    const prefixedEndpoints: IServiceEndpoint = {} as IServiceEndpoint;
+    Object.entries(EServiceEndpointEnum).forEach(([, serviceName]) => {
+      // Skip NotificationWebSocket as it's handled separately when processing Notification
+      if (serviceName === EServiceEndpointEnum.NotificationWebSocket) {
+        return;
+      }
+
+      prefixedEndpoints[serviceName] = buildServiceEndpoint({
+        serviceName,
+        env,
+        prefix: options.prefix,
+      });
+      // Handle WebSocket endpoint separately
+      if (serviceName === EServiceEndpointEnum.Notification) {
+        prefixedEndpoints[EServiceEndpointEnum.NotificationWebSocket] =
+          buildServiceEndpoint({
+            serviceName,
+            env,
+            prefix: options.prefix,
+            isWebSocket: true,
+          });
+      }
+    });
+    return prefixedEndpoints;
   }
-  return endpointsMap.prod;
+
+  return endpointsMap[env];
 };
+
+// Get endpoints with dynamic prefix checking
+export async function getEndpointsMapWithDynamicPrefix() {
+  // Get settings based on environment
+  let settings: {
+    enabled: boolean;
+    settings?: { enableTestEndpoint?: boolean };
+  };
+
+  if (platformEnv.isWebEmbed) {
+    const enableTestEndpoint =
+      globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false;
+    settings = {
+      enabled: enableTestEndpoint,
+      settings: { enableTestEndpoint },
+    };
+  } else {
+    settings = await requestHelper.getDevSettingsPersistAtom();
+  }
+
+  // For test environment, no prefix checking needed
+  const isTestEnv = settings.enabled && settings.settings?.enableTestEndpoint;
+  if (isTestEnv) {
+    return getEndpointsMapByDevSettings(settings);
+  }
+
+  // Trigger endpoint check via event bus (ServiceApp will handle with memoizee)
+  appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
+    cleanAppClientCache: false,
+  });
+
+  // Read the stored endpoint prefix result from background service
+  let currentPrefix: string | undefined;
+  try {
+    const shouldUsePrefix = await appStorage.getItem(
+      'ONEKEY_ENDPOINT_USE_PREFIX',
+    );
+
+    if (shouldUsePrefix === 'true') {
+      currentPrefix = 'by';
+    }
+  } catch (error) {
+    console.warn('Failed to read endpoint prefix from storage:', error);
+  }
+
+  return getEndpointsMapByDevSettings(settings, {
+    prefix: currentPrefix,
+  });
+}
 
 export async function getEndpointByServiceName(
   serviceName: EServiceEndpointEnum,
 ) {
-  const devSettings = await requestHelper.getDevSettingsPersistAtom();
-  const map = getEndpointsMapByDevSettings(devSettings);
+  const map = await getEndpointsMapWithDynamicPrefix();
   return map[serviceName];
+}
+
+export function forceRefreshEndpointCheck() {
+  // Clear axios client cache and trigger new check via event
+  appEventBus.emit(EAppEventBusNames.CheckEndpointPrefix, {
+    cleanAppClientCache: true,
+  });
 }
