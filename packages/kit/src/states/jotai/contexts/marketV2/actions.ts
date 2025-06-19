@@ -44,8 +44,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     async (_, set, tokenAddress: string, networkId: string) => {
       try {
         set(tokenDetailLoadingAtom(), true);
-        set(tokenAddressAtom(), tokenAddress);
-        set(networkIdAtom(), networkId);
 
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(

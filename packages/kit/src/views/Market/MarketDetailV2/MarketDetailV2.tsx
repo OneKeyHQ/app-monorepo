@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, XStack, useMedia } from '@onekeyhq/components';
 import {
@@ -25,11 +27,15 @@ function MarketDetail({
 }: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
   const { tokenAddress, networkId } = route.params;
 
-  // Initialize market detail data fetch - this will store data in jotai
-  useMarketDetail({
-    tokenAddress,
-    networkId,
-  });
+  // Initialize market detail data using the custom hook
+  const { initializeTokenDetail } = useMarketDetail();
+
+  useEffect(() => {
+    void initializeTokenDetail({
+      tokenAddress,
+      networkId,
+    });
+  }, [initializeTokenDetail, tokenAddress, networkId]);
 
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
