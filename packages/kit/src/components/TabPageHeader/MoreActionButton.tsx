@@ -324,7 +324,7 @@ function MoreActionContentGridItem({
               >
                 {showBadges ? (
                   <SizableText color="$textOnColor" size="$bodySm">
-                    {badges && badges > 99 ? '38' : badges}
+                    {badges && badges > 99 ? '99' : badges}
                   </SizableText>
                 ) : (
                   <Stack
