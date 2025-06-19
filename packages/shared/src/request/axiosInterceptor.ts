@@ -211,6 +211,11 @@ axios.interceptors.response.use(
 
           return fallbackResponse;
         } catch (fallbackError) {
+          // If fallback error is a OneKeyServerApiError (business error), throw it directly
+          if (fallbackError instanceof OneKeyServerApiError) {
+            throw fallbackError;
+          }
+
           // If fallback also fails, continue with original error handling
           console.warn(
             'Business error fallback request also failed:',
@@ -350,6 +355,11 @@ axios.interceptors.response.use(
 
         return fallbackResponse;
       } catch (fallbackError) {
+        // If fallback error is a OneKeyServerApiError (business error), throw it directly
+        if (fallbackError instanceof OneKeyServerApiError) {
+          throw fallbackError;
+        }
+
         // If fallback also fails, continue with original error handling
         console.warn('Fallback request also failed:', fallbackError);
       }
