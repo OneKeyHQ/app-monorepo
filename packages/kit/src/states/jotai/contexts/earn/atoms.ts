@@ -16,7 +16,10 @@ const {
 export { ProviderJotaiContextEarn, contextAtomMethod };
 
 export const { atom: basicEarnAtom, useContextAtom } =
-  contextAtom<IEarnAtomData>({ earnAccount: {}, availableAssets: [] });
+  contextAtom<IEarnAtomData>({
+    earnAccount: {},
+    availableAssetsByType: {},
+  });
 
 export const { atom: earnStorageReadyAtom, use: useEarnStorageReadyAtom } =
   contextAtom<boolean>(false);
@@ -34,6 +37,7 @@ export const earnAtom = memoizee(() =>
           set(basicEarnAtom(), {
             ...data,
             earnAccount: data.earnAccount || {},
+            availableAssetsByType: data.availableAssetsByType || {},
           });
           set(earnStorageReadyAtom(), true);
         });

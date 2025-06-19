@@ -17,6 +17,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
+  EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
@@ -794,7 +795,6 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
-    assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccountsParams(params);
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
@@ -879,19 +879,33 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
-  @backgroundMethod()
-  async getAvailableAssets() {
-    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
-    const resp = await client.get<
-      IAvailableAssetsResponse,
-      IAxiosResponse<IAvailableAssetsResponse>
-    >(`/earn/v1/available-assets`);
+  _getAvailableAssets = memoizee(
+    async ({ type }: { type?: EAvailableAssetsTypeEnum }) => {
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+      const resp = await client.get<
+        IAvailableAssetsResponse,
+        IAxiosResponse<IAvailableAssetsResponse>
+      >(`/earn/v1/available-assets`, {
+        params: {
+          type,
+        },
+      });
 
-    this.handleServerError({
-      ...resp.data,
-      requestId: resp.$requestId,
-    });
-    return resp.data.data.assets;
+      this.handleServerError({
+        ...resp.data,
+        requestId: resp.$requestId,
+      });
+      return resp.data.data.assets;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getAvailableAssets({ type }: { type?: EAvailableAssetsTypeEnum } = {}) {
+    return this._getAvailableAssets({ type });
   }
 
   handleServerError(data: {
@@ -1188,6 +1202,27 @@ class ServiceStaking extends ServiceBase {
           !isTaprootAddress(account.apiAddress)
         ),
     );
+  }
+
+  _getFAQListForHome = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const resp = await client.get<{
+        data: {
+          list: IEarnFAQList;
+        };
+      }>(`/earn/v1/faq/list`);
+      return resp.data.data.list;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getFAQListForHome() {
+    return this._getFAQListForHome();
   }
 
   @backgroundMethod()

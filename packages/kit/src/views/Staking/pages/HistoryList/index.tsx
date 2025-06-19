@@ -214,7 +214,7 @@ const HistoryContent = ({
           )}
           items={items}
           onChange={handleSelectChange}
-          title="Demo Title"
+          title={intl.formatMessage({ id: ETranslations.global_filter_by })}
         />
       </XStack>
       <SectionList
