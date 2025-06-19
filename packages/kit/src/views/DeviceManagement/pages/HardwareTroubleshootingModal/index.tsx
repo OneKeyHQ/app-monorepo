@@ -160,21 +160,26 @@ function HardwareTroubleshootingModal() {
             badge={deviceInfo.walletAvatarBadge}
           />
         </XStack>
-        <YStack>
+        <YStack flex={1}>
           <XStack pr="$5" ai="center">
             <SizableText size="$headingMd" color="$text">
               {wallet.name}
             </SizableText>
           </XStack>
           {isQrWallet ? null : (
-            <XStack mt="$1.5" gap="$2" ai="center">
+            <XStack mt="$1.5" gap="$2" ai="center" flexShrink={1}>
               <Badge badgeSize="sm" badgeType="default">
                 {`v${deviceInfo.firmwareVersion}`}
               </Badge>
               <SizableText size="$bodySmMedium" color="$textSubdued">
                 •
               </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
                 {deviceInfo.serialNumber}
               </SizableText>
               <IconButton
