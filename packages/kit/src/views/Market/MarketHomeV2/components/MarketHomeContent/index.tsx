@@ -1,1 +1,0 @@
-export { MarketHomeContent } from './MarketHomeContent';

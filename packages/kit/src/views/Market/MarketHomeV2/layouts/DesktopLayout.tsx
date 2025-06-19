@@ -4,15 +4,15 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { Stack } from '@onekeyhq/components';
 
-import { EMarketHomeTab } from '../../types';
-import { MarketFilterBar } from '../MarketFilterBar';
-import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
-import { MarketTokenList } from '../MarketTokenList';
+import { MarketFilterBar } from '../components/MarketFilterBar';
+import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
+import { MarketTokenList } from '../components/MarketTokenList';
+import { EMarketHomeTab } from '../types';
 
-import type { ILiquidityFilter, IMarketHomeTabValue } from '../../types';
-import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
+import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
+import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
 
-interface IMarketHomeContentProps {
+interface IDesktopLayoutProps {
   filterBarProps: {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
@@ -26,12 +26,12 @@ interface IMarketHomeContentProps {
   activeTab: IMarketHomeTabValue;
 }
 
-export function MarketHomeContent({
+export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
   activeTab,
-}: IMarketHomeContentProps) {
+}: IDesktopLayoutProps) {
   const [showSmallBar, setShowSmallBar] = useState(false);
 
   // Use a debounced callback to avoid excessive state updates during fast scroll events

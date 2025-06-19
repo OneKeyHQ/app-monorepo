@@ -8,8 +8,8 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
 
-import { MarketHomeContent } from './components/MarketHomeContent';
-import { MarketHomeContentMobile } from './components/MarketHomeContentMobile';
+import { DesktopLayout } from './layouts/DesktopLayout';
+import { MobileLayout } from './layouts/MobileLayout';
 import { EMarketHomeTab } from './types';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
@@ -54,9 +54,9 @@ function MarketHome() {
       />
       <Page.Body>
         {md ? (
-          <MarketHomeContentMobile {...commonProps} />
+          <MobileLayout {...commonProps} />
         ) : (
-          <MarketHomeContent {...commonProps} />
+          <DesktopLayout {...commonProps} />
         )}
       </Page.Body>
     </Page>

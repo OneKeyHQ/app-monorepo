@@ -1,11 +1,11 @@
 import { Stack } from '@onekeyhq/components';
 
-import { MarketMobileTabs } from './MarketMobileTabs';
+import { MarketMobileTabs } from '../components/MarketHomeContentMobile/MarketMobileTabs';
 
-import type { ILiquidityFilter, IMarketHomeTabValue } from '../../types';
-import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
+import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
+import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
 
-interface IMarketHomeContentMobileProps {
+interface IMobileLayoutProps {
   filterBarProps: {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
@@ -20,13 +20,13 @@ interface IMarketHomeContentMobileProps {
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
-export function MarketHomeContentMobile({
+export function MobileLayout({
   filterBarProps,
   selectedNetworkId,
   liquidityFilter,
   activeTab,
   onTabChange,
-}: IMarketHomeContentMobileProps) {
+}: IMobileLayoutProps) {
   return (
     <Stack flex={1}>
       <MarketMobileTabs
