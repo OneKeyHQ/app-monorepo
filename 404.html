@@ -1,0 +1,136 @@
+<!doctype html><html lang="en" font-size="16px"><head><meta charset="utf-8"/><meta httpequiv="X-UA-Compatible" content="IE=edge"/><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1.00001,viewport-fit=cover"/><title>OneKey</title><style>/* add global styles to packages/shared/src/web/index.css */</style><script>// >>>>>>> automatic copy code from preload-html-head.js <<<<<<<<<
+            /* eslint-disable unicorn/prefer-global-this */
+/*
+- packages/shared/src/web/index.html.ejs
+- packages/kit/src/store/reducers/settings.ts # setThemePreloadToLocalStorage
+- apps/ext/src/assets/preload-html-head.js
+ */
+(function () {
+  // $$onekeyPerfTrace start ----------------------------------------------
+  window.$$onekeyPerfTrace = {
+    timeline: [],
+    log: ({ name, payload }) => {
+      const lastStat =
+        window.$$onekeyPerfTrace.timeline[
+          window.$$onekeyPerfTrace.timeline.length - 1
+        ];
+      const perfNow = window.performance.now();
+      const time = new Date().toLocaleString();
+      window.$$onekeyPerfTrace.timeline.push({
+        lag: parseInt(String(lastStat ? perfNow - lastStat.elapsed : 0), 10),
+        name,
+        time,
+        elapsed: parseInt(String(perfNow), 10),
+        payload,
+      });
+      // keep limited array length to avoid memory leak
+      window.$$onekeyPerfTrace.timeline =
+        window.$$onekeyPerfTrace.timeline.slice(-200);
+    },
+  };
+  window.$$onekeyPerfTrace?.log({
+    name: 'APP_START: preload-html-head.js start',
+  });
+  // $$onekeyPerfTrace end ----------------------------------------------
+
+  // themePreload start ----------------------------------------------
+  const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
+  // packages/components/tamagui.config.ts
+  // lightColors.bgApp
+  const lightColor = '#ffffff';
+  // packages/components/tamagui.config.ts
+  // darkColors.bgApp
+  const darkColor = '#0f0f0f';
+  if (theme === 'dark') {
+    document.documentElement.style.backgroundColor = darkColor;
+  } else if (theme === 'light') {
+    document.documentElement.style.backgroundColor = lightColor;
+  } else if (window.matchMedia) {
+    const color = window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? darkColor
+      : lightColor;
+    document.documentElement.style.backgroundColor = color;
+  } else {
+    document.documentElement.style.backgroundColor = lightColor;
+  }
+  // themePreload end ----------------------------------------------
+
+  // optimizeResize start ----------------------------------------------
+  /* TEST CODE
+const handler = ()=>console.log('ffffff');
+window.addEventListener('resize', handler);
+window.removeEventListener('resize',handler);
+   */
+  function debounce(func, timeout = 600) {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        func.apply(this, args);
+      }, timeout);
+    };
+  }
+  function optimizeResize() {
+    const resizeEventMap = new Map();
+    window.$$onekeyWindowResizeEventMap = resizeEventMap;
+    // @ts-ignore
+    window.addEventListenerOld = window.addEventListener;
+    window.removeEventListenerOld = window.removeEventListener;
+    window.addEventListener = (eventName, handler) => {
+      if (eventName === 'resize') {
+        const debouncedHandler = debounce(handler, 300);
+        resizeEventMap.set(handler, debouncedHandler);
+        window.addEventListenerOld(eventName, debouncedHandler);
+      } else {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        window.addEventListenerOld(eventName, handler);
+      }
+    };
+    window.removeEventListener = (eventName, handler) => {
+      if (eventName === 'resize') {
+        const debouncedHandler = resizeEventMap.get(handler);
+        if (debouncedHandler) {
+          resizeEventMap.delete(handler);
+          window.removeEventListenerOld(eventName, debouncedHandler);
+        }
+      } else {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        window.removeEventListenerOld(eventName, handler);
+      }
+    };
+  }
+
+  try {
+    optimizeResize();
+  } catch (error) {
+    // const e = error as Error | undefined;
+  } finally {
+    // noop
+  }
+  // optimizeResize end ----------------------------------------------
+})();</script><link rel="icon" href="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/favicon.png" integrity="sha384-sT0QzRGveBWOFMGIwBOIlndwOZs/ZcqHiB9Nsgk8hDv5y+mVvkF5TpGDR3ek/UtS" crossorigin="anonymous"><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/957.4c7d5d4ed9.bundle.js" integrity="sha384-VU6sanZQAiSypGRuqN52em+nuo0ziexev2kLA1iuqM3oDMufufueMuSr9HXT6vqp" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/7471.ad1cc5135f.bundle.js" integrity="sha384-kevMLu6s2DngqzRxbQY2spwUAfMMco5Crw7f/WFbgtvsDt1kSqrVqoTv60D1raUg" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/3839.422a19e2e9.bundle.js" integrity="sha384-HYuVyjF0MYLHtm3g1nz2VRQnoGTydnLVTSZ7RmDGZ0NlbNPN/ZFh4/gLIkKiRyIq" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/4305.db4be193b5.bundle.js" integrity="sha384-4RdqBPCdn9YaQb8szWDXbGy/A89FfEccZkSNMKnSJf/fejbtzQUJjgOyaYSMMV5w" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/3233.2c934090e9.bundle.js" integrity="sha384-WwDmA4D6rylAFOZFs8wa6/SqRJXnz64iypmtkCxsr6MOJSzWKn2m5DRJxmYailMj" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/1076.4a80b62dc8.bundle.js" integrity="sha384-idUfBzvp3ktt+pGcsFrM26KDtwMmLANQmzIVb36Ygzdpp6O6GGdmJixyTIdzZw2e" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/1235.1a4e6a4f33.bundle.js" integrity="sha384-wJhnzVZX2oTg6BxMsIn/5A9jZqHnPRTFKcSA9WTxcU7T21YRHl7cQa2jH12k4B1G" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/7715.d9600f74e6.bundle.js" integrity="sha384-wicuxZK5xsO4SKcI8XYnpDuNXDcRV+RmIMQKd+Oh9NtRTLV1YZF5Sj/yf2rvFHqf" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/7010.c0e78ccb83.bundle.js" integrity="sha384-XTdnsfoQ6RSclB4eygd5czA78WgUT9boDPDZ2XlpUZAjQQXgYxjCXh6VcTmw9Dmb" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/4846.4ebf974448.bundle.js" integrity="sha384-kn1NWE4RCm1aFygir0dfX7bHz3p2P71RzzsbDEq2BVZocMzS9Zvxwvhf+z7K8+9n" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/1697.fc53b2b8e5.bundle.js" integrity="sha384-nQISqK/8JIxAmHuuwTHD3uo6zecZ0BtDWdumhBFQVx0xsG5V297u/dt8wM3CoPuR" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/7969.a6608a93f5.bundle.js" integrity="sha384-y3WaYq4y2ZxpAqKmcMpxYWAKNJMeW6ZTPSs082HCA/Wkmkj4Pxbq5wSse/nzxbWt" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/main.d5ef20ee.1ebd4c7b66.bundle.js" integrity="sha384-GWHaIOe/EV2TiWy7zWMDWWT1pj6LBhdwSyo1Sp0ExtwetBzTUXgnoGD+hMl8xX9k" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/main.720be5d3.d42f4f0a3a.bundle.js" integrity="sha384-O4F/EKJHX2c1m+JBcfykVEkGnkI/SnjE7QZqOeqng9mJ33mLaRaTQL+maQBD1yP4" crossorigin="anonymous"></script><script defer="defer" src="https://app.onekey.so/710ea011a6858fed2cc64987a6495652e588a7b5-2025061933/main.7a258b17.2f41290996.bundle.js" integrity="sha384-6f7NGHR87CQUeI0hwNsjl06Y8v9OXLiY33J3FxzlSN/V1RKrf0HbngNvrzsfqtk5" crossorigin="anonymous"></script></head><body class="onekey-body" data-platform="web" data-browser="" data-filename="-not-correct-in-ext"><noscript><form action="" style="background-color: #fff;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 9999;"><div style="font-size: 18px;
+            font-family: Helvetica, sans-serif;
+            line-height: 24px;
+            margin: 10%;
+            width: 80%;"><p>Oh no! It looks like JavaScript is not enabled in your browser.</p><p style="margin: 20px 0"><button type="submit" style="background-color: #4630eb;
+                border-radius: 100px;
+                border: none;
+                box-shadow: none;
+                color: #fff;
+                cursor: pointer;
+                font-weight: bold;
+                line-height: 20px;
+                padding: 6px 16px;">Reload</button></p></div></form></noscript><div id="root"></div><script>(()=>{
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.setAttribute('data-html-render-time', Date.now().toString());
+        }
+      })();</script><img width="80" class="onekey-index-html-preload-image" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%)" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAA3lBMVEUAAABF1i1E1yxQ3zBE1SxI1zBE1ixE1ixE1i1E1yxF1i1D1StF1ixF1y1E1SxAzzBF1S1F1ixF1S1G1i1D1CxF1y1E1itF2itE1i5F1TBD1ytD1i1F1StG1i1A1yhE1i1E1ixD2StE1StE1S1D1ytF2CxG2S1C1StE1iwAAAARNgsiaxY8uycJGwYzoCEneRlAySkVQw4aURErhhweXhQrhRwFDgMIGwUEDQMWQw4eXhMqhRtAySoNKQgNKAkaUBEvkx4meBk4riQneBkZUBAvkh8ZURAWRA43rSQqhhtHwN7UAAAAKHRSTlMA30AQgCDvv+9/oJ+QYM8QYM+fj5CfcDBwMJ9QMFAgj69fsK9fb1BgeiEMiQAABBhJREFUeF7Fm9d24zgMQEF1F7nEEyeZlJntoIp7SZ269f9/aF8mgz1eSTYgibyPfsE1CIISYQMX9+I29nq9cKyUwm9ESoXh+4kXOxcutIfrXPbGER4hCieXTvMad3FPIYPx2ciHxnAmFJwl4TQTPUIxqq6D2xlgTdTIrxE+wiY4kym475CorWDp2xMd4OEobBh1ayn7xMSFE7lS2ArqxEr4OcKWCKZwAh1skQ4jviWDc2yZM0v5JzqM+MYNfkEj/AAl+BEaIbiAQlyFhlAuFPEOjTGBAq7RIE6BgELCxiJ00CgeHOCjWYLDFJyhYSY1EpDtD/mIfFx5Aub6kAT5ePIKeCkTkFfBCBlkuhEB9KQ9YN6QwJgEHMEK1BdAR1aCmW5KoC9bgXVjAoFsBZLGBNARdcHVK0lNAVqDAYqY1RZQ1IXsCOAddSE7AiMqATsCb6kEjAtQEQzRigCdyY4dAeoEU5sCUwB4Y0eAqjC0I0BHcmBTIKBNYEcAXbiyK3ABjl2BX2FkV2AEnl0BD97YFXgLP9kWCO0KhDUEsvQ7W5QyBoVWUfYFAtsCKOZ5Nl8tkyTZzGcoRywwS3aaWK4NC6xzfUC+Nijw5YMuIM9MCcx1CakZgUddysaEwO+6glX7AqkmmlgFbidc6yMwN0PAFMhyTehdsknTTaL/y/2i1bNgpYld+vzNapuLy0DBQHpD9vhMXotHTcxafB5YlVZbKkxBCF1BAig+kcqq4EfoirbAx6rru8+sizKPIfCXfiWrSg9neuCxXkzyqhCUgpwhMOJM6xb6lT+wgH/0K4wicOBK8hyeVZfo35yX06FEAAvZCTqBCxAwBKoXec8XCABgwBe4bywDIQCjEXyprrKFoBn3Wdd0WfUu+CTYBVPWuIJyvKw8KO55I4uhoBPeL6rys2SOT5VgYLeqOim3zMldV9AK9bpcTmd4KufcgUVSarDWkrMo5o5sZmXPv3PZE5HPHhsmhW+Ds0RzE0AlwLsvz3aa0Ply/vQ0X9FnvArAc8Hg8qs+wmfJ8DhgGPypK3nkjw25M4tEV/ABGZzLxveLB13KwzN3YCQa3qZ18k8oIDxksc11AfkMWcRADANksUhJgd4UkYcP/BQQ2fZFEzr5SuHZJSgdn2afNkmy3788bJ4oOjsBtBPNQgmgKjCLDwd4ln/OB0OFBlHwfxw0yC0QNuqwD0UMbf+sF24CNELkQwkxGmEKpXiGdqBVAw8q6WLLdOEInqX8E56l+MRlgC0R/QYn4StsBXUFJzJspSv3XTid68aToBw4wGgtRp4LXPyugewbUKBvL8GPFdZkTOFlON0aDlGfSq+WwwAFqCai01rwJFQvvmvjz+/9MDqa9UGP/vzeBu6NE3v992Go1HcZpdQg7PW8+PqGHfpfvMttNhJbFlgAAAAASUVORK5CYII="/></body></html>
