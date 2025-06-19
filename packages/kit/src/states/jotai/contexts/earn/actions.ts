@@ -5,6 +5,7 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
+  EAvailableAssetsTypeEnum,
   IEarnPermitCache,
   IEarnPermitCacheKey,
 } from '@onekeyhq/shared/types/earn';
@@ -40,15 +41,26 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     set(atom, () => payload);
   });
 
-  getAvailableAssets = contextAtomMethod((get) => {
-    const { availableAssets } = get(earnAtom());
-    return availableAssets || [];
-  });
+  getAvailableAssetsByType = contextAtomMethod(
+    (get, set, type: EAvailableAssetsTypeEnum) => {
+      const { availableAssetsByType } = get(earnAtom());
+      return availableAssetsByType?.[type] || [];
+    },
+  );
 
-  updateAvailableAssets = contextAtomMethod(
-    (_, set, availableAssets: IAvailableAsset[]) => {
+  updateAvailableAssetsByType = contextAtomMethod(
+    (
+      get,
+      set,
+      type: EAvailableAssetsTypeEnum,
+      availableAssets: IAvailableAsset[],
+    ) => {
+      const earnData = get(earnAtom());
       this.syncToDb.call(set, {
-        availableAssets,
+        availableAssetsByType: {
+          ...earnData.availableAssetsByType,
+          [type]: availableAssets,
+        },
       });
     },
   );
@@ -126,7 +138,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
 
   resetEarnCacheData = contextAtomMethod((_, set) => {
     this.syncToDb.call(set, {
-      availableAssets: [],
+      availableAssetsByType: {},
       earnAccount: {},
     });
   });
@@ -136,8 +148,8 @@ const createActions = memoFn(() => new ContextJotaiActionsEarn());
 
 export function useEarnActions() {
   const actions = createActions();
-  const getAvailableAssets = actions.getAvailableAssets.use();
-  const updateAvailableAssets = actions.updateAvailableAssets.use();
+  const getAvailableAssetsByType = actions.getAvailableAssetsByType.use();
+  const updateAvailableAssetsByType = actions.updateAvailableAssetsByType.use();
   const updateEarnAccounts = actions.updateEarnAccounts.use();
   const getEarnAccount = actions.getEarnAccount.use();
   const getPermitCache = actions.getPermitCache.use();
@@ -158,8 +170,8 @@ export function useEarnActions() {
   );
 
   return useRef({
-    getAvailableAssets,
-    updateAvailableAssets,
+    getAvailableAssetsByType,
+    updateAvailableAssetsByType,
     buildEarnAccountsKey,
     updateEarnAccounts,
     getEarnAccount,

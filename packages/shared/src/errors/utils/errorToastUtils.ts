@@ -33,6 +33,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
       EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
       EOneKeyErrorClassNames.AxiosAbortCancelError,
+      // use Dialog instead of Toast, check GlobalErrorHandlerContainer
+      EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
     ].includes(err?.className)
   ) {
     return;

@@ -50,7 +50,8 @@ export function SearchView({
               flexDirection="row"
               alignItems="center"
               alignSelf="flex-start"
-              px="$1"
+              px="$3"
+              pt="$2"
               mx="$-1"
               width="100%"
               justifyContent="space-between"
@@ -63,7 +64,9 @@ export function SearchView({
                 <>
                   <XStack gap="$1.5" alignItems="center">
                     <Icon name={section.icon as IKeyOfIcons} size="$5" />
-                    <SizableText size="$bodyMd">{section.title}</SizableText>
+                    <SizableText size="$bodyMdMedium">
+                      {section.title}
+                    </SizableText>
                   </XStack>
                   <XStack>
                     <YStack

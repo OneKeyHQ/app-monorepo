@@ -1,4 +1,8 @@
-import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  ColorTokens,
+  IBadgeType,
+  IKeyOfIcons,
+} from '@onekeyhq/components';
 
 import type { INetworkAccount } from './account';
 import type { IFetchTokenDetailItem, IToken } from './token';
@@ -820,15 +824,24 @@ export type IAvailableAsset = {
   name: string;
   symbol: string;
   logoURI: string;
+  apr: string;
   aprWithoutFee: string;
   tags: string[];
-  networkId: string;
   rewardUnit: IEarnRewardUnit;
+  protocols: Array<{
+    networkId: string;
+    provider: string;
+    vault: string;
+  }>;
+  badges?: Array<{
+    badgeType: IBadgeType;
+    tag: string;
+  }>;
 };
 
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
-  availableAssets?: IAvailableAsset[];
+  availableAssetsByType?: Record<string, IAvailableAsset[]>;
 }
 
 export type IGetPortfolioParams = {

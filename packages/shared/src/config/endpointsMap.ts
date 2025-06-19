@@ -113,6 +113,11 @@ export const getEndpointsMapByDevSettings = (
     // Generate prefixed endpoints for production only
     const prefixedEndpoints: IServiceEndpoint = {} as IServiceEndpoint;
     Object.entries(EServiceEndpointEnum).forEach(([, serviceName]) => {
+      // Skip NotificationWebSocket as it's handled separately when processing Notification
+      if (serviceName === EServiceEndpointEnum.NotificationWebSocket) {
+        return;
+      }
+
       prefixedEndpoints[serviceName] = buildServiceEndpoint({
         serviceName,
         env,

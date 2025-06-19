@@ -123,7 +123,7 @@ export function LanguageListItem(props: ICustomElementProps) {
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <TabSettingsListItem {...props} userSelect="none">
-          <XStack>
+          <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
               primary={label}
@@ -184,7 +184,7 @@ export function ThemeListItem(props: ICustomElementProps) {
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <TabSettingsListItem {...props} userSelect="none">
-          <XStack>
+          <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
               primary={label}
@@ -214,6 +214,8 @@ export function BiologyAuthListItem({
   titleMatch,
   title,
   icon,
+  titleProps,
+  iconProps,
 }: ICustomElementProps) {
   return (
     <Suspense fallback={null}>
@@ -221,6 +223,8 @@ export function BiologyAuthListItem({
         titleMatch={titleMatch}
         title={title}
         icon={icon}
+        titleProps={titleProps}
+        iconProps={iconProps}
       />
     </Suspense>
   );
@@ -348,8 +352,12 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <TabSettingsListItem {...props} userSelect="none">
-          <XStack>
-            <ListItem.Text primary={label} align="right" />
+          <XStack alignItems="center">
+            <ListItem.Text
+              primaryTextProps={props?.titleProps}
+              primary={label}
+              align="right"
+            />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
         </TabSettingsListItem>
@@ -359,6 +367,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
 }
 
 export function ListVersionItem(props: ICustomElementProps) {
+  const { iconProps, titleProps } = props;
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
@@ -367,8 +376,8 @@ export function ListVersionItem(props: ICustomElementProps) {
     <TabSettingsListItem
       {...props}
       onPress={handleToUpdatePreviewPage}
-      iconProps={{ color: '$textInfo' }}
-      titleProps={{ color: '$textInfo' }}
+      iconProps={{ ...iconProps, color: '$textInfo' }}
+      titleProps={{ ...titleProps, color: '$textInfo' }}
       drillIn
     >
       <ListItem.Text
@@ -386,7 +395,11 @@ export function ListVersionItem(props: ICustomElementProps) {
       onPress={appUpdateInfo.onViewReleaseInfo}
       drillIn
     >
-      <ListItem.Text primary={platformEnv.version} align="right" />
+      <ListItem.Text
+        primaryTextProps={props?.titleProps}
+        primary={platformEnv.version}
+        align="right"
+      />
     </TabSettingsListItem>
   );
 }
@@ -508,9 +521,9 @@ export function SocialButtonGroup() {
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
   const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   return (
-    <YStack py="$4" gap={isTabNavigator ? '$3' : '$6'}>
+    <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
       <XStack
-        flex={1}
+        flex={platformEnv.isNative ? undefined : 1}
         jc={isTabNavigator ? 'flex-start' : 'center'}
         gap={isTabNavigator ? '$1.5' : '$3'}
       >
@@ -539,7 +552,8 @@ export function SocialButtonGroup() {
       </XStack>
       <YStack
         jc="center"
-        px={isTabNavigator ? '$2' : '$4'}
+        pl={isTabNavigator ? '$1' : '$4'}
+        pr={isTabNavigator ? '0' : '$4'}
         ai={isTabNavigator ? 'flex-start' : 'center'}
         pt={platformEnv.isNativeIOSPad ? '$3' : undefined}
         userSelect="none"

@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
-import { Keyboard } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 
 import type {
   IIconProps,
@@ -126,25 +126,32 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   const { top, bottom } = useSafeAreaInsets();
   return (
-    <YStack w={192} bg="$bgSubdued" pt={top} pb={bottom} px="$3">
-      <XStack my="$2.5">
+    <YStack
+      w={192}
+      bg="$bgSubdued"
+      pt={top}
+      pb={bottom}
+      borderRightWidth={StyleSheet.hairlineWidth}
+      borderColor="$neutral3"
+    >
+      <XStack my="$2.5" px="$3">
         <SearchBar
           onSearchTextChange={onSearch}
           onFocus={onFocus}
           size="small"
         />
       </XStack>
-      <Divider />
-      <YStack flex={1} pt="$3">
+      <Divider borderColor="$neutral3" />
+      <YStack flex={1} pt="$3" px="$3">
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
-          {tabs}
+          <YStack gap="$1">{tabs}</YStack>
         </ScrollView>
       </YStack>
-      <YStack bg="$bgSubdued">
-        <Divider />
+      <Divider borderColor="$neutral3" />
+      <YStack bg="$bgSubdued" px="$3">
         <SocialButtonGroup />
       </YStack>
     </YStack>
