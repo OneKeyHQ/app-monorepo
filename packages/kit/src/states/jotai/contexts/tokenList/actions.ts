@@ -95,6 +95,16 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             mergeDeriveAssets: mergeDerive,
           });
 
+          const tokenListMap = get(allTokenListMapAtom());
+
+          newTokens = sortTokensByFiatValue({
+            tokens: newTokens,
+            map: {
+              ...tokenListMap,
+              ...(payload.map || {}),
+            },
+          });
+
           set(allTokenListAtom(), {
             tokens: newTokens,
             keys: `${allTokenList.keys}_${keys}`,
@@ -179,6 +189,11 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             ...tokenListMap,
             ...(payload.map || {}),
           };
+
+          newTokens = sortTokensByFiatValue({
+            tokens: newTokens,
+            map: mergedTokenListMap,
+          });
 
           const index = newTokens.findIndex((token) =>
             new BigNumber(
