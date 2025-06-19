@@ -4,22 +4,15 @@ import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
 
-interface IInformationPanelProps {
-  tokenDetail?: IMarketTokenDetail;
-  networkId: string;
-}
-
-export function InformationPanel({
-  tokenDetail,
-  networkId,
-}: IInformationPanelProps) {
+export function InformationPanel() {
   const intl = useIntl();
+  const { tokenDetail, networkId } = useTokenDetail();
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
@@ -88,7 +81,7 @@ export function InformationPanel({
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
             </SizableText>
-            <TokenSecurityAlert tokenAddress={address} networkId={networkId} />
+            <TokenSecurityAlert />
           </XStack>
         ) : null}
       </YStack>

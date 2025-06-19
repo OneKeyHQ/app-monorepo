@@ -100,10 +100,7 @@ export function TokenDetailHeaderLeft({
           {showMediaAndSecurity ? (
             <XStack ai="center" gap="$2" mt="$1">
               {tokenDetail?.address && networkId ? (
-                <TokenSecurityAlert
-                  tokenAddress={tokenDetail?.address}
-                  networkId={networkId}
-                />
+                <TokenSecurityAlert />
               ) : null}
 
               {website ? (

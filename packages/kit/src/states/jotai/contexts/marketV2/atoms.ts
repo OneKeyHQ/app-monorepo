@@ -6,6 +6,7 @@ import {
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 const {
   Provider: ProviderJotaiContextMarketV2,
@@ -21,6 +22,20 @@ export const {
   atom: marketV2StorageReadyAtom,
   use: useMarketV2StorageReadyAtom,
 } = contextAtom<boolean>(false);
+
+// Token Detail Atoms
+export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
+  IMarketTokenDetail | undefined
+>(undefined);
+
+export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
+  contextAtom<boolean>(false);
+
+export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
+  contextAtom<string>('');
+
+export const { atom: networkIdAtom, use: useNetworkIdAtom } =
+  contextAtom<string>('');
 
 const INIT = Symbol('INIT');
 export const marketWatchListV2Atom = memoizee(() =>

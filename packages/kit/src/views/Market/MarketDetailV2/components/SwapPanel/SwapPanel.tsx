@@ -6,7 +6,8 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, useMedia } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
@@ -16,19 +17,14 @@ import { SwapPanelContent } from './SwapPanelContent';
 
 import type { IToken } from './types';
 
-export type ISwapPanelProps = {
-  networkId?: string;
-  tokenDetail?: IMarketTokenDetail;
-};
-
-export function SwapPanel(props: ISwapPanelProps) {
-  const { networkId: networkIdProp, tokenDetail } = props;
-
+export function SwapPanel() {
   const intl = useIntl();
   const media = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { networkId, tokenDetail } = useTokenDetail();
+
   const swapPanel = useSwapPanel({
-    networkId: networkIdProp ?? 'evm--1',
+    networkId: networkId || 'evm--1',
   });
 
   const {
@@ -42,29 +38,29 @@ export function SwapPanel(props: ISwapPanelProps) {
   } = swapPanel;
 
   const { isLoading, speedConfig, supportSpeedSwap, defaultTokens, provider } =
-    useSpeedSwapInit(networkIdProp ?? '');
+    useSpeedSwapInit(networkId || '');
 
   const useSpeedSwapActionsParams = {
     slippage,
     spenderAddress: speedConfig.spenderAddress,
     marketToken: {
-      networkId: networkIdProp ?? '',
-      contractAddress: tokenDetail?.address ?? '',
-      symbol: tokenDetail?.symbol ?? '',
-      decimals: tokenDetail?.decimals ?? 0,
-      logoURI: tokenDetail?.logoUrl ?? '',
+      networkId: networkId || '',
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      decimals: tokenDetail?.decimals || 0,
+      logoURI: tokenDetail?.logoUrl || '',
     },
     tradeToken: {
-      networkId: paymentToken?.networkId ?? '',
-      contractAddress: paymentToken?.contractAddress ?? '',
-      symbol: paymentToken?.symbol ?? '',
-      decimals: paymentToken?.decimals ?? 0,
-      logoURI: paymentToken?.logoURI ?? '',
-      isNative: paymentToken?.isNative ?? false,
+      networkId: paymentToken?.networkId || '',
+      contractAddress: paymentToken?.contractAddress || '',
+      symbol: paymentToken?.symbol || '',
+      decimals: paymentToken?.decimals || 0,
+      logoURI: paymentToken?.logoURI || '',
+      isNative: paymentToken?.isNative || false,
     },
     defaultTradeTokens: defaultTokens,
     provider,
-    tradeType: tradeType ?? ESwapDirection.BUY,
+    tradeType: tradeType || ESwapDirection.BUY,
     account: activeAccount,
     fromTokenAmount: paymentAmount.toFixed(),
   };

@@ -6,18 +6,14 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
+import { useTokenDetail } from '../../hooks/useTokenDetail';
+
 import { TokenSecurityAlertDialogContent } from './TokenSecurityAlertDialogContent';
 import { useTokenSecurity } from './useTokenSecurity';
 
-type ITokenSecurityAlertProps = {
-  tokenAddress?: string;
-  networkId: string;
-};
+function TokenSecurityAlert() {
+  const { tokenAddress, networkId } = useTokenDetail();
 
-function TokenSecurityAlert({
-  tokenAddress,
-  networkId,
-}: ITokenSecurityAlertProps) {
   const { securityData, securityStatus, warningCount, error, loading } =
     useTokenSecurity({
       tokenAddress,

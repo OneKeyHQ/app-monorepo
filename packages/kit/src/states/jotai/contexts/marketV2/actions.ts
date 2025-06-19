@@ -7,12 +7,65 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { contextAtomMethod, marketWatchListV2Atom } from './atoms';
+import {
+  contextAtomMethod,
+  marketWatchListV2Atom,
+  networkIdAtom,
+  tokenAddressAtom,
+  tokenDetailAtom,
+  tokenDetailLoadingAtom,
+} from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
 
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
+  // Token Detail Actions
+  setTokenDetail = contextAtomMethod(
+    (_, set, payload: IMarketTokenDetail | undefined) => {
+      set(tokenDetailAtom(), payload);
+    },
+  );
+
+  setTokenDetailLoading = contextAtomMethod((_, set, payload: boolean) => {
+    set(tokenDetailLoadingAtom(), payload);
+  });
+
+  setTokenAddress = contextAtomMethod((_, set, payload: string) => {
+    set(tokenAddressAtom(), payload);
+  });
+
+  setNetworkId = contextAtomMethod((_, set, payload: string) => {
+    set(networkIdAtom(), payload);
+  });
+
+  fetchTokenDetail = contextAtomMethod(
+    async (_, set, tokenAddress: string, networkId: string) => {
+      try {
+        set(tokenDetailLoadingAtom(), true);
+        set(tokenAddressAtom(), tokenAddress);
+        set(networkIdAtom(), networkId);
+
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+            tokenAddress,
+            networkId,
+          );
+
+        set(tokenDetailAtom(), response);
+        return response;
+      } catch (error) {
+        console.error('Failed to fetch token detail:', error);
+        set(tokenDetailAtom(), undefined);
+        throw error;
+      } finally {
+        set(tokenDetailLoadingAtom(), false);
+      }
+    },
+  );
+
+  // Existing WatchList Actions
   flushWatchListV2Atom = contextAtomMethod(
     (_, set, payload: IMarketWatchListItemV2[]) => {
       const result = { data: payload };
@@ -158,5 +211,22 @@ export function useWatchListV2Actions() {
     saveWatchListV2,
     refreshWatchListV2,
     sortWatchListV2Items,
+  });
+}
+
+export function useTokenDetailActions() {
+  const actions = createActions();
+  const setTokenDetail = actions.setTokenDetail.use();
+  const setTokenDetailLoading = actions.setTokenDetailLoading.use();
+  const setTokenAddress = actions.setTokenAddress.use();
+  const setNetworkId = actions.setNetworkId.use();
+  const fetchTokenDetail = actions.fetchTokenDetail.use();
+
+  return useRef({
+    setTokenDetail,
+    setTokenDetailLoading,
+    setTokenAddress,
+    setNetworkId,
+    fetchTokenDetail,
   });
 }

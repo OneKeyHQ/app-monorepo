@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { ActivityRow } from './ActivityRow';
 import { TimeRangeSelector } from './TimeRangeSelector';
 import { createTimeRangeOption } from './utils/createTimeRangeOption';
 import { formatTokenActivityData } from './utils/formatTokenActivityData';
-
-interface ITokenActivityOverviewProps {
-  tokenDetail?: IMarketTokenDetail;
-}
 
 const defaultTimeRangeConfigs = [
   { label: '1H', value: '1h' },
@@ -19,10 +16,9 @@ const defaultTimeRangeConfigs = [
   { label: '24H', value: '24h' },
 ];
 
-export function TokenActivityOverview({
-  tokenDetail,
-}: ITokenActivityOverviewProps) {
+export function TokenActivityOverview() {
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
+  const { tokenDetail } = useTokenDetail();
 
   const timeRangeOptions = useMemo(() => {
     const availableOptions = [

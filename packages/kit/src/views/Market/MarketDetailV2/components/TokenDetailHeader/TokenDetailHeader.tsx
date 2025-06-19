@@ -1,22 +1,21 @@
 import { XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { TokenDetailHeaderLeft } from './TokenDetailHeaderLeft';
 import { TokenDetailHeaderRight } from './TokenDetailHeaderRight';
 
 export function TokenDetailHeader({
-  tokenDetail,
-  networkId,
   showStats = true,
   showMediaAndSecurity = true,
 }: {
-  tokenDetail?: IMarketTokenDetail;
-  networkId?: string;
   showStats?: boolean;
   showMediaAndSecurity?: boolean;
 }) {
+  const { tokenDetail, networkId } = useTokenDetail();
+
   const { result: networkData } = usePromiseResult(
     () =>
       networkId

@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 
 import { Stack, Tab } from '@onekeyhq/components';
 import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
-import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
 import {
   InformationPanel,
@@ -12,30 +11,24 @@ import {
   TokenDetailHeader,
   TokenStats,
 } from '../components';
-
-interface IMobileLayoutProps {
-  tokenAddress: string;
-  networkId: string;
-  tokenDetail?: IMarketTokenDetailV2;
-}
+import { useTokenDetail } from '../hooks/useTokenDetail';
 
 // Extract component definitions outside render to prevent re-creation on each render
-// prettier-ignore
 const createChartPageComponent = (
   tokenAddress: string,
   networkId: string,
-  tokenDetail?: IMarketTokenDetailV2,
+  tokenSymbol?: string,
 ) => {
   const Component = () => (
     <>
       {/* Information Panel */}
-      <InformationPanel tokenDetail={tokenDetail} networkId={networkId} />
+      <InformationPanel />
 
       <Stack h={300}>
         <TradingView
           mode="realtime"
           identifier="binance"
-          baseToken={tokenDetail?.symbol ?? ''}
+          baseToken={tokenSymbol ?? ''}
           targetToken="USDT"
           tokenAddress={tokenAddress}
           networkId={networkId}
@@ -45,7 +38,7 @@ const createChartPageComponent = (
 
       {/* Information tabs */}
       <Stack h={300}>
-        <InformationTabs tokenAddress={tokenAddress} networkId={networkId} />
+        <InformationTabs />
       </Stack>
     </>
   );
@@ -53,34 +46,33 @@ const createChartPageComponent = (
   return Component;
 };
 
-const createOverviewPageComponent = (tokenDetail?: IMarketTokenDetailV2) => {
+const createOverviewPageComponent = () => {
   const Component = () => (
     <>
       {/* Token Stats */}
-      <TokenStats tokenDetail={tokenDetail} />
+      <TokenStats />
 
       {/* Activity overview (only in overview tab) */}
-      <TokenActivityOverview tokenDetail={tokenDetail} />
+      <TokenActivityOverview />
     </>
   );
   Component.displayName = 'OverviewPageComponent';
   return Component;
 };
 
-export function MobileLayout({
-  tokenAddress,
-  networkId,
-  tokenDetail,
-}: IMobileLayoutProps) {
+export function MobileLayout() {
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+
   // Memoize Chart and Overview components to avoid re-creation on each render
   const ChartPageComponent = useMemo(
-    () => createChartPageComponent(tokenAddress, networkId, tokenDetail),
-    [tokenAddress, networkId, tokenDetail],
+    () =>
+      createChartPageComponent(tokenAddress, networkId, tokenDetail?.symbol),
+    [tokenAddress, networkId, tokenDetail?.symbol],
   );
 
   const OverviewPageComponent = useMemo(
-    () => createOverviewPageComponent(tokenDetail),
-    [tokenDetail],
+    () => createOverviewPageComponent(),
+    [],
   );
 
   const tabs = useMemo(
@@ -94,18 +86,13 @@ export function MobileLayout({
   return (
     <>
       {/* Header */}
-      <TokenDetailHeader
-        tokenDetail={tokenDetail}
-        networkId={networkId}
-        showStats={false}
-        showMediaAndSecurity={false}
-      />
+      <TokenDetailHeader showStats={false} showMediaAndSecurity={false} />
 
       {/* Main Content: Chart / Overview Tabs */}
       <Tab data={tabs} />
 
       {/* Swap panel placed outside the tabs for global visibility */}
-      <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
+      <SwapPanel />
     </>
   );
 }

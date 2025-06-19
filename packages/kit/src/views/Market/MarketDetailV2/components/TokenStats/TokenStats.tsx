@@ -10,13 +10,10 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { TokenStatsSkeleton } from './TokenStatsSkeleton';
-
-interface ITokenStatsProps {
-  tokenDetail?: IMarketTokenDetail;
-}
 
 interface IStatItem {
   label: string;
@@ -60,8 +57,9 @@ function StatCard({ label, value, icon, iconColor }: IStatItem) {
   );
 }
 
-export function TokenStats({ tokenDetail }: ITokenStatsProps) {
+export function TokenStats() {
   const intl = useIntl();
+  const { tokenDetail } = useTokenDetail();
 
   const stats = useMemo<IStatItem[]>(() => {
     if (!tokenDetail) {

@@ -2,13 +2,10 @@ import { useMemo } from 'react';
 
 import { Tab } from '@onekeyhq/components';
 
+import { useTokenDetail } from '../../hooks/useTokenDetail';
+
 import { Holders } from './components/Holders';
 import { TransactionsHistory } from './components/TransactionsHistory';
-
-interface IInformationTabsProps {
-  tokenAddress: string;
-  networkId: string;
-}
 
 // Extract component definitions outside render to prevent re-creation on each render
 const createHoldersComponent = (tokenAddress: string, networkId: string) => {
@@ -31,10 +28,9 @@ const createTransactionsHistoryComponent = (
   return Component;
 };
 
-export function InformationTabs({
-  tokenAddress,
-  networkId,
-}: IInformationTabsProps) {
+export function InformationTabs() {
+  const { tokenAddress, networkId } = useTokenDetail();
+
   const TransactionsHistoryComponent = useMemo(
     () => createTransactionsHistoryComponent(tokenAddress, networkId),
     [tokenAddress, networkId],
@@ -46,19 +42,22 @@ export function InformationTabs({
   );
 
   const tabs = useMemo(
-    () => [
-      {
-        id: 'transactions',
-        title: 'Transactions',
-        page: TransactionsHistoryComponent,
-      },
-      {
-        id: 'holders',
-        title: 'Holders',
-        page: HoldersComponent,
-      },
-    ],
-    [TransactionsHistoryComponent, HoldersComponent],
+    () =>
+      [
+        {
+          id: 'transactions',
+          title: 'Transactions',
+          page: TransactionsHistoryComponent,
+        },
+        networkId === 'sol--101'
+          ? {
+              id: 'holders',
+              title: 'Holders',
+              page: HoldersComponent,
+            }
+          : null,
+      ].filter(Boolean),
+    [TransactionsHistoryComponent, HoldersComponent, networkId],
   );
 
   return <Tab data={tabs} />;

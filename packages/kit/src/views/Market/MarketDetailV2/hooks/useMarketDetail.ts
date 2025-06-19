@@ -1,8 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 interface IUseMarketDetailDataProps {
   tokenAddress: string;
@@ -13,34 +11,23 @@ export function useMarketDetail({
   tokenAddress,
   networkId,
 }: IUseMarketDetailDataProps) {
-  const {
-    result: tokenDetail,
-    isLoading: isRefreshing,
-    run: fetchMarketTokenDetail,
-  } = usePromiseResult(
-    async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-          tokenAddress,
-          networkId,
-        );
-      return response;
-    },
-    [tokenAddress, networkId],
-    {
-      watchLoading: true,
-      // pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
-    },
-  );
+  const actions = useTokenDetailActions();
+
+  // Fetch token detail when hook is called
+  const fetchTokenDetail = useCallback(async () => {
+    await actions.current.fetchTokenDetail(tokenAddress, networkId);
+  }, [actions, tokenAddress, networkId]);
 
   const onRefresh = useCallback(async () => {
-    await fetchMarketTokenDetail();
-  }, [fetchMarketTokenDetail]);
+    await fetchTokenDetail();
+  }, [fetchTokenDetail]);
+
+  useEffect(() => {
+    void fetchTokenDetail();
+  }, [fetchTokenDetail]);
 
   return {
-    tokenDetail,
-    fetchMarketTokenDetail,
-    isRefreshing,
+    fetchTokenDetail,
     onRefresh,
   };
 }

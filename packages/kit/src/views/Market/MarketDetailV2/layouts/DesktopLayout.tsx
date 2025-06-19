@@ -1,6 +1,5 @@
 import { Stack, XStack, YStack } from '@onekeyhq/components';
 import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
-import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
 import {
   InformationTabs,
@@ -8,22 +7,15 @@ import {
   TokenActivityOverview,
   TokenDetailHeader,
 } from '../components';
+import { useTokenDetail } from '../hooks/useTokenDetail';
 
-interface IDesktopLayoutProps {
-  tokenAddress: string;
-  networkId: string;
-  tokenDetail?: IMarketTokenDetailV2;
-}
+export function DesktopLayout() {
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
 
-export function DesktopLayout({
-  tokenAddress,
-  networkId,
-  tokenDetail,
-}: IDesktopLayoutProps) {
   return (
     <>
       {/* Header */}
-      <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
+      <TokenDetailHeader />
 
       {/* Main Content */}
       <XStack flex={1}>
@@ -44,18 +36,15 @@ export function DesktopLayout({
 
           {/* Info tabs */}
           <Stack h={300}>
-            <InformationTabs
-              tokenAddress={tokenAddress}
-              networkId={networkId}
-            />
+            <InformationTabs />
           </Stack>
         </YStack>
 
         {/* Right column */}
         <Stack w="$100">
-          <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
+          <SwapPanel />
 
-          <TokenActivityOverview tokenDetail={tokenDetail} />
+          <TokenActivityOverview />
         </Stack>
       </XStack>
     </>

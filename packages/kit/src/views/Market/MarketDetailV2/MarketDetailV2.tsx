@@ -6,7 +6,6 @@ import {
   type ITabMarketV2ParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
 import {
   AccountSelectorProviderMirror,
@@ -26,11 +25,11 @@ function MarketDetail({
 }: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
   const { tokenAddress, networkId } = route.params;
 
-  const { tokenDetail }: { tokenDetail: IMarketTokenDetailV2 | undefined } =
-    useMarketDetail({
-      tokenAddress,
-      networkId,
-    });
+  // Initialize market detail data fetch - this will store data in jotai
+  useMarketDetail({
+    tokenAddress,
+    networkId,
+  });
 
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
@@ -53,21 +52,7 @@ function MarketDetail({
         tabRoute={ETabRoutes.Market}
         customHeaderLeftItems={customHeaderLeft}
       />
-      <Page.Body>
-        {media.gtMd ? (
-          <DesktopLayout
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            tokenDetail={tokenDetail}
-          />
-        ) : (
-          <MobileLayout
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            tokenDetail={tokenDetail}
-          />
-        )}
-      </Page.Body>
+      <Page.Body>{media.gtMd ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
   );
 }
