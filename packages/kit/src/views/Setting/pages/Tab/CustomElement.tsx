@@ -523,7 +523,7 @@ export function SocialButtonGroup() {
   return (
     <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
       <XStack
-        flex={1}
+        flex={platformEnv.isNative ? undefined : 1}
         jc={isTabNavigator ? 'flex-start' : 'center'}
         gap={isTabNavigator ? '$1.5' : '$3'}
       >
