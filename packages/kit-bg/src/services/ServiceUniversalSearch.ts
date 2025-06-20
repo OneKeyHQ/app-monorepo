@@ -46,6 +46,20 @@ class ServiceUniversalSearch extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private getAccountPriority(accountId?: string): number {
+    if (!accountId) return 1;
+    const accountParams = { accountId };
+    if (
+      accountUtils.isHdAccount(accountParams) ||
+      accountUtils.isHwAccount(accountParams) ||
+      accountUtils.isQrAccount(accountParams) ||
+      accountUtils.isImportedAccount(accountParams)
+    ) {
+      return 0; // Internal accounts first (HD/HW/QR/Imported)
+    }
+    return 1; // Others accounts (Watching/External)
+  }
+
   @backgroundMethod()
   async universalSearchRecommend({
     searchTypes,
@@ -468,18 +482,9 @@ class ServiceUniversalSearch extends ServiceBase {
     }
 
     // Sort accounts by type (HD/HW first)
-    const sortedAccounts = sortBy(walletAccountItems, (item) => {
-      const accountParams = { accountId: item.accountId };
-      if (
-        accountUtils.isHdAccount(accountParams) ||
-        accountUtils.isHwAccount(accountParams) ||
-        accountUtils.isQrAccount(accountParams) ||
-        accountUtils.isImportedAccount(accountParams)
-      ) {
-        return 0; // Prioritize HD/HW/QR/Imported accounts
-      }
-      return 1; // Watching/Others accounts
-    });
+    const sortedAccounts = sortBy(walletAccountItems, (item) =>
+      this.getAccountPriority(item.accountId),
+    );
 
     // Get network info
     const network = await serviceNetwork.getNetworkSafe({
@@ -807,19 +812,27 @@ class ServiceUniversalSearch extends ServiceBase {
       ...(await Promise.all(otherAccountsResults)),
     ]
       .filter(Boolean)
+      // First sort by account type (HD/HW/QR/Imported first, then others)
       .sort((a, b) => {
-        // Sort by accountsValue.value first (higher weight), then by score
+        const aAccountId = a?.account?.id || a?.indexedAccount?.id;
+        const bAccountId = b?.account?.id || b?.indexedAccount?.id;
+        const aPriority = this.getAccountPriority(aAccountId);
+        const bPriority = this.getAccountPriority(bAccountId);
+
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+
+        // Then sort by account value
         const aValue = Number(a?.accountsValue?.value) || 0;
         const bValue = Number(b?.accountsValue?.value) || 0;
-        const aScore = a?.score ?? 0;
-        const bScore = b?.score ?? 0;
-
-        // If values are different, prioritize higher value
         if (aValue !== bValue) {
           return bValue - aValue;
         }
 
-        // If values are same, prioritize higher score
+        // Finally sort by search score
+        const aScore = a?.score ?? 0;
+        const bScore = b?.score ?? 0;
         return bScore - aScore;
       })
       .slice(0, maxResults);
