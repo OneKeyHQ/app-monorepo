@@ -194,6 +194,66 @@ export function EnterPinOnDevice({
   );
 }
 
+export function EnterHiddenWalletPinOnDevice({
+  deviceType,
+}: {
+  deviceType: IDeviceType | undefined;
+}) {
+  const requireResource = useCallback(() => {
+    switch (deviceType) {
+      // Prevents the device type from being obtained
+      case null:
+      case undefined:
+        return Promise.resolve(null);
+      // Specify unsupported devices
+      case EDeviceType.Unknown:
+        return Promise.resolve(null);
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-classic.json'
+        );
+      case EDeviceType.Mini:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-mini.json'
+        );
+      case EDeviceType.Touch:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-touch.json'
+        );
+      case EDeviceType.Pro:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-pro-dark.json'
+        );
+      default:
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+        const checkType = deviceType;
+    }
+  }, [deviceType]);
+
+  const [animationData, setAnimationData] = useState<any>(null);
+
+  useEffect(() => {
+    requireResource()
+      ?.then((module) => {
+        setAnimationData(module?.default);
+      })
+      ?.catch(() => {
+        // ignore
+      });
+  }, [requireResource]);
+
+  return (
+    // height must be specified on Sheet View.
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
+      {animationData ? (
+        <LottieView width="100%" height="100%" source={animationData} />
+      ) : null}
+    </Stack>
+  );
+}
+
 export function EnterPin({
   onConfirm,
   switchOnDevice,
@@ -480,7 +540,7 @@ export function EnterPhase({
 
   // Watch passphrase input to control button state
   const passphraseValue = form.watch('passphrase');
-  const isButtonDisabled = !passphraseValue || passphraseValue.trim() === '';
+  const isButtonDisabled = !passphraseValue || passphraseValue === '';
 
   return (
     <Stack>

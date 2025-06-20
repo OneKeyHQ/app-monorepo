@@ -44,6 +44,7 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import {
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
+  EnterHiddenWalletPinOnDevice,
   EnterPassphraseOnDevice,
   EnterPhase,
   EnterPin,
@@ -166,12 +167,17 @@ function HardwareSingletonDialogCmp(
         title = intl.formatMessage({
           id: ETranslations.global_enter_hidden_wallet_pin_on_device,
         });
+        content = (
+          <EnterHiddenWalletPinOnDevice
+            deviceType={state?.payload?.deviceType}
+          />
+        );
       } else {
         title = intl.formatMessage({
           id: ETranslations.enter_pin_enter_on_device,
         });
+        content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
       }
-      content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
     }
 
     // EnterPin on App
