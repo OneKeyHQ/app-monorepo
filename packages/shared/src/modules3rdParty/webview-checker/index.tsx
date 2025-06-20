@@ -11,5 +11,4 @@ export const isGooglePlayServicesAvailable: IWebViewChecker['isGooglePlayService
       statusMessage: '',
     });
 
-export const openWebViewInGooglePlay: IWebViewChecker['openGooglePlayPage'] =
-  () => {};
+export const openWebViewInGooglePlay = () => {};

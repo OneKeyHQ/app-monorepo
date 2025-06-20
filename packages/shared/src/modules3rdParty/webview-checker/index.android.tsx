@@ -12,9 +12,8 @@ export const getCurrentWebViewPackageInfo: IWebViewChecker['getCurrentWebViewPac
 export const isGooglePlayServicesAvailable: IWebViewChecker['isGooglePlayServicesAvailable'] =
   () => WebViewCheckerModule.isGooglePlayServicesAvailable();
 
-export const openWebViewInGooglePlay: IWebViewChecker['openGooglePlayPage'] =
-  () => {
-    void Linking.openURL(
-      'https://play.google.com/store/apps/details?id=com.google.android.webview',
-    );
-  };
+export const openWebViewInGooglePlay = () => {
+  void Linking.openURL(
+    'https://play.google.com/store/apps/details?id=com.google.android.webview',
+  );
+};
