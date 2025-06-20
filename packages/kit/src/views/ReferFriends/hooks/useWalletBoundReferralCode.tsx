@@ -24,6 +24,7 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
@@ -286,20 +287,62 @@ export function useWalletBoundReferralCode({
   >(undefined);
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
 
-  const getReferralCodeBondStatus = async (walletId: string | undefined) => {
+  const getReferralCodeBondStatus = async ({
+    walletId,
+    skipIfTimeout = false,
+  }: {
+    walletId: string | undefined;
+    skipIfTimeout?: boolean;
+  }) => {
     const walletInfo = await getReferralCodeWalletInfo(walletId);
     if (!walletInfo) {
       return false;
     }
     const { address, networkId } = walletInfo;
+
+    let alreadyBound = false;
+    let isTimeout = false;
+
     try {
-      const alreadyBound =
-        await backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
-          {
-            address,
-            networkId,
-          },
-        );
+      if (skipIfTimeout) {
+        const timeoutMs = 3000;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            isTimeout = true;
+            reject(new Error('Request timeout'));
+          }, timeoutMs);
+        });
+
+        // Race between the API call and timeout
+        alreadyBound = await Promise.race([
+          backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
+            {
+              address,
+              networkId,
+            },
+          ),
+          timeoutPromise,
+        ]);
+      } else {
+        // No timeout, just make the request
+        alreadyBound =
+          await backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
+            {
+              address,
+              networkId,
+            },
+          );
+      }
+    } catch (error) {
+      console.log(
+        '===>>> getReferralCodeBondStatus error, treating as not bound:',
+        error,
+      );
+      alreadyBound = false;
+    }
+
+    // Always execute setWalletReferralCode regardless of timeout
+    try {
       await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
         walletId: walletInfo.walletId,
         referralCodeInfo: {
@@ -310,15 +353,19 @@ export function useWalletBoundReferralCode({
           isBound: alreadyBound,
         },
       });
-      if (alreadyBound) {
-        return false;
-      }
-      console.log('===>>> check first evm address: ', address);
-      setShouldBondReferralCode(true);
-      return true;
-    } catch {
+    } catch (error) {
+      console.log('===>>> setWalletReferralCode error:', error);
+    }
+
+    if (isTimeout && skipIfTimeout) {
       return false;
     }
+
+    if (alreadyBound) {
+      return false;
+    }
+    setShouldBondReferralCode(true);
+    return true;
   };
 
   const inModalDialog = useInModalDialog();

@@ -51,7 +51,9 @@ function WalletBoundReferralCodeButtonView({
     }
     try {
       setIsLoading(true);
-      const shouldBound = await getReferralCodeBondStatus(wallet?.id);
+      const shouldBound = await getReferralCodeBondStatus({
+        walletId: wallet?.id,
+      });
       if (!shouldBound) {
         return;
       }
