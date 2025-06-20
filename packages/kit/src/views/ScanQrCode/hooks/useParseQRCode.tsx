@@ -83,6 +83,7 @@ const useParseQRCode = () => {
       );
 
       if (!options?.autoHandleResult) {
+        popNavigation?.();
         return result;
       }
 
@@ -190,7 +191,6 @@ const useParseQRCode = () => {
                 tokenIdOnNetwork: chainValue.tokenAddress,
               });
               if (!token) {
-                // showCopyDialog(value);
                 // navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 //   screen: EModalSignatureConfirmRoutes.TxSelectToken,
                 //   params: {
@@ -256,7 +256,7 @@ const useParseQRCode = () => {
                 //             },
                 //           },
                 //         );
-                //         return;
+                //         break;
                 //       }
 
                 //       navigation.push(
