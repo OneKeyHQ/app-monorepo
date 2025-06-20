@@ -60,31 +60,11 @@ public class WebViewCheckerModule extends ReactContextBaseJavaModule {
             result.putInt("status", status);
             boolean isSuccess = status == com.google.android.gms.common.ConnectionResult.SUCCESS;
             result.putBoolean("isAvailable", isSuccess);
-            result.putString("statusMessage", getStatusMessage(status));
-        
             log("isGooglePlayServicesAvailable", status + " " + isSuccess);
-
             promise.resolve(result);
         } catch (Exception e) {
             log("isGooglePlayServicesAvailable", "Error: " + e.getMessage());
             promise.reject("CHECK_PLAY_SERVICES_ERROR", e.getMessage());
-        }
-    }
-    
-    private String getStatusMessage(int status) {
-        switch (status) {
-            case com.google.android.gms.common.ConnectionResult.SUCCESS:
-                return "SUCCESS";
-            case com.google.android.gms.common.ConnectionResult.SERVICE_MISSING:
-                return "SERVICE_MISSING";
-            case com.google.android.gms.common.ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED:
-                return "SERVICE_VERSION_UPDATE_REQUIRED";
-            case com.google.android.gms.common.ConnectionResult.SERVICE_DISABLED:
-                return "SERVICE_DISABLED";
-            case com.google.android.gms.common.ConnectionResult.SERVICE_INVALID:
-                return "SERVICE_INVALID";
-            default:
-                return "UNKNOWN_ERROR";
         }
     }
 }

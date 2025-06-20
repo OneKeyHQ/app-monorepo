@@ -8,7 +8,6 @@ export interface IWebViewPackageInfo {
 export interface IGooglePlayServicesStatus {
   status: number;
   isAvailable: boolean;
-  statusMessage: string;
 }
 
 export interface IWebViewChecker {
