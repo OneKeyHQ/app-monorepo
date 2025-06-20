@@ -3,6 +3,8 @@ import { memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useMedia } from 'tamagui';
 
+import { SHEET_POPOVER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
+
 import { Stack } from '../../primitives';
 
 import type { IPopoverContent } from './type';
@@ -28,7 +30,9 @@ function PopoverContentOverlay({
   return gtMd && isOpen
     ? createPortal(
         <Stack
-          position={'fixed' as any}
+          zIndex={SHEET_POPOVER_Z_INDEX}
+          testID="ovelay-popover"
+          position="absolute"
           left={0}
           top={0}
           right={0}
