@@ -38,6 +38,7 @@ interface IWebViewProps extends IElectronWebViewEvents {
   nativeWebviewSource?: WebViewSource | undefined;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
+  pullToRefreshEnabled?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
@@ -81,6 +82,7 @@ const WebView: FC<IWebViewProps> = ({
   customReceiveHandler,
   containerProps,
   webviewDebuggingEnabled,
+  pullToRefreshEnabled,
   ...rest
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
@@ -115,6 +117,7 @@ const WebView: FC<IWebViewProps> = ({
         src={src}
         allowpopups={allowpopups}
         receiveHandler={receiveHandler}
+        pullToRefreshEnabled={pullToRefreshEnabled}
         {...rest}
       />
     </Stack>
