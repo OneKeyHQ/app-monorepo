@@ -6,7 +6,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { IconButton, type IIconButtonProps } from '../../actions';
+import { type IIconButtonProps, IconButton } from '../../actions';
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
 
 export function PaginationButton({

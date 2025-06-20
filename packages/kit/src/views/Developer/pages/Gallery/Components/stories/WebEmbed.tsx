@@ -35,7 +35,11 @@ export function WebEmbedDevConfig() {
   );
 
   useEffect(() => {
-    void updateConfig({ url: url0, debug: debug0 });
+    if (debug0) {
+      void updateConfig({ url: url0, debug: debug0 });
+    } else {
+      void updateConfig({ url: '', debug: debug0 });
+    }
   }, [url0, debug0, updateConfig]);
 
   useEffect(() => {
