@@ -6,14 +6,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IMarketTokenSecurity } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketTokenSecurityItem } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenSecurityAlertDialogContentItem } from './TokenSecurityAlertDialogContentItem';
 import { TokenSecurityAlertDialogContentOverview } from './TokenSecurityAlertDialogContentOverview';
 import { formatSecurityData } from './useTokenSecurity';
 
 type ITokenSecurityAlertDialogContentProps = {
-  securityData: IMarketTokenSecurity | null;
+  securityData: {
+    [key: string]: IMarketTokenSecurityItem;
+  } | null;
   error: string | null;
   loading: boolean;
 };
