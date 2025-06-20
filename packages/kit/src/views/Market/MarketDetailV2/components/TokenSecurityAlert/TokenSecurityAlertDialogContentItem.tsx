@@ -1,4 +1,10 @@
-import { SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  XStack,
+  useClipboard,
+} from '@onekeyhq/components';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { TokenSecurityAlertDialogContentIcon } from './TokenSecurityAlertDialogContentIcon';
 
@@ -14,6 +20,25 @@ type ITokenSecurityAlertDialogContentItemProps = {
 function TokenSecurityAlertDialogContentItem({
   item,
 }: ITokenSecurityAlertDialogContentItemProps) {
+  const { copyText } = useClipboard();
+
+  const formatValue = (value: string) => {
+    if (value.length > 20) {
+      return accountUtils.shortenAddress({
+        address: value,
+        leadingLength: 8,
+        trailingLength: 6,
+      });
+    }
+    return value;
+  };
+
+  const handleCopyValue = () => {
+    if (item.value) {
+      copyText(item.value);
+    }
+  };
+
   return (
     <XStack
       key={item.key}
@@ -31,13 +56,15 @@ function TokenSecurityAlertDialogContentItem({
 
       <XStack gap="$2" alignItems="center">
         {item.value ? (
-          <SizableText
-            size="$bodyMdMedium"
-            color={item.isWarning ? '$textCaution' : '$textSuccess'}
-            textAlign="right"
-          >
-            {item.value}
-          </SizableText>
+          <Button variant="tertiary" size="small" onPress={handleCopyValue}>
+            <SizableText
+              size="$bodyMdMedium"
+              color={item.isWarning ? '$textCaution' : '$textSuccess'}
+              textAlign="right"
+            >
+              {formatValue(item.value)}
+            </SizableText>
+          </Button>
         ) : null}
 
         <TokenSecurityAlertDialogContentIcon isWarning={item.isWarning} />
