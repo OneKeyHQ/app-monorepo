@@ -78,7 +78,7 @@ export const swapProviderRecommendApprovedWeights = 1.1;
 
 export const limitOrderEstimationFeePercent = 1.05;
 
-export const defaultSupportUrl = 'https://help.onekey.so/hc/zh-cn/requests/new';
+export const defaultSupportUrl = 'https://help.onekey.so/articles/11536900';
 
 export const otherWalletFeeData = [
   {
