@@ -13,7 +13,7 @@ import type {
   IMarketTokenHoldersResponse,
   IMarketTokenKineResponse,
   IMarketTokenListResponse,
-  IMarketTokenSecurity,
+  IMarketTokenSecurityBatchResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -331,32 +331,32 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   /**
-   * Fetch token security information for a given token address and network
-   * @param tokenAddress - The token contract address
-   * @param networkId - The network ID where the token exists
-   * @returns Promise<IMarketTokenSecurity> - Token security analysis data
+   * Fetch token security information for multiple tokens using batch API
+   * @param tokenAddressList - Array of token addresses with their chain IDs
+   * @returns Promise<IMarketTokenSecurityBatchResponse> - Token security analysis data for all requested tokens
    *
    * @example
    * ```typescript
-   * const security = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity(
-   *   '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce', // SHIB token address
-   *   'evm--1' // Ethereum mainnet
-   * );
-   * console.log('Is honeypot:', security.isHoneypot === '1');
-   * console.log('Buy tax:', security.buyTax);
-   * console.log('Sell tax:', security.sellTax);
+   * const securityBatch = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity([
+   *   { contractAddress: '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce', chainId: 'evm--1' },
+   *   { contractAddress: 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', chainId: 'sol--101' }
+   * ]);
+   * const shibSecurity = securityBatch['0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce'];
+   * console.log('Is honeypot:', shibSecurity.is_honeypot?.value);
+   * console.log('Buy tax:', shibSecurity.buy_tax?.value);
    * ```
    */
   @backgroundMethod()
-  async fetchMarketTokenSecurity(tokenAddress: string, networkId: string) {
+  async fetchMarketTokenSecurity(
+    tokenAddressList: Array<{ contractAddress: string; chainId: string }>,
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IMarketTokenSecurity;
-    }>('/utility/v2/market/token/security', {
-      params: {
-        tokenAddress,
-        networkId,
-      },
+    const response = await client.post<{
+      code: number;
+      message: string;
+      data: IMarketTokenSecurityBatchResponse;
+    }>('/utility/v2/market/token/security/batch', {
+      tokenAddressList,
     });
     const { data } = response.data;
 

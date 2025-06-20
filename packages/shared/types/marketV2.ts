@@ -203,6 +203,17 @@ export interface IMarketTokenBatchListResponse {
   list: IMarketTokenListItem[];
 }
 
+export interface IMarketTokenSecurityItem {
+  value: boolean | number | string;
+  content: string;
+}
+
+export interface IMarketTokenSecurityBatchResponse {
+  [tokenAddress: string]: {
+    [key: string]: IMarketTokenSecurityItem;
+  };
+}
+
 export interface IMarketTokenSecurity {
   antiWhaleModifiable: string;
   buyTax: string;

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IMarketTokenSecurity } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenSecurityBatchResponse,
+  IMarketTokenSecurityItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 type IUseTokenSecurityParams = {
   tokenAddress?: string;
@@ -11,7 +14,9 @@ type IUseTokenSecurityParams = {
 type ISecurityStatus = 'safe' | 'warning';
 
 type IUseTokenSecurityResult = {
-  securityData: IMarketTokenSecurity | null;
+  securityData: {
+    [key: string]: IMarketTokenSecurityItem;
+  } | null;
   securityStatus: ISecurityStatus | null;
   warningCount: number;
   error: string | null;
@@ -25,99 +30,60 @@ export type ISecurityKeyValue = {
   isWarning: boolean;
 };
 
-// Helper function to format security data into key-value pairs
+// Helper function to format new security data structure into key-value pairs
 export const formatSecurityData = (
-  data: IMarketTokenSecurity | null,
+  data: { [key: string]: IMarketTokenSecurityItem } | null,
 ): ISecurityKeyValue[] => {
   if (!data) return [];
 
-  const formatPercentage = (value: string | undefined): string => {
-    if (!value || value === '0') return '0%';
-    return `${value}%`;
-  };
-
-  const isWarningValue = (value: string | undefined): boolean => {
-    return value === '1' || value === 'true';
-  };
-
   const items: ISecurityKeyValue[] = [];
 
-  // Always show tax information
-  items.push({
-    key: 'buyTax',
-    label: 'Buy Tax',
-    value: formatPercentage(data.buyTax),
-    isWarning: parseFloat(data.buyTax || '0') > 10,
-  });
+  // Iterate through all security items and format them
+  Object.entries(data).forEach(([key, item]) => {
+    const { value, content } = item;
 
-  items.push({
-    key: 'sellTax',
-    label: 'Sell Tax',
-    value: formatPercentage(data.sellTax),
-    isWarning: parseFloat(data.sellTax || '0') > 10,
-  });
+    // Determine if this is a warning based on the key and value
+    let isWarning = false;
 
-  // Always show holder count
-  items.push({
-    key: 'holderCount',
-    label: 'Holder Count',
-    value: data.holderCount || '0',
-    isWarning: parseInt(data.holderCount || '0', 10) < 100,
-  });
+    if (typeof value === 'boolean') {
+      // For boolean values, most are warnings when true, except for trusted items
+      if (
+        key.includes('trusted') ||
+        key.includes('open_source') ||
+        key.includes('trust_list')
+      ) {
+        isWarning = !value; // Warning if NOT trusted/open source
+      } else {
+        isWarning = value; // Warning if true for most security flags
+      }
+    } else if (typeof value === 'number') {
+      // For numeric values like taxes, warn if > 10%
+      if (key.includes('tax') || key.includes('fee')) {
+        isWarning = value > 10;
+      }
+    } else if (typeof value === 'string') {
+      // For string percentages, parse and check
+      const numValue = parseFloat(value);
+      if (!Number.isNaN(numValue)) {
+        if (key.includes('percent') || key.includes('percentage')) {
+          isWarning = numValue > 50; // Warning if ownership > 50%
+        } else if (key.includes('tax') || key.includes('fee')) {
+          isWarning = numValue > 10; // Warning if tax > 10%
+        }
+      }
+    }
 
-  // Always show ownership percentages
-  items.push({
-    key: 'ownerPercentage',
-    label: 'Owner Percentage',
-    value: formatPercentage(data.ownerPercentage),
-    isWarning: parseFloat(data.ownerPercentage || '0') > 50,
-  });
-
-  items.push({
-    key: 'creatorPercentage',
-    label: 'Creator Percentage',
-    value: formatPercentage(data.creatorPercentage),
-    isWarning: parseFloat(data.creatorPercentage || '0') > 50,
-  });
-
-  // Show all boolean security flags
-  const securityFlags = [
-    { key: 'isHoneypot', label: 'Honeypot', value: data.isHoneypot },
-    { key: 'isProxy', label: 'Proxy Contract', value: data.isProxy },
-    {
-      key: 'cannotSellAll',
-      label: 'Cannot Sell All',
-      value: data.cannotSellAll,
-    },
-    { key: 'isAntiWhale', label: 'Anti-Whale', value: data.isAntiWhale },
-    { key: 'isBlacklisted', label: 'Blacklisted', value: data.isBlacklisted },
-    { key: 'externalCall', label: 'External Call', value: data.externalCall },
-    { key: 'hiddenOwner', label: 'Hidden Owner', value: data.hiddenOwner },
-    { key: 'isMintable', label: 'Mintable', value: data.isMintable },
-    {
-      key: 'canTakeBackOwnership',
-      label: 'Can Take Back Ownership',
-      value: data.canTakeBackOwnership,
-    },
-    {
-      key: 'ownerChangeBalance',
-      label: 'Owner Change Balance',
-      value: data.ownerChangeBalance,
-    },
-    { key: 'cannotBuy', label: 'Cannot Buy', value: data.cannotBuy },
-    { key: 'isOpenSource', label: 'Open Source', value: data.isOpenSource },
-  ];
-
-  securityFlags.forEach((flag) => {
-    const isWarning =
-      flag.key === 'isOpenSource'
-        ? !isWarningValue(flag.value) // Warning if NOT open source
-        : isWarningValue(flag.value); // Warning if true for other flags
+    let displayValue: string;
+    if (typeof value === 'boolean') {
+      displayValue = ''; // Don't show yes/no text for boolean values
+    } else {
+      displayValue = String(value);
+    }
 
     items.push({
-      key: flag.key,
-      label: flag.label,
-      value: '', // No text value, just icon
+      key,
+      label: content,
+      value: displayValue,
       isWarning,
     });
   });
@@ -125,41 +91,113 @@ export const formatSecurityData = (
   return items;
 };
 
-// Helper function to determine security status and count warnings from security data
+// New helper function to format security data directly from the new API response
+export const formatSecurityDataV2 = (
+  tokenAddress: string,
+  batchData: IMarketTokenSecurityBatchResponse | null,
+): ISecurityKeyValue[] => {
+  if (!batchData || !batchData[tokenAddress]) return [];
+
+  return formatSecurityData(batchData[tokenAddress]);
+};
+
+// Helper function to determine security status from new data structure
 const analyzeSecurityData = (
-  data: IMarketTokenSecurity | null,
+  data: { [key: string]: IMarketTokenSecurityItem } | null,
 ): { status: ISecurityStatus | null; count: number } => {
   if (!data) return { status: null, count: 0 };
 
-  // List of warning indicators to check
-  const warningChecks = [
-    data.isHoneypot,
-    data.isProxy,
-    data.cannotSellAll,
-    data.isAntiWhale,
-    data.isBlacklisted,
-    data.externalCall,
-    data.hiddenOwner,
-    data.isMintable,
-    data.canTakeBackOwnership,
-    data.ownerChangeBalance,
-    data.cannotBuy,
+  let warningCount = 0;
+
+  // Define warning keys for different chains
+  const commonWarningKeys = [
+    'is_honeypot',
+    'is_proxy',
+    'cannot_sell_all',
+    'is_anti_whale',
+    'is_blacklisted',
+    'external_call',
+    'hidden_owner',
+    'is_mintable',
+    'can_take_back_ownership',
+    'owner_change_balance',
+    'cannot_buy',
   ];
 
-  // Count the number of true warning flags
-  const count = warningChecks.filter(Boolean).length;
-  const status = count > 0 ? 'warning' : 'safe';
+  const solanaWarningKeys = [
+    'is_balance_mutable_authority',
+    'closable',
+    'is_metadata_upgrade_authority',
+    'freezable',
+    'mintable',
+    'non_transferable',
+    'transfer_fee_upgradable',
+    'transfer_hook_upgradable',
+  ];
 
-  return { status, count };
+  const suiWarningKeys = [
+    'is_blacklisted',
+    'is_contract_upgradeable',
+    'is_metadata_modifiable',
+    'is_mintable',
+  ];
+
+  const allWarningKeys = [
+    ...commonWarningKeys,
+    ...solanaWarningKeys,
+    ...suiWarningKeys,
+  ];
+
+  // Check each warning key
+  allWarningKeys.forEach((key) => {
+    const item = data[key];
+    if (item) {
+      if (typeof item.value === 'boolean' && item.value) {
+        warningCount += 1;
+      } else if (typeof item.value === 'string' && item.value === 'true') {
+        warningCount += 1;
+      }
+    }
+  });
+
+  // Check for trusted/open source items (warning if false)
+  const trustKeys = [
+    'trusted_token',
+    'is_trusted_token',
+    'trust_list',
+    'is_open_source',
+  ];
+  trustKeys.forEach((key) => {
+    const item = data[key];
+    if (item) {
+      if (typeof item.value === 'boolean' && !item.value) {
+        warningCount += 1;
+      } else if (typeof item.value === 'string' && item.value === 'false') {
+        warningCount += 1;
+      }
+    }
+  });
+
+  // Check tax values
+  const taxKeys = ['buy_tax', 'sell_tax', 'transfer_tax'];
+  taxKeys.forEach((key) => {
+    const item = data[key];
+    if (item && typeof item.value === 'number' && item.value > 10) {
+      warningCount += 1;
+    }
+  });
+
+  const status = warningCount > 0 ? 'warning' : 'safe';
+  return { status, count: warningCount };
 };
 
 export const useTokenSecurity = ({
   tokenAddress,
   networkId,
 }: IUseTokenSecurityParams): IUseTokenSecurityResult => {
-  const [securityData, setSecurityData] = useState<IMarketTokenSecurity | null>(
-    null,
-  );
+  const [securityData, setSecurityData] = useState<{
+    [key: string]: IMarketTokenSecurityItem;
+  } | null>(null);
   const [securityStatus, setSecurityStatus] = useState<ISecurityStatus | null>(
     null,
   );
@@ -181,15 +219,26 @@ export const useTokenSecurity = ({
       setError(null);
 
       try {
-        const data =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity(
-            tokenAddress,
-            networkId,
-          );
-        console.log('Token security data:', data);
+        const batchData =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity([
+            {
+              contractAddress: tokenAddress,
+              chainId: networkId,
+            },
+          ]);
 
-        const { status, count } = analyzeSecurityData(data);
-        setSecurityData(data);
+        const tokenSecurityData = batchData[tokenAddress];
+
+        if (!tokenSecurityData) {
+          setError('No security data found for token');
+          setSecurityStatus(null);
+          setWarningCount(0);
+          return;
+        }
+
+        const { status, count } = analyzeSecurityData(tokenSecurityData);
+
+        setSecurityData(tokenSecurityData);
         setSecurityStatus(status);
         setWarningCount(count);
       } catch (err) {
