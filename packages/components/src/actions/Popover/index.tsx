@@ -252,7 +252,11 @@ function RawPopover({
 
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
-      <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
+      <PopoverContent
+        isOpen={isOpen}
+        closePopover={handleClosePopover}
+        keepChildrenMounted={props.keepChildrenMounted}
+      >
         {RenderContent
           ? ((
               <RenderContent

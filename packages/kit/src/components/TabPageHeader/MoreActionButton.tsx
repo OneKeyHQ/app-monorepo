@@ -298,51 +298,50 @@ function MoreActionContentGridItem({
         {lottieSrc ? (
           <LottieView width={32} height={32} source={lottieSrc} />
         ) : null}
+        {showRedDot ? (
+          <Stack
+            position="absolute"
+            right="$-4"
+            top="$-2"
+            alignItems="flex-end"
+            w="$10"
+            pointerEvents="none"
+          >
+            <Stack
+              bg="$bgApp"
+              borderRadius="$full"
+              borderWidth={2}
+              borderColor="$transparent"
+            >
+              <Stack
+                px="$1"
+                borderRadius="$full"
+                bg="$bgCriticalStrong"
+                minWidth="$4"
+                height="$4"
+                alignItems="center"
+                justifyContent="center"
+              >
+                {showBadges ? (
+                  <SizableText color="$textOnColor" size="$bodySm">
+                    {badges && badges > 99 ? '99+' : badges}
+                  </SizableText>
+                ) : (
+                  <Stack
+                    width="$1"
+                    height="$1"
+                    backgroundColor="white"
+                    borderRadius="$full"
+                  />
+                )}
+              </Stack>
+            </Stack>
+          </Stack>
+        ) : null}
       </YStack>
-
       <SizableText size="$bodySm" textAlign="center">
         {title}
       </SizableText>
-      {showRedDot ? (
-        <Stack
-          position="absolute"
-          right="$3"
-          top="$0.5"
-          alignItems="flex-end"
-          w="$10"
-          pointerEvents="none"
-        >
-          <Stack
-            bg="$bgApp"
-            borderRadius="$full"
-            borderWidth={2}
-            borderColor="$transparent"
-          >
-            <Stack
-              px="$1"
-              borderRadius="$full"
-              bg="$bgCriticalStrong"
-              minWidth="$4"
-              height="$4"
-              alignItems="center"
-              justifyContent="center"
-            >
-              {showBadges ? (
-                <SizableText color="$textOnColor" size="$bodySm">
-                  {badges && badges > 99 ? '99+' : badges}
-                </SizableText>
-              ) : (
-                <Stack
-                  width="$1"
-                  height="$1"
-                  backgroundColor="white"
-                  borderRadius="$full"
-                />
-              )}
-            </Stack>
-          </Stack>
-        </Stack>
-      ) : null}
     </YStack>
   );
 }
