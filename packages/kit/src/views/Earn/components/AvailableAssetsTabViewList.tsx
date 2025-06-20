@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -13,6 +13,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { ITabHeaderInstance } from '@onekeyhq/components/src/layouts/TabView/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -80,7 +81,9 @@ function AvailableAssetsSkeleton() {
 
             <Skeleton w={90} h={20} borderRadius="$2" />
 
-            <IconButton icon="ChevronRightSmallOutline" variant="tertiary" />
+            {media.gtLg ? (
+              <IconButton icon="ChevronRightSmallOutline" variant="tertiary" />
+            ) : null}
           </XStack>
         </ListItem>
       ))}
@@ -109,6 +112,7 @@ export function AvailableAssetsTabViewList({
   const intl = useIntl();
   const media = useMedia();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  const tabHeaderRef = useRef<ITabHeaderInstance>(null);
 
   const tabData = useMemo(
     () => [
@@ -162,6 +166,13 @@ export function AvailableAssetsTabViewList({
     setSelectedTabIndex(index);
   }, []);
 
+  // Update tab header when selectedTabIndex changes
+  useEffect(() => {
+    if (tabHeaderRef.current) {
+      tabHeaderRef.current.scrollToIndex(selectedTabIndex);
+    }
+  }, [selectedTabIndex]);
+
   if (assets.length || isLoading) {
     return (
       <YStack gap="$3">
@@ -169,6 +180,7 @@ export function AvailableAssetsTabViewList({
           {intl.formatMessage({ id: ETranslations.earn_available_assets })}
         </SizableText>
         <Tab.Header
+          ref={tabHeaderRef}
           style={{
             height: 28,
             borderBottomWidth: 0,
@@ -289,13 +301,26 @@ export function AvailableAssetsTabViewList({
                       </XStack>
                     }
                   />
-                  <ListItem.Text
+                  <XStack
+                    flex={1}
+                    ai="center"
+                    jc="flex-end"
                     $gtLg={{
-                      flexGrow: 1,
-                      flexBasis: 0,
+                      jc: 'flex-start',
                     }}
-                    primary={buildAprText(aprWithoutFee, rewardUnit)}
-                  />
+                  >
+                    <XStack
+                      flexShrink={0}
+                      $gtLg={{
+                        width: 120,
+                      }}
+                      justifyContent="flex-end"
+                    >
+                      <SizableText size="$bodyLgMedium" textAlign="right">
+                        {buildAprText(aprWithoutFee, rewardUnit)}
+                      </SizableText>
+                    </XStack>
+                  </XStack>
                 </ListItem>
               ),
             )}
