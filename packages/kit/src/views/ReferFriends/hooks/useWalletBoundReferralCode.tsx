@@ -24,7 +24,6 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { WalletAvatar } from '../../../components/WalletAvatar/WalletAvatar';
@@ -306,23 +305,30 @@ export function useWalletBoundReferralCode({
     try {
       if (skipIfTimeout) {
         const timeoutMs = 3000;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             isTimeout = true;
             reject(new Error('Request timeout'));
           }, timeoutMs);
         });
 
-        // Race between the API call and timeout
-        alreadyBound = await Promise.race([
-          backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
-            {
-              address,
-              networkId,
-            },
-          ),
-          timeoutPromise,
-        ]);
+        try {
+          // Race between the API call and timeout
+          alreadyBound = await Promise.race([
+            backgroundApiProxy.serviceReferralCode.checkWalletIsBoundReferralCode(
+              {
+                address,
+                networkId,
+              },
+            ),
+            timeoutPromise,
+          ]);
+        } finally {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
+        }
       } else {
         // No timeout, just make the request
         alreadyBound =
