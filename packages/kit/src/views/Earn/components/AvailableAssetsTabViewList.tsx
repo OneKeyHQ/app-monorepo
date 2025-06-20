@@ -117,11 +117,12 @@ export function AvailableAssetsTabViewList({
         type: EAvailableAssetsTypeEnum.All,
       },
       {
-        title: 'Stable coins',
+        // eslint-disable-next-line spellcheck/spell-checker
+        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
         type: EAvailableAssetsTypeEnum.StableCoins,
       },
       {
-        title: 'Native tokens',
+        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
         type: EAvailableAssetsTypeEnum.NativeTokens,
       },
     ],
