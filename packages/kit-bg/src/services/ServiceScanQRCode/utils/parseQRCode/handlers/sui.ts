@@ -31,8 +31,9 @@ const sui: IQRCodeHandler<ISuiValue> = async (value, options) => {
         },
       };
     }
-    const [, address] = urlValue.data.url.split('sui:');
-    if (await checkAddress(address)) {
+    const splits = urlValue.data.url.split('sui:');
+    const address = splits.pop();
+    if (address && (await checkAddress(address))) {
       return {
         type: EQRCodeHandlerType.SUI,
         data: {
