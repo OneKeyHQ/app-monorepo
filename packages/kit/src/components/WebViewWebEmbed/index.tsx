@@ -207,6 +207,7 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
+        pullToRefreshEnabled={false}
         useGeckoView={false}
         // *** use remote url
         src={remoteUrl || ''}
