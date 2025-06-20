@@ -14,5 +14,4 @@ export interface IGooglePlayServicesStatus {
 export interface IWebViewChecker {
   getCurrentWebViewPackageInfo: () => Promise<IWebViewPackageInfo | undefined>;
   isGooglePlayServicesAvailable: () => Promise<IGooglePlayServicesStatus>;
-  openGooglePlayPage: () => void;
 }
