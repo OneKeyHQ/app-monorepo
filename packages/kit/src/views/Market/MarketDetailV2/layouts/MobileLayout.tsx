@@ -26,6 +26,7 @@ const createChartPageComponent = (
 
       <Stack h={300}>
         <TradingView
+          version="v2"
           mode="realtime"
           identifier="binance"
           baseToken={tokenSymbol ?? ''}

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { Popover, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { Popover, Stack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';

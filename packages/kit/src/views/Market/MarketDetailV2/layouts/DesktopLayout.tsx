@@ -24,8 +24,9 @@ export function DesktopLayout() {
           {/* Trading view */}
           <Stack flex={1}>
             <TradingView
+              version="v2"
               mode="realtime"
-              identifier="binance"
+              identifier="OneKey"
               baseToken={tokenDetail?.symbol ?? ''}
               targetToken="USDT"
               tokenAddress={tokenAddress}
