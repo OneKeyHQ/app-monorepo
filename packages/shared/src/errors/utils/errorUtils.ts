@@ -14,7 +14,6 @@ import type {
 } from '../types/errorTypes';
 import type { MessageDescriptor } from 'react-intl';
 
-// TODO also update JsBridgeBase.toPlainError
 /**
  * Converts an error object into a plain object with specific properties.
  *
@@ -27,6 +26,7 @@ export function toPlainErrorObject(error: IOneKeyError) {
   }
   return omitBy(
     {
+      // ****** also update JsBridgeBase.toPlainError
       name: error.name,
       constructorName: error.constructorName,
       className: error.className,
