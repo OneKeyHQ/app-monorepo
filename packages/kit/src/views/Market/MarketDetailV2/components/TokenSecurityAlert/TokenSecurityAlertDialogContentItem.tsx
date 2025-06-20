@@ -67,7 +67,9 @@ function TokenSecurityAlertDialogContentItem({
           </Button>
         ) : null}
 
-        <TokenSecurityAlertDialogContentIcon isWarning={item.isWarning} />
+        {typeof item.value === 'string' && item.value.length > 0 ? null : (
+          <TokenSecurityAlertDialogContentIcon isWarning={item.isWarning} />
+        )}
       </XStack>
     </XStack>
   );
