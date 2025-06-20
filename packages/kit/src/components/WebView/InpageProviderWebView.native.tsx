@@ -74,6 +74,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onMessage,
       useGeckoView,
       useInjectedNativeCode = true,
+      pullToRefreshEnabled,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -177,6 +178,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
             style={{ flex: 1 }}
           >
             <NativeWebView
+              pullToRefreshEnabled={pullToRefreshEnabled}
               scalesPageToFit={!isDesktopMode}
               webviewDebuggingEnabled={webviewDebuggingEnabled}
               ref={setWebViewRef}
