@@ -107,62 +107,72 @@ function TokenListFooter(props: IProps) {
     <Stack>
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
-          <Stack
-            p={tableLayout ? '$1' : '$1.5'}
-            borderRadius="$full"
-            bg="$bgStrong"
-          >
-            <Icon
-              name="ControllerRoundUpSolid"
-              color="$iconSubdued"
-              size={tableLayout ? '$6' : '$7'}
+          <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
+            <Stack
+              p={tableLayout ? '$1' : '$1.5'}
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
+              <Icon
+                name="ControllerRoundUpSolid"
+                color="$iconSubdued"
+                size={tableLayout ? '$6' : '$7'}
+              />
+            </Stack>
+            <ListItem.Text
+              primary={`${smallBalanceTokens.length} ${intl.formatMessage({
+                id: ETranslations.low_value_assets,
+              })}`}
+              {...(tableLayout && {
+                primaryTextProps: { size: '$bodyMdMedium' },
+              })}
             />
-          </Stack>
-          <ListItem.Text
-            primary={`${smallBalanceTokens.length} ${intl.formatMessage({
-              id: ETranslations.low_value_assets,
-            })}`}
-            {...(tableLayout && {
-              primaryTextProps: { size: '$bodyMdMedium' },
-            })}
-          />
+            {tableLayout ? (
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.low_value_assets,
+                })}
+                renderTrigger={
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="QuestionmarkOutline"
+                  />
+                }
+                renderContent={
+                  <YStack p="$5" gap="$2">
+                    {helpText.map((text, index) => (
+                      <XStack key={index} gap="$2">
+                        <Stack
+                          w="$1.5"
+                          h="$1.5"
+                          bg="$textSubdued"
+                          borderRadius="$full"
+                          mt="$2"
+                        />
+                        <SizableText size="$bodyMd">{text}</SizableText>
+                      </XStack>
+                    ))}
+                  </YStack>
+                }
+              />
+            ) : null}
+          </XStack>
           {tableLayout ? (
-            <Popover
-              title={intl.formatMessage({ id: ETranslations.low_value_assets })}
-              renderTrigger={
-                <IconButton
-                  size="small"
-                  variant="tertiary"
-                  icon="QuestionmarkOutline"
-                />
-              }
-              renderContent={
-                <YStack p="$5" gap="$2">
-                  {helpText.map((text, index) => (
-                    <XStack key={index} gap="$2">
-                      <Stack
-                        w="$1.5"
-                        h="$1.5"
-                        bg="$textSubdued"
-                        borderRadius="$full"
-                        mt="$2"
-                      />
-                      <SizableText size="$bodyMd">{text}</SizableText>
-                    </XStack>
-                  ))}
-                </YStack>
-              }
-            />
+            <Stack flexGrow={1} flexBasis={0} maxWidth="$36" />
           ) : null}
-          <NumberSizeableText
-            size={tableLayout ? '$bodyMd' : '$bodyLgMedium'}
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            flex={1}
-            textAlign="right"
-          >
-            {smallBalanceTokensFiatValue}
-          </NumberSizeableText>
+          <Stack flexGrow={1} flexBasis={0} justifyContent="flex-end">
+            <NumberSizeableText
+              size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              flex={1}
+              textAlign="right"
+            >
+              {smallBalanceTokensFiatValue}
+            </NumberSizeableText>
+          </Stack>
+          {tableLayout ? <Stack flexGrow={1} flexBasis={0} /> : null}
         </ListItem>
       ) : null}
     </Stack>
