@@ -46,7 +46,6 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
-import { exportLogs } from './exportLogs';
 
 import {
   AutoLockListItem,
@@ -59,6 +58,7 @@ import {
   ThemeListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
+import { exportLogs } from './exportLogs';
 import { SubSearchSettings } from './SubSettings';
 
 export interface ISubSettingConfig {
