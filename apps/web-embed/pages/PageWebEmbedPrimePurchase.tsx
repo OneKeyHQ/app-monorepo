@@ -1,10 +1,7 @@
 /* eslint-disable unicorn/prefer-global-this */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { type PurchaseParams, Purchases } from '@revenuecat/purchases-js';
-import { useSearchParams } from 'react-router-dom';
-
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { usePrimePaymentMethods } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentMethods';
 
 async function closeNativeWebViewModal() {
   await globalThis.$onekey.$private.request({
@@ -57,18 +54,21 @@ function Spinner() {
 }
 
 export default function PageWebEmbedPrimePurchase() {
-  const [searchParams] = useSearchParams();
   const isRunning = useRef(false);
-  const apiKey = searchParams.get('apiKey') || '';
-  const primeUserId = searchParams.get('primeUserId') || '';
-  const primeUserEmail = searchParams.get('primeUserEmail') || '';
-  const subscriptionPeriod = searchParams.get('subscriptionPeriod') || '';
-  const locale = searchParams.get('locale') || 'en';
   const [debugText, setDebugText] = useState('');
-  const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
+
+  const { webEmbedQueryParams, purchasePackageWeb } = usePrimePaymentMethods();
+  const {
+    apiKey,
+    primeUserId,
+    primeUserEmail,
+    subscriptionPeriod,
+    locale,
+    mode,
+  } = webEmbedQueryParams || {};
 
   const run = useCallback(async () => {
-    if (!primeUserId || !primeUserEmail || !subscriptionPeriod) {
+    if (!primeUserId || !primeUserEmail || !subscriptionPeriod || !apiKey) {
       await closeNativeWebViewModal();
       return;
     }
@@ -80,30 +80,13 @@ export default function PageWebEmbedPrimePurchase() {
     try {
       isRunning.current = true;
 
-      Purchases.configure(apiKey, primeUserId);
-
-      const offerings = await Purchases.getSharedInstance().getOfferings({
-        currency: 'USD',
+      const purchaseResult = await purchasePackageWeb?.({
+        subscriptionPeriod,
+        email: primeUserEmail,
+        locale,
       });
 
-      const paywallPackage = offerings?.current?.availablePackages.find(
-        (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
-      );
-
-      if (!paywallPackage) {
-        throw new OneKeyLocalError('No paywall package found');
-      }
-
-      const purchaseParams: PurchaseParams = {
-        rcPackage: paywallPackage,
-        customerEmail: primeUserEmail,
-        selectedLocale: locale,
-      };
-
-      const purchaseResult = await Purchases.getSharedInstance().purchase(
-        purchaseParams,
-      );
-
+      // TODO safe stringify
       setDebugText(JSON.stringify(purchaseResult));
     } catch (error) {
       const trace = (error instanceof Error ? error.stack : '') || '';
@@ -119,7 +102,15 @@ export default function PageWebEmbedPrimePurchase() {
     }
 
     isRunning.current = false;
-  }, [primeUserId, primeUserEmail, subscriptionPeriod, apiKey, locale, mode]);
+  }, [
+    primeUserId,
+    primeUserEmail,
+    subscriptionPeriod,
+    apiKey,
+    purchasePackageWeb,
+    locale,
+    mode,
+  ]);
 
   useEffect(() => {
     void run();
@@ -127,6 +118,20 @@ export default function PageWebEmbedPrimePurchase() {
 
   return (
     <div>
+      {/* <button
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          zIndex: 11_111,
+        }}
+        type="button"
+        onClick={() => {
+          void run();
+        }}
+      >
+        Run
+      </button> */}
       <Spinner />
 
       {mode === 'dev' ? (
@@ -145,6 +150,9 @@ export default function PageWebEmbedPrimePurchase() {
               subscriptionPeriod,
               primeUserId,
               primeUserEmail,
+              apiKey,
+              locale,
+              mode,
             },
             null,
             2,
