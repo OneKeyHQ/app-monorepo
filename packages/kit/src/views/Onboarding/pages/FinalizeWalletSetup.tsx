@@ -168,7 +168,10 @@ function FinalizeWalletSetupPage({
   }, [navigation]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
-    const needBondReferralCode = await getReferralCodeBondStatus(wallet?.id);
+    const needBondReferralCode = await getReferralCodeBondStatus({
+      walletId: wallet?.id,
+      skipIfTimeout: true,
+    });
 
     if (!needBondReferralCode) {
       setTimeout(() => {
