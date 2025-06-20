@@ -91,16 +91,6 @@ export const formatSecurityData = (
   return items;
 };
 
-// New helper function to format security data directly from the new API response
-export const formatSecurityDataV2 = (
-  tokenAddress: string,
-  batchData: IMarketTokenSecurityBatchResponse | null,
-): ISecurityKeyValue[] => {
-  if (!batchData || !batchData[tokenAddress]) return [];
-
-  return formatSecurityData(batchData[tokenAddress]);
-};
-
 // Helper function to determine security status from new data structure
 const analyzeSecurityData = (
   data: { [key: string]: IMarketTokenSecurityItem } | null,
