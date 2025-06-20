@@ -1218,7 +1218,7 @@
   "global.hardware_troubleshooting_contact": "Contact us",
   "global.hardware_troubleshooting_warranty_description": "Don't worry! Our support team is ready to assist you. Please contact customer support with your order number.",
   "global.hardware_troubleshooting_warranty_title": "Experiencing hardware issues?",
-  "global.help_message": "Need help? <url>https://help.onekey.so/articles/11536900-contact-us<underline>Contact OneKey support</underline></url>.",
+  "global.help_message": "Need help? <url>https://help.onekey.so/articles/11536900<underline>Contact OneKey support</underline></url>.",
   "global.hex_data": "Message",
   "global.hex_data_default": "Hex data",
   "global.hex_data_default_faq": "What’s hex data?",

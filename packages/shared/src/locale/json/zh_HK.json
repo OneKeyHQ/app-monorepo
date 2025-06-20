@@ -1218,7 +1218,7 @@
   "global.hardware_troubleshooting_contact": "聯絡我們",
   "global.hardware_troubleshooting_warranty_description": "唔使擔心！我哋嘅支援團隊隨時準備幫您。請聯繫客服並提供您嘅訂單號碼。",
   "global.hardware_troubleshooting_warranty_title": "遇到硬件問題嗎？",
-  "global.help_message": "需要幫助嗎？<url>https://help.onekey.so/articles/11536900-contact-us<underline>聯絡 OneKey 支援</underline></url>。",
+  "global.help_message": "需要幫助嗎？<url>https://help.onekey.so/articles/11536900<underline>聯絡 OneKey 支援</underline></url>。",
   "global.hex_data": "訊息",
   "global.hex_data_default": "十六進位數據",
   "global.hex_data_default_faq": "什麼是十六進位數據？",

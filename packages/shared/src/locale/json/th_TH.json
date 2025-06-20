@@ -1218,7 +1218,7 @@
   "global.hardware_troubleshooting_contact": "ติดต่อเรา",
   "global.hardware_troubleshooting_warranty_description": "ไม่ต้องกังวลค่ะ/ครับ! ทีมซัพพอร์ตของเราพร้อมให้ความช่วยเหลือ กรุณาติดต่อฝ่ายลูกค้าสัมพันธ์พร้อมแจ้งหมายเลขคำสั่งซื้อ",
   "global.hardware_troubleshooting_warranty_title": "มีปัญหากับฮาร์ดแวร์ไหม?",
-  "global.help_message": "ต้องการความช่วยเหลือ? <url>https://help.onekey.so/articles/11536900-contact-us<underline>ติดต่อฝ่ายสนับสนุน OneKey</underline></url>.",
+  "global.help_message": "ต้องการความช่วยเหลือ? <url>https://help.onekey.so/articles/11536900<underline>ติดต่อฝ่ายสนับสนุน OneKey</underline></url>.",
   "global.hex_data": "ข้อความ",
   "global.hex_data_default": "ข้อมูลเลขฐานสิบหก",
   "global.hex_data_default_faq": "ข้อมูลเลขฐานสิบหกคืออะไร",

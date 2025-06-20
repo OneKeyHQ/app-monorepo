@@ -1218,7 +1218,7 @@
   "global.hardware_troubleshooting_contact": "문의하기",
   "global.hardware_troubleshooting_warranty_description": "걱정 마세요! 저희 지원팀이 도와드릴 준비가 되어 있습니다. 주문 번호와 함께 고객 지원팀에 문의해 주세요.",
   "global.hardware_troubleshooting_warranty_title": "하드웨어 문제가 있으신가요?",
-  "global.help_message": "도움이 필요하신가요? <url>https://help.onekey.so/articles/11536900-contact-us<underline>OneKey 지원팀에 문의하세요</underline></url>.",
+  "global.help_message": "도움이 필요하신가요? <url>https://help.onekey.so/articles/11536900<underline>OneKey 지원팀에 문의하세요</underline></url>.",
   "global.hex_data": "메시지",
   "global.hex_data_default": "16진수 데이터",
   "global.hex_data_default_faq": "16진수 데이터란 무엇입니까?",
