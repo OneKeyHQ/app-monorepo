@@ -56,7 +56,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
-import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import {
+  EFeeType,
+  ESendFeeStatus,
+  ETronResourceRentalPayType,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
@@ -110,6 +114,7 @@ function TxFeeInfo(props: IProps) {
     updateSendSelectedFee,
     updateIsSinglePreset,
     updateTxAdvancedSettings,
+    updateTronResourceRentalInfo,
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -267,6 +272,27 @@ function TxFeeInfo(props: IProps) {
           r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
         }
 
+        // update tron resource rental fee info
+        if (r.feeTron && r.feeTron[0] && r.feeTron[0].createOrderParams) {
+          const { createOrderParams, saveTRX, info, payWithUSDT } =
+            r.feeTron[0];
+          updateTronResourceRentalInfo({
+            isResourceRentalNeeded: true,
+            isResourceRentalEnabled: false,
+            isSwapTrxEnabled: false,
+            payType: payWithUSDT
+              ? ETronResourceRentalPayType.Token
+              : ETronResourceRentalPayType.Native,
+            payTokenInfo: {
+              symbol: createOrderParams.payToken,
+              price: info?.prices[createOrderParams.payToken] ?? '0',
+              trxRatio: info?.ratio ?? '0',
+            },
+            saveTRX,
+            createOrderParams,
+          });
+        }
+
         updateSendFeeStatus({
           status: ESendFeeStatus.Success,
           errMessage: '',
@@ -300,6 +326,7 @@ function TxFeeInfo(props: IProps) {
       networkId,
       unsignedTxs,
       updateSendFeeStatus,
+      updateTronResourceRentalInfo,
       updateTxAdvancedSettings,
     ],
     {

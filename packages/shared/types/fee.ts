@@ -20,9 +20,22 @@ export enum ETronResourceRentalPayType {
 
 export type ITronResourceRentalInfo = {
   payType: ETronResourceRentalPayType;
+  payTokenInfo?: {
+    symbol: string;
+    price: string;
+    trxRatio: string;
+  };
+  saveTRX?: string;
   isResourceRentalNeeded: boolean;
   isResourceRentalEnabled: boolean;
   isSwapTrxEnabled: boolean;
+  createOrderParams?: {
+    fromAddress: string;
+    pledgeAddress: string;
+    pledgeMinute: number;
+    pledgeNum: number;
+    pledgeBandwidthNum: number;
+  };
 };
 
 export type IGasEIP1559 = {
@@ -50,6 +63,20 @@ export type IFeeTron = {
   requiredBandwidth: number;
   requiredEnergy: number;
   originalFee: number;
+  saveTRX?: string;
+  payWithUSDT?: boolean;
+  info?: {
+    prices: Record<string, string>;
+    ratio: string;
+  };
+  createOrderParams?: {
+    fromAddress: string;
+    pledgeAddress: string;
+    pledgeMinute: number;
+    pledgeNum: number;
+    pledgeBandwidthNum: number;
+    payToken: string;
+  };
 };
 
 export type IFeeSol = {
