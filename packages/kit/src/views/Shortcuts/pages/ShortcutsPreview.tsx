@@ -177,7 +177,7 @@ function ShortcutsPreview() {
           id: ETranslations.settings_shortcuts,
         })}
       />
-      <Page.Body userSelect="none">
+      <Page.Body userSelect="none" pb="$5">
         {sections.map(({ titleId, items }) => (
           <Section title={intl.formatMessage({ id: titleId })} key={titleId}>
             {items.map(
