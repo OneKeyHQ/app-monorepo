@@ -20,10 +20,9 @@ function TokenSecurityAlertDialogContentItem({
       justifyContent="space-between"
       alignItems="center"
       p="$2"
-      borderRadius="$1"
     >
       <SizableText
-        size="$bodyMd"
+        size="$bodyMdMedium"
         color={item.isWarning ? '$textCaution' : '$text'}
         flex={1}
       >

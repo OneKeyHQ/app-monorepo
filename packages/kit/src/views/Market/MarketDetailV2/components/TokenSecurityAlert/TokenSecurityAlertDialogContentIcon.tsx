@@ -7,7 +7,7 @@ type ITokenSecurityAlertDialogContentIconProps = {
 function TokenSecurityAlertDialogContentIcon({
   isWarning,
 }: ITokenSecurityAlertDialogContentIconProps) {
-  const iconName = isWarning ? 'ErrorOutline' : 'CheckRadioSolid';
+  const iconName = isWarning ? 'ErrorSolid' : 'CheckRadioSolid';
   const iconColor = isWarning ? '$iconCaution' : '$iconSuccess';
 
   return <Icon name={iconName} size="$4" color={iconColor} />;

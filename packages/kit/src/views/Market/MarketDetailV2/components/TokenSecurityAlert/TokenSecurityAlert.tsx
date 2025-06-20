@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   ButtonFrame,
   Dialog,
@@ -5,6 +7,7 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -12,6 +15,7 @@ import { TokenSecurityAlertDialogContent } from './TokenSecurityAlertDialogConte
 import { useTokenSecurity } from './useTokenSecurity';
 
 function TokenSecurityAlert() {
+  const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
   const { securityData, securityStatus, warningCount, error, loading } =
@@ -22,7 +26,7 @@ function TokenSecurityAlert() {
 
   const handlePress = () => {
     Dialog.show({
-      title: 'Token Security Alert',
+      title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       showFooter: false,
       renderContent: (
         <TokenSecurityAlertDialogContent
@@ -46,7 +50,9 @@ function TokenSecurityAlert() {
       <XStack gap="$0.5">
         <Icon name="BugOutline" size={12} color={color} />
 
-        <SizableText color={color}>{warningCount}</SizableText>
+        {warningCount > 0 ? (
+          <SizableText color={color}>{warningCount}</SizableText>
+        ) : null}
       </XStack>
     </ButtonFrame>
   );

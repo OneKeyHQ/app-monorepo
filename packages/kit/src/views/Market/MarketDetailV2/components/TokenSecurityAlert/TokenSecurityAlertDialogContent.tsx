@@ -34,19 +34,9 @@ function TokenSecurityAlertDialogContent({
         {/* Overview section with warning count */}
         <TokenSecurityAlertDialogContentOverview
           warningCount={warningCount}
-          totalChecks={formattedData.length}
           loading={loading}
           error={error}
         />
-
-        {loading ? (
-          <XStack gap="$2" alignItems="center" justifyContent="center" py="$4">
-            <Icon name="LoaderSolid" size="$4" color="$iconSubdued" />
-            <SizableText color="$textSubdued">
-              Loading security data...
-            </SizableText>
-          </XStack>
-        ) : null}
 
         {error ? (
           <XStack
@@ -64,7 +54,7 @@ function TokenSecurityAlertDialogContent({
         ) : null}
 
         {formattedData.length > 0 ? (
-          <YStack gap="$3">
+          <YStack>
             {formattedData.map((item) => {
               return (
                 <TokenSecurityAlertDialogContentItem

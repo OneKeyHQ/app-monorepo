@@ -182,7 +182,7 @@ const analyzeSecurityData = (
   const taxKeys = ['buy_tax', 'sell_tax', 'transfer_tax'];
   taxKeys.forEach((key) => {
     const item = data[key];
-    if (item && typeof item.value === 'number' && item.value > 10) {
+    if (item && typeof item.value === 'number' && item.value > 0) {
       warningCount += 1;
     }
   });
@@ -227,7 +227,15 @@ export const useTokenSecurity = ({
             },
           ]);
 
-        const tokenSecurityData = batchData[tokenAddress];
+        const tokenSecurityData =
+          batchData[tokenAddress] || batchData[tokenAddress.toLowerCase()];
+
+        console.log(
+          'tokenSecurityData',
+          tokenSecurityData,
+          batchData,
+          tokenAddress,
+        );
 
         if (!tokenSecurityData) {
           setError('No security data found for token');

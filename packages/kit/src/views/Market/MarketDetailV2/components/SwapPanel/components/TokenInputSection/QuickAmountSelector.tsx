@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 import { Button, Divider, XStack } from '@onekeyhq/components';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
@@ -27,9 +29,9 @@ export function QuickAmountSelector({
   return (
     <XStack gap="$0">
       {amounts.map((amount, index) => (
-        <>
+        <Fragment key={`item-${amount.value}`}>
           <Button
-            key={amount.value}
+            key={`button-${amount.value}`}
             flex={1}
             size="medium"
             variant="secondary"
@@ -41,8 +43,10 @@ export function QuickAmountSelector({
           >
             {amount.label}
           </Button>
-          {index !== amountsLength - 1 ? <Divider vertical /> : null}
-        </>
+          {index !== amountsLength - 1 ? (
+            <Divider key={`divider-${index}`} vertical />
+          ) : null}
+        </Fragment>
       ))}
     </XStack>
   );

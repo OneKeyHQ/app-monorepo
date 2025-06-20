@@ -1,20 +1,23 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ITokenSecurityAlertDialogContentOverviewProps = {
   warningCount: number;
-  totalChecks: number;
   loading: boolean;
   error: string | null;
 };
 
 function TokenSecurityAlertDialogContentOverviewBase({
   warningCount,
-  totalChecks,
   loading,
   error,
 }: ITokenSecurityAlertDialogContentOverviewProps) {
+  const intl = useIntl();
+
   if (loading || error) {
     return null;
   }
@@ -25,31 +28,29 @@ function TokenSecurityAlertDialogContentOverviewBase({
   const textColor = hasWarnings ? '$textCaution' : '$textSuccess';
 
   return (
-    <Stack
-      p="$3"
-      bg={hasWarnings ? '$bgCaution' : '$bgSuccess'}
-      borderRadius="$3"
-      borderWidth="$px"
-      borderColor={hasWarnings ? '$borderCaution' : '$borderSuccess'}
-    >
-      <XStack gap="$3" alignItems="center">
-        <Icon name={iconName} size="$5" color={iconColor} />
+    <XStack py="$3" gap="$3" alignItems="center">
+      <Stack
+        width="$12"
+        height="$12"
+        borderRadius="$full"
+        backgroundColor={
+          hasWarnings ? '$bgCautionSubdued' : '$bgSuccessSubdued'
+        }
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name={iconName} size="$8" color={iconColor} />
+      </Stack>
 
-        <Stack flex={1}>
-          <SizableText size="$bodyLgMedium" color={textColor}>
-            {hasWarnings
-              ? `${warningCount} Security Warning${
-                  warningCount > 1 ? 's' : ''
-                } Found`
-              : 'Token Security Verified'}
-          </SizableText>
-
-          <SizableText size="$bodySm" color="$textSubdued">
-            {totalChecks} security check{totalChecks > 1 ? 's' : ''} completed
-          </SizableText>
-        </Stack>
-      </XStack>
-    </Stack>
+      <SizableText size="$bodyLgMedium" color={textColor}>
+        {intl.formatMessage(
+          {
+            id: ETranslations.dexmarket_details_audit_issue,
+          },
+          { amount: warningCount },
+        )}
+      </SizableText>
+    </XStack>
   );
 }
 

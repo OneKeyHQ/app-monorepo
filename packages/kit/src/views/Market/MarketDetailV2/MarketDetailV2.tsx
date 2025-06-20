@@ -32,7 +32,7 @@ function MarketDetail({
 
   useEffect(() => {
     void initializeTokenDetail({
-      tokenAddress: tokenAddress.toLowerCase(),
+      tokenAddress,
       networkId,
     });
   }, [initializeTokenDetail, tokenAddress, networkId]);
