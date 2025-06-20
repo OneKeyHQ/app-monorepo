@@ -1,11 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
+// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useSearchParams } from 'react-router-dom';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 
 import primePaymentUtils from './primePaymentUtils';
 

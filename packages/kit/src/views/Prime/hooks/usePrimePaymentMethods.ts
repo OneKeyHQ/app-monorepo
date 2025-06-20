@@ -1,5 +1,8 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
+// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,12 +11,8 @@ import { Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
-// eslint-disable-next-line import/order
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
