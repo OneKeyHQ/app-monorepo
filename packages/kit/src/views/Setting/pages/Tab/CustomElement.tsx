@@ -123,7 +123,7 @@ export function LanguageListItem(props: ICustomElementProps) {
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <TabSettingsListItem {...props} userSelect="none">
-          <XStack>
+          <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
               primary={label}
@@ -552,18 +552,14 @@ export function SocialButtonGroup() {
       </XStack>
       <YStack
         jc="center"
-        px={isTabNavigator ? '$2' : '$4'}
+        pl={isTabNavigator ? '$1' : '$4'}
+        pr={isTabNavigator ? '0' : '$4'}
         ai={isTabNavigator ? 'flex-start' : 'center'}
         pt={platformEnv.isNativeIOSPad ? '$3' : undefined}
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText
-          color={textColor}
-          textAlign="center"
-          size={textSize}
-          onPress={handlePress}
-        >
+        <SizableText color={textColor} size={textSize} onPress={handlePress}>
           {versionString}
         </SizableText>
         {!appUpdateInfo.latestVersion ||

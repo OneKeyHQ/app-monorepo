@@ -19,6 +19,7 @@ import { Portal } from '../../hocs';
 import {
   useBackHandler,
   useKeyboardHeight,
+  useOverlayZIndex,
   useSafeAreaInsets,
 } from '../../hooks';
 import { SizableText, XStack, YStack } from '../../primitives';
@@ -247,10 +248,15 @@ function RawPopover({
   );
   const display = useContentDisplay(isOpen, props.keepChildrenMounted);
   const keyboardHeight = useKeyboardHeight();
+  const zIndex = useOverlayZIndex(isOpen);
 
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
-      <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
+      <PopoverContent
+        isOpen={isOpen}
+        closePopover={handleClosePopover}
+        keepChildrenMounted={props.keepChildrenMounted}
+      >
         {RenderContent
           ? ((
               <RenderContent
@@ -320,10 +326,12 @@ function RawPopover({
             dismissOnSnapToBottom
             animation="quick"
             snapPointsMode="fit"
+            zIndex={zIndex}
             {...sheetProps}
           >
             <TMPopover.Sheet.Overlay
               {...FIX_SHEET_PROPS}
+              zIndex={sheetProps?.zIndex || zIndex}
               backgroundColor="$bgBackdrop"
               animation="quick"
               enterStyle={{ opacity: 0 }}

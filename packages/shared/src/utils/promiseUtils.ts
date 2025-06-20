@@ -167,3 +167,13 @@ export function createPromiseTarget<T>() {
   const p = new PromiseTarget<T>();
   return p;
 }
+
+// p-timeout
+// p-retry
+// p-limit
+// p-queue
+// p-cancelable
+// p-defer
+// p-wait-for
+
+// https://www.npmjs.com/package/bluebird
