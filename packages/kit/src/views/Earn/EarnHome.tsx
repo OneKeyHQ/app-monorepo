@@ -145,10 +145,10 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderCurve="continuous"
-      alignItems="center"
+      alignItems="flex-start"
       {...rest}
     >
-      <YStack alignItems="center" gap="$4">
+      <YStack alignItems="flex-start" gap="$4">
         <XStack gap="$3" ai="center" width="100%">
           <Skeleton width="$8" height="$8" radius="round" />
           <YStack py="$1">
@@ -222,10 +222,10 @@ function RecommendedItem({
       }}
       onPress={onPress}
       userSelect="none"
-      alignItems="center"
+      alignItems="flex-start"
       {...rest}
     >
-      <YStack alignItems="center">
+      <YStack alignItems="flex-start">
         <XStack gap="$3" ai="center" width="100%">
           <YStack>
             <Image size="$8">
