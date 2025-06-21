@@ -163,7 +163,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     const containerStyle = useMemo(() => {
       if (platformEnv.isNativeAndroid && keyboardHeight > 0) {
         return {
-          height: keyboardHeight + (StatusBar.currentHeight || 0) + 50,
+          height: keyboardHeight + (StatusBar.currentHeight || 0) + 60,
         };
       }
 
