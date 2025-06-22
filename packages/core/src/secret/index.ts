@@ -9,7 +9,6 @@ import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from './bip32';
 import {
   mnemonicToRevealableSeed,
   mnemonicToSeed,
-  mnemonicToSeedSync,
   revealEntropyToMnemonic,
   validateMnemonic,
 } from './bip39';

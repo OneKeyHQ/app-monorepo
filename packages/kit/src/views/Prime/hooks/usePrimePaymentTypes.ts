@@ -29,6 +29,14 @@ export type IUsePrimePayment = {
   getPackagesNative: (() => Promise<IPackage[]>) | undefined;
   getPackagesWeb: (() => Promise<IPackage[]>) | undefined;
   restorePurchases: (() => Promise<void>) | undefined;
+  webEmbedQueryParams?: {
+    apiKey: string;
+    primeUserId: string;
+    primeUserEmail: string;
+    subscriptionPeriod: ISubscriptionPeriod;
+    locale: string;
+    mode: 'dev' | 'prod';
+  };
   purchasePackageNative:
     | (({
         subscriptionPeriod,

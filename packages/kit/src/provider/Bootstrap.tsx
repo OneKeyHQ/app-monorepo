@@ -41,6 +41,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
+import { useOnLock } from '../hooks/useOnLock';
 import {
   isOpenedReferFriendsPage,
   useReferFriends,
@@ -49,7 +50,6 @@ import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,
 } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
-import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
 
 import type { IntlShape } from 'react-intl';
 

@@ -54,7 +54,6 @@ import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarn
 import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEventsProvider';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
-import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 import {
   useHandleStake,

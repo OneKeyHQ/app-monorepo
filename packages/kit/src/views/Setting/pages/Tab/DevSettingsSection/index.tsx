@@ -38,6 +38,11 @@ import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
+import {
+  getCurrentWebViewPackageInfo,
+  isGooglePlayServicesAvailable,
+  openWebViewInGooglePlay,
+} from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -813,6 +818,26 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+      {platformEnv.isNativeAndroid ? (
+        <SectionPressItem
+          title="chekc webview version"
+          onPress={async () => {
+            const webviewPackageInfo = await getCurrentWebViewPackageInfo();
+            const googlePlayServicesStatus =
+              await isGooglePlayServicesAvailable();
+            Dialog.debugMessage({
+              debugMessage: {
+                webviewPackageInfo,
+                googlePlayServicesStatus,
+              },
+              onConfirmText: 'open in Google Play',
+              onConfirm: () => {
+                openWebViewInGooglePlay();
+              },
+            });
+          }}
+        />
+      ) : null}
     </Section>
   );
 };

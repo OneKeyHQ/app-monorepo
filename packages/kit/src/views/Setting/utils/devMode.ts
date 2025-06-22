@@ -1,7 +1,7 @@
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { showDevOnlyPasswordDialog } from '../pages/List/DevSettingsSection';
+import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection';
 
 // for open dev mode
 let clickCount = 0;

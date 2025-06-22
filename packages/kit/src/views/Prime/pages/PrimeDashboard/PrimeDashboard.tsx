@@ -18,12 +18,14 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -64,7 +66,6 @@ export default function PrimeDashboard() {
   const intl = useIntl();
   // const isReady = false;
   const {
-    isReady,
     user,
     isLoggedIn,
     isPrimeSubscriptionActive,
@@ -73,7 +74,7 @@ export default function PrimeDashboard() {
     // logout,
   } = usePrimeAuthV2();
 
-  const { getPackagesNative, restorePurchases, getPackagesWeb } =
+  const { isReady, getPackagesNative, restorePurchases, getPackagesWeb } =
     usePrimePayment();
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
@@ -86,6 +87,8 @@ export default function PrimeDashboard() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
     usePrimeRequirements();
+
+  const { purchase } = usePrimePurchaseCallback();
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -127,15 +130,18 @@ export default function PrimeDashboard() {
 
   const { result: packages, isLoading: isPackagesLoading } = usePromiseResult(
     async () => {
-      if (!shouldShowSubscriptionPlans) {
+      if (!shouldShowSubscriptionPlans || !isReady) {
         return [];
       }
-      const pkgList = await (platformEnv.isNative
-        ? getPackagesNative?.()
-        : getPackagesWeb?.());
-      return pkgList;
+      // TODO There was a problem with the store.
+      return errorToastUtils.withErrorAutoToast(async () => {
+        const pkgList = await (platformEnv.isNative
+          ? getPackagesNative?.()
+          : getPackagesWeb?.());
+        return pkgList;
+      });
     },
-    [getPackagesNative, getPackagesWeb, shouldShowSubscriptionPlans],
+    [getPackagesNative, isReady, getPackagesWeb, shouldShowSubscriptionPlans],
     {
       watchLoading: true,
     },
@@ -222,7 +228,15 @@ export default function PrimeDashboard() {
             >
               <PrimeLottieAnimation />
               <PrimeBanner />
-              {isLoggedInMaybe ? <PrimeUserInfo /> : null}
+              {isLoggedInMaybe ? (
+                <PrimeUserInfo
+                  doPurchase={async () => {
+                    await purchase({
+                      selectedSubscriptionPeriod,
+                    });
+                  }}
+                />
+              ) : null}
             </Stack>
 
             {shouldShowSubscriptionPlans ? (
