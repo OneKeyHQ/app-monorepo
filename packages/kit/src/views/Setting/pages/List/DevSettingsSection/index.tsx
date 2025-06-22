@@ -765,6 +765,17 @@ export const DevSettingsSection = () => {
         }}
       />
       <AutoJumpSetting />
+      <SectionFieldItem
+        name="useTradingViewTestDomain"
+        title="Use TradingView Test"
+        subtitle={
+          devSettings.settings?.useTradingViewTestDomain
+            ? '新版 TradingView'Add commentMore actions
+            : '旧版 TradingView'
+        }
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
 
       <SectionFieldItem
         name="enableMarketV2"
