@@ -4,11 +4,11 @@ import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketToken } from '../MarketTokenData';
 
 // Mapping of column keys to token fields, shared by multiple hooks
+// These map API sort parameters to component token properties
 export const SORT_MAP: Record<string, keyof IMarketToken> = {
   liquidity: 'liquidity',
   mc: 'marketCap',
   v24hUSD: 'turnover',
-  v24hChangePercent: 'volume24hChangePercent',
 };
 
 export function getNetworkLogoUri(chainOrNetworkId: string): string {
@@ -45,7 +45,6 @@ export function transformApiItemToToken(
     uniqueTraders: parseInt(item.uniqueWallet24h || '0', 10),
     holders: item.holders || 0,
     turnover: parseFloat(item.volume24h || '0'),
-    volume24hChangePercent: parseFloat(item.volume24hChangePercent || '0'),
     tokenImageUri: item.logoUrl || '',
     networkLogoUri,
     chainId,

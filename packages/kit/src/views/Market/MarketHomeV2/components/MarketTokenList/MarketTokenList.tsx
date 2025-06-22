@@ -24,12 +24,13 @@ import { type IMarketToken } from './MarketTokenData';
 import type { ILiquidityFilter } from '../../types';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
-// 支持排序的字段映射
+// 支持排序的字段映射 - 这些是API的排序参数，不能变更
+// 注意：API不支持v24hChangePercent排序，暂时禁用
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
   turnover: 'v24hUSD',
-  change24h: 'v24hChangePercent',
+  // change24h: 'v24hChangePercent', // API不支持此字段
 } as const;
 
 type IMarketTokenListProps = {
@@ -68,7 +69,6 @@ function MarketTokenList({
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
-  // 内部排序状态管理 - 设置默认为 mc(市值) 降序排序
   const [currentSortBy, setCurrentSortBy] = useState<string | undefined>(
     initialSortBy || 'liquidity',
   );
