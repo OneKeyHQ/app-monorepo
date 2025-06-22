@@ -11,6 +11,7 @@ import { QuickAmountSelector } from './QuickAmountSelector';
 import { TokenList } from './TokenList';
 
 import type { IToken } from '../../types';
+import type BigNumber from 'bignumber.js';
 
 export interface ITokenInputSectionProps {
   value: string;
@@ -20,6 +21,7 @@ export interface ITokenInputSectionProps {
   onTokenChange: (token: IToken) => void;
   onPressTokenSelector?: () => void;
   tradeType: ITradeType;
+  balance?: BigNumber;
 }
 
 export function TokenInputSection({
@@ -28,6 +30,7 @@ export function TokenInputSection({
   selectableTokens,
   onTokenChange,
   tradeType,
+  balance,
 }: ITokenInputSectionProps) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
@@ -105,6 +108,7 @@ export function TokenInputSection({
         }
         onSelect={handleInternalChange}
         tradeType={tradeType}
+        balance={balance}
       />
     </YStack>
   );

@@ -65,6 +65,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         selectedToken={paymentToken}
         selectableTokens={defaultTokens}
         onTokenChange={(token) => setPaymentToken(token)}
+        balance={balance}
       />
 
       {/* Balance display */}

@@ -1,4 +1,6 @@
-import { Fragment } from 'react';
+import { Fragment, useCallback } from 'react';
+
+import BigNumber from 'bignumber.js';
 
 import { Button, Divider, XStack } from '@onekeyhq/components';
 
@@ -8,6 +10,7 @@ export interface IQuickAmountSelectorProps {
   onSelect: (value: string) => void;
   tradeType: ITradeType;
   buyAmounts: { label: string; value: number }[];
+  balance?: BigNumber;
 }
 
 const sellPercentages = [
@@ -21,10 +24,24 @@ export function QuickAmountSelector({
   onSelect,
   buyAmounts,
   tradeType,
+  balance,
 }: IQuickAmountSelectorProps) {
   const amounts =
     tradeType === ESwapDirection.BUY ? buyAmounts : sellPercentages;
   const amountsLength = amounts.length;
+
+  const handleAmountSelect = useCallback(
+    (amount: { label: string; value: string | number }) => {
+      if (tradeType === ESwapDirection.SELL && balance) {
+        const percentageBN = new BigNumber(amount.value.toString());
+        const calculatedAmount = balance.multipliedBy(percentageBN).toFixed();
+        onSelect(calculatedAmount);
+      } else {
+        onSelect(amount.value.toString());
+      }
+    },
+    [tradeType, balance, onSelect],
+  );
 
   return (
     <XStack gap="$0">
@@ -39,7 +56,7 @@ export function QuickAmountSelector({
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={index !== 0 ? 0 : '$2'}
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
-            onPress={() => onSelect(amount.value.toString())}
+            onPress={() => handleAmountSelect(amount)}
           >
             {amount.label}
           </Button>

@@ -30,7 +30,6 @@ const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
   turnover: 'v24hUSD',
-  // change24h: 'v24hChangePercent', // API不支持此字段
 } as const;
 
 type IMarketTokenListProps = {
