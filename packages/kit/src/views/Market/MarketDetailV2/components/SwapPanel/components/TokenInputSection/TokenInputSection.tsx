@@ -1,14 +1,12 @@
 import { useCallback, useState } from 'react';
 
-import { Popover, Stack, YStack } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
 import { QuickAmountSelector } from './QuickAmountSelector';
-import { TokenList } from './TokenList';
+import { TokenSelectorPopover } from './TokenSelectorPopover';
 
 import type { IToken } from '../../types';
 import type BigNumber from 'bignumber.js';
@@ -74,28 +72,11 @@ export function TokenInputSection({
       />
 
       {tradeType === ESwapDirection.BUY ? (
-        <Popover
-          title="Select Token"
-          open={isPopoverOpen}
+        <TokenSelectorPopover
+          isOpen={isPopoverOpen}
           onOpenChange={setIsPopoverOpen}
-          renderContent={
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.home,
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-            >
-              <TokenList
-                onTradePress={() => {
-                  setIsPopoverOpen(false);
-                }}
-                tokens={selectableTokens}
-                onTokenPress={handleTokenSelect}
-              />
-            </AccountSelectorProviderMirror>
-          }
-          renderTrigger={<Stack />}
+          tokens={selectableTokens}
+          onTokenPress={handleTokenSelect}
         />
       ) : null}
 
