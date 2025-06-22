@@ -93,14 +93,21 @@ export function TokenList({
     return Promise.all(promises);
   }, [tokens, networkAccount.result, currencySymbol]);
 
-  const displayTokens =
-    tokensWithDetails.result || tokens.map((token) => ({ ...token }));
+  const displayTokens = tokens.map((token) => {
+    const tokenWithDetail = tokensWithDetails.result?.find(
+      (detailToken) =>
+        detailToken.networkId === token.networkId &&
+        detailToken.contractAddress === token.contractAddress,
+    );
+    return { ...token, ...tokenWithDetail };
+  });
 
   return (
     <YStack gap="$1">
       <YStack gap="$1" px="$1" py="$1">
         {displayTokens.map((token: IEnhancedToken) => (
           <TokenListItem
+            isLoading={!token.balance}
             key={`${token.networkId}-${token.contractAddress}`}
             tokenImageSrc={token.logoURI}
             networkImageSrc={token.networkImageSrc}
