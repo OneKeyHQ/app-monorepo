@@ -12,7 +12,7 @@ export interface IActionButtonProps extends IButtonProps {
   token?: {
     symbol: string;
   };
-  totalValue: number;
+  totalValue?: number;
 }
 
 export function ActionButton({
@@ -32,8 +32,8 @@ export function ActionButton({
 
   return (
     <Button variant="primary" size="large" {...props}>
-      {actionText} {displayAmount} {token?.symbol || ''} ($
-      {totalValue.toFixed(2)})
+      {actionText} {displayAmount} {token?.symbol || ''}
+      {typeof totalValue === 'number' ? `(${totalValue.toFixed(2)})` : ''}
     </Button>
   );
 }

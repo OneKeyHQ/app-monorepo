@@ -12,6 +12,7 @@ import { SlippageSetting } from './components/SlippageSetting';
 import { TokenInputSection } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
+import { ESwapDirection } from './hooks/useTradeType';
 
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
@@ -62,7 +63,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tradeType={tradeType}
         value={paymentAmount.toFixed()}
         onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-        selectedToken={paymentToken}
+        selectedToken={
+          tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
+        }
         selectableTokens={defaultTokens}
         onTokenChange={(token) => setPaymentToken(token)}
         balance={balance}
@@ -84,7 +87,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           onPress={onSwap}
           amount={paymentAmount.toFixed()}
           token={paymentToken}
-          totalValue={888} // TODO: Replace with actual totalValue
+          // totalValue={888} // TODO: Replace with actual totalValue
         />
       )}
 

@@ -1,7 +1,13 @@
 import { useCallback, useState } from 'react';
 
-import { YStack } from '@onekeyhq/components';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import {
+  Icon,
+  Image,
+  Input,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -51,24 +57,54 @@ export function TokenInputSection({
     [onTokenChange],
   );
 
+  const isTokenSelectorVisible =
+    tradeType === ESwapDirection.BUY && selectableTokens.length > 1;
+
   return (
     <YStack gap="$0.5">
-      <AmountInput
+      <Input
+        size="large"
+        keyboardType="decimal-pad"
         value={internalValue}
-        onChange={handleInternalChange}
-        inputProps={{
-          placeholder: tradeType === ESwapDirection.BUY ? 'Total' : 'Amount',
-        }}
-        tokenSelectorTriggerProps={{
-          selectedTokenImageUri: selectedToken?.logoURI,
-          selectedTokenSymbol: selectedToken?.symbol,
-          loading: false,
-          disabled: tradeType === ESwapDirection.SELL,
-          onPress:
-            tradeType === ESwapDirection.BUY
-              ? () => setIsPopoverOpen(true)
-              : undefined,
-        }}
+        onChangeText={handleInternalChange}
+        placeholder={tradeType === ESwapDirection.BUY ? 'Total' : 'Amount'}
+        addOns={[
+          {
+            renderContent: (
+              <XStack
+                alignItems="center"
+                gap="$1"
+                px="$2"
+                {...(isTokenSelectorVisible && {
+                  onPress: () => setIsPopoverOpen(true),
+                  userSelect: 'none',
+                  hoverStyle: { bg: '$bgHover' },
+                  pressStyle: { bg: '$bgActive' },
+                  borderCurve: 'continuous',
+                })}
+              >
+                {selectedToken?.logoURI ? (
+                  <Image
+                    src={selectedToken.logoURI}
+                    width="$5"
+                    height="$5"
+                    borderRadius="$full"
+                  />
+                ) : null}
+                <SizableText size="$bodyLg">
+                  {selectedToken?.symbol}
+                </SizableText>
+                {isTokenSelectorVisible ? (
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                ) : null}
+              </XStack>
+            ),
+          },
+        ]}
       />
 
       {tradeType === ESwapDirection.BUY ? (
@@ -82,7 +118,7 @@ export function TokenInputSection({
 
       <QuickAmountSelector
         buyAmounts={
-          selectedToken?.speedSwapDefaultAmount.map((amount) => ({
+          selectedToken?.speedSwapDefaultAmount?.map((amount) => ({
             label: amount.toString(),
             value: amount,
           })) ?? []
