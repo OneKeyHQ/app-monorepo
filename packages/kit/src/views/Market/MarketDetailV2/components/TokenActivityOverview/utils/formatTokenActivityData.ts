@@ -18,13 +18,6 @@ export function formatTokenActivityData(
 
   if (tokenDetail) {
     switch (selectedTimeRange) {
-      case '5m':
-        buys = Number(tokenDetail.buy5mCount) || 0;
-        sells = Number(tokenDetail.sell5mCount) || 0;
-        buyVolume = Number(tokenDetail.vBuy5m) || 0;
-        sellVolume = Number(tokenDetail.vSell5m) || 0;
-        totalVolume = Number(tokenDetail.volume5m) || buyVolume + sellVolume;
-        break;
       case '4h':
         buys = Number(tokenDetail.buy4hCount) || 0;
         sells = Number(tokenDetail.sell4hCount) || 0;

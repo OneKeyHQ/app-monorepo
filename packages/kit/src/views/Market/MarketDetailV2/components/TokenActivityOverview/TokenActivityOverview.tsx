@@ -4,8 +4,9 @@ import { Stack } from '@onekeyhq/components';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
-import { ActivityRow } from './ActivityRow';
-import { TimeRangeSelector } from './TimeRangeSelector';
+import { TimeRangeSelector } from './components/TimeRangeSelector';
+import { TransactionRow } from './components/TransactionRow';
+import { VolumeRow } from './components/VolumeRow';
 import { createTimeRangeOption } from './utils/createTimeRangeOption';
 import { formatTokenActivityData } from './utils/formatTokenActivityData';
 
@@ -54,27 +55,6 @@ export function TokenActivityOverview() {
 
   const totalTransactions = buys + sells;
 
-  const activityData = tokenDetail
-    ? [
-        {
-          label: `Transactions (${selectedTimeRange}): ${totalTransactions}`,
-          buyValue: `Buys (${buys})`,
-          sellValue: `Sells (${sells})`,
-          buyPercentage:
-            totalTransactions > 0 ? (buys / totalTransactions) * 100 : 0,
-        },
-        {
-          label: `Volume (${selectedTimeRange})`,
-          buyValue: `Buy`,
-          sellValue: `Sell`,
-          buyPercentage: totalVolume > 0 ? (buyVolume / totalVolume) * 100 : 0,
-          totalVolume,
-          buyVolume,
-          sellVolume,
-        },
-      ]
-    : [];
-
   return (
     <Stack gap="$5" p="$4">
       <TimeRangeSelector
@@ -82,18 +62,24 @@ export function TokenActivityOverview() {
         value={selectedTimeRange}
         onChange={(value) => setSelectedTimeRange(value)}
       />
-      {activityData.map((activity) => (
-        <ActivityRow
-          key={`activity-${selectedTimeRange}-${activity.label}`}
-          label={activity.label}
-          buyValue={activity.buyValue}
-          sellValue={activity.sellValue}
-          buyPercentage={activity.buyPercentage}
-          totalVolume={activity.totalVolume}
-          buyVolume={activity.buyVolume}
-          sellVolume={activity.sellVolume}
-        />
-      ))}
+      {tokenDetail ? (
+        <>
+          <TransactionRow
+            label="Transactions"
+            timeRange={selectedTimeRange}
+            buyCount={buys}
+            sellCount={sells}
+            totalCount={totalTransactions}
+          />
+          <VolumeRow
+            label="Volume"
+            timeRange={selectedTimeRange}
+            buyVolume={buyVolume}
+            sellVolume={sellVolume}
+            totalVolume={totalVolume}
+          />
+        </>
+      ) : null}
     </Stack>
   );
 }

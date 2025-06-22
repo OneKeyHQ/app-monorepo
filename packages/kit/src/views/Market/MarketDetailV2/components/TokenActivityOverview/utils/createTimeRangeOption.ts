@@ -1,11 +1,7 @@
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 export type IPriceChangeKey =
-  | 'priceChange1mPercent'
-  | 'priceChange5mPercent'
-  | 'priceChange30mPercent'
   | 'priceChange1hPercent'
-  | 'priceChange2hPercent'
   | 'priceChange4hPercent'
   | 'priceChange8hPercent'
   | 'priceChange24hPercent';

@@ -1,17 +1,6 @@
 import { SegmentControl, SizableText, Stack } from '@onekeyhq/components';
 
-type ITimeRangeOption = {
-  label: string;
-  value: string;
-  percentageChange: string;
-  isPositive: boolean;
-};
-
-type ITimeRangeSelectorProps = {
-  options: ITimeRangeOption[];
-  value: string;
-  onChange: (value: string) => void;
-};
+import type { ITimeRangeSelectorProps } from '../types';
 
 export function TimeRangeSelector({
   options,
