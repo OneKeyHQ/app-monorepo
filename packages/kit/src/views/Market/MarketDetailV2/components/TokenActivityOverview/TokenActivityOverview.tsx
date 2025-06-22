@@ -14,28 +14,23 @@ import { createTimeRangeOption } from './utils/createTimeRangeOption';
 import { formatTokenActivityData } from './utils/formatTokenActivityData';
 
 const defaultTimeRangeConfigs: Array<{
-  labelKey: ETranslations | null;
-  fallbackLabel: string;
+  labelKey: string;
   value: string;
 }> = [
   {
-    labelKey: ETranslations.dexmarket_hp_time_fliter_1h,
-    fallbackLabel: '1H',
+    labelKey: '1H',
     value: '1h',
   },
   {
-    labelKey: ETranslations.dexmarket_hp_time_fliter_4h,
-    fallbackLabel: '4H',
+    labelKey: '4H',
     value: '4h',
   },
   {
-    labelKey: null,
-    fallbackLabel: '8H',
+    labelKey: '8H',
     value: '8h',
   },
   {
-    labelKey: ETranslations.dexmarket_hp_time_fliter_24h,
-    fallbackLabel: '24H',
+    labelKey: '24H',
     value: '24h',
   },
 ];
@@ -58,14 +53,12 @@ export function TokenActivityOverview() {
     }
 
     return defaultTimeRangeConfigs.map((config) => ({
-      label: config.labelKey
-        ? intl.formatMessage({ id: config.labelKey })
-        : config.fallbackLabel,
+      label: config.labelKey,
       value: config.value,
       percentageChange: '0.00%',
       isPositive: false,
     }));
-  }, [tokenDetail, intl]);
+  }, [tokenDetail]);
 
   useEffect(() => {
     const isCurrentSelectionValid = timeRangeOptions.some(
