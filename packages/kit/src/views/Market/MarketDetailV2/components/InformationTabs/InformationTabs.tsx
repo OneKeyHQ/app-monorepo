@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Tab } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -29,6 +32,7 @@ const createTransactionsHistoryComponent = (
 };
 
 export function InformationTabs() {
+  const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
   const TransactionsHistoryComponent = useMemo(
@@ -46,18 +50,22 @@ export function InformationTabs() {
       [
         {
           id: 'transactions',
-          title: 'Transactions',
+          title: intl.formatMessage({
+            id: ETranslations.dexmarket_details_transactions,
+          }),
           page: TransactionsHistoryComponent,
         },
         networkId === 'sol--101'
           ? {
               id: 'holders',
-              title: 'Holders',
+              title: intl.formatMessage({
+                id: ETranslations.dexmarket_holders,
+              }),
               page: HoldersComponent,
             }
           : null,
       ].filter(Boolean),
-    [TransactionsHistoryComponent, HoldersComponent, networkId],
+    [TransactionsHistoryComponent, HoldersComponent, networkId, intl],
   );
 
   return <Tab data={tabs} />;

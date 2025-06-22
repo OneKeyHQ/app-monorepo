@@ -1,10 +1,18 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useHoldersLayout } from './useHoldersLayout';
 
 const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
 function HoldersHeaderBase() {
+  const intl = useIntl();
+  const { layoutConfig } = useHoldersLayout();
+
   return (
     <XStack
       px="$4"
@@ -14,20 +22,25 @@ function HoldersHeaderBase() {
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
     >
-      <SizableText {...commonTextProps} minWidth="$6">
-        Rank
+      <SizableText {...commonTextProps} {...layoutConfig.rank}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_holders_rank,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} flex={1}>
-        Address
+      <SizableText {...commonTextProps} {...layoutConfig.address}>
+        {intl.formatMessage({
+          id: ETranslations.global_address,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} minWidth="$16" textAlign="right">
-        %
+      <SizableText {...commonTextProps} {...layoutConfig.amount}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_amount,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} minWidth="$20" textAlign="right">
-        Amount
-      </SizableText>
-      <SizableText {...commonTextProps} minWidth="$20" textAlign="right">
-        Value
+      <SizableText {...commonTextProps} {...layoutConfig.value}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_value,
+        })}
       </SizableText>
     </XStack>
   );

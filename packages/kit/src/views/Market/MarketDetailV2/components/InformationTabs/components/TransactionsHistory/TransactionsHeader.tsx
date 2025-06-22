@@ -1,36 +1,55 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useTransactionsLayout } from './useTransactionsLayout';
 
 const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
 function TransactionsHeaderBase() {
+  const intl = useIntl();
+  const { layoutConfig } = useTransactionsLayout();
+
   return (
     <XStack
       px="$4"
       py="$3"
       alignItems="center"
-      gap="$3"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
     >
-      <SizableText {...commonTextProps} minWidth="$10">
-        Time
+      <SizableText {...commonTextProps} {...layoutConfig.time}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_time,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} minWidth="$10">
-        Type
+      <SizableText {...commonTextProps} {...layoutConfig.type}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_type,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} flex={1} minWidth="$32">
-        Amount
+      <SizableText {...commonTextProps} {...layoutConfig.amount}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_amount,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} minWidth="$14" textAlign="right">
-        Price
+      <SizableText {...commonTextProps} {...layoutConfig.price}>
+        {intl.formatMessage({
+          id: ETranslations.global_price,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} minWidth="$16" textAlign="right">
-        Value
+      <SizableText {...commonTextProps} {...layoutConfig.value}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_value,
+        })}
       </SizableText>
-      <SizableText {...commonTextProps} minWidth="$24">
-        Address
+      <SizableText {...commonTextProps} {...layoutConfig.address}>
+        {intl.formatMessage({
+          id: ETranslations.global_address,
+        })}
       </SizableText>
     </XStack>
   );

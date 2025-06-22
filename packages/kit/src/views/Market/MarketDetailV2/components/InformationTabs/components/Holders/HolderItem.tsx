@@ -5,6 +5,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
+import { useHoldersLayout } from './useHoldersLayout';
+
 interface IHolderItemProps {
   item: IMarketTokenHolder;
   index: number;
@@ -12,6 +14,7 @@ interface IHolderItemProps {
 
 function HolderItemBase({ item, index }: IHolderItemProps) {
   const { copyText } = useClipboard();
+  const { layoutConfig } = useHoldersLayout();
 
   const handleCopyAddress = () => {
     copyText(item.accountAddress);
@@ -30,26 +33,10 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
     return numberFormat(num.toString(), { formatter: 'marketCap' });
   };
 
-  const formatPercent = (percent?: string) => {
-    if (!percent) return '--';
-    const num = parseFloat(percent);
-    if (Number.isNaN(num)) return '--';
-    // If the value appears to be in the 0-1 range convert it to percentage.
-    const value = num < 1 ? num * 100 : num;
-    return `${value.toFixed(2)}%`;
-  };
-
   return (
-    <XStack
-      py="$3"
-      px="$4"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-      alignItems="center"
-      gap="$3"
-    >
+    <XStack py="$3" px="$4" alignItems="center" gap="$3">
       {/* Rank */}
-      <SizableText size="$bodyMd" color="$textSubdued" minWidth="$6">
+      <SizableText size="$bodyMd" color="$textSubdued" {...layoutConfig.rank}>
         #{index + 1}
       </SizableText>
 
@@ -60,12 +47,12 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         borderRadius="$2"
-        px="$2"
+        px="$1"
         py="$1"
         alignItems="center"
         gap="$1"
-        flex={1}
-        minWidth={0}
+        {...layoutConfig.address}
+        mx="$-1"
       >
         <SizableText
           fontFamily="$monoRegular"
@@ -83,33 +70,13 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
         <Icon name="Copy2Outline" size="$4" color="$iconSubdued" />
       </XStack>
 
-      {/* Percentage */}
-      <SizableText
-        size="$bodyMd"
-        color="$text"
-        minWidth="$16"
-        textAlign="right"
-      >
-        {formatPercent(item.percentage)}
-      </SizableText>
-
       {/* Amount */}
-      <SizableText
-        size="$bodyMd"
-        color="$text"
-        minWidth="$20"
-        textAlign="right"
-      >
+      <SizableText size="$bodyMd" color="$text" {...layoutConfig.amount}>
         {formatAmount(item.amount)}
       </SizableText>
 
       {/* Fiat Value */}
-      <SizableText
-        size="$bodyMd"
-        color="$text"
-        minWidth="$20"
-        textAlign="right"
-      >
+      <SizableText size="$bodyMd" color="$text" {...layoutConfig.value}>
         ${formatFiatValue(item.fiatValue)}
       </SizableText>
     </XStack>

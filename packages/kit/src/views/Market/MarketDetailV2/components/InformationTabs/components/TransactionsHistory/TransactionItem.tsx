@@ -12,12 +12,15 @@ import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
+import { useTransactionsLayout } from './useTransactionsLayout';
+
 interface ITransactionItemProps {
   item: IMarketTokenTransaction;
 }
 
 function TransactionItemBase({ item }: ITransactionItemProps) {
   const { copyText } = useClipboard();
+  const { layoutConfig } = useTransactionsLayout();
 
   const handleCopyAddress = () => {
     copyText(item.owner);
@@ -47,34 +50,30 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
   const typeColor = isBuy ? '$textSuccess' : '$textCritical';
 
   return (
-    <XStack
-      py="$3"
-      px="$4"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-      alignItems="center"
-      gap="$3"
-    >
+    <XStack py="$1" px="$4" alignItems="center">
       {/* Time */}
-      <SizableText size="$bodyMd" color="$textSubdued" minWidth="$10">
+      <SizableText size="$bodyMd" color="$textSubdued" {...layoutConfig.time}>
         {formatRelativeTime(item.timestamp)}
       </SizableText>
 
       {/* Type */}
-      <SizableText size="$bodyMdMedium" color={typeColor} minWidth="$10">
+      <SizableText
+        size="$bodyMdMedium"
+        color={typeColor}
+        {...layoutConfig.type}
+      >
         {isBuy ? 'Buy' : 'Sell'}
       </SizableText>
 
       {/* Amount - 2 columns (YStack) x 2 rows layout */}
       <XStack
-        flex={1}
-        minWidth="$32"
+        {...layoutConfig.amount}
         alignItems="center"
-        justifyContent="center"
+        justifyContent="flex-start"
         gap="$1"
       >
         {/* Column 1: amounts */}
-        <YStack w="50%" alignItems="flex-end">
+        <YStack width="49%" alignItems="flex-end">
           <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
             {`${baseSign}${formatAmount(baseToken.amount)}`}
           </SizableText>
@@ -84,7 +83,7 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
         </YStack>
 
         {/* Column 2: symbols */}
-        <YStack w="50%" alignItems="flex-start">
+        <YStack width="49%" alignItems="flex-start">
           <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
             {baseToken.symbol}
           </SizableText>
@@ -95,22 +94,12 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
       </XStack>
 
       {/* Price */}
-      <SizableText
-        size="$bodyMd"
-        color="$text"
-        minWidth="$14"
-        textAlign="right"
-      >
+      <SizableText size="$bodyMd" color="$text" {...layoutConfig.price}>
         ${parseFloat(item.from.price).toFixed(2)}
       </SizableText>
 
       {/* Value */}
-      <SizableText
-        size="$bodyMd"
-        color="$text"
-        minWidth="$16"
-        textAlign="right"
-      >
+      <SizableText size="$bodyMd" color="$text" {...layoutConfig.value}>
         $
         {(parseFloat(item.from.amount) * parseFloat(item.from.price)).toFixed(
           2,
@@ -124,12 +113,12 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         borderRadius="$2"
-        px="$2"
+        px="$1"
         py="$1"
         alignItems="center"
         gap="$1"
-        minWidth="$24"
-        flexShrink={1}
+        {...layoutConfig.address}
+        mx="$-1"
       >
         <SizableText
           fontFamily="$monoRegular"
