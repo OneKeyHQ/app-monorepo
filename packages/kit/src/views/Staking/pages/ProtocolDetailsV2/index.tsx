@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -487,18 +488,25 @@ const ProtocolDetailsPage = () => {
   );
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
-    return detailInfo?.subscriptionValue?.token &&
-      detailInfo?.subscriptionValue?.balance
-      ? {
-          balanceParsed: detailInfo.subscriptionValue.balance,
-          token: detailInfo.subscriptionValue.token.info,
-          price: detailInfo.subscriptionValue.token.price,
-          networkId,
-          provider,
-          vault,
-          accountId,
-        }
-      : undefined;
+    if (!detailInfo?.subscriptionValue?.token) {
+      return undefined;
+    }
+
+    // Use BigNumber to handle balance and fallback to '0' if invalid or missing
+    const balanceBN = new BigNumber(
+      detailInfo.subscriptionValue.balance || '0',
+    );
+    const balanceParsed = balanceBN.isNaN() ? '0' : balanceBN.toFixed();
+
+    return {
+      balanceParsed,
+      token: detailInfo.subscriptionValue.token.info,
+      price: detailInfo.subscriptionValue.token.price,
+      networkId,
+      provider,
+      vault,
+      accountId,
+    };
   }, [
     detailInfo?.subscriptionValue?.token,
     detailInfo?.subscriptionValue.balance,

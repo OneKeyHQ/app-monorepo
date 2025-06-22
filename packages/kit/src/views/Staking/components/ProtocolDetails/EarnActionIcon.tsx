@@ -20,6 +20,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnActionIcon,
   IEarnClaimActionIcon,
+  IEarnClaimWithKycActionIcon,
   IEarnIcon,
   IEarnPopupActionIcon,
   IEarnPortfolioActionIcon,
@@ -256,6 +257,37 @@ function BasicClaimActionIcon({
 
 const ClaimActionIcon = memo(BasicClaimActionIcon);
 
+function BasicClaimWithKycActionIcon({
+  actionIcon,
+  protocolInfo,
+  tokenInfo,
+  token,
+}: {
+  actionIcon: IEarnClaimWithKycActionIcon;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
+  token?: IEarnToken;
+}) {
+  const [loading, setLoading] = useState(false);
+  return (
+    <Button
+      size="small"
+      variant="primary"
+      loading={loading}
+      disabled={loading || actionIcon?.disabled}
+      onPress={() => {
+        console.log('actionIcon: ', actionIcon);
+      }}
+    >
+      {typeof actionIcon.text === 'string'
+        ? actionIcon.text
+        : actionIcon.text.text}
+    </Button>
+  );
+}
+
+const ClaimWithKycActionIcon = memo(BasicClaimWithKycActionIcon);
+
 function BasicEarnActionIcon({
   title,
   actionIcon,
@@ -294,6 +326,14 @@ function BasicEarnActionIcon({
           tokenInfo={tokenInfo}
           token={token}
           actionIcon={actionIcon}
+        />
+      );
+    case 'claimWithKyc':
+      return (
+        <ClaimWithKycActionIcon
+          actionIcon={actionIcon}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
         />
       );
     case 'popup':

@@ -475,6 +475,7 @@ export type IEarnTooltip =
 export enum EClaimType {
   Claim = 'claim',
   ClaimOrder = 'claimOrder',
+  ClaimWithKyc = 'claimWithKyc',
 }
 
 export interface IEarnClaimActionIcon {
@@ -484,6 +485,20 @@ export interface IEarnClaimActionIcon {
   data?: {
     balance: string;
     token: IEarnToken;
+  };
+}
+
+export interface IEarnClaimWithKycActionIcon {
+  type: EClaimType;
+  text: string | IEarnText;
+  disabled: boolean;
+  data?: {
+    balance: string;
+    token: IEarnToken;
+    icon?: IEarnIcon;
+    title?: IEarnText;
+    description?: IEarnText[];
+    button?: IEarnLinkActionIcon;
   };
 }
 
