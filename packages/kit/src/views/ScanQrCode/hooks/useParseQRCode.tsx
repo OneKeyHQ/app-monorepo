@@ -82,7 +82,9 @@ const useParseQRCode = () => {
       );
 
       if (!options?.autoHandleResult) {
-        popNavigation?.();
+        if (result.type !== EQRCodeHandlerType.ANIMATION_CODE) {
+          await closeScanPage();
+        }
         return result;
       }
 
