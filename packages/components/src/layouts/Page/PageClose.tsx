@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren } from 'react';
 import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';

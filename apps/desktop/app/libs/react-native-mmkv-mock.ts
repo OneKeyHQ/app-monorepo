@@ -1,29 +1,29 @@
 /* eslint-disable no-useless-constructor, @typescript-eslint/no-useless-constructor */
 export class MMKV {
-  constructor(options?: { id?: string }) {
+  constructor(_options?: { id?: string }) {
     // Mock implementation
   }
 
-  set(key: string, value: string | number | boolean): void {
+  set(_key: string, _value: string | number | boolean): void {
     // Mock implementation
   }
 
-  getString(key: string): string | undefined {
-    // Mock implementation
-    return undefined;
-  }
-
-  getNumber(key: string): number | undefined {
+  getString(_key: string): string | undefined {
     // Mock implementation
     return undefined;
   }
 
-  getBoolean(key: string): boolean | undefined {
+  getNumber(_key: string): number | undefined {
     // Mock implementation
     return undefined;
   }
 
-  delete(key: string): void {
+  getBoolean(_key: string): boolean | undefined {
+    // Mock implementation
+    return undefined;
+  }
+
+  delete(_key: string): void {
     // Mock implementation
   }
 
