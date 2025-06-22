@@ -770,7 +770,7 @@ export const DevSettingsSection = () => {
         title="Use TradingView Test"
         subtitle={
           devSettings.settings?.useTradingViewTestDomain
-            ? '新版 TradingView'Add commentMore actions
+            ? '新版 TradingView'
             : '旧版 TradingView'
         }
       >
