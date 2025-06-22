@@ -37,20 +37,20 @@ function ScanCorner({
     <Stack
       position="absolute"
       top={
-        direction === 'topLeft' || direction === 'topRight' ? '$4' : undefined
+        direction === 'topLeft' || direction === 'topRight' ? '$2' : undefined
       }
       right={
         direction === 'topRight' || direction === 'bottomRight'
-          ? '$4'
+          ? '$2'
           : undefined
       }
       bottom={
         direction === 'bottomLeft' || direction === 'bottomRight'
-          ? '$4'
+          ? '$2'
           : undefined
       }
       left={
-        direction === 'topLeft' || direction === 'bottomLeft' ? '$4' : undefined
+        direction === 'topLeft' || direction === 'bottomLeft' ? '$2' : undefined
       }
       w="$8"
       h="$8"
@@ -240,11 +240,11 @@ export function ScanQrCode({
             <ScanCorner direction="topRight" detected={detected} />
             <ScanCorner direction="bottomLeft" detected={detected} />
             <ScanCorner direction="bottomRight" detected={detected} />
-            <Corner position="absolute" top="$8" left="$8" />
-            <Corner position="absolute" top="$8" right="$8" />
-            <Corner position="absolute" bottom="$8" left="$8" />
-            <Corner position="absolute" bottom="$8" right="$8" />
-            {platformEnv.isNativeAndroid ? null : <BlurView w="$20" h="$20" />}
+            <Corner position="absolute" top="$5" left="$5" />
+            <Corner position="absolute" top="$5" right="$5" />
+            <Corner position="absolute" bottom="$5" left="$5" />
+            <Corner position="absolute" bottom="$5" right="$5" />
+            {platformEnv.isNativeAndroid ? null : <BlurView w="$36" h="$36" />}
           </YStack>
         </>
       ) : null}
