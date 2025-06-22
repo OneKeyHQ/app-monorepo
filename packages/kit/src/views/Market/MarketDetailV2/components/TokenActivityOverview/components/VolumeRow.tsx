@@ -39,7 +39,7 @@ export function VolumeRow({
       <Progress value={buyPercentage} progressColor="$bgSuccessStrong" />
       <Stack flexDirection="row" justifyContent="space-between">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_buy })}{' '}
+          {intl.formatMessage({ id: ETranslations.global_buy })} (
           <NumberSizeableText
             formatter="marketCap"
             formatterOptions={{ currency: '$' }}
@@ -48,9 +48,10 @@ export function VolumeRow({
           >
             {buyVolume}
           </NumberSizeableText>
+          )
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_sell })}{' '}
+          {intl.formatMessage({ id: ETranslations.global_sell })} (
           <NumberSizeableText
             formatter="marketCap"
             formatterOptions={{ currency: '$' }}
@@ -59,6 +60,7 @@ export function VolumeRow({
           >
             {sellVolume}
           </NumberSizeableText>
+          )
         </SizableText>
       </Stack>
     </Stack>

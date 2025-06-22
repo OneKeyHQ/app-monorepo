@@ -28,13 +28,13 @@ export function TransactionRow({
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_transactions_buy,
           })}{' '}
-          {buyCount}
+          ({buyCount})
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_transactions_sell,
           })}{' '}
-          {sellCount}
+          ({sellCount})
         </SizableText>
       </Stack>
     </Stack>
