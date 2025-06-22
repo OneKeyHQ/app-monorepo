@@ -300,7 +300,7 @@ class ED25519Bip32KeyDeriver implements IBip32KeyDeriver {
     return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
   }
 
-  CKDPub(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
+  CKDPub(_parent: IBip32ExtendedKey, _index: number): IBip32ExtendedKey {
     // CKDPub(parent: ExtendedKey, index: number): ExtendedKey {
     throw Error('CKDPub is not supported for ed25519.');
   }
