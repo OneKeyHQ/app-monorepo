@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { InteractionManager, Keyboard } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
