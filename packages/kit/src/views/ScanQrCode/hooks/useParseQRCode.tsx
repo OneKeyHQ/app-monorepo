@@ -8,7 +8,6 @@ import {
   Stack,
   Toast,
   ToastContent,
-  rootNavigationRef,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -31,7 +30,6 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
@@ -40,6 +38,7 @@ const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
   const intl = useIntl();
+
   const showCopyDialog = useCallback(
     (content: string) => {
       Dialog.confirm({
@@ -183,103 +182,16 @@ const useParseQRCode = () => {
               }
             }
 
-            let token: IToken | null;
-            if (chainValue.tokenAddress) {
-              token = await backgroundApiProxy.serviceToken.getToken({
-                networkId,
-                accountId,
-                tokenIdOnNetwork: chainValue.tokenAddress,
-              });
-              if (!token) {
-                // navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-                //   screen: EModalSignatureConfirmRoutes.TxSelectToken,
-                //   params: {
-                //     title: intl.formatMessage({
-                //       id: ETranslations.global_send,
-                //     }),
-                //     searchPlaceholder: intl.formatMessage({
-                //       id: ETranslations.global_search_asset,
-                //     }),
-                //     networkId: network.id,
-                //     accountId: account?.id ?? '',
-                //     tokens: {
-                //       data: allTokens.tokens,
-                //       keys: allTokens.keys,
-                //       map,
-                //     },
-                //     tokenListState,
-                //     closeAfterSelect: false,
-                //     onSelect: async (token: IToken) => {
-                //       const settings =
-                //         await backgroundApiProxy.serviceNetwork.getVaultSettings(
-                //           {
-                //             networkId: token.networkId ?? '',
-                //           },
-                //         );
-
-                //       if (
-                //         settings.mergeDeriveAssetsEnabled &&
-                //         network.isAllNetworks &&
-                //         !accountUtils.isOthersWallet({
-                //           walletId: wallet?.id ?? '',
-                //         })
-                //       ) {
-                //         const walletId = accountUtils.getWalletIdFromAccountId({
-                //           accountId: token.accountId ?? '',
-                //         });
-                //         navigation.push(
-                //           EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
-                //           {
-                //             networkId: token.networkId ?? '',
-                //             indexedAccountId: indexedAccount?.id ?? '',
-                //             walletId,
-                //             accountId: token.accountId ?? '',
-                //             actionType: EDeriveAddressActionType.Select,
-                //             token,
-                //             tokenMap: map,
-                //             onUnmounted: () => {},
-                //             onSelected: ({
-                //               account: a,
-                //             }: {
-                //               account: INetworkAccount;
-                //             }) => {
-                //               navigation.push(
-                //                 EModalSignatureConfirmRoutes.TxDataInput,
-                //                 {
-                //                   accountId: a.id,
-                //                   networkId: token.networkId ?? network.id,
-                //                   isNFT: false,
-                //                   token,
-                //                   isAllNetworks: network?.isAllNetworks,
-                //                 },
-                //               );
-                //             },
-                //           },
-                //         );
-                //         break;
-                //       }
-
-                //       navigation.push(
-                //         EModalSignatureConfirmRoutes.TxDataInput,
-                //         {
-                //           accountId: token.accountId ?? account?.id ?? '',
-                //           networkId: token.networkId ?? network.id,
-                //           isNFT: false,
-                //           token,
-                //           isAllNetworks: network?.isAllNetworks,
-                //         },
-                //       );
-                //     },
-                //   },
-                // });
-                break;
-              }
-            } else {
-              token = await backgroundApiProxy.serviceToken.getNativeToken({
-                networkId: network.id,
-                accountId: account.id,
-              });
-            }
+            const selectedToken = chainValue.tokenAddress
+              ? await backgroundApiProxy.serviceToken.getToken({
+                  networkId,
+                  accountId,
+                  tokenIdOnNetwork: chainValue.tokenAddress,
+                })
+              : await backgroundApiProxy.serviceToken.getNativeToken({
+                  networkId: network.id,
+                  accountId: account.id,
+                });
             await closeScanPage();
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
@@ -289,7 +201,7 @@ const useParseQRCode = () => {
                 activeAccountId: params.account?.id,
                 activeNetworkId: params.network?.id,
                 isNFT: false,
-                token,
+                token: selectedToken,
                 address: chainValue.address,
                 amount: chainValue?.amount,
               },
@@ -362,7 +274,7 @@ const useParseQRCode = () => {
       }
       return result;
     },
-    [navigation, showCopyDialog, intl],
+    [navigation, intl, showCopyDialog],
   );
   return useMemo(() => ({ parse }), [parse]);
 };
