@@ -1,12 +1,9 @@
 import { useIntl } from 'react-intl';
 
-import {
-  NumberSizeableText,
-  Progress,
-  SizableText,
-  Stack,
-} from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { BuySellRatioBar } from './BuySellRatioBar';
 
 import type { IVolumeRowProps } from '../types';
 
@@ -36,7 +33,7 @@ export function VolumeRow({
           </NumberSizeableText>
         </SizableText>
       </Stack>
-      <Progress value={buyPercentage} progressColor="$bgSuccessStrong" />
+      <BuySellRatioBar buyPercentage={buyPercentage} />
       <Stack flexDirection="row" justifyContent="space-between">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_buy })} (

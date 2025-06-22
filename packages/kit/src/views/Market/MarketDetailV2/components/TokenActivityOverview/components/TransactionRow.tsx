@@ -1,7 +1,9 @@
 import { useIntl } from 'react-intl';
 
-import { Progress, SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { BuySellRatioBar } from './BuySellRatioBar';
 
 import type { ITransactionRowProps } from '../types';
 
@@ -22,7 +24,7 @@ export function TransactionRow({
           {label} ({timeRange}): {totalCount}
         </SizableText>
       </Stack>
-      <Progress value={buyPercentage} progressColor="$bgSuccessStrong" />
+      <BuySellRatioBar buyPercentage={buyPercentage} />
       <Stack flexDirection="row" justifyContent="space-between">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
