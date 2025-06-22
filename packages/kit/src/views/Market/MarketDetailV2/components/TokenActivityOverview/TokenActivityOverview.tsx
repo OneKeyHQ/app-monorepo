@@ -40,36 +40,19 @@ export function TokenActivityOverview() {
   }, [tokenDetail]);
 
   useEffect(() => {
-    if (
-      timeRangeOptions.some((option) =>
-        defaultTimeRangeConfigs.every((cfg) => cfg.label !== option.label),
-      )
-    ) {
-      if (!timeRangeOptions.find((o) => o.value === selectedTimeRange)) {
-        setSelectedTimeRange(timeRangeOptions[0].value);
-      }
-    } else {
-      const isSelectedTimeRangeValidOrDefault = defaultTimeRangeConfigs.some(
-        (config) => config.value === selectedTimeRange,
-      );
-      if (!isSelectedTimeRangeValidOrDefault) {
-        setSelectedTimeRange('1h');
-      }
+    const isCurrentSelectionValid = timeRangeOptions.some(
+      (option) => option.value === selectedTimeRange,
+    );
+
+    if (!isCurrentSelectionValid && timeRangeOptions.length > 0) {
+      setSelectedTimeRange(timeRangeOptions[0].value);
     }
   }, [timeRangeOptions, selectedTimeRange]);
 
-  const { buys, sells, buyVolume, sellVolume } = formatTokenActivityData(
-    tokenDetail,
-    selectedTimeRange,
-  );
-
-  // Simplified: assuming each buy/sell action is a unique buyer/seller for this period
-  const buyersCount = buys;
-  const sellersCount = sells;
+  const { buys, sells, buyVolume, sellVolume, totalVolume } =
+    formatTokenActivityData(tokenDetail, selectedTimeRange);
 
   const totalTransactions = buys + sells;
-  const totalTurnover = buyVolume + sellVolume;
-  const totalTraders = buyersCount + sellersCount; // This is a simplification
 
   const activityData = tokenDetail
     ? [
@@ -81,20 +64,13 @@ export function TokenActivityOverview() {
             totalTransactions > 0 ? (buys / totalTransactions) * 100 : 0,
         },
         {
-          label: `Turnover (${selectedTimeRange}): $${totalTurnover.toFixed(
-            2,
-          )}`,
-          buyValue: `Buy ($${buyVolume.toFixed(2)})`,
-          sellValue: `Sell ($${sellVolume.toFixed(2)})`,
-          buyPercentage:
-            totalTurnover > 0 ? (buyVolume / totalTurnover) * 100 : 0,
-        },
-        {
-          label: `Traders (${selectedTimeRange}): ${totalTraders}`,
-          buyValue: `Buyers (${buyersCount})`,
-          sellValue: `Sellers (${sellersCount})`,
-          buyPercentage:
-            totalTraders > 0 ? (buyersCount / totalTraders) * 100 : 0,
+          label: `Volume (${selectedTimeRange})`,
+          buyValue: `Buy`,
+          sellValue: `Sell`,
+          buyPercentage: totalVolume > 0 ? (buyVolume / totalVolume) * 100 : 0,
+          totalVolume,
+          buyVolume,
+          sellVolume,
         },
       ]
     : [];
@@ -113,6 +89,9 @@ export function TokenActivityOverview() {
           buyValue={activity.buyValue}
           sellValue={activity.sellValue}
           buyPercentage={activity.buyPercentage}
+          totalVolume={activity.totalVolume}
+          buyVolume={activity.buyVolume}
+          sellVolume={activity.sellVolume}
         />
       ))}
     </Stack>
