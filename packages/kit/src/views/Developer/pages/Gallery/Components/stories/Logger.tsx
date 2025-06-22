@@ -7,7 +7,7 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
-import { exportLogs } from '@onekeyhq/kit/src/views/Setting/pages/List/ResourceSection/StateLogsItem/logs';
+import { exportLogs } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import perfUtils, {
   EPerformanceTimerLogNames,

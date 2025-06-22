@@ -1,23 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
 // eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { useSearchParams } from 'react-router-dom';
 
-import { Toast } from '@onekeyhq/components';
-import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
-import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
   IPackage,
@@ -31,21 +23,38 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export function usePrimePaymentMethods(): IUsePrimePayment {
-  const { user, isReady: isAuthReady } = usePrimeAuthV2();
-  const [, setPrimePersistAtom] = usePrimePersistAtom();
-  const isReady = isAuthReady;
+  const isReady = true;
+
+  const [searchParams] = useSearchParams();
+
+  const params = useMemo(() => {
+    const apiKey = searchParams.get('apiKey') || '';
+    const primeUserId = searchParams.get('primeUserId') || '';
+    const primeUserEmail = searchParams.get('primeUserEmail') || '';
+    const subscriptionPeriod = (searchParams.get('subscriptionPeriod') ||
+      '') as ISubscriptionPeriod;
+    const locale = searchParams.get('locale') || 'en';
+    const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
+    return {
+      apiKey,
+      primeUserId,
+      primeUserEmail,
+      subscriptionPeriod,
+      locale,
+      mode,
+    };
+  }, [searchParams]);
 
   const initSdk = useCallback(async () => {
-    const { apiKey } = await getPrimePaymentApiKey({
-      apiKeyType: 'web',
-    });
+    const apiKey = params.apiKey;
+    const primeUserId = params.primeUserId;
     if (!isReady) {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
     if (!apiKey) {
       throw new OneKeyLocalError('No REVENUECAT api key found');
     }
-    if (!user?.privyUserId) {
+    if (!primeUserId) {
       throw new OneKeyLocalError('User not logged in');
     }
 
@@ -55,8 +64,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
-    Purchases.configure(apiKey, user?.privyUserId || '');
-  }, [isReady, user?.privyUserId]);
+    Purchases.configure(apiKey, primeUserId);
+  }, [isReady, params.apiKey, params.primeUserId]);
 
   const getCustomerInfo = useCallback(async () => {
     await initSdk();
@@ -67,17 +76,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     console.log('revenuecat customerInfo', customerInfo);
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
-    if (appUserId !== user?.privyUserId) {
+    if (appUserId !== params.primeUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
-
-    setPrimePersistAtom((prev): IPrimeUserInfo => {
-      const newData: IPrimeUserInfo = {
-        ...prev,
-        subscriptionManageUrl: customerInfo.managementURL || '',
-      };
-      return perfUtils.buildNewValueIfChanged(prev, newData);
-    });
 
     if ('gold_entitlement' in customerInfo.entitlements.active) {
       // Grant user access to the entitlement "gold_entitlement"
@@ -85,7 +86,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }
 
     return customerInfo;
-  }, [initSdk, setPrimePersistAtom, user?.privyUserId]);
+  }, [initSdk, params.primeUserId]);
 
   const getPackagesWeb = useCallback(async () => {
     await initSdk();
@@ -202,7 +203,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         // visa: 4242424242424242
         return purchase;
       } catch (error) {
-        errorToastUtils.toastIfError(error);
+        console.error('purchasePaywallPackage ERROR', error);
+        // TODO alert error
+        // errorToastUtils.toastIfError(error);
         throw error;
       } finally {
         // will block stripe modal
@@ -212,16 +215,6 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     [initSdk, isReady],
   );
 
-  const intl = useIntl();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const testToast = useCallback(() => {
-    Toast.success({
-      title: intl.formatMessage({
-        id: ETranslations.prime_restore_successful,
-      }),
-    });
-  }, [intl]);
-
   return {
     isReady,
     purchasePackageNative: undefined,
@@ -230,5 +223,6 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     getPackagesWeb,
     purchasePackageWeb,
     getCustomerInfo,
+    webEmbedQueryParams: params,
   };
 }
