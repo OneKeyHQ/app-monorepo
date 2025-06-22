@@ -1,9 +1,12 @@
+import { useIntl } from 'react-intl';
+
 import {
   NumberSizeableText,
   Progress,
   SizableText,
   Stack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IVolumeRowProps } from '../types';
 
@@ -14,6 +17,7 @@ export function VolumeRow({
   sellVolume,
   totalVolume,
 }: IVolumeRowProps) {
+  const intl = useIntl();
   const buyPercentage = totalVolume > 0 ? (buyVolume / totalVolume) * 100 : 0;
 
   return (
@@ -35,7 +39,7 @@ export function VolumeRow({
       <Progress value={buyPercentage} progressColor="$bgSuccessStrong" />
       <Stack flexDirection="row" justifyContent="space-between">
         <SizableText size="$bodyMd" color="$textSubdued">
-          Buy{' '}
+          {intl.formatMessage({ id: ETranslations.global_buy })}{' '}
           <NumberSizeableText
             formatter="marketCap"
             formatterOptions={{ currency: '$' }}
@@ -46,7 +50,7 @@ export function VolumeRow({
           </NumberSizeableText>
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          Sell{' '}
+          {intl.formatMessage({ id: ETranslations.global_sell })}{' '}
           <NumberSizeableText
             formatter="marketCap"
             formatterOptions={{ currency: '$' }}

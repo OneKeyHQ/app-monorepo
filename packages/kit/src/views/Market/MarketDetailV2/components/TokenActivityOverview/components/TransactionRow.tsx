@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { Progress, SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ITransactionRowProps } from '../types';
 
@@ -9,6 +12,7 @@ export function TransactionRow({
   sellCount,
   totalCount,
 }: ITransactionRowProps) {
+  const intl = useIntl();
   const buyPercentage = totalCount > 0 ? (buyCount / totalCount) * 100 : 0;
 
   return (
@@ -21,10 +25,16 @@ export function TransactionRow({
       <Progress value={buyPercentage} progressColor="$bgSuccessStrong" />
       <Stack flexDirection="row" justifyContent="space-between">
         <SizableText size="$bodyMd" color="$textSubdued">
-          Buys ({buyCount})
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_transactions_buy,
+          })}{' '}
+          {buyCount}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          Sells ({sellCount})
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_transactions_sell,
+          })}{' '}
+          {sellCount}
         </SizableText>
       </Stack>
     </Stack>

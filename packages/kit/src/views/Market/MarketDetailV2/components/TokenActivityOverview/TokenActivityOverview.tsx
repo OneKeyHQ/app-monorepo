@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -10,14 +13,35 @@ import { VolumeRow } from './components/VolumeRow';
 import { createTimeRangeOption } from './utils/createTimeRangeOption';
 import { formatTokenActivityData } from './utils/formatTokenActivityData';
 
-const defaultTimeRangeConfigs = [
-  { label: '1H', value: '1h' },
-  { label: '4H', value: '4h' },
-  { label: '8H', value: '8h' },
-  { label: '24H', value: '24h' },
+const defaultTimeRangeConfigs: Array<{
+  labelKey: ETranslations | null;
+  fallbackLabel: string;
+  value: string;
+}> = [
+  {
+    labelKey: ETranslations.dexmarket_hp_time_fliter_1h,
+    fallbackLabel: '1H',
+    value: '1h',
+  },
+  {
+    labelKey: ETranslations.dexmarket_hp_time_fliter_4h,
+    fallbackLabel: '4H',
+    value: '4h',
+  },
+  {
+    labelKey: null,
+    fallbackLabel: '8H',
+    value: '8h',
+  },
+  {
+    labelKey: ETranslations.dexmarket_hp_time_fliter_24h,
+    fallbackLabel: '24H',
+    value: '24h',
+  },
 ];
 
 export function TokenActivityOverview() {
+  const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
   const { tokenDetail } = useTokenDetail();
 
@@ -34,11 +58,14 @@ export function TokenActivityOverview() {
     }
 
     return defaultTimeRangeConfigs.map((config) => ({
-      ...config,
+      label: config.labelKey
+        ? intl.formatMessage({ id: config.labelKey })
+        : config.fallbackLabel,
+      value: config.value,
       percentageChange: '0.00%',
       isPositive: false,
     }));
-  }, [tokenDetail]);
+  }, [tokenDetail, intl]);
 
   useEffect(() => {
     const isCurrentSelectionValid = timeRangeOptions.some(
@@ -65,14 +92,20 @@ export function TokenActivityOverview() {
       {tokenDetail ? (
         <>
           <TransactionRow
-            label="Transactions"
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions,
+            })}
             timeRange={selectedTimeRange}
             buyCount={buys}
             sellCount={sells}
             totalCount={totalTransactions}
           />
           <VolumeRow
-            label="Volume"
+            label={intl
+              .formatMessage({
+                id: ETranslations.market_volume_percentage,
+              })
+              .replace(' %', '')}
             timeRange={selectedTimeRange}
             buyVolume={buyVolume}
             sellVolume={sellVolume}
