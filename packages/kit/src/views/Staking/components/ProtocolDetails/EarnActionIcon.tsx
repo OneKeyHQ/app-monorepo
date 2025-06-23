@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showClaimWithKycDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
@@ -34,6 +35,73 @@ import type {
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
 import { EarnIcon } from './EarnIcon';
+
+// Hook to handle claim action press
+function useHandleClaimAction({
+  protocolInfo,
+  tokenInfo,
+  token,
+}: {
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
+  token?: IEarnToken;
+}) {
+  const handleClaim = useHandleClaim({
+    accountId: protocolInfo?.earnAccount?.accountId || '',
+    networkId: tokenInfo?.networkId || '',
+  });
+
+  return useCallback(
+    async ({
+      actionIcon,
+      setLoading,
+    }: {
+      actionIcon: IEarnClaimActionIcon;
+      setLoading: (loading: boolean) => void;
+    }) => {
+      setLoading(true);
+      setTimeout(() => {
+        setLoading(false);
+      }, 10 * 1000);
+      const claimAmount =
+        protocolInfo?.claimable || actionIcon.data?.balance || '0';
+      const isMorphoClaim = !!(
+        tokenInfo?.provider &&
+        earnUtils.isMorphoProvider({
+          providerName: tokenInfo?.provider,
+        })
+      );
+      await handleClaim({
+        claimType: actionIcon.type,
+        symbol: protocolInfo?.symbol || '',
+        protocolInfo,
+        tokenInfo: tokenInfo
+          ? {
+              ...tokenInfo,
+              token: token as IEarnToken,
+            }
+          : undefined,
+        claimAmount,
+        claimTokenAddress: token?.address,
+        isMorphoClaim,
+        stakingInfo: {
+          label: EEarnLabels.Claim,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: tokenInfo?.provider || '',
+          }),
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          receive: {
+            token: token as IEarnToken,
+            amount: claimAmount,
+          },
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+        },
+      });
+      setLoading(false);
+    },
+    [handleClaim, protocolInfo, tokenInfo, token],
+  );
+}
 
 function PopupItemLine({
   icon,
@@ -196,58 +264,20 @@ function BasicClaimActionIcon({
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
 }) {
-  const handleClaim = useHandleClaim({
-    accountId: protocolInfo?.earnAccount?.accountId || '',
-    networkId: tokenInfo?.networkId || '',
-  });
   const [loading, setLoading] = useState(false);
+  const handleClaimAction = useHandleClaimAction({
+    protocolInfo,
+    tokenInfo,
+    token,
+  });
+
   return (
     <Button
       size="small"
       variant="primary"
       loading={loading}
       disabled={loading || actionIcon?.disabled}
-      onPress={async () => {
-        setLoading(true);
-        setTimeout(() => {
-          setLoading(false);
-        }, 10 * 1000);
-        const claimAmount =
-          protocolInfo?.claimable || actionIcon.data?.balance || '0';
-        const isMorphoClaim = !!(
-          tokenInfo?.provider &&
-          earnUtils.isMorphoProvider({
-            providerName: tokenInfo?.provider,
-          })
-        );
-        await handleClaim({
-          claimType: actionIcon.type,
-          symbol: protocolInfo?.symbol || '',
-          protocolInfo,
-          tokenInfo: tokenInfo
-            ? {
-                ...tokenInfo,
-                token: token as IEarnToken,
-              }
-            : undefined,
-          claimAmount,
-          claimTokenAddress: token?.address,
-          isMorphoClaim,
-          stakingInfo: {
-            label: EEarnLabels.Claim,
-            protocol: earnUtils.getEarnProviderName({
-              providerName: tokenInfo?.provider || '',
-            }),
-            protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-            receive: {
-              token: token as IEarnToken,
-              amount: claimAmount,
-            },
-            tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
-          },
-        });
-        setLoading(false);
-      }}
+      onPress={() => handleClaimAction({ actionIcon, setLoading })}
     >
       {typeof actionIcon.text === 'string'
         ? actionIcon.text
@@ -260,19 +290,96 @@ const ClaimActionIcon = memo(BasicClaimActionIcon);
 
 function BasicClaimWithKycActionIcon({
   actionIcon,
+  protocolInfo,
+  tokenInfo,
 }: {
   actionIcon: IEarnClaimWithKycActionIcon;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
 }) {
+  const [loading, setLoading] = useState(false);
+  const handleClaimAction = useHandleClaimAction({
+    protocolInfo,
+    tokenInfo,
+    token: actionIcon.data?.token,
+  });
+
+  const handlePress = useCallback(async () => {
+    if (!tokenInfo || !protocolInfo) {
+      // If we don't have the necessary info, show dialog with current data
+      showClaimWithKycDialog({
+        actionData: actionIcon,
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Get fresh data from API
+      const response =
+        await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
+          accountId: protocolInfo.earnAccount?.accountId || '',
+          networkId: tokenInfo?.networkId || '',
+          indexedAccountId: tokenInfo?.indexedAccountId,
+          symbol: protocolInfo.symbol || '',
+          provider: protocolInfo.provider,
+          vault: protocolInfo.vault,
+        });
+
+      // Find the updated action in portfolios
+      // Search in portfolios.items[].buttons
+      const buttons =
+        response?.portfolios?.items
+          ?.flatMap((item) => item.buttons || [])
+          .filter((button) => 'type' in button) || [];
+
+      const latestClaimWithKycAction = buttons.find(
+        (button) => button.type === 'claimWithKyc',
+      ) as IEarnClaimWithKycActionIcon | undefined;
+
+      const latestClaimAction = !latestClaimWithKycAction
+        ? (buttons.find((button) => button.type === 'claim') as
+            | IEarnClaimActionIcon
+            | undefined)
+        : undefined;
+
+      // Priority: claimWithKyc > claim > no response
+      if (latestClaimWithKycAction) {
+        // Use the latest claimWithKyc data
+        showClaimWithKycDialog({
+          actionData: latestClaimWithKycAction,
+        });
+      } else if (latestClaimAction) {
+        // Use the extracted claim action hook for fallback behavior
+        await handleClaimAction({
+          actionIcon: latestClaimAction,
+          setLoading,
+        });
+      } else {
+        // No valid action found, use current data
+        console.warn('No claimWithKyc or claim action found in updated data');
+        showClaimWithKycDialog({
+          actionData: actionIcon,
+        });
+      }
+    } catch (error) {
+      // If API call fails, show dialog with current data
+      console.error('Failed to fetch latest claimWithKyc data:', error);
+      showClaimWithKycDialog({
+        actionData: actionIcon,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [actionIcon, protocolInfo, tokenInfo, handleClaimAction]);
+
   return (
     <Button
       size="small"
       variant="primary"
-      disabled={actionIcon?.disabled}
-      onPress={() => {
-        showClaimWithKycDialog({
-          actionData: actionIcon,
-        });
-      }}
+      loading={loading}
+      disabled={loading || actionIcon?.disabled}
+      onPress={handlePress}
     >
       {typeof actionIcon.text === 'string'
         ? actionIcon.text
@@ -324,7 +431,13 @@ function BasicEarnActionIcon({
         />
       );
     case 'claimWithKyc':
-      return <ClaimWithKycActionIcon actionIcon={actionIcon} />;
+      return (
+        <ClaimWithKycActionIcon
+          actionIcon={actionIcon}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
+        />
+      );
     case 'popup':
       return actionIcon.data.icon ? (
         <Popover
