@@ -156,7 +156,7 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     needs: [test-web, build-production]
-    if: ${{ always() }}
+    if: ${{ github.event.workflow_run && always() }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v3
