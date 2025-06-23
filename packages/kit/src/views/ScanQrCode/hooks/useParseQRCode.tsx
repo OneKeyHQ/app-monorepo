@@ -13,6 +13,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
+  IAnimationValue,
   IBaseValue,
   IChainValue,
   IMarketDetailValue,
@@ -82,7 +83,11 @@ const useParseQRCode = () => {
       );
 
       if (!options?.autoHandleResult) {
-        if (result.type !== EQRCodeHandlerType.ANIMATION_CODE) {
+        if (
+          result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
+          (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
+            (result.data as IAnimationValue).progress === 1)
+        ) {
           await closeScanPage();
         }
         return result;
