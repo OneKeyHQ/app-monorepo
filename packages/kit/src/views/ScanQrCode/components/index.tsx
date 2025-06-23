@@ -225,7 +225,7 @@ export function ScanQrCode({
     void handlePermission();
   }, [handlePermission]);
 
-  const detected = !!(progress && progress > 0);
+  // const detected = !!(progress && progress > 0);
   return currentPermission === PermissionStatus.GRANTED ? (
     <ScanCamera
       style={{
