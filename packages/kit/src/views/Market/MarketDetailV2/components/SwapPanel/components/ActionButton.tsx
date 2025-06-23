@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
@@ -13,6 +14,7 @@ export interface IActionButtonProps extends IButtonProps {
     symbol: string;
   };
   totalValue?: number;
+  balance?: BigNumber;
 }
 
 export function ActionButton({
@@ -20,7 +22,10 @@ export function ActionButton({
   amount,
   token,
   totalValue,
-  ...props
+  balance,
+  disabled,
+  onPress,
+  ...otherProps
 }: IActionButtonProps) {
   const intl = useIntl();
   const actionText =
@@ -30,10 +35,34 @@ export function ActionButton({
   const numericAmount = parseFloat(amount);
   const displayAmount = Number.isNaN(numericAmount) ? '' : amount;
 
+  // Check for insufficient balance for both buy and sell operations
+  const amountBN = new BigNumber(amount || 0);
+  const hasAmount = amountBN.gt(0);
+  const isInsufficientBalance = balance && hasAmount && amountBN.gt(balance);
+
+  // Disable button if insufficient balance
+  const shouldDisable = isInsufficientBalance;
+
+  let buttonText = `${actionText} ${displayAmount} ${token?.symbol || ''}`;
+  if (typeof totalValue === 'number') {
+    buttonText += `(${totalValue.toFixed(2)})`;
+  }
+
+  if (shouldDisable) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_insufficient_balance,
+    });
+  }
+
   return (
-    <Button variant="primary" size="large" {...props}>
-      {actionText} {displayAmount} {token?.symbol || ''}
-      {typeof totalValue === 'number' ? `(${totalValue.toFixed(2)})` : ''}
+    <Button
+      variant="primary"
+      size="large"
+      disabled={shouldDisable || disabled}
+      onPress={shouldDisable ? undefined : onPress}
+      {...otherProps}
+    >
+      {buttonText}
     </Button>
   );
 }
