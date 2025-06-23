@@ -201,7 +201,7 @@ function ProtocolListDialogContent({
           secondary={item.provider.description || ''}
         />
         <ListItem.Text
-          alignItems="flex-start"
+          alignSelf="flex-start"
           primary={
             item.provider.aprWithoutFee &&
             Number(item.provider.aprWithoutFee) > 0
