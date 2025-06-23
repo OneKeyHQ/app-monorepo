@@ -6,7 +6,10 @@ import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EApproveType, EWithdrawType } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  EStakingActionType,
+} from '@onekeyhq/shared/types/staking';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
@@ -25,7 +28,7 @@ export const useHandleWithdraw = () => {
       provider,
       onSuccess,
     }: {
-      withdrawType: EWithdrawType;
+      withdrawType: EStakingActionType;
       protocolInfo?: IProtocolInfo;
       tokenInfo?: IEarnTokenInfo;
       accountId?: string;
@@ -45,7 +48,7 @@ export const useHandleWithdraw = () => {
         throw new OneKeyLocalError('Staking config not found');
       }
       if (
-        withdrawType === EWithdrawType.WithdrawOrder ||
+        withdrawType === EStakingActionType.WithdrawOrder ||
         stakingConfig.withdrawWithTx
       ) {
         appNavigation.push(EModalStakingRoutes.WithdrawOptions, {

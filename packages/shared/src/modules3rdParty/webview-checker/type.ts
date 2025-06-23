@@ -1,4 +1,3 @@
-
 export interface IWebViewPackageInfo {
   packageName: string;
   versionName: string;
