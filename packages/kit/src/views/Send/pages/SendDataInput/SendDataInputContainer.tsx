@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -54,6 +62,11 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -122,6 +135,7 @@ interface IFormValues {
 }
 
 function SendDataInputContainer() {
+  const inputId = useId();
   const intl = useIntl();
   const media = useMedia();
 
@@ -535,6 +549,35 @@ function SendDataInputContainer() {
     navigation,
     networkId,
   ]);
+
+  useEffect(() => {
+    const callback = ({
+      inputId: idFromScan,
+      amount: amountFromScan,
+      token: tokenFromScan,
+    }: IAppEventBusPayload[EAppEventBusNames.UpdateSendAmountInputValues]) => {
+      if (idFromScan === inputId) {
+        if (amountFromScan) {
+          setIsUseFiat(true);
+          form.setValue('amount', amountFromScan);
+        }
+        if (tokenFromScan.accountId && tokenFromScan.networkId) {
+          setCurrentAccount({
+            accountId: tokenFromScan.accountId,
+            networkId: tokenFromScan.networkId,
+          });
+          form.setValue('accountId', tokenFromScan.accountId);
+          form.setValue('networkId', tokenFromScan.networkId);
+          setTokenInfo(tokenFromScan);
+        }
+      }
+    };
+    appEventBus.on(EAppEventBusNames.UpdateSendAmountInputValues, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.UpdateSendAmountInputValues, callback);
+    };
+  }, [form, inputId]);
+
   onSubmitRef.current = useCallback(
     async () =>
       errorToastUtils.withErrorAutoToast(async () => {
@@ -1505,6 +1548,7 @@ function SendDataInputContainer() {
             ) : null}
             <AddressInputField
               name="to"
+              inputId={inputId}
               accountId={currentAccount.accountId}
               networkId={currentAccount.networkId}
               enableAddressBook

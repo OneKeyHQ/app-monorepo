@@ -99,4 +99,5 @@ export enum EAppEventBusNames {
   ClearStorageOnExtension = 'ClearStorageOnExtension',
   SettingsSearchResult = 'SettingsSearchResult',
   CheckEndpointPrefix = 'CheckEndpointPrefix',
+  UpdateSendAmountInputValues = 'UpdateSendAmountInputValues',
 }

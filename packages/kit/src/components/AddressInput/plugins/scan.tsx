@@ -9,6 +9,10 @@ import type {
   IChainValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
@@ -16,6 +20,7 @@ import {
   EQRCodeHandlerNames,
   EQRCodeHandlerType,
 } from '@onekeyhq/shared/types/qrCode';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -23,6 +28,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import type { IAddressPluginProps } from '../types';
 
 const ScanPluginContent: FC<IAddressPluginProps> = ({
+  inputId,
   onChange,
   onInputTypeChange,
   testID,
@@ -55,19 +61,36 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
     const accountId = account?.id;
     const networkId = result?.data?.network?.id || network?.id || '';
     if (accountId) {
-      const token = tokenAddress
-        ? await backgroundApiProxy.serviceToken.getToken({
-            networkId,
-            accountId,
-            tokenIdOnNetwork: tokenAddress,
-          })
-        : await backgroundApiProxy.serviceToken.getNativeToken({
-            networkId,
-            accountId: account.id,
-          });
+      let token: IToken | null = null;
+      if (tokenAddress) {
+        token = await backgroundApiProxy.serviceToken.getToken({
+          networkId,
+          accountId,
+          tokenIdOnNetwork: tokenAddress,
+        });
+      }
+      if (!token) {
+        token = await backgroundApiProxy.serviceToken.getNativeToken({
+          networkId,
+          accountId: account.id,
+        });
+      }
       console.log('token result', accountId, networkId, token);
+      if (inputId && token) {
+        setTimeout(() => {
+          appEventBus.emitToSelf({
+            type: EAppEventBusNames.UpdateSendAmountInputValues,
+            payload: {
+              inputId,
+              token,
+              amount: result?.data?.amount,
+            },
+            cloned: false,
+          });
+        }, 1500);
+      }
     }
-  }, [account?.id, network?.id, onChange, onInputTypeChange, start]);
+  }, [account?.id, inputId, network?.id, onChange, onInputTypeChange, start]);
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
@@ -87,6 +110,7 @@ type IScanPluginProps = IAddressPluginProps & {
 export const ScanPlugin: FC<IScanPluginProps> = ({
   onChange,
   testID,
+  inputId,
   sceneName,
   disabled,
 }) => (
@@ -97,6 +121,7 @@ export const ScanPlugin: FC<IScanPluginProps> = ({
     enabledNum={[0]}
   >
     <ScanPluginContent
+      inputId={inputId}
       onChange={onChange}
       testID={testID}
       disabled={disabled}

@@ -1,5 +1,12 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -115,6 +122,7 @@ type IAddressInputProps = Omit<
   ComponentProps<typeof TextArea>,
   'value' | 'onChange'
 > & {
+  inputId?: string;
   networkId: string;
   value?: IAddressInputValue;
   onChange?: (value: IAddressInputValue) => void;
@@ -317,6 +325,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAllowListValidation,
     onInputTypeChange,
     disabled: disabledFromProps,
+    inputId,
     ...rest
   } = props;
   const intl = useIntl();
@@ -522,6 +531,7 @@ export function AddressInput(props: IAddressInputProps) {
           ) : null}
           {scan ? (
             <ScanPlugin
+              inputId={inputId}
               onInputTypeChange={onInputTypeChange}
               sceneName={scan.sceneName}
               onChange={onChangeText}
