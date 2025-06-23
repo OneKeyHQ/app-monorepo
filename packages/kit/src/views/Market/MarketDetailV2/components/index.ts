@@ -6,3 +6,4 @@ export * from './TokenSecurityAlert';
 export * from './TokenActivityOverview';
 export * from './InformationPanel/index';
 export * from './TokenStats';
+export * from './MarketTradingView';

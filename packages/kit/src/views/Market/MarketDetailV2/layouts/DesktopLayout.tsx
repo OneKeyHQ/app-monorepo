@@ -1,8 +1,8 @@
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
-import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
 
 import {
   InformationTabs,
+  MarketTradingView,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
@@ -23,15 +23,10 @@ export function DesktopLayout() {
         <YStack flex={1}>
           {/* Trading view */}
           <Stack flex={1}>
-            <TradingView
-              version="v2"
-              mode="realtime"
-              identifier="OneKey"
-              baseToken={tokenDetail?.symbol ?? ''}
-              targetToken="USDT"
+            <MarketTradingView
               tokenAddress={tokenAddress}
               networkId={networkId}
-              onLoadEnd={() => {}}
+              tokenSymbol={tokenDetail?.symbol}
             />
           </Stack>
 

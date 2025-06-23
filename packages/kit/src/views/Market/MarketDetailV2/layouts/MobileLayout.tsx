@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 
 import { Stack, Tab } from '@onekeyhq/components';
-import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
 
 import {
   InformationPanel,
   InformationTabs,
+  MarketTradingView,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
@@ -25,15 +25,10 @@ const createChartPageComponent = (
       <InformationPanel />
 
       <Stack h={300}>
-        <TradingView
-          version="v2"
-          mode="realtime"
-          identifier="binance"
-          baseToken={tokenSymbol ?? ''}
-          targetToken="USDT"
+        <MarketTradingView
           tokenAddress={tokenAddress}
           networkId={networkId}
-          onLoadEnd={() => {}}
+          tokenSymbol={tokenSymbol}
         />
       </Stack>
 
