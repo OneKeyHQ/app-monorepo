@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
@@ -53,6 +55,12 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
   } = swapPanel;
 
+  const handleBalanceClick = useCallback(() => {
+    if (balance) {
+      setPaymentAmount(balance);
+    }
+  }, [balance, setPaymentAmount]);
+
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">
       {/* Trade type selector */}
@@ -72,7 +80,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* Balance display */}
-      <BalanceDisplay balance={balance} token={balanceToken} />
+      <BalanceDisplay
+        balance={balance}
+        token={balanceToken}
+        onBalanceClick={handleBalanceClick}
+      />
 
       {/* Unsupported swap warning */}
       {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}

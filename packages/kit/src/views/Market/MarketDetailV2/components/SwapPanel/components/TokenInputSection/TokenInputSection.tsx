@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   Icon,
@@ -29,6 +29,7 @@ export interface ITokenInputSectionProps {
 }
 
 export function TokenInputSection({
+  value,
   onChange,
   selectedToken,
   selectableTokens,
@@ -38,8 +39,14 @@ export function TokenInputSection({
 }: ITokenInputSectionProps) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-  // 内部测试变量，忽略外部的 value 和 onChange
-  const [internalValue, setInternalValue] = useState('');
+  const [internalValue, setInternalValue] = useState(value || '');
+
+  // 当外部value发生变化时，同步内部状态
+  useEffect(() => {
+    if (value !== undefined && value !== internalValue) {
+      setInternalValue(value);
+    }
+  }, [value, internalValue]);
 
   const handleInternalChange = useCallback(
     (newValue: string) => {

@@ -11,9 +11,14 @@ import type BigNumber from 'bignumber.js';
 export interface IBalanceDisplayProps {
   balance?: BigNumber;
   token?: IToken;
+  onBalanceClick?: () => void;
 }
 
-export function BalanceDisplay({ balance, token }: IBalanceDisplayProps) {
+export function BalanceDisplay({
+  balance,
+  token,
+  onBalanceClick,
+}: IBalanceDisplayProps) {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" alignItems="center">
@@ -21,7 +26,16 @@ export function BalanceDisplay({ balance, token }: IBalanceDisplayProps) {
         title={intl.formatMessage({ id: ETranslations.global_balance })}
       />
 
-      <SizableText size="$bodyMdMedium">
+      <SizableText
+        size="$bodyMdMedium"
+        onPress={onBalanceClick}
+        userSelect="none"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        borderRadius="$2"
+        px="$1"
+        py="$0.5"
+      >
         {balance?.toFixed() || '-'} {token?.symbol || ''}
       </SizableText>
     </XStack>
