@@ -203,7 +203,7 @@
   "balance_detail.disable_protection_warning_description": "Disabilitare la protezione dell'iscrizione può comportare il trasferimento accidentale di token di iscrizione o NFT. Per migrare in sicurezza i tuoi asset di iscrizione, utilizza un portafoglio compatibile con l'iscrizione, come Unisat o OKX.",
   "balance_detail.disable_protection_warning_title": "La disattivazione della protezione dell'iscrizione può portare alla perdita di risorse dell'iscrizione",
   "balance_detail.enable_protection_title": "Abilitazione Protezione Iscrizione",
-  "balance_detail.enable_protection_warning": "Gli asset di iscrizione (Ordinals NFT e token BRC-20) attualmente non sono supportati. Per visualizzare i dettagli della protezione, controlla \"Dettagli Saldo\". \nPer migrare i tuoi asset di iscrizione in modo sicuro, utilizza un portafoglio compatibile con l'iscrizione come Unisat o OKX.",
+  "balance_detail.enable_protection_warning": "Gli asset di iscrizione (Ordinals NFT e token BRC-20) attualmente non sono supportati.Per visualizzare i dettagli della protezione, controlla \"Dettagli Saldo\".\nPer migrare i tuoi asset di iscrizione in modo sicuro, utilizza un portafoglio compatibile con l'iscrizione come Unisat o OKX.",
   "balance_detail.frozen": "Gelato",
   "balance_detail.frozen_by_inscription": "Protezione dell'Iscrizione",
   "balance_detail.how_to_migrate": "Come migrare i token NFT / BRC-20 Ordinals?",
@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "Contattaci",
   "global.hardware_troubleshooting_warranty_description": "Non preoccuparti! Il nostro team di assistenza è pronto ad aiutarti. Contatta l'assistenza clienti fornendo il tuo numero d'ordine.",
   "global.hardware_troubleshooting_warranty_title": "Hai problemi con l'hardware?",
-<<<<<<< HEAD
   "global.help_message": "Hai bisogno di aiuto? <url>https://help.onekey.so/articles/11536900<underline>Contatta il supporto OneKey</underline></url>.",
-=======
-  "global.help_message": "Hai bisogno di aiuto? <url>https://help.onekey.so/articles/11536900-contact-us<underline>Contatta il supporto OneKey</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "Messaggio",
   "global.hex_data_default": "Dati esadecimali",
   "global.hex_data_default_faq": "Cosa sono i dati esadecimali?",

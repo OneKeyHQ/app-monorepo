@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "যোগাযোগ করুন",
   "global.hardware_troubleshooting_warranty_description": "চিন্তার কিছু নেই! আমাদের সাপোর্ট টিম আপনাকে সাহায্য করতে প্রস্তুত। দয়া করে আপনার অর্ডার নম্বরসহ কাস্টমার সাপোর্টে যোগাযোগ করুন।",
   "global.hardware_troubleshooting_warranty_title": "হার্ডওয়্যার সমস্যা হচ্ছে?",
-<<<<<<< HEAD
   "global.help_message": "সাহায্য দরকার? <url>https://help.onekey.so/articles/11536900<underline>OneKey সাপোর্টের সাথে যোগাযোগ করুন</underline></url>.",
-=======
-  "global.help_message": "সাহায্য দরকার? <url>https://help.onekey.so/articles/11536900-contact-us<underline>OneKey সাপোর্টের সাথে যোগাযোগ করুন</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "বার্তা",
   "global.hex_data_default": "হেক্স ডেটা",
   "global.hex_data_default_faq": "হেক্স ডেটা কি?",

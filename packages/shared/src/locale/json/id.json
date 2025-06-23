@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "Hubungi kami",
   "global.hardware_troubleshooting_warranty_description": "Jangan khawatir! Tim dukungan kami siap membantu Anda. Silakan hubungi dukungan pelanggan dengan nomor pesanan Anda.",
   "global.hardware_troubleshooting_warranty_title": "Ada masalah dengan perangkat keras?",
-<<<<<<< HEAD
   "global.help_message": "Butuh bantuan? <url>https://help.onekey.so/articles/11536900<underline>Hubungi dukungan OneKey</underline></url>.",
-=======
-  "global.help_message": "Butuh bantuan? <url>https://help.onekey.so/articles/11536900-contact-us<underline>Hubungi dukungan OneKey</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "Pesan",
   "global.hex_data_default": "Data heksadesimal",
   "global.hex_data_default_faq": "Apa itu data hex?",

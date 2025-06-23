@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "お問い合わせ",
   "global.hardware_troubleshooting_warranty_description": "ご安心ください！サポートチームがお手伝いいたします。ご注文番号をご用意の上、カスタマーサポートまでご連絡ください。",
   "global.hardware_troubleshooting_warranty_title": "ハードウェアに問題がありますか？",
-<<<<<<< HEAD
   "global.help_message": "助けが必要ですか？ <url>https://help.onekey.so/articles/11536900<underline>OneKeyサポートに連絡してください</underline></url>.",
-=======
-  "global.help_message": "助けが必要ですか？ <url>https://help.onekey.so/articles/11536900-contact-us<underline>OneKeyサポートに連絡してください</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "メッセージ",
   "global.hex_data_default": "16進データ",
   "global.hex_data_default_faq": "16進データとは何ですか?",

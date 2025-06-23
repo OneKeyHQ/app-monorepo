@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "Связаться с нами",
   "global.hardware_troubleshooting_warranty_description": "Не беспокойтесь! Наша служба поддержки готова вам помочь. Пожалуйста, обратитесь в поддержку, указав номер вашего заказа.",
   "global.hardware_troubleshooting_warranty_title": "Проблемы с устройством?",
-<<<<<<< HEAD
   "global.help_message": "Нужна помощь? <url>https://help.onekey.so/articles/11536900<underline>Свяжитесь с поддержкой OneKey</underline></url>.",
-=======
-  "global.help_message": "Нужна помощь? <url>https://help.onekey.so/articles/11536900-contact-us<underline>Свяжитесь с поддержкой OneKey</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "Сообщение",
   "global.hex_data_default": "Шестнадцатеричные данные",
   "global.hex_data_default_faq": "Что такое шестнадцатеричные данные?",

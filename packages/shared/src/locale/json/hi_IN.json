@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "हमसे संपर्क करें",
   "global.hardware_troubleshooting_warranty_description": "चिंता मत कीजिए! हमारी सपोर्ट टीम आपकी मदद के लिए तैयार है। कृपया अपना ऑर्डर नंबर लेकर कस्टमर सपोर्ट से संपर्क करें।",
   "global.hardware_troubleshooting_warranty_title": "क्या आपको हार्डवेयर की समस्या हो रही है?",
-<<<<<<< HEAD
   "global.help_message": "मदद चाहिए? <url>https://help.onekey.so/articles/11536900<underline>OneKey समर्थन से संपर्क करें</underline></url>.",
-=======
-  "global.help_message": "मदद चाहिए? <url>https://help.onekey.so/articles/11536900-contact-us<underline>OneKey समर्थन से संपर्क करें</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "संदेश",
   "global.hex_data_default": "हेक्स डेटा",
   "global.hex_data_default_faq": "हेक्स डेटा क्या है?",

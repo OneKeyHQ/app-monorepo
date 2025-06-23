@@ -203,7 +203,7 @@
   "balance_detail.disable_protection_warning_description": "인스크립션 보호를 비활성화하면 인스크립션 토큰이나 NFT가 실수로 전송될 수 있습니다. 인스크립션 자산을 안전하게 이전하려면 Unisat이나 OKX와 같은 인스크립션 호환 지갑을 사용해 주세요.",
   "balance_detail.disable_protection_warning_title": "인장 보호를 비활성화하면 인장 자산의 손실이 발생할 수 있습니다",
   "balance_detail.enable_protection_title": "인스크립션 보호 활성화",
-  "balance_detail.enable_protection_warning": "현재 인스크립션 자산(오디널스 NFT 및 BRC-20 토큰)은 지원되지 않아요. 보호의 세부사항을 보려면 \"잔액 세부정보\"를 확인하세요. \n인스크립션 자산을 안전하게 이전하려면 Unisat이나 OKX와 같은 인스크립션 지원 지갑을 사용하세요.",
+  "balance_detail.enable_protection_warning": "현재 인스크립션 자산(오디널스 NFT 및 BRC-20 토큰)은 지원되지 않아요.보호의 세부사항을 보려면 \"잔액 세부정보\"를 확인하세요.\n인스크립션 자산을 안전하게 이전하려면 Unisat이나 OKX와 같은 인스크립션 지원 지갑을 사용하세요.",
   "balance_detail.frozen": "동결",
   "balance_detail.frozen_by_inscription": "등록 보호",
   "balance_detail.how_to_migrate": "NFT / BRC-20 토큰을 어떻게 이전하나요?",
@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "문의하기",
   "global.hardware_troubleshooting_warranty_description": "걱정 마세요! 저희 지원팀이 도와드릴 준비가 되어 있습니다. 주문 번호와 함께 고객 지원팀에 문의해 주세요.",
   "global.hardware_troubleshooting_warranty_title": "하드웨어 문제가 있으신가요?",
-<<<<<<< HEAD
   "global.help_message": "도움이 필요하신가요? <url>https://help.onekey.so/articles/11536900<underline>OneKey 지원팀에 문의하세요</underline></url>.",
-=======
-  "global.help_message": "도움이 필요하신가요? <url>https://help.onekey.so/articles/11536900-contact-us<underline>OneKey 지원팀에 문의하세요</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "메시지",
   "global.hex_data_default": "16진수 데이터",
   "global.hex_data_default_faq": "16진수 데이터란 무엇입니까?",

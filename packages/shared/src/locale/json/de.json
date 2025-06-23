@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "Kontaktieren Sie uns",
   "global.hardware_troubleshooting_warranty_description": "Keine Sorge! Unser Support-Team steht Ihnen zur Verfügung. Bitte kontaktieren Sie den Kundensupport mit Ihrer Bestellnummer.",
   "global.hardware_troubleshooting_warranty_title": "Haben Sie Hardwareprobleme?",
-<<<<<<< HEAD
   "global.help_message": "Brauchen Sie Hilfe? <url>https://help.onekey.so/articles/11536900<underline>Kontaktieren Sie den OneKey-Support</underline></url>.",
-=======
-  "global.help_message": "Brauchen Sie Hilfe? <url>https://help.onekey.so/articles/11536900-contact-us<underline>Kontaktieren Sie den OneKey-Support</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "Nachricht",
   "global.hex_data_default": "Hex-Daten",
   "global.hex_data_default_faq": "Was sind Hex-Daten?",

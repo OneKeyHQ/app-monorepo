@@ -1218,11 +1218,7 @@
   "global.hardware_troubleshooting_contact": "Nous contacter",
   "global.hardware_troubleshooting_warranty_description": "Pas d'inquiétude ! Notre équipe d'assistance est là pour vous aider. Veuillez contacter le support client avec votre numéro de commande.",
   "global.hardware_troubleshooting_warranty_title": "Vous rencontrez des problèmes matériels ?",
-<<<<<<< HEAD
   "global.help_message": "Besoin d'aide ? <url>https://help.onekey.so/articles/11536900<underline>Contactez le support OneKey</underline></url>.",
-=======
-  "global.help_message": "Besoin d'aide ? <url>https://help.onekey.so/articles/11536900-contact-us<underline>Contactez le support OneKey</underline></url>.",
->>>>>>> ed61fb6d9 (fix/hc-link)
   "global.hex_data": "Message",
   "global.hex_data_default": "Données hexadécimales",
   "global.hex_data_default_faq": "Que sont les données hexadécimales ?",
