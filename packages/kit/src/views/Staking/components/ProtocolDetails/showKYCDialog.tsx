@@ -1,8 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, XStack, YStack } from '@onekeyhq/components';
-import type { IEarnActivateActionIcon } from '@onekeyhq/shared/types/staking';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type {
+  IEarnActivateActionIcon,
+  IEarnClaimWithKycActionIcon,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from './EarnText';
 
@@ -87,5 +91,92 @@ export function showKYCDialog({
     renderContent: (
       <KYCDialogContent data={actionData.data} onConfirm={onConfirm} />
     ),
+  });
+}
+
+function ClaimWithKycDialogContent({
+  data,
+}: {
+  data: IEarnClaimWithKycActionIcon['data'];
+}) {
+  const button = useMemo(() => {
+    if (data?.button?.type === 'link') {
+      return data.button;
+    }
+    if (data?.button?.type === 'close') {
+      return data.button;
+    }
+    return undefined;
+  }, [data?.button]);
+
+  const handleLinkPress = useCallback(() => {
+    if (button?.type === 'link' && button.data?.link) {
+      void openUrlExternal(button.data.link);
+    }
+  }, [button]);
+
+  const buttonText = useMemo(() => {
+    if (typeof button?.text?.text === 'string') {
+      return button.text.text;
+    }
+    return '';
+  }, [button?.text?.text]);
+
+  const isButtonDisabled = Boolean(button?.disabled);
+
+  const renderFooter = () => {
+    if (!button) {
+      return null;
+    }
+
+    if (button.type === 'link') {
+      return (
+        <Dialog.Footer
+          onConfirm={handleLinkPress}
+          onConfirmText={buttonText}
+          confirmButtonProps={{
+            disabled: isButtonDisabled,
+          }}
+          showCancelButton={false}
+        />
+      );
+    }
+
+    if (button.type === 'close') {
+      return (
+        <Dialog.Footer
+          onCancelText={buttonText}
+          cancelButtonProps={{
+            disabled: isButtonDisabled,
+          }}
+          showConfirmButton={false}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <YStack gap="$2">
+      {data?.description?.map((desc, index) => (
+        <EarnText key={index} text={desc} fontSize="$bodyMd" />
+      ))}
+
+      {renderFooter()}
+    </YStack>
+  );
+}
+
+export function showClaimWithKycDialog({
+  actionData,
+}: {
+  actionData: IEarnClaimWithKycActionIcon;
+}) {
+  return Dialog.show({
+    icon: actionData.data?.icon?.icon,
+    title: actionData.data?.title?.text,
+    showFooter: false,
+    renderContent: <ClaimWithKycDialogContent data={actionData.data} />,
   });
 }

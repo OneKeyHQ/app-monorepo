@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showClaimWithKycDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -259,24 +260,18 @@ const ClaimActionIcon = memo(BasicClaimActionIcon);
 
 function BasicClaimWithKycActionIcon({
   actionIcon,
-  protocolInfo,
-  tokenInfo,
-  token,
 }: {
   actionIcon: IEarnClaimWithKycActionIcon;
-  protocolInfo?: IProtocolInfo;
-  tokenInfo?: IEarnTokenInfo;
-  token?: IEarnToken;
 }) {
-  const [loading, setLoading] = useState(false);
   return (
     <Button
       size="small"
       variant="primary"
-      loading={loading}
-      disabled={loading || actionIcon?.disabled}
+      disabled={actionIcon?.disabled}
       onPress={() => {
-        console.log('actionIcon: ', actionIcon);
+        showClaimWithKycDialog({
+          actionData: actionIcon,
+        });
       }}
     >
       {typeof actionIcon.text === 'string'
@@ -329,13 +324,7 @@ function BasicEarnActionIcon({
         />
       );
     case 'claimWithKyc':
-      return (
-        <ClaimWithKycActionIcon
-          actionIcon={actionIcon}
-          protocolInfo={protocolInfo}
-          tokenInfo={tokenInfo}
-        />
-      );
+      return <ClaimWithKycActionIcon actionIcon={actionIcon} />;
     case 'popup':
       return actionIcon.data.icon ? (
         <Popover
