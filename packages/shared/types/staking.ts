@@ -423,6 +423,9 @@ export interface IEarnLinkActionIcon {
   data: {
     link: string;
   };
+  icon?: IEarnIcon;
+  disabled?: boolean;
+  text: IEarnText;
 }
 
 export interface IEarnDepositActionIcon {
@@ -498,7 +501,7 @@ export interface IEarnClaimWithKycActionIcon {
     icon?: IEarnIcon;
     title?: IEarnText;
     description?: IEarnText[];
-    button?: IEarnLinkActionIcon;
+    button?: IEarnActionIcon;
   };
 }
 
@@ -531,6 +534,12 @@ export interface IEarnTradeActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnCloseActionIcon {
+  type: 'close';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
@@ -539,7 +548,8 @@ export type IEarnActionIcon =
   | IEarnPortfolioActionIcon
   | IEarnActivateActionIcon
   | IEarnReceiveActionIcon
-  | IEarnTradeActionIcon;
+  | IEarnTradeActionIcon
+  | IEarnCloseActionIcon;
 
 interface IEarnGridItem {
   title: IEarnText;
@@ -565,12 +575,7 @@ interface IEarnRisk {
     title: IEarnText;
     description: IEarnText;
     icon: IEarnIcon;
-    actionButton: {
-      type: 'link';
-      data: {
-        link: string;
-      };
-    };
+    actionButton: IEarnLinkActionIcon;
     list?: {
       title: IEarnText;
       icon: IEarnIcon;
