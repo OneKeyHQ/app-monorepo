@@ -181,6 +181,13 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
+      - name: 'Test Webhook URL'
+        run: |
+          echo "Testing webhook URL availability..."
+          curl -X POST "${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"Test message from GitHub Actions"}' || echo "Direct webhook test failed"
+
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/slack-notify-webhook@main
         with:
