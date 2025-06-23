@@ -11,18 +11,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
-import { TokenSecurityAlertDialogContent } from './TokenSecurityAlertDialogContent';
-import { useTokenSecurity } from './useTokenSecurity';
+import { TokenSecurityAlertDialogContent } from './components';
+import { useTokenSecurity } from './hooks';
 
 function TokenSecurityAlert() {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
-  const { securityData, securityStatus, warningCount, error, loading } =
-    useTokenSecurity({
-      tokenAddress,
-      networkId,
-    });
+  const { securityData, securityStatus, warningCount } = useTokenSecurity({
+    tokenAddress,
+    networkId,
+  });
 
   const handlePress = () => {
     Dialog.show({
@@ -31,15 +30,14 @@ function TokenSecurityAlert() {
       renderContent: (
         <TokenSecurityAlertDialogContent
           securityData={securityData}
-          error={error}
-          loading={loading}
+          warningCount={warningCount}
         />
       ),
     });
   };
 
-  // Don't render if loading or no security data
-  if (loading || (!securityData && !error)) {
+  // Don't render if no security data
+  if (!securityData) {
     return null;
   }
 

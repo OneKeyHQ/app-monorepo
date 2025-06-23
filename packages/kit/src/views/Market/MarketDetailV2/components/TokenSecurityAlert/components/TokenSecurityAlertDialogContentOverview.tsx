@@ -7,20 +7,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ITokenSecurityAlertDialogContentOverviewProps = {
   warningCount: number;
-  loading: boolean;
-  error: string | null;
 };
 
 function TokenSecurityAlertDialogContentOverviewBase({
   warningCount,
-  loading,
-  error,
 }: ITokenSecurityAlertDialogContentOverviewProps) {
   const intl = useIntl();
-
-  if (loading || error) {
-    return null;
-  }
 
   const hasWarnings = warningCount > 0;
   const iconName = hasWarnings ? 'BugOutline' : 'CheckRadioSolid';

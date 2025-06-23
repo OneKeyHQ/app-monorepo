@@ -44,7 +44,7 @@ function TokenSecurityAlertDialogContentItem({
       key={item.key}
       justifyContent="space-between"
       alignItems="center"
-      p="$2"
+      py="$2"
     >
       <SizableText
         size="$bodyMdMedium"

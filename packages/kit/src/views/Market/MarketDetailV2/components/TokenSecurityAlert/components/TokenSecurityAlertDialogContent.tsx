@@ -6,52 +6,29 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IMarketTokenSecurityItem } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketTokenSecurityData } from '@onekeyhq/shared/types/marketV2';
+
+import { formatSecurityData } from '../utils';
 
 import { TokenSecurityAlertDialogContentItem } from './TokenSecurityAlertDialogContentItem';
 import { TokenSecurityAlertDialogContentOverview } from './TokenSecurityAlertDialogContentOverview';
-import { formatSecurityData } from './useTokenSecurity';
 
 type ITokenSecurityAlertDialogContentProps = {
-  securityData: {
-    [key: string]: IMarketTokenSecurityItem;
-  } | null;
-  error: string | null;
-  loading: boolean;
+  securityData: IMarketTokenSecurityData | null;
+  warningCount: number;
 };
 
 function TokenSecurityAlertDialogContent({
   securityData,
-  error,
-  loading,
+  warningCount,
 }: ITokenSecurityAlertDialogContentProps) {
   const formattedData = formatSecurityData(securityData);
-  const warningCount = formattedData.filter((item) => item.isWarning).length;
 
   return (
     <ScrollView maxHeight="$96">
       <Stack gap="$4">
         {/* Overview section with warning count */}
-        <TokenSecurityAlertDialogContentOverview
-          warningCount={warningCount}
-          loading={loading}
-          error={error}
-        />
-
-        {error ? (
-          <XStack
-            gap="$2"
-            alignItems="center"
-            p="$3"
-            bg="$bgCritical"
-            borderRadius="$2"
-          >
-            <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-            <SizableText color="$textCritical" flex={1}>
-              {error}
-            </SizableText>
-          </XStack>
-        ) : null}
+        <TokenSecurityAlertDialogContentOverview warningCount={warningCount} />
 
         {formattedData.length > 0 ? (
           <YStack>
@@ -66,7 +43,7 @@ function TokenSecurityAlertDialogContent({
           </YStack>
         ) : null}
 
-        {securityData && !loading && formattedData.length === 0 ? (
+        {securityData && formattedData.length === 0 ? (
           <XStack gap="$2" alignItems="center" justifyContent="center" py="$4">
             <Icon name="CheckRadioSolid" size="$4" color="$iconSuccess" />
 
