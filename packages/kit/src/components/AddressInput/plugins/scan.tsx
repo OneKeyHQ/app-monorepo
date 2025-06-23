@@ -24,6 +24,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { getAccountIdOnNetwork } from '../../../views/ScanQrCode/hooks/useParseQRCode';
 
 import type { IAddressPluginProps } from '../types';
 
@@ -58,8 +59,13 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
     );
     onInputTypeChange?.(EInputAddressChangeType.Scan);
     const tokenAddress = result?.data?.tokenAddress;
-    const accountId = account?.id;
     const networkId = result?.data?.network?.id || network?.id || '';
+    const accountId =
+      (await getAccountIdOnNetwork({
+        account,
+        network: result?.data?.network,
+      })) || account?.id;
+
     if (accountId) {
       let token: IToken | null = null;
       if (tokenAddress) {
@@ -72,7 +78,7 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
       if (!token) {
         token = await backgroundApiProxy.serviceToken.getNativeToken({
           networkId,
-          accountId: account.id,
+          accountId,
         });
       }
       console.log('token result', accountId, networkId, token);
@@ -82,15 +88,17 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
             type: EAppEventBusNames.UpdateSendAmountInputValues,
             payload: {
               inputId,
+              accountId,
+              networkId,
               token,
               amount: result?.data?.amount,
             },
             cloned: false,
           });
-        }, 1500);
+        }, 120);
       }
     }
-  }, [account?.id, inputId, network?.id, onChange, onInputTypeChange, start]);
+  }, [account, inputId, network, onChange, onInputTypeChange, start]);
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}

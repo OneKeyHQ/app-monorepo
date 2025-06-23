@@ -72,18 +72,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
-import {
   EModalSignatureConfirmRoutes,
-  IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -101,7 +100,6 @@ import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenL
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {
@@ -554,6 +552,8 @@ function SendDataInputContainer() {
   useEffect(() => {
     const callback = async ({
       inputId: idFromScan,
+      accountId: accountIdFromScan,
+      networkId: networkIdFromScan,
       amount: amountFromScan,
       token: tokenFromScan,
     }: IAppEventBusPayload[EAppEventBusNames.UpdateSendAmountInputValues]) => {
@@ -563,26 +563,22 @@ function SendDataInputContainer() {
           form.setValue('amount', amountFromScan);
         }
 
-        const formAccountId = form.getValues('accountId');
-        const formNetworkId = form.getValues('networkId');
-        const formAmount = form.getValues('amount');
         const formToAddress = form.getValues('to').raw;
-
-        if (formNetworkId !== tokenFromScan?.networkId) {
+        const formNetworkId = form.getValues('networkId');
+        if (formNetworkId !== networkIdFromScan) {
           navigation.pop();
           await timerUtils.wait(150);
-          const toNetworkId = tokenFromScan?.networkId || formNetworkId;
           navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
             screen: EModalSignatureConfirmRoutes.TxDataInput,
             params: {
-              accountId,
-              networkId: toNetworkId,
-              activeAccountId: formAccountId,
-              activeNetworkId: toNetworkId,
+              accountId: accountIdFromScan,
+              networkId: networkIdFromScan,
+              activeAccountId: accountIdFromScan,
+              activeNetworkId: networkIdFromScan,
               isNFT: false,
               token: tokenFromScan,
               address: formToAddress,
-              amount: formAmount,
+              amount: amountFromScan,
             },
           });
           return;
@@ -601,7 +597,14 @@ function SendDataInputContainer() {
     return () => {
       appEventBus.off(EAppEventBusNames.UpdateSendAmountInputValues, callback);
     };
-  }, [activeAccountId, currentAccount.accountId, form, inputId]);
+  }, [
+    accountId,
+    activeAccountId,
+    currentAccount.accountId,
+    form,
+    inputId,
+    navigation,
+  ]);
 
   onSubmitRef.current = useCallback(
     async () =>

@@ -296,6 +296,8 @@ export interface IAppEventBusPayload {
     cleanAppClientCache?: boolean;
   };
   [EAppEventBusNames.UpdateSendAmountInputValues]: {
+    accountId: string;
+    networkId: string;
     inputId: string;
     token: IToken;
     amount?: string;

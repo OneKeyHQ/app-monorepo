@@ -30,12 +30,52 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
+
+export const getAccountIdOnNetwork = async ({
+  account,
+  network,
+}: {
+  account?: INetworkAccount;
+  network: IChainValue['network'];
+}) => {
+  if (account?.indexedAccountId) {
+    const { accounts } =
+      await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
+        {
+          indexedAccountId: account?.indexedAccountId ?? '',
+        },
+      );
+    const networkAccount = accounts.find((item) => item.impl === network?.impl);
+    if (networkAccount) {
+      return networkAccount.id;
+    }
+    // need create account on network
+    if (account?.id) {
+      const newAccount =
+        await backgroundApiProxy.serviceAccount.createAddressIfNotExists(
+          {
+            walletId: accountUtils.getWalletIdFromAccountId({
+              accountId: account?.id || '',
+            }),
+            networkId: network?.id || '',
+            accountId: account?.id,
+            indexedAccountId: account.indexedAccountId,
+          },
+          {
+            allowWatchAccount: false,
+          },
+        );
+      return newAccount?.id;
+    }
+  }
+};
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -137,6 +177,23 @@ const useParseQRCode = () => {
             if (!network) {
               break;
             }
+            const networkId = network?.id ?? '';
+
+            let accountId = account.id;
+            if (account.impl !== network.impl) {
+              const newAccountId = await getAccountIdOnNetwork({
+                account,
+                network,
+              });
+              if (newAccountId) {
+                accountId = newAccountId;
+              } else {
+                await closeScanPage();
+                showCopyDialog(value);
+                break;
+              }
+            }
+
             const { isSingleToken } =
               await backgroundApiProxy.serviceNetwork.getVaultSettings({
                 networkId: network?.id ?? '',
@@ -145,17 +202,19 @@ const useParseQRCode = () => {
               const nativeToken =
                 await backgroundApiProxy.serviceToken.getNativeToken({
                   networkId: network.id,
-                  accountId: account.id,
+                  accountId,
                 });
 
               await closeScanPage();
+              const newNetworkId =
+                nativeToken?.networkId || params.network?.id || '';
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxDataInput,
                 params: {
-                  accountId: account.id,
-                  networkId: network.id,
-                  activeAccountId: params.account?.id,
-                  activeNetworkId: nativeToken?.networkId || params.network?.id,
+                  accountId,
+                  networkId: newNetworkId,
+                  activeAccountId: accountId,
+                  activeNetworkId: newNetworkId,
                   isNFT: false,
                   token: nativeToken,
                   address: chainValue.address,
@@ -163,53 +222,6 @@ const useParseQRCode = () => {
                 },
               });
               break;
-            }
-
-            const networkId = network?.id ?? '';
-            const getAccountIdOnNetwork = async () => {
-              if (account.indexedAccountId) {
-                const { accounts } =
-                  await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
-                    {
-                      indexedAccountId: account?.indexedAccountId ?? '',
-                    },
-                  );
-                const networkAccount = accounts.find(
-                  (item) => item.impl === network.impl,
-                );
-                if (networkAccount) {
-                  return networkAccount.id;
-                }
-                // need create account on network
-                if (account?.id) {
-                  const newAccount =
-                    await backgroundApiProxy.serviceAccount.createAddressIfNotExists(
-                      {
-                        walletId: accountUtils.getWalletIdFromAccountId({
-                          accountId: account?.id || '',
-                        }),
-                        networkId,
-                        accountId: account?.id,
-                        indexedAccountId: account.indexedAccountId,
-                      },
-                      {
-                        allowWatchAccount: false,
-                      },
-                    );
-                  return newAccount?.id;
-                }
-              }
-            };
-            let accountId = account.id;
-            if (account.impl !== network.impl) {
-              const newAccountId = await getAccountIdOnNetwork();
-              if (newAccountId) {
-                accountId = newAccountId;
-              } else {
-                await closeScanPage();
-                showCopyDialog(value);
-                break;
-              }
             }
 
             let selectedToken: IToken | null = null;
