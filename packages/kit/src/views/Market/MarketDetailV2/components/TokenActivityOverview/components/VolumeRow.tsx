@@ -9,7 +9,6 @@ import type { IVolumeRowProps } from '../types';
 
 export function VolumeRow({
   label,
-  timeRange,
   buyVolume,
   sellVolume,
   totalVolume,
@@ -21,9 +20,7 @@ export function VolumeRow({
     <Stack gap="$2">
       <Stack flexDirection="row" alignItems="center" gap="$2">
         <SizableText size="$bodyLgMedium">
-          {label} ({timeRange})
-        </SizableText>
-        <SizableText size="$bodyLgMedium">
+          {label}:{' '}
           <NumberSizeableText
             formatter="marketCap"
             formatterOptions={{ currency: '$' }}

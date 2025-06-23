@@ -7,7 +7,6 @@ export interface ITimeRangeOption {
 
 export interface ITransactionRowProps {
   label: string;
-  timeRange: string;
   buyCount: number;
   sellCount: number;
   totalCount: number;
@@ -15,7 +14,6 @@ export interface ITransactionRowProps {
 
 export interface IVolumeRowProps {
   label: string;
-  timeRange: string;
   buyVolume: number;
   sellVolume: number;
   totalVolume: number;

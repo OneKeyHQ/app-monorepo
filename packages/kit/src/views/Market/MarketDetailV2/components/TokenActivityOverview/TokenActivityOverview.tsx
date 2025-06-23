@@ -88,7 +88,6 @@ export function TokenActivityOverview() {
             label={intl.formatMessage({
               id: ETranslations.dexmarket_details_transactions,
             })}
-            timeRange={selectedTimeRange}
             buyCount={buys}
             sellCount={sells}
             totalCount={totalTransactions}
@@ -99,7 +98,6 @@ export function TokenActivityOverview() {
                 id: ETranslations.market_volume_percentage,
               })
               .replace(' %', '')}
-            timeRange={selectedTimeRange}
             buyVolume={buyVolume}
             sellVolume={sellVolume}
             totalVolume={totalVolume}

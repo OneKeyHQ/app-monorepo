@@ -9,7 +9,6 @@ import type { ITransactionRowProps } from '../types';
 
 export function TransactionRow({
   label,
-  timeRange,
   buyCount,
   sellCount,
   totalCount,
@@ -21,7 +20,7 @@ export function TransactionRow({
     <Stack gap="$2">
       <Stack flexDirection="row" alignItems="center" gap="$2">
         <SizableText size="$bodyLgMedium">
-          {label} ({timeRange}): {totalCount}
+          {label}: {totalCount}
         </SizableText>
       </Stack>
       <BuySellRatioBar buyPercentage={buyPercentage} />

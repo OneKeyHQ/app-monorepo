@@ -1,4 +1,4 @@
-import { Stack, XStack, YStack } from '@onekeyhq/components';
+import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
 import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
 
 import {
@@ -36,14 +36,16 @@ export function DesktopLayout() {
           </Stack>
 
           {/* Info tabs */}
-          <Stack h={300}>
+          <Stack h={320}>
             <InformationTabs />
           </Stack>
         </YStack>
 
         {/* Right column */}
-        <Stack w="$100">
+        <Stack w={320}>
           <SwapPanel />
+
+          <Divider mx="$4" my="$2" />
 
           <TokenActivityOverview />
         </Stack>
