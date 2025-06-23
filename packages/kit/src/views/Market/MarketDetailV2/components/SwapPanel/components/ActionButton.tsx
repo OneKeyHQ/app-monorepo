@@ -4,7 +4,7 @@ import { Button } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { ITradeType } from '../hooks/useTradeType';
+import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
@@ -24,7 +24,7 @@ export function ActionButton({
 }: IActionButtonProps) {
   const intl = useIntl();
   const actionText =
-    tradeType === 'buy'
+    tradeType === ESwapDirection.BUY
       ? intl.formatMessage({ id: ETranslations.global_buy })
       : intl.formatMessage({ id: ETranslations.global_sell });
   const numericAmount = parseFloat(amount);

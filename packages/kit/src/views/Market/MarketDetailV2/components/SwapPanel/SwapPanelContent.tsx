@@ -19,6 +19,7 @@ import { ESwapDirection } from './hooks/useTradeType';
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
   isLoading: boolean;
+  balanceLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: boolean;
   isApproved: boolean;
@@ -33,6 +34,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const {
     swapPanel,
     isLoading,
+    balanceLoading,
     slippageAutoValue,
     supportSpeedSwap,
     defaultTokens,
@@ -83,6 +85,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       <BalanceDisplay
         balance={balance}
         token={balanceToken}
+        isLoading={balanceLoading}
         onBalanceClick={handleBalanceClick}
       />
 

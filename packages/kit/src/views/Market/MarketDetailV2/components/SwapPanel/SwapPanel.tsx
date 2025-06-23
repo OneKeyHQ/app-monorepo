@@ -76,7 +76,7 @@ export function SwapPanel() {
     shouldApprove,
     balance,
     balanceToken,
-    // fetchBalanceLoading,
+    fetchBalanceLoading,
   } = speedSwapActions;
 
   useEffect(() => {
@@ -112,6 +112,7 @@ export function SwapPanel() {
       swapPanel={swapPanel}
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
+      balanceLoading={fetchBalanceLoading}
       isLoading={
         isLoading ||
         speedSwapApproveLoading ||

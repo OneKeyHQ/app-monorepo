@@ -42,10 +42,10 @@ export function TokenInputSection({
   const [internalValue, setInternalValue] = useState(value || '');
 
   useEffect(() => {
-    if (value !== undefined && value !== internalValue) {
+    if (value !== undefined) {
       setInternalValue(value);
     }
-  }, [value, internalValue]);
+  }, [value]);
 
   const handleInternalChange = useCallback(
     (newValue: string) => {

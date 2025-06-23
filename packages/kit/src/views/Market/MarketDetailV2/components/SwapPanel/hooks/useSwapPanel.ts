@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { useBalance } from './useBalance';
 import { useTradeType } from './useTradeType';
 
 import type { IToken } from '../types';
@@ -18,9 +17,6 @@ export function useSwapPanel({
   const [paymentToken, setPaymentToken] = useState<IToken>();
   const [networkId, setNetworkId] = useState(initialNetworkId);
   const [slippage, setSlippage] = useState<number>(0.5);
-  const { balance, setBalance, balanceToken } = useBalance({
-    token: paymentToken,
-  });
 
   useEffect(() => {
     if (initialNetworkId) {
@@ -39,11 +35,6 @@ export function useSwapPanel({
     // For NetworkSelector
     networkId,
     setNetworkId,
-
-    // For BalanceDisplay
-    balance,
-    setBalance,
-    balanceToken,
 
     // For AntiMEVToggle
     handleAntiMEVToggle,
