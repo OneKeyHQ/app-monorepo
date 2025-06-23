@@ -135,6 +135,7 @@ function ClaimWithKycDialogContent({
           onConfirm={handleLinkPress}
           onConfirmText={buttonText}
           confirmButtonProps={{
+            icon: button.icon?.icon,
             disabled: isButtonDisabled,
           }}
           showCancelButton={false}
