@@ -218,13 +218,22 @@ function ProtocolListDialogContent({
 
   if (isLoading) {
     return (
-      <YStack gap="$2" py="$5">
-        {Array.from({ length: 3 }).map((_, index) => (
+      <YStack gap="$2">
+        {/* Section Header Skeleton */}
+        <YStack px="$5" pb="$2">
+          <Skeleton h="$5" w={120} borderRadius="$2" />
+        </YStack>
+
+        {/* ListItem Skeletons */}
+        {Array.from({ length: 2 }).map((_, index) => (
           <ListItem key={index} mx="$0" px="$5">
             <Skeleton w="$10" h="$10" borderRadius="$2" />
             <YStack flex={1} gap="$2">
               <Skeleton h="$4" w={120} borderRadius="$2" />
-              <Skeleton h="$3" w={80} borderRadius="$2" />
+              <Skeleton h="$3" w={180} borderRadius="$2" />
+            </YStack>
+            <YStack alignSelf="flex-start">
+              <Skeleton h="$4" w={80} borderRadius="$2" />
             </YStack>
           </ListItem>
         ))}
