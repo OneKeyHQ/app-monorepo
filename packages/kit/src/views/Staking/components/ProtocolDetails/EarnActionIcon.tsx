@@ -327,28 +327,21 @@ function BasicClaimWithKycActionIcon({
         });
 
       // Find the updated action in portfolios
-      let latestClaimWithKycAction: IEarnClaimWithKycActionIcon | undefined;
-      let latestClaimAction: IEarnClaimActionIcon | undefined;
-
       // Search in portfolios.items[].buttons
-      if (response?.portfolios?.items) {
-        for (const item of response.portfolios.items) {
-          if (item.buttons) {
-            for (const button of item.buttons) {
-              if ('type' in button) {
-                if (button.type === 'claimWithKyc') {
-                  latestClaimWithKycAction =
-                    button as IEarnClaimWithKycActionIcon;
-                  break;
-                } else if (button.type === 'claim') {
-                  latestClaimAction = button;
-                }
-              }
-            }
-            if (latestClaimWithKycAction) break;
-          }
-        }
-      }
+      const buttons =
+        response?.portfolios?.items
+          ?.flatMap((item) => item.buttons || [])
+          .filter((button) => 'type' in button) || [];
+
+      const latestClaimWithKycAction = buttons.find(
+        (button) => button.type === 'claimWithKyc',
+      ) as IEarnClaimWithKycActionIcon | undefined;
+
+      const latestClaimAction = !latestClaimWithKycAction
+        ? (buttons.find((button) => button.type === 'claim') as
+            | IEarnClaimActionIcon
+            | undefined)
+        : undefined;
 
       // Priority: claimWithKyc > claim > no response
       if (latestClaimWithKycAction) {
