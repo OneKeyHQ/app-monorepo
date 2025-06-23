@@ -30,7 +30,7 @@ type IProps = {
 type ISwitchHomeAccountButtonProps = {
   accountId?: string;
   children: React.ReactNode;
-  walletAccountName?: string;
+  walletAccountName: string;
 };
 function SwitchHomeAccountButton({
   accountId,
