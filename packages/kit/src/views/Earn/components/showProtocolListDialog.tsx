@@ -186,8 +186,8 @@ function ProtocolListDialogContent({
         borderRadius="$2"
         borderCurve="continuous"
         pressStyle={{ backgroundColor: '$bgHover' }}
-        mx="$0"
-        px="$5"
+        px="$2.5"
+        mx="$2.5"
       >
         <Token
           size="lg"
