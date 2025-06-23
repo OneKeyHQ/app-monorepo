@@ -113,14 +113,12 @@ export function TokenInputSection({
         ]}
       />
 
-      {tradeType === ESwapDirection.BUY ? (
-        <TokenSelectorPopover
-          isOpen={isPopoverOpen}
-          onOpenChange={setIsPopoverOpen}
-          tokens={selectableTokens}
-          onTokenPress={handleTokenSelect}
-        />
-      ) : null}
+      <TokenSelectorPopover
+        isOpen={isPopoverOpen}
+        onOpenChange={setIsPopoverOpen}
+        tokens={selectableTokens}
+        onTokenPress={handleTokenSelect}
+      />
 
       <QuickAmountSelector
         buyAmounts={

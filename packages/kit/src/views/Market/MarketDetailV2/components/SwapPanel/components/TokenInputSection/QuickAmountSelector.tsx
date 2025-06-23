@@ -2,7 +2,7 @@ import { Fragment, useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Button, Divider, XStack } from '@onekeyhq/components';
+import { Button, Divider, Stack, XStack } from '@onekeyhq/components';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -58,7 +58,7 @@ export function QuickAmountSelector({
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
             onPress={() => handleAmountSelect(amount)}
           >
-            {amount.label}
+            <Stack w="$14">{amount.label}</Stack>
           </Button>
           {index !== amountsLength - 1 ? (
             <Divider key={`divider-${index}`} vertical />
