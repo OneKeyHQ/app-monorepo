@@ -235,7 +235,7 @@ export function ScanQrCode({
     >
       {qrWalletScene ? (
         <>
-          <YStack fullscreen position="absolute" ai="center" jc="center">
+          <YStack fullscreen position="absolute">
             {/* <ScanCorner direction="topLeft" detected={detected} />
             <ScanCorner direction="topRight" detected={detected} />
             <ScanCorner direction="bottomLeft" detected={detected} />
@@ -244,7 +244,9 @@ export function ScanQrCode({
             <Corner position="absolute" top="$5" right="$5" />
             <Corner position="absolute" bottom="$5" left="$5" />
             <Corner position="absolute" bottom="$5" right="$5" /> */}
-            {platformEnv.isNativeAndroid ? null : <BlurView w="$36" h="$36" />}
+            {platformEnv.isNativeAndroid ? null : (
+              <BlurView flex={1} contentStyle={{ flex: 1 }} />
+            )}
           </YStack>
         </>
       ) : null}
