@@ -104,7 +104,7 @@ function TxFeeInfo(props: IProps) {
   const [extraFeeInfo] = useExtraFeeInfoAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
-  const { isResourceRentalNeeded, isResourceRentalEnabled, payType } =
+  const { isResourceRentalNeeded, isResourceRentalEnabled, payTokenInfo } =
     tronResourceRentalInfo;
   const {
     updateSendSelectedFeeInfo,
@@ -273,28 +273,37 @@ function TxFeeInfo(props: IProps) {
         }
 
         // update tron resource rental fee info
-        if (r.feeTron && r.feeTron[0] && r.feeTron[0].createOrderParams) {
-          const { createOrderParams, saveTRX, info, payWithUSDT } =
-            r.feeTron[0];
-          updateTronResourceRentalInfo({
-            isResourceRentalNeeded: true,
-            isResourceRentalEnabled: false,
-            isSwapTrxEnabled: false,
-            payType: payWithUSDT
-              ? ETronResourceRentalPayType.Token
-              : ETronResourceRentalPayType.Native,
-            payTokenInfo: {
-              symbol: createOrderParams.payToken,
-              price: info?.prices[createOrderParams.payToken] ?? '0',
-              trxRatio: info?.ratio ?? '0',
-            },
-            saveTRX,
-            createOrderParams,
-            resourcePrice: {
-              price: info.orderPrice,
-              minutes: info.pledgeMinute,
-            },
-          });
+        if (r.feeTron && r.feeTron[0]) {
+          if (r.feeTron[0].createOrderParams) {
+            const { createOrderParams, saveTRX, info, payWithUSDT } =
+              r.feeTron[0];
+            updateTronResourceRentalInfo({
+              isResourceRentalNeeded: true,
+              isResourceRentalEnabled: true,
+              isSwapTrxEnabled: false,
+              payType: payWithUSDT
+                ? ETronResourceRentalPayType.Token
+                : ETronResourceRentalPayType.Native,
+              payTokenInfo: {
+                symbol: createOrderParams.payToken,
+                price: info?.prices[info?.payCoinCode] ?? '0',
+                trxRatio: info?.ratio ?? '0',
+                amount: info?.payCoinAmt ?? 0,
+              },
+              saveTRX,
+              createOrderParams,
+              resourcePrice: {
+                price: info.orderPrice,
+                minutes: info.pledgeMinute,
+              },
+            });
+          } else {
+            updateTronResourceRentalInfo({
+              isResourceRentalNeeded: false,
+              isResourceRentalEnabled: false,
+              isSwapTrxEnabled: false,
+            });
+          }
         }
 
         updateSendFeeStatus({
@@ -1235,8 +1244,23 @@ function TxFeeInfo(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
-  const renderTotalNative = useCallback(
-    () => (
+  const renderTotalNative = useCallback(() => {
+    if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
+      return (
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$text"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: payTokenInfo.symbol,
+          }}
+        >
+          {payTokenInfo.amount ?? '-'}
+        </NumberSizeableText>
+      );
+    }
+
+    return (
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
@@ -1247,12 +1271,38 @@ function TxFeeInfo(props: IProps) {
       >
         {selectedFee?.totalNativeMinForDisplay ?? '-'}
       </NumberSizeableText>
-    ),
-    [selectedFee?.totalNativeMinForDisplay, txFeeCommon?.nativeSymbol],
-  );
+    );
+  }, [
+    isResourceRentalEnabled,
+    isResourceRentalNeeded,
+    payTokenInfo,
+    selectedFee?.totalNativeMinForDisplay,
+    txFeeCommon?.nativeSymbol,
+  ]);
 
-  const renderTotalFiat = useCallback(
-    () => (
+  const renderTotalFiat = useCallback(() => {
+    if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          (
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$text"
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+          >
+            {new BigNumber(payTokenInfo.amount ?? 0)
+              .times(payTokenInfo.price ?? 0)
+              .toFixed() ?? '-'}
+          </NumberSizeableText>
+          )
+        </SizableText>
+      );
+    }
+
+    return (
       <SizableText size="$bodyMd" color="$textSubdued">
         (
         <NumberSizeableText
@@ -1267,9 +1317,14 @@ function TxFeeInfo(props: IProps) {
         </NumberSizeableText>
         )
       </SizableText>
-    ),
-    [selectedFee?.totalFiatMinForDisplay, settings.currencyInfo.symbol],
-  );
+    );
+  }, [
+    isResourceRentalEnabled,
+    isResourceRentalNeeded,
+    payTokenInfo,
+    selectedFee?.totalFiatMinForDisplay,
+    settings.currencyInfo.symbol,
+  ]);
 
   const renderOriginalFeeInfo = useCallback(() => {
     if (!isResourceRentalNeeded || !isResourceRentalEnabled) {

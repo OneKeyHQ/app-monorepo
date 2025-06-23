@@ -38,7 +38,10 @@ import type {
   IFeeTron,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
-import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxStatus,
+  type IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -79,6 +82,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -517,7 +521,6 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const { unsignedTx, nativeAmountInfo, tokenApproveInfo } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxTron;
-
     if (tokenApproveInfo) {
       encodedTxNew = await this._updateTokenApproveInfo({
         encodedTx: encodedTxNew,
@@ -869,23 +872,98 @@ export default class Vault extends VaultBase {
 
   async _createResourceRentalOrder(params: {
     tronResourceRentalInfo: ITronResourceRentalInfo;
-    feeInfo: IFeeTron;
   }) {
-    const { tronResourceRentalInfo, feeInfo } = params;
+    const { tronResourceRentalInfo } = params;
+    const resp =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        transaction: Types.Transaction;
+        orderId: string;
+        success: boolean;
+        error?: string;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'trxres',
+            params: {
+              method: 'post',
+              url: '/api/v1/order/create',
+              data: tronResourceRentalInfo.createOrderParams,
+              params: {},
+            },
+          },
+        ],
+      });
+    if (resp && resp[0] && resp[0].success !== false && !resp[0].error) {
+      return resp[0];
+    }
+    throw new OneKeyLocalError(
+      `Failed to create resource rental order: ${
+        resp[0].error ?? 'unknown error'
+      }`,
+    );
   }
 
   async _uploadResourceRentalOrder(params: {
-    tronResourceRentalInfo: ITronResourceRentalInfo;
-    feeInfo: IFeeTron;
+    orderId: string;
+    signedTx: ISignedTxPro;
   }) {
-    const { tronResourceRentalInfo, feeInfo } = params;
+    const { orderId, signedTx } = params;
+    const resp =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        tx_ids: string[];
+        success: boolean;
+        error?: string;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'trxres',
+            params: {
+              method: 'post',
+              url: '/api/tronRent/uploadHash',
+              data: {
+                orderId,
+                fromHash: signedTx.txid,
+                signedData: JSON.parse(signedTx.rawTx),
+              },
+              params: {},
+            },
+          },
+        ],
+      });
+    if (resp && resp[0] && resp[0].success !== false && !resp[0].error) {
+      return resp[0];
+    }
+    throw new OneKeyLocalError(
+      `Failed to upload resource rental order: ${
+        resp[0].error ?? 'unknown error'
+      }`,
+    );
   }
 
-  async _checkResourceRentalOrderStatus(params: {
-    tronResourceRentalInfo: ITronResourceRentalInfo;
-    feeInfo: IFeeTron;
-  }) {
-    const { tronResourceRentalInfo, feeInfo } = params;
+  async _signRentalTx(params: { unsignedTx: IUnsignedTxPro }) {
+    const { unsignedTx } = params;
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId: this.accountId,
+        reason: EReasonForNeedPassword.CreateTransaction,
+      });
+    const tx =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const signedTx = await this.signTransaction({
+            unsignedTx,
+            password,
+            deviceParams,
+            signOnly: true,
+          });
+          console.log('signTx@vault.signTransaction', signedTx);
+          return signedTx;
+        },
+        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
+      );
+    return tx;
   }
 
   override async preActionsBeforeSending(params: {
@@ -893,9 +971,9 @@ export default class Vault extends VaultBase {
     tronResourceRentalInfo?: ITronResourceRentalInfo;
     feeInfo?: IFeeInfoUnit;
   }) {
-    const { unsignedTxs, tronResourceRentalInfo, feeInfo } = params;
+    const { unsignedTxs, tronResourceRentalInfo } = params;
 
-    if (!tronResourceRentalInfo || !feeInfo?.feeTron) {
+    if (!tronResourceRentalInfo) {
       return;
     }
 
@@ -906,22 +984,19 @@ export default class Vault extends VaultBase {
       return;
     }
 
-    try {
-      const rentalOrder = await this._createResourceRentalOrder({
-        tronResourceRentalInfo,
-        feeInfo: feeInfo.feeTron,
-      });
-      const uploadResult = await this._uploadResourceRentalOrder({
-        tronResourceRentalInfo,
-        feeInfo: feeInfo.feeTron,
-      });
+    const rentalOrder = await this._createResourceRentalOrder({
+      tronResourceRentalInfo,
+    });
 
-      await this._checkResourceRentalOrderStatus({
-        tronResourceRentalInfo,
-        feeInfo: feeInfo.feeTron,
-      });
-    } catch (e) {
-      console.log('createResourceRentalOrder error:', e);
-    }
+    const signedRentalTx = await this._signRentalTx({
+      unsignedTx: {
+        encodedTx: rentalOrder.transaction,
+      },
+    });
+
+    await this._uploadResourceRentalOrder({
+      orderId: rentalOrder.orderId,
+      signedTx: signedRentalTx,
+    });
   }
 }

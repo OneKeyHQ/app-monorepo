@@ -24,6 +24,7 @@ export type ITronResourceRentalInfo = {
     symbol: string;
     price: string;
     trxRatio: string;
+    amount: number;
   };
   resourcePrice: {
     price: number;
@@ -74,6 +75,8 @@ export type IFeeTron = {
     prices: Record<string, string>;
     ratio: string;
     pledgeMinute: number;
+    payCoinAmt: number;
+    payCoinCode: string;
   };
   createOrderParams?: {
     fromAddress: string;

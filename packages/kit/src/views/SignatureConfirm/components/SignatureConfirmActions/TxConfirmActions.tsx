@@ -29,6 +29,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
   useSignatureConfirmActions,
+  useTronResourceRentalInfoAtom,
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -99,6 +100,7 @@ function TxConfirmActions(props: IProps) {
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
+  const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -203,6 +205,18 @@ function TxConfirmActions(props: IProps) {
       isSubmitted.current = false;
       void dappApprove.reject(e);
       throw e;
+    }
+
+    try {
+      await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
+        accountId,
+        networkId,
+        unsignedTxs,
+        tronResourceRentalInfo,
+      });
+    } catch (e: any) {
+      updateSendTxStatus({ isSubmitting: false });
+      onFail?.(e as Error);
     }
 
     // fee info pre-check
@@ -349,6 +363,7 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
   }, [
+    sourceInfo,
     updateSendTxStatus,
     accountId,
     networkId,
@@ -362,12 +377,12 @@ function TxConfirmActions(props: IProps) {
     dappApprove,
     txAdvancedSettings.nonce,
     feeInfoEditable,
+    tronResourceRentalInfo,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     vaultSettings?.replaceTxEnabled,
     vaultSettings?.afterSendTxActionEnabled,
     signOnly,
-    sourceInfo,
     transferPayload,
     intl,
     popStack,

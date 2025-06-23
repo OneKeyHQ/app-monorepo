@@ -12,10 +12,10 @@ import {
   SizableText,
   Stack,
   Switch,
-  useMedia,
   View,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   useSignatureConfirmActions,
@@ -241,7 +241,7 @@ function ResourceRental() {
                       },
                       {
                         price: resourcePrice.price,
-                        minutes: resourcePrice.minutes,
+                        min: resourcePrice.minutes,
                       },
                     ),
                     content: (
