@@ -25,6 +25,10 @@ export type ITronResourceRentalInfo = {
     price: string;
     trxRatio: string;
   };
+  resourcePrice: {
+    price: number;
+    minutes: number;
+  };
   saveTRX?: string;
   isResourceRentalNeeded: boolean;
   isResourceRentalEnabled: boolean;
@@ -65,9 +69,11 @@ export type IFeeTron = {
   originalFee: number;
   saveTRX?: string;
   payWithUSDT?: boolean;
-  info?: {
+  info: {
+    orderPrice: number;
     prices: Record<string, string>;
     ratio: string;
+    pledgeMinute: number;
   };
   createOrderParams?: {
     fromAddress: string;

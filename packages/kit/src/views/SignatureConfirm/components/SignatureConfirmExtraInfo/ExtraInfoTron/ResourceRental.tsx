@@ -12,6 +12,7 @@ import {
   SizableText,
   Stack,
   Switch,
+  useMedia,
   View,
   XStack,
   YStack,
@@ -55,14 +56,18 @@ const showResourceRentalDetailsDialog = ({
 function ResourceRental() {
   const intl = useIntl();
   const [resourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const { gtMd } = useMedia();
   const { updateTronResourceRentalInfo } = useSignatureConfirmActions().current;
   const {
     isResourceRentalEnabled,
     isResourceRentalNeeded,
     isSwapTrxEnabled,
     payType,
+    payTokenInfo,
+    saveTRX,
+    createOrderParams,
+    resourcePrice,
   } = resourceRentalInfo;
-  const saveAmount = '10.23';
 
   const handleResourceRentalToggle = useCallback(
     (value: boolean) => {
@@ -174,7 +179,7 @@ function ResourceRental() {
                   </SizableText>
                 </YStack>
                 <Switch
-                  size="large"
+                  size={gtMd ? 'small' : 'large'}
                   value={isSwapTrxEnabled}
                   onChange={handleSwapTrxToggle}
                 />
@@ -184,7 +189,7 @@ function ResourceRental() {
         </Accordion.Item>
       </Accordion>
     );
-  }, [intl, payType, isSwapTrxEnabled, handleSwapTrxToggle]);
+  }, [intl, payType, isSwapTrxEnabled, handleSwapTrxToggle, gtMd]);
 
   if (!isResourceRentalNeeded) {
     return null;
@@ -210,7 +215,7 @@ function ResourceRental() {
                         {
                           id: ETranslations.wallet_save_amount,
                         },
-                        { number: saveAmount },
+                        { number: saveTRX ?? '0' },
                       )}
                     </SizableText>
                   </XStack>
@@ -230,9 +235,15 @@ function ResourceRental() {
                     title: intl.formatMessage({
                       id: ETranslations.wallet_energy_rental_title,
                     }),
-                    description: intl.formatMessage({
-                      id: ETranslations.wallet_energy_rental_description,
-                    }),
+                    description: intl.formatMessage(
+                      {
+                        id: ETranslations.wallet_energy_rental_description,
+                      },
+                      {
+                        price: resourcePrice.price,
+                        minutes: resourcePrice.minutes,
+                      },
+                    ),
                     content: (
                       <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
@@ -257,7 +268,7 @@ function ResourceRental() {
             </SizableText>
           </YStack>
           <Switch
-            size="large"
+            size={gtMd ? 'small' : 'large'}
             value={isResourceRentalEnabled}
             onChange={handleResourceRentalToggle}
           />

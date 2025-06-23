@@ -290,6 +290,10 @@ function TxFeeInfo(props: IProps) {
             },
             saveTRX,
             createOrderParams,
+            resourcePrice: {
+              price: info.orderPrice,
+              minutes: info.pledgeMinute,
+            },
           });
         }
 
