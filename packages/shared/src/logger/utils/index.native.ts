@@ -28,8 +28,8 @@ void FileLogger.configure({
   captureConsole: false,
   dailyRolling: true,
   formatter: (_, msg: string) => msg,
-  maximumFileSize: 1024 * 1024 * 2, // 2MB
-  maximumNumberOfFiles: 2,
+  maximumFileSize: 1024 * 1024 * 20,
+  maximumNumberOfFiles: 3,
   logsDirectory: NATIVE_LOG_DIR_PATH,
   logLevel: LogLevel.Info,
 });
