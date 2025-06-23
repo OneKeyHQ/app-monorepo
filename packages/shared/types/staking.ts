@@ -1,6 +1,7 @@
 import type {
   ColorTokens,
   IBadgeType,
+  IButtonProps,
   IKeyOfIcons,
 } from '@onekeyhq/components';
 
@@ -360,6 +361,11 @@ interface ISubscriptionValue {
   };
 }
 
+export interface ISubscriptionAction {
+  text: string | undefined;
+  buttonProps: IButtonProps;
+}
+
 interface IEarnBadge {
   badgeType: 'success' | 'warning';
   badgeSize: 'sm' | 'lg';
@@ -417,6 +423,9 @@ export interface IEarnLinkActionIcon {
   data: {
     link: string;
   };
+  icon?: IEarnIcon;
+  disabled?: boolean;
+  text: IEarnText;
 }
 
 export interface IEarnDepositActionIcon {
@@ -469,6 +478,7 @@ export type IEarnTooltip =
 export enum EClaimType {
   Claim = 'claim',
   ClaimOrder = 'claimOrder',
+  ClaimWithKyc = 'claimWithKyc',
 }
 
 export interface IEarnClaimActionIcon {
@@ -481,8 +491,51 @@ export interface IEarnClaimActionIcon {
   };
 }
 
+export interface IEarnClaimWithKycActionIcon {
+  type: EClaimType;
+  text: string | IEarnText;
+  disabled: boolean;
+  data?: {
+    balance: string;
+    token: IEarnToken;
+    icon?: IEarnIcon;
+    title?: IEarnText;
+    description?: IEarnText[];
+    button?: IEarnActionIcon;
+  };
+}
+
 export interface IEarnPortfolioActionIcon {
   type: 'portfolio';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnActivateActionIcon {
+  type: 'activate';
+  disabled: boolean;
+  text: IEarnText;
+  data: {
+    title: IEarnText;
+    description: IEarnText[];
+    checkboxes: IEarnText[];
+  };
+}
+
+export interface IEarnReceiveActionIcon {
+  type: 'receive';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnTradeActionIcon {
+  type: 'trade';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnCloseActionIcon {
+  type: 'close';
   disabled: boolean;
   text: IEarnText;
 }
@@ -492,7 +545,11 @@ export type IEarnActionIcon =
   | IEarnLinkActionIcon
   | IEarnClaimActionIcon
   | IEarnHistoryActionIcon
-  | IEarnPortfolioActionIcon;
+  | IEarnPortfolioActionIcon
+  | IEarnActivateActionIcon
+  | IEarnReceiveActionIcon
+  | IEarnTradeActionIcon
+  | IEarnCloseActionIcon;
 
 interface IEarnGridItem {
   title: IEarnText;
@@ -518,12 +575,7 @@ interface IEarnRisk {
     title: IEarnText;
     description: IEarnText;
     icon: IEarnIcon;
-    actionButton: {
-      type: 'link';
-      data: {
-        link: string;
-      };
-    };
+    actionButton: IEarnLinkActionIcon;
     list?: {
       title: IEarnText;
       icon: IEarnIcon;
@@ -539,13 +591,17 @@ export interface IEarnWithdrawAction {
   };
 }
 
-export enum EWithdrawType {
+export enum EStakingActionType {
   Withdraw = 'withdraw',
   WithdrawOrder = 'withdrawOrder',
+  Deposit = 'deposit',
+  Activate = 'activate',
+  Receive = 'receive',
+  Trade = 'trade',
 }
 
 export interface IEarnWithdrawActionIcon {
-  type: EWithdrawType;
+  type: EStakingActionType;
   disabled: boolean;
   text: IEarnText;
   data: {
@@ -555,13 +611,20 @@ export interface IEarnWithdrawActionIcon {
 }
 
 export interface IEarnWithdrawOrderActionIcon {
-  type: EWithdrawType;
+  type: EStakingActionType;
   disabled: boolean;
   text: IEarnText;
   data: {
     text: IEarnText;
   };
 }
+
+export type IEarnDetailActions =
+  | IEarnDepositActionIcon
+  | IEarnWithdrawActionIcon
+  | IEarnHistoryActionIcon
+  | IEarnWithdrawOrderActionIcon
+  | IEarnActivateActionIcon;
 
 export interface IStakeEarnDetail {
   protection?: {
@@ -578,12 +641,7 @@ export interface IStakeEarnDetail {
     description: IEarnText;
     button: IEarnActionIcon;
   };
-  actions: (
-    | IEarnDepositActionIcon
-    | IEarnWithdrawActionIcon
-    | IEarnHistoryActionIcon
-    | IEarnWithdrawOrderActionIcon
-  )[];
+  actions: IEarnDetailActions[];
   subscriptionValue: ISubscriptionValue;
   protocol: IProtocolInfo;
   countDownAlert: {
