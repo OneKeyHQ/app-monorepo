@@ -1,10 +1,31 @@
+import { useIntl } from 'react-intl';
+
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
+
+interface IStatItemProps {
+  label: string;
+  value: string;
+}
+
+function StatItem({ label, value }: IStatItemProps) {
+  return (
+    <YStack gap="$1">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      <SizableText size="$bodySmMedium" color="$text">
+        {value}
+      </SizableText>
+    </YStack>
+  );
+}
 
 interface ITokenDetailHeaderRightProps {
   tokenDetail?: IMarketTokenDetail;
@@ -17,6 +38,8 @@ export function TokenDetailHeaderRight({
   networkId,
   showStats,
 }: ITokenDetailHeaderRightProps) {
+  const intl = useIntl();
+
   const {
     name = '',
     symbol = '',
@@ -31,75 +54,61 @@ export function TokenDetailHeaderRight({
   const priceChangeNum = parseFloat(priceChange24hPercent);
   const isPriceUp = priceChangeNum >= 0;
 
-  if (!showStats) {
-    return networkId && address ? (
+  const marketStar =
+    networkId && address ? (
       <MarketStarV2
         chainId={networkId}
         contractAddress={address}
-        mr="$-2"
         size="medium"
         from={EWatchlistFrom.details}
       />
     ) : null;
+
+  if (!showStats) {
+    return marketStar;
   }
 
   return (
-    <XStack gap="$6" pt="$2">
+    <XStack gap="$6" ai="center">
       {/* Price and Price Change */}
-      <YStack ai="center" jc="space-between">
+      <YStack ai="center" jc="space-between" mt="$-0.5">
         <MarketTokenPrice
           size="$bodyLgMedium"
           price={currentPrice}
           tokenName={name}
           tokenSymbol={symbol}
         />
-        <XStack ai="center">
-          <SizableText
-            size="$bodyMdMedium"
-            color={isPriceUp ? '$textSuccess' : '$textCritical'}
-          >
-            {isPriceUp ? '+' : ''}
-            {priceChange24hPercent.slice(0, 6)}%
-          </SizableText>
-        </XStack>
-      </YStack>
-
-      <YStack gap="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
-          Market cap
-        </SizableText>
-        <SizableText size="$bodyMdMedium" color="$text">
-          ${numberFormat(marketCap, { formatter: 'marketCap' })}
+        <SizableText
+          size="$bodySm"
+          color={isPriceUp ? '$textSuccess' : '$textCritical'}
+        >
+          {isPriceUp ? '+' : '-'}
+          {priceChange24hPercent.slice(0, 6)}%
         </SizableText>
       </YStack>
 
-      <YStack gap="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
-          Liquidity
-        </SizableText>
-        <SizableText size="$bodyMdMedium" color="$text">
-          ${numberFormat(volume24h, { formatter: 'marketCap' })}
-        </SizableText>
-      </YStack>
+      <StatItem
+        label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
+        value={`$${String(
+          numberFormat(marketCap, { formatter: 'marketCap' }),
+        )}`}
+      />
 
-      <YStack gap="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
-          Holders
-        </SizableText>
-        <SizableText size="$bodyMdMedium" color="$text">
-          {numberFormat(String(holders), { formatter: 'marketCap' })}
-        </SizableText>
-      </YStack>
+      <StatItem
+        label={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
+        value={`$${String(
+          numberFormat(volume24h, { formatter: 'marketCap' }),
+        )}`}
+      />
 
-      {networkId && address ? (
-        <MarketStarV2
-          chainId={networkId}
-          contractAddress={address}
-          mr="$-2"
-          size="medium"
-          from={EWatchlistFrom.details}
-        />
-      ) : null}
+      <StatItem
+        label={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
+        value={String(
+          numberFormat(String(holders), { formatter: 'marketCap' }),
+        )}
+      />
+
+      {marketStar}
     </XStack>
   );
 }

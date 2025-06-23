@@ -2,7 +2,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
-  ButtonFrame,
   Dialog,
   Icon,
   SizableText,
