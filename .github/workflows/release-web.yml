@@ -173,17 +173,6 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
-      - name: 'Debug Notification Info'
-        run: |
-          echo "=== Notification Debug Info ==="
-          echo "Artifact Type: Web"
-          echo "Artifact Name: OneKey-Web"
-          echo "Version: ${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}"
-          echo "Download URL: ${{ env.ARTIFACTS_URL }}"
-          echo "GitHub SHA: ${{ github.sha }}"
-          echo "Workflow Run ID: ${{ github.run_id }}"
-          echo "================================"
-
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/slack-notify-webhook@main
         with:
