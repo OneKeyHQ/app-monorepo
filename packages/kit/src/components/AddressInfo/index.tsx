@@ -157,7 +157,7 @@ function AddressInfo(props: IProps) {
 
   const renderWalletAccountName = () => {
     if (!addressQueryResult?.walletAccountName) return null;
-    
+
     const badge = (
       <Badge badgeType="success" badgeSize="sm">
         {addressQueryResult.walletAccountName}
