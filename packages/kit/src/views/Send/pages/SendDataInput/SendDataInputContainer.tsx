@@ -31,6 +31,7 @@ import {
   TextArea,
   TextAreaInput,
   XStack,
+  useDeferredPromise,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -75,7 +76,7 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type {
+import {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -100,6 +101,7 @@ import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenL
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {
@@ -419,7 +421,6 @@ function SendDataInputContainer() {
     tokenDetails?.info.decimals,
     tokenDetails?.price,
   ]);
-
   const {
     result: { displayAmountFormItem } = { displayAmountFormItem: false },
   } = usePromiseResult(async () => {
@@ -446,7 +447,7 @@ function SendDataInputContainer() {
     return {
       displayAmountFormItem: false,
     };
-  }, [toResolved, networkId, form]);
+  }, [networkId, toResolved, form]);
 
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
@@ -551,7 +552,7 @@ function SendDataInputContainer() {
   ]);
 
   useEffect(() => {
-    const callback = ({
+    const callback = async ({
       inputId: idFromScan,
       amount: amountFromScan,
       token: tokenFromScan,
@@ -561,13 +562,37 @@ function SendDataInputContainer() {
           setIsUseFiat(true);
           form.setValue('amount', amountFromScan);
         }
-        if (tokenFromScan.accountId && tokenFromScan.networkId) {
+
+        const formAccountId = form.getValues('accountId');
+        const formNetworkId = form.getValues('networkId');
+        const formAmount = form.getValues('amount');
+        const formToAddress = form.getValues('to').raw;
+
+        if (formNetworkId !== tokenFromScan?.networkId) {
+          navigation.pop();
+          await timerUtils.wait(150);
+          const toNetworkId = tokenFromScan?.networkId || formNetworkId;
+          navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+            screen: EModalSignatureConfirmRoutes.TxDataInput,
+            params: {
+              accountId,
+              networkId: toNetworkId,
+              activeAccountId: formAccountId,
+              activeNetworkId: toNetworkId,
+              isNFT: false,
+              token: tokenFromScan,
+              address: formToAddress,
+              amount: formAmount,
+            },
+          });
+          return;
+        }
+
+        if (currentAccount.accountId && tokenFromScan.networkId) {
           setCurrentAccount({
-            accountId: tokenFromScan.accountId,
+            accountId: currentAccount.accountId,
             networkId: tokenFromScan.networkId,
           });
-          form.setValue('accountId', tokenFromScan.accountId);
-          form.setValue('networkId', tokenFromScan.networkId);
           setTokenInfo(tokenFromScan);
         }
       }
@@ -576,7 +601,7 @@ function SendDataInputContainer() {
     return () => {
       appEventBus.off(EAppEventBusNames.UpdateSendAmountInputValues, callback);
     };
-  }, [form, inputId]);
+  }, [activeAccountId, currentAccount.accountId, form, inputId]);
 
   onSubmitRef.current = useCallback(
     async () =>
