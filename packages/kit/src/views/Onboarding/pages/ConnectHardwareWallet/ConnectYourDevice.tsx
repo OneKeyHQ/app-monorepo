@@ -980,7 +980,7 @@ function ConnectByUSBOrBLE() {
         {
           tag: (chunks: ReactNode[]) => (
             <Anchor
-              href="https://help.onekey.so/hc/articles/360004279036"
+              href="https://help.onekey.so/articles/11461190"
               target="_blank"
               size="$bodyMd"
               color="$textInfo"
@@ -1025,7 +1025,7 @@ function ConnectByUSBOrBLE() {
         {
           tag: (chunks: ReactNode[]) => (
             <Anchor
-              href="https://help.onekey.so/hc/search?utf8=%E2%9C%93&query=connect"
+              href="https://help.onekey.so/?q=connect"
               target="_blank"
               size="$bodyMd"
               color="$textInfo"
