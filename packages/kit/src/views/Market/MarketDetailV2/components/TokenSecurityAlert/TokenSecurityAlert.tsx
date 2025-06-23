@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   ButtonFrame,
   Dialog,
   Icon,
@@ -44,15 +45,22 @@ function TokenSecurityAlert() {
   const color = securityStatus === 'warning' ? '$iconCaution' : '$iconSuccess';
 
   return (
-    <ButtonFrame bg="$transparent" borderWidth={0} onPress={handlePress}>
-      <XStack gap="$0.5">
-        <Icon name="BugOutline" size={12} color={color} />
+    <Button
+      variant="tertiary"
+      bg="$transparent"
+      borderWidth={0}
+      onPress={handlePress}
+    >
+      <XStack gap="$0.5" ai="center">
+        <Icon name="BugOutline" size="$4" color={color} />
 
         {warningCount > 0 ? (
-          <SizableText color={color}>{warningCount}</SizableText>
+          <SizableText size="$bodySmMedium" color={color}>
+            {warningCount}
+          </SizableText>
         ) : null}
       </XStack>
-    </ButtonFrame>
+    </Button>
   );
 }
 

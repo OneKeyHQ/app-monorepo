@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import {
+  Divider,
   Icon,
   IconButton,
   SizableText,
@@ -70,13 +71,15 @@ export function TokenDetailHeaderLeft({
       />
 
       <YStack>
-        <SizableText size="$heading2xl" color="$text">
+        <SizableText size="$bodyLgMedium" color="$text">
           {symbol}
         </SizableText>
 
-        <XStack gap="$1" ai="center">
+        <XStack gap="$2" ai="center">
           {address ? (
             <XStack
+              borderRadius="$1"
+              p="$0.5"
               ai="center"
               gap="$1"
               onPress={handleCopyAddress}
@@ -98,28 +101,37 @@ export function TokenDetailHeaderLeft({
 
           {/* Social Links & Security */}
           {showMediaAndSecurity ? (
-            <XStack ai="center" gap="$2" mt="$1">
+            <>
+              <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+
               {tokenDetail?.address && networkId ? (
-                <TokenSecurityAlert />
+                <>
+                  <TokenSecurityAlert />
+                </>
               ) : null}
 
-              {website ? (
-                <IconButton
-                  size="small"
-                  icon="GlobusOutline"
-                  onPress={handleOpenWebsite}
-                  variant="tertiary"
-                />
-              ) : null}
-              {twitter ? (
-                <IconButton
-                  size="small"
-                  icon="Xbrand"
-                  onPress={handleOpenTwitter}
-                  variant="tertiary"
-                />
-              ) : null}
-            </XStack>
+              <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+
+              <XStack gap="$1" ai="center">
+                {website ? (
+                  <IconButton
+                    icon="GlobusOutline"
+                    onPress={handleOpenWebsite}
+                    variant="tertiary"
+                    iconProps={{ width: 16, height: 16 }}
+                  />
+                ) : null}
+
+                {twitter ? (
+                  <IconButton
+                    icon="Xbrand"
+                    onPress={handleOpenTwitter}
+                    variant="tertiary"
+                    iconProps={{ width: 16, height: 16 }}
+                  />
+                ) : null}
+              </XStack>
+            </>
           ) : null}
         </XStack>
       </YStack>
