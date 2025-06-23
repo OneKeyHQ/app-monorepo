@@ -1,4 +1,4 @@
-import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { ButtonFrame, SizableText, Stack, YStack } from '@onekeyhq/components';
 
 import type { ITimeRangeSelectorProps } from '../types';
 
@@ -13,23 +13,29 @@ export function TimeRangeSelector({
       justifyContent="space-between"
       gap="$1"
       bg="$neutral5"
-      p="$1"
+      p="$0.5"
       borderRadius="$2.5"
     >
       {options.map((opt) => (
-        <Button
+        <ButtonFrame
           key={opt.value}
           flex={1}
-          variant={value === opt.value ? 'primary' : 'secondary'}
-          onPress={() => onChange(opt.value)}
-          size="medium"
+          borderWidth={0}
           borderRadius="$2"
-          p="$3"
+          py="$1.5"
+          onPress={() => onChange(opt.value)}
+          bg={value === opt.value ? '$bgApp' : '$transparent'}
+          hoverStyle={{
+            bg: value === opt.value ? '$bgAppHover' : '$bgHover',
+          }}
+          pressStyle={{
+            bg: value === opt.value ? '$bgAppActive' : '$bgActive',
+          }}
         >
           <YStack alignItems="center" gap="$1">
             <SizableText
               size="$bodyMd"
-              color={value === opt.value ? '$textOnPrimary' : '$textSubdued'}
+              color={value === opt.value ? '$text' : '$textSubdued'}
               fontWeight="500"
             >
               {opt.label}
@@ -41,7 +47,7 @@ export function TimeRangeSelector({
               {opt.percentageChange}
             </SizableText>
           </YStack>
-        </Button>
+        </ButtonFrame>
       ))}
     </Stack>
   );
