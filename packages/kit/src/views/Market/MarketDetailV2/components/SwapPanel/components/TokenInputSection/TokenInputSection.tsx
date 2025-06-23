@@ -41,7 +41,6 @@ export function TokenInputSection({
 
   const [internalValue, setInternalValue] = useState(value || '');
 
-  // 当外部value发生变化时，同步内部状态
   useEffect(() => {
     if (value !== undefined && value !== internalValue) {
       setInternalValue(value);
