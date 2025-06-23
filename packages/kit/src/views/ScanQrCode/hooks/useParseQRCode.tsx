@@ -28,9 +28,11 @@ import {
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
@@ -153,9 +155,11 @@ const useParseQRCode = () => {
                   accountId: account.id,
                   networkId: network.id,
                   activeAccountId: params.account?.id,
-                  activeNetworkId: params.network?.id,
+                  activeNetworkId: nativeToken?.networkId || params.network?.id,
                   isNFT: false,
                   token: nativeToken,
+                  address: chainValue.address,
+                  amount: chainValue?.amount,
                 },
               });
               break;
@@ -167,7 +171,7 @@ const useParseQRCode = () => {
                 const { accounts } =
                   await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
                     {
-                      indexedAccountId: account.indexedAccountId,
+                      indexedAccountId: account?.indexedAccountId ?? '',
                     },
                   );
                 const networkAccount = accounts.find(
@@ -175,6 +179,24 @@ const useParseQRCode = () => {
                 );
                 if (networkAccount) {
                   return networkAccount.id;
+                }
+                // need create account on network
+                if (account?.id) {
+                  const newAccount =
+                    await backgroundApiProxy.serviceAccount.createAddressIfNotExists(
+                      {
+                        walletId: accountUtils.getWalletIdFromAccountId({
+                          accountId: account?.id || '',
+                        }),
+                        networkId,
+                        accountId: account?.id,
+                        indexedAccountId: account.indexedAccountId,
+                      },
+                      {
+                        allowWatchAccount: false,
+                      },
+                    );
+                  return newAccount?.id;
                 }
               }
             };
@@ -184,21 +206,28 @@ const useParseQRCode = () => {
               if (newAccountId) {
                 accountId = newAccountId;
               } else {
+                await closeScanPage();
                 showCopyDialog(value);
                 break;
               }
             }
 
-            const selectedToken = chainValue.tokenAddress
-              ? await backgroundApiProxy.serviceToken.getToken({
+            let selectedToken: IToken | null = null;
+            if (chainValue.tokenAddress) {
+              selectedToken = await backgroundApiProxy.serviceToken.getToken({
+                networkId,
+                accountId,
+                tokenIdOnNetwork: chainValue.tokenAddress,
+              });
+            }
+
+            if (!selectedToken) {
+              selectedToken =
+                await backgroundApiProxy.serviceToken.getNativeToken({
                   networkId,
                   accountId,
-                  tokenIdOnNetwork: chainValue.tokenAddress,
-                })
-              : await backgroundApiProxy.serviceToken.getNativeToken({
-                  networkId: network.id,
-                  accountId: account.id,
                 });
+            }
             await closeScanPage();
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
@@ -206,7 +235,7 @@ const useParseQRCode = () => {
                 accountId,
                 networkId,
                 activeAccountId: params.account?.id,
-                activeNetworkId: params.network?.id,
+                activeNetworkId: selectedToken?.networkId || params.network?.id,
                 isNFT: false,
                 token: selectedToken,
                 address: chainValue.address,
