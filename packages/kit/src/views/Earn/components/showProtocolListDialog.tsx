@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
 import {
   Dialog,
-  NumberSizeableText,
   SectionList,
   SizableText,
   Skeleton,
@@ -14,7 +12,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -288,39 +285,7 @@ export function showProtocolListDialog({
 }) {
   console.log('showProtocolListDialog called with:', { symbol, protocols });
 
-  const handleProtocolSelect = async (protocol: IStakeProtocolListItem) => {
-    try {
-      defaultLogger.staking.page.selectProvider({
-        network: protocol.network.networkId,
-        stakeProvider: protocol.provider.name,
-      });
-
-      const earnAccount =
-        await backgroundApiProxy.serviceStaking.getEarnAccount({
-          accountId,
-          indexedAccountId,
-          networkId: protocol.network.networkId,
-        });
-
-      await onProtocolSelect({
-        networkId: protocol.network.networkId,
-        accountId: earnAccount?.accountId || accountId,
-        indexedAccountId:
-          earnAccount?.account.indexedAccountId || indexedAccountId,
-        symbol,
-        provider: protocol.provider.name,
-        vault: earnUtils.isMorphoProvider({
-          providerName: protocol.provider.name,
-        })
-          ? protocol.provider.vault
-          : undefined,
-      });
-    } catch (error) {
-      console.error('Failed to select protocol:', error);
-    }
-  };
-
-  return Dialog.show({
+  const dialog = Dialog.show({
     title: appLocale.intl.formatMessage(
       {
         id: ETranslations.earn_symbol_staking_provider,
@@ -338,8 +303,42 @@ export function showProtocolListDialog({
         accountId={accountId}
         indexedAccountId={indexedAccountId}
         protocols={protocols}
-        onProtocolSelect={handleProtocolSelect}
+        onProtocolSelect={async (protocol: IStakeProtocolListItem) => {
+          try {
+            defaultLogger.staking.page.selectProvider({
+              network: protocol.network.networkId,
+              stakeProvider: protocol.provider.name,
+            });
+
+            const earnAccount =
+              await backgroundApiProxy.serviceStaking.getEarnAccount({
+                accountId,
+                indexedAccountId,
+                networkId: protocol.network.networkId,
+              });
+
+            await onProtocolSelect({
+              networkId: protocol.network.networkId,
+              accountId: earnAccount?.accountId || accountId,
+              indexedAccountId:
+                earnAccount?.account.indexedAccountId || indexedAccountId,
+              symbol,
+              provider: protocol.provider.name,
+              vault: earnUtils.isMorphoProvider({
+                providerName: protocol.provider.name,
+              })
+                ? protocol.provider.vault
+                : undefined,
+            });
+          } catch (error) {
+            console.error('Failed to select protocol:', error);
+          } finally {
+            void dialog.close();
+          }
+        }}
       />
     ),
   });
+
+  return dialog;
 }
