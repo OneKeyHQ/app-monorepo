@@ -28,9 +28,9 @@ type IProps = {
 };
 
 type ISwitchHomeAccountButtonProps = {
-  accountId: string | undefined;
+  accountId?: string;
   children: React.ReactNode;
-  walletAccountName: string;
+  walletAccountName?: string;
 };
 function SwitchHomeAccountButton({
   accountId,
@@ -163,8 +163,12 @@ function AddressInfo(props: IProps) {
     <XStack gap="$2" flex={1} flexWrap="wrap">
       {addressQueryResult?.walletAccountName ? (
         <AccountNameContainer
-          walletAccountName={addressQueryResult?.walletAccountName}
-          accountId={addressQueryResult?.walletAccountId}
+          {...(allowClickAccountNameSwitch
+            ? {
+                walletAccountName: addressQueryResult?.walletAccountName,
+                accountId: addressQueryResult?.walletAccountId,
+              }
+            : {})}
           maxWidth="100%"
         >
           <Badge badgeType="success" badgeSize="sm">
@@ -189,8 +193,12 @@ function AddressInfo(props: IProps) {
     <>
       {addressQueryResult?.walletAccountName ? (
         <AccountNameContainer
-          walletAccountName={addressQueryResult?.walletAccountName}
-          accountId={addressQueryResult?.walletAccountId}
+          {...(allowClickAccountNameSwitch
+            ? {
+                walletAccountName: addressQueryResult?.walletAccountName,
+                accountId: addressQueryResult?.walletAccountId,
+              }
+            : {})}
           maxWidth="100%"
         >
           <Badge badgeType="success" badgeSize="sm">
