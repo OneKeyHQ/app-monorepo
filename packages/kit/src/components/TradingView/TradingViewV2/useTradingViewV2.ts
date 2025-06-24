@@ -19,14 +19,14 @@ export async function fetchTradingViewV2Data({
   timeTo,
 }: ITradingViewV2Params): Promise<IMarketTokenKineResponse | null> {
   try {
-    const data =
-      await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
-        tokenAddress,
-        networkId,
-        interval,
-        timeFrom,
-        timeTo,
-      });
+    const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
+      tokenAddress,
+      networkId,
+      interval,
+      timeFrom,
+      timeTo,
+    });
+
     console.log('Kine data fetched:', data);
     return data;
   } catch (error) {
@@ -45,30 +45,28 @@ export async function fetchTradingViewV2DataWithSlicing({
   try {
     const slices = sliceRequest(interval, timeFrom, timeTo);
 
-    const dataPromises = slices.map(slice =>
+    const dataPromises = slices.map((slice) =>
       backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
         tokenAddress,
         networkId,
         interval: slice.interval,
         timeFrom: slice.from,
         timeTo: slice.to,
-      })
+      }),
     );
 
     const dataResults = await Promise.all(dataPromises);
-    
+
     let mergedData: IMarketTokenKineResponse | null = null;
-    
+
     for (const data of dataResults) {
       if (data) {
         if (!mergedData) {
           mergedData = { ...data };
-        } else {
+        } else if (data.points && mergedData.points) {
           // 合并 points 数据数组
-          if (data.points && mergedData.points) {
-            mergedData.points = [...mergedData.points, ...data.points];
-            mergedData.total = mergedData.points.length;
-          }
+          mergedData.points = [...mergedData.points, ...data.points];
+          mergedData.total = mergedData.points.length;
         }
       }
     }

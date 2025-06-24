@@ -5,6 +5,7 @@ import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
+
 import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
 
 // import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
@@ -44,64 +45,70 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     networkId = 'sol--101',
   } = props;
 
-  const customReceiveHandler = useCallback(async ({ data }: ICustomReceiveHandlerData) => {
-    console.log('customReceiveHandler', data);
-    // {
-    //     "scope": "$private",
-    //     "method": "tradingview_getKineData",
-    //     "origin": "tradingview.onekey.so",
-    //     "data": {
-    //         "method": "tradingview_getHistoryData",
-    //         "resolution": "1D",
-    //         "from": 1724803200,
-    //         "to": 1750809600,
-    //         "firstDataRequest": true
-    //     }
-    // }
-    
-    // Handle TradingView private API requests
-    if (data.scope === '$private' && data.method === 'tradingview_getKineData') {
-      console.log('TradingView request received:', {
-        method: data.data.method,
-        resolution: data.data.resolution,
-        from: data.data.from,
-        to: data.data.to,
-        firstDataRequest: data.data.firstDataRequest,
-        origin: data.origin,
-      });
-      
-      // 使用组合函数获取分片数据
-      try {
-        const kineData = await fetchTradingViewV2DataWithSlicing({
-          tokenAddress,
-          networkId,
-          interval: data.data.resolution,
-          timeFrom: data.data.from,
-          timeTo: data.data.to,
+  const customReceiveHandler = useCallback(
+    async ({ data }: ICustomReceiveHandlerData) => {
+      console.log('customReceiveHandler', data);
+      // {
+      //     "scope": "$private",
+      //     "method": "tradingview_getKineData",
+      //     "origin": "tradingview.onekey.so",
+      //     "data": {
+      //         "method": "tradingview_getHistoryData",
+      //         "resolution": "1D",
+      //         "from": 1724803200,
+      //         "to": 1750809600,
+      //         "firstDataRequest": true
+      //     }
+      // }
+
+      // Handle TradingView private API requests
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_getKineData'
+      ) {
+        console.log('TradingView request received:', {
+          method: data.data.method,
+          resolution: data.data.resolution,
+          from: data.data.from,
+          to: data.data.to,
+          firstDataRequest: data.data.firstDataRequest,
+          origin: data.origin,
         });
 
-        console.log('kineData', kineData)
-        
-        if (webRef.current && kineData) {
-          webRef.current.sendMessageViaInjectedScript({
-            type: 'kineData',
-            payload: {
-              kineData,
-              requestData: data.data,
-            },
+        // 使用组合函数获取分片数据
+        try {
+          const kineData = await fetchTradingViewV2DataWithSlicing({
+            tokenAddress,
+            networkId,
+            interval: data.data.resolution,
+            timeFrom: data.data.from,
+            timeTo: data.data.to,
           });
+
+          console.log('kineData', kineData);
+
+          if (webRef.current && kineData) {
+            webRef.current.sendMessageViaInjectedScript({
+              type: 'kineData',
+              payload: {
+                kineData,
+                requestData: data.data,
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch and send kline data:', error);
         }
-      } catch (error) {
-        console.error('Failed to fetch and send kline data:', error);
       }
-    }
-  }, [tokenAddress, networkId]);
+    },
+    [tokenAddress, networkId],
+  );
 
   return (
     <Stack position="relative" flex={1}>
       <WebView
-        customReceiveHandler={data => {
-          customReceiveHandler(data as ICustomReceiveHandlerData);
+        customReceiveHandler={async (data) => {
+          await customReceiveHandler(data as ICustomReceiveHandlerData);
         }}
         onLoadEnd={onLoadEnd}
         onWebViewRef={(ref) => {
