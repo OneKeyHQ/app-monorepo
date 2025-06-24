@@ -35,31 +35,34 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
 
-  const initSdk = useCallback(async () => {
-    const { apiKey } = await getPrimePaymentApiKey({
-      apiKeyType: 'web',
-    });
-    if (!isReady) {
-      throw new OneKeyLocalError('PrimeAuth Not ready');
-    }
-    if (!apiKey) {
-      throw new OneKeyLocalError('No REVENUECAT api key found');
-    }
-    if (!user?.privyUserId) {
-      throw new OneKeyLocalError('User not logged in');
-    }
+  const initSdk = useCallback(
+    async ({ loginRequired }: { loginRequired?: boolean } = {}) => {
+      const { apiKey } = await getPrimePaymentApiKey({
+        apiKeyType: 'web',
+      });
+      if (!isReady) {
+        throw new OneKeyLocalError('PrimeAuth Not ready');
+      }
+      if (!apiKey) {
+        throw new OneKeyLocalError('No REVENUECAT api key found');
+      }
+      if (!user?.privyUserId && loginRequired) {
+        throw new OneKeyLocalError('User not logged in');
+      }
 
-    // TODO VPN required
-    // await Purchases.setProxyURL('https://api.rc-backup.com/');
+      // TODO VPN required
+      // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
-    // TODO how to configure another userId when user login with another account
-    // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
+      // TODO how to configure another userId when user login with another account
+      // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
-    Purchases.configure(apiKey, user?.privyUserId || '');
-  }, [isReady, user?.privyUserId]);
+      Purchases.configure(apiKey, user?.privyUserId || '');
+    },
+    [isReady, user?.privyUserId],
+  );
 
   const getCustomerInfo = useCallback(async () => {
-    await initSdk();
+    await initSdk({ loginRequired: true });
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -153,7 +156,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
-      await initSdk();
+      await initSdk({ loginRequired: true });
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
