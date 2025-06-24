@@ -9,7 +9,6 @@ import type {
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import {
   EQRCodeHandlerNames,

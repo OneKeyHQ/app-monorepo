@@ -1,12 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';

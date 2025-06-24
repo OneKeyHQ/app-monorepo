@@ -23,7 +23,6 @@ import {
   TextArea,
   TextAreaInput,
   XStack,
-  useDeferredPromise,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -59,11 +58,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
