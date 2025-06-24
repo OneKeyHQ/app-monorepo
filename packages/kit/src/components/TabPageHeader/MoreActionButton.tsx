@@ -52,6 +52,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
+import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
@@ -61,7 +62,6 @@ import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHea
 import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
-import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { UpdateReminder } from '../UpdateReminder';
 import { useAppUpdateInfo } from '../UpdateReminder/hooks';

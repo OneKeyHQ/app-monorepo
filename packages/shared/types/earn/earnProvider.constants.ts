@@ -90,6 +90,7 @@ export function normalizeToEarnSymbol(
     'cbbtc': 'cbBTC',
     'wbtc': 'WBTC',
     'usdf': 'USDf',
+    'usde': 'USDe',
   };
 
   return symbolMap[symbol.toLowerCase()];

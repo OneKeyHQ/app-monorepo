@@ -941,4 +941,5 @@ module.exports = [
   "xmr'",
   "xrp'",
   'sidepanel',
+  'checkboxes',
 ];

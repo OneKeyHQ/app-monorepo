@@ -55,6 +55,28 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     })();
   }, []);
 
+  const loginPurchasesSdk = useCallback(async () => {
+    if (!user?.privyUserId) {
+      throw new OneKeyLocalError('User not logged in');
+    }
+    if (user?.privyUserId) {
+      try {
+        await PurchasesReactNative.logIn(user.privyUserId);
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        await PurchasesReactNative.logIn(user.privyUserId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const appUserId = await PurchasesReactNative.getAppUserID();
+    if (appUserId !== user?.privyUserId) {
+      throw new OneKeyLocalError('AppUserId not match');
+    }
+  }, [user?.privyUserId]);
+
   const restorePurchases = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceApp.showDialogLoading({
@@ -62,6 +84,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           id: ETranslations.prime_restoring_previous_purchases,
         }),
       });
+      await loginPurchasesSdk();
       console.log('restorePurchases >>>>>>');
       const customerInfo = await PurchasesReactNative.restorePurchases();
       console.log('restorePurchases >>>>>> customerInfo', customerInfo);
@@ -88,7 +111,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     } finally {
       await backgroundApiProxy.serviceApp.hideDialogLoading();
     }
-  }, [intl]);
+  }, [intl, loginPurchasesSdk]);
 
   const isReady = isPaymentReady && isAuthReady;
 
@@ -96,26 +119,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     if (!isReady) {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
-    if (!user?.privyUserId) {
-      throw new OneKeyLocalError('User not logged in');
-    }
-
-    if (user?.privyUserId) {
-      try {
-        await PurchasesReactNative.logIn(user.privyUserId);
-      } catch (e) {
-        console.error(e);
-      }
-      try {
-        await PurchasesReactNative.logIn(user.privyUserId);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    const appUserId = await PurchasesReactNative.getAppUserID();
-    if (appUserId !== user?.privyUserId) {
-      throw new OneKeyLocalError('AppUserId not match');
-    }
+    await loginPurchasesSdk();
     const customerInfo: CustomerInfo =
       await PurchasesReactNative.getCustomerInfo();
 
@@ -128,7 +132,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     );
 
     return customerInfo;
-  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
+  }, [isReady, loginPurchasesSdk, setPrimePersistAtom]);
 
   const getPackagesNative = useCallback(async () => {
     if (!isReady) {
@@ -199,6 +203,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth native not ready!');
         }
+        await loginPurchasesSdk();
 
         // await backgroundApiProxy.serviceApp.showDialogLoading({
         //   title: intl.formatMessage({
@@ -251,7 +256,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady, intl],
+    [isReady, intl, loginPurchasesSdk],
   );
 
   return {

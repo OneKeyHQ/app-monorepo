@@ -1,20 +1,15 @@
 import type { FC } from 'react';
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useState,
-} from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
-import {
-  Keyboard,
-  KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { StatusBar } from 'react-native';
 
-import { Progress, Spinner, Stack } from '@onekeyhq/components';
+import {
+  Progress,
+  Spinner,
+  Stack,
+  useKeyboardHeight,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ESiteMode } from '../../views/Discovery/types';
@@ -79,6 +74,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);
+    const keyboardHeight = useKeyboardHeight();
     const { webviewRef, setWebViewRef } = useWebViewBridge();
 
     useImperativeHandle(
@@ -164,64 +160,63 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       [siteMode],
     );
 
+    const containerStyle = useMemo(() => {
+      if (platformEnv.isNativeAndroid && keyboardHeight > 0) {
+        return {
+          height: keyboardHeight + (StatusBar.currentHeight || 0) + 60,
+        };
+      }
+
+      return {
+        flex: 1,
+      };
+    }, [keyboardHeight]);
+
     return (
-      <Stack flex={1}>
+      <Stack {...containerStyle}>
         {progressLoading}
-        <KeyboardAvoidingView
-          enabled={platformEnv.isNativeAndroid}
-          style={{ flex: 1 }}
-          behavior="padding"
-          keyboardVerticalOffset={110}
-        >
-          <TouchableWithoutFeedback
-            onPress={Keyboard.dismiss}
-            style={{ flex: 1 }}
-          >
-            <NativeWebView
-              pullToRefreshEnabled={pullToRefreshEnabled}
-              scalesPageToFit={!isDesktopMode}
-              webviewDebuggingEnabled={webviewDebuggingEnabled}
-              ref={setWebViewRef}
-              src={src}
-              onSrcChange={onSrcChange}
-              receiveHandler={receiveHandler}
-              injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
-              injectedJavaScript={
-                platformEnv.isNative &&
-                !platformEnv.isNativeIOSPad &&
-                isDesktopMode
-                  ? injectedJavaScript
-                  : undefined
-              }
-              onLoadProgress={({ nativeEvent }) => {
-                const p = Math.ceil(nativeEvent.progress * 100);
-                onProgress?.(p);
-                setProgress(p);
-                if (p >= 100) {
-                  onContentLoaded?.();
-                }
-              }}
-              onNavigationStateChange={onNavigationStateChange}
-              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-              textInteractionEnabled={undefined}
-              minimumFontSize={undefined}
-              onLoad={onLoad}
-              onLoadStart={onLoadStart}
-              onLoadEnd={onLoadEnd}
-              onScroll={onScroll}
-              // allowFileAccessFromFileURLs
-              // allowFileAccess
-              // allowUniversalAccessFromFileURLs
-              // *** Note that static HTML will require setting originWhitelist to ["*"].
-              originWhitelist={['*']}
-              userAgent={isDesktopMode ? desktopUserAgent : undefined}
-              // https://github.com/react-native-webview/react-native-webview/issues/1779
-              onMessage={onMessage || defaultOnMessage}
-              useGeckoView={useGeckoView}
-              {...nativeWebviewProps}
-            />
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
+
+        <NativeWebView
+          pullToRefreshEnabled={pullToRefreshEnabled}
+          scalesPageToFit={!isDesktopMode}
+          webviewDebuggingEnabled={webviewDebuggingEnabled}
+          ref={setWebViewRef}
+          src={src}
+          onSrcChange={onSrcChange}
+          receiveHandler={receiveHandler}
+          injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
+          injectedJavaScript={
+            platformEnv.isNative && !platformEnv.isNativeIOSPad && isDesktopMode
+              ? injectedJavaScript
+              : undefined
+          }
+          onLoadProgress={({ nativeEvent }) => {
+            const p = Math.ceil(nativeEvent.progress * 100);
+            onProgress?.(p);
+            setProgress(p);
+            if (p >= 100) {
+              onContentLoaded?.();
+            }
+          }}
+          onNavigationStateChange={onNavigationStateChange}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          textInteractionEnabled={undefined}
+          minimumFontSize={undefined}
+          onLoad={onLoad}
+          onLoadStart={onLoadStart}
+          onLoadEnd={onLoadEnd}
+          onScroll={onScroll}
+          // allowFileAccessFromFileURLs
+          // allowFileAccess
+          // allowUniversalAccessFromFileURLs
+          // *** Note that static HTML will require setting originWhitelist to ["*"].
+          originWhitelist={['*']}
+          userAgent={isDesktopMode ? desktopUserAgent : undefined}
+          // https://github.com/react-native-webview/react-native-webview/issues/1779
+          onMessage={onMessage || defaultOnMessage}
+          useGeckoView={useGeckoView}
+          {...nativeWebviewProps}
+        />
       </Stack>
     );
   },

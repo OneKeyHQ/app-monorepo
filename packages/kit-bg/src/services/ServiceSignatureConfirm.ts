@@ -11,6 +11,7 @@ import {
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
 import {
   EParseTxComponentRole,
   EParseTxComponentType,
@@ -328,6 +329,25 @@ class ServiceSignatureConfirm extends ServiceBase {
       console.log('parse message failed', e);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  async preActionsBeforeSending(params: {
+    accountId: string;
+    networkId: string;
+    unsignedTxs: IUnsignedTxPro[];
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
+  }) {
+    const { accountId, networkId, unsignedTxs, tronResourceRentalInfo } =
+      params;
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    await vault.preActionsBeforeSending({
+      unsignedTxs,
+      tronResourceRentalInfo,
+    });
   }
 
   @backgroundMethod()

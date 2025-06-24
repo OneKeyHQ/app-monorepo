@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -53,10 +54,11 @@ export function WalletActionEarn(props: {
   }, [networkId, tokenAddress]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const handleEarnTokenOnPress = useCallback(() => {
+  const handleEarnTokenOnPress = useCallback(async () => {
     const symbol = result?.symbolInfo?.symbol ?? '';
+    const protocolList = result?.protocolList ?? [];
 
-    if (!networkId || !accountId || !symbol) {
+    if (!networkId || !accountId || !symbol || protocolList.length === 0) {
       return;
     }
 
@@ -67,8 +69,15 @@ export function WalletActionEarn(props: {
       isSoftwareWalletOnlyUser,
     });
 
-    if (result?.protocolList?.length === 1) {
-      const protocol = result.protocolList[0];
+    // Convert protocol list to the format expected by showProtocolListDialog
+    const protocols = protocolList.map((protocol) => ({
+      provider: protocol.provider.name,
+      networkId: protocol.network.networkId,
+      vault: protocol.provider.vault,
+    }));
+
+    if (protocols.length === 1) {
+      const protocol = protocolList[0];
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ProtocolDetailsV2,
         params: {
@@ -83,9 +92,17 @@ export function WalletActionEarn(props: {
       return;
     }
 
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.AssetProtocolList,
-      params: { networkId, accountId, symbol, indexedAccountId, filter: true },
+    // Use dialog for multiple protocols
+    showProtocolListDialog({
+      symbol,
+      accountId,
+      indexedAccountId,
+      onProtocolSelect: async (params) => {
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ProtocolDetailsV2,
+          params,
+        });
+      },
     });
   }, [
     result?.symbolInfo?.symbol,

@@ -1,7 +1,5 @@
 import type {
-  ComponentType,
   PropsWithChildren,
-  ReactElement,
   ReactNode,
 } from 'react';
 

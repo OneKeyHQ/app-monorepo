@@ -41,6 +41,7 @@ public class MainApplication extends Application implements ReactApplication {
         packages.add(new RootViewBackgroundPackage());
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
+        packages.add(new WebViewCheckerPackage());
         return packages;
       }
 

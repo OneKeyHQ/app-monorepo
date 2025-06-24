@@ -7,7 +7,7 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IBaseValue, IQRCodeHandler } from '../type';
 
 /*
-https://app.onekeytest.com/market/tokens/bitcoin
+https://app.onekeytest.com/send/protection
 */
 const sendProtection: IQRCodeHandler<IBaseValue> = async (value, options) => {
   const urlValue = options?.urlResult;

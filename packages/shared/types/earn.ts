@@ -4,6 +4,7 @@ export enum EEarnProviderEnum {
   Babylon = 'Babylon',
   Morpho = 'Morpho',
   Falcon = 'Falcon',
+  Ethena = 'Ethena',
 }
 
 export type ISupportedSymbol =
@@ -20,7 +21,8 @@ export type ISupportedSymbol =
   | 'APT'
   | 'BTC'
   | 'SBTC'
-  | 'USDf';
+  | 'USDf'
+  | 'USDe';
 
 export interface IStakingFlowConfig {
   enabled: boolean;

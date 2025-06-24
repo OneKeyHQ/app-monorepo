@@ -51,13 +51,13 @@ export default function useScanQrCode() {
                   account,
                   network,
                   tokens,
+                  popNavigation,
                 });
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                   const animationValue = parseValue.data as IAnimationValue;
                   if (animationValue.fullData) {
                     parseValue.raw = animationValue.fullData;
                     resolve(parseValue);
-                    popNavigation();
                   }
                   Haptics.impact(ImpactFeedbackStyle.Light);
                   return {
@@ -65,31 +65,6 @@ export default function useScanQrCode() {
                   };
                 }
                 resolve(parseValue);
-                if (
-                  [
-                    EQRCodeHandlerType.ANIMATION_CODE,
-                    EQRCodeHandlerType.WALLET_CONNECT,
-                  ].includes(parseValue.type)
-                ) {
-                  popNavigation();
-                  if (parseValue.type === EQRCodeHandlerType.WALLET_CONNECT) {
-                    // TODO: use global singleton loading
-                    // Dialog.loading({
-                    //   title: intl.formatMessage({
-                    //     id: ETranslations.global_processing,
-                    //   }),
-                    //   showExitButton: true,
-                    // });
-                  }
-                }
-
-                if (
-                  parseValue.type === EQRCodeHandlerType.UNKNOWN ||
-                  parseValue.type === EQRCodeHandlerType.URL_ACCOUNT
-                ) {
-                  popNavigation();
-                }
-
                 return {};
               }
               reject(new OneKeyErrorScanQrCodeCancel());

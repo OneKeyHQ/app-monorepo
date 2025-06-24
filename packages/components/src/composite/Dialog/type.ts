@@ -40,7 +40,7 @@ export type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
   disabledOn?: (params: Pick<IDialogInstance, 'getForm'>) => boolean;
 };
 export interface IDialogFooterProps extends PropsWithChildren {
-  tone?: 'default' | 'destructive' | 'warning' | 'success';
+  tone?: 'default' | 'destructive' | 'warning' | 'success' | 'info';
   trackID?: string;
   showFooter?: boolean;
   footerProps?: Omit<IStackProps, 'children'>;
@@ -61,7 +61,7 @@ export type IDialogHeaderProps = PropsWithChildren<{
   title?: string;
   description?: string | ReactElement;
   showExitButton?: boolean;
-  tone?: 'default' | 'destructive' | 'warning' | 'success';
+  tone?: 'default' | 'destructive' | 'warning' | 'success' | 'info';
   renderIcon?: ReactElement;
 }>;
 

@@ -124,6 +124,7 @@ export function HyperlinkText({
                           ],
                           qrWalletScene: false,
                           autoHandleResult,
+                          autoClosePage: false,
                           defaultHandler: openUrlExternal,
                         });
                       }
