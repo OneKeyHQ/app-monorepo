@@ -75,14 +75,6 @@ export const useDesktopColumns = (
         <XStack alignItems="center" space="$3">
           <XStack position="relative">
             <Skeleton width={32} height={32} borderRadius="$full" />
-            <Skeleton
-              width={16}
-              height={16}
-              borderRadius="$full"
-              position="absolute"
-              right={-4}
-              bottom={-4}
-            />
           </XStack>
           <YStack gap="$1">
             <Skeleton width={80} height={16} />
@@ -181,7 +173,7 @@ export const useDesktopColumns = (
       renderSkeleton: () => <Skeleton width={60} height={16} />,
     },
     {
-      title: 'Holders',
+      title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
       dataIndex: 'holders',
       columnProps: { flex: 1 },
       render: (text: number) => (

@@ -100,14 +100,14 @@ export function MarketMobileTabs({
     () => [
       {
         id: EMarketHomeTab.Watchlist,
-        title: 'watchlist',
+        title: intl.formatMessage({ id: ETranslations.global_watchlist }),
       },
       {
         id: EMarketHomeTab.Trending,
-        title: 'trending',
+        title: intl.formatMessage({ id: ETranslations.market_trending }),
       },
     ],
-    [],
+    [intl],
   );
 
   // Custom title render: star icon for watchlist tab, translated text for trending

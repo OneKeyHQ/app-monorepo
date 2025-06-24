@@ -86,7 +86,9 @@ function LiquidityFilterContent({
               })}
             </Heading>
             <Input
-              placeholder="0"
+              placeholder={intl.formatMessage({
+                id: ETranslations.dexmarket_custom_fliters_min,
+              })}
               value={minValue}
               onChangeText={setMinValue}
             />
@@ -98,7 +100,9 @@ function LiquidityFilterContent({
               })}
             </Heading>
             <Input
-              placeholder="∞"
+              placeholder={intl.formatMessage({
+                id: ETranslations.dexmarket_custom_fliters_max,
+              })}
               value={maxValue}
               onChangeText={setMaxValue}
             />
