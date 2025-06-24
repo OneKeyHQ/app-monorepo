@@ -150,7 +150,7 @@ class ProviderApiSui extends ProviderApiBase {
   @providerApiMethod()
   public async signAndExecuteTransactionBlock(
     request: IJsBridgeMessagePayload,
-    params: ISignAndExecuteTransactionBlockInput,
+    params: Omit<ISignAndExecuteTransactionBlockInput, 'transactionBlock'>,
   ): Promise<SuiTransactionBlockResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId, address } = {} } = (
@@ -183,7 +183,7 @@ class ProviderApiSui extends ProviderApiBase {
   @providerApiMethod()
   public async signTransactionBlock(
     request: IJsBridgeMessagePayload,
-    params: ISignTransactionBlockInput,
+    params: Omit<ISignTransactionBlockInput, 'transactionBlock'>,
   ): Promise<ISignTransactionBlockOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId, address } = {} } = (
