@@ -297,7 +297,6 @@ export function showProtocolListDialog({
     contentContainerProps: {
       px: '$0',
       pb: '$5',
-      bg: 'red',
     },
     renderContent: (
       <ProtocolListDialogContent
