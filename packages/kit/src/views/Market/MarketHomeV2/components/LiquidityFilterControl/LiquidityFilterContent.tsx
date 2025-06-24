@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,40 +20,40 @@ function LiquidityFilterContent({
   onClose,
   ...rest
 }: ILiquidityFilterContentProps) {
-  const [selectedPreset, setSelectedPreset] = useState<string | undefined>(
-    valueProp?.min,
-  );
+  // Determine selected preset based on current min value and preset values
+  const selectedPreset = presetValues.includes(valueProp?.min || '')
+    ? valueProp?.min
+    : undefined;
   const [minValue, setMinValue] = useState<string | undefined>(valueProp?.min);
   const [maxValue, setMaxValue] = useState<string | undefined>(valueProp?.max);
   const intl = useIntl();
 
   useEffect(() => {
-    setSelectedPreset(valueProp?.min);
     setMinValue(valueProp?.min);
     setMaxValue(valueProp?.max);
   }, [valueProp]);
 
-  const handlePresetPress = (preset: string) => {
-    setSelectedPreset(preset);
-    setMinValue(preset);
-    setMaxValue(undefined);
-    // Directly apply preset values and close popover
-    onApply?.({ min: preset, max: undefined });
-    onClose?.();
-  };
+  const handlePresetPress = useCallback(
+    (preset: string) => {
+      // Apply preset values immediately without updating local state
+      // to avoid state inconsistency during rapid closure
+      onApply?.({ min: preset, max: undefined });
+      onClose?.();
+    },
+    [onApply, onClose],
+  );
 
-  const handleApply = () => {
+  const handleApply = useCallback(() => {
     onApply?.({ min: minValue, max: maxValue });
     onClose?.();
-  };
+  }, [minValue, maxValue, onApply, onClose]);
 
-  const handleClear = () => {
-    setSelectedPreset(undefined);
-    setMinValue(undefined);
-    setMaxValue(undefined);
+  const handleClear = useCallback(() => {
+    // Clear values immediately without updating local state
+    // to avoid state inconsistency during rapid closure
     onApply?.({ min: undefined, max: undefined });
     onClose?.();
-  };
+  }, [onApply, onClose]);
 
   const renderPresetRow = (startIndex: number, endIndex: number) => (
     <XStack gap="$3">
