@@ -1,6 +1,6 @@
 import { cloneElement, useCallback, useMemo } from 'react';
 
-import { Keyboard, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Badge, YStack } from '@onekeyhq/components';
 import type {
@@ -16,8 +16,6 @@ import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem'
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { type ISubSettingConfig } from './config';
 import { useIsTabNavigator } from './useIsTabNavigator';
