@@ -86,13 +86,6 @@ jobs:
         run: |
           yarn
 
-      - name: Build WebEmbed
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
-        run: |
-          yarn app:web-embed:build
-
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
         run: |
