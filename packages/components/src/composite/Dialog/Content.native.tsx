@@ -16,6 +16,7 @@ export function Content({
   estimatedContentHeight,
   testID,
   isAsync = false,
+  ...others
 }: IDialogContentProps) {
   const isOptimization = isAsync || !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
@@ -96,7 +97,14 @@ export function Content({
     return null;
   }
   return (
-    <YStack px="$5" pb="$5" ref={ref} height={height} onLayout={handleLayout}>
+    <YStack
+      px="$5"
+      pb="$5"
+      ref={ref}
+      height={height}
+      {...others}
+      onLayout={handleLayout}
+    >
       {isOptimization ? (
         <>
           {
