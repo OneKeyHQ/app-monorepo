@@ -4,7 +4,9 @@ import { Layout } from './utils/Layout';
 
 const content = `
 # Heading1
+
 ## Heading2
+
 ### ✨ New Features
 - *Don’t forget your passphrase!*
 - **Don’t forget your passphrase!**
@@ -21,6 +23,12 @@ const content = `
 ### 💎 Improvements
 - Optimized packet handling logic for signing data on the Sui network.
 - Increased blind signature message length to 4096 on the Polkadot network.
+
+### 💎 Ordered List
+1. Fixed incorrect display of recipient addresses during transfers on Near and Tron networks.
+1. Fixed overlapping transaction data display in Thorswap routing.
+1. Fixed incomplete display of signing information on the Sui network.
+
 
 `;
 
