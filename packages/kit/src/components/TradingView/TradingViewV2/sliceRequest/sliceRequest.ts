@@ -14,7 +14,7 @@ export function sliceRequest(
   timeTo: number,
 ): ITimeSlice[] {
   const getIntervalInSeconds = (intervalStr: string): number => {
-    const match = intervalStr.toLowerCase().match(/^(\d+)([mhdwMy])$/);
+    const match = intervalStr.match(/^(\d+)([mHDWMy])$/);
     if (!match) {
       throw new OneKeyLocalError(`Invalid interval format: ${intervalStr}`);
     }
@@ -22,14 +22,14 @@ export function sliceRequest(
     const [, value, unit] = match;
     const num = parseInt(value, 10);
 
-    switch (unit.toLowerCase()) {
+    switch (unit) {
       case 'm':
         return num * 60; // 分钟
-      case 'h':
+      case 'H':
         return num * 60 * 60; // 小时
-      case 'd':
+      case 'D':
         return num * 24 * 60 * 60; // 天
-      case 'w':
+      case 'W':
         return num * 7 * 24 * 60 * 60; // 周
       case 'M':
         return num * 30 * 24 * 60 * 60; // 月（按30天计算）
