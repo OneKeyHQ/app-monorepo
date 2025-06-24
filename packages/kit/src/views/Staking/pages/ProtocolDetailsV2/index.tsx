@@ -459,6 +459,7 @@ const ProtocolDetailsPage = () => {
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
+  const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
 
   const { result: earnAccount, run: refreshAccount } = usePromiseResult(
     async () =>
@@ -495,8 +496,12 @@ const ProtocolDetailsPage = () => {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (detailInfo?.statement) {
-      // Exit current modal and show unsupported dialog
+      // Keep skeleton visible for better UX
+      setKeepSkeletonVisible(true);
+
+      // Exit current modal and show unsupported dialog after 500ms
       timer = setTimeout(() => {
+        setKeepSkeletonVisible(false);
         appNavigation.pop();
         const statement = detailInfo.statement;
         if (statement) {
@@ -524,10 +529,15 @@ const ProtocolDetailsPage = () => {
             onCancelText: closeButton?.text?.text,
           });
         }
-      }, 100);
+      }, 500);
     }
 
-    return () => timer && clearTimeout(timer);
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+        setKeepSkeletonVisible(false);
+      }
+    };
   }, [detailInfo, appNavigation]);
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
@@ -984,7 +994,10 @@ const ProtocolDetailsPage = () => {
           <ShareEventsContext.Provider value={contextValue}>
             <PageFrame
               LoadingSkeleton={OverviewSkeleton}
-              loading={isLoadingState({ result: detailInfo, isLoading })}
+              loading={
+                isLoadingState({ result: detailInfo, isLoading }) ||
+                keepSkeletonVisible
+              }
               error={isErrorState({ result: detailInfo, isLoading })}
               onRefresh={run}
             >
