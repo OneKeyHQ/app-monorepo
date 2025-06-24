@@ -23,6 +23,7 @@ import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
@@ -64,7 +65,14 @@ export default function PrimeDeleteAccount() {
   const { sendEmailOTP } = useLoginOneKeyId();
 
   const handleDeleteAccount = useCallback(async () => {
-    // TODO passcode verify if passcode is set
+    const isPasswordSet =
+      await backgroundApiProxy.servicePassword.checkPasswordSet();
+    //   passcode verify if passcode is set
+    if (isPasswordSet) {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+    }
     // TODO logout privy sdk
     // TODO logout atom states
     await sendEmailOTP({
@@ -216,15 +224,21 @@ export default function PrimeDeleteAccount() {
             variant: 'destructive',
           }}
         >
-          <Checkbox
-            value={checked}
-            onChange={(value) => {
-              changeChecked(!!value);
+          <Stack
+            $md={{
+              mb: '$2',
             }}
-            label={intl.formatMessage({
-              id: ETranslations.id_delete_double_check,
-            })}
-          />
+          >
+            <Checkbox
+              value={checked}
+              onChange={(value) => {
+                changeChecked(!!value);
+              }}
+              label={intl.formatMessage({
+                id: ETranslations.id_delete_double_check,
+              })}
+            />
+          </Stack>
         </Page.FooterActions>
       </Page.Footer>
     </Page>
