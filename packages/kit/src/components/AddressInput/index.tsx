@@ -572,7 +572,6 @@ export function AddressInput(props: IAddressInputProps) {
       disabled,
       rest.testID,
       scan,
-      inputId,
       onScanResult,
       contacts,
       accountSelector,
