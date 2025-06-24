@@ -96,7 +96,7 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketTokenKine({
+  async fetchMarketTokenKline({
     tokenAddress,
     networkId,
     interval,
@@ -112,7 +112,7 @@ class ServiceMarketV2 extends ServiceBase {
     let innerInterval = interval?.toUpperCase();
 
     if (innerInterval?.includes('M')) {
-      innerInterval = innerInterval?.toLocaleLowerCase()
+      innerInterval = innerInterval?.toLowerCase()
     }
 
     const client = await this.getClient(EServiceEndpointEnum.Utility);

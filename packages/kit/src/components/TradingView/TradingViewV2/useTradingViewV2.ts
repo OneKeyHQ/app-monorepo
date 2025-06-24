@@ -19,13 +19,15 @@ export async function fetchTradingViewV2Data({
   timeTo,
 }: ITradingViewV2Params): Promise<IMarketTokenKineResponse | null> {
   try {
-    const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
-      tokenAddress,
-      networkId,
-      interval,
-      timeFrom,
-      timeTo,
-    });
+    const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
+      {
+        tokenAddress,
+        networkId,
+        interval,
+        timeFrom,
+        timeTo,
+      },
+    );
 
     console.log('Kine data fetched:', data);
     return data;
@@ -46,7 +48,7 @@ export async function fetchTradingViewV2DataWithSlicing({
     const slices = sliceRequest(interval, timeFrom, timeTo);
 
     const dataPromises = slices.map((slice) =>
-      backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
+      backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
         tokenAddress,
         networkId,
         interval: slice.interval,
