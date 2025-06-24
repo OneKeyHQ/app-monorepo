@@ -701,6 +701,22 @@ export interface IStakeEarnDetail {
       logoURI: string;
     }[];
   };
+  statement?: {
+    icon: IEarnIcon;
+    title: IEarnText;
+    items: {
+      title: IEarnText;
+    }[];
+    buttons: {
+      type: 'close' | 'link';
+      text: IEarnText;
+      disabled: boolean;
+      data?: {
+        icon?: IEarnIcon;
+        link?: string;
+      };
+    }[];
+  };
 }
 
 export interface IEarnProvider {

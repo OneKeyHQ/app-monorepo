@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,6 +8,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
+  Dialog,
   Divider,
   Image,
   Page,
@@ -34,6 +35,7 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -487,6 +489,45 @@ const ProtocolDetailsPage = () => {
     { watchLoading: true, revalidateOnFocus: true },
   );
 
+  // Handle unsupported protocol
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (detailInfo?.statement) {
+      // Exit current modal and show unsupported dialog
+      timer = setTimeout(() => {
+        appNavigation.pop();
+        const statement = detailInfo.statement;
+        if (statement) {
+          const linkButton = statement.buttons?.find(
+            (btn) => btn.type === 'link',
+          );
+          const closeButton = statement.buttons?.find(
+            (btn) => btn.type === 'close',
+          );
+
+          Dialog.show({
+            icon: statement.icon?.icon,
+            title: statement.title?.text,
+            description: statement.items?.[0]?.title?.text,
+            showFooter: !!linkButton,
+            renderContent: null,
+            onConfirm: linkButton
+              ? () => {
+                  if (linkButton.data?.link) {
+                    void openUrlExternal(linkButton.data.link);
+                  }
+                }
+              : undefined,
+            onConfirmText: linkButton?.text?.text,
+            onCancelText: closeButton?.text?.text,
+          });
+        }
+      }, 100);
+    }
+
+    return () => timer && clearTimeout(timer);
+  }, [detailInfo, appNavigation]);
+
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!detailInfo?.subscriptionValue?.token) {
       return undefined;
@@ -509,7 +550,7 @@ const ProtocolDetailsPage = () => {
     };
   }, [
     detailInfo?.subscriptionValue?.token,
-    detailInfo?.subscriptionValue.balance,
+    detailInfo?.subscriptionValue?.balance,
     networkId,
     provider,
     vault,
