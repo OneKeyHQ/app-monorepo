@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import safeStringify from 'fast-safe-stringify';
 
-// import { usePrimePaymentMethods } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentMethods';
+import { usePrimePaymentMethods } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentMethods';
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 
 async function closeNativeWebViewModal() {
@@ -80,55 +80,70 @@ export default function PageWebEmbedPrimePurchase() {
   const isRunning = useRef(false);
   const [debugText, setDebugText] = useState<string>('');
 
-  // const { webEmbedQueryParams, purchasePackageWeb } = usePrimePaymentMethods();
-  // const {
-  //   apiKey,
-  //   primeUserId,
-  //   primeUserEmail,
-  //   subscriptionPeriod,
-  //   locale,
-  //   mode,
-  // } = webEmbedQueryParams || {};
+  const { webEmbedQueryParams, purchasePackageWeb } = usePrimePaymentMethods();
+  const {
+    apiKey,
+    primeUserId,
+    primeUserEmail,
+    subscriptionPeriod,
+    locale,
+    mode,
+  } = webEmbedQueryParams || {};
 
   const run = useCallback(async () => {
-    // if (!primeUserId || !primeUserEmail || !subscriptionPeriod || !apiKey) {
-    //   await closeNativeWebViewModal();
-    //   return;
-    // }
-    // if (isRunning.current) {
-    //   return;
-    // }
-    // try {
-    //   isRunning.current = true;
-    //   const purchaseResult = await purchasePackageWeb?.({
-    //     subscriptionPeriod,
-    //     email: primeUserEmail,
-    //     locale,
-    //   });
-    //   const debugMessage = safeStringify.stableStringify(
-    //     purchaseResult,
-    //     undefined,
-    //     2,
-    //   );
-    //   setDebugText(debugMessage);
-    //   await showNativeDebugMessageDialog(debugMessage);
-    //   await closeNativeWebViewModal();
-    // } catch (error) {
-    //   const trace = (error instanceof Error ? error.stack : '') || '';
-    //   const debugMessage =
-    //     error instanceof Error
-    //       ? `${error.message}\n${trace}`
-    //       : `Unknown error: ${trace}`;
-    //   setDebugText(debugMessage);
-    //   await showNativeDebugMessageDialog(debugMessage);
-    //   await showNativeToast({
-    //     title: 'Error',
-    //     message: error instanceof Error ? error.message : 'Unknown error',
-    //   });
-    //   await closeNativeWebViewModal();
-    // }
-    // isRunning.current = false;
-  }, []);
+    if (!primeUserId || !primeUserEmail || !subscriptionPeriod || !apiKey) {
+      await closeNativeWebViewModal();
+      return;
+    }
+
+    if (isRunning.current) {
+      return;
+    }
+
+    try {
+      isRunning.current = true;
+
+      const purchaseResult = await purchasePackageWeb?.({
+        subscriptionPeriod,
+        email: primeUserEmail,
+        locale,
+      });
+
+      const debugMessage = safeStringify.stableStringify(
+        purchaseResult,
+        undefined,
+        2,
+      );
+      setDebugText(debugMessage);
+      await showNativeDebugMessageDialog(debugMessage);
+
+      await closeNativeWebViewModal();
+    } catch (error) {
+      const trace = (error instanceof Error ? error.stack : '') || '';
+      const debugMessage =
+        error instanceof Error
+          ? `${error.message}\n${trace}`
+          : `Unknown error: ${trace}`;
+      setDebugText(debugMessage);
+      await showNativeDebugMessageDialog(debugMessage);
+
+      await showNativeToast({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      await closeNativeWebViewModal();
+    }
+
+    isRunning.current = false;
+  }, [
+    primeUserId,
+    primeUserEmail,
+    subscriptionPeriod,
+    apiKey,
+    purchasePackageWeb,
+    locale,
+  ]);
 
   useEffect(() => {
     void run();
@@ -138,7 +153,7 @@ export default function PageWebEmbedPrimePurchase() {
     <div>
       <Spinner />
 
-      {true ? (
+      {mode === 'dev' ? (
         <div>
           <button
             style={{
@@ -179,7 +194,7 @@ export default function PageWebEmbedPrimePurchase() {
               {debugText}
             </pre>
           ) : null}
-          {/* {safeStringify.stableStringify(
+          {safeStringify.stableStringify(
             {
               subscriptionPeriod,
               primeUserId,
@@ -190,7 +205,7 @@ export default function PageWebEmbedPrimePurchase() {
             },
             undefined,
             2,
-          )} */}
+          )}
         </div>
       ) : null}
     </div>
