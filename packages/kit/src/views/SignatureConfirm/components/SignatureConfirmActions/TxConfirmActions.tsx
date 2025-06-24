@@ -217,6 +217,9 @@ function TxConfirmActions(props: IProps) {
     } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
+      isSubmitted.current = false;
+      void dappApprove.reject(e);
+      throw e;
     }
 
     // fee info pre-check
