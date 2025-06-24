@@ -533,9 +533,9 @@ export function AddressInput(props: IAddressInputProps) {
           ) : null}
           {scan ? (
             <ScanPlugin
+              networkId={networkId}
               onInputTypeChange={onInputTypeChange}
               onScanResult={onScanResult}
-              sceneName={scan.sceneName}
               onChange={onChangeText}
               disabled={disabled}
               testID={rest.testID ? `${rest.testID}-scan` : undefined}
