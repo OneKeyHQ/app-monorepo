@@ -91,7 +91,6 @@ export function MarketMobileTabs({
 }: IMarketMobileTabsProps) {
   const intl = useIntl();
 
-  // 管理当前激活的 tab index
   const [activeIndex, setActiveIndex] = useState(
     selectedTab === EMarketHomeTab.Watchlist ? 0 : 1,
   );

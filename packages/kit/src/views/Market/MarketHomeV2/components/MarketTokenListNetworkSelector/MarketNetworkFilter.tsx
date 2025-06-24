@@ -43,7 +43,6 @@ const MarketNetworkFilter = forwardRef<
     const [scrollX, setScrollX] = useState(0);
     const scrollViewRef = useRef<ScrollViewType>(null);
 
-    // 控制左侧渐变遮罩的显示，滚动超过10px后显示
     const shouldShowLeftGradient = scrollX > 2;
 
     useImperativeHandle(
@@ -54,14 +53,10 @@ const MarketNetworkFilter = forwardRef<
             (network) => network.networkId === networkId,
           );
           if (networkIndex !== -1 && scrollViewRef.current) {
-            // 估算每个网络项的宽度 (参考 NetworksFilterItem 的 px="$3")
-            // px="$3" = 12px * 2, 图标宽度 $6 = 24px (mobile) 或 $5 = 20px (desktop)
-            // gap="$2" = 8px, 文字宽度估算 40-60px
-            const itemWidth = 24 + 24 + 8 + 50; // 约106px
+            const itemWidth = 24 + 24 + 8 + 50;
             const gap = 8; // $2 gap between items
             const containerPadding = 4; // p="$1" = 4px
 
-            // 计算滚动位置，让选中的项目稍微偏左显示，确保完全可见
             const scrollToX = Math.max(
               0,
               networkIndex * (itemWidth + gap) - containerPadding - 20,

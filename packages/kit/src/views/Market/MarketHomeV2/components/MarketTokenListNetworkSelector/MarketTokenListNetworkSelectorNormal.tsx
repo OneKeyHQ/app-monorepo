@@ -45,7 +45,6 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       ref,
       () => ({
         scrollToNetwork: (networkId: string) => {
-          // 使用 setTimeout 确保状态更新后再滚动
           setTimeout(() => {
             marketNetworkFilterRef.current?.scrollToNetwork(networkId);
           }, 100);

@@ -24,8 +24,6 @@ import { type IMarketToken } from './MarketTokenData';
 import type { ILiquidityFilter } from '../../types';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
-// 支持排序的字段映射 - 这些是API的排序参数，不能变更
-// 注意：API不支持v24hChangePercent排序，暂时禁用
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
@@ -75,7 +73,6 @@ function MarketTokenList({
     'asc' | 'desc' | undefined
   >(initialSortType || 'desc');
 
-  // 排序变更处理函数
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
       setCurrentSortBy(sortBy);
@@ -91,7 +88,6 @@ function MarketTokenList({
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
 
-  // 表格头部行回调，处理排序 / watchlist toggle
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
       // Star column toggle watchlist
