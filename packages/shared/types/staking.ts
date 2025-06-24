@@ -769,8 +769,21 @@ export type IStakeProtocolDetails = {
   formalActive?: string; // formal stake portfolio, user staked usdf after event end time
 };
 
+export enum EStakeProtocolGroupEnum {
+  Available = 'available',
+  WithdrawOnly = 'withdrawOnly',
+  Deposited = 'deposited',
+}
+
 export type IStakeProtocolListItem = {
-  provider: IStakeProviderInfo;
+  provider: IStakeProviderInfo & {
+    group: EStakeProtocolGroupEnum;
+    description?: string;
+    badges?: Array<{
+      badgeType: IBadgeType;
+      tag: string;
+    }>;
+  };
   network: {
     networkId: string;
     name: string;
