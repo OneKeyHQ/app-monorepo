@@ -3,7 +3,7 @@ import { memo } from 'react';
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { TabSubStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 
-import { BasicModalSettingStack } from '../../router';
+import { BasicModalSettingStack } from '../../router/basicModalSettingRouter';
 
 import { SearchViewPage } from './SearchView';
 import { SubSettingsPage } from './SubSettingsPage';
