@@ -7,6 +7,7 @@ import { Dialog, useClipboard } from '@onekeyhq/components';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
+import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
@@ -89,6 +90,11 @@ export function WalletActionMore() {
   }, [isSellSupported, wallet?.type]);
 
   const show = useReviewControl();
+
+  const rewardCenterConfig = getRewardCenterConfig({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+  });
 
   const vaultSettings = usePromiseResult(async () => {
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -304,7 +310,8 @@ export function WalletActionMore() {
 
   if (
     !vaultSettings?.copyAddressDisabled ||
-    !vaultSettings?.hideBlockExplorer
+    !vaultSettings?.hideBlockExplorer ||
+    vaultSettings?.hasRewardCenter
   ) {
     sections.unshift({
       items: [
@@ -328,6 +335,15 @@ export function WalletActionMore() {
                 }),
                 icon: 'Copy3Outline',
                 onPress: handleCopyAddress,
+              },
+            ]
+          : ([] as any)),
+        ...(rewardCenterConfig
+          ? [
+              {
+                label: rewardCenterConfig.title,
+                icon: rewardCenterConfig.icon,
+                onPress: rewardCenterConfig.handler,
               },
             ]
           : ([] as any)),

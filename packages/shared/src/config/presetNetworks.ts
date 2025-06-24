@@ -2402,6 +2402,27 @@ const tron: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const nile: IServerNetwork = {
+  'chainId': 'tron--0xcd8690dc',
+  'code': 'ttrx',
+  'decimals': 6,
+  'id': 'tron--0xcd8690dc',
+  'impl': 'tron',
+  'isTestnet': true,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
+  'name': 'Tron Nile Testnet',
+  'shortcode': 'ttrx',
+  'shortname': 'TTRX',
+  'symbol': 'TTRX',
+  'feeMeta': {
+    'decimals': 6,
+    'symbol': 'TTRX',
+  },
+  'defaultEnabled': true,
+  'backendIndex': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const near: IServerNetwork = {
   'chainId': '0',
   'code': 'near',
@@ -3114,6 +3135,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nostr,
     near,
     tron,
+    nile,
     cfx,
     sol,
     nexa,
