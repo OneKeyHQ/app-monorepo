@@ -4,10 +4,10 @@
   },
   "build": {
     "base": {
-      "node": "20.0.0",
+      "node": "20.10.0",
       "android": {
-        "image": "ubuntu-22.04-jdk-17-ndk-r25b",
-        "ndk": "25.1.8937393",
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b",
+        "ndk": "26.1.10909125",
         "env": {
           "PLATFORM": "android"
         }
