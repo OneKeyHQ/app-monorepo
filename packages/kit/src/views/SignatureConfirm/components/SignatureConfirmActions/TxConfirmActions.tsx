@@ -422,7 +422,11 @@ function TxConfirmActions(props: IProps) {
     if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
-    if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
+    if (
+      nativeTokenInfo.isLoading ||
+      sendTxStatus.isInsufficientNativeBalance ||
+      sendTxStatus.isInsufficientTokenBalance
+    )
       return true;
     if (isBuildingDecodedTxs) return true;
 
@@ -435,6 +439,7 @@ function TxConfirmActions(props: IProps) {
     continueOperate,
     sendTxStatus.isSubmitting,
     sendTxStatus.isInsufficientNativeBalance,
+    sendTxStatus.isInsufficientTokenBalance,
     nativeTokenInfo.isLoading,
     isBuildingDecodedTxs,
     sendSelectedFeeInfo,

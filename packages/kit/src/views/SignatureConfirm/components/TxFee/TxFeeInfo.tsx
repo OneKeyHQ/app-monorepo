@@ -25,10 +25,12 @@ import {
   useIsSinglePresetAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
+  usePayWithTokenInfoAtom,
   useSendFeeStatusAtom,
   useSendSelectedFeeAtom,
   useSendTxStatusAtom,
   useSignatureConfirmActions,
+  useTokenTransferAmountAtom,
   useTronResourceRentalInfoAtom,
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
@@ -69,6 +71,7 @@ import type {
 
 import { TxFeeEditor } from './TxFeeEditor';
 import { TxFeeSelectorTrigger } from './TxFeeSelectorTrigger';
+import { tronTokenAddress } from '@onekeyhq/core/src/chains/tron/constants';
 
 type IProps = {
   accountId: string;
@@ -90,6 +93,7 @@ function TxFeeInfo(props: IProps) {
   const intl = useIntl();
   const [txFeeInit, setTxFeeInit] = useState(false);
   const feeInTxUpdated = useRef(false);
+  const tronRentalUpdated = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -104,6 +108,8 @@ function TxFeeInfo(props: IProps) {
   const [extraFeeInfo] = useExtraFeeInfoAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const [payWithTokenInfo] = usePayWithTokenInfoAtom();
+  const [tokenTransferAmount] = useTokenTransferAmountAtom();
   const {
     isResourceRentalNeeded,
     isResourceRentalEnabled,
@@ -120,6 +126,7 @@ function TxFeeInfo(props: IProps) {
     updateIsSinglePreset,
     updateTxAdvancedSettings,
     updateTronResourceRentalInfo,
+    updatePayWithTokenInfo,
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -280,12 +287,13 @@ function TxFeeInfo(props: IProps) {
         // update tron resource rental fee info
         if (r.feeTron && r.feeTron[0]) {
           if (r.feeTron[0].createOrderParams) {
-            const { createOrderParams, saveTRX, info, payWithUSDT } =
+            const { createOrderParams, saveTRX, info, payWithUSDT, balances } =
               r.feeTron[0];
             updateTronResourceRentalInfo({
               isResourceRentalNeeded: true,
-              isResourceRentalEnabled: true,
-              isSwapTrxEnabled: false,
+              isResourceRentalEnabled: tronRentalUpdated.current
+                ? undefined
+                : true,
               payType: payWithUSDT
                 ? ETronResourceRentalPayType.Token
                 : ETronResourceRentalPayType.Native,
@@ -309,11 +317,29 @@ function TxFeeInfo(props: IProps) {
                 minutes: info.pledgeMinute,
               },
             });
+
+            tronRentalUpdated.current = true;
+
+            if (payWithUSDT) {
+              const tokenAddress = tronTokenAddress[info.payCoinCode];
+
+              updatePayWithTokenInfo({
+                address: tokenAddress,
+                balance: balances[tokenAddress] ?? '0',
+                symbol: info.payCoinCode,
+              });
+            }
           } else {
             updateTronResourceRentalInfo({
               isResourceRentalNeeded: false,
               isResourceRentalEnabled: false,
               isSwapTrxEnabled: false,
+            });
+            updatePayWithTokenInfo({
+              enabled: false,
+              address: '',
+              balance: '0',
+              logoURI: '',
             });
           }
         }
@@ -350,6 +376,7 @@ function TxFeeInfo(props: IProps) {
       isSingleTxWithFeesInfo,
       networkId,
       unsignedTxs,
+      updatePayWithTokenInfo,
       updateSendFeeStatus,
       updateTronResourceRentalInfo,
       updateTxAdvancedSettings,
@@ -1104,48 +1131,95 @@ function TxFeeInfo(props: IProps) {
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
-    if (!txFeeInit || nativeTokenInfo.isLoading || !nativeTokenInfo) return;
+    if (!txFeeInit) return;
 
-    const requiredNativeBalance = new BigNumber(
-      nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
-    )
-      .plus(selectedFee?.totalNative ?? 0)
-      .plus(extraFeeInfo.feeNative ?? 0);
+    if (payWithTokenInfo.enabled) {
+      let requiredTokenBalance = new BigNumber(tokenTransferAmount ?? 0);
 
-    const fillUpNativeBalance = requiredNativeBalance.minus(
-      nativeTokenInfo.balance ?? 0,
-    );
+      if (
+        isResourceRentalNeeded &&
+        isResourceRentalEnabled &&
+        payType === ETronResourceRentalPayType.Token
+      ) {
+        if (isSwapTrxEnabled) {
+          requiredTokenBalance = requiredTokenBalance.plus(
+            payTokenInfo?.totalAmount ?? 0,
+          );
+        } else {
+          requiredTokenBalance = requiredTokenBalance.plus(
+            payTokenInfo?.payTxFeeAmount ?? 0,
+          );
+        }
+      }
 
-    const decodedTx = decodedTxs[0];
+      const isInsufficientTokenBalance = requiredTokenBalance.gt(
+        payWithTokenInfo.balance ?? 0,
+      );
 
-    let isInsufficientNativeBalance =
-      nativeTokenTransferAmountToUpdate.isMaxSend
-        ? false
-        : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0);
+      const fillUpTokenBalance = requiredTokenBalance.minus(
+        payWithTokenInfo.balance ?? 0,
+      );
 
-    if (decodedTx && decodedTx.isPsbt) {
-      isInsufficientNativeBalance = false;
+      updateSendTxStatus({
+        isInsufficientNativeBalance: false,
+        isInsufficientTokenBalance,
+        fillUpTokenBalance: fillUpTokenBalance
+          .sd(4, BigNumber.ROUND_UP)
+          .toFixed(),
+      });
+    } else {
+      if (nativeTokenInfo.isLoading || !nativeTokenInfo) return;
+      const requiredNativeBalance = new BigNumber(
+        nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
+      )
+        .plus(selectedFee?.totalNative ?? 0)
+        .plus(extraFeeInfo.feeNative ?? 0);
+
+      const fillUpNativeBalance = requiredNativeBalance.minus(
+        nativeTokenInfo.balance ?? 0,
+      );
+
+      const decodedTx = decodedTxs[0];
+
+      let isInsufficientNativeBalance =
+        nativeTokenTransferAmountToUpdate.isMaxSend
+          ? false
+          : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0);
+
+      if (decodedTx && decodedTx.isPsbt) {
+        isInsufficientNativeBalance = false;
+      }
+
+      updateSendTxStatus({
+        isInsufficientTokenBalance: false,
+        isInsufficientNativeBalance,
+        fillUpNativeBalance: fillUpNativeBalance
+          .sd(4, BigNumber.ROUND_UP)
+          .toFixed(),
+        isBaseOnEstimateMaxFee:
+          selectedFee?.totalNativeMinForDisplay !== selectedFee?.totalNative,
+        maxFeeNative: new BigNumber(selectedFee?.totalNative ?? 0)
+          .sd(4, BigNumber.ROUND_UP)
+          .toFixed(),
+      });
     }
-
-    updateSendTxStatus({
-      isInsufficientNativeBalance,
-      fillUpNativeBalance: fillUpNativeBalance
-        .sd(4, BigNumber.ROUND_UP)
-        .toFixed(),
-      isBaseOnEstimateMaxFee:
-        selectedFee?.totalNativeMinForDisplay !== selectedFee?.totalNative,
-      maxFeeNative: new BigNumber(selectedFee?.totalNative ?? 0)
-        .sd(4, BigNumber.ROUND_UP)
-        .toFixed(),
-    });
   }, [
     decodedTxs,
     extraFeeInfo.feeNative,
+    isResourceRentalEnabled,
+    isResourceRentalNeeded,
+    isSwapTrxEnabled,
     nativeTokenInfo,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate,
+    payTokenInfo?.payTxFeeAmount,
+    payTokenInfo?.totalAmount,
+    payType,
+    payWithTokenInfo.balance,
+    payWithTokenInfo.enabled,
     selectedFee,
+    tokenTransferAmount,
     txFeeInit,
     updateSendFeeStatus,
     updateSendTxStatus,

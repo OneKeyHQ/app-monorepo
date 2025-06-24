@@ -274,6 +274,8 @@ export type IVaultSettings = {
   shouldFixMaxSendAmount?: boolean;
 
   skipFixFeeInfoDecimal?: boolean;
+
+  payWithTokenEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

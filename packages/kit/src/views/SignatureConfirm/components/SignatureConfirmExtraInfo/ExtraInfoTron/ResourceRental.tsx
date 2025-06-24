@@ -195,9 +195,6 @@ function ResourceRental() {
                       />
                     </Stack>
                   </XStack>
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {`${payTokenInfo?.payPurchaseTrxAmount} USDT → ${payTokenInfo?.extraTrxNum} TRX`}
-                  </SizableText>
                 </YStack>
                 <Switch
                   size={gtMd ? 'small' : 'large'}

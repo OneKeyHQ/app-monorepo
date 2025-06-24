@@ -65,6 +65,8 @@ const settings: IVaultSettings = {
   hasResource: true,
   hasRewardCenter: true,
   resourceKey: ETranslations.global_energy_bandwidth,
+
+  payWithTokenEnabled: true,
 };
 
 export default Object.freeze(settings);

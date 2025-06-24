@@ -106,13 +106,17 @@ export const { atom: nativeTokenInfoAtom, use: useNativeTokenInfoAtom } =
 export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =
   contextAtom<{
     isInsufficientNativeBalance?: boolean;
+    isInsufficientTokenBalance?: boolean;
     isSubmitting?: boolean;
     isSendNativeTokenOnly?: boolean;
     fillUpNativeBalance?: string;
+    fillUpTokenBalance?: string;
     isBaseOnEstimateMaxFee?: boolean;
     maxFeeNative?: string;
   }>({
     isInsufficientNativeBalance: false,
+    isInsufficientTokenBalance: false,
+    fillUpTokenBalance: '0',
     isBaseOnEstimateMaxFee: false,
     maxFeeNative: '0',
     isSubmitting: false,
@@ -163,4 +167,30 @@ export const {
   isResourceRentalNeeded: false,
   isResourceRentalEnabled: false,
   isSwapTrxEnabled: false,
+  resourcePrice: {
+    price: 0,
+    minutes: 0,
+  },
 });
+
+export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
+  contextAtom<{
+    enabled: boolean;
+    address: string;
+    balance: string;
+    logoURI: string;
+    isLoading: boolean;
+    symbol: string;
+  }>({
+    enabled: false,
+    address: '',
+    balance: '0',
+    logoURI: '',
+    isLoading: false,
+    symbol: '',
+  });
+
+export const {
+  atom: tokenTransferAmountAtom,
+  use: useTokenTransferAmountAtom,
+} = contextAtom<string>('0');

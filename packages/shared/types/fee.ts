@@ -74,6 +74,7 @@ export type IFeeTron = {
   originalFee: number;
   saveTRX?: string;
   payWithUSDT?: boolean;
+  balances: Record<string, string>;
   info: {
     orderPrice: number;
     prices: Record<string, string>;
