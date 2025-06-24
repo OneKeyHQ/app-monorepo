@@ -38,7 +38,8 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
 
   const {
     onLoadEnd,
-    tradingViewUrl = 'http://localhost:5173/?mode=dev&type=onekeyPrivateRequest',
+    // tradingViewUrl = 'http://localhost:5173/?mode=dev&type=onekeyPrivateRequest',
+    tradingViewUrl = 'https://tradingview.onekeytest.com/?mode=dev&type=onekeyPrivateRequest',
     tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
     networkId = 'sol--101',
   } = props;
