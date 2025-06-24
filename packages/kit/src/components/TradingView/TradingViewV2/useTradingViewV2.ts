@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketTokenKineResponse } from '@onekeyhq/shared/types/marketV2';
 
-interface IUseTradingViewV2Props {
+import { sliceRequest } from './sliceRequest';
+
+interface ITradingViewV2Params {
   tokenAddress: string;
   networkId: string;
   interval: string;
@@ -11,40 +11,71 @@ interface IUseTradingViewV2Props {
   timeTo: number;
 }
 
-export function useTradingViewV2({
+export async function fetchTradingViewV2Data({
   tokenAddress,
   networkId,
   interval,
   timeFrom,
   timeTo,
-}: IUseTradingViewV2Props) {
-  const [kineData, setKineData] = useState<IMarketTokenKineResponse | null>(
-    null,
-  );
+}: ITradingViewV2Params): Promise<IMarketTokenKineResponse | null> {
+  try {
+    const data =
+      await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
+        tokenAddress,
+        networkId,
+        interval,
+        timeFrom,
+        timeTo,
+      });
+    console.log('Kine data fetched:', data);
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch kine data:', error);
+    return null;
+  }
+}
 
-  // Fetch kine data
-  useEffect(() => {
-    const fetchKineData = async () => {
-      try {
-        const data =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
-            tokenAddress,
-            networkId,
-            interval,
-            timeFrom,
-            timeTo,
-          });
-        setKineData(data);
-        console.log('Kine data fetched:', data);
-      } catch (error) {
-        console.error('Failed to fetch kine data:', error);
+export async function fetchTradingViewV2DataWithSlicing({
+  tokenAddress,
+  networkId,
+  interval,
+  timeFrom,
+  timeTo,
+}: ITradingViewV2Params): Promise<IMarketTokenKineResponse | null> {
+  try {
+    const slices = sliceRequest(interval, timeFrom, timeTo);
+
+    const dataPromises = slices.map(slice =>
+      backgroundApiProxy.serviceMarketV2.fetchMarketTokenKine({
+        tokenAddress,
+        networkId,
+        interval: slice.interval,
+        timeFrom: slice.from,
+        timeTo: slice.to,
+      })
+    );
+
+    const dataResults = await Promise.all(dataPromises);
+    
+    let mergedData: IMarketTokenKineResponse | null = null;
+    
+    for (const data of dataResults) {
+      if (data) {
+        if (!mergedData) {
+          mergedData = { ...data };
+        } else {
+          // 合并 points 数据数组
+          if (data.points && mergedData.points) {
+            mergedData.points = [...mergedData.points, ...data.points];
+            mergedData.total = mergedData.points.length;
+          }
+        }
       }
-    };
+    }
 
-    void fetchKineData();
-  }, [tokenAddress, networkId, interval, timeFrom, timeTo]);
-
-  return {
-    kineData,
-  };
+    return mergedData;
+  } catch (error) {
+    console.error('Failed to fetch sliced kine data:', error);
+    return null;
+  }
 }

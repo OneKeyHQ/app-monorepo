@@ -5,8 +5,8 @@ import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
+import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
 
-import { useTradingViewV2 } from './useTradingViewV2';
 // import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
 
 import type { IWebViewRef } from '../../WebView/types';
@@ -38,7 +38,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
 
   const {
     onLoadEnd,
-    tradingViewUrl = 'http://localhost:5173/?mode=dev',
+    tradingViewUrl = 'http://localhost:5173/?mode=dev&type=onekeyPrivateRequest',
     tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
     networkId = 'sol--101',
     interval = '1D',
@@ -47,45 +47,97 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     timeTo = nowInSeconds,
   } = props;
 
-  const { kineData } = useTradingViewV2({
-    tokenAddress,
-    networkId,
-    interval,
-    timeFrom,
-    timeTo,
-  });
+  // const { kineData } = useTradingViewV2({
+  //   tokenAddress,
+  //   networkId,
+  //   interval,
+  //   timeFrom,
+  //   timeTo,
+  // });
 
-  console.log('kineData', kineData);
+  // console.log('kineData', kineData);
 
-  // Periodically send fetched K-line data to the WebView
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (webRef.current) {
-        webRef.current.sendMessageViaInjectedScript({
-          type: 'tradingview',
-          payload: {
-            kineData, // Pass K-line data to WebView
-          },
-        });
-      }
-    }, 1000);
+  // // Periodically send fetched K-line data to the WebView
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     if (webRef.current) {
+  //       webRef.current.sendMessageViaInjectedScript({
+  //         type: 'tradingview',
+  //         payload: {
+  //           kineData, // Pass K-line data to WebView
+  //         },
+  //       });
+  //     }
+  //   }, 1000);
 
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [kineData]);
+  //   return () => {
+  //     clearInterval(intervalId);
+  //   };
+  // }, [kineData]);
 
   // Handle WebSocket connection and real-time data forwarding
   // useTradingViewV2WebSocket({ networkId, tokenAddress, webRef });
 
-  const customReceiveHandler = useCallback((...args: any[]) => {
-    console.log('customReceiveHandler', args);
-  }, []);
+  const customReceiveHandler = useCallback(async ({ data }: ICustomReceiveHandlerData) => {
+    console.log('customReceiveHandler', data);
+    // {
+    //     "scope": "$private",
+    //     "method": "tradingview_getKineData",
+    //     "origin": "tradingview.onekey.so",
+    //     "data": {
+    //         "method": "tradingview_getHistoryData",
+    //         "resolution": "1D",
+    //         "from": 1724803200,
+    //         "to": 1750809600,
+    //         "firstDataRequest": true
+    //     }
+    // }
+
+    
+    // Handle TradingView private API requests
+    if (data.scope === '$private' && data.method === 'tradingview_getKineData') {
+      console.log('TradingView request received:', {
+        method: data.data.method,
+        resolution: data.data.resolution,
+        from: data.data.from,
+        to: data.data.to,
+        firstDataRequest: data.data.firstDataRequest,
+        origin: data.origin,
+      });
+      
+      // 使用组合函数获取分片数据
+      try {
+        const kineData = await fetchTradingViewV2DataWithSlicing({
+          tokenAddress,
+          networkId,
+          interval: data.data.resolution,
+          timeFrom: data.data.from,
+          timeTo: data.data.to,
+        });
+
+        console.log('kineData', kineData)
+        
+        if (webRef.current && kineData) {
+          webRef.current.sendMessageViaInjectedScript({
+            type: 'kineData',
+            payload: {
+              kineData,
+              requestData: data.data,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch and send kline data:', error);
+      }
+    }
+  }, [tokenAddress, networkId]);
 
   return (
     <Stack position="relative" flex={1}>
       <WebView
-        customReceiveHandler={customReceiveHandler}
+        customReceiveHandler={data => {
+          customReceiveHandler(data as ICustomReceiveHandlerData);
+        }}
         onLoadEnd={onLoadEnd}
         onWebViewRef={(ref) => {
           webRef.current = ref;

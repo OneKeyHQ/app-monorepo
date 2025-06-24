@@ -114,11 +114,11 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenKineResponse;
-    }>('/utility/v2/market/token/kine', {
+    }>('/utility/v2/market/token/kline', {
       params: {
         tokenAddress,
         networkId,
-        interval,
+        interval: interval?.toUpperCase(),
         timeFrom,
         timeTo,
       },

@@ -13,9 +13,8 @@ export function sliceRequest(
   timeFrom: number,
   timeTo: number,
 ): ITimeSlice[] {
-  // 解析时间间隔，转换为秒数
   const getIntervalInSeconds = (intervalStr: string): number => {
-    const match = intervalStr.match(/^(\d+)([mhdwMy])$/);
+    const match = intervalStr.toLowerCase().match(/^(\d+)([mhdwMy])$/);
     if (!match) {
       throw new OneKeyLocalError(`Invalid interval format: ${intervalStr}`);
     }
@@ -23,7 +22,7 @@ export function sliceRequest(
     const [, value, unit] = match;
     const num = parseInt(value, 10);
 
-    switch (unit) {
+    switch (unit.toLowerCase()) {
       case 'm':
         return num * 60; // 分钟
       case 'h':
