@@ -109,6 +109,12 @@ class ServiceMarketV2 extends ServiceBase {
     timeFrom?: number;
     timeTo?: number;
   }) {
+    let innerInterval = interval?.toUpperCase();
+
+    if (innerInterval?.includes('M')) {
+      innerInterval = innerInterval?.toLocaleLowerCase()
+    }
+
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       code: number;
@@ -118,7 +124,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
-        interval: interval?.toUpperCase(),
+        interval: innerInterval,
         timeFrom,
         timeTo,
       },
