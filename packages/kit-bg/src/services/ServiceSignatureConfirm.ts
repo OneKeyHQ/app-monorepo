@@ -142,6 +142,11 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       if (isBridge && (isSwftOrder || isChangellyOrder)) {
         disableParseTxThroughApi = true;
+      } else if (
+        networkUtils.isTronNetworkByNetworkId(networkId) &&
+        (isSwftOrder || isChangellyOrder)
+      ) {
+        disableParseTxThroughApi = true;
       }
     }
 

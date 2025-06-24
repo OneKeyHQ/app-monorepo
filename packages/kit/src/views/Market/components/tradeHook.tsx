@@ -32,6 +32,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { showProtocolListDialog } from '../../Earn/components/showProtocolListDialog';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, platforms = {} } = token || {};
@@ -250,20 +251,22 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       return;
     }
     const normalizedSymbol = normalizeToEarnSymbol(symbol);
-    if (!normalizedSymbol) {
+    if (!normalizedSymbol || !networkId) {
       return;
     }
-    if (networkId && networkAccount && normalizedSymbol) {
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.AssetProtocolList,
-        params: {
-          networkId,
-          accountId: networkAccount.id,
-          indexedAccountId: networkAccount.indexedAccountId,
-          symbol: normalizedSymbol,
-        },
-      });
-    }
+
+    // Use dialog for multiple protocols, pass minimal required fields
+    showProtocolListDialog({
+      symbol: normalizedSymbol,
+      accountId: networkAccount.id,
+      indexedAccountId: networkAccount.indexedAccountId,
+      onProtocolSelect: async (params) => {
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ProtocolDetailsV2,
+          params,
+        });
+      },
+    });
   }, [createAccountIfNotExists, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 

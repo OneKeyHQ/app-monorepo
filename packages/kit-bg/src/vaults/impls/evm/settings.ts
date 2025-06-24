@@ -8,6 +8,7 @@ import {
   EthereumUSDC,
   EthereumUSDF,
   EthereumUSDT,
+  EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
   SepoliaMatic,
@@ -143,23 +144,20 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Ethena]: {
+        supportedSymbols: ['USDe'],
+        configs: {
+          USDe: {
+            enabled: true,
+            tokenAddress: EthereumUSDe,
+            displayProfit: true,
+            stakingWithApprove: false,
+            withdrawWithTx: false,
+          },
+        },
+      },
     },
   },
-  // [getNetworkIdsMap().base]: {
-  //   providers: {
-  //     [EEarnProviderEnum.Morpho]: {
-  //       supportedSymbols: ['USDC'],
-  //       configs: {
-  //         USDC: {
-  //           enabled: true,
-  //           tokenAddress: BaseUSDC,
-  //           displayProfit: true,
-  //           stakingWithApprove: true,
-  //         },
-  //       },
-  //     },
-  //   },
-  // },
   [getNetworkIdsMap().sepolia]: {
     providers: {
       [EEarnProviderEnum.Lido]: {

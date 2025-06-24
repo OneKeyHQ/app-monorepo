@@ -58,6 +58,7 @@ function RawCheckbox({
       userSelect="none"
       onPress={onPress}
       ai="flex-start"
+      flexShrink={1}
       {...containerProps}
     >
       <YStack

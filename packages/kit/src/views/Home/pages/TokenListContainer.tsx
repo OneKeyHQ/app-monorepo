@@ -1075,10 +1075,13 @@ function TokenListContainer(_props: ITabPageProps) {
         ...smallBalanceTokenListMap,
       };
 
-      let mergedTokens = [
-        ...tokenList.tokens,
-        ...smallBalanceTokenList.smallBalanceTokens,
-      ];
+      let mergedTokens = sortTokensByFiatValue({
+        tokens: [
+          ...tokenList.tokens,
+          ...smallBalanceTokenList.smallBalanceTokens,
+        ],
+        map: mergeTokenListMap,
+      });
 
       const index = mergedTokens.findIndex((token) =>
         new BigNumber(mergeTokenListMap[token.$key]?.fiatValue ?? 0).isZero(),
@@ -1107,6 +1110,11 @@ function TokenListContainer(_props: ITabPageProps) {
             acc.plus(mergeTokenListMap[token.$key].fiatValue ?? '0'),
           new BigNumber(0),
         );
+
+      riskyTokenList.riskyTokens = sortTokensByFiatValue({
+        tokens: riskyTokenList.riskyTokens,
+        map: riskyTokenListMap,
+      });
 
       updateAccountWorth({
         accountId: account?.id ?? '',

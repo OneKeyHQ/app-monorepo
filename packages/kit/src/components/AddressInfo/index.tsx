@@ -28,7 +28,7 @@ type IProps = {
 };
 
 type ISwitchHomeAccountButtonProps = {
-  accountId: string | undefined;
+  accountId?: string;
   children: React.ReactNode;
   walletAccountName: string;
 };
@@ -155,62 +155,63 @@ function AddressInfo(props: IProps) {
     return null;
   }
 
-  const AccountNameContainer = allowClickAccountNameSwitch
-    ? SwitchHomeAccountContainer
-    : Stack;
+  const renderWalletAccountName = () => {
+    if (!addressQueryResult?.walletAccountName) return null;
+
+    const badge = (
+      <Badge badgeType="success" badgeSize="sm">
+        {addressQueryResult.walletAccountName}
+      </Badge>
+    );
+
+    if (allowClickAccountNameSwitch) {
+      return (
+        <SwitchHomeAccountContainer
+          walletAccountName={addressQueryResult.walletAccountName}
+          accountId={addressQueryResult?.walletAccountId}
+        >
+          {badge}
+        </SwitchHomeAccountContainer>
+      );
+    }
+
+    return <Stack maxWidth="100%">{badge}</Stack>;
+  };
+
+  const renderAddressBookName = () => {
+    if (!addressQueryResult?.addressBookName) return null;
+    return (
+      <Badge badgeType="success" badgeSize="sm">
+        {addressQueryResult.addressBookName}
+      </Badge>
+    );
+  };
+
+  const renderAddressInfo = () => {
+    if (!addressInfo) return null;
+    return (
+      <AddressBadge
+        title={addressInfo.label}
+        badgeType={addressInfo.type}
+        icon={addressInfo.icon}
+      />
+    );
+  };
+
+  const content = (
+    <>
+      {renderWalletAccountName()}
+      {renderAddressBookName()}
+      {renderAddressInfo()}
+    </>
+  );
 
   return withWrapper ? (
     <XStack gap="$2" flex={1} flexWrap="wrap">
-      {addressQueryResult?.walletAccountName ? (
-        <AccountNameContainer
-          walletAccountName={addressQueryResult?.walletAccountName}
-          accountId={addressQueryResult?.walletAccountId}
-          maxWidth="100%"
-        >
-          <Badge badgeType="success" badgeSize="sm">
-            {addressQueryResult?.walletAccountName}
-          </Badge>
-        </AccountNameContainer>
-      ) : null}
-      {addressQueryResult?.addressBookName ? (
-        <Badge badgeType="success" badgeSize="sm">
-          {addressQueryResult?.addressBookName}
-        </Badge>
-      ) : null}
-      {addressInfo ? (
-        <AddressBadge
-          title={addressInfo.label}
-          badgeType={addressInfo.type}
-          icon={addressInfo.icon}
-        />
-      ) : null}
+      {content}
     </XStack>
   ) : (
-    <>
-      {addressQueryResult?.walletAccountName ? (
-        <AccountNameContainer
-          walletAccountName={addressQueryResult?.walletAccountName}
-          accountId={addressQueryResult?.walletAccountId}
-          maxWidth="100%"
-        >
-          <Badge badgeType="success" badgeSize="sm">
-            {addressQueryResult?.walletAccountName}
-          </Badge>
-        </AccountNameContainer>
-      ) : null}
-      {addressQueryResult?.addressBookName ? (
-        <Badge badgeType="success" badgeSize="sm">
-          {addressQueryResult?.addressBookName}
-        </Badge>
-      ) : null}
-      {addressInfo ? (
-        <AddressBadge
-          title={addressInfo.label}
-          badgeType={addressInfo.type}
-          icon={addressInfo.icon}
-        />
-      ) : null}
-    </>
+    content
   );
 }
 

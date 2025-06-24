@@ -33,7 +33,7 @@ import type {
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
-import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { IAccountToken, IToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { FuseResult } from 'fuse.js';
 

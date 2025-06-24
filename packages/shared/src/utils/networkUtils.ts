@@ -16,6 +16,7 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_SOL,
+  IMPL_TRON,
   SEPERATOR,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
@@ -52,6 +53,10 @@ function getNetworkImpl({ networkId }: { networkId: string }): string {
 
 function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
   return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
+}
+
+function isTronNetworkByNetworkId(networkId?: string) {
+  return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_TRON);
 }
 
 function getNetworkImplOrNetworkId({
@@ -217,6 +222,7 @@ export default {
   isLightningNetworkByImpl,
   isLightningNetworkByNetworkId,
   isSolanaNetworkByNetworkId,
+  isTronNetworkByNetworkId,
   isBTCNetwork,
   getBtcDappNetworkName,
   isAllNetwork,

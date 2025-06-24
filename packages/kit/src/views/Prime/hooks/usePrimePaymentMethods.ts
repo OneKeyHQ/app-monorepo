@@ -1,5 +1,8 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
+// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,12 +11,8 @@ import { Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
-// eslint-disable-next-line import/order
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
@@ -36,31 +35,34 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
 
-  const initSdk = useCallback(async () => {
-    const { apiKey } = await getPrimePaymentApiKey({
-      apiKeyType: 'web',
-    });
-    if (!isReady) {
-      throw new OneKeyLocalError('PrimeAuth Not ready');
-    }
-    if (!apiKey) {
-      throw new OneKeyLocalError('No REVENUECAT api key found');
-    }
-    if (!user?.privyUserId) {
-      throw new OneKeyLocalError('User not logged in');
-    }
+  const initSdk = useCallback(
+    async ({ loginRequired }: { loginRequired?: boolean } = {}) => {
+      const { apiKey } = await getPrimePaymentApiKey({
+        apiKeyType: 'web',
+      });
+      if (!isReady) {
+        throw new OneKeyLocalError('PrimeAuth Not ready');
+      }
+      if (!apiKey) {
+        throw new OneKeyLocalError('No REVENUECAT api key found');
+      }
+      if (!user?.privyUserId && loginRequired) {
+        throw new OneKeyLocalError('User not logged in');
+      }
 
-    // TODO VPN required
-    // await Purchases.setProxyURL('https://api.rc-backup.com/');
+      // TODO VPN required
+      // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
-    // TODO how to configure another userId when user login with another account
-    // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
+      // TODO how to configure another userId when user login with another account
+      // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
-    Purchases.configure(apiKey, user?.privyUserId || '');
-  }, [isReady, user?.privyUserId]);
+      Purchases.configure(apiKey, user?.privyUserId || '');
+    },
+    [isReady, user?.privyUserId],
+  );
 
   const getCustomerInfo = useCallback(async () => {
-    await initSdk();
+    await initSdk({ loginRequired: true });
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -154,7 +156,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
-      await initSdk();
+      await initSdk({ loginRequired: true });
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');

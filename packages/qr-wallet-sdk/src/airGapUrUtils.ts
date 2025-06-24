@@ -10,9 +10,9 @@ function decodeUrToDataItem(cbor: string) {
   return decodeToDataItem(cborBuffer);
 }
 
-function urToJson({ ur }: { ur: AirGapUR }): IAirGapUrJson {
-  const cbor = ur.cbor.toString('hex');
-  const type = ur.type;
+function urToJson({ ur }: { ur?: AirGapUR }): IAirGapUrJson {
+  const cbor = ur ? ur.cbor.toString('hex') : '';
+  const type = ur ? ur.type : '';
   return {
     type,
     cbor,

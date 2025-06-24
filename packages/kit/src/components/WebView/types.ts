@@ -38,6 +38,7 @@ export interface IInpageProviderWebViewProps
   nativeWebviewSource?: WebViewSource;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
+  pullToRefreshEnabled?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: any) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';

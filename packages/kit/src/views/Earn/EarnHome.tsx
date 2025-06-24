@@ -63,6 +63,7 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { AvailableAssetsTabViewList } from './components/AvailableAssetsTabViewList';
 import { FAQPanel } from './components/FAQPanel';
+import { showProtocolListDialog } from './components/showProtocolListDialog';
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
@@ -122,14 +123,16 @@ const toTokenProviderListPage = async (
     return;
   }
 
-  navigation.pushModal(EModalRoutes.StakingModal, {
-    screen: EModalStakingRoutes.AssetProtocolList,
-    params: {
-      networkId,
-      accountId: earnAccount?.accountId || accountId,
-      indexedAccountId:
-        earnAccount?.account.indexedAccountId || indexedAccountId,
-      symbol,
+  // Show dialog for multiple protocols instead of navigating to modal
+  showProtocolListDialog({
+    symbol,
+    accountId: earnAccount?.accountId || accountId,
+    indexedAccountId: earnAccount?.account.indexedAccountId || indexedAccountId,
+    onProtocolSelect: async (params) => {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ProtocolDetailsV2,
+        params,
+      });
     },
   });
 };
@@ -145,10 +148,10 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderCurve="continuous"
-      alignItems="center"
+      alignItems="flex-start"
       {...rest}
     >
-      <YStack alignItems="center" gap="$4">
+      <YStack alignItems="flex-start" gap="$4">
         <XStack gap="$3" ai="center" width="100%">
           <Skeleton width="$8" height="$8" radius="round" />
           <YStack py="$1">
@@ -222,10 +225,10 @@ function RecommendedItem({
       }}
       onPress={onPress}
       userSelect="none"
-      alignItems="center"
+      alignItems="flex-start"
       {...rest}
     >
-      <YStack alignItems="center">
+      <YStack alignItems="flex-start">
         <XStack gap="$3" ai="center" width="100%">
           <YStack>
             <Image size="$8">

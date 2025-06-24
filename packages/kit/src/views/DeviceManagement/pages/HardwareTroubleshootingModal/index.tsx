@@ -104,42 +104,42 @@ function HardwareTroubleshootingModal() {
           id: ETranslations.global_faqs_firmware_detection,
         }),
         icon: 'ErrorOutline',
-        link: 'https://help.onekey.so/hc/articles/8739271314319-Solution-for-firmware-upgrade-page-not-recognizing-hardware-wallet',
+        link: 'https://help.onekey.so/articles/11461120',
       },
       {
         title: intl.formatMessage({
           id: ETranslations.global_faqs_forgot_pin,
         }),
         icon: 'UnlockedOutline',
-        link: 'https://help.onekey.so/hc/articles/10822167443343-What-to-do-If-you-forget-the-PIN-code-for-your-OneKey-hardware-wallet',
+        link: 'https://help.onekey.so/articles/11461114',
       },
       {
         title: intl.formatMessage({
           id: ETranslations.global_faqs_reset_wallet,
         }),
         icon: 'RepeatOutline',
-        link: 'https://help.onekey.so/hc/articles/9800444975247-How-to-reset-your-OneKey-hardware-wallet',
+        link: 'https://help.onekey.so/articles/11461116',
       },
       {
         title: intl.formatMessage({
           id: ETranslations.global_faqs_bootloader_mode,
         }),
         icon: 'ConsoleOutline',
-        link: 'https://help.onekey.so/hc/articles/8352275268623-How-to-enter-and-exit-the-Bootloader-mode-on-OneKey-hardware-wallets',
+        link: 'https://help.onekey.so/articles/11461126',
       },
       {
         title: intl.formatMessage({
           id: ETranslations.global_faqs_bridge_download,
         }),
         icon: 'DownloadOutline',
-        link: 'https://help.onekey.so/hc/articles/9740566472335-Download-and-update-OneKey-Bridge',
+        link: 'https://help.onekey.so/articles/11461117',
       },
       {
         title: intl.formatMessage({
           id: ETranslations.global_faqs_bluetooth_status,
         }),
         icon: 'BluetoothOutline',
-        link: 'https://help.onekey.so/hc/articles/360002789976-Identifying-whether-the-hardware-wallet-bluetooth-is-turned-on',
+        link: 'https://help.onekey.so/articles/11461132',
       },
     ],
     [intl],
@@ -160,21 +160,26 @@ function HardwareTroubleshootingModal() {
             badge={deviceInfo.walletAvatarBadge}
           />
         </XStack>
-        <YStack>
+        <YStack flex={1}>
           <XStack pr="$5" ai="center">
             <SizableText size="$headingMd" color="$text">
               {wallet.name}
             </SizableText>
           </XStack>
           {isQrWallet ? null : (
-            <XStack mt="$1.5" gap="$2" ai="center">
+            <XStack mt="$1.5" gap="$2" ai="center" flexShrink={1}>
               <Badge badgeSize="sm" badgeType="default">
                 {`v${deviceInfo.firmwareVersion}`}
               </Badge>
               <SizableText size="$bodySmMedium" color="$textSubdued">
                 •
               </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
                 {deviceInfo.serialNumber}
               </SizableText>
               <IconButton

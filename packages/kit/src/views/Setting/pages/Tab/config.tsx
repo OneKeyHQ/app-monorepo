@@ -46,8 +46,6 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
-import { DevSettingsSection } from '../List/DevSettingsSection';
-import { exportLogs } from '../List/ResourceSection/StateLogsItem/logs';
 
 import {
   AutoLockListItem,
@@ -59,6 +57,8 @@ import {
   ListVersionItem,
   ThemeListItem,
 } from './CustomElement';
+import { DevSettingsSection } from './DevSettingsSection';
+import { exportLogs } from './exportLogs';
 import { SubSearchSettings } from './SubSettings';
 
 export interface ISubSettingConfig {
@@ -142,7 +142,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : null,
             {
-              icon: 'CloudSyncOutline',
+              icon: 'CloudOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_onekey_cloud,
               }),
@@ -287,8 +287,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_address_book,
               }),
-              onPress: () => {
-                void onPressAddressBook();
+              onPress: (navigation) => {
+                void onPressAddressBook(navigation);
               },
             },
           ],
@@ -394,6 +394,15 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
+            {
+              icon: 'ShieldCheckDoneOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_protection,
+              }),
+              onPress: (navigation) => {
+                navigation?.push(EModalSettingRoutes.SettingProtectModal);
+              },
+            },
             {
               icon: 'LinkOutline',
               title: intl.formatMessage({
