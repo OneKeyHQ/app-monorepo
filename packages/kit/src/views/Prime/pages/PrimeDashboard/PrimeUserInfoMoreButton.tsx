@@ -14,13 +14,16 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
@@ -36,6 +39,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
+  const navigation = useAppNavigation();
   const intl = useIntl();
 
   const userInfoView = (
@@ -161,6 +165,38 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               await onLogoutSuccess?.();
             },
           });
+        }}
+      />
+
+      <ActionList.Item
+        label={intl.formatMessage({
+          id: ETranslations.id_delete_onekey_id,
+        })}
+        icon="ErrorOutline"
+        destructive
+        onClose={handleActionListClose}
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeDeleteAccount,
+          });
+
+          // Dialog.show({
+          //   icon: 'ErrorOutline',
+          //   tone: 'destructive',
+          //   title: intl.formatMessage({
+          //     id: ETranslations.id_delete_onekey_id,
+          //   }),
+          //   description: intl.formatMessage({
+          //     id: ETranslations.id_delete_onekey_id_desc,
+          //   }),
+          //   onConfirmText: intl.formatMessage({
+          //     id: ETranslations.id_delete_onekey_id,
+          //   }),
+          //   onConfirm: async () => {
+          //     await logout();
+          //     await onLogoutSuccess?.();
+          //   },
+          // });
         }}
       />
     </>

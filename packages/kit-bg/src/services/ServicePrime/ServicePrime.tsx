@@ -675,7 +675,10 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async sendEmailOTP(scene: 'UpdateReabteWithdrawAddress') {
+  async sendEmailOTP(scene: string) {
+    if (!scene) {
+      throw new OneKeyLocalError('sendEmailOTP ERROR: Invalid scene');
+    }
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
     return client.post('/prime/v1/general/emailOTP', {
       scene,

@@ -40,6 +40,7 @@ import type {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { RouteProp } from '@react-navigation/native';
+import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 
 type IFormValues = {
   networkId: string;
@@ -158,6 +159,7 @@ function BasicEditAddress() {
       const address = values.to.resolved ?? '';
       const networkId = values.networkId ?? '';
       await sendEmailOTP({
+        scene: EPrimeEmailOTPScene.UpdateRebateWithdrawAddress,
         onConfirm: async (emailOTP) => {
           return backgroundApiProxy.serviceReferralCode.bindAddress({
             networkId,

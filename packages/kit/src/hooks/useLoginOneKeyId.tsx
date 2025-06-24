@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalReferFriendsRoutes,
@@ -42,13 +43,14 @@ export function EmailOTPDialog(props: {
   title: string;
   description: string;
   sendCode: () => Promise<unknown>;
-  onConfirm: (code: string) => void;
+  onConfirm: (code: string) => void | Promise<void>;
 }) {
   const { sendCode, onConfirm, title, description } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [state, setState] = useState<{ status: 'initial' | 'error' | 'done' }>({
     status: 'initial',
@@ -99,12 +101,14 @@ export function EmailOTPDialog(props: {
 
   const handleConfirm = useCallback(async () => {
     try {
-      onConfirm(verificationCode);
+      setIsConfirming(true);
+      await onConfirm(verificationCode);
     } catch (error) {
       console.error('sendEmailOTP error', error);
       setState({ status: 'error' });
     } finally {
       setIsSubmittingVerificationCode(false);
+      setIsConfirming(false);
     }
   }, [onConfirm, verificationCode]);
 
@@ -151,7 +155,7 @@ export function EmailOTPDialog(props: {
       <Dialog.Footer
         showCancelButton={false}
         confirmButtonProps={{
-          loading: isSubmittingVerificationCode,
+          loading: isSubmittingVerificationCode || isConfirming,
           disabled: verificationCode.length !== 6,
         }}
         onConfirmText={intl.formatMessage({
@@ -175,8 +179,10 @@ export const useLoginOneKeyId = () => {
   const sendEmailOTP = useCallback(
     async ({
       onConfirm,
+      scene,
     }: {
       onConfirm: (code: string) => Promise<unknown>;
+      scene: EPrimeEmailOTPScene;
     }) => {
       const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
       return new Promise<void>((resolve) => {
@@ -199,9 +205,7 @@ export const useLoginOneKeyId = () => {
                 resolve();
               }}
               sendCode={async () => {
-                return backgroundApiProxy.servicePrime.sendEmailOTP(
-                  'UpdateReabteWithdrawAddress',
-                );
+                return backgroundApiProxy.servicePrime.sendEmailOTP(scene);
               }}
             />
           ),

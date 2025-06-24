@@ -56,7 +56,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       // TODO how to configure another userId when user login with another account
       // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
-      Purchases.configure(apiKey, user?.privyUserId || '');
+      Purchases.configure(
+        apiKey,
+        user?.privyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+      );
     },
     [isReady, user?.privyUserId],
   );
