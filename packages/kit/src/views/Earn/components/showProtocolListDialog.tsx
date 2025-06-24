@@ -16,7 +16,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
@@ -100,13 +99,11 @@ function ProtocolListDialogContent({
   symbol,
   accountId,
   indexedAccountId,
-  protocols,
   onProtocolSelect,
 }: {
   symbol: string;
   accountId: string;
   indexedAccountId?: string;
-  protocols: IEarnAvailableAssetProtocol[];
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
 }) {
   const [protocolData, setProtocolData] = useState<IProtocolSection[]>([]);
@@ -118,7 +115,6 @@ function ProtocolListDialogContent({
         console.log('Fetching protocol data for:', {
           symbol,
           accountId,
-          protocols,
         });
         setIsLoading(true);
 
@@ -126,18 +122,9 @@ function ProtocolListDialogContent({
           symbol,
           accountId,
           indexedAccountId,
-          networkId: protocols[0]?.networkId,
         });
 
-        const filteredData = data.filter((protocol) =>
-          protocols.some(
-            (p) =>
-              p.provider === protocol.provider.name &&
-              p.networkId === protocol.network.networkId,
-          ),
-        );
-
-        const groupedData = groupProtocolsByGroup(filteredData);
+        const groupedData = groupProtocolsByGroup(data);
         setProtocolData(groupedData);
       } catch (error) {
         console.error('Failed to fetch protocol data:', error);
@@ -148,7 +135,7 @@ function ProtocolListDialogContent({
     };
 
     void fetchProtocolData();
-  }, [symbol, accountId, indexedAccountId, protocols]);
+  }, [symbol, accountId, indexedAccountId]);
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
@@ -248,7 +235,7 @@ function ProtocolListDialogContent({
   }
 
   return (
-    <YStack gap="$2" minHeight={172} p="$0" m="$0">
+    <YStack gap="$2" minHeight={90} p="$0" m="$0">
       <SectionList
         sections={protocolData}
         keyExtractor={(item, index) =>
@@ -268,13 +255,11 @@ export function showProtocolListDialog({
   symbol,
   accountId,
   indexedAccountId,
-  protocols,
   onProtocolSelect,
 }: {
   symbol: string;
   accountId: string;
   indexedAccountId?: string;
-  protocols: IEarnAvailableAssetProtocol[];
   onProtocolSelect: (params: {
     networkId: string;
     accountId: string;
@@ -284,7 +269,7 @@ export function showProtocolListDialog({
     vault?: string;
   }) => Promise<void>;
 }) {
-  console.log('showProtocolListDialog called with:', { symbol, protocols });
+  console.log('showProtocolListDialog called with:', { symbol });
 
   const dialog = Dialog.show({
     title: appLocale.intl.formatMessage(
@@ -303,7 +288,6 @@ export function showProtocolListDialog({
         symbol={symbol}
         accountId={accountId}
         indexedAccountId={indexedAccountId}
-        protocols={protocols}
         onProtocolSelect={async (protocol: IStakeProtocolListItem) => {
           try {
             defaultLogger.staking.page.selectProvider({

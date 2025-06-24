@@ -97,7 +97,6 @@ export function WalletActionEarn(props: {
       symbol,
       accountId,
       indexedAccountId,
-      protocols,
       onProtocolSelect: async (params) => {
         navigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.ProtocolDetailsV2,
