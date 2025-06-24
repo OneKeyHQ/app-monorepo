@@ -104,8 +104,13 @@ function TxFeeInfo(props: IProps) {
   const [extraFeeInfo] = useExtraFeeInfoAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
-  const { isResourceRentalNeeded, isResourceRentalEnabled, payTokenInfo } =
-    tronResourceRentalInfo;
+  const {
+    isResourceRentalNeeded,
+    isResourceRentalEnabled,
+    payTokenInfo,
+    payType,
+    isSwapTrxEnabled,
+  } = tronResourceRentalInfo;
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -288,7 +293,14 @@ function TxFeeInfo(props: IProps) {
                 symbol: createOrderParams.payToken,
                 price: info?.prices[info?.payCoinCode] ?? '0',
                 trxRatio: info?.ratio ?? '0',
-                amount: info?.payCoinAmt ?? 0,
+                payTxFeeAmount: new BigNumber(info?.payCoinAmt ?? 0)
+                  .minus(info?.purchaseTRXFee ?? 0)
+                  .toFixed(),
+                payPurchaseTrxAmount: new BigNumber(
+                  info?.purchaseTRXFee ?? 0,
+                ).toFixed(),
+                extraTrxNum: info?.extraTrxNum ?? 0,
+                totalAmount: new BigNumber(info?.payCoinAmt ?? 0).toFixed(),
               },
               saveTRX,
               createOrderParams,
@@ -1246,6 +1258,12 @@ function TxFeeInfo(props: IProps) {
 
   const renderTotalNative = useCallback(() => {
     if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
+      let payTokenAmount = payTokenInfo.totalAmount;
+
+      if (payType === ETronResourceRentalPayType.Token && !isSwapTrxEnabled) {
+        payTokenAmount = payTokenInfo.payTxFeeAmount;
+      }
+
       return (
         <NumberSizeableText
           size="$bodyMd"
@@ -1255,7 +1273,7 @@ function TxFeeInfo(props: IProps) {
             tokenSymbol: payTokenInfo.symbol,
           }}
         >
-          {payTokenInfo.amount ?? '-'}
+          {payTokenAmount ?? '-'}
         </NumberSizeableText>
       );
     }
@@ -1275,13 +1293,21 @@ function TxFeeInfo(props: IProps) {
   }, [
     isResourceRentalEnabled,
     isResourceRentalNeeded,
+    isSwapTrxEnabled,
     payTokenInfo,
+    payType,
     selectedFee?.totalNativeMinForDisplay,
     txFeeCommon?.nativeSymbol,
   ]);
 
   const renderTotalFiat = useCallback(() => {
     if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
+      let payTokenAmount = payTokenInfo.totalAmount;
+
+      if (payType === ETronResourceRentalPayType.Token && !isSwapTrxEnabled) {
+        payTokenAmount = payTokenInfo.payTxFeeAmount;
+      }
+
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
           (
@@ -1293,7 +1319,7 @@ function TxFeeInfo(props: IProps) {
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {new BigNumber(payTokenInfo.amount ?? 0)
+            {new BigNumber(payTokenAmount ?? 0)
               .times(payTokenInfo.price ?? 0)
               .toFixed() ?? '-'}
           </NumberSizeableText>
@@ -1321,7 +1347,9 @@ function TxFeeInfo(props: IProps) {
   }, [
     isResourceRentalEnabled,
     isResourceRentalNeeded,
+    isSwapTrxEnabled,
     payTokenInfo,
+    payType,
     selectedFee?.totalFiatMinForDisplay,
     settings.currencyInfo.symbol,
   ]);

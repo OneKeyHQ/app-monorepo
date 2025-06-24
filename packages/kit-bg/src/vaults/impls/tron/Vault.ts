@@ -33,10 +33,11 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type {
-  IFeeInfoUnit,
-  IFeeTron,
-  ITronResourceRentalInfo,
+import {
+  ETronResourceRentalPayType,
+  type IFeeInfoUnit,
+  type IFeeTron,
+  type ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import {
   EOnChainHistoryTxStatus,
@@ -874,6 +875,17 @@ export default class Vault extends VaultBase {
     tronResourceRentalInfo: ITronResourceRentalInfo;
   }) {
     const { tronResourceRentalInfo } = params;
+
+    const createOrderParams = tronResourceRentalInfo.createOrderParams;
+
+    if (
+      createOrderParams &&
+      tronResourceRentalInfo.payType === ETronResourceRentalPayType.Token &&
+      !tronResourceRentalInfo.isSwapTrxEnabled
+    ) {
+      createOrderParams.extraTrxNum = 0;
+    }
+
     const resp =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         transaction: Types.Transaction;
@@ -888,7 +900,7 @@ export default class Vault extends VaultBase {
             params: {
               method: 'post',
               url: '/api/v1/order/create',
-              data: tronResourceRentalInfo.createOrderParams,
+              data: createOrderParams,
               params: {},
             },
           },

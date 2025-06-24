@@ -86,6 +86,8 @@ function ResourceRental() {
   const renderSwapTrxBlock = useCallback(() => {
     if (payType === ETronResourceRentalPayType.Native) return null;
 
+    if (!payTokenInfo) return null;
+
     return (
       <Accordion
         overflow="hidden"
@@ -96,7 +98,7 @@ function ResourceRental() {
         borderRadius="$2"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
-        backgroundColor="$bgSubdued"
+        backgroundColor="transparent"
       >
         <Accordion.Item value="a1">
           <Accordion.Trigger
@@ -104,7 +106,7 @@ function ResourceRental() {
             justifyContent="space-between"
             px="$3"
             py="$2"
-            backgroundColor="$bgSubdued"
+            backgroundColor="transparent"
             borderWidth={0}
           >
             {({ open }: { open: boolean }) => (
@@ -130,9 +132,10 @@ function ResourceRental() {
           </Accordion.Trigger>
           <Accordion.HeightAnimator animation="quick">
             <Accordion.Content
-              backgroundColor="$bgSubdued"
+              backgroundColor="transparent"
               animation="quick"
               exitStyle={{ opacity: 0 }}
+              px="$3"
             >
               <XStack
                 alignItems="center"
@@ -142,26 +145,44 @@ function ResourceRental() {
                 <YStack gap="$1">
                   <XStack alignItems="center" gap="$1.5">
                     <SizableText size="$bodySm" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.wallet_exchange_usdt_for_trx,
-                      })}
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.wallet_exchange_usdt_for_trx,
+                        },
+                        {
+                          price_usdt: payTokenInfo?.payPurchaseTrxAmount,
+                          price_trx: payTokenInfo?.extraTrxNum,
+                        },
+                      )}
                     </SizableText>
                     <Stack
                       borderRadius="$full"
                       {...listItemPressStyle}
                       onPress={() =>
                         showResourceRentalDetailsDialog({
-                          title: intl.formatMessage({
-                            id: ETranslations.wallet_exchange_usdt_for_trx,
-                          }),
+                          title: intl.formatMessage(
+                            {
+                              id: ETranslations.wallet_exchange_usdt_for_trx,
+                            },
+                            {
+                              price_usdt: payTokenInfo?.payPurchaseTrxAmount,
+                              price_trx: payTokenInfo?.extraTrxNum,
+                            },
+                          ),
                           description: intl.formatMessage({
                             id: ETranslations.wallet_exchange_usdt_description,
                           }),
                           content: (
                             <SizableText size="$bodySm" color="$textSubdued">
-                              {intl.formatMessage({
-                                id: ETranslations.wallet_exchange_rate,
-                              })}
+                              {intl.formatMessage(
+                                {
+                                  id: ETranslations.wallet_exchange_rate,
+                                },
+                                {
+                                  price_usdt: payTokenInfo?.trxRatio,
+                                  price_trx: '1',
+                                },
+                              )}
                             </SizableText>
                           ),
                         })
@@ -175,7 +196,7 @@ function ResourceRental() {
                     </Stack>
                   </XStack>
                   <SizableText size="$bodySm" color="$textSubdued">
-                    5.98 USDT → 20 TRX
+                    {`${payTokenInfo?.payPurchaseTrxAmount} USDT → ${payTokenInfo?.extraTrxNum} TRX`}
                   </SizableText>
                 </YStack>
                 <Switch
@@ -189,7 +210,14 @@ function ResourceRental() {
         </Accordion.Item>
       </Accordion>
     );
-  }, [intl, payType, isSwapTrxEnabled, handleSwapTrxToggle, gtMd]);
+  }, [
+    payType,
+    payTokenInfo,
+    intl,
+    gtMd,
+    isSwapTrxEnabled,
+    handleSwapTrxToggle,
+  ]);
 
   if (!isResourceRentalNeeded) {
     return null;

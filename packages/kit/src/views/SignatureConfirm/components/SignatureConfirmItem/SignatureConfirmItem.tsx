@@ -23,7 +23,6 @@ function SignatureConfirmItemBlock(props: IStackProps) {
       borderRadius="$2"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
-      backgroundColor="$bgSubdued"
       {...props}
     />
   );

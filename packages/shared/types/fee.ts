@@ -24,7 +24,10 @@ export type ITronResourceRentalInfo = {
     symbol: string;
     price: string;
     trxRatio: string;
-    amount: number;
+    payTxFeeAmount: string;
+    payPurchaseTrxAmount: string;
+    extraTrxNum: number;
+    totalAmount: string;
   };
   resourcePrice: {
     price: number;
@@ -40,6 +43,7 @@ export type ITronResourceRentalInfo = {
     pledgeMinute: number;
     pledgeNum: number;
     pledgeBandwidthNum: number;
+    extraTrxNum?: number;
   };
 };
 
@@ -77,6 +81,8 @@ export type IFeeTron = {
     pledgeMinute: number;
     payCoinAmt: number;
     payCoinCode: string;
+    extraTrxNum: number;
+    purchaseTRXFee: number;
   };
   createOrderParams?: {
     fromAddress: string;
