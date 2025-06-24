@@ -911,7 +911,7 @@ export default class Vault extends VaultBase {
     }
     throw new OneKeyLocalError(
       `Failed to create resource rental order: ${
-        resp[0].error ?? 'unknown error'
+        resp?.[0]?.error ?? 'unknown error'
       }`,
     );
   }
@@ -949,7 +949,7 @@ export default class Vault extends VaultBase {
     }
     throw new OneKeyLocalError(
       `Failed to upload resource rental order: ${
-        resp[0].error ?? 'unknown error'
+        resp?.[0]?.error ?? 'unknown error'
       }`,
     );
   }
@@ -983,7 +983,7 @@ export default class Vault extends VaultBase {
     tronResourceRentalInfo?: ITronResourceRentalInfo;
     feeInfo?: IFeeInfoUnit;
   }) {
-    const { unsignedTxs, tronResourceRentalInfo } = params;
+    const { tronResourceRentalInfo } = params;
 
     if (!tronResourceRentalInfo) {
       return;

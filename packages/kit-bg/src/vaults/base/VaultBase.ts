@@ -437,6 +437,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(true);
   }
 
+  /**
+   * Extension point for vault implementations to perform preparatory actions
+   * before sending transactions, such as resource rental for Tron.
+   */
   async preActionsBeforeSending(params: {
     unsignedTxs: IUnsignedTxPro[];
     tronResourceRentalInfo?: ITronResourceRentalInfo;

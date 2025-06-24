@@ -136,8 +136,6 @@ function usePreCheckTokenBalance({
       }
     }
 
-    console.log('payWithTokenTransferBN', payWithTokenTransferBN.toFixed());
-
     updateNativeTokenTransferAmount(nativeTokenTransferBN.toFixed());
     updateTokenTransferAmount(payWithTokenTransferBN.toFixed());
   }, [
