@@ -105,11 +105,3 @@ jobs:
         run: |
           cd apps/mobile
           eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
-
-      - name: Upload WebEmbed Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: upload-web-embed-artifacts
-          path: |
-            ./apps/web-embed/web-build
-          if-no-files-found: error
