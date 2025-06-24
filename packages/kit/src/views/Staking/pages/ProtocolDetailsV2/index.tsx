@@ -515,9 +515,19 @@ const ProtocolDetailsPage = () => {
           Dialog.show({
             icon: statement.icon?.icon,
             title: statement.title?.text,
-            description: statement.items?.[0]?.title?.text,
             showFooter: !!linkButton,
-            renderContent: null,
+            renderContent: statement.items?.length ? (
+              <YStack gap="$2">
+                {statement.items.map((item, index) => (
+                  <EarnText
+                    key={index}
+                    text={item.title}
+                    size="$bodyMd"
+                    color="$text"
+                  />
+                ))}
+              </YStack>
+            ) : null,
             onConfirm: linkButton
               ? () => {
                   if (linkButton.data?.link) {
@@ -526,6 +536,9 @@ const ProtocolDetailsPage = () => {
                 }
               : undefined,
             onConfirmText: linkButton?.text?.text,
+            confirmButtonProps: {
+              iconAfter: linkButton?.data?.icon?.icon,
+            },
             onCancelText: closeButton?.text?.text,
           });
         }
