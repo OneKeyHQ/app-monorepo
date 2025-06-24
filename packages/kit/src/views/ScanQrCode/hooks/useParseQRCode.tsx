@@ -110,10 +110,15 @@ const useParseQRCode = () => {
           raw: value,
         };
       }
-      const { defaultHandler, popNavigation, ...options } = params;
+      const {
+        defaultHandler,
+        popNavigation,
+        autoClosePage = true,
+        ...options
+      } = params;
 
       const closeScanPage = async () => {
-        if (popNavigation) {
+        if (autoClosePage && popNavigation) {
           popNavigation();
           await timerUtils.wait(120);
         }
