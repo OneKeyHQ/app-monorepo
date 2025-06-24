@@ -41,7 +41,7 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
-import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
+import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -219,7 +219,7 @@ function TxConfirm() {
     }
   };
 
-  usePreCheckNativeBalance({
+  usePreCheckTokenBalance({
     networkId,
     transferPayload,
   });

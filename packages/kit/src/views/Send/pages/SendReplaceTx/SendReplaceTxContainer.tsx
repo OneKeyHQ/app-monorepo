@@ -734,7 +734,7 @@ function SendReplaceTxContainer() {
       });
 
       const newUnsignedTxs =
-        await backgroundApiProxy.serviceSend.updateUnSignedTxBeforeSend({
+        await backgroundApiProxy.serviceSend.updateUnSignedTxBeforeSending({
           accountId,
           networkId,
           unsignedTxs: [unsignedTx],
