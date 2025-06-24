@@ -124,8 +124,10 @@ function SubscriptionSection({
     );
   }, [media.gtMd, subscriptionActions]);
   const isZero = useMemo(() => {
-    return !subscriptionValue.fiatValue || subscriptionValue.fiatValue === '0';
-  }, [subscriptionValue.fiatValue]);
+    return (
+      !subscriptionValue?.fiatValue || subscriptionValue?.fiatValue === '0'
+    );
+  }, [subscriptionValue?.fiatValue]);
   return subscriptionValue ? (
     <YStack gap="$8">
       <YStack>
@@ -260,7 +262,7 @@ function PortfolioSection({
   protocolInfo?: IProtocolInfo;
 }) {
   const renderItem = useCallback(
-    (item: IStakeEarnDetail['portfolios']['items'][0]) => {
+    (item: NonNullable<IStakeEarnDetail['portfolios']>['items'][0]) => {
       switch (item.type) {
         case 'default':
         default:
@@ -310,16 +312,16 @@ function PortfolioSection({
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <EarnText text={portfolios.title} size="$headingLg" />
+          <EarnText text={portfolios?.title} size="$headingLg" />
           <EarnActionIcon
-            title={portfolios.title.text}
-            actionIcon={portfolios.button}
+            title={portfolios?.title?.text}
+            actionIcon={portfolios?.button}
             protocolInfo={protocolInfo}
             tokenInfo={tokenInfo}
           />
         </XStack>
         <YStack gap="$3">
-          {portfolios?.items.length ? (
+          {portfolios?.items?.length ? (
             <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
           ) : null}
           {rewards?.tokens.length ? (
@@ -598,7 +600,7 @@ const ProtocolDetailsPage = () => {
   // }, [run, refreshTracking]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
-    const withdrawAction = detailInfo?.actions.find(
+    const withdrawAction = detailInfo?.actions?.find(
       (i) => i.type === 'withdraw',
     ) as IEarnWithdrawActionIcon;
     return detailInfo?.protocol
@@ -692,7 +694,7 @@ const ProtocolDetailsPage = () => {
   );
 
   const historyAction = useMemo(() => {
-    return detailInfo?.actions.find((i) => i.type === 'history');
+    return detailInfo?.actions?.find((i) => i.type === 'history');
   }, [detailInfo?.actions]);
 
   const onHistory = useMemo(() => {
@@ -911,7 +913,7 @@ const ProtocolDetailsPage = () => {
     }
     // Sort by SUBSCRIPTION_ACTION_TYPES order
     return SUBSCRIPTION_ACTION_TYPES.map((actionType) => {
-      const action = detailInfo.actions.find((a) => a.type === actionType);
+      const action = detailInfo?.actions?.find((a) => a.type === actionType);
       return action ? getButtonPropsForAction(action) : null;
     }).filter(Boolean);
   }, [detailInfo?.actions, getButtonPropsForAction, SUBSCRIPTION_ACTION_TYPES]);
