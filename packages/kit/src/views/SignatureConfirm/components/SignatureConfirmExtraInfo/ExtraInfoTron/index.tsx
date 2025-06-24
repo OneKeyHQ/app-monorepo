@@ -3,13 +3,15 @@ import { memo, useCallback, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, XStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
 import { useSendSelectedFeeInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+
+import ResourceRental from './ResourceRental';
 
 function ExtraInfoTron({
   accountId,
@@ -89,11 +91,7 @@ function ExtraInfoTron({
           },
         )}
       </SignatureConfirmItem.Value>
-      <SizableText color="$textSubdued" size="$bodySm">
-        {intl.formatMessage({
-          id: ETranslations.global_energy_bandwidth_transaction_desc,
-        })}
-      </SizableText>
+      <ResourceRental />
     </SignatureConfirmItem>
   );
 }

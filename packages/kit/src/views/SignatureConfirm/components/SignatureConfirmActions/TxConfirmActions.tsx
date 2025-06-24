@@ -29,6 +29,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
   useSignatureConfirmActions,
+  useTronResourceRentalInfoAtom,
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -99,6 +100,7 @@ function TxConfirmActions(props: IProps) {
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
+  const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -182,7 +184,7 @@ function TxConfirmActions(props: IProps) {
 
     let newUnsignedTxs: IUnsignedTxPro[];
     try {
-      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSend({
+      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
         networkId,
         unsignedTxs,
@@ -196,6 +198,21 @@ function TxConfirmActions(props: IProps) {
             }
           : undefined,
         feeInfoEditable,
+      });
+    } catch (e: any) {
+      updateSendTxStatus({ isSubmitting: false });
+      onFail?.(e as Error);
+      isSubmitted.current = false;
+      void dappApprove.reject(e);
+      throw e;
+    }
+
+    try {
+      await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
+        accountId,
+        networkId,
+        unsignedTxs,
+        tronResourceRentalInfo,
       });
     } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
@@ -349,6 +366,7 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
   }, [
+    sourceInfo,
     updateSendTxStatus,
     accountId,
     networkId,
@@ -362,12 +380,12 @@ function TxConfirmActions(props: IProps) {
     dappApprove,
     txAdvancedSettings.nonce,
     feeInfoEditable,
+    tronResourceRentalInfo,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     vaultSettings?.replaceTxEnabled,
     vaultSettings?.afterSendTxActionEnabled,
     signOnly,
-    sourceInfo,
     transferPayload,
     intl,
     popStack,
@@ -407,7 +425,11 @@ function TxConfirmActions(props: IProps) {
     if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
-    if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
+    if (
+      nativeTokenInfo.isLoading ||
+      sendTxStatus.isInsufficientNativeBalance ||
+      sendTxStatus.isInsufficientTokenBalance
+    )
       return true;
     if (isBuildingDecodedTxs) return true;
 
@@ -420,6 +442,7 @@ function TxConfirmActions(props: IProps) {
     continueOperate,
     sendTxStatus.isSubmitting,
     sendTxStatus.isInsufficientNativeBalance,
+    sendTxStatus.isInsufficientTokenBalance,
     nativeTokenInfo.isLoading,
     isBuildingDecodedTxs,
     sendSelectedFeeInfo,

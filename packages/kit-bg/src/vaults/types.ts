@@ -219,6 +219,7 @@ export type IVaultSettings = {
   hasFrozenBalance?: boolean;
 
   hasResource?: boolean;
+  hasRewardCenter?: boolean;
   resourceKey?: MessageDescriptor['id'];
 
   withL1BaseFee?: boolean;
@@ -273,6 +274,8 @@ export type IVaultSettings = {
   shouldFixMaxSendAmount?: boolean;
 
   skipFixFeeInfoDecimal?: boolean;
+
+  payWithTokenEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
