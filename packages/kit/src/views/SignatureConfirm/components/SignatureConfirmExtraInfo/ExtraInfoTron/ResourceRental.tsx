@@ -7,6 +7,7 @@ import type { IDialogShowProps } from '@onekeyhq/components';
 import {
   Accordion,
   Badge,
+  Button,
   Dialog,
   Icon,
   SizableText,
@@ -24,9 +25,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+
+const TRON_RESOURCE_RENTAL_DOC_URL = 'https://help.onekey.so/articles/11461320';
 
 const showResourceRentalDetailsDialog = ({
   title,
@@ -270,11 +274,21 @@ function ResourceRental() {
                       },
                     ),
                     content: (
-                      <SizableText size="$bodySm" color="$textSubdued">
+                      <Button
+                        flex={1}
+                        textAlign="left"
+                        justifyContent="flex-start"
+                        size="small"
+                        variant="tertiary"
+                        icon="QuestionmarkOutline"
+                        onPress={() =>
+                          openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL)
+                        }
+                      >
                         {intl.formatMessage({
                           id: ETranslations.global_learn_more,
                         })}
-                      </SizableText>
+                      </Button>
                     ),
                   })
                 }

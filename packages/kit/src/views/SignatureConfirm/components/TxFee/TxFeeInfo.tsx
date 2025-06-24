@@ -1169,10 +1169,21 @@ function TxFeeInfo(props: IProps) {
       });
     } else {
       if (nativeTokenInfo.isLoading || !nativeTokenInfo) return;
+
+      let totalFeeNative = selectedFee?.totalNative;
+
+      if (
+        isResourceRentalNeeded &&
+        isResourceRentalEnabled &&
+        payType === ETronResourceRentalPayType.Native
+      ) {
+        totalFeeNative = payTokenInfo?.totalAmount;
+      }
+
       const requiredNativeBalance = new BigNumber(
         nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
       )
-        .plus(selectedFee?.totalNative ?? 0)
+        .plus(totalFeeNative ?? 0)
         .plus(extraFeeInfo.feeNative ?? 0);
 
       const fillUpNativeBalance = requiredNativeBalance.minus(
@@ -1197,8 +1208,8 @@ function TxFeeInfo(props: IProps) {
           .sd(4, BigNumber.ROUND_UP)
           .toFixed(),
         isBaseOnEstimateMaxFee:
-          selectedFee?.totalNativeMinForDisplay !== selectedFee?.totalNative,
-        maxFeeNative: new BigNumber(selectedFee?.totalNative ?? 0)
+          selectedFee?.totalNativeMinForDisplay !== totalFeeNative,
+        maxFeeNative: new BigNumber(totalFeeNative ?? 0)
           .sd(4, BigNumber.ROUND_UP)
           .toFixed(),
       });
