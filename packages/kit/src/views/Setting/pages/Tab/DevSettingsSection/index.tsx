@@ -771,14 +771,6 @@ export const DevSettingsSection = () => {
       />
       <AutoJumpSetting />
 
-      <SectionFieldItem
-        name="enableMarketV2"
-        title="Enable Market V2"
-        subtitle="启用新版市场"
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
-
       <SectionPressItem
         title="Device Info"
         subtitle="设备信息"
