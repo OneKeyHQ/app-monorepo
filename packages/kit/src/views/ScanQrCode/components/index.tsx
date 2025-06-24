@@ -7,6 +7,7 @@ import {
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
   BlurView,
   Dialog,
@@ -24,6 +25,72 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { ScanCamera } from './ScanCamera';
+
+function ScanCorner({
+  detected,
+  direction,
+}: {
+  detected: boolean;
+  direction: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
+}) {
+  return (
+    <Stack
+      position="absolute"
+      top={
+        direction === 'topLeft' || direction === 'topRight' ? '$2' : undefined
+      }
+      right={
+        direction === 'topRight' || direction === 'bottomRight'
+          ? '$2'
+          : undefined
+      }
+      bottom={
+        direction === 'bottomLeft' || direction === 'bottomRight'
+          ? '$2'
+          : undefined
+      }
+      left={
+        direction === 'topLeft' || direction === 'bottomLeft' ? '$2' : undefined
+      }
+      w="$8"
+      h="$8"
+      borderTopWidth={
+        direction === 'topLeft' || direction === 'topRight' ? '$1' : undefined
+      }
+      borderRightWidth={
+        direction === 'topRight' || direction === 'bottomRight'
+          ? '$1'
+          : undefined
+      }
+      borderBottomWidth={
+        direction === 'bottomLeft' || direction === 'bottomRight'
+          ? '$1'
+          : undefined
+      }
+      borderLeftWidth={
+        direction === 'topLeft' || direction === 'bottomLeft' ? '$1' : undefined
+      }
+      borderColor={detected ? 'red' : '$whiteA12'}
+      borderRadius="$1"
+    />
+  );
+}
+
+function Corner(props: IStackProps) {
+  return (
+    <YStack
+      {...props}
+      w="$5"
+      h="$5"
+      borderColor="$bg"
+      borderWidth="$1"
+      ai="center"
+      jc="center"
+    >
+      <Stack w="$2" h="$2" bg="$bg" />
+    </YStack>
+  );
+}
 
 export type IScanQrCodeProps = {
   handleBarCodeScanned: (value: string) => Promise<{ progress?: number }>;
@@ -158,6 +225,7 @@ export function ScanQrCode({
     void handlePermission();
   }, [handlePermission]);
 
+  // const detected = !!(progress && progress > 0);
   return currentPermission === PermissionStatus.GRANTED ? (
     <ScanCamera
       style={{
@@ -166,11 +234,21 @@ export function ScanQrCode({
       handleScanResult={reloadHandleBarCodeScanned}
     >
       {qrWalletScene ? (
-        <YStack fullscreen>
-          {platformEnv.isNativeAndroid ? null : (
-            <BlurView flex={1} contentStyle={{ flex: 1 }} />
-          )}
-        </YStack>
+        <>
+          <YStack fullscreen position="absolute">
+            {/* <ScanCorner direction="topLeft" detected={detected} />
+            <ScanCorner direction="topRight" detected={detected} />
+            <ScanCorner direction="bottomLeft" detected={detected} />
+            <ScanCorner direction="bottomRight" detected={detected} />
+            <Corner position="absolute" top="$5" left="$5" />
+            <Corner position="absolute" top="$5" right="$5" />
+            <Corner position="absolute" bottom="$5" left="$5" />
+            <Corner position="absolute" bottom="$5" right="$5" /> */}
+            {platformEnv.isNativeAndroid ? null : (
+              <BlurView flex={1} contentStyle={{ flex: 1 }} />
+            )}
+          </YStack>
+        </>
       ) : null}
       {progress ? (
         <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">

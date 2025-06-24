@@ -50,6 +50,10 @@ import {
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
+import type {
+  IChainValue,
+  IQRCodeHandlerParseResult,
+} from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -58,18 +62,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
-import type {
   EModalSignatureConfirmRoutes,
-  IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -83,6 +86,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { getAccountIdOnNetwork } from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import RecentRecipients from './RecentRecipients';
 
@@ -405,7 +409,6 @@ function SendDataInputContainer() {
     tokenDetails?.info.decimals,
     tokenDetails?.price,
   ]);
-
   const {
     result: { displayAmountFormItem } = { displayAmountFormItem: false },
   } = usePromiseResult(async () => {
@@ -432,7 +435,7 @@ function SendDataInputContainer() {
     return {
       displayAmountFormItem: false,
     };
-  }, [toResolved, networkId, form]);
+  }, [networkId, toResolved, form]);
 
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
@@ -535,6 +538,84 @@ function SendDataInputContainer() {
     navigation,
     networkId,
   ]);
+
+  const onScanResult = useCallback(
+    async (result: IQRCodeHandlerParseResult<IChainValue>) => {
+      console.log('onScanResult', result);
+      const tokenAddress = result?.data?.tokenAddress;
+      const scanNetworkId =
+        result?.data?.network?.id || currentAccount.networkId;
+      const scanAccountId =
+        (await getAccountIdOnNetwork({
+          account,
+          network: result?.data?.network,
+        })) || currentAccount?.accountId;
+
+      if (scanAccountId) {
+        let scanToken: IToken | null = null;
+        if (tokenAddress) {
+          scanToken = await backgroundApiProxy.serviceToken.getToken({
+            networkId: scanNetworkId,
+            accountId: scanAccountId,
+            tokenIdOnNetwork: tokenAddress,
+          });
+        }
+        if (!scanToken) {
+          scanToken = await backgroundApiProxy.serviceToken.getNativeToken({
+            networkId: scanNetworkId,
+            accountId: scanAccountId,
+          });
+        }
+        console.log('token result', accountId, networkId, token);
+        if (token) {
+          const amountFromScan = result?.data?.amount;
+          if (amountFromScan) {
+            setIsUseFiat(true);
+            form.setValue('amount', amountFromScan);
+          }
+          const formToAddress = form.getValues('to').raw;
+          const formNetworkId = form.getValues('networkId');
+          if (formNetworkId !== scanNetworkId) {
+            navigation.pop();
+            await timerUtils.wait(150);
+            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+              screen: EModalSignatureConfirmRoutes.TxDataInput,
+              params: {
+                accountId: scanAccountId,
+                networkId: scanNetworkId,
+                activeAccountId: scanAccountId,
+                activeNetworkId: scanNetworkId,
+                isNFT: false,
+                token: scanToken,
+                address: formToAddress,
+                amount: amountFromScan,
+              },
+            });
+            return;
+          }
+
+          if (currentAccount.accountId && scanNetworkId) {
+            setCurrentAccount({
+              accountId: currentAccount.accountId,
+              networkId: scanNetworkId,
+            });
+            setTokenInfo(scanToken);
+          }
+        }
+      }
+    },
+    [
+      account,
+      accountId,
+      currentAccount.accountId,
+      currentAccount.networkId,
+      form,
+      navigation,
+      networkId,
+      token,
+    ],
+  );
+
   onSubmitRef.current = useCallback(
     async () =>
       errorToastUtils.withErrorAutoToast(async () => {
@@ -1505,6 +1586,7 @@ function SendDataInputContainer() {
             ) : null}
             <AddressInputField
               name="to"
+              onScanResult={onScanResult}
               accountId={currentAccount.accountId}
               networkId={currentAccount.networkId}
               enableAddressBook

@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
 
+import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
+import { useIntl } from 'react-intl';
+
 import type {
   IDBDevice,
   IDBWallet,
@@ -8,9 +11,12 @@ import type {
   IAnimationValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyErrorAirGapWalletMismatch } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorAirGapWalletMismatch,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
@@ -31,6 +37,7 @@ type ICreateQrWalletByScanParams = {
   onFinalizeWalletSetupError?: () => void;
 };
 export function useCreateQrWallet() {
+  const intl = useIntl();
   const {
     start: startScan,
     // close,
@@ -102,14 +109,23 @@ export function useCreateQrWallet() {
       const urScanResult =
         scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
       const qrcode = urScanResult?.data?.fullData || urScanResult?.raw || '';
-      const ur = await airGapUrUtils.qrcodeToUr(qrcode);
+      let ur: AirGapUR | undefined;
+      try {
+        ur = await airGapUrUtils.qrcodeToUr(qrcode);
+      } catch (error: unknown) {
+        if (error instanceof InvalidSchemeError) {
+          throw new OneKeyLocalError(
+            intl.formatMessage({ id: ETranslations.feedback_invalid_qr_code }),
+          );
+        }
+      }
       const urJson = airGapUrUtils.urToJson({ ur });
       return createQrWalletByUr({
         ...params,
         urJson,
       });
     },
-    [createQrWalletByUr, startScan],
+    [createQrWalletByUr, intl, startScan],
   );
 
   // const createQrWalletByTwoWayScan = useCallback(
