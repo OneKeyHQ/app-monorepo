@@ -257,21 +257,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
           ],
-          [
-            platformEnv.isExtension
-              ? {
-                  icon: 'MenuCircleHorOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.setting_floating_icon,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.push(
-                      EModalSettingRoutes.SettingFloatingIconModal,
-                    );
-                  },
-                }
-              : undefined,
-          ],
         ],
       },
       {
@@ -425,6 +410,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 );
               },
             },
+          ],
+          [
+            platformEnv.isExtension
+              ? {
+                  icon: 'MenuCircleHorOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.setting_floating_icon,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.push(
+                      EModalSettingRoutes.SettingFloatingIconModal,
+                    );
+                  },
+                }
+              : undefined,
           ],
           [
             {
