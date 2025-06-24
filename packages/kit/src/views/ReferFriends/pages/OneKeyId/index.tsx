@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,6 +39,8 @@ export default function OneKeyId() {
   }, [navigation]);
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn, logout } = usePrimeAuthV2();
+  const logoutRef = useRef<() => Promise<void>>(logout);
+  const isFocused = useRouteIsFocused();
 
   const toPrimePage = useCallback(async () => {
     if (isPrimeAvailable) {
@@ -52,13 +55,14 @@ export default function OneKeyId() {
   }, [navigation, isPrimeAvailable]);
 
   useUpdateEffect(() => {
-    if (!isLoggedIn) {
-      setTimeout(() => {
+    void (async () => {
+      if (!isLoggedIn && isFocused) {
+        await timerUtils.wait(300);
         navigation.popStack();
-        void logout();
-      }, 600);
-    }
-  }, [isLoggedIn, navigation, logout]);
+        void logoutRef.current();
+      }
+    })();
+  }, [isLoggedIn, navigation, isFocused]);
 
   return (
     <Page scrollEnabled>

@@ -125,14 +125,22 @@ export default function PrimeDashboard() {
     if (isPrimeSubscriptionActive) {
       return false;
     }
+    if (!user?.privyUserId) {
+      return false;
+    }
     return true;
-  }, [isPrimeSubscriptionActive, shouldShowConfirmButton]);
+  }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
 
   const { result: packages, isLoading: isPackagesLoading } = usePromiseResult(
     async () => {
       if (!shouldShowSubscriptionPlans || !isReady) {
         return [];
       }
+
+      if (!user?.privyUserId) {
+        return [];
+      }
+
       // TODO There was a problem with the store.
       return errorToastUtils.withErrorAutoToast(async () => {
         const pkgList = await (platformEnv.isNative
@@ -141,7 +149,13 @@ export default function PrimeDashboard() {
         return pkgList;
       });
     },
-    [getPackagesNative, isReady, getPackagesWeb, shouldShowSubscriptionPlans],
+    [
+      getPackagesNative,
+      getPackagesWeb,
+      isReady,
+      shouldShowSubscriptionPlans,
+      user?.privyUserId,
+    ],
     {
       watchLoading: true,
     },

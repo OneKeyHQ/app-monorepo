@@ -13,22 +13,22 @@ export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
 
 export const FIRMWARE_UPDATE_WEB_TOOLS_URL = 'https://firmware.onekey.so';
-export const FIRMWARE_CONTACT_US_URL = 'https://help.onekey.so/hc/requests/new';
+export const FIRMWARE_CONTACT_US_URL = 'https://help.onekey.so/articles/11536900';
 export const FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE =
-  'https://help.onekey.so/hc/articles/8352275268623';
+  'https://help.onekey.so/articles/11461126';
 export const FIRMWARE_UPDATE_FULL_RES_GUIDE =
-  'https://help.onekey.so/hc/articles/8884680775951';
+  'https://help.onekey.so/articles/11461118';
 export const FIRMWARE_UPDATE_BRIDGE_GUIDE =
-  'https://help.onekey.so/hc/articles/9740566472335';
+  'https://help.onekey.so/articles/11461117';
 
-export const HELP_CENTER_URL = 'https://help.onekey.so/hc';
+export const HELP_CENTER_URL = 'https://help.onekey.so/';
 export const HELP_CENTER_COMMON_FAQ_URL =
-  'https://help.onekey.so/hc/sections/4848498549263-FAQs';
+  'https://help.onekey.so/collections/13034346';
 export const LITE_CARD_URL =
   'https://onekey.so/products/onekey-lite-hardware-wallet/';
 export const BRIDGE_STATUS_URL = 'http://127.0.0.1:21320/status/';
 export const NOTIFICATIONS_HELP_CENTER_URL =
-  'https://help.onekey.so/hc/articles/10780082728335-What-to-do-if-the-app-doesn-t-receive-notifications';
+  'https://help.onekey.so/articles/11461187';
 export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';

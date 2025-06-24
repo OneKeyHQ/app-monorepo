@@ -1,1 +1,1 @@
-export const referralLink = 'https://help.onekey.so/hc/articles/12278189850127';
+export const referralLink = 'https://help.onekey.so/articles/11461266';
