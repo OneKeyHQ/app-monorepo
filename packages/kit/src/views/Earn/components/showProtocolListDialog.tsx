@@ -159,7 +159,7 @@ function ProtocolListDialogContent({
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IProtocolSection }) => (
-      <YStack px="$5" pb="$2">
+      <YStack px="$5" pb="$2" h={28}>
         <SizableText
           size="$bodyMdMedium"
           color={
@@ -185,6 +185,7 @@ function ProtocolListDialogContent({
         pressStyle={{ backgroundColor: '$bgHover' }}
         px="$2.5"
         mx="$2.5"
+        h={62}
       >
         <Token
           size="lg"
@@ -247,7 +248,7 @@ function ProtocolListDialogContent({
   }
 
   return (
-    <YStack gap="$2" maxHeight="$80">
+    <YStack gap="$2" minHeight={172} p="$0" m="$0">
       <SectionList
         sections={protocolData}
         keyExtractor={(item, index) =>
@@ -257,7 +258,7 @@ function ProtocolListDialogContent({
         renderSectionHeader={renderSectionHeader}
         SectionSeparatorComponent={<YStack h="$4" />}
         stickySectionHeadersEnabled={false}
-        estimatedItemSize={60}
+        estimatedItemSize={62}
       />
     </YStack>
   );
@@ -296,6 +297,7 @@ export function showProtocolListDialog({
     contentContainerProps: {
       px: '$0',
       pb: '$5',
+      bg: 'red',
     },
     renderContent: (
       <ProtocolListDialogContent
