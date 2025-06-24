@@ -41,42 +41,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tradingViewUrl = 'http://localhost:5173/?mode=dev&type=onekeyPrivateRequest',
     tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
     networkId = 'sol--101',
-    interval = '1D',
-    // Default to a one-year window: from now minus one year to now.
-    timeFrom = 1,
-    timeTo = nowInSeconds,
   } = props;
-
-  // const { kineData } = useTradingViewV2({
-  //   tokenAddress,
-  //   networkId,
-  //   interval,
-  //   timeFrom,
-  //   timeTo,
-  // });
-
-  // console.log('kineData', kineData);
-
-  // // Periodically send fetched K-line data to the WebView
-  // useEffect(() => {
-  //   const intervalId = setInterval(() => {
-  //     if (webRef.current) {
-  //       webRef.current.sendMessageViaInjectedScript({
-  //         type: 'tradingview',
-  //         payload: {
-  //           kineData, // Pass K-line data to WebView
-  //         },
-  //       });
-  //     }
-  //   }, 1000);
-
-  //   return () => {
-  //     clearInterval(intervalId);
-  //   };
-  // }, [kineData]);
-
-  // Handle WebSocket connection and real-time data forwarding
-  // useTradingViewV2WebSocket({ networkId, tokenAddress, webRef });
 
   const customReceiveHandler = useCallback(async ({ data }: ICustomReceiveHandlerData) => {
     console.log('customReceiveHandler', data);
@@ -92,7 +57,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     //         "firstDataRequest": true
     //     }
     // }
-
     
     // Handle TradingView private API requests
     if (data.scope === '$private' && data.method === 'tradingview_getKineData') {
