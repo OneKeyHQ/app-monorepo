@@ -519,6 +519,7 @@ export interface IEarnActivateActionIcon {
     title: IEarnText;
     description: IEarnText[];
     checkboxes: IEarnText[];
+    button: IEarnActivateActionIcon;
   };
 }
 
@@ -682,7 +683,7 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnGridItem[];
   };
-  alerts?: string[];
+  alertsV2?: { alert: string; badge: IBadgeType }[];
   faqs?: {
     title: IEarnText;
     items: IEarnFAQItem[];

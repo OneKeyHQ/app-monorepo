@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Alert,
   Badge,
   Button,
   Dialog,
@@ -158,24 +159,20 @@ function SubscriptionSection({
   ) : null;
 }
 
-function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
+function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alertsV2'] }) {
   if (alerts && alerts.length) {
     return (
-      <YStack
-        bg="$bgSubdued"
-        borderColor="$borderSubdued"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderRadius="$3"
-        py="$3.5"
-        px="$4"
-      >
-        {alerts.map((text, index) => (
-          <EarnText
-            key={index}
-            text={{ text, size: '$bodyMd', color: '$textSubdued' }}
-          />
-        ))}
-      </YStack>
+      <>
+        {alerts.map((alertItem, index) => {
+          return (
+            <Alert
+              key={`${alertItem.alert}-${index}`}
+              type={alertItem.badge}
+              title={alertItem.alert}
+            />
+          );
+        })}
+      </>
     );
   }
   return null;
@@ -1022,7 +1019,7 @@ const ProtocolDetailsPage = () => {
                         subscriptionValue={detailInfo.subscriptionValue}
                         subscriptionActions={subscriptionActions}
                       />
-                      <AlertSection alerts={detailInfo.alerts} />
+                      <AlertSection alerts={detailInfo.alertsV2} />
                       <Divider />
                       <PortfolioSection
                         portfolios={detailInfo.portfolios}
