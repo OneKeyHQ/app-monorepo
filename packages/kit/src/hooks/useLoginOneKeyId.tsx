@@ -21,6 +21,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { usePrimeAuthV2 } from '../views/Prime/hooks/usePrimeAuthV2';
@@ -180,9 +181,11 @@ export const useLoginOneKeyId = () => {
     async ({
       onConfirm,
       scene,
+      description,
     }: {
       onConfirm: (code: string) => Promise<unknown>;
       scene: EPrimeEmailOTPScene;
+      description?: ({ userInfo }: { userInfo: IPrimeUserInfo }) => string;
     }) => {
       const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
       return new Promise<void>((resolve) => {
@@ -192,12 +195,13 @@ export const useLoginOneKeyId = () => {
               title={intl.formatMessage({
                 id: ETranslations.prime_enter_verification_code,
               })}
-              description={intl.formatMessage(
-                {
-                  id: ETranslations.referral_address_update_desc,
-                },
-                { mail: userInfo.displayEmail ?? '' },
-              )}
+              description={
+                description?.({ userInfo }) ||
+                intl.formatMessage(
+                  { id: ETranslations.prime_sent_to },
+                  { email: userInfo.displayEmail ?? '' },
+                )
+              }
               onConfirm={async (code: string) => {
                 await timerUtils.wait(120);
                 await onConfirm(code);

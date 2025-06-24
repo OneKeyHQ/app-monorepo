@@ -20,11 +20,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 export default function PrimeDeleteAccount() {
   const { logout, user, getAccessToken } = usePrimeAuthV2();
@@ -64,17 +64,38 @@ export default function PrimeDeleteAccount() {
   const { sendEmailOTP } = useLoginOneKeyId();
 
   const handleDeleteAccount = useCallback(async () => {
+    // TODO passcode verify if passcode is set
+    // TODO logout privy sdk
+    // TODO logout atom states
     await sendEmailOTP({
       scene: EPrimeEmailOTPScene.DeleteOneKeyId,
       onConfirm: async (emailOTP) => {
         console.log('emailOTP>>>>>>', emailOTP);
         await timerUtils.wait(2000);
-        throw new OneKeyLocalError('emailOTP error');
+        // throw new OneKeyLocalError('emailOTP error');
         // return backgroundApiProxy.serviceReferralCode.bindAddress({
         //   networkId,
         //   address,
         //   emailOTP,
         // });
+        navigation.popStack();
+        Dialog.show({
+          icon: 'CheckRadioSolid',
+          tone: 'success',
+          title: intl.formatMessage({
+            id: ETranslations.id_onekey_id_deleted_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.id_onekey_id_deleted_desc,
+          }),
+          showCancelButton: false,
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_done,
+          }),
+          onConfirm: async () => {
+            console.log('onConfirm');
+          },
+        });
       },
     });
 
@@ -138,7 +159,7 @@ export default function PrimeDeleteAccount() {
     //     }),
     //   });
     // }
-  }, [sendEmailOTP]);
+  }, [intl, navigation, sendEmailOTP]);
 
   const [checked, changeChecked] = useState(false);
 

@@ -17,13 +17,13 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
