@@ -1,13 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -59,6 +51,10 @@ import {
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
+import type {
+  IChainValue,
+  IQRCodeHandlerParseResult,
+} from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -96,6 +92,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { getAccountIdOnNetwork } from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import RecentRecipients from './RecentRecipients';
 
@@ -135,7 +132,6 @@ interface IFormValues {
 }
 
 function SendDataInputContainer() {
-  const inputId = useId();
   const intl = useIntl();
   const media = useMedia();
 
@@ -549,62 +545,82 @@ function SendDataInputContainer() {
     networkId,
   ]);
 
-  useEffect(() => {
-    const callback = async ({
-      inputId: idFromScan,
-      accountId: accountIdFromScan,
-      networkId: networkIdFromScan,
-      amount: amountFromScan,
-      token: tokenFromScan,
-    }: IAppEventBusPayload[EAppEventBusNames.UpdateSendAmountInputValues]) => {
-      if (idFromScan === inputId) {
-        if (amountFromScan) {
-          setIsUseFiat(true);
-          form.setValue('amount', amountFromScan);
-        }
+  const onScanResult = useCallback(
+    async (result: IQRCodeHandlerParseResult<IChainValue>) => {
+      console.log('onScanResult', result);
+      const tokenAddress = result?.data?.tokenAddress;
+      const scanNetworkId =
+        result?.data?.network?.id || currentAccount.networkId;
+      const scanAccountId =
+        (await getAccountIdOnNetwork({
+          account,
+          network: result?.data?.network,
+        })) || currentAccount?.accountId;
 
-        const formToAddress = form.getValues('to').raw;
-        const formNetworkId = form.getValues('networkId');
-        if (formNetworkId !== networkIdFromScan) {
-          navigation.pop();
-          await timerUtils.wait(150);
-          navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-            screen: EModalSignatureConfirmRoutes.TxDataInput,
-            params: {
-              accountId: accountIdFromScan,
-              networkId: networkIdFromScan,
-              activeAccountId: accountIdFromScan,
-              activeNetworkId: networkIdFromScan,
-              isNFT: false,
-              token: tokenFromScan,
-              address: formToAddress,
-              amount: amountFromScan,
-            },
+      if (scanAccountId) {
+        let scanToken: IToken | null = null;
+        if (tokenAddress) {
+          scanToken = await backgroundApiProxy.serviceToken.getToken({
+            networkId: scanNetworkId,
+            accountId: scanAccountId,
+            tokenIdOnNetwork: tokenAddress,
           });
-          return;
         }
-
-        if (currentAccount.accountId && tokenFromScan.networkId) {
-          setCurrentAccount({
-            accountId: currentAccount.accountId,
-            networkId: tokenFromScan.networkId,
+        if (!scanToken) {
+          scanToken = await backgroundApiProxy.serviceToken.getNativeToken({
+            networkId: scanNetworkId,
+            accountId: scanAccountId,
           });
-          setTokenInfo(tokenFromScan);
+        }
+        console.log('token result', accountId, networkId, token);
+        if (token) {
+          const amountFromScan = result?.data?.amount;
+          if (amountFromScan) {
+            setIsUseFiat(true);
+            form.setValue('amount', amountFromScan);
+          }
+          const formToAddress = form.getValues('to').raw;
+          const formNetworkId = form.getValues('networkId');
+          if (formNetworkId !== scanNetworkId) {
+            navigation.pop();
+            await timerUtils.wait(150);
+            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+              screen: EModalSignatureConfirmRoutes.TxDataInput,
+              params: {
+                accountId: scanAccountId,
+                networkId: scanNetworkId,
+                activeAccountId: scanAccountId,
+                activeNetworkId: scanNetworkId,
+                isNFT: false,
+                token: scanToken,
+                address: formToAddress,
+                amount: amountFromScan,
+              },
+            });
+            return;
+          }
+
+          if (currentAccount.accountId && scanNetworkId) {
+            setCurrentAccount({
+              accountId: currentAccount.accountId,
+              networkId: scanNetworkId,
+            });
+            setTokenInfo(scanToken);
+          }
         }
       }
-    };
-    appEventBus.on(EAppEventBusNames.UpdateSendAmountInputValues, callback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.UpdateSendAmountInputValues, callback);
-    };
-  }, [
-    accountId,
-    activeAccountId,
-    currentAccount.accountId,
-    form,
-    inputId,
-    navigation,
-  ]);
+    },
+    [
+      account,
+      accountId,
+      currentAccount.accountId,
+      currentAccount.networkId,
+      form,
+      navigation,
+      networkId,
+      token,
+    ],
+  );
 
   onSubmitRef.current = useCallback(
     async () =>
@@ -1576,7 +1592,7 @@ function SendDataInputContainer() {
             ) : null}
             <AddressInputField
               name="to"
-              inputId={inputId}
+              onScanResult={onScanResult}
               accountId={currentAccount.accountId}
               networkId={currentAccount.networkId}
               enableAddressBook

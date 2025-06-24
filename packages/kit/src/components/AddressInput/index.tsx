@@ -55,6 +55,8 @@ import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
 
+import type { IScanPluginProps } from './plugins/scan';
+
 type IResolvedAddressProps = {
   value: string;
   options: string[];
@@ -122,7 +124,6 @@ type IAddressInputProps = Omit<
   ComponentProps<typeof TextArea>,
   'value' | 'onChange'
 > & {
-  inputId?: string;
   networkId: string;
   value?: IAddressInputValue;
   onChange?: (value: IAddressInputValue) => void;
@@ -154,6 +155,7 @@ type IAddressInputProps = Omit<
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
 
   hideNonBackedUpWallet?: boolean;
+  onScanResult?: IScanPluginProps['onScanResult'];
 };
 
 export type IAddressQueryResult = {
@@ -325,7 +327,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAllowListValidation,
     onInputTypeChange,
     disabled: disabledFromProps,
-    inputId,
+    onScanResult,
     ...rest
   } = props;
   const intl = useIntl();
@@ -531,8 +533,8 @@ export function AddressInput(props: IAddressInputProps) {
           ) : null}
           {scan ? (
             <ScanPlugin
-              inputId={inputId}
               onInputTypeChange={onInputTypeChange}
+              onScanResult={onScanResult}
               sceneName={scan.sceneName}
               onChange={onChangeText}
               disabled={disabled}
@@ -571,6 +573,7 @@ export function AddressInput(props: IAddressInputProps) {
       rest.testID,
       scan,
       inputId,
+      onScanResult,
       contacts,
       accountSelector,
       accountId,

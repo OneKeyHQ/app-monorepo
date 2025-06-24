@@ -295,13 +295,6 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CheckEndpointPrefix]: {
     cleanAppClientCache?: boolean;
   };
-  [EAppEventBusNames.UpdateSendAmountInputValues]: {
-    accountId: string;
-    networkId: string;
-    inputId: string;
-    token: IToken;
-    amount?: string;
-  };
 }
 
 export enum EEventBusBroadcastMethodNames {

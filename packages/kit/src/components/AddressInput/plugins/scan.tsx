@@ -28,18 +28,13 @@ import { getAccountIdOnNetwork } from '../../../views/ScanQrCode/hooks/useParseQ
 
 import type { IAddressPluginProps } from '../types';
 
-const ScanPluginContent: FC<IAddressPluginProps> = ({
-  inputId,
-  onChange,
-  onInputTypeChange,
-  testID,
-  disabled,
-}) => {
+const ScanPluginContent: FC<
+  IAddressPluginProps & {
+    onScanResult?: IScanPluginProps['onScanResult'];
+  }
+> = ({ onChange, onInputTypeChange, testID, disabled, onScanResult }) => {
   const { start } = useScanQrCode();
   const intl = useIntl();
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
   const onPress = useCallback(async () => {
     const result = (await start({
       handlers: [
@@ -58,47 +53,11 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
         : result?.data?.address,
     );
     onInputTypeChange?.(EInputAddressChangeType.Scan);
-    const tokenAddress = result?.data?.tokenAddress;
-    const networkId = result?.data?.network?.id || network?.id || '';
-    const accountId =
-      (await getAccountIdOnNetwork({
-        account,
-        network: result?.data?.network,
-      })) || account?.id;
 
-    if (accountId) {
-      let token: IToken | null = null;
-      if (tokenAddress) {
-        token = await backgroundApiProxy.serviceToken.getToken({
-          networkId,
-          accountId,
-          tokenIdOnNetwork: tokenAddress,
-        });
-      }
-      if (!token) {
-        token = await backgroundApiProxy.serviceToken.getNativeToken({
-          networkId,
-          accountId,
-        });
-      }
-      console.log('token result', accountId, networkId, token);
-      if (inputId && token) {
-        setTimeout(() => {
-          appEventBus.emitToSelf({
-            type: EAppEventBusNames.UpdateSendAmountInputValues,
-            payload: {
-              inputId,
-              accountId,
-              networkId,
-              token,
-              amount: result?.data?.amount,
-            },
-            cloned: false,
-          });
-        }, 120);
-      }
-    }
-  }, [account, inputId, network, onChange, onInputTypeChange, start]);
+    setTimeout(() => {
+      onScanResult?.(result);
+    }, 120);
+  }, [onChange, onInputTypeChange, onScanResult, start]);
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
@@ -111,28 +70,21 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({
   );
 };
 
-type IScanPluginProps = IAddressPluginProps & {
+export type IScanPluginProps = IAddressPluginProps & {
   sceneName: EAccountSelectorSceneName;
+  onScanResult?: (result: IQRCodeHandlerParseResult<IChainValue>) => void;
 };
 
 export const ScanPlugin: FC<IScanPluginProps> = ({
   onChange,
   testID,
-  inputId,
-  sceneName,
   disabled,
+  onScanResult,
 }) => (
-  <AccountSelectorProviderMirror
-    config={{
-      sceneName,
-    }}
-    enabledNum={[0]}
-  >
-    <ScanPluginContent
-      inputId={inputId}
-      onChange={onChange}
-      testID={testID}
-      disabled={disabled}
-    />
-  </AccountSelectorProviderMirror>
+  <ScanPluginContent
+    onChange={onChange}
+    testID={testID}
+    disabled={disabled}
+    onScanResult={onScanResult}
+  />
 );
