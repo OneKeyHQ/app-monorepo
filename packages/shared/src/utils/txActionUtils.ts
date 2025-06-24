@@ -135,6 +135,34 @@ export function calculateNativeAmountInActions(actions: IDecodedTxAction[]) {
   };
 }
 
+export function calculateTokenAmountInActions({
+  actions,
+  tokenAddress,
+}: {
+  actions: IDecodedTxAction[];
+  tokenAddress: string;
+}) {
+  let tokenAmount = '0';
+  actions.forEach((item) => {
+    if (
+      item.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      item.assetTransfer
+    ) {
+      item.assetTransfer.sends.forEach((send) => {
+        if (
+          send.tokenIdOnNetwork.toLowerCase() === tokenAddress.toLowerCase()
+        ) {
+          tokenAmount = new BigNumber(tokenAmount).plus(send.amount).toFixed();
+        }
+      });
+    }
+  });
+
+  return {
+    tokenAmount,
+  };
+}
+
 export function isSendNativeTokenAction(action: IDecodedTxAction) {
   return (
     action.type === EDecodedTxActionType.ASSET_TRANSFER &&

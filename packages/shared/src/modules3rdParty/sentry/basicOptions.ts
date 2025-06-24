@@ -52,6 +52,8 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
   return result;
 };
 
+export const SENTRY_IPC = 'sentry-ipc://';
+
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',

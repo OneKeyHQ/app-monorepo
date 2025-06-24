@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import {
   useDecodedTxsAtom,
   useNativeTokenInfoAtom,
+  usePayWithTokenInfoAtom,
   useSendSelectedFeeInfoAtom,
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -10,13 +11,14 @@ import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import {
   calculateNativeAmountInActions,
+  calculateTokenAmountInActions,
   isSendNativeTokenAction,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-function usePreCheckNativeBalance({
+function usePreCheckTokenBalance({
   networkId,
   transferPayload,
 }: {
@@ -26,10 +28,12 @@ function usePreCheckNativeBalance({
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [{ decodedTxs, isBuildingDecodedTxs }] = useDecodedTxsAtom();
+  const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const {
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
     updateSendTxStatus,
+    updateTokenTransferAmount,
   } = useSignatureConfirmActions().current;
   usePromiseResult(async () => {
     if (isBuildingDecodedTxs) {
@@ -46,7 +50,18 @@ function usePreCheckNativeBalance({
     ]);
 
     let nativeTokenTransferBN = new BigNumber(0);
+    let payWithTokenTransferBN = new BigNumber(0);
+
     decodedTxs.forEach((decodedTx) => {
+      if (vaultSettings.payWithTokenEnabled) {
+        payWithTokenTransferBN = payWithTokenTransferBN.plus(
+          calculateTokenAmountInActions({
+            actions: decodedTx.actions,
+            tokenAddress: payWithTokenInfo.address,
+          }).tokenAmount ?? 0,
+        );
+      }
+
       nativeTokenTransferBN = nativeTokenTransferBN.plus(
         decodedTx.nativeAmount ??
           calculateNativeAmountInActions(decodedTx.actions).nativeAmount ??
@@ -122,19 +137,22 @@ function usePreCheckNativeBalance({
     }
 
     updateNativeTokenTransferAmount(nativeTokenTransferBN.toFixed());
+    updateTokenTransferAmount(payWithTokenTransferBN.toFixed());
   }, [
     decodedTxs,
     isBuildingDecodedTxs,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
     networkId,
+    payWithTokenInfo.address,
     sendSelectedFeeInfo?.totalNative,
     transferPayload?.amountToSend,
     transferPayload?.isMaxSend,
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
     updateSendTxStatus,
+    updateTokenTransferAmount,
   ]);
 }
 
-export { usePreCheckNativeBalance };
+export { usePreCheckTokenBalance };

@@ -7,6 +7,7 @@ import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
   useDecodedTxsAtom,
+  usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
@@ -38,6 +39,7 @@ function TxConfirmAlert(props: IProps) {
   const { network } = useAccountData({
     networkId,
   });
+  const [payWithTokenInfo] = usePayWithTokenInfoAtom();
 
   const renderDecodedTxsAlert = useCallback(() => {
     const alerts = flatMap(
@@ -77,9 +79,31 @@ function TxConfirmAlert(props: IProps) {
   }, [intl, sendFeeStatus.errMessage, sendFeeStatus.status]);
 
   const renderInsufficientNativeBalanceAlert = useCallback(() => {
-    if (!sendTxStatus.isInsufficientNativeBalance) {
+    if (
+      !sendTxStatus.isInsufficientNativeBalance &&
+      !sendTxStatus.isInsufficientTokenBalance
+    ) {
       return null;
     }
+
+    if (payWithTokenInfo.enabled && sendTxStatus.isInsufficientTokenBalance) {
+      return (
+        <Alert
+          icon="ErrorOutline"
+          type="critical"
+          title={intl.formatMessage(
+            {
+              id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+            },
+            {
+              symbol: payWithTokenInfo.symbol ?? '',
+              amount: sendTxStatus.fillUpTokenBalance ?? '0',
+            },
+          )}
+        />
+      );
+    }
+
     return (
       <Alert
         icon="ErrorOutline"
@@ -108,12 +132,16 @@ function TxConfirmAlert(props: IProps) {
       />
     );
   }, [
-    intl,
-    network?.symbol,
+    sendTxStatus.isInsufficientNativeBalance,
+    sendTxStatus.isInsufficientTokenBalance,
     sendTxStatus.fillUpNativeBalance,
     sendTxStatus.isBaseOnEstimateMaxFee,
-    sendTxStatus.isInsufficientNativeBalance,
     sendTxStatus.maxFeeNative,
+    sendTxStatus.fillUpTokenBalance,
+    payWithTokenInfo.enabled,
+    payWithTokenInfo.symbol,
+    intl,
+    network?.symbol,
   ]);
 
   const renderPreCheckTxAlert = useCallback(() => {
