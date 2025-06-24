@@ -34,9 +34,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
 
-  // Calculate the current timestamp in seconds once per render.
-  const nowInSeconds = Math.floor(Date.now() / 1000);
-
   const {
     onLoadEnd,
     // tradingViewUrl = 'http://localhost:5173/?mode=dev&type=onekeyPrivateRequest',

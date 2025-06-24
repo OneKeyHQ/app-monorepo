@@ -1,5 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 module.exports = [
+  'tradingview',
   'ohlcv',
   '_j_msgid',
   '020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68',
