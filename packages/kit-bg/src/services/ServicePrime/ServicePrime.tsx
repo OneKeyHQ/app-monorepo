@@ -49,6 +49,25 @@ class ServicePrime extends ServiceBase {
     return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
   }
 
+  @backgroundMethod()
+  async apiDeleteAccount({
+    uuid,
+    emailOTP,
+  }: {
+    uuid: string;
+    emailOTP: string;
+  }) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    const result = await client.post<IApiClientResponse<{ ok: boolean }>>(
+      '/prime/v1/user/delete',
+      {
+        uuid,
+        emailOTP,
+      },
+    );
+    return result?.data?.data;
+  }
+
   loginMutex = new Semaphore(1);
 
   @backgroundMethod()
@@ -675,11 +694,20 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async sendEmailOTP(scene: 'UpdateReabteWithdrawAddress') {
+  async sendEmailOTP(scene: string) {
+    if (!scene) {
+      throw new OneKeyLocalError('sendEmailOTP ERROR: Invalid scene');
+    }
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
-    return client.post('/prime/v1/general/emailOTP', {
+    const result = await client.post<
+      IApiClientResponse<{
+        resendAt: number;
+        uuid: string;
+      }>
+    >('/prime/v1/general/emailOTP', {
       scene,
     });
+    return result?.data?.data;
   }
 
   @backgroundMethod()

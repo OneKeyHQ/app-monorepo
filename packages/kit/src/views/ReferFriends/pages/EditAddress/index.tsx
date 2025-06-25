@@ -32,6 +32,7 @@ import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/compon
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReferFriendsRoutes,
@@ -158,13 +159,22 @@ function BasicEditAddress() {
       const address = values.to.resolved ?? '';
       const networkId = values.networkId ?? '';
       await sendEmailOTP({
-        onConfirm: async (emailOTP) => {
+        scene: EPrimeEmailOTPScene.UpdateRebateWithdrawAddress,
+        onConfirm: async ({ code, uuid }) => {
           return backgroundApiProxy.serviceReferralCode.bindAddress({
             networkId,
             address,
-            emailOTP,
+            emailOTP: code,
+            uuid,
           });
         },
+        description: ({ userInfo }) =>
+          intl.formatMessage(
+            {
+              id: ETranslations.referral_address_update_desc,
+            },
+            { mail: userInfo.displayEmail ?? '' },
+          ),
       });
 
       navigation.pop();
@@ -175,7 +185,7 @@ function BasicEditAddress() {
         });
       });
     },
-    [navigation, onAddressAdded, sendEmailOTP],
+    [navigation, onAddressAdded, sendEmailOTP, intl],
   );
 
   const contextValue = useMemo(

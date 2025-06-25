@@ -1,9 +1,10 @@
 import type { IDialogShowProps, IKeyOfIcons } from '@onekeyhq/components';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { showTronRewardCenter } from './TronRewardCenter';
-
-const networkIdsMap = getNetworkIdsMap();
 
 export type IRewardCenterConfig = {
   title: string;
@@ -17,7 +18,9 @@ export type IRewardCenterConfig = {
 };
 
 const rewardCenterDefaultConfig: IRewardCenterConfig = {
-  title: 'Subsidy/Redeem',
+  title: appLocale.intl.formatMessage({
+    id: ETranslations.wallet_subsidy_redeem_title,
+  }),
   icon: 'GiftOutline',
   handler: () => {},
 };
@@ -30,8 +33,10 @@ export const getRewardCenterConfig = (
 ) => {
   const { networkId } = props;
 
-  switch (networkId) {
-    case networkIdsMap.trx:
+  const impl = networkUtils.getNetworkImpl({ networkId });
+
+  switch (impl) {
+    case IMPL_TRON:
       return {
         ...rewardCenterDefaultConfig,
         handler: () => showTronRewardCenter(props),

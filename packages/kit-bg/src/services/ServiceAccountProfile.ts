@@ -4,6 +4,7 @@ import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressIn
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -575,6 +576,7 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async sendProxyRequest<T>({
     networkId,
     body,

@@ -583,6 +583,10 @@ const CryptoGallery = LazyLoadPage(
     ),
 );
 
+const UnOrderedListGallery = LazyLoadPage(
+  () => import('./Components/stories/UnOrderedListGallery'),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -852,5 +856,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCryptoGallery,
     component: CryptoGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentUnOrderedList,
+    component: UnOrderedListGallery,
   },
 ];
