@@ -1,4 +1,5 @@
 import { Semaphore } from 'async-mutex';
+import bs58check from 'bs58check';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -43,6 +44,7 @@ import {
   FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
   IMPL_EVM,
+  IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
@@ -4363,6 +4365,72 @@ class ServiceAccount extends ServiceBase {
     if (Object.keys(walletsBackedUpStatusMap).length > 0) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
+  }
+
+  @backgroundMethod()
+  async migrateHardwareLtcXPub() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.fixHardwareLtcXPubMigrated) {
+      console.log('migrateLtcXPub: already migrated');
+    }
+
+    const { accounts } = await this.getAllAccounts();
+    const hwLtcAccounts = accounts
+      .filter((item) => accountUtils.isHwAccount({ accountId: item?.id }))
+      .filter((item) => item.impl === IMPL_LTC);
+
+    const fixedAccounts: {
+      [accountId: string]: {
+        xpub: string;
+        xpubSegwit: string;
+      };
+    } = {};
+
+    for (const account of hwLtcAccounts) {
+      // IDBUtxoAccount
+      if ('xpub' in account && 'xpubSegwit' in account) {
+        const xpub = account.xpub;
+
+        if (xpub) {
+          const parts = account.path.split('/');
+          if (parts.length < 2) {
+            return;
+          }
+
+          const coinType = parts[1];
+          let magic;
+          if (coinType === "44'" || coinType === "48'") {
+            magic = 0x01_9d_a4_62; // Ltub
+          } else if (coinType === "49'") {
+            magic = 0x01_b2_6e_f6; // Mtub
+          } else if (coinType === "84'") {
+            magic = 0x04_b2_47_46; // zpub
+          } else {
+            return;
+          }
+
+          const oldXpub = Buffer.from(bs58check.decode(xpub));
+          oldXpub.writeUInt32BE(magic, 0);
+          const newXpub = bs58check.encode(oldXpub);
+
+          if (newXpub !== xpub) {
+            fixedAccounts[account.id] = {
+              xpub: newXpub,
+              xpubSegwit: newXpub,
+            };
+          }
+        }
+      }
+    }
+
+    await localDb.updateAccountXpub(fixedAccounts);
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        fixHardwareLtcXPubMigrated: true,
+      }),
+    );
   }
 }
 
