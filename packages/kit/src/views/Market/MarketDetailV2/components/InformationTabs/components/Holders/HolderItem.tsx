@@ -20,13 +20,6 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
     copyText(item.accountAddress);
   };
 
-  const formatAmount = (amount: string) => {
-    const num = parseFloat(amount);
-    if (num < 0.001) {
-      return num.toExponential(2);
-    }
-    return numberFormat(amount, { formatter: 'balance' });
-  };
 
   const formatFiatValue = (fiatValue: string) => {
     const num = parseFloat(fiatValue);
@@ -72,7 +65,7 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
 
       {/* Amount */}
       <SizableText size="$bodyMd" color="$text" {...layoutConfig.amount}>
-        {formatAmount(item.amount)}
+        {numberFormat(item.amount, { formatter: 'balance' })}
       </SizableText>
 
       {/* Fiat Value */}

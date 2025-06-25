@@ -37,14 +37,6 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
       roundingMethod: 'floor',
     });
 
-  const formatAmount = (amount: string) => {
-    const num = parseFloat(amount);
-    if (Math.abs(num) < 0.001) {
-      return num.toExponential(2);
-    }
-    return numberFormat(amount, { formatter: 'balance' }) as string;
-  };
-
   const isBuy = item.type === 'buy';
   const baseToken = isBuy ? item.to : item.from;
   const quoteToken = isBuy ? item.from : item.to;
@@ -85,16 +77,25 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
         {/* Column 1: amounts */}
         <YStack width="49%" alignItems="flex-end">
           <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
-            {`${baseSign}${formatAmount(baseToken.amount)}`}
+            {`${baseSign}${
+              numberFormat(baseToken.amount, {
+                formatter: 'balance',
+              }) as string
+            }`}
           </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {`${quoteSign}${formatAmount(quoteToken.amount)}`}
+
+          <SizableText size="$bodySm" color="$text" numberOfLines={1}>
+            {`${quoteSign}${
+              numberFormat(quoteToken.amount, {
+                formatter: 'balance',
+              }) as string
+            }`}
           </SizableText>
         </YStack>
 
         {/* Column 2: symbols */}
         <YStack width="49%" alignItems="flex-start">
-          <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
             {baseToken.symbol}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
