@@ -1,10 +1,12 @@
 import { io } from 'socket.io-client';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
@@ -47,7 +49,9 @@ class ServiceMarketWS extends ServiceBase {
       return Promise.resolve();
     }
 
-    const endpoint = 'wss://notification.onekeytest.com';
+    const endpoint = await getEndpointByServiceName(
+      EServiceEndpointEnum.NotificationWebSocket,
+    );
 
     return new Promise((resolve, reject) => {
       this.socket = io(endpoint, {
