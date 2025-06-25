@@ -18,6 +18,11 @@ function TokenSecurityAlert() {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
 
+  // Return early if required data is missing
+  if (!tokenAddress || !networkId) {
+    return null;
+  }
+
   const { securityData, securityStatus, warningCount } = useTokenSecurity({
     tokenAddress,
     networkId,
