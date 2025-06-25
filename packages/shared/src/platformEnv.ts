@@ -13,8 +13,13 @@ export type IAppPlatform =
   | 'android'
   | 'desktop'
   | 'web'
-  | 'webEmbed';
-export type IPlatformLegacy = 'native' | 'desktop' | 'ext' | 'web' | 'webEmbed';
+  | 'web-embed';
+export type IPlatformLegacy =
+  | 'native'
+  | 'desktop'
+  | 'ext'
+  | 'web'
+  | 'web-embed';
 export type IAppChannel =
   | 'chrome'
   | 'firefox'
@@ -183,7 +188,7 @@ const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 // for platform building by file extension
 const getAppPlatform = (): IAppPlatform | undefined => {
   if (isWeb) return 'web';
-  if (isWebEmbed) return 'webEmbed';
+  if (isWebEmbed) return 'web-embed';
   if (isDesktop) return 'desktop';
   if (isExtension) return 'extension';
   if (isNativeIOS) return 'ios';
@@ -192,7 +197,7 @@ const getAppPlatform = (): IAppPlatform | undefined => {
 
 const getPlatformSymbolLegacy = (): IPlatformLegacy | undefined => {
   if (isWeb) return 'web';
-  if (isWebEmbed) return 'webEmbed';
+  if (isWebEmbed) return 'web-embed';
   if (isDesktop) return 'desktop';
   if (isExtension) return 'ext';
   if (isNative) return 'native';
