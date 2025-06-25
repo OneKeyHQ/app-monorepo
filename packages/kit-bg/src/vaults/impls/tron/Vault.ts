@@ -14,6 +14,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getTronResourceRentalSourceFlag } from '@onekeyhq/kit/src/utils/gasFee';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -43,6 +44,7 @@ import {
   EOnChainHistoryTxStatus,
   type IOnChainHistoryTx,
 } from '@onekeyhq/shared/types/history';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -83,7 +85,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -900,7 +901,12 @@ export default class Vault extends VaultBase {
             params: {
               method: 'post',
               url: '/api/v1/order/create',
-              data: createOrderParams,
+              data: {
+                ...createOrderParams,
+                sourceFlag: getTronResourceRentalSourceFlag({
+                  isTestnet: this._network.isTestnet,
+                }),
+              },
               params: {},
             },
           },

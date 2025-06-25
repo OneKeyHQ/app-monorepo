@@ -24,6 +24,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { getTronResourceRentalSourceFlag } from '../../utils/gasFee';
 
 function RewardCenterContent({
   accountId,
@@ -50,7 +51,9 @@ function RewardCenterContent({
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
 
-  const claimSource = network?.isTestnet ? 'test' : '1key';
+  const claimSource = getTronResourceRentalSourceFlag({
+    isTestnet: network?.isTestnet ?? false,
+  });
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {
