@@ -4372,6 +4372,7 @@ class ServiceAccount extends ServiceBase {
     const appStatus = await simpleDb.appStatus.getRawData();
     if (appStatus?.fixHardwareLtcXPubMigrated) {
       console.log('migrateLtcXPub: already migrated');
+      return;
     }
 
     const { accounts } = await this.getAllAccounts();
@@ -4391,39 +4392,38 @@ class ServiceAccount extends ServiceBase {
       if ('xpub' in account && 'xpubSegwit' in account) {
         const xpub = account.xpub;
 
-        if (xpub) {
-          const parts = account.path.split('/');
-          if (parts.length < 2) {
-            return;
-          }
-
+        const parts = account.path?.split('/');
+        if (xpub && xpub.length > 0 && parts && parts.length > 2) {
           const coinType = parts[1];
-          let magic;
+          let magic: number | undefined;
           if (coinType === "44'" || coinType === "48'") {
             magic = 0x01_9d_a4_62; // Ltub
           } else if (coinType === "49'") {
             magic = 0x01_b2_6e_f6; // Mtub
           } else if (coinType === "84'") {
             magic = 0x04_b2_47_46; // zpub
-          } else {
-            return;
           }
 
-          const oldXpub = Buffer.from(bs58check.decode(xpub));
-          oldXpub.writeUInt32BE(magic, 0);
-          const newXpub = bs58check.encode(oldXpub);
+          if (magic) {
+            const decodedXpub = bs58check.decode(xpub);
+            const newXpubBuffer = Buffer.from(decodedXpub);
+            newXpubBuffer.writeUInt32BE(magic, 0);
+            const newXpub = bs58check.encode(newXpubBuffer);
 
-          if (newXpub !== xpub) {
-            fixedAccounts[account.id] = {
-              xpub: newXpub,
-              xpubSegwit: newXpub,
-            };
+            if (newXpub !== xpub) {
+              fixedAccounts[account.id] = {
+                xpub: newXpub,
+                xpubSegwit: newXpub,
+              };
+            }
           }
         }
       }
     }
 
-    await localDb.updateAccountXpub(fixedAccounts);
+    if (Object.keys(fixedAccounts).length > 0) {
+      await localDb.updateAccountXpub(fixedAccounts);
+    }
 
     await simpleDb.appStatus.setRawData(
       (v): ISimpleDBAppStatus => ({
