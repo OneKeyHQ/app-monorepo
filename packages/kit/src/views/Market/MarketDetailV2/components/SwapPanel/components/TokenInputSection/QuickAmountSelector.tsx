@@ -39,6 +39,11 @@ export function QuickAmountSelector({
   const handleAmountSelect = useCallback(
     (amount: { label: string; value: string | number }) => {
       if (tradeType === ESwapDirection.SELL && balance) {
+        if (balance.isZero()) {
+          onSelect('0');
+          return;
+        }
+
         const percentageBN = new BigNumber(amount.value.toString());
         const calculatedAmount = balance.multipliedBy(percentageBN).toFixed();
         onSelect(calculatedAmount);
