@@ -2,7 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Dialog, SizableText, Skeleton, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Dialog,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -176,7 +183,20 @@ function ProtocolListDialogContent({
         />
         <ListItem.Text
           flex={1}
-          primary={capitalizeString(item.provider.name)}
+          primary={
+            <XStack ai="center" gap="$1.5">
+              <SizableText>{capitalizeString(item.provider.name)}</SizableText>
+              {item.provider.badges?.map((badge) => (
+                <Badge
+                  key={badge.tag}
+                  badgeType={badge.badgeType}
+                  badgeSize="sm"
+                >
+                  <Badge.Text>{badge.tag}</Badge.Text>
+                </Badge>
+              ))}
+            </XStack>
+          }
           secondary={item.provider.description || ''}
         />
         <ListItem.Text
