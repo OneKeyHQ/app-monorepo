@@ -21,6 +21,21 @@ interface ISwapNetworkToggleGroupProps {
   placement?: IPopoverProps['placement'];
 }
 
+// Layout constants for network filter scrolling calculations
+const ITEM_COMPONENT_WIDTHS = {
+  ICON: 24,
+  TEXT_PADDING: 24,
+  TEXT_MARGIN: 8,
+  MIN_TEXT_WIDTH: 50,
+} as const;
+
+const LAYOUT_CONSTANTS = {
+  ITEM_GAP: 8, // $2 gap between items
+  CONTAINER_PADDING: 4, // p="$1" = 4px
+  SCROLL_OFFSET_ADJUSTMENT: 20, // Additional offset for scroll positioning
+  LEFT_GRADIENT_THRESHOLD: 2, // Minimum scroll distance to show left gradient
+} as const;
+
 export interface IMarketNetworkFilterRef {
   scrollToNetwork: (networkId: string) => void;
 }
@@ -42,8 +57,8 @@ const MarketNetworkFilter = forwardRef<
     const intl = useIntl();
     const [scrollX, setScrollX] = useState(0);
     const scrollViewRef = useRef<ScrollViewType>(null);
-
-    const shouldShowLeftGradient = scrollX > 2;
+    const shouldShowLeftGradient =
+      scrollX > LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
 
     useImperativeHandle(
       ref,
@@ -53,13 +68,19 @@ const MarketNetworkFilter = forwardRef<
             (network) => network.networkId === networkId,
           );
           if (networkIndex !== -1 && scrollViewRef.current) {
-            const itemWidth = 24 + 24 + 8 + 50;
-            const gap = 8; // $2 gap between items
-            const containerPadding = 4; // p="$1" = 4px
+            const itemWidth =
+              ITEM_COMPONENT_WIDTHS.ICON +
+              ITEM_COMPONENT_WIDTHS.TEXT_PADDING +
+              ITEM_COMPONENT_WIDTHS.TEXT_MARGIN +
+              ITEM_COMPONENT_WIDTHS.MIN_TEXT_WIDTH;
+            const gap = LAYOUT_CONSTANTS.ITEM_GAP;
+            const containerPadding = LAYOUT_CONSTANTS.CONTAINER_PADDING;
 
             const scrollToX = Math.max(
               0,
-              networkIndex * (itemWidth + gap) - containerPadding - 20,
+              networkIndex * (itemWidth + gap) -
+                containerPadding -
+                LAYOUT_CONSTANTS.SCROLL_OFFSET_ADJUSTMENT,
             );
 
             scrollViewRef.current.scrollTo({
