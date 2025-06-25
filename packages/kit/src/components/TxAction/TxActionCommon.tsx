@@ -182,7 +182,7 @@ function TxActionCommonDescription({
       skipValidateAddress: true,
     });
 
-    return result.walletAccountName || result.addressBookName;
+    return result.addressBookName || result.walletAccountName;
   }, [description?.originalAddress, networkId]);
 
   useEffect(() => {
