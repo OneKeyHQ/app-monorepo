@@ -1,7 +1,7 @@
 import { Semaphore } from 'async-mutex';
-import bs58check from 'bs58check';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
+import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
@@ -4394,28 +4394,16 @@ class ServiceAccount extends ServiceBase {
 
         const parts = account.path?.split('/');
         if (xpub && xpub.length > 0 && parts && parts.length > 2) {
-          const coinType = parts[1];
-          let magic: number | undefined;
-          if (coinType === "44'" || coinType === "48'") {
-            magic = 0x01_9d_a4_62; // Ltub
-          } else if (coinType === "49'") {
-            magic = 0x01_b2_6e_f6; // Mtub
-          } else if (coinType === "84'") {
-            magic = 0x04_b2_47_46; // zpub
-          }
+          const newXpub = await convertLtcXpub({
+            purpose: parts[1],
+            xpub,
+          });
 
-          if (magic) {
-            const decodedXpub = bs58check.decode(xpub);
-            const newXpubBuffer = Buffer.from(decodedXpub);
-            newXpubBuffer.writeUInt32BE(magic, 0);
-            const newXpub = bs58check.encode(newXpubBuffer);
-
-            if (newXpub !== xpub) {
-              fixedAccounts[account.id] = {
-                xpub: newXpub,
-                xpubSegwit: newXpub,
-              };
-            }
+          if (newXpub && newXpub !== xpub) {
+            fixedAccounts[account.id] = {
+              xpub: newXpub,
+              xpubSegwit: newXpub,
+            };
           }
         }
       }
