@@ -9,7 +9,7 @@ import {
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
-  TokenStats,
+  TokenOverview,
 } from '../components';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
@@ -46,7 +46,7 @@ const createOverviewPageComponent = () => {
   const Component = () => (
     <>
       {/* Token Stats */}
-      <TokenStats />
+      <TokenOverview />
 
       {/* Activity overview (only in overview tab) */}
       <TokenActivityOverview />

@@ -19,7 +19,7 @@ function StatCardSkeleton() {
   );
 }
 
-function TokenStatsSkeletonBase() {
+function TokenOverviewSkeletonBase() {
   return (
     <Stack gap="$3" px="$5" py="$3">
       {/* Token Header Skeleton */}
@@ -52,4 +52,4 @@ function TokenStatsSkeletonBase() {
   );
 }
 
-export const TokenStatsSkeleton = memo(TokenStatsSkeletonBase);
+export const TokenOverviewSkeleton = memo(TokenOverviewSkeletonBase);

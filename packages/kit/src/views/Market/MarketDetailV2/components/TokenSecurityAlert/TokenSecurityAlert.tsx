@@ -23,10 +23,6 @@ function TokenSecurityAlert() {
     networkId,
   });
 
-  if (!tokenAddress || !networkId) {
-    return null;
-  }
-
   const handlePress = () => {
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),

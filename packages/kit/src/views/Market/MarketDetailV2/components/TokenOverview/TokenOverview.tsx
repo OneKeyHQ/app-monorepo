@@ -13,7 +13,7 @@ import {
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
-import { TokenStatsSkeleton } from './TokenStatsSkeleton';
+import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 
 interface IStatItem {
   label: string;
@@ -57,7 +57,7 @@ function StatCard({ label, value, icon, iconColor }: IStatItem) {
   );
 }
 
-export function TokenStats() {
+export function TokenOverview() {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
 
@@ -146,7 +146,7 @@ export function TokenStats() {
   }, [tokenDetail, intl]);
 
   if (!tokenDetail) {
-    return <TokenStatsSkeleton />;
+    return <TokenOverviewSkeleton />;
   }
 
   return (
