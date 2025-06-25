@@ -160,11 +160,12 @@ function BasicEditAddress() {
       const networkId = values.networkId ?? '';
       await sendEmailOTP({
         scene: EPrimeEmailOTPScene.UpdateRebateWithdrawAddress,
-        onConfirm: async (emailOTP) => {
+        onConfirm: async ({ code, uuid }) => {
           return backgroundApiProxy.serviceReferralCode.bindAddress({
             networkId,
             address,
-            emailOTP,
+            emailOTP: code,
+            uuid,
           });
         },
         description: ({ userInfo }) =>
