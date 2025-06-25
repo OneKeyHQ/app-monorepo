@@ -98,11 +98,13 @@ const groupProtocolsByGroup = (
 
 function ProtocolListDialogContent({
   symbol,
+  networkId,
   accountId,
   indexedAccountId,
   onProtocolSelect,
 }: {
   symbol: string;
+  networkId: string;
   accountId: string;
   indexedAccountId?: string;
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
@@ -123,6 +125,7 @@ function ProtocolListDialogContent({
           symbol,
           accountId,
           indexedAccountId,
+          networkId,
         });
 
         const groupedData = groupProtocolsByGroup(data);
@@ -136,7 +139,7 @@ function ProtocolListDialogContent({
     };
 
     void fetchProtocolData();
-  }, [symbol, accountId, indexedAccountId]);
+  }, [symbol, accountId, indexedAccountId, networkId]);
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
@@ -264,11 +267,13 @@ export function showProtocolListDialog({
   symbol,
   accountId,
   indexedAccountId,
+  networkId,
   onProtocolSelect,
 }: {
   symbol: string;
   accountId: string;
   indexedAccountId?: string;
+  networkId: string;
   onProtocolSelect: (params: {
     networkId: string;
     accountId: string;
@@ -295,6 +300,7 @@ export function showProtocolListDialog({
     renderContent: (
       <ProtocolListDialogContent
         symbol={symbol}
+        networkId={networkId}
         accountId={accountId}
         indexedAccountId={indexedAccountId}
         onProtocolSelect={async (protocol: IStakeProtocolListItem) => {
