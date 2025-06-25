@@ -35,8 +35,10 @@ export function ActionButton({
     tradeType === ESwapDirection.BUY
       ? intl.formatMessage({ id: ETranslations.global_buy })
       : intl.formatMessage({ id: ETranslations.global_sell });
-  const numericAmount = parseFloat(amount);
-  const displayAmount = Number.isNaN(numericAmount) ? '' : amount;
+
+  const amountBN = useMemo(() => new BigNumber(amount || 0), [amount]);
+  const isValidAmount = amountBN.isFinite() && !amountBN.isNaN();
+  const displayAmount = isValidAmount ? amount : '';
 
   // Calculate total fiat value for sell orders only
   const totalValue = useMemo(() => {
@@ -44,15 +46,15 @@ export function ActionButton({
       tradeType !== ESwapDirection.SELL ||
       !tokenDetail?.price ||
       !amount ||
-      numericAmount <= 0
+      !isValidAmount ||
+      amountBN.lte(0)
     ) {
       return undefined;
     }
-    return new BigNumber(amount).multipliedBy(tokenDetail.price).toNumber();
-  }, [tradeType, tokenDetail?.price, amount, numericAmount]);
+    return amountBN.multipliedBy(tokenDetail.price).toNumber();
+  }, [tradeType, tokenDetail?.price, amount, isValidAmount, amountBN]);
 
   // Check for insufficient balance for both buy and sell operations
-  const amountBN = new BigNumber(amount || 0);
   const hasAmount = amountBN.gt(0);
   const isInsufficientBalance = balance && hasAmount && amountBN.gt(balance);
 
