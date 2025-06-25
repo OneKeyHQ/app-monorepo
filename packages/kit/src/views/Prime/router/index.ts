@@ -13,6 +13,9 @@ const PrimeCloudSyncDebug = LazyLoadPage(
   () => import('../pages/PrimeCloudSync/PagePrimeCloudSyncDebug'),
 );
 const PrimeFeatures = LazyLoadPage(() => import('../pages/PrimeFeatures'));
+const PrimeDeleteAccount = LazyLoadPage(
+  () => import('../pages/PrimeDeleteAccount'),
+);
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
   EPrimePages,
@@ -37,5 +40,9 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeFeatures,
     component: PrimeFeatures,
+  },
+  {
+    name: EPrimePages.PrimeDeleteAccount,
+    component: PrimeDeleteAccount,
   },
 ];
