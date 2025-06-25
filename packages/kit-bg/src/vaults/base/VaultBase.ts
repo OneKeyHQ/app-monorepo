@@ -1212,6 +1212,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     dbAccount?: IDBAccount;
   } = {}): Promise<string | undefined> {
     const networkAccount = await this.getAccount({ dbAccount });
+
     return this.getXpubFromAccount(networkAccount);
   }
 

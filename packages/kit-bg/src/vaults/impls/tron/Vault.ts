@@ -43,6 +43,7 @@ import {
   EOnChainHistoryTxStatus,
   type IOnChainHistoryTx,
 } from '@onekeyhq/shared/types/history';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -83,7 +84,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -906,14 +906,7 @@ export default class Vault extends VaultBase {
           },
         ],
       });
-    if (resp && resp[0] && resp[0].success !== false && !resp[0].error) {
-      return resp[0];
-    }
-    throw new OneKeyLocalError(
-      `Failed to create resource rental order: ${
-        resp?.[0]?.error ?? 'unknown error'
-      }`,
-    );
+    return resp[0];
   }
 
   async _uploadResourceRentalOrder(params: {
@@ -944,14 +937,7 @@ export default class Vault extends VaultBase {
           },
         ],
       });
-    if (resp && resp[0] && resp[0].success !== false && !resp[0].error) {
-      return resp[0];
-    }
-    throw new OneKeyLocalError(
-      `Failed to upload resource rental order: ${
-        resp?.[0]?.error ?? 'unknown error'
-      }`,
-    );
+    return resp[0];
   }
 
   async _signRentalTx(params: { unsignedTx: IUnsignedTxPro }) {

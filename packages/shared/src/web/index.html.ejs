@@ -47,7 +47,7 @@
             <%= htmlHeadPreloadCode %>
           </script>
       <% } %>
-      <% if ( platform == 'webEmbed' ) { %> 
+      <% if ( platform == 'web-embed' ) { %> 
         <script>
           if (typeof globalThis === 'undefined') {
               var globalThis = window;
@@ -118,7 +118,7 @@
 
     <!-- The root element for your Expo app.  -->
     <div id="root">
-      <% if ( platform == 'webEmbed' ) { %> 
+      <% if ( platform == 'web-embed' ) { %> 
         webEmbed index.html 
       <% } %>
     </div>
@@ -132,7 +132,7 @@
       })();
     </script>
 
-    <% if ( platform !== 'webEmbed' ) { %>
+    <% if ( platform !== 'web-embed' ) { %>
       <img
         width='80'
         class="onekey-index-html-preload-image"

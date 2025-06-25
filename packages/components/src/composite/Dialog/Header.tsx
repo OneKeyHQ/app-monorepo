@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
 import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
@@ -19,11 +20,12 @@ export function DialogIcon({
   icon,
   tone,
   renderIcon,
+  ...stackProps
 }: {
   icon: IDialogHeaderProps['icon'];
   tone?: IDialogHeaderProps['tone'];
   renderIcon?: IDialogHeaderProps['renderIcon'];
-}) {
+} & ComponentProps<typeof Stack>) {
   const colors: {
     iconWrapperBg: ColorTokens;
     iconColor: ColorTokens;
@@ -63,7 +65,7 @@ export function DialogIcon({
   }, [tone]);
   if (renderIcon) {
     return (
-      <Stack alignSelf="flex-start" mb="$5">
+      <Stack alignSelf="flex-start" mb="$5" {...stackProps}>
         {renderIcon}
       </Stack>
     );
@@ -75,6 +77,7 @@ export function DialogIcon({
       mb="$5"
       borderRadius="$full"
       bg={colors.iconWrapperBg}
+      {...stackProps}
     >
       <Icon name={icon} size="$8" color={colors.iconColor} />
     </Stack>

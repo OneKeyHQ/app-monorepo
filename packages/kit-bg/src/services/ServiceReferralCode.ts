@@ -53,6 +53,7 @@ class ServiceReferralCode extends ServiceBase {
     networkId: string;
     address: string;
     emailOTP: string;
+    uuid: string;
   }) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     return client.post('/rebate/v1/address', params);
