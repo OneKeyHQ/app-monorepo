@@ -1213,8 +1213,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   } = {}): Promise<string | undefined> {
     const networkAccount = await this.getAccount({ dbAccount });
 
-    console.log('networkAccount', networkAccount);
-
     return this.getXpubFromAccount(networkAccount);
   }
 
