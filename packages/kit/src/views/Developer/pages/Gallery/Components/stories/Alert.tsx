@@ -57,6 +57,16 @@ const AlertGallery = () => (
               description="Description here..."
               icon="PlaceholderOutline"
             />
+            <Alert
+              title="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque nec elementum eros.  Vestibulum faucibus nibh id tincidunt sollicitudin. Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. Vestibulum faucibus nibh id tincidunt sollicitudin. "
+              titleNumberOfLines={2}
+              icon="PlaceholderOutline"
+            />
+            <Alert
+              title="Lorem ipsum dolor sit amet"
+              titleNumberOfLines={2}
+              icon="PlaceholderOutline"
+            />
           </YStack>
         ),
       },
