@@ -4,17 +4,39 @@ import {
   Accordion,
   Icon,
   SizableText,
+  Skeleton,
   Stack,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+function FAQPanelSkeleton() {
+  return (
+    <YStack gap="$4">
+      <Skeleton width={80} height={24} borderRadius="$2" />
+      <YStack gap="$2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <YStack key={index} gap="$2">
+            <Skeleton width="100%" height={20} borderRadius="$2" />
+          </YStack>
+        ))}
+      </YStack>
+    </YStack>
+  );
+}
+
 export function FAQPanel({
   faqList,
+  isLoading = false,
 }: {
   faqList: Array<{ question: string; answer: string }>;
+  isLoading?: boolean;
 }) {
   const intl = useIntl();
+
+  if (isLoading) {
+    return <FAQPanelSkeleton />;
+  }
 
   return (
     <YStack gap="$4">
