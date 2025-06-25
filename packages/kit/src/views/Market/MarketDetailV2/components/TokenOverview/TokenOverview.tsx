@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import type { ColorTokens } from '@onekeyhq/components';
+import type { ColorTokens, IIconProps } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -18,9 +18,41 @@ import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 interface IStatItem {
   label: string;
   value: string;
-  icon?: string;
+  icon?: IIconProps['name'];
   iconColor?: ColorTokens;
 }
+
+// Helper functions for value formatting
+const formatTokenValue = (value: string | number | undefined): string => {
+  if (!value) return '--';
+  return String(formatDisplayNumber(NUMBER_FORMATTER.marketCap(String(value))));
+};
+
+const formatCurrencyValue = (value: string | number | undefined): string => {
+  if (!value) return '--';
+  return `$${formatTokenValue(value)}`;
+};
+
+interface ITokenDetail {
+  fdv?: string | number;
+  marketCap?: string | number;
+  holders?: string | number;
+  tvl?: string | number;
+  liquidity?: string | number;
+  logoUrl?: string;
+  name?: string;
+  symbol?: string;
+}
+
+const formatCirculatingSupply = (tokenDetail: ITokenDetail): string => {
+  if (tokenDetail.fdv) {
+    return formatTokenValue(tokenDetail.fdv);
+  }
+  if (tokenDetail.marketCap) {
+    return formatTokenValue(tokenDetail.marketCap);
+  }
+  return '--';
+};
 
 function StatCard({ label, value, icon, iconColor }: IStatItem) {
   return (
@@ -43,11 +75,7 @@ function StatCard({ label, value, icon, iconColor }: IStatItem) {
       </SizableText>
       <XStack alignItems="center" gap="$1">
         {icon ? (
-          <Icon
-            name={icon as any}
-            size="$4"
-            color={iconColor || '$iconSuccess'}
-          />
+          <Icon name={icon} size="$4" color={iconColor || '$iconSuccess'} />
         ) : null}
         <SizableText size="$headingMd" color="$text" fontWeight="600">
           {value}
@@ -61,89 +89,63 @@ export function TokenOverview() {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
 
-  const stats = useMemo<IStatItem[]>(() => {
-    if (!tokenDetail) {
-      return [];
-    }
+  // Optimized stat builders
+  const auditStat = useMemo<IStatItem>(
+    () => ({
+      label: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
+      value: intl.formatMessage(
+        { id: ETranslations.dexmarket_details_audit_issue },
+        { amount: 0 },
+      ),
+      icon: 'CheckLargeSolid',
+      iconColor: '$iconSuccess',
+    }),
+    [intl],
+  );
 
-    return [
-      {
-        label: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
-        value: intl.formatMessage(
-          {
-            id: ETranslations.dexmarket_details_audit_issue,
-          },
-          { amount: 0 },
-        ),
-        icon: 'BadgeCheckSolid',
-        iconColor: '$iconSuccess' as ColorTokens,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
-        value: tokenDetail.holders
-          ? String(
-              formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(String(tokenDetail.holders)),
-              ),
-            )
-          : '--',
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
-        value: tokenDetail.marketCap
-          ? `$${String(
-              formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(String(tokenDetail.marketCap)),
-              ),
-            )}`
-          : '--',
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.dexmarket_liquidity }),
-        value: tokenDetail.tvl
-          ? `$${String(
-              formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(String(tokenDetail.tvl)),
-              ),
-            )}`
-          : '--',
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_details_circulating_supply,
-        }),
-        value: (() => {
-          if (tokenDetail.fdv) {
-            return String(
-              formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(String(tokenDetail.fdv)),
-              ),
-            );
-          }
-          if (tokenDetail.marketCap) {
-            return String(
-              formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(String(tokenDetail.marketCap)),
-              ),
-            );
-          }
-          return '--';
-        })(),
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_details_max_supply,
-        }),
-        value: tokenDetail.fdv
-          ? String(
-              formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(String(tokenDetail.fdv)),
-              ),
-            )
-          : '--',
-      },
-    ];
-  }, [tokenDetail, intl]);
+  const holdersStat = useMemo<IStatItem>(
+    () => ({
+      label: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
+      value: formatTokenValue(tokenDetail?.holders),
+    }),
+    [intl, tokenDetail?.holders],
+  );
+
+  const marketCapStat = useMemo<IStatItem>(
+    () => ({
+      label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
+      value: formatCurrencyValue(tokenDetail?.marketCap),
+    }),
+    [intl, tokenDetail?.marketCap],
+  );
+
+  const liquidityStat = useMemo<IStatItem>(
+    () => ({
+      label: intl.formatMessage({ id: ETranslations.dexmarket_liquidity }),
+      value: formatCurrencyValue(tokenDetail?.tvl),
+    }),
+    [intl, tokenDetail?.tvl],
+  );
+
+  const circulatingSupplyStat = useMemo<IStatItem>(
+    () => ({
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_details_circulating_supply,
+      }),
+      value: tokenDetail ? formatCirculatingSupply(tokenDetail) : '--',
+    }),
+    [intl, tokenDetail],
+  );
+
+  const maxSupplyStat = useMemo<IStatItem>(
+    () => ({
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_details_max_supply,
+      }),
+      value: formatTokenValue(tokenDetail?.liquidity as string | number),
+    }),
+    [intl, tokenDetail?.liquidity],
+  );
 
   if (!tokenDetail) {
     return <TokenOverviewSkeleton />;
@@ -166,20 +168,20 @@ export function TokenOverview() {
 
       {/* First row: Audit and Holders */}
       <XStack gap="$3">
-        <StatCard {...stats[0]} />
-        <StatCard {...stats[1]} />
+        <StatCard {...auditStat} />
+        <StatCard {...holdersStat} />
       </XStack>
 
       {/* Second row: Market cap and Liquidity */}
       <XStack gap="$3">
-        <StatCard {...stats[2]} />
-        <StatCard {...stats[3]} />
+        <StatCard {...marketCapStat} />
+        <StatCard {...liquidityStat} />
       </XStack>
 
       {/* Third row: Circulating supply and Maximum supply */}
       <XStack gap="$3">
-        <StatCard {...stats[4]} />
-        <StatCard {...stats[5]} />
+        <StatCard {...circulatingSupplyStat} />
+        <StatCard {...maxSupplyStat} />
       </XStack>
     </Stack>
   );
