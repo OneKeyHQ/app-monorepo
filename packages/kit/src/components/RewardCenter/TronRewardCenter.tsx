@@ -12,6 +12,7 @@ import {
   Input,
   SizableText,
   Skeleton,
+  Stack,
   Toast,
   XStack,
   YStack,
@@ -274,31 +275,33 @@ function RewardCenterContent({
               id: ETranslations.wallet_redeem_label,
             })}
           </SizableText>
-          <XStack alignItems="center" justifyContent="space-between" gap="$9">
-            <Form.Field name="code" rules={{ required: true }}>
-              <Input
-                backgroundColor="$bgStrong"
-                flex={1}
-                placeholder={intl.formatMessage({
-                  id: ETranslations.wallet_enter_redemption_code,
+          <Form.Field name="code" rules={{ required: true }}>
+            <XStack alignItems="center" justifyContent="space-between" gap="$9">
+              <Stack flex={1}>
+                <Input
+                  w="100%"
+                  backgroundColor="$bgStrong"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.wallet_enter_redemption_code,
+                  })}
+                />
+              </Stack>
+              <Button
+                size="medium"
+                variant="primary"
+                onPress={handleRedeemCode}
+                disabled={
+                  form.formState.isSubmitting ||
+                  !form.formState.isValid ||
+                  isRedeeming
+                }
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_ok,
                 })}
-              />
-            </Form.Field>
-            <Button
-              size="medium"
-              variant="primary"
-              onPress={handleRedeemCode}
-              disabled={
-                form.formState.isSubmitting ||
-                !form.formState.isValid ||
-                isRedeeming
-              }
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_ok,
-              })}
-            </Button>
-          </XStack>
+              </Button>
+            </XStack>
+          </Form.Field>
         </YStack>
       </YStack>
     </Form>
