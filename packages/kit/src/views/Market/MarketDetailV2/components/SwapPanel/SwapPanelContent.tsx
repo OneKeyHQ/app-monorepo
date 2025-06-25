@@ -11,7 +11,10 @@ import { AntiMEVToggle } from './components/AntiMEVToggle';
 import { ApproveButton } from './components/ApproveButton';
 import { BalanceDisplay } from './components/BalanceDisplay';
 import { SlippageSetting } from './components/SlippageSetting';
-import { TokenInputSection, type ITokenInputSectionRef } from './components/TokenInputSection';
+import {
+  type ITokenInputSectionRef,
+  TokenInputSection,
+} from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
 import { ESwapDirection } from './hooks/useTradeType';
