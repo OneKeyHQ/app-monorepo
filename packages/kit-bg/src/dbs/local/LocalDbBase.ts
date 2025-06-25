@@ -3841,6 +3841,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateAccountXpub(accountsXpubMap: {
+    [accountId: string]: {
+      xpub: string;
+      xpubSegwit: string;
+    };
+  }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: Object.keys(accountsXpubMap),
+        updater(item) {
+          const accountXpub = accountsXpubMap[item.id];
+          if (accountXpub && 'xpub' in item && 'xpubSegwit' in item) {
+            const { xpub, xpubSegwit } = accountXpub;
+            if (xpub) {
+              item.xpub = xpub;
+            }
+            if (xpubSegwit) {
+              item.xpubSegwit = xpubSegwit;
+            }
+          }
+          return item;
+        },
+      });
+    });
+  }
+
   async getAllDevices(): Promise<{ devices: IDBDevice[] }> {
     const cacheKey = 'allDbDevices';
     const allDevicesInCache = this.getAllRecordsByCache<IDBDevice>(cacheKey);
