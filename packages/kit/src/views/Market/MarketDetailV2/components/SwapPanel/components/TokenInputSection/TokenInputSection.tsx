@@ -90,7 +90,7 @@ function TokenInputSectionComponent(
   return (
     <YStack gap="$0.5">
       <Input
-        size="large"
+        size="medium"
         keyboardType="decimal-pad"
         value={internalValue}
         placeholder={intl.formatMessage({

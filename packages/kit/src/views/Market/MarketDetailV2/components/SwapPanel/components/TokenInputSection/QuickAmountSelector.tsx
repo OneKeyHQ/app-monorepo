@@ -63,6 +63,7 @@ export function QuickAmountSelector({
             flex={1}
             size="medium"
             variant="secondary"
+            py="$1"
             borderTopRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={index !== 0 ? 0 : '$2'}
@@ -70,7 +71,9 @@ export function QuickAmountSelector({
             onPress={() => handleAmountSelect(amount)}
           >
             <Stack w="$14">
-              <SizableText>{amount.label}</SizableText>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {amount.label}
+              </SizableText>
             </Stack>
           </Button>
           {index !== amountsLength - 1 ? (

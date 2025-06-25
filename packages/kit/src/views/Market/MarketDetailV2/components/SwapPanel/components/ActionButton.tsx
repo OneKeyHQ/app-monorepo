@@ -57,7 +57,7 @@ export function ActionButton({
   return (
     <Button
       variant="primary"
-      size="large"
+      size="medium"
       disabled={shouldDisable || disabled}
       onPress={shouldDisable ? undefined : onPress}
       {...otherProps}
