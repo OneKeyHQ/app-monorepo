@@ -813,11 +813,7 @@ function BasicEarnHome() {
                 flexDirection: 'row',
               }}
             >
-              <Overview
-                onRefresh={refreshOverViewData}
-                isLoading={isLoading}
-                isFetchingAccounts={Boolean(result === undefined || isLoading)}
-              />
+              <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
               <YStack
                 px="$5"
                 minHeight="$36"
