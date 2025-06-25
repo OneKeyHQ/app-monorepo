@@ -2,7 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Dialog, SizableText, Skeleton, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Dialog,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -91,11 +98,13 @@ const groupProtocolsByGroup = (
 
 function ProtocolListDialogContent({
   symbol,
+  networkId,
   accountId,
   indexedAccountId,
   onProtocolSelect,
 }: {
   symbol: string;
+  networkId: string;
   accountId: string;
   indexedAccountId?: string;
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
@@ -116,6 +125,7 @@ function ProtocolListDialogContent({
           symbol,
           accountId,
           indexedAccountId,
+          networkId,
         });
 
         const groupedData = groupProtocolsByGroup(data);
@@ -129,7 +139,7 @@ function ProtocolListDialogContent({
     };
 
     void fetchProtocolData();
-  }, [symbol, accountId, indexedAccountId]);
+  }, [symbol, accountId, indexedAccountId, networkId]);
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
@@ -176,7 +186,20 @@ function ProtocolListDialogContent({
         />
         <ListItem.Text
           flex={1}
-          primary={capitalizeString(item.provider.name)}
+          primary={
+            <XStack ai="center" gap="$1.5">
+              <SizableText>{capitalizeString(item.provider.name)}</SizableText>
+              {item.provider.badges?.map((badge) => (
+                <Badge
+                  key={badge.tag}
+                  badgeType={badge.badgeType}
+                  badgeSize="sm"
+                >
+                  <Badge.Text>{badge.tag}</Badge.Text>
+                </Badge>
+              ))}
+            </XStack>
+          }
           secondary={item.provider.description || ''}
         />
         <ListItem.Text
@@ -244,11 +267,13 @@ export function showProtocolListDialog({
   symbol,
   accountId,
   indexedAccountId,
+  networkId,
   onProtocolSelect,
 }: {
   symbol: string;
   accountId: string;
   indexedAccountId?: string;
+  networkId: string;
   onProtocolSelect: (params: {
     networkId: string;
     accountId: string;
@@ -275,6 +300,7 @@ export function showProtocolListDialog({
     renderContent: (
       <ProtocolListDialogContent
         symbol={symbol}
+        networkId={networkId}
         accountId={accountId}
         indexedAccountId={indexedAccountId}
         onProtocolSelect={async (protocol: IStakeProtocolListItem) => {

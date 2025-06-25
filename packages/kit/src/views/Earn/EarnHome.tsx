@@ -128,6 +128,7 @@ const toTokenProviderListPage = async (
     symbol,
     accountId: earnAccount?.accountId || accountId,
     indexedAccountId: earnAccount?.account.indexedAccountId || indexedAccountId,
+    networkId: protocols[0].networkId,
     onProtocolSelect: async (params) => {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ProtocolDetailsV2,
@@ -395,11 +396,9 @@ function Recommended({
 }
 
 function Overview({
-  isFetchingAccounts,
   isLoading,
   onRefresh,
 }: {
-  isFetchingAccounts: boolean;
   isLoading: boolean;
   onRefresh: () => void;
 }) {
@@ -814,11 +813,7 @@ function BasicEarnHome() {
                 flexDirection: 'row',
               }}
             >
-              <Overview
-                onRefresh={refreshOverViewData}
-                isLoading={isLoading}
-                isFetchingAccounts={Boolean(result === undefined || isLoading)}
-              />
+              <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
               <YStack
                 px="$5"
                 minHeight="$36"
