@@ -259,7 +259,7 @@ export default function PageDevUnitTests() {
               placeholder="Data"
               mb="$2"
             />
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Button
                 flex={1}
                 variant="primary"
@@ -299,7 +299,7 @@ export default function PageDevUnitTests() {
               placeholder="Data"
               mb="$2"
             />
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Button
                 flex={1}
                 variant="primary"
@@ -333,7 +333,7 @@ export default function PageDevUnitTests() {
               placeholder="Data"
               mb="$2"
             />
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Button
                 flex={1}
                 variant="primary"
@@ -367,7 +367,7 @@ export default function PageDevUnitTests() {
               placeholder="Data"
               mb="$2"
             />
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Button
                 flex={1}
                 variant="primary"
@@ -412,7 +412,7 @@ export default function PageDevUnitTests() {
               placeholder="Salt (hex)"
               mb="$2"
             />
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Button
                 flex={1}
                 variant="primary"
@@ -462,7 +462,7 @@ export default function PageDevUnitTests() {
               placeholder="Data to encrypt"
               mb="$2"
             />
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Button
                 flex={1}
                 variant="primary"
@@ -512,7 +512,7 @@ export default function PageDevUnitTests() {
               placeholder="Data to decrypt"
               mb="$2"
             />
-            <XStack alignItems="center" space="$2">
+            <XStack alignItems="center" gap="$2">
               <Button
                 variant="primary"
                 flex={1}
