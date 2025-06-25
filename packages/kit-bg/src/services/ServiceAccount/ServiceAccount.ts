@@ -1,6 +1,7 @@
 import { Semaphore } from 'async-mutex';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
+import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
@@ -43,6 +44,7 @@ import {
   FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
   IMPL_EVM,
+  IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
@@ -4363,6 +4365,60 @@ class ServiceAccount extends ServiceBase {
     if (Object.keys(walletsBackedUpStatusMap).length > 0) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
+  }
+
+  @backgroundMethod()
+  async migrateHardwareLtcXPub() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.fixHardwareLtcXPubMigrated) {
+      console.log('migrateLtcXPub: already migrated');
+      return;
+    }
+
+    const { accounts } = await this.getAllAccounts();
+    const hwLtcAccounts = accounts
+      .filter((item) => accountUtils.isHwAccount({ accountId: item?.id }))
+      .filter((item) => item.impl === IMPL_LTC);
+
+    const fixedAccounts: {
+      [accountId: string]: {
+        xpub: string;
+        xpubSegwit: string;
+      };
+    } = {};
+
+    for (const account of hwLtcAccounts) {
+      // IDBUtxoAccount
+      if ('xpub' in account && 'xpubSegwit' in account) {
+        const xpub = account.xpub;
+
+        const parts = account.path?.split('/');
+        if (xpub && xpub.length > 0 && parts && parts.length > 2) {
+          const newXpub = await convertLtcXpub({
+            purpose: parts[1],
+            xpub,
+          });
+
+          if (newXpub && newXpub !== xpub) {
+            fixedAccounts[account.id] = {
+              xpub: newXpub,
+              xpubSegwit: newXpub,
+            };
+          }
+        }
+      }
+    }
+
+    if (Object.keys(fixedAccounts).length > 0) {
+      await localDb.updateAccountXpub(fixedAccounts);
+    }
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        fixHardwareLtcXPubMigrated: true,
+      }),
+    );
   }
 }
 
