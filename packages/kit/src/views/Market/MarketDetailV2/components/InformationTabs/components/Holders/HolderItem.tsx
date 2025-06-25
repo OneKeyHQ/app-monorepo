@@ -20,12 +20,6 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
     copyText(item.accountAddress);
   };
 
-
-  const formatFiatValue = (fiatValue: string) => {
-    const num = parseFloat(fiatValue);
-    return numberFormat(num.toString(), { formatter: 'marketCap' });
-  };
-
   return (
     <XStack py="$3" px="$4" alignItems="center" gap="$3">
       {/* Rank */}
@@ -70,7 +64,7 @@ function HolderItemBase({ item, index }: IHolderItemProps) {
 
       {/* Fiat Value */}
       <SizableText size="$bodyMd" color="$text" {...layoutConfig.value}>
-        ${formatFiatValue(item.fiatValue)}
+        ${numberFormat(item.fiatValue, { formatter: 'marketCap' })}
       </SizableText>
     </XStack>
   );
