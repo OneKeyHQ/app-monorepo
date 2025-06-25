@@ -826,3 +826,31 @@ export function convertBtcForkXpub({
     ]),
   );
 }
+
+export async function convertLtcXpub({
+  purpose,
+  xpub,
+}: {
+  purpose: string;
+  xpub: string;
+}) {
+  let magic: number | undefined;
+  if (purpose === "44'" || purpose === "48'") {
+    magic = 0x01_9d_a4_62;
+  } else if (purpose === "49'") {
+    magic = 0x01_b2_6e_f6;
+  } else if (purpose === "84'") {
+    magic = 0x04_b2_47_46;
+  }
+
+  if (magic) {
+    const decodedXpub = bs58check.decode(xpub);
+    const newXpubBuffer = Buffer.from(decodedXpub);
+    newXpubBuffer.writeUInt32BE(magic, 0);
+    const newXpub = bs58check.encode(newXpubBuffer);
+
+    return newXpub;
+  }
+
+  return undefined;
+}
