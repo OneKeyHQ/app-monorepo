@@ -22,7 +22,7 @@ export enum ECheckAmountActionType {
 
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
 export type IStakeTag = string;
-type IStakeBadgeTag = { tag: string; badge: IBadgeType}
+type IStakeBadgeTag = { tag: string; badge: IBadgeType };
 
 export enum EEarnLabels {
   Stake = 'Stake',
