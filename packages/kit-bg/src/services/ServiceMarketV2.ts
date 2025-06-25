@@ -112,7 +112,7 @@ class ServiceMarketV2 extends ServiceBase {
     let innerInterval = interval?.toUpperCase();
 
     if (innerInterval?.includes('M')) {
-      innerInterval = innerInterval?.toLowerCase()
+      innerInterval = innerInterval?.toLowerCase();
     }
 
     const client = await this.getClient(EServiceEndpointEnum.Utility);

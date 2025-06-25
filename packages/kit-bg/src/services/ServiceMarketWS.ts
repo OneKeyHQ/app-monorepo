@@ -199,13 +199,16 @@ class ServiceMarketWS extends ServiceBase {
   private handleMarketMessage(data: unknown) {
     console.log('data', data);
 
-    if (
-      typeof data !== 'object' ||
-      data === null ||
-      !('channel' in data) ||
-      !('networkId' in data) ||
-      !('tokenAddress' in data)
-    ) {
+    // Basic type validation
+    if (typeof data !== 'object' || data === null) {
+      return;
+    }
+
+    // Check required properties
+    const requiredProperties = ['channel', 'networkId', 'tokenAddress'];
+    const hasAllProperties = requiredProperties.every((prop) => prop in data);
+
+    if (!hasAllProperties) {
       return;
     }
 
