@@ -20,8 +20,7 @@ import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-const TRON_RESOURCE_DOC_URL =
-  'https://help.onekey.so/articles/11461319';
+const TRON_RESOURCE_DOC_URL = 'https://help.onekey.so/articles/11461319';
 
 function ResourceDetails({
   name,

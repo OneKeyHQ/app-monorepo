@@ -16,6 +16,7 @@ export interface ISimpleDBAppStatus {
   falconDepositDoNotShowAgain?: boolean;
   lastDBBackupTime?: number;
   filterScamHistorySettingMigrated?: boolean;
+  fixHardwareLtcXPubMigrated?: boolean;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {

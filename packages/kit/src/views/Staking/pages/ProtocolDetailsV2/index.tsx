@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Alert,
   Badge,
   Button,
   Divider,
@@ -65,6 +66,7 @@ import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useHandleSwap } from '../../hooks/useHandleSwap';
+import { useUnsupportedProtocol } from '../../hooks/useUnsupportedProtocol';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 import {
   useHandleStake,
@@ -101,9 +103,11 @@ function ManagersSection({
 function SubscriptionSection({
   subscriptionValue,
   subscriptionActions,
+  badgeTags,
 }: {
   subscriptionValue: IStakeEarnDetail['subscriptionValue'];
   subscriptionActions: ISubscriptionAction[];
+  badgeTags?: IStakeEarnDetail['tags'];
 }) {
   const media = useMedia();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -122,12 +126,21 @@ function SubscriptionSection({
     );
   }, [media.gtMd, subscriptionActions]);
   const isZero = useMemo(() => {
-    return !subscriptionValue.fiatValue || subscriptionValue.fiatValue === '0';
-  }, [subscriptionValue.fiatValue]);
+    return (
+      !subscriptionValue?.fiatValue || subscriptionValue?.fiatValue === '0'
+    );
+  }, [subscriptionValue?.fiatValue]);
   return subscriptionValue ? (
     <YStack gap="$8">
       <YStack>
-        <EarnText text={subscriptionValue.title} size="$headingLg" pt="$2" />
+        <XStack ai="center" gap="$2" pt="$2">
+          <EarnText text={subscriptionValue.title} size="$headingLg" />
+          {badgeTags?.map((tag) => (
+            <Badge key={tag.tag} badgeType={tag.badge}>
+              <Badge.Text>{tag.tag}</Badge.Text>
+            </Badge>
+          ))}
+        </XStack>
         <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
           <EarnText
             text={{
@@ -154,24 +167,20 @@ function SubscriptionSection({
   ) : null;
 }
 
-function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alerts'] }) {
+function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alertsV2'] }) {
   if (alerts && alerts.length) {
     return (
-      <YStack
-        bg="$bgSubdued"
-        borderColor="$borderSubdued"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderRadius="$3"
-        py="$3.5"
-        px="$4"
-      >
-        {alerts.map((text, index) => (
-          <EarnText
-            key={index}
-            text={{ text, size: '$bodyMd', color: '$textSubdued' }}
-          />
-        ))}
-      </YStack>
+      <>
+        {alerts.map((alertItem, index) => {
+          return (
+            <Alert
+              key={`${alertItem.alert}-${index}`}
+              type={alertItem.badge}
+              title={alertItem.alert}
+            />
+          );
+        })}
+      </>
     );
   }
   return null;
@@ -258,7 +267,7 @@ function PortfolioSection({
   protocolInfo?: IProtocolInfo;
 }) {
   const renderItem = useCallback(
-    (item: IStakeEarnDetail['portfolios']['items'][0]) => {
+    (item: NonNullable<IStakeEarnDetail['portfolios']>['items'][0]) => {
       switch (item.type) {
         case 'default':
         default:
@@ -308,16 +317,16 @@ function PortfolioSection({
     <>
       <YStack gap="$6">
         <XStack justifyContent="space-between">
-          <EarnText text={portfolios.title} size="$headingLg" />
+          <EarnText text={portfolios?.title} size="$headingLg" />
           <EarnActionIcon
-            title={portfolios.title.text}
-            actionIcon={portfolios.button}
+            title={portfolios?.title?.text}
+            actionIcon={portfolios?.button}
             protocolInfo={protocolInfo}
             tokenInfo={tokenInfo}
           />
         </XStack>
         <YStack gap="$3">
-          {portfolios?.items.length ? (
+          {portfolios?.items?.length ? (
             <YStack gap="$3">{portfolios.items.map(renderItem)}</YStack>
           ) : null}
           {rewards?.tokens.length ? (
@@ -455,6 +464,7 @@ const ProtocolDetailsPage = () => {
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
+  const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
 
   const { result: earnAccount, run: refreshAccount } = usePromiseResult(
     async () =>
@@ -487,6 +497,13 @@ const ProtocolDetailsPage = () => {
     { watchLoading: true, revalidateOnFocus: true },
   );
 
+  // Handle unsupported protocol
+  useUnsupportedProtocol({
+    detailInfo,
+    appNavigation,
+    setKeepSkeletonVisible,
+  });
+
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!detailInfo?.subscriptionValue?.token) {
       return undefined;
@@ -509,7 +526,7 @@ const ProtocolDetailsPage = () => {
     };
   }, [
     detailInfo?.subscriptionValue?.token,
-    detailInfo?.subscriptionValue.balance,
+    detailInfo?.subscriptionValue?.balance,
     networkId,
     provider,
     vault,
@@ -557,7 +574,7 @@ const ProtocolDetailsPage = () => {
   // }, [run, refreshTracking]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
-    const withdrawAction = detailInfo?.actions.find(
+    const withdrawAction = detailInfo?.actions?.find(
       (i) => i.type === 'withdraw',
     ) as IEarnWithdrawActionIcon;
     return detailInfo?.protocol
@@ -651,7 +668,7 @@ const ProtocolDetailsPage = () => {
   );
 
   const historyAction = useMemo(() => {
-    return detailInfo?.actions.find((i) => i.type === 'history');
+    return detailInfo?.actions?.find((i) => i.type === 'history');
   }, [detailInfo?.actions]);
 
   const onHistory = useMemo(() => {
@@ -870,7 +887,7 @@ const ProtocolDetailsPage = () => {
     }
     // Sort by SUBSCRIPTION_ACTION_TYPES order
     return SUBSCRIPTION_ACTION_TYPES.map((actionType) => {
-      const action = detailInfo.actions.find((a) => a.type === actionType);
+      const action = detailInfo?.actions?.find((a) => a.type === actionType);
       return action ? getButtonPropsForAction(action) : null;
     }).filter(Boolean);
   }, [detailInfo?.actions, getButtonPropsForAction, SUBSCRIPTION_ACTION_TYPES]);
@@ -941,7 +958,10 @@ const ProtocolDetailsPage = () => {
           <ShareEventsContext.Provider value={contextValue}>
             <PageFrame
               LoadingSkeleton={OverviewSkeleton}
-              loading={isLoadingState({ result: detailInfo, isLoading })}
+              loading={
+                isLoadingState({ result: detailInfo, isLoading }) ||
+                keepSkeletonVisible
+              }
               error={isErrorState({ result: detailInfo, isLoading })}
               onRefresh={run}
             >
@@ -952,8 +972,9 @@ const ProtocolDetailsPage = () => {
                       <SubscriptionSection
                         subscriptionValue={detailInfo.subscriptionValue}
                         subscriptionActions={subscriptionActions}
+                        badgeTags={detailInfo?.tags}
                       />
-                      <AlertSection alerts={detailInfo.alerts} />
+                      <AlertSection alerts={detailInfo.alertsV2} />
                       <Divider />
                       <PortfolioSection
                         portfolios={detailInfo.portfolios}

@@ -22,6 +22,7 @@ import type {
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalSettingRoutes,
@@ -110,17 +111,12 @@ const useParseQRCode = () => {
           raw: value,
         };
       }
-      const {
-        defaultHandler,
-        popNavigation,
-        autoClosePage = true,
-        ...options
-      } = params;
+      const { defaultHandler, popNavigation, ...options } = params;
 
       const closeScanPage = async () => {
-        if (autoClosePage && popNavigation) {
+        if (popNavigation) {
           popNavigation();
-          await timerUtils.wait(120);
+          await timerUtils.wait(platformEnv.isNative ? 1200 : 250);
         }
       };
 
