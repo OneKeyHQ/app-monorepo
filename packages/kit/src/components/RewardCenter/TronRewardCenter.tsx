@@ -18,13 +18,16 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { getTronResourceRentalSourceFlag } from '../../utils/gasFee';
 
 function RewardCenterContent({
   accountId,
@@ -51,9 +54,9 @@ function RewardCenterContent({
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
 
-  const claimSource = getTronResourceRentalSourceFlag({
-    isTestnet: network?.isTestnet ?? false,
-  });
+  const claimSource = network?.isTestnet
+    ? TRON_SOURCE_FLAG_TESTNET
+    : TRON_SOURCE_FLAG_MAINNET;
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {

@@ -4,6 +4,10 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import TronWeb from 'tronweb';
 
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
   IEncodedTxTron,
@@ -14,7 +18,6 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { getTronResourceRentalSourceFlag } from '@onekeyhq/kit/src/utils/gasFee';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -903,9 +906,9 @@ export default class Vault extends VaultBase {
               url: '/api/v1/order/create',
               data: {
                 ...createOrderParams,
-                sourceFlag: getTronResourceRentalSourceFlag({
-                  isTestnet: this._network.isTestnet,
-                }),
+                sourceFlag: this._network.isTestnet
+                  ? TRON_SOURCE_FLAG_TESTNET
+                  : TRON_SOURCE_FLAG_MAINNET,
               },
               params: {},
             },

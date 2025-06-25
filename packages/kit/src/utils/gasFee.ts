@@ -485,11 +485,3 @@ export function calculateTxExtraFee({ decodedTx }: { decodedTx: IDecodedTx }) {
 
   return extraFeeNative;
 }
-
-export function getTronResourceRentalSourceFlag({
-  isTestnet,
-}: {
-  isTestnet: boolean;
-}) {
-  return isTestnet ? 'test' : '1key';
-}
