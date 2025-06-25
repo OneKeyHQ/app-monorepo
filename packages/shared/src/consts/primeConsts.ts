@@ -28,7 +28,7 @@ export enum EPrimeCloudSyncDataType {
 
 export enum EPrimeEmailOTPScene {
   UpdateRebateWithdrawAddress = 'UpdateReabteWithdrawAddress',
-  DeleteOneKeyId = 'DeleteOneKeyId',
+  DeleteOneKeyId = 'DeleteAccount',
 }
 
 export const PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME = 144_000_000; // '1970/01/03'

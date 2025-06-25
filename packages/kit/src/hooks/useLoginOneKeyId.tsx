@@ -183,12 +183,19 @@ export const useLoginOneKeyId = () => {
       scene,
       description,
     }: {
-      onConfirm: (code: string) => Promise<unknown>;
+      onConfirm: ({
+        code,
+        uuid,
+      }: {
+        code: string;
+        uuid: string;
+      }) => Promise<unknown>;
       scene: EPrimeEmailOTPScene;
       description?: ({ userInfo }: { userInfo: IPrimeUserInfo }) => string;
     }) => {
       const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
       return new Promise<void>((resolve) => {
+        let uuid = '';
         const dialog = Dialog.show({
           renderContent: (
             <EmailOTPDialog
@@ -204,12 +211,15 @@ export const useLoginOneKeyId = () => {
               }
               onConfirm={async (code: string) => {
                 await timerUtils.wait(120);
-                await onConfirm(code);
+                await onConfirm({ code, uuid });
                 await dialog.close();
                 resolve();
               }}
               sendCode={async () => {
-                return backgroundApiProxy.servicePrime.sendEmailOTP(scene);
+                const result =
+                  await backgroundApiProxy.servicePrime.sendEmailOTP(scene);
+                uuid = result.uuid;
+                return result;
               }}
             />
           ),

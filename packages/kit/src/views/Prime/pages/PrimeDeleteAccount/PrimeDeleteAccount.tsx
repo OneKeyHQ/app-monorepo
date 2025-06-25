@@ -73,21 +73,40 @@ export default function PrimeDeleteAccount() {
         reason: EReasonForNeedPassword.Security,
       });
     }
-    // TODO logout privy sdk
-    // TODO logout atom states
     await sendEmailOTP({
       scene: EPrimeEmailOTPScene.DeleteOneKeyId,
-      onConfirm: async (emailOTP) => {
-        console.log('emailOTP>>>>>>', emailOTP);
-        await timerUtils.wait(2000);
-        // throw new OneKeyLocalError('emailOTP error');
-        // return backgroundApiProxy.serviceReferralCode.bindAddress({
-        //   networkId,
-        //   address,
-        //   emailOTP,
-        // });
+      onConfirm: async ({ code, uuid }) => {
+        console.log('emailOTP>>>>>>', code, uuid);
+        const deleteResult =
+          await backgroundApiProxy.servicePrime.apiDeleteAccount({
+            uuid,
+            emailOTP: code,
+          });
+        console.log('deleteResult>>>>>>', deleteResult);
+
+        if (!deleteResult?.ok) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          return;
+        }
+
+        try {
+          // logout privy sdk
+          await logout();
+        } catch (error) {
+          console.error('logout error', error);
+        }
+
+        //  logout atom states
+        await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
+
         navigation.popStack();
         Dialog.show({
+          dismissOnOverlayPress: false,
+          disableDrag: true,
           icon: 'CheckRadioSolid',
           tone: 'success',
           title: intl.formatMessage({
@@ -167,7 +186,7 @@ export default function PrimeDeleteAccount() {
     //     }),
     //   });
     // }
-  }, [intl, navigation, sendEmailOTP]);
+  }, [intl, navigation, sendEmailOTP, logout]);
 
   const [checked, changeChecked] = useState(false);
 
