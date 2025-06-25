@@ -22,6 +22,7 @@ export enum ECheckAmountActionType {
 
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
 export type IStakeTag = string;
+type IStakeBadgeTag = { tag: string; badge: IBadgeType}
 
 export enum EEarnLabels {
   Stake = 'Stake',
@@ -644,6 +645,7 @@ export interface IStakeEarnDetail {
   };
   actions?: IEarnDetailActions[];
   subscriptionValue?: ISubscriptionValue;
+  tags?: IStakeBadgeTag[];
   protocol?: IProtocolInfo;
   countDownAlert?: {
     description: IEarnText;

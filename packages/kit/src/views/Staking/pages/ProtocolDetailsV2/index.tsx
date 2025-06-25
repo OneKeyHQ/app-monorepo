@@ -103,9 +103,11 @@ function ManagersSection({
 function SubscriptionSection({
   subscriptionValue,
   subscriptionActions,
+  badgeTags,
 }: {
   subscriptionValue: IStakeEarnDetail['subscriptionValue'];
   subscriptionActions: ISubscriptionAction[];
+  badgeTags?: IStakeEarnDetail['tags'];
 }) {
   const media = useMedia();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -131,7 +133,14 @@ function SubscriptionSection({
   return subscriptionValue ? (
     <YStack gap="$8">
       <YStack>
-        <EarnText text={subscriptionValue.title} size="$headingLg" pt="$2" />
+        <XStack ai="center" gap="$2" pt="$2">
+          <EarnText text={subscriptionValue.title} size="$headingLg" />
+          {badgeTags?.map((tag) => (
+            <Badge key={tag.tag} badgeType={tag.badge}>
+              <Badge.Text>{tag.tag}</Badge.Text>
+            </Badge>
+          ))}
+        </XStack>
         <XStack gap="$2" pt="$2" pb="$1" jc="space-between">
           <EarnText
             text={{
@@ -963,6 +972,7 @@ const ProtocolDetailsPage = () => {
                       <SubscriptionSection
                         subscriptionValue={detailInfo.subscriptionValue}
                         subscriptionActions={subscriptionActions}
+                        badgeTags={detailInfo?.tags}
                       />
                       <AlertSection alerts={detailInfo.alertsV2} />
                       <Divider />
