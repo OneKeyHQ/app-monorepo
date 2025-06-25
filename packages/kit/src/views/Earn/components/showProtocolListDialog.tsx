@@ -2,13 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  Dialog,
-  SectionList,
-  SizableText,
-  Skeleton,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, SizableText, Skeleton, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -236,17 +230,12 @@ function ProtocolListDialogContent({
 
   return (
     <YStack gap="$2" minHeight={90} p="$0" m="$0">
-      <SectionList
-        sections={protocolData}
-        keyExtractor={(item, index) =>
-          `${(item as IStakeProtocolListItem).provider.name}-${index}`
-        }
-        renderItem={renderItem}
-        renderSectionHeader={renderSectionHeader}
-        SectionSeparatorComponent={<YStack h="$4" />}
-        stickySectionHeadersEnabled={false}
-        estimatedItemSize={62}
-      />
+      {protocolData.map((section) => (
+        <>
+          {renderSectionHeader({ section })}
+          {section.data.map((item) => renderItem({ item }))}
+        </>
+      ))}
     </YStack>
   );
 }
