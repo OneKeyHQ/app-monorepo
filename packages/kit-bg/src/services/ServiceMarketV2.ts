@@ -9,6 +9,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketChainsResponse,
+  IMarketTokenBatchListResponse,
   IMarketTokenDetail,
   IMarketTokenHoldersResponse,
   IMarketTokenKLineResponse,
@@ -193,7 +194,7 @@ class ServiceMarketV2 extends ServiceBase {
     const response = await client.post<{
       code: number;
       message: string;
-      data: import('@onekeyhq/shared/types/marketV2').IMarketTokenBatchListResponse;
+      data: IMarketTokenBatchListResponse;
     }>('/utility/v2/market/token/list/batch', {
       tokenAddressList,
     });

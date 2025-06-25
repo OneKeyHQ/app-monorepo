@@ -13,7 +13,8 @@ export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
 
 export const FIRMWARE_UPDATE_WEB_TOOLS_URL = 'https://firmware.onekey.so';
-export const FIRMWARE_CONTACT_US_URL = 'https://help.onekey.so/articles/11536900';
+export const FIRMWARE_CONTACT_US_URL =
+  'https://help.onekey.so/articles/11536900';
 export const FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE =
   'https://help.onekey.so/articles/11461126';
 export const FIRMWARE_UPDATE_FULL_RES_GUIDE =
@@ -80,6 +81,9 @@ export const buildServiceEndpoint = ({
 export const CHAIN_SELECTOR_LOGO =
   'https://uni.onekey-asset.com/static/logo/chain_selector_logo.png';
 export const defaultColorScheme = 'dark';
+
+export const TRADING_VIEW_URL =
+  'https://tradingview.onekeytest.com/?mode=dev&type=onekeyPrivateRequest';
 
 export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
 export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';

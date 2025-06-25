@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
@@ -36,10 +37,9 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
 
   const {
     onLoadEnd,
-    // tradingViewUrl = 'http://localhost:5173/?mode=dev&type=onekeyPrivateRequest',
-    tradingViewUrl = 'https://tradingview.onekeytest.com/?mode=dev&type=onekeyPrivateRequest',
-    tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
-    networkId = 'sol--101',
+    tradingViewUrl = TRADING_VIEW_URL,
+    tokenAddress = '',
+    networkId = '',
   } = props;
 
   const customReceiveHandler = useCallback(
@@ -81,8 +81,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
             timeFrom: data.data.from,
             timeTo: data.data.to,
           });
-
-          console.log('kLineData', kLineData);
 
           if (webRef.current && kLineData) {
             webRef.current.sendMessageViaInjectedScript({
