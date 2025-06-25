@@ -46,7 +46,7 @@ export function TokenDetailHeaderRight({
     price: currentPrice = '0',
     priceChange24hPercent = '0',
     marketCap = '0',
-    volume24h = '0',
+    tvl = '0',
     holders = 0,
     address = '',
   } = tokenDetail || {};
@@ -71,7 +71,7 @@ export function TokenDetailHeaderRight({
   return (
     <XStack gap="$6" ai="center">
       {/* Price and Price Change */}
-      <YStack ai="center" jc="space-between" mt="$-0.5">
+      <YStack ai="flex-end" jc="space-between" mt="$-0.5">
         <MarketTokenPrice
           size="$bodyLgMedium"
           price={currentPrice}
@@ -82,7 +82,6 @@ export function TokenDetailHeaderRight({
           size="$bodySm"
           color={isPriceUp ? '$textSuccess' : '$textCritical'}
         >
-          {isPriceUp ? '+' : '-'}
           {priceChange24hPercent.slice(0, 6)}%
         </SizableText>
       </YStack>
@@ -96,9 +95,7 @@ export function TokenDetailHeaderRight({
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
-        value={`$${String(
-          numberFormat(volume24h, { formatter: 'marketCap' }),
-        )}`}
+        value={`$${String(numberFormat(tvl, { formatter: 'marketCap' }))}`}
       />
 
       <StatItem
