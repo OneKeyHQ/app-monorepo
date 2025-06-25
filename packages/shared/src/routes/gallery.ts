@@ -89,5 +89,6 @@ export enum EGalleryRoutes {
   ComponentStepper = 'component-Stepper',
   CountDownCalendarAlert = 'component-CountDownCalendarAlert',
   ComponentRestart = 'component-Restart',
+  ComponentUnOrderedList = 'component-UnOrderedList',
   FontGallery = 'component-Font',
 }

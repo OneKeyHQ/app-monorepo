@@ -1,19 +1,29 @@
+import { useCallback, useState } from 'react';
+
+import { md5 } from 'js-md5';
+import { useIntl } from 'react-intl';
+
 import type { IDialogShowProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Divider,
   Form,
-  Icon,
   Input,
   SizableText,
+  Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAccountData } from '../../hooks/useAccountData';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 function RewardCenterContent({
   accountId,
@@ -22,6 +32,8 @@ function RewardCenterContent({
   accountId: string;
   networkId: string;
 }) {
+  const intl = useIntl();
+
   const form = useForm({
     defaultValues: {
       code: '',
@@ -30,31 +42,266 @@ function RewardCenterContent({
     reValidateMode: 'onChange',
   });
 
+  const { account, network } = useAccountData({
+    accountId,
+    networkId,
+  });
+
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  const claimSource = network?.isTestnet ? 'test' : '1key';
+
+  const { result, isLoading, run } = usePromiseResult(
+    async () => {
+      if (!account || !network) {
+        return;
+      }
+
+      const resp =
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+          totalReceivedLimit: number;
+          remaining: number;
+          isReceived: boolean;
+          monthRemain: number;
+          monthLimit: number;
+          monthIPRemain: number;
+          monthIPLimit: number;
+          error?: string;
+          success: boolean;
+        }>({
+          networkId,
+          body: [
+            {
+              route: 'trxres',
+              params: {
+                method: 'post',
+                url: '/api/tronRent/isReceived',
+                data: {
+                  fromAddress: account.address,
+                  sourceFlag: claimSource,
+                },
+                params: {},
+              },
+            },
+          ],
+        });
+
+      return resp[0];
+    },
+    [account, claimSource, network, networkId],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const renderClaimButtonText = useCallback(() => {
+    if (
+      result?.remaining === 0 ||
+      result?.monthRemain === 0 ||
+      result?.monthIPRemain === 0
+    ) {
+      return intl.formatMessage({
+        id: ETranslations.wallet_subsidy_all_used,
+      });
+    }
+
+    if (result?.isReceived) {
+      return intl.formatMessage({
+        id: ETranslations.wallet_subsidy_claimed,
+      });
+    }
+
+    return intl.formatMessage({
+      id: ETranslations.wallet_subsidy_claim,
+    });
+  }, [result, intl]);
+
+  const handleClaimResource = useCallback(async () => {
+    if (!account || !network) {
+      return;
+    }
+
+    setIsClaiming(true);
+
+    const timestamp = Date.now();
+
+    const addressUpperCase = account.address.toUpperCase();
+    const sign = `${addressUpperCase}${timestamp}${claimSource}${addressUpperCase.slice(
+      0,
+      4,
+    )}${addressUpperCase.slice(
+      addressUpperCase.length - 4,
+      addressUpperCase.length,
+    )}`;
+    const signed = md5(sign);
+
+    try {
+      const resp =
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+          resCode: number;
+          resMsg: string;
+          success: boolean;
+          error?: string;
+        }>({
+          networkId,
+          body: [
+            {
+              route: 'trxres',
+              params: {
+                method: 'post',
+                url: '/api/tronRent/addFreeTronRentRecord',
+                data: {
+                  fromAddress: account.address,
+                  sourceFlag: claimSource,
+                  timestamp,
+                  signed,
+                },
+                params: {},
+              },
+            },
+          ],
+        });
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.global_success,
+        }),
+      });
+      await run();
+      setIsClaiming(false);
+      return resp[0];
+    } catch (error) {
+      setIsClaiming(false);
+    }
+  }, [account, claimSource, intl, network, networkId, run]);
+
+  const handleRedeemCode = useCallback(async () => {
+    if (!account || !network) {
+      return;
+    }
+
+    const code = form.getValues('code');
+
+    if (!code) {
+      return;
+    }
+
+    try {
+      const resp =
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+          resCode: number;
+          resMsg: string;
+          success: boolean;
+          error?: string;
+        }>({
+          networkId,
+          body: [
+            {
+              route: 'trxres',
+              params: {
+                method: 'post',
+                url: '/api/v1/coupon/redeem',
+                data: {
+                  fromAddress: account.address,
+                  code,
+                  sourceFlag: claimSource,
+                },
+                params: {},
+              },
+            },
+          ],
+        });
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.global_success,
+        }),
+      });
+      await run();
+
+      setIsRedeeming(false);
+      return resp[0];
+    } catch (error) {
+      setIsRedeeming(false);
+    }
+  }, [account, claimSource, form, intl, network, networkId, run]);
+
   return (
     <Form form={form}>
       <Divider />
       <YStack gap="$4">
         <YStack gap="$2">
-          <SizableText size="$headingLg">Subsidy</SizableText>
+          <SizableText size="$headingLg">
+            {intl.formatMessage({
+              id: ETranslations.wallet_subsidy_label,
+            })}
+          </SizableText>
           <XStack alignItems="center" justifyContent="space-between">
-            <SizableText size="$bodyLgMedium" color="$textSubdued">
-              Remaining 286 / 1000
-            </SizableText>
-            <Button size="medium" variant="primary">
-              Claim
+            {isLoading ? (
+              <Skeleton.BodyLg />
+            ) : (
+              <SizableText size="$bodyLgMedium" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.wallet_subsidy_remaining,
+                  },
+                  {
+                    remaining: result?.monthRemain,
+                    total: result?.monthLimit,
+                  },
+                )}
+              </SizableText>
+            )}
+            <Button
+              size="medium"
+              variant="primary"
+              loading={isClaiming}
+              disabled={
+                isLoading ||
+                isClaiming ||
+                result?.isReceived ||
+                result?.remaining === 0 ||
+                result?.monthRemain === 0 ||
+                result?.monthIPRemain === 0
+              }
+              onPress={handleClaimResource}
+            >
+              {renderClaimButtonText()}
             </Button>
           </XStack>
         </YStack>
         <YStack gap="$2">
-          <SizableText size="$headingLg">Redeem</SizableText>
-          <XStack alignItems="center" justifyContent="space-between">
-            <Form.Field name="code">
-              <Input placeholder="Enter redemption code" />
-            </Form.Field>
-            <Button size="medium" variant="primary">
-              OK
-            </Button>
-          </XStack>
+          <SizableText size="$headingLg">
+            {intl.formatMessage({
+              id: ETranslations.wallet_redeem_label,
+            })}
+          </SizableText>
+          <Form.Field name="code" rules={{ required: true }}>
+            <XStack alignItems="center" justifyContent="space-between" gap="$9">
+              <Stack flex={1}>
+                <Input
+                  w="100%"
+                  backgroundColor="$bgStrong"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.wallet_enter_redemption_code,
+                  })}
+                />
+              </Stack>
+              <Button
+                size="medium"
+                variant="primary"
+                onPress={handleRedeemCode}
+                disabled={
+                  form.formState.isSubmitting ||
+                  !form.formState.isValid ||
+                  isRedeeming
+                }
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_ok,
+                })}
+              </Button>
+            </XStack>
+          </Form.Field>
         </YStack>
       </YStack>
     </Form>
@@ -70,12 +317,15 @@ export const showTronRewardCenter = ({
   networkId: string;
 }) =>
   Dialog.show({
-    title: 'Subsidy/Redeem',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.wallet_subsidy_redeem_title,
+    }),
     tone: 'info',
     description: (
       <SizableText size="$bodyLg" color="$textSubdued">
-        Subsidy valid for 10 mins, FCFS. Users can claim 15 free subsidies per
-        month.
+        {appLocale.intl.formatMessage({
+          id: ETranslations.wallet_subsidy_description,
+        })}
       </SizableText>
     ),
     icon: 'GiftSolid',

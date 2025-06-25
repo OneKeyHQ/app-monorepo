@@ -67,7 +67,7 @@ function KYCDialogContent({
 
       <Dialog.Footer
         onConfirm={handleConfirm}
-        onConfirmText={data.title.text}
+        onConfirmText={data.button.text.text}
         confirmButtonProps={{
           disabled: isConfirmDisabled,
         }}

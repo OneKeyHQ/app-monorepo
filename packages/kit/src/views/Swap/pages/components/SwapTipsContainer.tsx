@@ -15,7 +15,7 @@ const SwapTipsContainer = () => {
   return (
     <Alert
       type="info"
-      title={swapTips.title}
+      title={typeof swapTips.title === 'string' ? swapTips.title.trim() : ''}
       titleNumberOfLines={2}
       closable={swapTips.userCanClose}
       onClose={() => {

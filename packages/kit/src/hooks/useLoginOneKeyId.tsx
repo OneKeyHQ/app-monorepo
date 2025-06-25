@@ -14,12 +14,14 @@ import {
 } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { usePrimeAuthV2 } from '../views/Prime/hooks/usePrimeAuthV2';
@@ -42,13 +44,14 @@ export function EmailOTPDialog(props: {
   title: string;
   description: string;
   sendCode: () => Promise<unknown>;
-  onConfirm: (code: string) => void;
+  onConfirm: (code: string) => void | Promise<void>;
 }) {
   const { sendCode, onConfirm, title, description } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [state, setState] = useState<{ status: 'initial' | 'error' | 'done' }>({
     status: 'initial',
@@ -99,12 +102,14 @@ export function EmailOTPDialog(props: {
 
   const handleConfirm = useCallback(async () => {
     try {
-      onConfirm(verificationCode);
+      setIsConfirming(true);
+      await onConfirm(verificationCode);
     } catch (error) {
       console.error('sendEmailOTP error', error);
       setState({ status: 'error' });
     } finally {
       setIsSubmittingVerificationCode(false);
+      setIsConfirming(false);
     }
   }, [onConfirm, verificationCode]);
 
@@ -151,7 +156,7 @@ export function EmailOTPDialog(props: {
       <Dialog.Footer
         showCancelButton={false}
         confirmButtonProps={{
-          loading: isSubmittingVerificationCode,
+          loading: isSubmittingVerificationCode || isConfirming,
           disabled: verificationCode.length !== 6,
         }}
         onConfirmText={intl.formatMessage({
@@ -175,33 +180,46 @@ export const useLoginOneKeyId = () => {
   const sendEmailOTP = useCallback(
     async ({
       onConfirm,
+      scene,
+      description,
     }: {
-      onConfirm: (code: string) => Promise<unknown>;
+      onConfirm: ({
+        code,
+        uuid,
+      }: {
+        code: string;
+        uuid: string;
+      }) => Promise<unknown>;
+      scene: EPrimeEmailOTPScene;
+      description?: ({ userInfo }: { userInfo: IPrimeUserInfo }) => string;
     }) => {
       const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
       return new Promise<void>((resolve) => {
+        let uuid = '';
         const dialog = Dialog.show({
           renderContent: (
             <EmailOTPDialog
               title={intl.formatMessage({
                 id: ETranslations.prime_enter_verification_code,
               })}
-              description={intl.formatMessage(
-                {
-                  id: ETranslations.referral_address_update_desc,
-                },
-                { mail: userInfo.displayEmail ?? '' },
-              )}
+              description={
+                description?.({ userInfo }) ||
+                intl.formatMessage(
+                  { id: ETranslations.prime_sent_to },
+                  { email: userInfo.displayEmail ?? '' },
+                )
+              }
               onConfirm={async (code: string) => {
                 await timerUtils.wait(120);
-                await onConfirm(code);
+                await onConfirm({ code, uuid });
                 await dialog.close();
                 resolve();
               }}
               sendCode={async () => {
-                return backgroundApiProxy.servicePrime.sendEmailOTP(
-                  'UpdateReabteWithdrawAddress',
-                );
+                const result =
+                  await backgroundApiProxy.servicePrime.sendEmailOTP(scene);
+                uuid = result.uuid;
+                return result;
               }}
             />
           ),

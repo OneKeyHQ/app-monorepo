@@ -6,6 +6,7 @@ export enum EPrimePages {
   PrimeCloudSync = 'PrimeCloudSync',
   PrimeCloudSyncDebug = 'PrimeCloudSyncDebug',
   PrimeFeatures = 'PrimeFeatures',
+  PrimeDeleteAccount = 'PrimeDeleteAccount',
 }
 
 export enum EPrimeFeatures {
@@ -26,4 +27,5 @@ export type IPrimeParamList = {
     selectedSubscriptionPeriod?: ISubscriptionPeriod;
     showAllFeatures?: boolean;
   };
+  [EPrimePages.PrimeDeleteAccount]: undefined;
 };
