@@ -2962,6 +2962,8 @@
   wallet_history_settings_hide_risk_transaction_desc = 'wallet.history_settings_hide_risk_transaction_desc',
   wallet_history_settings_hide_risk_transaction_desc_unsupported = 'wallet.history_settings_hide_risk_transaction_desc_unsupported',
   wallet_history_settings_hide_risk_transaction_title = 'wallet.history_settings_hide_risk_transaction_title',
+  wallet_history_settings_hide_small_transaction_desc = 'wallet.history_settings_hide_small_transaction_desc',
+  wallet_history_settings_hide_small_transaction_title = 'wallet.history_settings_hide_small_transaction_title',
   wallet_last_ledger_sequence = 'wallet.last_ledger_sequence',
   wallet_ledger_index = 'wallet.ledger_index',
   wallet_no_address = 'wallet.no_address',
