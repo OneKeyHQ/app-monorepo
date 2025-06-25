@@ -54,7 +54,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_lastFocusUrl',
   'wallet_closeCurrentBrowserTab',
   'wallet_addBrowserUrlToRiskWhiteList',
-  'tradingview_getKineData',
+  'tradingview_getKLineData',
   'btc_requestAccount',
   'btc_signTransaction',
 ];

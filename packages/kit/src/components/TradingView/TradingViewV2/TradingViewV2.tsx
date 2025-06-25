@@ -47,7 +47,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
       console.log('customReceiveHandler', data);
       // {
       //     "scope": "$private",
-      //     "method": "tradingview_getKineData",
+      //     "method": "tradingview_getKLineData",
       //     "origin": "tradingview.onekey.so",
       //     "data": {
       //         "method": "tradingview_getHistoryData",
@@ -61,7 +61,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
       // Handle TradingView private API requests
       if (
         data.scope === '$private' &&
-        data.method === 'tradingview_getKineData'
+        data.method === 'tradingview_getKLineData'
       ) {
         console.log('TradingView request received:', {
           method: data.data.method,
@@ -74,7 +74,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
 
         // 使用组合函数获取分片数据
         try {
-          const kineData = await fetchTradingViewV2DataWithSlicing({
+          const kLineData = await fetchTradingViewV2DataWithSlicing({
             tokenAddress,
             networkId,
             interval: data.data.resolution,
@@ -82,13 +82,13 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
             timeTo: data.data.to,
           });
 
-          console.log('kineData', kineData);
+          console.log('kLineData', kLineData);
 
-          if (webRef.current && kineData) {
+          if (webRef.current && kLineData) {
             webRef.current.sendMessageViaInjectedScript({
-              type: 'kineData',
+              type: 'kLineData',
               payload: {
-                kineData,
+                kLineData,
                 requestData: data.data,
               },
             });

@@ -179,7 +179,7 @@ export interface IMarketTokenListResponse {
   total: number;
 }
 
-export interface IMarketTokenKineDataPoint {
+export interface IMarketTokenKLineDataPoint {
   o: number; // open price
   h: number; // high price
   l: number; // low price
@@ -189,7 +189,7 @@ export interface IMarketTokenKineDataPoint {
 }
 
 export interface IMarketTokenKineResponse {
-  points: IMarketTokenKineDataPoint[];
+  points: IMarketTokenKLineDataPoint[];
   total: number;
 }
 
