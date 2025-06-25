@@ -66,7 +66,7 @@ export async function fetchTradingViewV2DataWithSlicing({
         if (!mergedData) {
           mergedData = { ...data };
         } else if (data.points && mergedData.points) {
-          // 合并 points 数据数组
+          // Merge points data arrays
           mergedData.points = [...mergedData.points, ...data.points];
           mergedData.total = mergedData.points.length;
         }

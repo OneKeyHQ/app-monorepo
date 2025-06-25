@@ -24,17 +24,17 @@ export function sliceRequest(
 
     switch (unit) {
       case 'm':
-        return num * 60; // 分钟
+        return num * 60; // minutes
       case 'H':
-        return num * 60 * 60; // 小时
+        return num * 60 * 60; // hours
       case 'D':
-        return num * 24 * 60 * 60; // 天
+        return num * 24 * 60 * 60; // days
       case 'W':
-        return num * 7 * 24 * 60 * 60; // 周
+        return num * 7 * 24 * 60 * 60; // weeks
       case 'M':
-        return num * 30 * 24 * 60 * 60; // 月（按30天计算）
+        return num * 30 * 24 * 60 * 60; // months (calculated as 30 days)
       case 'y':
-        return num * 365 * 24 * 60 * 60; // 年（按365天计算）
+        return num * 365 * 24 * 60 * 60; // years (calculated as 365 days)
       default:
         throw new OneKeyLocalError(`Unsupported time unit: ${unit}`);
     }
@@ -42,18 +42,18 @@ export function sliceRequest(
 
   const intervalSeconds = getIntervalInSeconds(interval);
 
-  // 计算总的数据点数量
+  // Calculate total data points
   const totalDataPoints = Math.ceil((timeTo - timeFrom) / intervalSeconds);
 
-  // 如果数据点数量不超过限制，直接返回原始范围
+  // If data points don't exceed the limit, return the original range directly
   if (totalDataPoints <= maxDataLength) {
     return [{ from: timeFrom, to: timeTo, interval }];
   }
 
-  // 计算需要分成几片
+  // Calculate how many slices are needed
   const sliceCount = Math.ceil(totalDataPoints / maxDataLength);
 
-  // 计算每片的时间长度
+  // Calculate time length per slice
   const timePerSlice = Math.floor((timeTo - timeFrom) / sliceCount);
 
   const slices: ITimeSlice[] = [];
@@ -63,7 +63,7 @@ export function sliceRequest(
     let sliceTo: number;
 
     if (i === sliceCount - 1) {
-      // 最后一片使用原始的结束时间，确保不遗漏数据
+      // Last slice uses the original end time to ensure no data is missed
       sliceTo = timeTo;
     } else {
       sliceTo = timeFrom + (i + 1) * timePerSlice;

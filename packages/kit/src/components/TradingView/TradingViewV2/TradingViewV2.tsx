@@ -72,7 +72,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
           origin: data.origin,
         });
 
-        // 使用组合函数获取分片数据
+        // Use combined function to get sliced data
         try {
           const kLineData = await fetchTradingViewV2DataWithSlicing({
             tokenAddress,

@@ -14,7 +14,7 @@ const SECONDS_IN_WEEK = 7 * 24 * 60 * 60; // 604_800
 const SECONDS_IN_MONTH = 30 * 24 * 60 * 60; // 2_592_000
 const SECONDS_IN_YEAR = 365 * 24 * 60 * 60; // 31_536_000
 
-// TODO: 整个测试套件暂时关闭，待修复月份间隔相关问题
+// TODO: Temporarily disable the entire test suite, pending fix for month interval-related issues
 describe.skip('sliceRequest', () => {
   const mockTimeFrom = 1_640_995_200; // 2022-01-01 00:00:00 UTC
   const mockTimeTo = 1_672_531_200; // 2023-01-01 00:00:00 UTC
@@ -76,7 +76,7 @@ describe.skip('sliceRequest', () => {
       });
     });
 
-    // TODO: 修复月份间隔解析问题
+    // TODO: Fix month interval parsing issue
     it.skip('should parse months interval correctly', () => {
       const result = sliceRequest(
         '1M',
@@ -255,7 +255,7 @@ describe.skip('sliceRequest', () => {
       expect(result[1].to).toBe(timeTo);
     });
 
-    // TODO: 修复月份间隔切片逻辑问题
+    // TODO: Fix month interval slicing logic issue
     it.skip('should handle month intervals correctly', () => {
       // 1 month interval, 300 months = 300 data points
       const timeFrom = mockTimeFrom;
@@ -379,7 +379,7 @@ describe.skip('sliceRequest', () => {
       expect(result[result.length - 1].to).toBe(timeTo);
     });
 
-    // TODO: 修复多年月份数据处理问题
+    // TODO: Fix multi-year monthly data processing issue
     it.skip('should handle multi-year monthly data', () => {
       // 1 month interval, 120 months (10 years) = 120 data points
       const timeFrom = mockTimeFrom;

@@ -1,4 +1,3 @@
-
 interface ITradingViewHistoryData {
   method: string;
   resolution: string;

@@ -141,7 +141,6 @@ function MarketHome() {
     appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
       tabIndex: index,
     });
-    console.log('选中', index, index === 0 ? 1 : 0);
   }, []);
   const renderTabContainer = useCallback(() => {
     if (!tabConfig.length) {
