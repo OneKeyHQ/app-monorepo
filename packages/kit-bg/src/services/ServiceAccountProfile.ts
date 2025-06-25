@@ -522,27 +522,6 @@ class ServiceAccountProfile extends ServiceBase {
     return result;
   }
 
-  @backgroundMethod()
-  public async clearQueryAddressCache() {
-    this._queryAddressWithCache.clear();
-  }
-
-  @backgroundMethod()
-  public async queryAddressWithCache(params: IQueryCheckAddressArgs) {
-    return this._queryAddressWithCache(params);
-  }
-
-  _queryAddressWithCache = memoizee(
-    async (params: IQueryCheckAddressArgs) => {
-      return this.queryAddress(params);
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
-      max: 30,
-    },
-  );
-
   private async handleNameSolve(
     networkId: string,
     address: string,

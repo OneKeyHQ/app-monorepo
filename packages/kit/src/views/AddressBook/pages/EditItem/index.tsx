@@ -100,6 +100,7 @@ function EditItemPage() {
                   id: ETranslations.address_book_add_address_toast_delete_success,
                 }),
               });
+              appEventBus.emit(EAppEventBusNames.AddressBookUpdate, undefined);
               navigation.pop();
             } catch (e) {
               Toast.error({ title: (e as Error).message });
