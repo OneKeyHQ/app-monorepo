@@ -44,6 +44,7 @@ type IMarketTokenListProps = {
    */
   toolbar?: ReactNode;
   onScrollOffsetChange?: (offsetY: number) => void;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /**
    * If provided, the list will initially display only tokens in the user's
    * watchlist. This prop controls the *initial* state only; users can still
@@ -62,6 +63,7 @@ function MarketTokenList({
   liquidityFilter,
   toolbar,
   onScrollOffsetChange,
+  onScroll,
   defaultShowWatchlistOnly,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
@@ -197,9 +199,7 @@ function MarketTokenList({
                             onScrollOffsetChange?.(
                               e.nativeEvent?.contentOffset?.y ?? 0,
                             );
-                            // Call original onScroll if exists
-                            // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,react/prop-types
-                            (props as any)?.onScroll?.(e);
+                            onScroll?.(e);
                           }}
                           scrollEventThrottle={16}
                         />
