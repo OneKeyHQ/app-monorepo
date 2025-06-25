@@ -47,7 +47,7 @@ const chromeExtensionV3ViolationPlugin = new ChromeExtensionV3ViolationPlugin([
   },
   // maps.googleapis.com
   {
-    regexToFind: /https:\/\/maps.googleapis.com\/maps\/api\/js/g,
+    regexToFind: /https:\/\/maps\.googleapis\.com\/maps\/api\/js/g,
     replacement: '',
   },
   // js.stripe.com
