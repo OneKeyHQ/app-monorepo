@@ -111,7 +111,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
           }
           balance={balance}
-          // totalValue={888} // TODO: Replace with actual totalValue
         />
       )}
 

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -5,6 +7,7 @@ import { Button } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 export interface IActionButtonProps extends IButtonProps {
@@ -13,7 +16,6 @@ export interface IActionButtonProps extends IButtonProps {
   token?: {
     symbol: string;
   };
-  totalValue?: number;
   balance?: BigNumber;
 }
 
@@ -21,19 +23,33 @@ export function ActionButton({
   tradeType,
   amount,
   token,
-  totalValue,
   balance,
   disabled,
   onPress,
   ...otherProps
 }: IActionButtonProps) {
   const intl = useIntl();
+  const { tokenDetail } = useTokenDetail();
+
   const actionText =
     tradeType === ESwapDirection.BUY
       ? intl.formatMessage({ id: ETranslations.global_buy })
       : intl.formatMessage({ id: ETranslations.global_sell });
   const numericAmount = parseFloat(amount);
   const displayAmount = Number.isNaN(numericAmount) ? '' : amount;
+
+  // Calculate total fiat value for sell orders only
+  const totalValue = useMemo(() => {
+    if (
+      tradeType !== ESwapDirection.SELL ||
+      !tokenDetail?.price ||
+      !amount ||
+      numericAmount <= 0
+    ) {
+      return undefined;
+    }
+    return new BigNumber(amount).multipliedBy(tokenDetail.price).toNumber();
+  }, [tradeType, tokenDetail?.price, amount, numericAmount]);
 
   // Check for insufficient balance for both buy and sell operations
   const amountBN = new BigNumber(amount || 0);
@@ -45,7 +61,7 @@ export function ActionButton({
 
   let buttonText = `${actionText} ${displayAmount} ${token?.symbol || ''}`;
   if (typeof totalValue === 'number') {
-    buttonText += `(${totalValue.toFixed(2)})`;
+    buttonText += `($${totalValue.toFixed(2)})`;
   }
 
   if (shouldDisable) {
