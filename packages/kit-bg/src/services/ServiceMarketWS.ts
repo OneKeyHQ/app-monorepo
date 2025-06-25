@@ -1,12 +1,12 @@
-import { io } from 'socket.io-client';
-
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
+
+import { notificationStatusAtom } from '../states/jotai/atoms/notifications';
 
 import ServiceBase from './ServiceBase';
 
@@ -39,57 +39,50 @@ class ServiceMarketWS extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private socket: Socket | null = null;
-
   private subscriptions = new Set<string>();
 
+  private socket: Socket | null = null;
+
+  private isMarketListenerRegistered = false;
+
   @backgroundMethod()
-  async connect(instanceId: string): Promise<void> {
-    if (this.socket?.connected) {
-      return Promise.resolve();
+  async connect(_instanceId: string): Promise<void> {
+    // Get the shared WebSocket from PushProviderWebSocket
+    const webSocketProvider = (
+      await this.backgroundApi.serviceNotification.getNotificationProvider()
+    )?.webSocketProvider;
+
+    if (!webSocketProvider) {
+      throw new OneKeyLocalError('WebSocket provider not available');
     }
 
-    const endpoint = await getEndpointByServiceName(
-      EServiceEndpointEnum.NotificationWebSocket,
-    );
+    this.socket = webSocketProvider.getSocket();
 
-    return new Promise((resolve, reject) => {
-      this.socket = io(endpoint, {
-        transports: ['websocket'],
-        auth: { instanceId },
-      });
+    if (!this.socket) {
+      throw new OneKeyLocalError('WebSocket connection not available');
+    }
 
-      this.socket.on('connect', () => {
-        console.log('Market WebSocket connected');
-        resolve();
+    // Register market data listener only once
+    if (!this.isMarketListenerRegistered) {
+      this.socket.on(EAppSocketEventNames.market, (data: unknown) => {
+        this.handleMarketMessage(data);
       });
+      this.isMarketListenerRegistered = true;
+    }
 
-      this.socket.on('connect_error', (error) => {
-        console.error('Market WebSocket connect error:', error);
-        reject(error);
-      });
-
-      this.socket.on('disconnect', (reason) => {
-        console.log('Market WebSocket disconnected:', reason);
-      });
-
-      this.socket.on('market', (body) => {
-        this.handleMarketMessage(body);
-      });
-
-      this.socket.on('error', (error) => {
-        console.error('Market WebSocket error:', error);
-      });
-    });
+    return Promise.resolve();
   }
 
   @backgroundMethod()
   async disconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-      this.subscriptions.clear();
+    // Remove market data listener
+    if (this.socket && this.isMarketListenerRegistered) {
+      this.socket.off(EAppSocketEventNames.market);
+      this.isMarketListenerRegistered = false;
     }
+
+    this.socket = null;
+    this.subscriptions.clear();
   }
 
   async subscribeTokenTxs({
@@ -99,11 +92,6 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    if (!this.socket?.connected) {
-      console.error('WebSocket not connected');
-      return;
-    }
-
     const subscriptionKey = `${EChannel.tokenTxs}-${networkId}-${tokenAddress}`;
 
     if (this.subscriptions.has(subscriptionKey)) {
@@ -122,7 +110,12 @@ class ServiceMarketWS extends ServiceBase {
       ],
     };
 
-    this.socket.emit('market', message);
+    if (!this.socket?.connected) {
+      console.error('WebSocket not connected');
+      return;
+    }
+
+    this.socket.emit(EAppSocketEventNames.market, message);
     this.subscriptions.add(subscriptionKey);
   }
 
@@ -134,11 +127,6 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    if (!this.socket?.connected) {
-      console.error('WebSocket not connected');
-      return;
-    }
-
     const subscriptionKey = `${EChannel.ohlcv}-${networkId}-${tokenAddress}`;
 
     console.log('subscribeOHLCV', subscriptionKey);
@@ -161,7 +149,12 @@ class ServiceMarketWS extends ServiceBase {
 
     console.log('subscribeOHLCV', message);
 
-    this.socket.emit('market', message);
+    if (!this.socket?.connected) {
+      console.error('WebSocket not connected');
+      return;
+    }
+
+    this.socket.emit(EAppSocketEventNames.market, message);
     this.subscriptions.add(subscriptionKey);
   }
 
@@ -174,10 +167,6 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    if (!this.socket?.connected) {
-      return;
-    }
-
     const subscriptionKey = `${channel}-${networkId}-${tokenAddress}`;
 
     if (!this.subscriptions.has(subscriptionKey)) {
@@ -196,12 +185,16 @@ class ServiceMarketWS extends ServiceBase {
       ],
     };
 
-    this.socket.emit('market', message);
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    this.socket.emit(EAppSocketEventNames.market, message);
     this.subscriptions.delete(subscriptionKey);
   }
 
   private handleMarketMessage(data: unknown) {
-    console.log('data', data);
+    console.log('Market data received:', data);
 
     // Basic type validation
     if (typeof data !== 'object' || data === null) {
@@ -222,7 +215,7 @@ class ServiceMarketWS extends ServiceBase {
       tokenAddress: string;
     };
 
-    // Emit event instead of calling callback
+    // Emit event to app event bus
     appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, {
       channel: marketData.channel,
       networkId: marketData.networkId,
@@ -232,8 +225,9 @@ class ServiceMarketWS extends ServiceBase {
   }
 
   async getConnectionStatus() {
+    const { websocketConnected } = await notificationStatusAtom.get();
     return {
-      connected: this.socket?.connected || false,
+      connected: websocketConnected,
       subscriptions: Array.from(this.subscriptions),
     };
   }
