@@ -108,19 +108,11 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
         onPress={() => {
-          if (isPrimeSubscriptionActive) {
-            if (process.env.NODE_ENV !== 'production') {
-              Toast.success({
-                title: 'Bulk Copy Addresses',
-              });
-            }
-          } else {
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
-              selectedSubscriptionPeriod,
-            });
-          }
+          navigation.navigate(EPrimePages.PrimeFeatures, {
+            showAllFeatures: true,
+            selectedFeature: EPrimeFeatures.BulkCopyAddresses,
+            selectedSubscriptionPeriod,
+          });
         }}
       />
       <PrimeBenefitsItem
@@ -133,19 +125,11 @@ export function PrimeBenefitsList({
           id: ETranslations.global_bulk_revoke_desc,
         })}
         onPress={() => {
-          if (isPrimeSubscriptionActive) {
-            if (process.env.NODE_ENV !== 'production') {
-              Toast.success({
-                title: 'Bulk Revoke',
-              });
-            }
-          } else {
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.BulkRevoke,
-              selectedSubscriptionPeriod,
-            });
-          }
+          navigation.navigate(EPrimePages.PrimeFeatures, {
+            showAllFeatures: true,
+            selectedFeature: EPrimeFeatures.BulkRevoke,
+            selectedSubscriptionPeriod,
+          });
         }}
       />
 
