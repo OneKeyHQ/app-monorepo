@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import type { Ref } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -8,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -17,8 +21,11 @@ import { TokenSelectorPopover } from './TokenSelectorPopover';
 import type { IToken } from '../../types';
 import type BigNumber from 'bignumber.js';
 
+export interface ITokenInputSectionRef {
+  setValue: (value: string) => void;
+}
+
 export interface ITokenInputSectionProps {
-  value: string;
   onChange: (value: string) => void;
   selectedToken?: IToken;
   selectableTokens: IToken[];
@@ -28,24 +35,31 @@ export interface ITokenInputSectionProps {
   balance?: BigNumber;
 }
 
-export function TokenInputSection({
-  value,
-  onChange,
-  selectedToken,
-  selectableTokens,
-  onTokenChange,
-  tradeType,
-  balance,
-}: ITokenInputSectionProps) {
+function TokenInputSectionComponent(
+  {
+    onChange,
+    selectedToken,
+    selectableTokens,
+    onTokenChange,
+    tradeType,
+    balance,
+  }: ITokenInputSectionProps,
+  ref: Ref<ITokenInputSectionRef>,
+) {
+  const intl = useIntl();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [internalValue, setInternalValue] = useState('');
 
-  const [internalValue, setInternalValue] = useState(value || '');
-
-  useEffect(() => {
-    if (value !== undefined) {
-      setInternalValue(value);
-    }
-  }, [value]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      setValue: (newValue: string) => {
+        setInternalValue(newValue);
+        onChange(newValue);
+      },
+    }),
+    [onChange],
+  );
 
   const handleInternalChange = useCallback(
     (newValue: string) => {
@@ -66,14 +80,26 @@ export function TokenInputSection({
   const isTokenSelectorVisible =
     tradeType === ESwapDirection.BUY && selectableTokens.length > 1;
 
+  const placeholderText =
+    tradeType === ESwapDirection.BUY
+      ? intl.formatMessage({ id: ETranslations.dexmarket_total })
+      : intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_amount,
+        });
+
   return (
     <YStack gap="$0.5">
       <Input
         size="large"
         keyboardType="decimal-pad"
         value={internalValue}
+        placeholder={intl.formatMessage({
+          id: ETranslations.dexmarket_enter_amount,
+        })}
         onChangeText={handleInternalChange}
-        placeholder={tradeType === ESwapDirection.BUY ? 'Total' : 'Amount'}
+        leftAddOnProps={{
+          label: placeholderText,
+        }}
         addOns={[
           {
             renderContent: (
@@ -134,3 +160,8 @@ export function TokenInputSection({
     </YStack>
   );
 }
+
+export const TokenInputSection = forwardRef<
+  ITokenInputSectionRef,
+  ITokenInputSectionProps
+>(TokenInputSectionComponent);

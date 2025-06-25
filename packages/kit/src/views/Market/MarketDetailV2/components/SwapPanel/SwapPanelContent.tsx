@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -11,7 +11,7 @@ import { AntiMEVToggle } from './components/AntiMEVToggle';
 import { ApproveButton } from './components/ApproveButton';
 import { BalanceDisplay } from './components/BalanceDisplay';
 import { SlippageSetting } from './components/SlippageSetting';
-import { TokenInputSection } from './components/TokenInputSection';
+import { TokenInputSection, type ITokenInputSectionRef } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
 import { ESwapDirection } from './hooks/useTradeType';
@@ -57,9 +57,12 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
   } = swapPanel;
 
+  const tokenInputRef = useRef<ITokenInputSectionRef>(null);
+
   const handleBalanceClick = useCallback(() => {
     if (balance) {
       setPaymentAmount(balance);
+      tokenInputRef.current?.setValue(balance.toFixed());
     }
   }, [balance, setPaymentAmount]);
 
@@ -70,8 +73,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
       {/* Token input section */}
       <TokenInputSection
+        ref={tokenInputRef}
         tradeType={tradeType}
-        value={paymentAmount.toFixed()}
         onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
         selectedToken={
           tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
