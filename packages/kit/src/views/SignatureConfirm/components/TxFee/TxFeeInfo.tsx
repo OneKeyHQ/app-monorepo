@@ -287,8 +287,17 @@ function TxFeeInfo(props: IProps) {
         // update tron resource rental fee info
         if (r.feeTron && r.feeTron[0]) {
           if (r.feeTron[0].createOrderParams) {
-            const { createOrderParams, saveTRX, info, payWithUSDT, balances } =
-              r.feeTron[0];
+            const {
+              createOrderParams,
+              saveTRX,
+              info,
+              payWithUSDT,
+              balances,
+              tokenPrices,
+            } = r.feeTron[0];
+
+            const tokenAddress = tronTokenAddress[info.payCoinCode];
+
             updateTronResourceRentalInfo({
               isResourceRentalNeeded: true,
               isResourceRentalEnabled: tronRentalUpdated.current
@@ -298,8 +307,8 @@ function TxFeeInfo(props: IProps) {
                 ? ETronResourceRentalPayType.Token
                 : ETronResourceRentalPayType.Native,
               payTokenInfo: {
-                symbol: createOrderParams.payToken,
-                price: info?.prices[info?.payCoinCode] ?? '0',
+                symbol: info?.payCoinCode ?? '',
+                price: tokenPrices[tokenAddress] ?? '0',
                 trxRatio: info?.ratio ?? '0',
                 payTxFeeAmount: new BigNumber(info?.payCoinAmt ?? 0)
                   .minus(info?.purchaseTRXFee ?? 0)
@@ -321,8 +330,6 @@ function TxFeeInfo(props: IProps) {
             tronRentalUpdated.current = true;
 
             if (payWithUSDT) {
-              const tokenAddress = tronTokenAddress[info.payCoinCode];
-
               updatePayWithTokenInfo({
                 address: tokenAddress,
                 balance: balances[tokenAddress] ?? '0',
