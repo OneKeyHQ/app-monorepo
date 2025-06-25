@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,7 +9,6 @@ import {
   Alert,
   Badge,
   Button,
-  Dialog,
   Divider,
   Image,
   Page,
@@ -36,7 +35,6 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -68,6 +66,7 @@ import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useHandleSwap } from '../../hooks/useHandleSwap';
+import { useUnsupportedProtocol } from '../../hooks/useUnsupportedProtocol';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 import {
   useHandleStake,
@@ -490,65 +489,11 @@ const ProtocolDetailsPage = () => {
   );
 
   // Handle unsupported protocol
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    if (detailInfo?.statement) {
-      // Keep skeleton visible for better UX
-      setKeepSkeletonVisible(true);
-
-      // Exit current modal and show unsupported dialog after 500ms
-      timer = setTimeout(() => {
-        setKeepSkeletonVisible(false);
-        appNavigation.pop();
-        const statement = detailInfo.statement;
-        if (statement) {
-          const linkButton = statement.buttons?.find(
-            (btn) => btn.type === 'link',
-          );
-          const closeButton = statement.buttons?.find(
-            (btn) => btn.type === 'close',
-          );
-
-          Dialog.show({
-            icon: statement.icon?.icon,
-            title: statement.title?.text,
-            showFooter: !!linkButton,
-            renderContent: statement.items?.length ? (
-              <YStack gap="$2">
-                {statement.items.map((item, index) => (
-                  <EarnText
-                    key={index}
-                    text={item.title}
-                    size="$bodyMd"
-                    color="$text"
-                  />
-                ))}
-              </YStack>
-            ) : null,
-            onConfirm: linkButton
-              ? () => {
-                  if (linkButton.data?.link) {
-                    void openUrlExternal(linkButton.data.link);
-                  }
-                }
-              : undefined,
-            onConfirmText: linkButton?.text?.text,
-            confirmButtonProps: {
-              iconAfter: linkButton?.data?.icon?.icon,
-            },
-            onCancelText: closeButton?.text?.text,
-          });
-        }
-      }, 500);
-    }
-
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-        setKeepSkeletonVisible(false);
-      }
-    };
-  }, [detailInfo, appNavigation]);
+  useUnsupportedProtocol({
+    detailInfo,
+    appNavigation,
+    setKeepSkeletonVisible,
+  });
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!detailInfo?.subscriptionValue?.token) {
