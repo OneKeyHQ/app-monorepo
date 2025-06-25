@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   SizableText,
@@ -7,6 +9,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -19,6 +22,7 @@ interface ITransactionItemProps {
 }
 
 function TransactionItemBase({ item }: ITransactionItemProps) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
   const { layoutConfig } = useTransactionsLayout();
 
@@ -62,7 +66,13 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
         color={typeColor}
         {...layoutConfig.type}
       >
-        {isBuy ? 'Buy' : 'Sell'}
+        {isBuy
+          ? intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_buy,
+            })
+          : intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_sell,
+            })}
       </SizableText>
 
       {/* Amount - 2 columns (YStack) x 2 rows layout */}
