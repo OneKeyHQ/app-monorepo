@@ -43,6 +43,7 @@ import {
   EOnChainHistoryTxStatus,
   type IOnChainHistoryTx,
 } from '@onekeyhq/shared/types/history';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -83,7 +84,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
