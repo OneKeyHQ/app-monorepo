@@ -212,37 +212,37 @@ export default function PagePrimeFeatures() {
       },
 
       {
-        id: EPrimeFeatures.DeviceManagement,
+        id: EPrimeFeatures.BulkRevoke,
         banner: (
           <Image
             w="100%"
             h={bannerHeight}
-            source={require('@onekeyhq/kit/assets/prime/device_management_banner.png')}
+            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
           />
         ),
         title: intl.formatMessage({
-          id: ETranslations.global_prime_device_management,
+          id: ETranslations.global_bulk_revoke,
         }),
         description: intl.formatMessage({
-          id: ETranslations.prime_device_management_desc,
+          id: ETranslations.global_bulk_revoke_desc,
         }),
         details: [
           {
-            icon: 'LaptopOutline',
+            icon: 'WalletCryptoOutline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_device_management_detail_one_title,
+              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_device_management_detail_one_desc,
+              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
             }),
           },
           {
-            icon: 'SettingsOutline',
+            icon: 'Filter1Outline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_device_management_detail_two_title,
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_device_management_detail_two_desc,
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
             }),
           },
         ],
