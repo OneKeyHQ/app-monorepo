@@ -22,6 +22,7 @@ export enum ECheckAmountActionType {
 
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
 export type IStakeTag = string;
+type IStakeBadgeTag = { tag: string; badge: IBadgeType };
 
 export enum EEarnLabels {
   Stake = 'Stake',
@@ -519,6 +520,7 @@ export interface IEarnActivateActionIcon {
     title: IEarnText;
     description: IEarnText[];
     checkboxes: IEarnText[];
+    button: IEarnActivateActionIcon;
   };
 }
 
@@ -641,15 +643,16 @@ export interface IStakeEarnDetail {
     description: IEarnText;
     button: IEarnActionIcon;
   };
-  actions: IEarnDetailActions[];
-  subscriptionValue: ISubscriptionValue;
-  protocol: IProtocolInfo;
-  countDownAlert: {
+  actions?: IEarnDetailActions[];
+  subscriptionValue?: ISubscriptionValue;
+  tags?: IStakeBadgeTag[];
+  protocol?: IProtocolInfo;
+  countDownAlert?: {
     description: IEarnText;
     startTime: number;
     endTime: number;
   };
-  portfolios: {
+  portfolios?: {
     title: IEarnText;
     items: {
       type: 'default';
@@ -667,7 +670,7 @@ export interface IStakeEarnDetail {
     }[];
     button?: IEarnPortfolioActionIcon;
   };
-  timeline: {
+  timeline?: {
     title: IEarnText;
     step: number;
     items: {
@@ -676,14 +679,14 @@ export interface IStakeEarnDetail {
     }[];
   };
   rewards?: IRewards;
-  risk: IEarnRisk;
-  profit: IEarnProfit;
-  provider: {
+  risk?: IEarnRisk;
+  profit?: IEarnProfit;
+  provider?: {
     title: IEarnText;
     items: IEarnGridItem[];
   };
-  alerts: string[];
-  faqs: {
+  alertsV2?: { alert: string; badge: IBadgeType }[];
+  faqs?: {
     title: IEarnText;
     items: IEarnFAQItem[];
   };
@@ -694,11 +697,27 @@ export interface IStakeEarnDetail {
     minTransactionFee: string;
     claimable: string;
   };
-  managers: {
+  managers?: {
     items: {
       title: IEarnText;
       description: IEarnText;
       logoURI: string;
+    }[];
+  };
+  statement?: {
+    icon: IEarnIcon;
+    title: IEarnText;
+    items: {
+      title: IEarnText;
+    }[];
+    buttons: {
+      type: 'close' | 'link';
+      text: IEarnText;
+      disabled: boolean;
+      data?: {
+        icon?: IEarnIcon;
+        link?: string;
+      };
     }[];
   };
 }
