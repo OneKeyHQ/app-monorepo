@@ -188,7 +188,7 @@ export interface IMarketTokenKLineDataPoint {
   t: number; // timestamp
 }
 
-export interface IMarketTokenKineResponse {
+export interface IMarketTokenKLineResponse {
   points: IMarketTokenKLineDataPoint[];
   total: number;
 }

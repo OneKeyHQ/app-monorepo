@@ -1,5 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IMarketTokenKineResponse } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
 import { sliceRequest } from './sliceRequest';
 
@@ -17,7 +17,7 @@ export async function fetchTradingViewV2Data({
   interval,
   timeFrom,
   timeTo,
-}: ITradingViewV2Params): Promise<IMarketTokenKineResponse | null> {
+}: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
   try {
     const data = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
       {
@@ -43,7 +43,7 @@ export async function fetchTradingViewV2DataWithSlicing({
   interval,
   timeFrom,
   timeTo,
-}: ITradingViewV2Params): Promise<IMarketTokenKineResponse | null> {
+}: ITradingViewV2Params): Promise<IMarketTokenKLineResponse | null> {
   try {
     const slices = sliceRequest(interval, timeFrom, timeTo);
 
@@ -59,7 +59,7 @@ export async function fetchTradingViewV2DataWithSlicing({
 
     const dataResults = await Promise.all(dataPromises);
 
-    let mergedData: IMarketTokenKineResponse | null = null;
+    let mergedData: IMarketTokenKLineResponse | null = null;
 
     for (const data of dataResults) {
       if (data) {

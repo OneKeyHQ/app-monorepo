@@ -11,7 +11,7 @@ import type {
   IMarketChainsResponse,
   IMarketTokenDetail,
   IMarketTokenHoldersResponse,
-  IMarketTokenKineResponse,
+  IMarketTokenKLineResponse,
   IMarketTokenListResponse,
   IMarketTokenSecurityBatchResponse,
   IMarketTokenTransactionsResponse,
@@ -119,7 +119,7 @@ class ServiceMarketV2 extends ServiceBase {
     const response = await client.get<{
       code: number;
       message: string;
-      data: IMarketTokenKineResponse;
+      data: IMarketTokenKLineResponse;
     }>('/utility/v2/market/token/kline', {
       params: {
         tokenAddress,
