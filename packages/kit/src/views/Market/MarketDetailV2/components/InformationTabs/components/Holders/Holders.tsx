@@ -1,8 +1,11 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { ListView, SizableText, Stack } from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
 import { HolderItem } from './HolderItem';
@@ -15,6 +18,7 @@ interface IHoldersProps {
 }
 
 function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
+  const intl = useIntl();
   const { holders, isRefreshing } = useMarketHolders({
     tokenAddress,
     networkId,
@@ -38,7 +42,9 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
     return (
       <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
         <SizableText size="$bodyLg" color="$textSubdued">
-          No holders found
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_nodata,
+          })}
         </SizableText>
       </Stack>
     );
