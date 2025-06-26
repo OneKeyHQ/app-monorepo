@@ -29,7 +29,10 @@ const items: ISelectItem[] = [
     value: 'Peach',
   },
 
-  { label: 'Apricot5', value: 'Apricot' },
+  {
+    label: 'Apricot5Apricot5Apricot5Apricot5Apricot5Apricot5Apricot5Apricot5',
+    value: 'Apricot',
+  },
 
   { label: 'Melon6', value: 'Melon' },
 
