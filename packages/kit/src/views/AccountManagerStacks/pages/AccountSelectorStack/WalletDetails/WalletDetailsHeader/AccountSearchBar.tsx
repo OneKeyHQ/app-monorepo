@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -49,10 +51,23 @@ export function AccountSearchBar({
     onSearchTextChange(text?.trim() || '');
   }, 300);
 
-  // Check if bulk create account is available
-  const canBatchCreateAccount =
-    focusedWalletInfo?.wallet?.id &&
-    !accountUtils.isQrWallet({ walletId: focusedWalletInfo?.wallet?.id });
+  const canBatchCreateAccount = useMemo(() => {
+    if (accountUtils.isQrWallet({ walletId: focusedWalletInfo?.wallet?.id })) {
+      return false;
+    }
+    if (
+      accountUtils.isHwOrQrWallet({
+        walletId: focusedWalletInfo?.wallet?.id,
+      }) &&
+      focusedWalletInfo?.wallet?.isMocked
+    ) {
+      return false;
+    }
+    return (
+      accountUtils.isHdWallet({ walletId: focusedWalletInfo?.wallet?.id }) ||
+      accountUtils.isHwOrQrWallet({ walletId: focusedWalletInfo?.wallet?.id })
+    );
+  }, [focusedWalletInfo]);
 
   return (
     <XStack
