@@ -777,6 +777,90 @@ function Dashboard({
         <YStack px="$5">
           {showEarnSalesAvailableFiat ? (
             <YStack gap="$2" pt="$4">
+              <XStack>
+                <Token
+                  size="xs"
+                  tokenImageUri={onChain.available?.[0]?.token.logoURI}
+                />
+                <XStack pl="$2" pr="$3" gap="$1">
+                  <SizableText size="$bodyMd">≈</SizableText>
+                  <NumberSizeableText
+                    formatter="value"
+                    size="$bodyMd"
+                    formatterOptions={{
+                      tokenSymbol: onChain.available?.[0]?.token.symbol,
+                    }}
+                  >
+                    {onChain.available?.[0]?.amount}
+                  </NumberSizeableText>
+                </XStack>
+                <Popover.Tooltip
+                  iconSize="$5"
+                  title="Rewards Details"
+                  renderContent={
+                    <YStack>
+                      <YStack>
+                        {onChain.available?.map(
+                          ({ token, fiatValue, amount }, index) => {
+                            return (
+                              <XStack
+                                key={index}
+                                gap="$2"
+                                h={48}
+                                ai="center"
+                                jc="space-between"
+                                py={5}
+                              >
+                                <XStack gap="$2.5">
+                                  <Token
+                                    size="sm"
+                                    tokenImageUri={token.logoURI}
+                                  />
+                                  <SizableText size="$bodyMdMedium">
+                                    {token.symbol.toUpperCase()}
+                                  </SizableText>
+                                </XStack>
+                                <YStack>
+                                  <NumberSizeableText
+                                    formatter="balance"
+                                    size="$bodyMdMedium"
+                                  >
+                                    {amount}
+                                  </NumberSizeableText>
+                                  <Currency
+                                    formatter="balance"
+                                    size="$bodySmMedium"
+                                    color="$textSubdued"
+                                  >
+                                    {fiatValue}
+                                  </Currency>
+                                </YStack>
+                              </XStack>
+                            );
+                          },
+                        )}
+                      </YStack>
+                      <Divider />
+                      <XStack ai="center" gap="$2" py="$2.5" bg="$bgSubdued">
+                        <Icon
+                          color="$iconSubdued"
+                          size="$4"
+                          name="InfoCircleOutline"
+                        />
+                        <SizableText
+                          numberOfLines={10}
+                          size="$bodyMd"
+                          color="$textSubdued"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.referral_earn_reward_details_desc,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    </YStack>
+                  }
+                />
+              </XStack>
               {onChain.available?.map(({ token, fiatValue, amount }, index) => {
                 return (
                   <Fragment key={index}>
