@@ -39,6 +39,11 @@ import type {
   PopoverProps as TMPopoverProps,
 } from 'tamagui';
 
+const gtMdShFrameStyle = {
+  minWidth: 400,
+  maxWidth: 480,
+  mx: 'auto',
+} as const;
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
   showHeader?: boolean;
@@ -246,6 +251,8 @@ function RawPopover({
     }),
     [handleClosePopover],
   );
+  const { gtMd } = useMedia();
+
   const display = useContentDisplay(isOpen, props.keepChildrenMounted);
   const keyboardHeight = useKeyboardHeight();
   const zIndex = useOverlayZIndex(isOpen);
@@ -340,11 +347,9 @@ function RawPopover({
             <TMPopover.Sheet.Frame
               unstyled
               paddingBottom={keyboardHeight}
-              $gtMd={{
-                minWidth: 400,
-                maxWidth: 480,
-                mx: 'auto',
-              }}
+              {...(gtMd || platformEnv.isNativeIOSPad
+                ? gtMdShFrameStyle
+                : undefined)}
             >
               {/* header */}
               {showHeader ? (
