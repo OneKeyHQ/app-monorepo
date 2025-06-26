@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
-import type { IRiskIndicatorType } from '../components/RiskIndicator';
+import {
+  getNetworkLogoUri,
+  transformApiItemToToken,
+} from '../utils/tokenListHelpers';
+
 import type { IMarketToken } from '../MarketTokenData';
 
 interface IUseMarketTokenListParams {
@@ -13,40 +16,20 @@ interface IUseMarketTokenListParams {
   sortBy?: string;
   sortType?: 'asc' | 'desc';
   pageSize?: number;
-}
-
-// 将 API 返回的数据转换为组件使用的格式
-function transformApiDataToComponentData(
-  apiData: IMarketTokenListItem[],
-): IMarketToken[] {
-  return apiData.map((item, index) => ({
-    id: item.address || `${index}`,
-    name: item.name,
-    symbol: item.symbol,
-    address: item.address,
-    price: parseFloat(item.price || '0'),
-    change24h: parseFloat(item.priceChange24hPercent || '0'),
-    marketCap: parseFloat(item.marketCap || '0'),
-    liquidity: parseFloat(item.tvl || '0'), // 使用 TVL 作为流动性
-    transactions: parseInt(item.trade24hCount || '0', 10),
-    uniqueTraders: Math.floor(parseInt(item.trade24hCount || '0', 10) / 2), // 估算独特交易者数量
-    holders: item.holders || 0,
-    turnover: parseFloat(item.volume24h || '0'),
-    tokenAge: '0Y', // API 中没有这个字段，暂时使用默认值
-    audit: 'unknown' as IRiskIndicatorType, // API 中没有这个字段，暂时使用默认值
-    tokenImageUri: item.logoUrl || '',
-    networkLogoUri: '',
-    walletInfo: undefined,
-  }));
+  minLiquidity?: number;
+  maxLiquidity?: number;
 }
 
 export function useMarketTokenList({
   networkId,
   sortBy,
   sortType,
-  pageSize = 50,
+  pageSize = 20,
+  minLiquidity,
+  maxLiquidity,
 }: IUseMarketTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
 
   const {
     result: apiResult,
@@ -61,39 +44,54 @@ export function useMarketTokenList({
           sortType,
           page: currentPage,
           limit: pageSize,
+          minLiquidity,
+          maxLiquidity,
         });
       return response;
     },
-    [networkId, sortBy, sortType, currentPage, pageSize],
+    [
+      networkId,
+      sortBy,
+      sortType,
+      currentPage,
+      pageSize,
+      minLiquidity,
+      maxLiquidity,
+    ],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
 
-  const transformedData = useMemo(() => {
-    if (!apiResult?.list) return [];
-    return transformApiDataToComponentData(apiResult.list);
-  }, [apiResult?.list]);
+  useEffect(() => {
+    if (!apiResult || !apiResult.list || apiResult.list.length <= 0) {
+      return;
+    }
 
-  const hasNextPage = apiResult?.hasNext || false;
+    const networkLogoUri = getNetworkLogoUri(networkId);
+    const transformed = apiResult.list.map((item, idx) =>
+      transformApiItemToToken(item, {
+        chainId: networkId,
+        networkLogoUri,
+        index: idx,
+      }),
+    );
+    setTransformedData(transformed);
+  }, [apiResult, networkId]);
 
-  // 分页数据（客户端分页，因为 API 已经返回了当前页的数据）
-  const paginatedData = useMemo(() => {
-    return transformedData;
-  }, [transformedData]);
+  const totalCount = apiResult?.total || 0;
 
   const totalPages = useMemo(() => {
-    if (!hasNextPage) return currentPage;
-    return currentPage + 1; // 至少还有下一页
-  }, [hasNextPage, currentPage]);
+    return totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
+  }, [totalCount, pageSize]);
 
   return {
-    data: paginatedData,
+    data: transformedData,
     isLoading,
     currentPage,
     totalPages,
-    hasNextPage,
+    totalCount,
     setCurrentPage,
     refetch: fetchMarketTokenList,
   };

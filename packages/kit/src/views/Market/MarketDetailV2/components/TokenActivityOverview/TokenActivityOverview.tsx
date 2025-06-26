@@ -1,28 +1,44 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import { useIntl } from 'react-intl';
 
-import { ActivityRow } from './ActivityRow';
-import { TimeRangeSelector } from './TimeRangeSelector';
+import { Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useTokenDetail } from '../../hooks/useTokenDetail';
+
+import { TimeRangeSelector } from './components/TimeRangeSelector';
+import { TransactionRow } from './components/TransactionRow';
+import { VolumeRow } from './components/VolumeRow';
 import { createTimeRangeOption } from './utils/createTimeRangeOption';
 import { formatTokenActivityData } from './utils/formatTokenActivityData';
 
-interface ITokenActivityOverviewProps {
-  tokenDetail?: IMarketTokenDetail;
-}
-
-const defaultTimeRangeConfigs = [
-  { label: '1H', value: '1h' },
-  { label: '4H', value: '4h' },
-  { label: '8H', value: '8h' },
-  { label: '24H', value: '24h' },
+const defaultTimeRangeConfigs: Array<{
+  labelKey: string;
+  value: string;
+}> = [
+  {
+    labelKey: '1H',
+    value: '1h',
+  },
+  {
+    labelKey: '4H',
+    value: '4h',
+  },
+  {
+    labelKey: '8H',
+    value: '8h',
+  },
+  {
+    labelKey: '24H',
+    value: '24h',
+  },
 ];
 
-export function TokenActivityOverview({
-  tokenDetail,
-}: ITokenActivityOverviewProps) {
+export function TokenActivityOverview() {
+  const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
+  const { tokenDetail } = useTokenDetail();
 
   const timeRangeOptions = useMemo(() => {
     const availableOptions = [
@@ -37,71 +53,27 @@ export function TokenActivityOverview({
     }
 
     return defaultTimeRangeConfigs.map((config) => ({
-      ...config,
+      label: config.labelKey,
+      value: config.value,
       percentageChange: '0.00%',
       isPositive: false,
     }));
   }, [tokenDetail]);
 
   useEffect(() => {
-    if (
-      timeRangeOptions.some((option) =>
-        defaultTimeRangeConfigs.every((cfg) => cfg.label !== option.label),
-      )
-    ) {
-      if (!timeRangeOptions.find((o) => o.value === selectedTimeRange)) {
-        setSelectedTimeRange(timeRangeOptions[0].value);
-      }
-    } else {
-      const isSelectedTimeRangeValidOrDefault = defaultTimeRangeConfigs.some(
-        (config) => config.value === selectedTimeRange,
-      );
-      if (!isSelectedTimeRangeValidOrDefault) {
-        setSelectedTimeRange('1h');
-      }
+    const isCurrentSelectionValid = timeRangeOptions.some(
+      (option) => option.value === selectedTimeRange,
+    );
+
+    if (!isCurrentSelectionValid && timeRangeOptions.length > 0) {
+      setSelectedTimeRange(timeRangeOptions[0].value);
     }
   }, [timeRangeOptions, selectedTimeRange]);
 
-  const { buys, sells, buyVolume, sellVolume } = formatTokenActivityData(
-    tokenDetail,
-    selectedTimeRange,
-  );
-
-  // Simplified: assuming each buy/sell action is a unique buyer/seller for this period
-  const buyersCount = buys;
-  const sellersCount = sells;
+  const { buys, sells, buyVolume, sellVolume, totalVolume } =
+    formatTokenActivityData(tokenDetail, selectedTimeRange);
 
   const totalTransactions = buys + sells;
-  const totalTurnover = buyVolume + sellVolume;
-  const totalTraders = buyersCount + sellersCount; // This is a simplification
-
-  const activityData = tokenDetail
-    ? [
-        {
-          label: `Transactions (${selectedTimeRange}): ${totalTransactions}`,
-          buyValue: `Buys (${buys})`,
-          sellValue: `Sells (${sells})`,
-          buyPercentage:
-            totalTransactions > 0 ? (buys / totalTransactions) * 100 : 0,
-        },
-        {
-          label: `Turnover (${selectedTimeRange}): $${totalTurnover.toFixed(
-            2,
-          )}`,
-          buyValue: `Buy ($${buyVolume.toFixed(2)})`,
-          sellValue: `Sell ($${sellVolume.toFixed(2)})`,
-          buyPercentage:
-            totalTurnover > 0 ? (buyVolume / totalTurnover) * 100 : 0,
-        },
-        {
-          label: `Traders (${selectedTimeRange}): ${totalTraders}`,
-          buyValue: `Buyers (${buyersCount})`,
-          sellValue: `Sellers (${sellersCount})`,
-          buyPercentage:
-            totalTraders > 0 ? (buyersCount / totalTraders) * 100 : 0,
-        },
-      ]
-    : [];
 
   return (
     <Stack gap="$5" p="$4">
@@ -110,15 +82,28 @@ export function TokenActivityOverview({
         value={selectedTimeRange}
         onChange={(value) => setSelectedTimeRange(value)}
       />
-      {activityData.map((activity) => (
-        <ActivityRow
-          key={`activity-${selectedTimeRange}-${activity.label}`}
-          label={activity.label}
-          buyValue={activity.buyValue}
-          sellValue={activity.sellValue}
-          buyPercentage={activity.buyPercentage}
-        />
-      ))}
+      {tokenDetail ? (
+        <>
+          <TransactionRow
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions,
+            })}
+            buyCount={buys}
+            sellCount={sells}
+            totalCount={totalTransactions}
+          />
+          <VolumeRow
+            label={intl
+              .formatMessage({
+                id: ETranslations.market_volume_percentage,
+              })
+              .replace(' %', '')}
+            buyVolume={buyVolume}
+            sellVolume={sellVolume}
+            totalVolume={totalVolume}
+          />
+        </>
+      ) : null}
     </Stack>
   );
 }

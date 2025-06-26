@@ -1,3 +1,5 @@
+import { useCallback, useRef } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
@@ -9,13 +11,18 @@ import { AntiMEVToggle } from './components/AntiMEVToggle';
 import { ApproveButton } from './components/ApproveButton';
 import { BalanceDisplay } from './components/BalanceDisplay';
 import { SlippageSetting } from './components/SlippageSetting';
-import { TokenInputSection } from './components/TokenInputSection';
+import {
+  type ITokenInputSectionRef,
+  TokenInputSection,
+} from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
+import { ESwapDirection } from './hooks/useTradeType';
 
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
   isLoading: boolean;
+  balanceLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: boolean;
   isApproved: boolean;
@@ -30,6 +37,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const {
     swapPanel,
     isLoading,
+    balanceLoading,
     slippageAutoValue,
     supportSpeedSwap,
     defaultTokens,
@@ -52,6 +60,15 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
   } = swapPanel;
 
+  const tokenInputRef = useRef<ITokenInputSectionRef>(null);
+
+  const handleBalanceClick = useCallback(() => {
+    if (balance) {
+      setPaymentAmount(balance);
+      tokenInputRef.current?.setValue(balance.toFixed());
+    }
+  }, [balance, setPaymentAmount]);
+
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">
       {/* Trade type selector */}
@@ -59,16 +76,24 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
       {/* Token input section */}
       <TokenInputSection
+        ref={tokenInputRef}
         tradeType={tradeType}
-        value={paymentAmount.toFixed()}
         onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-        selectedToken={paymentToken}
+        selectedToken={
+          tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
+        }
         selectableTokens={defaultTokens}
         onTokenChange={(token) => setPaymentToken(token)}
+        balance={balance}
       />
 
       {/* Balance display */}
-      <BalanceDisplay balance={balance} token={balanceToken} />
+      <BalanceDisplay
+        balance={balance}
+        token={balanceToken}
+        isLoading={balanceLoading}
+        onBalanceClick={handleBalanceClick}
+      />
 
       {/* Unsupported swap warning */}
       {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
@@ -82,8 +107,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           tradeType={tradeType}
           onPress={onSwap}
           amount={paymentAmount.toFixed()}
-          token={paymentToken}
-          totalValue={888} // TODO: Replace with actual totalValue
+          token={
+            tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
+          }
+          balance={balance}
         />
       )}
 

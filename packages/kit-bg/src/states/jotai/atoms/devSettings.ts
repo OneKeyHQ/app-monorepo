@@ -24,8 +24,7 @@ export interface IDevSettings {
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
-  // use trading view test domain
-  useTradingViewTestDomain?: boolean;
+
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
   // strict signature alert display
@@ -36,8 +35,6 @@ export interface IDevSettings {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
   };
-  // Enable market v2
-  enableMarketV2?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -61,7 +58,6 @@ export const {
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
-      enableMarketV2: false,
       enableAnalyticsRequest: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,

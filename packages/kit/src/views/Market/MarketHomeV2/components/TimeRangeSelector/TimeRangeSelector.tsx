@@ -1,3 +1,5 @@
+import { forwardRef } from 'react';
+
 import { SegmentControl } from '@onekeyhq/components';
 
 export type ITimeRangeSelectorValue = '5m' | '1h' | '4h' | '24h';
@@ -14,19 +16,22 @@ const defaultOptions: { label: string; value: ITimeRangeSelectorValue }[] = [
   { label: '24h', value: '24h' },
 ];
 
-export function TimeRangeSelector({
-  value,
-  onChange,
-}: ITimeRangeSelectorProps) {
-  const handleValueChange = (v: ITimeRangeSelectorValue) => {
-    onChange(v);
-  };
+export const TimeRangeSelector = forwardRef<any, ITimeRangeSelectorProps>(
+  ({ value, onChange }, ref) => {
+    const handleValueChange = (v: ITimeRangeSelectorValue) => {
+      onChange(v);
+    };
 
-  return (
-    <SegmentControl
-      value={value}
-      onChange={(v) => handleValueChange(v as ITimeRangeSelectorValue)}
-      options={defaultOptions}
-    />
-  );
-}
+    return (
+      <SegmentControl
+        ref={ref}
+        display="none"
+        value={value}
+        onChange={(v) => handleValueChange(v as ITimeRangeSelectorValue)}
+        options={defaultOptions}
+      />
+    );
+  },
+);
+
+TimeRangeSelector.displayName = 'TimeRangeSelector';

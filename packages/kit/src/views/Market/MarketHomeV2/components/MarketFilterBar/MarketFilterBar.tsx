@@ -1,69 +1,78 @@
 import { useState } from 'react';
 
-import { View } from 'react-native';
+import { XStack, YStack } from '@onekeyhq/components';
 
-import { Dialog, XStack } from '@onekeyhq/components';
-
-import {
-  DiscoveryFilterControl,
-  EFilterOption,
-} from '../DiscoveryFilterControl';
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
+import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 import { TimeRangeSelector } from '../TimeRangeSelector';
 
-import CustomFiltersDialog from './CustomFiltersDialog';
-import FilterButton from './FilterButton';
+import { MarketFilterBarSkeleton } from './MarketFilterBarSkeleton';
 
-import type { IFilterOptions } from './CustomFiltersDialog';
+import type { ILiquidityFilter } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 
-export function MarketFilterBar() {
-  const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('24h');
-  const [filterOption, setFilterOption] = useState<EFilterOption>(
-    EFilterOption.Trending,
-  );
-  const [, setCustomFilters] = useState<IFilterOptions | null>(null);
+export interface IMarketFilterBarProps {
+  selectedNetworkId?: string;
+  timeRange?: ITimeRangeSelectorValue;
+  liquidityFilter?: ILiquidityFilter;
+  onNetworkIdChange?: (networkId: string) => void;
+  onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
+  onLiquidityFilterChange?: (filter: ILiquidityFilter) => void;
+  isLoading?: boolean;
+}
+
+export function MarketFilterBar({
+  selectedNetworkId,
+  timeRange = '24h',
+  liquidityFilter,
+  onNetworkIdChange,
+  onTimeRangeChange,
+  onLiquidityFilterChange,
+  isLoading = false,
+}: IMarketFilterBarProps) {
+  const [currentTimeRange, setCurrentTimeRange] =
+    useState<ITimeRangeSelectorValue>(timeRange);
 
   const handleTimeRangeChange = (value: ITimeRangeSelectorValue) => {
-    setTimeRange(value);
+    setCurrentTimeRange(value);
+    onTimeRangeChange?.(value);
   };
 
-  const handleFilterOptionChange = (value: EFilterOption) => {
-    setFilterOption(value);
+  const handleLiquidityFilterApply = (filter: ILiquidityFilter) => {
+    onLiquidityFilterChange?.(filter);
   };
 
-  const handleOpenDialog = () => {
-    const dialog = Dialog.show({
-      title: 'Custom Filters',
-      showFooter: false,
-      renderContent: (
-        <CustomFiltersDialog
-          onClose={() => {
-            void dialog.close();
-          }}
-          onApply={(filters) => {
-            setCustomFilters(filters);
-            void dialog.close();
-          }}
-        />
-      ),
-    });
+  const handleNetworkIdChange = (networkId: string) => {
+    onNetworkIdChange?.(networkId);
   };
+
+  if (isLoading) {
+    return <MarketFilterBarSkeleton />;
+  }
 
   return (
-    <View>
-      <XStack alignItems="center" gap="$3">
-        <TimeRangeSelector value={timeRange} onChange={handleTimeRangeChange} />
+    <YStack gap="$3">
+      {/* Network Selector */}
+      <MarketTokenListNetworkSelector
+        selectedNetworkId={selectedNetworkId}
+        onSelectNetworkId={handleNetworkIdChange}
+        size="normal"
+        forceLoading={isLoading}
+      />
 
-        <DiscoveryFilterControl
-          value={filterOption}
-          onChange={handleFilterOptionChange}
+      <XStack gap="$3" pl="$5" pr="$5">
+        {/* Time Range Selector */}
+        <TimeRangeSelector
+          value={currentTimeRange}
+          onChange={handleTimeRangeChange}
         />
 
-        <LiquidityFilterControl />
-
-        <FilterButton onPress={handleOpenDialog} />
+        {/* Liquidity Filter */}
+        <LiquidityFilterControl
+          value={liquidityFilter}
+          onApply={handleLiquidityFilterApply}
+        />
       </XStack>
-    </View>
+    </YStack>
   );
 }

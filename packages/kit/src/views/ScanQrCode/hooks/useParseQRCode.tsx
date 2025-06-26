@@ -16,6 +16,7 @@ import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
+  IEthereumValue,
   IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
@@ -30,6 +31,7 @@ import {
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
@@ -38,6 +40,44 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
+
+export const parseOnChainAmount = async (
+  value: {
+    type: EQRCodeHandlerType;
+    data: IBaseValue;
+  },
+  token: IToken | null,
+) => {
+  const data = value.data as IChainValue;
+  if (
+    data.network &&
+    data.network.id &&
+    value.type === EQRCodeHandlerType.ETHEREUM
+  ) {
+    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+      networkId: data.network.id,
+    });
+    const chainValue = value.data as IEthereumValue;
+    if (chainValue.value && token) {
+      return chainValueUtils.convertTokenChainValueToAmount({
+        value: chainValue.value,
+        token,
+      });
+    }
+
+    if (chainValue.amount) {
+      return chainValue.amount;
+    }
+
+    if (token && chainValue.uint256) {
+      return chainValueUtils.convertTokenChainValueToAmount({
+        value: chainValue.uint256,
+        token,
+      });
+    }
+  }
+  return data.amount;
+};
 
 export const getAccountIdOnNetwork = async ({
   account,
@@ -241,6 +281,7 @@ const useParseQRCode = () => {
                   accountId,
                 });
             }
+
             await closeScanPage();
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
@@ -252,7 +293,7 @@ const useParseQRCode = () => {
                 isNFT: false,
                 token: selectedToken,
                 address: chainValue.address,
-                amount: chainValue?.amount,
+                amount: await parseOnChainAmount(result, selectedToken),
               },
             });
           }

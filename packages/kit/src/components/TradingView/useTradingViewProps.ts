@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useCalendars } from 'expo-localization';
 
 import { useMedia, useThemeValue } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -45,7 +44,6 @@ export const useTradingViewProps = ({
 }) => {
   const { md } = useMedia();
   const theme = useThemeVariant();
-  const [devSettings] = useDevSettingsPersistAtom();
   const [
     bgAppColor,
     bgSubduedColor,
@@ -99,11 +97,7 @@ export const useTradingViewProps = ({
 
     const hash = `#${JSON.stringify(params)}`;
     const query = `?t=${Date.now()}&locale=${locale}`;
-    const isTest =
-      devSettings.enabled && devSettings.settings?.useTradingViewTestDomain;
-    const uri = isTest
-      ? 'https://tradingview.onekeytest.com/'
-      : `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
+    const uri = `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
     if (platformEnv.isWeb || platformEnv.isExtension) {
       return {
         uri,
@@ -172,8 +166,6 @@ export const useTradingViewProps = ({
     targetToken,
     theme,
     bgAppColor,
-    devSettings.enabled,
-    devSettings.settings?.useTradingViewTestDomain,
     textColor,
     textDisabled,
     iconColor,

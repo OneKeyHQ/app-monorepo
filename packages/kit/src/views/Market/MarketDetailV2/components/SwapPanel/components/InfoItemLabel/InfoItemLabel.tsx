@@ -19,6 +19,7 @@ export const InfoItemLabel = ({
   const questionMarkComponent = useMemo(
     () => (
       <Popover
+        placement="bottom"
         title={title}
         renderTrigger={
           <Icon
@@ -28,7 +29,13 @@ export const InfoItemLabel = ({
             color="$iconSubdued"
           />
         }
-        renderContent={<Stack>{questionMarkContent}</Stack>}
+        renderContent={
+          <Stack p="$2">
+            <SizableText size="$bodyMd" color="$text">
+              {questionMarkContent}
+            </SizableText>
+          </Stack>
+        }
       />
     ),
     [questionMarkContent, title],

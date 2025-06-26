@@ -110,7 +110,7 @@ export class PushProviderWebSocket extends PushProviderBase {
     this.socket.on('error', (error) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 错误:', error);
     });
-    this.socket.on('reconnect', (payload) => {
+    this.socket.on('reconnect', (_payload) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 重新连接成功');
     });
     this.socket.on('disconnect', (reason) => {
@@ -207,5 +207,10 @@ export class PushProviderWebSocket extends PushProviderBase {
     );
 
     // this.socket.off('notification');
+  }
+
+  // Provide access to the socket for other services
+  getSocket(): Socket | null {
+    return this.socket;
   }
 }

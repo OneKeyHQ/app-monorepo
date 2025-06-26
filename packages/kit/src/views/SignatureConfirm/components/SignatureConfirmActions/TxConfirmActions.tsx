@@ -302,6 +302,16 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        tronResourceRental: networkUtils.isTronNetworkByNetworkId(networkId)
+          ? {
+              isResourceRentalNeeded:
+                tronResourceRentalInfo?.isResourceRentalNeeded,
+              isResourceRentalEnabled:
+                tronResourceRentalInfo?.isResourceRentalEnabled,
+              isSwapTrxEnabled: tronResourceRentalInfo?.isSwapTrxEnabled,
+              payCoinCode: tronResourceRentalInfo?.payTokenInfo?.symbol,
+            }
+          : undefined,
         tokenAddress: transferInfo?.tokenInfo?.address,
         tokenSymbol: transferInfo?.tokenInfo?.symbol,
         tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
