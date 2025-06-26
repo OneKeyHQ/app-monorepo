@@ -115,7 +115,7 @@ function ResourceRental() {
   const renderSwapTrxBlock = useCallback(() => {
     if (payType === ETronResourceRentalPayType.Native) return null;
 
-    if (!payTokenInfo) return null;
+    if (!payTokenInfo || !payTokenInfo.extraTrxNum) return null;
 
     return (
       <Accordion
