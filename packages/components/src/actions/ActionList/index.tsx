@@ -21,7 +21,11 @@ import {
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
-import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
+import {
+  IPageFooterRef,
+  PageContext,
+  usePageContext,
+} from '../../layouts/Page/PageContext';
 import {
   ButtonFrame,
   Heading,
@@ -372,19 +376,23 @@ const showActionList = (
   props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
     onClose?: () => void;
   },
-  {
-    modalNavigatorContext,
-    pageContextValue,
-  }: {
-    modalNavigatorContext: ReturnType<typeof useModalNavigatorContext>;
-    pageContextValue: ReturnType<typeof usePageContext>;
-  },
+  contexts:
+    | {
+        modalNavigatorContext: ReturnType<typeof useModalNavigatorContext>;
+        pageContextValue?: ReturnType<typeof usePageContext>;
+      }
+    | undefined,
 ) => {
+  const { modalNavigatorContext, pageContextValue } = contexts || {};
   dismissKeyboard();
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <ModalNavigatorContext.Provider value={modalNavigatorContext}>
-      <PageContext.Provider value={pageContextValue}>
+    <ModalNavigatorContext.Provider
+      value={modalNavigatorContext || { portalId: '' }}
+    >
+      <PageContext.Provider
+        value={pageContextValue || { footerRef: { current: null } as any }}
+      >
         <BasicActionList
           {...props}
           defaultOpen
