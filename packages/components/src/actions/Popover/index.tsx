@@ -347,7 +347,9 @@ function RawPopover({
             <TMPopover.Sheet.Frame
               unstyled
               paddingBottom={keyboardHeight}
-              {...(gtMd || platformEnv.isNativeIOSPad ? gtMdShFrameStyle : {})}
+              {...(gtMd || platformEnv.isNativeIOSPad
+                ? gtMdShFrameStyle
+                : undefined)}
             >
               {/* header */}
               {showHeader ? (
