@@ -4,10 +4,7 @@ import * as crypto from 'crypto';
 
 import { Button, Divider, Input, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerLegacy,
-} from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -89,18 +86,6 @@ function Demo() {
       >
         清空缓存密码
       </Button>
-
-      <AccountSelectorProviderMirror
-        enabledNum={[0, 1]}
-        config={{
-          sceneName: EAccountSelectorSceneName.swap,
-          sceneUrl: '',
-        }}
-      >
-        <AccountSelectorTriggerLegacy num={0} />
-
-        <AccountSelectorTriggerLegacy num={1} />
-      </AccountSelectorProviderMirror>
 
       <Divider />
       <Divider />

@@ -11,11 +11,11 @@ import {
   Dialog,
   Icon,
   SizableText,
-  Stack,
   Switch,
   View,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -57,6 +57,29 @@ const showResourceRentalDetailsDialog = ({
     ...dialogProps,
   });
 
+function ResourceRentalLearnMoreButton() {
+  const intl = useIntl();
+  const dialogInstance = useDialogInstance();
+  return (
+    <Button
+      flex={1}
+      textAlign="left"
+      justifyContent="flex-start"
+      size="small"
+      variant="tertiary"
+      icon="QuestionmarkOutline"
+      onPress={() => {
+        openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL);
+        void dialogInstance.close();
+      }}
+    >
+      {intl.formatMessage({
+        id: ETranslations.global_learn_more,
+      })}
+    </Button>
+  );
+}
+
 function ResourceRental() {
   const intl = useIntl();
   const [resourceRentalInfo] = useTronResourceRentalInfoAtom();
@@ -69,7 +92,6 @@ function ResourceRental() {
     payType,
     payTokenInfo,
     saveTRX,
-    createOrderParams,
     resourcePrice,
   } = resourceRentalInfo;
 
@@ -90,7 +112,7 @@ function ResourceRental() {
   const renderSwapTrxBlock = useCallback(() => {
     if (payType === ETronResourceRentalPayType.Native) return null;
 
-    if (!payTokenInfo) return null;
+    if (!payTokenInfo || !payTokenInfo.extraTrxNum) return null;
 
     return (
       <Accordion
@@ -147,21 +169,15 @@ function ResourceRental() {
                 justifyContent="space-between"
               >
                 <YStack gap="$1">
-                  <XStack alignItems="center" gap="$1.5">
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {intl.formatMessage(
-                        {
-                          id: ETranslations.wallet_exchange_usdt_for_trx,
-                        },
-                        {
-                          price_usdt: payTokenInfo?.payPurchaseTrxAmount,
-                          price_trx: payTokenInfo?.extraTrxNum,
-                        },
-                      )}
-                    </SizableText>
-                    <Stack
-                      borderRadius="$full"
+                  <XStack>
+                    <XStack
                       {...listItemPressStyle}
+                      alignItems="center"
+                      gap="$1.5"
+                      px="$1"
+                      mx="$-1"
+                      userSelect="none"
+                      borderRadius="$1"
                       onPress={() =>
                         showResourceRentalDetailsDialog({
                           title: intl.formatMessage(
@@ -192,12 +208,23 @@ function ResourceRental() {
                         })
                       }
                     >
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.wallet_exchange_usdt_for_trx,
+                          },
+                          {
+                            price_usdt: payTokenInfo?.payPurchaseTrxAmount,
+                            price_trx: payTokenInfo?.extraTrxNum,
+                          },
+                        )}
+                      </SizableText>
                       <Icon
                         name="InfoCircleOutline"
                         size="$4.5"
                         color="$iconSubdued"
                       />
-                    </Stack>
+                    </XStack>
                   </XStack>
                 </YStack>
                 <Switch
@@ -229,36 +256,16 @@ function ResourceRental() {
       <SignatureConfirmItem.Block>
         <XStack alignItems="center" gap="$2" justifyContent="space-between">
           <YStack flex={1} gap="$1">
-            <XStack alignItems="center" gap="$1.5" flexWrap="wrap">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.wallet_energy_rental_title,
-                })}
-              </SizableText>
-              {payType === ETronResourceRentalPayType.Native ? (
-                <Badge badgeSize="sm" badgeType="success">
-                  <XStack alignItems="center" gap="$1">
-                    <Icon name="FlashSolid" size="$4" color="$iconSuccess" />
-                    <SizableText size="$bodySmMedium" color="$textSuccess">
-                      {intl.formatMessage(
-                        {
-                          id: ETranslations.wallet_save_amount,
-                        },
-                        { number: saveTRX ?? '0' },
-                      )}
-                    </SizableText>
-                  </XStack>
-                </Badge>
-              ) : (
-                <Badge badgeSize="sm" badgeType="success">
-                  {intl.formatMessage({
-                    id: ETranslations.wallet_pay_with_usdt,
-                  })}
-                </Badge>
-              )}
-              <Stack
+            <XStack>
+              <XStack
                 {...listItemPressStyle}
-                borderRadius="$full"
+                alignItems="center"
+                gap="$1.5"
+                flexWrap="wrap"
+                px="$1"
+                mx="$-1"
+                userSelect="none"
+                borderRadius="$1"
                 onPress={() =>
                   showResourceRentalDetailsDialog({
                     title: intl.formatMessage({
@@ -273,36 +280,50 @@ function ResourceRental() {
                         min: resourcePrice.minutes,
                       },
                     ),
-                    content: (
-                      <Button
-                        flex={1}
-                        textAlign="left"
-                        justifyContent="flex-start"
-                        size="small"
-                        variant="tertiary"
-                        icon="QuestionmarkOutline"
-                        onPress={() =>
-                          openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL)
-                        }
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_learn_more,
-                        })}
-                      </Button>
-                    ),
+                    content: <ResourceRentalLearnMoreButton />,
                   })
                 }
               >
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_energy_rental_title,
+                  })}
+                </SizableText>
+                {payType === ETronResourceRentalPayType.Native ? (
+                  <Badge badgeSize="sm" badgeType="success">
+                    <XStack alignItems="center" gap="$1">
+                      <Icon name="FlashSolid" size="$4" color="$iconSuccess" />
+                      <SizableText size="$bodySmMedium" color="$textSuccess">
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.wallet_save_amount,
+                          },
+                          { number: saveTRX ?? '0' },
+                        )}
+                      </SizableText>
+                    </XStack>
+                  </Badge>
+                ) : (
+                  <Badge badgeSize="sm" badgeType="success">
+                    {intl.formatMessage({
+                      id: ETranslations.wallet_pay_with_usdt,
+                    })}
+                  </Badge>
+                )}
                 <Icon
                   name="InfoCircleOutline"
                   size="$4.5"
                   color="$iconSubdued"
                 />
-              </Stack>
+              </XStack>
             </XStack>
+
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.wallet_energy_rental_low_energy_detected,
+                id:
+                  payType === ETronResourceRentalPayType.Native
+                    ? ETranslations.wallet_energy_rental_low_energy_detected
+                    : ETranslations.wallet_energy_rental_insufficient_trx,
               })}
             </SizableText>
           </YStack>

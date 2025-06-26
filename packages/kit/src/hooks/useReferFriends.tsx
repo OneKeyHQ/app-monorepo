@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { ONEKEY_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -179,7 +179,7 @@ export const useReferFriends = () => {
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
-          openUrlExternal(ONEKEY_URL);
+          openUrlExternal(REFERRAL_HELP_LINK);
         },
         cancelButtonProps: {
           iconAfter: 'OpenOutline',

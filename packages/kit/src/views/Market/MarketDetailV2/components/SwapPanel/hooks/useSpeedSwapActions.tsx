@@ -54,6 +54,7 @@ export function useSpeedSwapActions(props: {
   spenderAddress: string;
   slippage: number;
   defaultTradeTokens: ISwapTokenBase[];
+  antiMEV: boolean;
 }) {
   const {
     marketToken,
@@ -65,6 +66,7 @@ export function useSpeedSwapActions(props: {
     spenderAddress,
     slippage,
     defaultTradeTokens,
+    antiMEV,
   } = props;
 
   const intl = useIntl();
@@ -313,6 +315,7 @@ export function useSpeedSwapActions(props: {
       approvesInfo: [], // todo
       onSuccess: handleSpeedSwapBuildTxSuccess,
       onCancel: cancelSpeedSwapBuildTx,
+      disableMev: !antiMEV,
     });
     return buildRes;
   }, [
@@ -327,6 +330,7 @@ export function useSpeedSwapActions(props: {
     navigationToTxConfirm,
     handleSpeedSwapBuildTxSuccess,
     cancelSpeedSwapBuildTx,
+    antiMEV,
   ]);
 
   // --- approve
@@ -466,6 +470,7 @@ export function useSpeedSwapActions(props: {
           isInternalSwap: true,
           onSuccess: handleSpeedSwapApproveTxSuccess,
           onCancel: cancelSpeedSwapApproveTx,
+          disableMev: !antiMEV,
         });
         setInAppNotificationAtom((pre) => ({
           ...pre,
@@ -501,6 +506,7 @@ export function useSpeedSwapActions(props: {
       navigationToTxConfirm,
       handleSpeedSwapApproveTxSuccess,
       cancelSpeedSwapApproveTx,
+      antiMEV,
       provider,
     ],
   );
