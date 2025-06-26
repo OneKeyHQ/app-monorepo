@@ -40,6 +40,8 @@ export interface IEthereumValue extends IChainValue {
   n?: number;
   // byte code data for transaction
   code?: string;
+  uint256?: string;
+  value?: string;
 }
 export interface ISolanaValue extends Omit<IChainValue, 'address'> {
   recipient?: string;
