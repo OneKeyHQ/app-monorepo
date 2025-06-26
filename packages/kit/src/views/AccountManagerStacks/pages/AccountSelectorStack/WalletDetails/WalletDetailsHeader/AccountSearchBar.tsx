@@ -51,23 +51,24 @@ export function AccountSearchBar({
     onSearchTextChange(text?.trim() || '');
   }, 300);
 
+  const wallet = focusedWalletInfo?.wallet;
+
+  // Check if bulk create account is available
   const canBatchCreateAccount = useMemo(() => {
-    if (accountUtils.isQrWallet({ walletId: focusedWalletInfo?.wallet?.id })) {
+    if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
       return false;
     }
     if (
-      accountUtils.isHwOrQrWallet({
-        walletId: focusedWalletInfo?.wallet?.id,
-      }) &&
-      focusedWalletInfo?.wallet?.isMocked
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id }) &&
+      wallet?.isMocked
     ) {
       return false;
     }
     return (
-      accountUtils.isHdWallet({ walletId: focusedWalletInfo?.wallet?.id }) ||
-      accountUtils.isHwOrQrWallet({ walletId: focusedWalletInfo?.wallet?.id })
+      accountUtils.isHdWallet({ walletId: wallet?.id }) ||
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
     );
-  }, [focusedWalletInfo]);
+  }, [wallet]);
 
   return (
     <XStack
