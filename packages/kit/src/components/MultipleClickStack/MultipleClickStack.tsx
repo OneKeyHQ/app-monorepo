@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -21,7 +22,7 @@ export function MultipleClickStack({
 
   return (
     <Stack
-      bg={showDevBgColor ? '$bgCritical' : undefined}
+      bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
       {...others}
       onPress={(event) => {
         if (clickCount > triggerAt) {
