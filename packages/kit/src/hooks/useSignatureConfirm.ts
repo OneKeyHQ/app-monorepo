@@ -56,6 +56,7 @@ type IBuildUnsignedTxParams = {
   feeInfo?: IFeeInfoUnit;
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
+  disableMev?: boolean;
 };
 
 function useSignatureConfirm(params: IParams) {
