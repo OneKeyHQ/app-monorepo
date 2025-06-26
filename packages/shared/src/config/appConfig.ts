@@ -33,6 +33,7 @@ export const NOTIFICATIONS_HELP_CENTER_URL =
 export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
+export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
 
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';

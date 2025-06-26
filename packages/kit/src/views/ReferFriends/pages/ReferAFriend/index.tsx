@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -27,7 +28,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { referralLink } from '@onekeyhq/shared/src/utils/referralUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 enum EPhaseState {
@@ -190,7 +190,7 @@ function ReferAFriendPage({ postConfig }: { postConfig: IInvitePostConfig }) {
                       textDecorationLine="underline"
                       cursor="pointer"
                       onPress={() => {
-                        openUrlExternal(referralLink);
+                        openUrlExternal(REFERRAL_HELP_LINK);
                       }}
                     >
                       {intl.formatMessage({
