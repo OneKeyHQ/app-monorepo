@@ -251,8 +251,11 @@ function RewardLevelMoney({
       return 'center';
     }
   }, [isLeft, isRight]);
+  if (isLeft || isRight) {
+    return null;
+  }
   return (
-    <YStack position="absolute" gap={5} top={37} width="100%" ai={ai}>
+    <YStack position="absolute" gap={5} top={22} width="100%" ai={ai}>
       <YStack
         w={1}
         h={10}
@@ -262,7 +265,7 @@ function RewardLevelMoney({
         borderBottomLeftRadius="$1"
         borderBottomRightRadius="$1"
       />
-      {threshold ? (
+      {/* {threshold ? (
         <Currency
           formatter="balance"
           textAlign={isRight ? 'right' : undefined}
@@ -274,7 +277,7 @@ function RewardLevelMoney({
         >
           {threshold}
         </Currency>
-      ) : null}
+      ) : null} */}
     </YStack>
   );
 }
@@ -294,11 +297,8 @@ function RewardLevelText({
 }) {
   return (
     <YStack>
-      <SizableText size="$bodySm" textAlign={isRight ? 'right' : 'center'}>
-        {level}
-      </SizableText>
-      <SizableText size="$bodySmMedium" color="$textSubdued">
-        {percent}
+      <SizableText size="$bodySm" color="$textSubdued">
+        {`${level} ${percent}`}
       </SizableText>
       <RewardLevelMoney
         threshold={threshold}
@@ -309,7 +309,7 @@ function RewardLevelText({
   );
 }
 
-function CumulativeRewardsLinnerItem({
+function CumulativeRewardsLineItem({
   bg,
   amount,
   title,
@@ -557,14 +557,14 @@ function Dashboard({
                 .toFixed(2)}
             </Currency>
             <YStack gap="$2">
-              <CumulativeRewardsLinnerItem
+              <CumulativeRewardsLineItem
                 bg="$iconSuccess"
                 title={intl.formatMessage({
                   id: ETranslations.referral_distributed,
                 })}
                 amount={cumulativeRewards.distributed}
               />
-              <CumulativeRewardsLinnerItem
+              <CumulativeRewardsLineItem
                 bg="$iconCaution"
                 title={intl.formatMessage({
                   id: ETranslations.referral_undistributed,
@@ -636,31 +636,45 @@ function Dashboard({
             {hardwareSales.description}
           </SizableText>
         </YStack>
-        <YStack pt="$4" px="$5">
-          <YStack gap="$2">
-            <XStack>
-              <XStack>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {`${intl.formatMessage({
-                    id: ETranslations.referral_hw_level_title,
-                  })}: `}
-                </SizableText>
-                <SizableText size="$bodyMd">{`${rebateConfig.emoji} ${rebateConfig.label}`}</SizableText>
+        <YStack px="$5">
+          <YStack>
+            <XStack py="$6" jc="space-between" ai="center">
+              <XStack gap="$2" ai="center" jc="center">
+                <XStack
+                  borderRadius="$2"
+                  w="$8"
+                  h="$8"
+                  bg="$bgStrong"
+                  ai="center"
+                  jc="center"
+                >
+                  <SizableText size="$headingXl">
+                    {rebateConfig.emoji}
+                  </SizableText>
+                </XStack>
+                <YStack>
+                  <SizableText size="$headingMd">
+                    {rebateConfig.label}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    10% reward
+                  </SizableText>
+                </YStack>
               </XStack>
-              <XStack>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {` / ${intl.formatMessage({
-                    id: ETranslations.referral_hw_sales_title,
-                  })}: `}
-                </SizableText>
-                <Currency size="$bodyMd" formatter="value">
+              <YStack ai="flex-end">
+                <Currency size="$headingMd" formatter="value">
                   {hardwareSales?.monthlySalesFiatValue
                     ? BigNumber(hardwareSales.monthlySalesFiatValue).toFixed(2)
                     : 0}
                 </Currency>
-              </XStack>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_hw_sales_title,
+                  })}
+                </SizableText>
+              </YStack>
             </XStack>
-            <YStack h={84} borderRadius="$2" py="$2" bg="$bgSubdued" px="$4">
+            <YStack h={28} borderRadius="$2" py="$2">
               <XStack mb="$2" jc="space-between">
                 {rebateLevels.map((rebateLevel, index) => {
                   return (
@@ -686,9 +700,17 @@ function Dashboard({
                 size="medium"
               />
             </YStack>
+            <XStack gap="$1" pt="$5" pb="$2">
+              <Currency size="$bodySm" formatter="balance">
+                5123
+              </Currency>
+              <SizableText size="$bodySm" color="$textSubdued">
+                more to Gold level.
+              </SizableText>
+            </XStack>
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
-            <XStack pt="$4" gap="$2">
+            <XStack gap="$2" pt="$4">
               {hardwareSales.available?.[0]?.token?.networkId ||
               hardwareSales.pending?.[0]?.token?.networkId ? (
                 <Token
