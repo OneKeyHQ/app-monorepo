@@ -372,10 +372,14 @@ function BasicActionList({
   );
 }
 
+type IShowActionListParams = Omit<
+  IActionListProps,
+  'renderTrigger' | 'defaultOpen'
+> & {
+  onClose?: () => void;
+};
 const showActionList = (
-  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
-    onClose?: () => void;
-  },
+  props: IShowActionListParams,
   contexts:
     | {
         modalNavigatorContext: ReturnType<typeof useModalNavigatorContext>;
@@ -469,7 +473,10 @@ function ActionListFrame({
   );
 }
 
+const show = (props: IShowActionListParams) =>
+  debouncedShowActionList(props, undefined);
+
 export const ActionList = withStaticProperties(ActionListFrame, {
-  show: debouncedShowActionList,
+  show,
   Item: ActionListItem,
 });
