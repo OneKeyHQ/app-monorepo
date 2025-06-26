@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { showNotificationPermissionsDialog } from '@onekeyhq/kit/src/components/PermissionsDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -32,7 +33,6 @@ import {
   type INotificationPushSettings,
 } from '@onekeyhq/shared/types/notification';
 
-import { MultipleClickStack } from '../../../../components/MultipleClickStack';
 import NotificationsHelpCenterInstruction from '../../components/NotificationsHelpCenterInstruction';
 import NotificationsTestButton from '../../components/NotificationsTestButton';
 
