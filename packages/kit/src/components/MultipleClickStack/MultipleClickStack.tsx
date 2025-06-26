@@ -8,9 +8,11 @@ import type { GestureResponderEvent } from 'react-native';
 export function MultipleClickStack({
   children,
   onPress,
+  showDevBgColor = false,
   triggerAt = 10,
   ...others
 }: {
+  showDevBgColor?: boolean;
   triggerAt?: number;
   onPress?: ((event: GestureResponderEvent) => void) | null | undefined;
   children?: ReactNode;
@@ -19,6 +21,7 @@ export function MultipleClickStack({
 
   return (
     <Stack
+      bg={showDevBgColor ? '$bgCritical' : undefined}
       {...others}
       onPress={(event) => {
         if (clickCount > triggerAt) {
