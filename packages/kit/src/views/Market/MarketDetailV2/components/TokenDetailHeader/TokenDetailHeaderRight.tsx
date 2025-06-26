@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -51,9 +52,6 @@ export function TokenDetailHeaderRight({
     address = '',
   } = tokenDetail || {};
 
-  const priceChangeNum = parseFloat(priceChange24hPercent);
-  const isPriceUp = priceChangeNum >= 0;
-
   const marketStar =
     networkId && address ? (
       <MarketStarV2
@@ -78,12 +76,9 @@ export function TokenDetailHeaderRight({
           tokenName={name}
           tokenSymbol={symbol}
         />
-        <SizableText
-          size="$bodySm"
-          color={isPriceUp ? '$textSuccess' : '$textCritical'}
-        >
-          {priceChange24hPercent.slice(0, 6)}%
-        </SizableText>
+        <PriceChangePercentage size="$bodySm">
+          {priceChange24hPercent}
+        </PriceChangePercentage>
       </YStack>
 
       <StatItem
