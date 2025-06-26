@@ -424,6 +424,10 @@ function ActionListFrame({
 
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
+  const contexts = {
+    modalNavigatorContext,
+    pageContextValue,
+  };
   const handleActionListOpen = () => {
     if (isProcessing.current) return;
 
@@ -435,17 +439,11 @@ function ActionListFrame({
             ...popoverProps,
             estimatedContentHeight: height,
           },
-          {
-            modalNavigatorContext,
-            pageContextValue,
-          },
+          contexts,
         );
       });
     } else {
-      showActionList(popoverProps, {
-        modalNavigatorContext,
-        pageContextValue,
-      });
+      showActionList(popoverProps, contexts);
     }
 
     setTimeout(() => {
