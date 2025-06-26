@@ -1,4 +1,9 @@
-import type { ComponentType, ReactElement, ReactNode } from 'react';
+import type {
+  ComponentType,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import {
   createContext,
   useCallback,
@@ -17,11 +22,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
 import { Portal } from '../../hocs';
 import {
+  ModalNavigatorContext,
   useBackHandler,
   useKeyboardHeight,
+  useModalNavigatorContext,
   useOverlayZIndex,
   useSafeAreaInsets,
 } from '../../hooks';
+import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 import { IconButton } from '../IconButton';
@@ -148,6 +156,18 @@ export const usePopoverContext = () => {
   };
 };
 
+function ModalPortalProvider({ children }: PropsWithChildren) {
+  const modalNavigatorContext = useModalNavigatorContext();
+  const pageContextValue = usePageContext();
+  return (
+    <ModalNavigatorContext.Provider value={modalNavigatorContext}>
+      <PageContext.Provider value={pageContextValue}>
+        {children}
+      </PageContext.Provider>
+    </ModalNavigatorContext.Provider>
+  );
+}
+
 const when: (state: { media: UseMediaState }) => boolean = () => true;
 function RawPopover({
   title,
@@ -256,24 +276,25 @@ function RawPopover({
   const display = useContentDisplay(isOpen, props.keepChildrenMounted);
   const keyboardHeight = useKeyboardHeight();
   const zIndex = useOverlayZIndex(isOpen);
-
   const content = (
-    <PopoverContext.Provider value={popoverContextValue}>
-      <PopoverContent
-        isOpen={isOpen}
-        closePopover={handleClosePopover}
-        keepChildrenMounted={props.keepChildrenMounted}
-      >
-        {RenderContent
-          ? ((
-              <RenderContent
-                isOpen={isOpen}
-                closePopover={handleClosePopover}
-              />
-            ) as ReactElement)
-          : (renderContent as ReactElement)}
-      </PopoverContent>
-    </PopoverContext.Provider>
+    <ModalPortalProvider>
+      <PopoverContext.Provider value={popoverContextValue}>
+        <PopoverContent
+          isOpen={isOpen}
+          closePopover={handleClosePopover}
+          keepChildrenMounted={props.keepChildrenMounted}
+        >
+          {RenderContent
+            ? ((
+                <RenderContent
+                  isOpen={isOpen}
+                  closePopover={handleClosePopover}
+                />
+              ) as ReactElement)
+            : (renderContent as ReactElement)}
+        </PopoverContent>
+      </PopoverContext.Provider>
+    </ModalPortalProvider>
   );
 
   return (
@@ -438,13 +459,20 @@ function BasicPopover({
     ),
     [closePopover, isOpen, onOpenChange, openPopover, rest, sheetProps],
   );
+  const modalNavigatorContext = useModalNavigatorContext();
+  const pageContextValue = usePageContext();
+
   if (platformEnv.isNative) {
     // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
       <>
         <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
         <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-          {memoPopover}
+          <ModalNavigatorContext.Provider value={modalNavigatorContext}>
+            <PageContext.Provider value={pageContextValue}>
+              {memoPopover}
+            </PageContext.Provider>
+          </ModalNavigatorContext.Provider>
         </Portal.Body>
       </>
     );

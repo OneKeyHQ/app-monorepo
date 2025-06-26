@@ -20,6 +20,12 @@ import {
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
+import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
+import {
+  IPageFooterRef,
+  PageContext,
+  usePageContext,
+} from '../../layouts/Page/PageContext';
 import {
   ButtonFrame,
   Heading,
@@ -366,31 +372,50 @@ function BasicActionList({
   );
 }
 
+type IShowActionListParams = Omit<
+  IActionListProps,
+  'renderTrigger' | 'defaultOpen'
+> & {
+  onClose?: () => void;
+};
 const showActionList = (
-  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
-    onClose?: () => void;
-  },
+  props: IShowActionListParams,
+  contexts:
+    | {
+        modalNavigatorContext: ReturnType<typeof useModalNavigatorContext>;
+        pageContextValue?: ReturnType<typeof usePageContext>;
+      }
+    | undefined,
 ) => {
+  const { modalNavigatorContext, pageContextValue } = contexts || {};
   dismissKeyboard();
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <BasicActionList
-      {...props}
-      defaultOpen
-      renderTrigger={null}
-      onOpenChange={(isOpen) => {
-        props.onOpenChange?.(isOpen);
-        if (!isOpen) {
-          setTimeout(() => {
-            props.onClose?.();
-          });
-          // delay the destruction of the reference to allow for the completion of the animation transition.
-          setTimeout(() => {
-            ref.destroy();
-          }, 500);
-        }
-      }}
-    />,
+    <ModalNavigatorContext.Provider
+      value={modalNavigatorContext || { portalId: '' }}
+    >
+      <PageContext.Provider
+        value={pageContextValue || { footerRef: { current: null } as any }}
+      >
+        <BasicActionList
+          {...props}
+          defaultOpen
+          renderTrigger={null}
+          onOpenChange={(isOpen) => {
+            props.onOpenChange?.(isOpen);
+            if (!isOpen) {
+              setTimeout(() => {
+                props.onClose?.();
+              });
+              // delay the destruction of the reference to allow for the completion of the animation transition.
+              setTimeout(() => {
+                ref.destroy();
+              }, 500);
+            }
+          }}
+        />
+      </PageContext.Provider>
+    </ModalNavigatorContext.Provider>,
   );
 };
 const debouncedShowActionList = debounce(
@@ -408,19 +433,29 @@ function ActionListFrame({
 
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
+
+  const modalNavigatorContext = useModalNavigatorContext();
+  const pageContextValue = usePageContext();
+  const contexts = {
+    modalNavigatorContext,
+    pageContextValue,
+  };
   const handleActionListOpen = () => {
     if (isProcessing.current) return;
 
     isProcessing.current = true;
     if (estimatedContentHeight) {
       void estimatedContentHeight().then((height) => {
-        showActionList({
-          ...popoverProps,
-          estimatedContentHeight: height,
-        });
+        showActionList(
+          {
+            ...popoverProps,
+            estimatedContentHeight: height,
+          },
+          contexts,
+        );
       });
     } else {
-      showActionList(popoverProps);
+      showActionList(popoverProps, contexts);
     }
 
     setTimeout(() => {
@@ -438,7 +473,10 @@ function ActionListFrame({
   );
 }
 
+const show = (props: IShowActionListParams) =>
+  debouncedShowActionList(props, undefined);
+
 export const ActionList = withStaticProperties(ActionListFrame, {
-  show: debouncedShowActionList,
+  show,
   Item: ActionListItem,
 });
