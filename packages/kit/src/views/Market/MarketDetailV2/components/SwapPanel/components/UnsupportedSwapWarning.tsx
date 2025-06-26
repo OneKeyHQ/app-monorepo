@@ -1,12 +1,21 @@
+import { useIntl } from 'react-intl';
+
 import { Alert } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function UnsupportedSwapWarning() {
+  const intl = useIntl();
+
   return (
     <Alert
       icon="InfoCircleOutline"
-      title="Swap Unsupported"
+      title={intl.formatMessage({
+        id: ETranslations.dexmarket_swap_unsupported_title,
+      })}
       type="warning"
-      description="Current network doesn't support swaps. Switch network or wallet."
+      description={intl.formatMessage({
+        id: ETranslations.dexmarket_swap_unsupported_desc,
+      })}
     />
   );
 }
