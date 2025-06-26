@@ -891,33 +891,28 @@ export default class Vault extends VaultBase {
     }
 
     const resp =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequestWithTrxRes<{
         transaction: Types.Transaction;
         orderId: string;
         success: boolean;
         error?: string;
       }>({
         networkId: this.networkId,
-        body: [
-          {
-            route: 'trxres',
-            params: {
-              method: 'post',
-              url: '/api/v1/order/create',
-              data: {
-                ...createOrderParams,
-                sourceFlag: (
-                  await this.getNetwork()
-                ).isTestnet
-                  ? TRON_SOURCE_FLAG_TESTNET
-                  : TRON_SOURCE_FLAG_MAINNET,
-              },
-              params: {},
-            },
+        body: {
+          method: 'post',
+          url: '/api/v1/order/create',
+          data: {
+            ...createOrderParams,
+            sourceFlag: (
+              await this.getNetwork()
+            ).isTestnet
+              ? TRON_SOURCE_FLAG_TESTNET
+              : TRON_SOURCE_FLAG_MAINNET,
           },
-        ],
+          params: {},
+        },
       });
-    return resp[0];
+    return resp;
   }
 
   async _uploadResourceRentalOrder(params: {
@@ -926,29 +921,24 @@ export default class Vault extends VaultBase {
   }) {
     const { orderId, signedTx } = params;
     const resp =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequestWithTrxRes<{
         tx_ids: string[];
         success: boolean;
         error?: string;
       }>({
         networkId: this.networkId,
-        body: [
-          {
-            route: 'trxres',
-            params: {
-              method: 'post',
-              url: '/api/tronRent/uploadHash',
-              data: {
-                orderId,
-                fromHash: signedTx.txid,
-                signedData: JSON.parse(signedTx.rawTx),
-              },
-              params: {},
-            },
+        body: {
+          method: 'post',
+          url: '/api/tronRent/uploadHash',
+          data: {
+            orderId,
+            fromHash: signedTx.txid,
+            signedData: JSON.parse(signedTx.rawTx),
           },
-        ],
+          params: {},
+        },
       });
-    return resp[0];
+    return resp;
   }
 
   async _signRentalTx(params: { unsignedTx: IUnsignedTxPro }) {

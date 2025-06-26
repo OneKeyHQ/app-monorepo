@@ -11,9 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -32,6 +30,7 @@ import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
   IProxyRequest,
   IProxyRequestItem,
+  IProxyRequestParam,
   IProxyResponse,
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
@@ -591,6 +590,33 @@ class ServiceAccountProfile extends ServiceBase {
       );
     }
     return data.map((item) => item.data);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async sendProxyRequestWithTrxRes<T>({
+    networkId,
+    body,
+  }: {
+    networkId: string;
+    body: IProxyRequestParam;
+  }): Promise<T> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const request: {
+      networkId: string;
+    } & IProxyRequestParam = { networkId, ...body };
+    const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
+      '/wallet/v1/proxy/trxres',
+      request,
+    );
+
+    if (resp.data.code !== 0) {
+      throw new OneKeyLocalError(
+        resp.data.message ?? 'Failed to send proxy request with trx res',
+      );
+    }
+
+    return resp.data.data as T;
   }
 
   @backgroundMethod()
