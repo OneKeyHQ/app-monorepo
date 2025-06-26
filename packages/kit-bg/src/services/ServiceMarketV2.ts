@@ -112,7 +112,7 @@ class ServiceMarketV2 extends ServiceBase {
   }) {
     let innerInterval = interval?.toUpperCase();
 
-    if (innerInterval?.includes('M')) {
+    if (innerInterval?.includes('M') || innerInterval?.includes('S')) {
       innerInterval = innerInterval?.toLowerCase();
     }
 

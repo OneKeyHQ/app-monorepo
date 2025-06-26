@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
 
+import { useAutoKLineUpdate } from './useAutoKLineUpdate';
 import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
 
 // import { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
@@ -36,6 +37,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const webRef = useRef<IWebViewRef | null>(null);
 
   const {
+    mode,
     onLoadEnd,
     tradingViewUrl = TRADING_VIEW_URL,
     tokenAddress = '',
@@ -86,6 +88,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
             webRef.current.sendMessageViaInjectedScript({
               type: 'kLineData',
               payload: {
+                type: 'history',
                 kLineData,
                 requestData: data.data,
               },
@@ -98,6 +101,13 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     },
     [tokenAddress, networkId],
   );
+
+  useAutoKLineUpdate({
+    tokenAddress,
+    networkId,
+    webRef,
+    enabled: mode === 'realtime',
+  });
 
   return (
     <Stack position="relative" flex={1}>
