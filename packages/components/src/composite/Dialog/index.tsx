@@ -328,6 +328,7 @@ function DialogFrame({
               width={400}
               p="$0"
               {...floatingPanelProps}
+              zIndex={floatingPanelProps?.zIndex || zIndex}
             >
               {renderDialogContent}
             </TMDialog.Content>
