@@ -58,15 +58,25 @@ function Column<T>({
   }, [align]);
 
   const renderSortIcon = useCallback(() => {
-    if (showSortIcon && order) {
+    if (showSortIcon) {
+      if (order) {
+        return (
+          <Icon
+            cursor={cursor}
+            name={
+              order === 'desc'
+                ? 'ChevronDownSmallOutline'
+                : 'ChevronTopSmallOutline'
+            }
+            color="$iconSubdued"
+            size="$4"
+          />
+        );
+      }
       return (
         <Icon
           cursor={cursor}
-          name={
-            order === 'desc'
-              ? 'ChevronDownSmallOutline'
-              : 'ChevronTopSmallOutline'
-          }
+          name="ChevronGrabberVerOutline"
           color="$iconSubdued"
           size="$4"
         />
@@ -357,7 +367,9 @@ function HeaderColumn<T>({
     });
   }, [dataIndex, enableSortType, events, onChangeSelectedName, sortOrder]);
   const cursor = enableSortType ? 'pointer' : undefined;
-  const showSortIcon = enableSortType && dataIndex === selectedColumnName;
+  const showSortIcon = enableSortType;
+  const currentSortOrder =
+    dataIndex === selectedColumnName ? sortOrder : undefined;
 
   const textAlign = useMemo(() => {
     if (align === 'right') {
@@ -373,7 +385,7 @@ function HeaderColumn<T>({
       key={dataIndex}
       name={dataIndex}
       width={columnWidth}
-      order={sortOrder}
+      order={currentSortOrder}
       onPress={handleColumnPress}
       cursor={cursor}
       {...columnProps}
@@ -668,11 +680,11 @@ function TableSkeleton<T>({
 }) {
   return (
     <YStack>
-      {new Array(count).fill(0).map((i) => (
+      {new Array(count).fill(0).map((_, index) => (
         <TableSkeletonRow
-          index={i}
+          index={index}
           columns={columns}
-          key={i}
+          key={index}
           rowProps={rowProps}
         />
       ))}

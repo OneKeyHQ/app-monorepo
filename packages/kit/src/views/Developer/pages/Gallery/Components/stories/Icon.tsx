@@ -58,7 +58,7 @@ const IconGallery = () => {
         {
           title: 'icons',
           element: (
-            <Stack space="$4" width="100%">
+            <Stack gap="$4" width="100%">
               <Input
                 placeholder="Search icons..."
                 value={searchQuery}

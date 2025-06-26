@@ -52,6 +52,7 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import type {
   IChainValue,
+  IEthereumValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -86,7 +87,10 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { getAccountIdOnNetwork } from '../../../ScanQrCode/hooks/useParseQRCode';
+import {
+  getAccountIdOnNetwork,
+  parseOnChainAmount,
+} from '../../../ScanQrCode/hooks/useParseQRCode';
 
 import RecentRecipients from './RecentRecipients';
 
@@ -567,12 +571,13 @@ function SendDataInputContainer() {
           });
         }
         console.log('token result', accountId, networkId, token);
-        if (token) {
-          const amountFromScan = result?.data?.amount;
+        const amountFromScan = await parseOnChainAmount(result, scanToken);
+        if (scanToken) {
           if (amountFromScan) {
             setIsUseFiat(true);
             form.setValue('amount', amountFromScan);
           }
+
           const formToAddress = form.getValues('to').raw;
           const formNetworkId = form.getValues('networkId');
           if (formNetworkId !== scanNetworkId) {

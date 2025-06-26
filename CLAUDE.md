@@ -157,6 +157,12 @@ The import hierarchy must be respected to prevent circular dependencies:
 - ESLint warnings should be fixed before PRs
 - Run `yarn run lint` to check for and fix ESLint issues
 
+### Comments and Documentation
+- All comments must be written in English
+- Use clear and concise English for inline comments, function documentation, and code explanations
+- Avoid using non-English languages in comments to maintain consistency and accessibility for all developers
+- Do not use Chinese comments; always use English comments only
+
 ## Internationalization (i18n) Guidelines
 
 ### Translation Management

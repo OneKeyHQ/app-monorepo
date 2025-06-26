@@ -199,6 +199,7 @@ class ServiceSend extends ServiceBase {
         signature,
         rawTxType,
         disableBroadcast,
+        disableAntiMev: signedTx.disableMev,
       },
       {
         headers:
@@ -284,6 +285,7 @@ class ServiceSend extends ServiceBase {
 
     tx.swapInfo = unsignedTx.swapInfo;
     tx.stakingInfo = unsignedTx.stakingInfo;
+    tx.disableMev = unsignedTx.disableMev;
     tx.uuid = unsignedTx.uuid;
     return tx;
   }
@@ -555,6 +557,7 @@ class ServiceSend extends ServiceBase {
       feeInfo,
       isInternalSwap,
       isInternalTransfer,
+      disableMev,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -581,6 +584,7 @@ class ServiceSend extends ServiceBase {
 
     newUnsignedTx.isInternalSwap = isInternalSwap;
     newUnsignedTx.isInternalTransfer = isInternalTransfer;
+    newUnsignedTx.disableMev = disableMev;
 
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;

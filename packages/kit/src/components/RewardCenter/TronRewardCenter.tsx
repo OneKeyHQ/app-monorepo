@@ -18,8 +18,13 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
@@ -50,7 +55,9 @@ function RewardCenterContent({
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
 
-  const claimSource = network?.isTestnet ? 'test' : '1key';
+  const claimSource = network?.isTestnet
+    ? TRON_SOURCE_FLAG_TESTNET
+    : TRON_SOURCE_FLAG_MAINNET;
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {
@@ -59,7 +66,7 @@ function RewardCenterContent({
       }
 
       const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
           totalReceivedLimit: number;
           remaining: number;
           isReceived: boolean;
@@ -71,23 +78,18 @@ function RewardCenterContent({
           success: boolean;
         }>({
           networkId,
-          body: [
-            {
-              route: 'trxres',
-              params: {
-                method: 'post',
-                url: '/api/tronRent/isReceived',
-                data: {
-                  fromAddress: account.address,
-                  sourceFlag: claimSource,
-                },
-                params: {},
-              },
+          body: {
+            method: 'post',
+            url: '/api/tronRent/isReceived',
+            data: {
+              fromAddress: account.address,
+              sourceFlag: claimSource,
             },
-          ],
+            params: {},
+          },
         });
 
-      return resp[0];
+      return resp;
     },
     [account, claimSource, network, networkId],
     {
@@ -138,30 +140,34 @@ function RewardCenterContent({
 
     try {
       const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
           resCode: number;
           resMsg: string;
           success: boolean;
           error?: string;
         }>({
           networkId,
-          body: [
-            {
-              route: 'trxres',
-              params: {
-                method: 'post',
-                url: '/api/tronRent/addFreeTronRentRecord',
-                data: {
-                  fromAddress: account.address,
-                  sourceFlag: claimSource,
-                  timestamp,
-                  signed,
-                },
-                params: {},
-              },
+          body: {
+            method: 'post',
+            url: '/api/tronRent/addFreeTronRentRecord',
+            data: {
+              fromAddress: account.address,
+              sourceFlag: claimSource,
+              timestamp,
+              signed,
             },
-          ],
+            params: {},
+          },
         });
+
+      defaultLogger.reward.tronReward.claimResource({
+        networkId,
+        address: account.address,
+        sourceFlag: claimSource ?? '',
+        isSuccess: true,
+        resourceType: 'free',
+      });
+
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.global_success,
@@ -169,7 +175,7 @@ function RewardCenterContent({
       });
       await run();
       setIsClaiming(false);
-      return resp[0];
+      return resp;
     } catch (error) {
       setIsClaiming(false);
     }
@@ -188,29 +194,34 @@ function RewardCenterContent({
 
     try {
       const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
           resCode: number;
           resMsg: string;
           success: boolean;
           error?: string;
         }>({
           networkId,
-          body: [
-            {
-              route: 'trxres',
-              params: {
-                method: 'post',
-                url: '/api/v1/coupon/redeem',
-                data: {
-                  fromAddress: account.address,
-                  code,
-                  sourceFlag: claimSource,
-                },
-                params: {},
-              },
+          body: {
+            method: 'post',
+            url: '/api/v1/coupon/redeem',
+            data: {
+              fromAddress: account.address,
+              code,
+              sourceFlag: claimSource,
             },
-          ],
+            params: {},
+          },
         });
+
+      defaultLogger.reward.tronReward.redeemResource({
+        networkId,
+        address: account.address,
+        code,
+        sourceFlag: claimSource,
+        isSuccess: true,
+        resourceType: 'code',
+      });
+
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.global_success,
@@ -219,7 +230,7 @@ function RewardCenterContent({
       await run();
 
       setIsRedeeming(false);
-      return resp[0];
+      return resp;
     } catch (error) {
       setIsRedeeming(false);
     }

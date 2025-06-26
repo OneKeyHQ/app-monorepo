@@ -6,6 +6,7 @@ export enum EAppSocketEventNames {
   ping = 'ping',
   pong = 'pong',
   ack = 'ack',
+  market = 'market',
   primeConfigChanged = 'CONFIG_CHANGE',
   primeSubscriptionChanged = 'SUBSCRIPTION_CHANGE',
   primeDeviceLogout = 'DEVICE_LOGOUT',

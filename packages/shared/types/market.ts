@@ -237,3 +237,14 @@ export enum ESpeedSwapSwitchType {
   BUY = 'buy',
   SELL = 'sell',
 }
+
+// Market Watch List V2 Types (using chainId + contractAddress)
+export interface IMarketWatchListItemV2 {
+  chainId: string;
+  contractAddress: string;
+  sortIndex?: number;
+}
+
+export interface IMarketWatchListDataV2 {
+  data: IMarketWatchListItemV2[];
+}

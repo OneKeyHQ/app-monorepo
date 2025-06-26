@@ -1,41 +1,82 @@
 import { useMemo } from 'react';
 import type { ComponentProps, FC } from 'react';
 
+import { Stack } from '@onekeyhq/components';
 import { ChainSelectorListView } from '@onekeyhq/kit/src/views/ChainSelector/components/PureChainSelector/ChainSelectorListView';
 import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-// TODO: check IServerNetworkMatch type usage from ChainSelectorListView
-// The default swapNetworksIncludeAllNetwork data structure is NOT IServerNetworkMatch[]
-// and might cause runtime issues if ChainSelectorListView relies on full IServerNetwork properties.
+// Convert ISwapNetwork to IServerNetwork format with minimal required properties
+const convertSwapNetworkToServerNetwork = ({
+  networkId,
+  name,
+  symbol,
+  logoURI,
+  isAllNetworks,
+  shortcode,
+}: ISwapNetwork): IServerNetwork => ({
+  id: networkId,
+  name,
+  symbol: symbol || name.toUpperCase(),
+  logoURI: logoURI || '',
+  isAllNetworks,
+  // Required properties with minimal defaults
+  impl: 'evm' as any,
+  chainId: networkId,
+  code: shortcode || name.toLowerCase(),
+  shortname: name,
+  shortcode: shortcode || name.toLowerCase(),
+  decimals: 18,
+  feeMeta: {
+    symbol: symbol || name.toUpperCase(),
+    decimals: 18,
+  },
+  defaultEnabled: true,
+  status: 'LISTED' as any,
+  isTestnet: false,
+  explorerURL: '',
+  isCustomNetwork: false,
+});
+
 export interface INetworksSearchPanelProps
   extends Omit<ComponentProps<typeof ChainSelectorListView>, 'networks'> {
-  // Allow networks prop to be potentially undefined or IServerNetwork[]
-  networks?: IServerNetwork[];
+  networks?: ISwapNetwork[];
+  onNetworkSelect?: (network: ISwapNetwork) => void;
 }
 
 export const NetworksSearchPanel: FC<INetworksSearchPanelProps> = ({
-  // Use imported data as default for networks prop
-  networks: networksProp, // Rename prop to avoid conflict
+  networks: networksProp,
   networkId,
-  onPressItem,
+  onNetworkSelect,
 }) => {
-  // Use the prop if provided, otherwise use the default swap data
-  const networksData = networksProp;
+  // Convert ISwapNetwork[] to IServerNetworkMatch[] for ChainSelectorListView
+  const networksForListView = useMemo(() => {
+    if (!networksProp?.length) return [];
+    return networksProp.map(
+      convertSwapNetworkToServerNetwork,
+    ) as IServerNetworkMatch[];
+  }, [networksProp]);
 
-  // Memoize the cast to avoid unnecessary recalculations
-  const networksForListView = useMemo(
-    () => networksData as IServerNetworkMatch[],
-    [networksData],
-  );
+  const handleNetworkPress = (network: IServerNetworkMatch) => {
+    // Find the original ISwapNetwork to pass back
+    if (networksProp && onNetworkSelect) {
+      const originalNetwork = networksProp.find(
+        (n) => n.networkId === network.id,
+      );
+      if (originalNetwork) {
+        onNetworkSelect(originalNetwork);
+      }
+    }
+  };
 
   return (
-    <ChainSelectorListView
-      networkId={networkId}
-      // Cast the networks data. This resolves the TS error but may hide runtime issues
-      // if the component requires full IServerNetwork properties not present in swapNetworksIncludeAllNetwork.
-      networks={networksForListView}
-      onPressItem={onPressItem}
-    />
+    <Stack pt="$4">
+      <ChainSelectorListView
+        networkId={networkId}
+        networks={networksForListView}
+        onPressItem={handleNetworkPress}
+      />
+    </Stack>
   );
 };

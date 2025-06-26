@@ -32,6 +32,7 @@ import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHi
 import type { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
+import type { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
@@ -145,6 +146,10 @@ export class SimpleDbProxy
   marketWatchList = this._createProxyService(
     'marketWatchList',
   ) as SimpleDbEntityMarketWatchList;
+
+  marketWatchListV2 = this._createProxyService(
+    'marketWatchListV2',
+  ) as SimpleDbEntityMarketWatchListV2;
 
   floatingIconDomainBlockList = this._createProxyService(
     'floatingIconDomainBlockList',
