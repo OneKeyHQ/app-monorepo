@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { showNotificationPermissionsDialog } from '@onekeyhq/kit/src/components/PermissionsDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -26,7 +27,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  ENotificationPermission,
+  type INotificationPushSettings,
+} from '@onekeyhq/shared/types/notification';
 
 import NotificationsHelpCenterInstruction from '../../components/NotificationsHelpCenterInstruction';
 import NotificationsTestButton from '../../components/NotificationsTestButton';
@@ -41,6 +46,7 @@ export default function NotificationsSettings() {
   const navigation = useAppNavigation();
 
   const prevSettings = useRef<INotificationPushSettings | undefined>();
+  const [shouldShowDevPanel, setShouldShowDevPanel] = useState(false);
 
   const { result: pushClient } = usePromiseResult(() => {
     noop(devAppSettings.enabled);
@@ -134,10 +140,24 @@ export default function NotificationsSettings() {
               <Switch
                 size="small"
                 value={!!settings?.pushEnabled}
-                onChange={(checked) => {
+                onChange={async (checked) => {
                   void updateSettings({
                     pushEnabled: checked,
                   });
+                  if (checked) {
+                    const permission =
+                      await backgroundApiProxy.serviceNotification.getPermission();
+                    await timerUtils.wait(300);
+                    if (
+                      permission.isSupported &&
+                      permission.permission !== ENotificationPermission.granted
+                    ) {
+                      navigation.pushModal(EModalRoutes.NotificationsModal, {
+                        screen:
+                          EModalNotificationsRoutes.NotificationIntroduction,
+                      });
+                    }
+                  }
                 }}
               />
             </ListItem>
@@ -186,19 +206,19 @@ export default function NotificationsSettings() {
                 ) : null}
                 {/* <ListItem>
           <ListItem.Text
-            flex={1}
-            primary={intl.formatMessage({
-              id: ETranslations.notifications_notifications_price_alert_label,
-            })}
-            secondary={intl.formatMessage({
-              id: ETranslations.notifications_notifications_price_alert_desc,
-            })}
-            secondaryTextProps={{
-              maxWidth: '$96',
-            }}
+          flex={1}
+          primary={intl.formatMessage({
+          id: ETranslations.notifications_notifications_price_alert_label,
+          })}
+          secondary={intl.formatMessage({
+          id: ETranslations.notifications_notifications_price_alert_desc,
+          })}
+          secondaryTextProps={{
+          maxWidth: '$96',
+          }}
           />
           <Switch value />
-        </ListItem> */}
+          </ListItem> */}
                 <Divider m="$5" />
                 <ListItem>
                   <ListItem.Text
@@ -229,7 +249,15 @@ export default function NotificationsSettings() {
           </>
         )}
 
-        {devAppSettings?.enabled && platformEnv.isDev ? (
+        <MultipleClickStack
+          h="$12"
+          showDevBgColor
+          onPress={() => {
+            setShouldShowDevPanel(true);
+          }}
+        />
+
+        {shouldShowDevPanel ? (
           <Stack p="$5" m="$5" borderRadius="$3" gap="$2" bg="$bgSubdued">
             <SizableText>Dev tools</SizableText>
             <Button onPress={showNotificationPermissionsDialog}>
