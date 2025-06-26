@@ -1,8 +1,12 @@
+import memoizee from 'memoizee';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
-import type { IMarketWatchListData } from '@onekeyhq/shared/types/market'; // Assuming similar data structure for now
+import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 const {
   Provider: ProviderJotaiContextMarketV2,
@@ -11,35 +15,53 @@ const {
 } = createJotaiContext();
 export { ProviderJotaiContextMarketV2, contextAtomMethod };
 
-export const { atom: basicMarketV2Atom, useContextAtom } =
-  contextAtom<IMarketWatchListData>({ data: [] }); // Simplified initial state
+export const { atom: basicMarketWatchListV2Atom, useContextAtom } =
+  contextAtom<IMarketWatchListDataV2>({ data: [] });
 
 export const {
   atom: marketV2StorageReadyAtom,
   use: useMarketV2StorageReadyAtom,
 } = contextAtom<boolean>(false);
 
-const INIT = Symbol('INIT_MARKET_V2');
-export const marketV2Atom = () =>
+// Token Detail Atoms
+export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
+  IMarketTokenDetail | undefined
+>(undefined);
+
+export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
+  contextAtom<boolean>(false);
+
+export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
+  contextAtom<string>('');
+
+export const { atom: networkIdAtom, use: useNetworkIdAtom } =
+  contextAtom<string>('');
+
+const INIT = Symbol('INIT');
+export const marketWatchListV2Atom = memoizee(() =>
   atom(
     (get) => ({
-      ...get(basicMarketV2Atom()),
+      ...get(basicMarketWatchListV2Atom()),
       isMounted: get(marketV2StorageReadyAtom()),
     }),
     (get, set, arg: any) => {
       if (arg === INIT) {
-        // Simplified: Initialize with empty data and set ready to true immediately
-        // In a real scenario, you might fetch initial data here
-        set(basicMarketV2Atom(), { data: [] });
-        set(marketV2StorageReadyAtom(), true);
+        void backgroundApiProxy.serviceMarketV2
+          .getMarketWatchListV2()
+          .then((data) => {
+            set(basicMarketWatchListV2Atom(), data);
+            set(marketV2StorageReadyAtom(), true);
+          });
       } else {
-        set(basicMarketV2Atom(), arg);
+        set(basicMarketWatchListV2Atom(), arg);
       }
     },
-  );
+  ),
+);
 
-marketV2Atom().onMount = (setAtom) => {
+marketWatchListV2Atom().onMount = (setAtom) => {
   setAtom(INIT);
 };
 
-export const useMarketV2Atom = () => useContextAtom(marketV2Atom());
+export const useMarketWatchListV2Atom = () =>
+  useContextAtom(marketWatchListV2Atom());

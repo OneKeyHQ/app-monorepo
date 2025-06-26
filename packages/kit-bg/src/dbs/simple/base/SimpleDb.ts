@@ -28,6 +28,7 @@ import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory
 import { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
+import { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
@@ -88,6 +89,8 @@ export class SimpleDb {
   feeInfo = new SimpleDbEntityFeeInfo();
 
   marketWatchList = new SimpleDbEntityMarketWatchList();
+
+  marketWatchListV2 = new SimpleDbEntityMarketWatchListV2();
 
   floatingIconDomainBlockList = new SimpleDbEntityFloatingIconDomainBlockList();
 

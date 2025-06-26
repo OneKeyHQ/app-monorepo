@@ -1,21 +1,22 @@
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
 import { TradingViewV1 } from './TradingViewV1';
 import { TradingViewV2 } from './TradingViewV2';
 
 import type { ITradingViewProps } from './TradingViewV1';
 import type { WebViewProps } from 'react-native-webview';
 
-export function TradingView(props: ITradingViewProps & WebViewProps) {
-  const [devSettings] = useDevSettingsPersistAtom();
-  const useTradingViewTestDomain =
-    devSettings.enabled && devSettings.settings?.useTradingViewTestDomain;
+interface ITradingViewWithVersionProps extends ITradingViewProps {
+  version?: 'v1' | 'v2';
+}
 
-  if (useTradingViewTestDomain) {
+export function TradingView({
+  version = 'v1',
+  ...props
+}: ITradingViewWithVersionProps & WebViewProps) {
+  if (version === 'v2') {
     return <TradingViewV2 {...props} />;
   }
 
   return <TradingViewV1 {...props} />;
 }
 
-export type { ITradingViewProps };
+export type { ITradingViewProps, ITradingViewWithVersionProps, TradingViewV2 };

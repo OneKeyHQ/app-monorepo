@@ -1,58 +1,65 @@
+import { useIntl } from 'react-intl';
+
 import {
-  ButtonFrame,
+  Button,
   Dialog,
   Icon,
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { TokenSecurityAlertDialogContent } from './TokenSecurityAlertDialogContent';
-import { useTokenSecurity } from './useTokenSecurity';
+import { useTokenDetail } from '../../hooks/useTokenDetail';
 
-type ITokenSecurityAlertProps = {
-  tokenAddress?: string;
-  networkId: string;
-};
+import { TokenSecurityAlertDialogContent } from './components';
+import { useTokenSecurity } from './hooks';
 
-function TokenSecurityAlert({
-  tokenAddress,
-  networkId,
-}: ITokenSecurityAlertProps) {
-  const { securityData, securityStatus, warningCount, error, loading } =
-    useTokenSecurity({
-      tokenAddress,
-      networkId,
-    });
+function TokenSecurityAlert() {
+  const intl = useIntl();
+  const { tokenAddress, networkId } = useTokenDetail();
+
+  const { securityData, securityStatus, warningCount } = useTokenSecurity({
+    tokenAddress,
+    networkId,
+  });
 
   const handlePress = () => {
     Dialog.show({
-      title: 'Token Security Alert',
+      title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       showFooter: false,
       renderContent: (
         <TokenSecurityAlertDialogContent
           securityData={securityData}
-          error={error}
-          loading={loading}
+          warningCount={warningCount}
         />
       ),
     });
   };
 
-  // Don't render if loading or no security data
-  if (loading || (!securityData && !error)) {
+  // Don't render if no security data
+  if (!securityData) {
     return null;
   }
 
   const color = securityStatus === 'warning' ? '$iconCaution' : '$iconSuccess';
 
   return (
-    <ButtonFrame bg="$transparent" borderWidth={0} onPress={handlePress}>
-      <XStack gap="$0.5">
-        <Icon name="BugOutline" size={12} color={color} />
+    <Button
+      variant="tertiary"
+      bg="$transparent"
+      borderWidth={0}
+      onPress={handlePress}
+    >
+      <XStack gap="$0.5" ai="center">
+        <Icon name="BugOutline" size="$4" color={color} />
 
-        <SizableText color={color}>{warningCount}</SizableText>
+        {warningCount > 0 ? (
+          <SizableText size="$bodySmMedium" color={color}>
+            {warningCount}
+          </SizableText>
+        ) : null}
       </XStack>
-    </ButtonFrame>
+    </Button>
   );
 }
 

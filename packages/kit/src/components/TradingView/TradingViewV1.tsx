@@ -14,14 +14,37 @@ interface IBaseTradingViewProps {
   baseToken: string;
   targetToken: string;
   onLoadEnd: () => void;
+  /**
+   * Optional fields that are primarily used by TradingViewV2.
+   * They are declared here as optional so that shared callers (e.g. <TradingView />)
+   * can pass them without causing type-checking errors when the runtime component
+   * happens to render TradingViewV1 instead of TradingViewV2.
+   */
+  tokenAddress?: string;
+  networkId?: string;
+  tradingViewUrl?: string;
+  interval?: string;
+  timeFrom?: number;
+  timeTo?: number;
 }
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
 export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
-  const { targetToken, identifier, baseToken, ...otherProps } =
-    restProps as IBaseTradingViewProps;
+  const {
+    targetToken,
+    identifier,
+    baseToken,
+    // Strip out TradingViewV2-specific optional props so they are not forwarded to the inner WebView.
+    tokenAddress: _tokenAddress,
+    networkId: _networkId,
+    tradingViewUrl: _tradingViewUrl,
+    interval: _interval,
+    timeFrom: _timeFrom,
+    timeTo: _timeTo,
+    ...otherProps
+  } = restProps as IBaseTradingViewProps;
   const tradingViewProps = useTradingViewProps({
     targetToken,
     identifier,
