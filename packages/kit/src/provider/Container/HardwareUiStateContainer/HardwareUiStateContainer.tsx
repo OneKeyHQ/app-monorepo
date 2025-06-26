@@ -19,7 +19,6 @@ import {
   DialogContainer,
   Portal,
   SizableText,
-  useOverlayZIndex,
 } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
@@ -112,25 +111,6 @@ function HardwareSingletonDialogCmp(
     ),
     [action],
   );
-
-  const zIndex = useOverlayZIndex(open);
-  // DeviceChecking
-  const sheetProps = useMemo(() => {
-    if (platformEnv.isNative) {
-      return {
-        zIndex,
-      };
-    }
-    return undefined;
-  }, [zIndex]);
-  const sheetOverlayProps = useMemo(() => {
-    if (platformEnv.isNative) {
-      return {
-        zIndex,
-      };
-    }
-    return undefined;
-  }, [zIndex]);
 
   useEffect(() => {
     if (!open) {
@@ -323,8 +303,6 @@ function HardwareSingletonDialogCmp(
       renderContent={result.content}
       {...props} // pass down cloneElement props
       showExitButton={showCloseButton}
-      sheetProps={sheetProps}
-      sheetOverlayProps={sheetOverlayProps}
     />
   ) : null;
 }
