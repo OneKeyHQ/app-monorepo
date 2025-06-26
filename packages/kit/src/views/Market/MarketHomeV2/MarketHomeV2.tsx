@@ -1,58 +1,62 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { Animated, Easing } from 'react-native';
-
-import { Page } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Page, useMedia } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import useHomePageWidth from '../../Home/hooks/useHomePageWidth';
-import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
+import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
 
-import { MarketFilterBar } from './components/MarketFilterBar';
-import { MarketTokenList } from './components/MarketTokenList';
-import MarketTokenListNetworkSelector from './components/MarketTokenListNetworkSelector/MarketTokenListNetworkSelector';
+import { DesktopLayout } from './layouts/DesktopLayout';
+import { MobileLayout } from './layouts/MobileLayout';
+import { EMarketHomeTab } from './types';
 
-let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
+import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
+import type { ILiquidityFilter, IMarketHomeTabValue } from './types';
 
 function MarketHome() {
-  const { pageWidth } = useHomePageWidth();
-  const [selectedNetworkId, setSelectedNetworkId] =
-    useState<string>('sol--101'); // 默认选择 Solana
+  const { md } = useMedia();
 
-  if (CONTENT_ITEM_WIDTH == null) {
-    CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
-  }
-  useEffect(() => {
-    if (!CONTENT_ITEM_WIDTH) {
-      return;
-    }
-    Animated.timing(CONTENT_ITEM_WIDTH, {
-      toValue: pageWidth,
-      duration: 400,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [pageWidth]);
+  const [selectedNetworkId, setSelectedNetworkId] =
+    useState<string>('sol--101');
+  const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({});
+  const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
+
+  const [activeTab, setActiveTab] = useState<IMarketHomeTabValue>(
+    EMarketHomeTab.Trending,
+  );
+
+  const commonProps = useMemo(
+    () => ({
+      filterBarProps: {
+        selectedNetworkId,
+        timeRange,
+        liquidityFilter,
+        onNetworkIdChange: setSelectedNetworkId,
+        onTimeRangeChange: setTimeRange,
+        onLiquidityFilterChange: setLiquidityFilter,
+      },
+      selectedNetworkId,
+      liquidityFilter,
+      activeTab,
+      onTabChange: setActiveTab,
+    }),
+    [selectedNetworkId, timeRange, liquidityFilter, activeTab],
+  );
 
   return (
     <Page>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
+        sceneName={EAccountSelectorSceneName.market}
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        <MarketTokenListNetworkSelector
-          selectedNetworkId={selectedNetworkId}
-          onSelectNetworkId={setSelectedNetworkId}
-        />
-
-        <MarketFilterBar />
-
-        <MarketTokenList networkId={selectedNetworkId} />
+        {md ? (
+          <MobileLayout {...commonProps} />
+        ) : (
+          <DesktopLayout {...commonProps} />
+        )}
       </Page.Body>
     </Page>
   );
@@ -62,16 +66,14 @@ export function MarketHomeV2() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
+        sceneName: EAccountSelectorSceneName.market,
+        sceneUrl: ETabRoutes.Market,
       }}
       enabledNum={[0]}
     >
-      <MarketWatchListProviderMirror
-        storeName={EJotaiContextStoreNames.marketWatchList}
-      >
+      <ProviderJotaiContextMarketV2>
         <MarketHome />
-      </MarketWatchListProviderMirror>
+      </ProviderJotaiContextMarketV2>
     </AccountSelectorProviderMirror>
   );
 }

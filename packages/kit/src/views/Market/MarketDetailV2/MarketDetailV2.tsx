@@ -1,13 +1,13 @@
+import { useEffect } from 'react';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, Stack, XStack } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Page, XStack, useMedia } from '@onekeyhq/components';
 import {
   type ETabMarketV2Routes,
   ETabRoutes,
   type ITabMarketV2ParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IMarketTokenDetail as IMarketTokenDetailV2 } from '@onekeyhq/shared/types/marketV2';
 
 import {
   AccountSelectorProviderMirror,
@@ -16,23 +16,26 @@ import {
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
-import { TradingView } from '../../../components/TradingView';
-import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
+import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
 
-import { SwapPanel, TokenDetailHeader } from './components';
-import { TokenActivityOverview } from './components/TokenActivityOverview';
 import { useMarketDetail } from './hooks/useMarketDetail';
+import { DesktopLayout } from './layouts/DesktopLayout';
+import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
   const { tokenAddress, networkId } = route.params;
 
-  const { tokenDetail }: { tokenDetail: IMarketTokenDetailV2 | undefined } =
-    useMarketDetail({
+  // Initialize market detail data using the custom hook
+  const { initializeTokenDetail } = useMarketDetail();
+
+  useEffect(() => {
+    void initializeTokenDetail({
       tokenAddress,
       networkId,
     });
+  }, [initializeTokenDetail, tokenAddress, networkId]);
 
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
@@ -46,6 +49,8 @@ function MarketDetail({
     </XStack>
   );
 
+  const media = useMedia();
+
   return (
     <Page>
       <TabPageHeader
@@ -53,30 +58,12 @@ function MarketDetail({
         tabRoute={ETabRoutes.Market}
         customHeaderLeftItems={customHeaderLeft}
       />
-      <Page.Body>
-        <TokenDetailHeader tokenDetail={tokenDetail} networkId={networkId} />
-
-        <XStack>
-          <TradingView
-            mode="realtime"
-            identifier="BTCUSDT"
-            baseToken="BTC"
-            targetToken="USDT"
-            onLoadEnd={() => {}}
-          />
-
-          <Stack w="$100">
-            <SwapPanel tokenDetail={tokenDetail} networkId={networkId} />
-
-            <TokenActivityOverview tokenDetail={tokenDetail} />
-          </Stack>
-        </XStack>
-      </Page.Body>
+      <Page.Body>{media.gtMd ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
   );
 }
 
-export default function MarketDetailWithProvider(
+function MarketDetailWithProvider(
   props: IPageScreenProps<
     ITabMarketV2ParamList,
     ETabMarketV2Routes.MarketDetail
@@ -85,16 +72,16 @@ export default function MarketDetailWithProvider(
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
+        sceneName: EAccountSelectorSceneName.market,
+        sceneUrl: ETabRoutes.Market,
       }}
       enabledNum={[0]}
     >
-      <MarketWatchListProviderMirror
-        storeName={EJotaiContextStoreNames.marketWatchList}
-      >
+      <ProviderJotaiContextMarketV2>
         <MarketDetail {...props} />
-      </MarketWatchListProviderMirror>
+      </ProviderJotaiContextMarketV2>
     </AccountSelectorProviderMirror>
   );
 }
+
+export { MarketDetailWithProvider };

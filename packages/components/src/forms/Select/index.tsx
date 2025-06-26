@@ -175,7 +175,9 @@ function SelectItem({
               mr: '$0.5',
             })}
           />
-        ) : null}
+        ) : (
+          <Stack w="$8" h={1} />
+        )}
       </XStack>
     ),
     [

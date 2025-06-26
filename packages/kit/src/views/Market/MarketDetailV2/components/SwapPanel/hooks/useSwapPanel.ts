@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useAtom } from 'jotai';
 
-import { networkIdAtom } from '../atoms/swapPanelAtoms';
-
-import { useBalance } from './useBalance';
 import { useTradeType } from './useTradeType';
 
 import type { IToken } from '../types';
 
 export function useSwapPanel({
-  networkId: networkIdProp,
+  networkId: initialNetworkId,
 }: { networkId?: string } = {}) {
   const { tradeType, setTradeType } = useTradeType();
   const [paymentAmount, setPaymentAmount] = useState<BigNumber>(
@@ -19,17 +15,14 @@ export function useSwapPanel({
   );
   const [antiMEV, setAntiMEV] = useState(false);
   const [paymentToken, setPaymentToken] = useState<IToken>();
-  const [networkId, setNetworkId] = useAtom(networkIdAtom);
+  const [networkId, setNetworkId] = useState(initialNetworkId);
   const [slippage, setSlippage] = useState<number>(0.5);
-  const { balance, setBalance, balanceToken } = useBalance({
-    token: paymentToken,
-  });
 
   useEffect(() => {
-    if (networkIdProp) {
-      setNetworkId(networkIdProp);
+    if (initialNetworkId) {
+      setNetworkId(initialNetworkId);
     }
-  }, [networkIdProp, setNetworkId]);
+  }, [initialNetworkId, setNetworkId]);
 
   const handleAntiMEVToggle = useCallback(() => {
     setAntiMEV((prev) => !prev);
@@ -42,11 +35,6 @@ export function useSwapPanel({
     // For NetworkSelector
     networkId,
     setNetworkId,
-
-    // For BalanceDisplay
-    balance,
-    setBalance,
-    balanceToken,
 
     // For AntiMEVToggle
     handleAntiMEVToggle,
