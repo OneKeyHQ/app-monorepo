@@ -47,7 +47,7 @@ export type ISettingsPersistAtom = {
   hardwareTransportType?: EHardwareTransportType;
 
   hiddenWalletImmediately: boolean;
-  showAddHiddenInWalletSidebar: boolean;
+  showAddHiddenInWalletSidebar?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {

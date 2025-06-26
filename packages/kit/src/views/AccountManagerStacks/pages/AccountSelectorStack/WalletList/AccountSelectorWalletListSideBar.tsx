@@ -176,7 +176,7 @@ export function AccountSelectorWalletListSideBar({
 
   const CELL_HEIGHT = 68;
 
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
 
   const getHiddenWalletsLength = useCallback(
     (wallet: IDBWallet) => {

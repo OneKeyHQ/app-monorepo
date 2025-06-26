@@ -42,7 +42,7 @@ function AddHiddenWalletDialogContent() {
             setSettings(
               (prev): ISettingsPersistAtom => ({
                 ...prev,
-                showAddHiddenInWalletSidebar: value,
+                showAddHiddenInWalletSidebar: !!value,
               }),
             );
           }}

@@ -1,4 +1,4 @@
-import { type ComponentProps, useCallback, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -20,6 +20,7 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -211,7 +212,18 @@ export function WalletListItem({
   const hiddenWallets = wallet?.hiddenWallets;
   const isHwOrQrWallet = accountUtils.isHwOrQrWallet({ walletId: wallet?.id });
   const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
-  const [settings] = useSettingsPersistAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
+
+  useEffect(() => {
+    if (settings?.showAddHiddenInWalletSidebar === undefined) {
+      setSettings(
+        (prev): ISettingsPersistAtom => ({
+          ...prev,
+          showAddHiddenInWalletSidebar: true,
+        }),
+      );
+    }
+  }, [settings?.showAddHiddenInWalletSidebar, setSettings]);
 
   // Use the walletName that has already been processed by i18n in background,
   // otherwise, every time the walletName is displayed elsewhere, it will need to be processed by i18n again.
