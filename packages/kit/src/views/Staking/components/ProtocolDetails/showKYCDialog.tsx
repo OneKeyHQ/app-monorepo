@@ -60,6 +60,9 @@ function KYCDialogContent({
               label={checkbox.text}
               value={checkboxStates[index]}
               onChange={handleCheckboxChange(index)}
+              labelProps={{
+                variant: '$bodyMdMedium',
+              }}
             />
           </XStack>
         ))}

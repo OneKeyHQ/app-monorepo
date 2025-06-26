@@ -99,29 +99,6 @@ export function PrimeBenefitsList({
         }}
       />
       <PrimeBenefitsItem
-        icon="MultipleDevicesOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_prime_device_management,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.prime_device_management_desc,
-        })}
-        onPress={async () => {
-          if (isPrimeSubscriptionActive) {
-            await ensureOneKeyIDLoggedIn();
-            navigation.pushFullModal(EModalRoutes.PrimeModal, {
-              screen: EPrimePages.PrimeDeviceLimit,
-            });
-          } else {
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.DeviceManagement,
-              selectedSubscriptionPeriod,
-            });
-          }
-        }}
-      />
-      <PrimeBenefitsItem
         isComingSoon
         icon="Copy3Outline"
         title={intl.formatMessage({
@@ -131,19 +108,11 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
         onPress={() => {
-          if (isPrimeSubscriptionActive) {
-            if (process.env.NODE_ENV !== 'production') {
-              Toast.success({
-                title: 'Bulk Copy Addresses',
-              });
-            }
-          } else {
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
-              selectedSubscriptionPeriod,
-            });
-          }
+          navigation.navigate(EPrimePages.PrimeFeatures, {
+            showAllFeatures: true,
+            selectedFeature: EPrimeFeatures.BulkCopyAddresses,
+            selectedSubscriptionPeriod,
+          });
         }}
       />
       <PrimeBenefitsItem
@@ -156,11 +125,11 @@ export function PrimeBenefitsList({
           id: ETranslations.global_bulk_revoke_desc,
         })}
         onPress={() => {
-          if (process.env.NODE_ENV !== 'production') {
-            Toast.success({
-              title: 'Bulk Revoke',
-            });
-          }
+          navigation.navigate(EPrimePages.PrimeFeatures, {
+            showAllFeatures: true,
+            selectedFeature: EPrimeFeatures.BulkRevoke,
+            selectedSubscriptionPeriod,
+          });
         }}
       />
 

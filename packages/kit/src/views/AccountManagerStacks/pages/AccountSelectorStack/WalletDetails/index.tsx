@@ -33,6 +33,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -59,7 +60,6 @@ export interface IWalletDetailsProps {
 
 function WalletDetailsView({ num }: IWalletDetailsProps) {
   const intl = useIntl();
-  // const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
   const { serviceAccount, serviceAccountSelector, serviceNetwork } =
     backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
@@ -70,7 +70,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const isEditableRouteParams = route.params?.editable;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
   const [searchText, setSearchText] = useState('');
-  const { createQrWallet } = useCreateQrWallet();
+  const { createQrWalletByAccount } = useCreateQrWallet();
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     selectedAccount,
@@ -409,8 +409,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                     qrHiddenCreateGuideDialog.showDialogForCreatingStandardWallet(
                       {
                         onConfirm: () => {
-                          void createQrWallet({
-                            isOnboarding: true,
+                          void createQrWalletByAccount({
+                            walletId: focusedWalletInfo.wallet?.id || '',
+                            networkId:
+                              selectedAccount?.networkId ||
+                              getNetworkIdsMap().onekeyall,
+                            indexedAccountId:
+                              selectedAccount.indexedAccountId || '',
                           });
                         },
                       },
@@ -552,7 +557,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsCount,
     accountsValue,
     actions,
-    createQrWallet,
+    createQrWalletByAccount,
     editable,
     focusedWalletInfo,
     getItemLayout,
@@ -647,6 +652,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         <AccountSearchBar
           searchText={searchText}
           onSearchTextChange={setSearchText}
+          num={num}
+          isOthersUniversal={isOthersUniversal}
+          focusedWalletInfo={focusedWalletInfo}
         />
       ) : null}
 

@@ -1,67 +1,160 @@
-import { memo, useMemo } from 'react';
+import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
-import { XStack } from '@onekeyhq/components';
+import { ScrollView, XStack } from '@onekeyhq/components';
+import type { IPopoverProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
+import { GradientMask } from './GradientMask';
 import { MoreButton } from './MoreButton';
 import { NetworksFilterItem } from './NetworksFilterItem';
 
+import type { ScrollView as ScrollViewType } from 'react-native';
+
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
-  disableNetworks?: string[];
-  moreNetworksCount?: number;
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
-  onMoreNetwork: () => void;
+  onMoreNetworkSelect: (network: ISwapNetwork) => void;
+  placement?: IPopoverProps['placement'];
 }
 
-const MarketNetworkFilter = ({
-  networks,
-  selectedNetwork,
-  onSelectNetwork,
-  disableNetworks,
-  moreNetworksCount,
-  onMoreNetwork,
-}: ISwapNetworkToggleGroupProps) => {
-  const { width } = useWindowDimensions();
-  const intl = useIntl();
-  const isWiderScreen = width > 680;
-  const filteredNetworks = useMemo(
-    () => (isWiderScreen ? networks : networks.slice(0, 20)),
-    [networks, isWiderScreen],
-  );
-  return (
-    <XStack px="$5" pt="$1" pb="$3" gap="$2">
-      {filteredNetworks.map((network) => (
-        <NetworksFilterItem
-          key={network.networkId}
-          networkName={network.name}
-          disabled={Boolean(disableNetworks?.includes(network.networkId))}
-          networkImageUri={network.logoURI}
-          tooltipContent={
-            network.isAllNetworks
-              ? intl.formatMessage({ id: ETranslations.global_all_networks })
-              : network.name
-          }
-          isSelected={network?.networkId === selectedNetwork?.networkId}
-          onPress={
-            disableNetworks?.includes(network.networkId)
-              ? undefined
-              : () => {
-                  onSelectNetwork(network);
-                }
-          }
-        />
-      ))}
-      {moreNetworksCount && moreNetworksCount > 0 ? (
-        <MoreButton onPress={onMoreNetwork} />
-      ) : null}
-    </XStack>
-  );
-};
+// Layout constants for network filter scrolling calculations
+const ITEM_COMPONENT_WIDTHS = {
+  ICON: 24,
+  TEXT_PADDING: 24,
+  TEXT_MARGIN: 8,
+  MIN_TEXT_WIDTH: 50,
+} as const;
 
-export default memo(MarketNetworkFilter);
+const LAYOUT_CONSTANTS = {
+  ITEM_GAP: 8, // $2 gap between items
+  CONTAINER_PADDING: 4, // p="$1" = 4px
+  SCROLL_OFFSET_ADJUSTMENT: 20, // Additional offset for scroll positioning
+  LEFT_GRADIENT_THRESHOLD: 2, // Minimum scroll distance to show left gradient
+} as const;
+
+export interface IMarketNetworkFilterRef {
+  scrollToNetwork: (networkId: string) => void;
+}
+
+const MarketNetworkFilter = forwardRef<
+  IMarketNetworkFilterRef,
+  ISwapNetworkToggleGroupProps
+>(
+  (
+    {
+      networks,
+      selectedNetwork,
+      onSelectNetwork,
+      onMoreNetworkSelect,
+      placement,
+    },
+    ref,
+  ) => {
+    const intl = useIntl();
+    const [scrollX, setScrollX] = useState(0);
+    const scrollViewRef = useRef<ScrollViewType>(null);
+    const shouldShowLeftGradient =
+      scrollX > LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToNetwork: (networkId: string) => {
+          const networkIndex = networks.findIndex(
+            (network) => network.networkId === networkId,
+          );
+          if (networkIndex !== -1 && scrollViewRef.current) {
+            const itemWidth =
+              ITEM_COMPONENT_WIDTHS.ICON +
+              ITEM_COMPONENT_WIDTHS.TEXT_PADDING +
+              ITEM_COMPONENT_WIDTHS.TEXT_MARGIN +
+              ITEM_COMPONENT_WIDTHS.MIN_TEXT_WIDTH;
+            const gap = LAYOUT_CONSTANTS.ITEM_GAP;
+            const containerPadding = LAYOUT_CONSTANTS.CONTAINER_PADDING;
+
+            const scrollToX = Math.max(
+              0,
+              networkIndex * (itemWidth + gap) -
+                containerPadding -
+                LAYOUT_CONSTANTS.SCROLL_OFFSET_ADJUSTMENT,
+            );
+
+            scrollViewRef.current.scrollTo({
+              x: scrollToX,
+              animated: true,
+            });
+          }
+        },
+      }),
+      [networks],
+    );
+
+    return (
+      <XStack
+        position="relative"
+        p="$1"
+        gap="$1"
+        maxWidth="100%"
+        overflow="hidden"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        borderRadius="$2"
+      >
+        <XStack flex={1} position="relative">
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onScroll={(event) => {
+              const currentScrollX = event.nativeEvent.contentOffset.x;
+              setScrollX(currentScrollX);
+            }}
+            scrollEventThrottle={16}
+          >
+            <XStack gap="$2" pr="$4">
+              {networks.map((network) => (
+                <NetworksFilterItem
+                  key={network.networkId}
+                  networkName={network.name}
+                  networkImageUri={network.logoURI}
+                  tooltipContent={
+                    network.isAllNetworks
+                      ? intl.formatMessage({
+                          id: ETranslations.global_all_networks,
+                        })
+                      : network.name
+                  }
+                  isSelected={network?.networkId === selectedNetwork?.networkId}
+                  onPress={() => onSelectNetwork(network)}
+                />
+              ))}
+            </XStack>
+          </ScrollView>
+
+          <GradientMask
+            opacity={shouldShowLeftGradient ? 1 : 0}
+            position="left"
+          />
+          <GradientMask position="right" />
+        </XStack>
+
+        <MoreButton
+          networks={networks}
+          selectedNetworkId={selectedNetwork?.networkId}
+          onNetworkSelect={onMoreNetworkSelect}
+          placement={placement}
+        />
+      </XStack>
+    );
+  },
+);
+
+MarketNetworkFilter.displayName = 'MarketNetworkFilter';
+
+const MarketNetworkFilterComponent = memo(MarketNetworkFilter);
+
+export { MarketNetworkFilterComponent as MarketNetworkFilter };

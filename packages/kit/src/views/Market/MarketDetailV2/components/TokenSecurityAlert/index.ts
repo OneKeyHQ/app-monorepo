@@ -1,3 +1,3 @@
 export * from './TokenSecurityAlert';
-export { formatSecurityData } from './useTokenSecurity';
-export type { ISecurityKeyValue } from './useTokenSecurity';
+export { formatSecurityData } from './utils';
+export type { ISecurityKeyValue } from './types';

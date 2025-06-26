@@ -6,10 +6,9 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, useMedia } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { SwapTestPanel } from './components/SwapTestPanel';
+import { useTokenDetail } from '../../hooks/useTokenDetail';
+
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
@@ -18,20 +17,14 @@ import { SwapPanelContent } from './SwapPanelContent';
 
 import type { IToken } from './types';
 
-export type ISwapPanelProps = {
-  networkId?: string;
-  tokenDetail?: IMarketTokenDetail;
-};
-
-export function SwapPanel(props: ISwapPanelProps) {
-  const { networkId: networkIdProp, tokenDetail } = props;
-
-  console.log('networkIdProp, tokenDetail', networkIdProp, tokenDetail);
+export function SwapPanel() {
   const intl = useIntl();
   const media = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { networkId, tokenDetail } = useTokenDetail();
+
   const swapPanel = useSwapPanel({
-    networkId: networkIdProp ?? 'evm--1',
+    networkId: networkId || 'evm--1',
   });
 
   const {
@@ -45,29 +38,29 @@ export function SwapPanel(props: ISwapPanelProps) {
   } = swapPanel;
 
   const { isLoading, speedConfig, supportSpeedSwap, defaultTokens, provider } =
-    useSpeedSwapInit(networkIdProp ?? '');
+    useSpeedSwapInit(networkId || '');
 
   const useSpeedSwapActionsParams = {
     slippage,
     spenderAddress: speedConfig.spenderAddress,
     marketToken: {
-      networkId: networkIdProp ?? '',
-      contractAddress: tokenDetail?.address ?? '',
-      symbol: tokenDetail?.symbol ?? '',
-      decimals: tokenDetail?.decimals ?? 0,
-      logoURI: tokenDetail?.logoUrl ?? '',
+      networkId: networkId || '',
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      decimals: tokenDetail?.decimals || 0,
+      logoURI: tokenDetail?.logoUrl || '',
     },
     tradeToken: {
-      networkId: paymentToken?.networkId ?? '',
-      contractAddress: paymentToken?.contractAddress ?? '',
-      symbol: paymentToken?.symbol ?? '',
-      decimals: paymentToken?.decimals ?? 0,
-      logoURI: paymentToken?.logoURI ?? '',
-      isNative: paymentToken?.isNative ?? false,
+      networkId: paymentToken?.networkId || '',
+      contractAddress: paymentToken?.contractAddress || '',
+      symbol: paymentToken?.symbol || '',
+      decimals: paymentToken?.decimals || 0,
+      logoURI: paymentToken?.logoURI || '',
+      isNative: paymentToken?.isNative || false,
     },
     defaultTradeTokens: defaultTokens,
     provider,
-    tradeType: tradeType ?? ESwapDirection.BUY,
+    tradeType: tradeType || ESwapDirection.BUY,
     account: activeAccount,
     fromTokenAmount: paymentAmount.toFixed(),
   };
@@ -119,6 +112,7 @@ export function SwapPanel(props: ISwapPanelProps) {
       swapPanel={swapPanel}
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
+      balanceLoading={fetchBalanceLoading}
       isLoading={
         isLoading ||
         speedSwapApproveLoading ||
@@ -146,17 +140,12 @@ export function SwapPanel(props: ISwapPanelProps) {
 
   if (media.md) {
     return (
-      <>
-        <Button onPress={() => showSwapDialog(ESwapDirection.BUY)} mr="$2.5">
-          {intl.formatMessage({ id: ETranslations.global_buy })}
-        </Button>
-        <Button
-          onPress={() => showSwapDialog(ESwapDirection.SELL)}
-          variant="secondary"
-        >
-          {intl.formatMessage({ id: ETranslations.global_sell })}
-        </Button>
-      </>
+      <Button
+        variant="primary"
+        onPress={() => showSwapDialog(ESwapDirection.BUY)}
+      >
+        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+      </Button>
     );
   }
 
@@ -165,13 +154,13 @@ export function SwapPanel(props: ISwapPanelProps) {
       {swapPanelContent}
 
       {/* Test - Only in Dev Mode */}
-      {platformEnv.isDev ? (
+      {/* {platformEnv.isDev ? (
         <SwapTestPanel
           useSpeedSwapActionsParams={useSpeedSwapActionsParams}
           speedSwapActions={speedSwapActions}
           swapPanel={swapPanel}
         />
-      ) : null}
+      ) : null} */}
     </>
   );
 }

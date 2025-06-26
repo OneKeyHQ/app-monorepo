@@ -45,6 +45,7 @@ import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
 import type ServiceMarketV2 from '../services/ServiceMarketV2';
+import type ServiceMarketWS from '../services/ServiceMarketWS';
 import type ServiceMasterPassword from '../services/ServiceMasterPassword';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
@@ -177,6 +178,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSpotlight: ServiceSpotlight;
   serviceMarket: ServiceMarket;
   serviceMarketV2: ServiceMarketV2;
+  serviceMarketWS: ServiceMarketWS;
   serviceContextMenu: ServiceContextMenu;
   serviceExplorer: ServiceExplorer;
   serviceCustomToken: ServiceCustomToken;

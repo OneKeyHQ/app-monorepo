@@ -67,8 +67,6 @@ export function useSpeedSwapActions(props: {
     defaultTradeTokens,
   } = props;
 
-  console.log('useSpeedSwapActions props', props);
-
   const intl = useIntl();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();

@@ -174,22 +174,20 @@ function TxActionCommonDescription({
       return null;
     }
 
-    const result =
-      await backgroundApiProxy.serviceAccountProfile.queryAddressWithCache({
-        networkId,
-        address: description?.originalAddress,
-        enableAddressBook: true,
-        enableWalletName: true,
-        skipValidateAddress: true,
-      });
+    const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+      networkId,
+      address: description?.originalAddress,
+      enableAddressBook: true,
+      enableWalletName: true,
+      skipValidateAddress: true,
+    });
 
-    return result.walletAccountName || result.addressBookName;
+    return result.addressBookName || result.walletAccountName;
   }, [description?.originalAddress, networkId]);
 
   useEffect(() => {
     const refresh = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
-      await backgroundApiProxy.serviceAccountProfile.clearQueryAddressCache();
       await run({ alwaysSetState: true });
     };
 

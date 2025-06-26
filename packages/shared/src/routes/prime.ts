@@ -12,7 +12,7 @@ export enum EPrimePages {
 export enum EPrimeFeatures {
   OneKeyCloud = 'OneKeyCloud',
   BulkCopyAddresses = 'BulkCopyAddresses',
-  DeviceManagement = 'DeviceManagement',
+  BulkRevoke = 'BulkRevoke',
 }
 
 export type IPrimeParamList = {
