@@ -590,6 +590,7 @@
   "earn.native_tokens": "Tokens nativos",
   "earn.no_orders": "No hay pedidos",
   "earn.no_orders_desc": "Aún no has apostado ningún activo.",
+  "earn.no_protocols_available": "No hay protocolos disponibles",
   "earn.not_enough_token": "¿No hay suficiente {token}?",
   "earn.number_day": "{number} día",
   "earn.number_days": "{number} día(s)",
@@ -1808,10 +1809,12 @@
   "no_transaction_desc": "Tus transacciones aparecerán aquí",
   "no_transaction_title": "Aún no hay transacciones",
   "no_watched_account_message": "No hay cuentas observadas. Importa una dirección para comenzar a monitorear.",
+  "notifications.account_activity_manage_count_alert_prime_desc": "Suscríbete a Prime para más cuentas",
   "notifications.account_activity_manage_count_alert_title": "{totalEnabledAccountsCount}/{maxAccountCount} cuentas habilitadas",
   "notifications.account_reached_limit_alert_desc": "Es posible que las cuentas nuevas no reciban notificaciones.",
   "notifications.account_reached_limit_alert_title": "Se ha alcanzado el límite de {count} cuentas",
   "notifications.account_reached_limit_dialog_desc": "Has alcanzado el máximo de {maxAccountCount} cuentas.",
+  "notifications.account_reached_limit_dialog_prime_desc": "Has alcanzado el máximo de {maxAccountCount} cuentas. Activa más cuentas con Prime.",
   "notifications.account_reached_limit_dialog_title": "Límite de cuenta alcanzado",
   "notifications.empty_desc": "Aún no has recibido ninguna notificación",
   "notifications.empty_title": "Sin notificaciones",
@@ -3001,6 +3004,6 @@
   "wallet_backup.save_recovery_phrase": "Guardar frase de recuperación",
   "wallet_backup.status_not_backed_up": "No respaldado",
   "wallet_label_private_key": "Clave privada",
-  "wallet_label_watch_only": "Solo visualización",
+  "wallet_label_watch_only": "Billetera observada",
   "word": "Palabra"
 }
