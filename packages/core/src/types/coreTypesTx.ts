@@ -120,6 +120,7 @@ export type IUnsignedTxPro = IUnsignedTx & {
   uuid?: string;
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
+  disableMev?: boolean;
 
   isKRC20RevealTx?: boolean;
   commitTxScriptHex?: string;
@@ -142,6 +143,7 @@ export type ISignedTxResult = ISignedTx & {
   randomSeed?: number;
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
+  disableMev?: boolean;
   uuid?: string;
 
   // for kaspa

@@ -33,6 +33,12 @@ function TxConfirmHeaderRight(props: {
   const mevProtectionProvider = useMemo(() => {
     if (!unsignedTxs) return null;
 
+    const unsignedTx = unsignedTxs[0];
+
+    if (unsignedTx.disableMev) {
+      return null;
+    }
+
     if (decodedTx?.txDisplay?.mevProtectionProvider) {
       return decodedTx.txDisplay.mevProtectionProvider;
     }
