@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { useIntl } from 'react-intl';
 
@@ -24,6 +25,7 @@ import {
 } from '@onekeyhq/core/src/chains/tron/constants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
@@ -54,18 +56,21 @@ function RewardCenterContent({
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
 
+  const [isClaimed, setIsClaimed] = useState(false);
+  const [remaining, setRemaining] = useState(0);
+
   const claimSource = network?.isTestnet
     ? TRON_SOURCE_FLAG_TESTNET
     : TRON_SOURCE_FLAG_MAINNET;
 
-  const { result, isLoading, run } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
       if (!account || !network) {
         return;
       }
 
       const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
           totalReceivedLimit: number;
           remaining: number;
           isReceived: boolean;
@@ -77,23 +82,21 @@ function RewardCenterContent({
           success: boolean;
         }>({
           networkId,
-          body: [
-            {
-              route: 'trxres',
-              params: {
-                method: 'post',
-                url: '/api/tronRent/isReceived',
-                data: {
-                  fromAddress: account.address,
-                  sourceFlag: claimSource,
-                },
-                params: {},
-              },
+          body: {
+            method: 'post',
+            url: '/api/tronRent/isReceived',
+            data: {
+              fromAddress: account.address,
+              sourceFlag: claimSource,
             },
-          ],
+            params: {},
+          },
         });
 
-      return resp[0];
+      setIsClaimed(resp.isReceived);
+      setRemaining(resp.monthRemain);
+
+      return resp;
     },
     [account, claimSource, network, networkId],
     {
@@ -102,17 +105,13 @@ function RewardCenterContent({
   );
 
   const renderClaimButtonText = useCallback(() => {
-    if (
-      result?.remaining === 0 ||
-      result?.monthRemain === 0 ||
-      result?.monthIPRemain === 0
-    ) {
+    if (result?.remaining === 0 || result?.monthRemain === 0) {
       return intl.formatMessage({
         id: ETranslations.wallet_subsidy_all_used,
       });
     }
 
-    if (result?.isReceived) {
+    if (isClaimed) {
       return intl.formatMessage({
         id: ETranslations.wallet_subsidy_claimed,
       });
@@ -121,7 +120,7 @@ function RewardCenterContent({
     return intl.formatMessage({
       id: ETranslations.wallet_subsidy_claim,
     });
-  }, [result, intl]);
+  }, [result?.remaining, result?.monthRemain, isClaimed, intl]);
 
   const handleClaimResource = useCallback(async () => {
     if (!account || !network) {
@@ -144,42 +143,48 @@ function RewardCenterContent({
 
     try {
       const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
           resCode: number;
           resMsg: string;
           success: boolean;
           error?: string;
         }>({
           networkId,
-          body: [
-            {
-              route: 'trxres',
-              params: {
-                method: 'post',
-                url: '/api/tronRent/addFreeTronRentRecord',
-                data: {
-                  fromAddress: account.address,
-                  sourceFlag: claimSource,
-                  timestamp,
-                  signed,
-                },
-                params: {},
-              },
+          body: {
+            method: 'post',
+            url: '/api/tronRent/addFreeTronRentRecord',
+            data: {
+              fromAddress: account.address,
+              sourceFlag: claimSource,
+              timestamp,
+              signed,
             },
-          ],
+            params: {},
+          },
         });
+
+      defaultLogger.reward.tronReward.claimResource({
+        networkId,
+        address: account.address,
+        sourceFlag: claimSource ?? '',
+        isSuccess: true,
+        resourceType: 'free',
+      });
+
+      setIsClaimed(true);
+      setRemaining((v) => new BigNumber(v).minus(1).toNumber());
+
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.global_success,
         }),
       });
-      await run();
       setIsClaiming(false);
-      return resp[0];
+      return resp;
     } catch (error) {
       setIsClaiming(false);
     }
-  }, [account, claimSource, intl, network, networkId, run]);
+  }, [account, claimSource, intl, network, networkId]);
 
   const handleRedeemCode = useCallback(async () => {
     if (!account || !network) {
@@ -194,42 +199,46 @@ function RewardCenterContent({
 
     try {
       const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
           resCode: number;
           resMsg: string;
           success: boolean;
           error?: string;
         }>({
           networkId,
-          body: [
-            {
-              route: 'trxres',
-              params: {
-                method: 'post',
-                url: '/api/v1/coupon/redeem',
-                data: {
-                  fromAddress: account.address,
-                  code,
-                  sourceFlag: claimSource,
-                },
-                params: {},
-              },
+          body: {
+            method: 'post',
+            url: '/api/v1/coupon/redeem',
+            data: {
+              fromAddress: account.address,
+              code,
+              sourceFlag: claimSource,
             },
-          ],
+            params: {},
+          },
         });
+
+      defaultLogger.reward.tronReward.redeemResource({
+        networkId,
+        address: account.address,
+        code,
+        sourceFlag: claimSource,
+        isSuccess: true,
+        resourceType: 'code',
+      });
+
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.global_success,
         }),
       });
-      await run();
 
       setIsRedeeming(false);
-      return resp[0];
+      return resp;
     } catch (error) {
       setIsRedeeming(false);
     }
-  }, [account, claimSource, form, intl, network, networkId, run]);
+  }, [account, claimSource, form, intl, network, networkId]);
 
   return (
     <Form form={form}>
@@ -251,7 +260,7 @@ function RewardCenterContent({
                     id: ETranslations.wallet_subsidy_remaining,
                   },
                   {
-                    remaining: result?.monthRemain,
+                    remaining,
                     total: result?.monthLimit,
                   },
                 )}
@@ -264,10 +273,9 @@ function RewardCenterContent({
               disabled={
                 isLoading ||
                 isClaiming ||
-                result?.isReceived ||
+                isClaimed ||
                 result?.remaining === 0 ||
-                result?.monthRemain === 0 ||
-                result?.monthIPRemain === 0
+                result?.monthRemain === 0
               }
               onPress={handleClaimResource}
             >

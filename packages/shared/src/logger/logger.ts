@@ -12,6 +12,7 @@ import { HardwareScope } from './scopes/hardware';
 import { MarketScope } from './scopes/market';
 import { NotificationScope } from './scopes/notification/notification';
 import { ReferralScope } from './scopes/referral';
+import { RewardScope } from './scopes/reward';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -67,6 +68,8 @@ export class DefaultLogger {
   ui = new UIScope();
 
   referral = new ReferralScope();
+
+  reward = new RewardScope();
 }
 
 const defaultLogger = new DefaultLogger();

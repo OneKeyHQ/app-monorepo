@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import {
   Badge,
   Dialog,
+  Empty,
   SizableText,
   Skeleton,
   XStack,
@@ -112,34 +113,30 @@ function ProtocolListDialogContent({
   const [protocolData, setProtocolData] = useState<IProtocolSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProtocolData = async () => {
-      try {
-        console.log('Fetching protocol data for:', {
-          symbol,
-          accountId,
-        });
-        setIsLoading(true);
+  const fetchProtocolData = useCallback(async () => {
+    try {
+      setIsLoading(true);
 
-        const data = await backgroundApiProxy.serviceStaking.getProtocolList({
-          symbol,
-          accountId,
-          indexedAccountId,
-          networkId,
-        });
+      const data = await backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol,
+        accountId,
+        indexedAccountId,
+        networkId,
+      });
 
-        const groupedData = groupProtocolsByGroup(data);
-        setProtocolData(groupedData);
-      } catch (error) {
-        console.error('Failed to fetch protocol data:', error);
-        setProtocolData([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchProtocolData();
+      const groupedData = groupProtocolsByGroup(data);
+      setProtocolData(groupedData);
+    } catch (error) {
+      console.error('Failed to fetch protocol data:', error);
+      setProtocolData([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [symbol, accountId, indexedAccountId, networkId]);
+
+  useEffect(() => {
+    void fetchProtocolData();
+  }, [fetchProtocolData]);
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
@@ -245,8 +242,26 @@ function ProtocolListDialogContent({
 
   if (protocolData.length === 0) {
     return (
-      <YStack py="$5" px="$5" alignItems="center">
-        <SizableText>No protocols available</SizableText>
+      <YStack alignItems="center" flex={1}>
+        <Empty
+          px="$5"
+          py="$0"
+          width="100%"
+          icon="ErrorOutline"
+          title={appLocale.intl.formatMessage({
+            id: ETranslations.earn_no_protocols_available,
+          })}
+          buttonProps={{
+            flex: 1,
+            width: '100%',
+            children: appLocale.intl.formatMessage({
+              id: ETranslations.global_refresh,
+            }),
+            onPress: () => {
+              void fetchProtocolData();
+            },
+          }}
+        />
       </YStack>
     );
   }

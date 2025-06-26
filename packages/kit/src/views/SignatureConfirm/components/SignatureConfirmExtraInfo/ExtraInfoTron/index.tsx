@@ -8,6 +8,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
 import { useSendSelectedFeeInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
 
@@ -53,6 +54,7 @@ function ExtraInfoTron({
   return (
     <SignatureConfirmItem {...style}>
       <XStack
+        {...listItemPressStyle}
         alignSelf="flex-start"
         gap="$1.5"
         px="$1"
@@ -60,12 +62,6 @@ function ExtraInfoTron({
         alignItems="center"
         userSelect="none"
         borderRadius="$1"
-        hoverStyle={{
-          bg: '$bgSubdued',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
         focusable
         focusVisibleStyle={{
           outlineColor: '$focusRing',

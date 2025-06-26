@@ -63,6 +63,7 @@ export function SwapPanel() {
     tradeType: tradeType || ESwapDirection.BUY,
     account: activeAccount,
     fromTokenAmount: paymentAmount.toFixed(),
+    antiMEV: swapPanel.antiMEV,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
