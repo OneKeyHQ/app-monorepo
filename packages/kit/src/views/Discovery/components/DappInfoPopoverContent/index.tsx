@@ -70,10 +70,9 @@ export function DappInfoPopoverContent({
         <>
           <SizableText size="$bodyMd" flex={1}>
             {intl.formatMessage({
-              id:
-                providerNames && hostSecurity?.level
-                  ? SecurityTitleMap[hostSecurity?.level]
-                  : ETranslations.browser_risk_detection_unknown,
+              id: hostSecurity?.level
+                ? SecurityTitleMap[hostSecurity?.level]
+                : ETranslations.browser_risk_detection_unknown,
             })}
           </SizableText>
           {providerNames ? (
