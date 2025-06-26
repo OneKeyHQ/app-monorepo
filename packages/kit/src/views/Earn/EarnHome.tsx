@@ -268,7 +268,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
       {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
       <YStack gap="$1" zIndex={10}>
         <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_recommended })}
+          {intl.formatMessage({ id: ETranslations.market_trending })}
         </SizableText>
       </YStack>
       {children}
