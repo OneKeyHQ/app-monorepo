@@ -82,16 +82,12 @@ export function useMarketTokenList({
 
   const totalCount = apiResult?.total || 0;
 
-  const paginatedData = useMemo(() => {
-    return transformedData;
-  }, [transformedData]);
-
   const totalPages = useMemo(() => {
     return totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
   }, [totalCount, pageSize]);
 
   return {
-    data: paginatedData,
+    data: transformedData,
     isLoading,
     currentPage,
     totalPages,
