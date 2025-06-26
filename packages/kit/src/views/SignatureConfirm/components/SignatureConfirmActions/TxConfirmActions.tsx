@@ -182,6 +182,21 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
+    try {
+      await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
+        accountId,
+        networkId,
+        unsignedTxs,
+        tronResourceRentalInfo,
+      });
+    } catch (e: any) {
+      updateSendTxStatus({ isSubmitting: false });
+      onFail?.(e as Error);
+      isSubmitted.current = false;
+      void dappApprove.reject(e);
+      throw e;
+    }
+
     let newUnsignedTxs: IUnsignedTxPro[];
     try {
       newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
@@ -198,20 +213,6 @@ function TxConfirmActions(props: IProps) {
             }
           : undefined,
         feeInfoEditable,
-      });
-    } catch (e: any) {
-      updateSendTxStatus({ isSubmitting: false });
-      onFail?.(e as Error);
-      isSubmitted.current = false;
-      void dappApprove.reject(e);
-      throw e;
-    }
-
-    try {
-      await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
-        accountId,
-        networkId,
-        unsignedTxs,
         tronResourceRentalInfo,
       });
     } catch (e: any) {

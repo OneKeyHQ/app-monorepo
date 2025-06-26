@@ -29,7 +29,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
+import type {
+  ISendSelectedFeeInfo,
+  ITronResourceRentalInfo,
+} from '@onekeyhq/shared/types/fee';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
@@ -358,6 +361,7 @@ class ServiceSend extends ServiceBase {
     tokenApproveInfo,
     nonceInfo,
     feeInfoEditable,
+    tronResourceRentalInfo,
   }: ISendTxBaseParams & {
     unsignedTxs: IUnsignedTxPro[];
     tokenApproveInfo?: ITokenApproveInfo;
@@ -365,6 +369,7 @@ class ServiceSend extends ServiceBase {
     nativeAmountInfo?: INativeAmountInfo;
     nonceInfo?: { nonce: number };
     feeInfoEditable?: boolean;
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
   }) {
     const newUnsignedTxs = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -380,6 +385,7 @@ class ServiceSend extends ServiceBase {
         tokenApproveInfo,
         nonceInfo,
         feeInfoEditable,
+        tronResourceRentalInfo,
       });
 
       newUnsignedTxs.push(newUnsignedTx);

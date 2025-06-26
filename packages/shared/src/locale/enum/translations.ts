@@ -2957,6 +2957,7 @@
   wallet_buy_crypto_instruction = 'wallet.buy_crypto_instruction',
   wallet_currently_supports_up_to_str_all_networks_accounts = 'wallet.currently_supports_up_to_str_all_networks_accounts',
   wallet_destination_tag = 'wallet.destination_tag',
+  wallet_energy_confirmations_required = 'wallet.energy_confirmations_required',
   wallet_energy_rental_description = 'wallet.energy_rental_description',
   wallet_energy_rental_insufficient_trx = 'wallet.energy_rental_insufficient_trx',
   wallet_energy_rental_low_energy_detected = 'wallet.energy_rental_low_energy_detected',

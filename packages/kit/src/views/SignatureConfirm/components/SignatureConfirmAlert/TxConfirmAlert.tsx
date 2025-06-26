@@ -11,6 +11,7 @@ import {
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
+  useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -21,6 +22,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 interface IProps {
   accountId: string;
@@ -40,6 +42,7 @@ function TxConfirmAlert(props: IProps) {
     networkId,
   });
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
+  const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
 
   const renderDecodedTxsAlert = useCallback(() => {
     const alerts = flatMap(
@@ -173,8 +176,30 @@ function TxConfirmAlert(props: IProps) {
         />
       );
     }
+
+    if (
+      networkUtils.isTronNetworkByNetworkId(networkId) &&
+      tronResourceRentalInfo.isResourceRentalNeeded &&
+      tronResourceRentalInfo.isResourceRentalEnabled &&
+      accountUtils.isHwAccount({ accountId })
+    ) {
+      return (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_energy_confirmations_required,
+          })}
+        />
+      );
+    }
     return null;
-  }, [accountId, intl, networkId, transferPayload?.tokenInfo]);
+  }, [
+    accountId,
+    intl,
+    networkId,
+    transferPayload?.tokenInfo,
+    tronResourceRentalInfo,
+  ]);
 
   return (
     <>
