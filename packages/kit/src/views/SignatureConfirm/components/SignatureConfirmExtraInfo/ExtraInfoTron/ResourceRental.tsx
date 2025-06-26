@@ -16,6 +16,7 @@ import {
   View,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -57,6 +58,29 @@ const showResourceRentalDetailsDialog = ({
     ...dialogProps,
   });
 
+function ResourceRentalLearnMoreButton() {
+  const intl = useIntl();
+  const dialogInstance = useDialogInstance();
+  return (
+    <Button
+      flex={1}
+      textAlign="left"
+      justifyContent="flex-start"
+      size="small"
+      variant="tertiary"
+      icon="QuestionmarkOutline"
+      onPress={() => {
+        openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL);
+        void dialogInstance.close();
+      }}
+    >
+      {intl.formatMessage({
+        id: ETranslations.global_learn_more,
+      })}
+    </Button>
+  );
+}
+
 function ResourceRental() {
   const intl = useIntl();
   const [resourceRentalInfo] = useTronResourceRentalInfoAtom();
@@ -69,9 +93,10 @@ function ResourceRental() {
     payType,
     payTokenInfo,
     saveTRX,
-    createOrderParams,
     resourcePrice,
   } = resourceRentalInfo;
+
+  const dialogInstance = useDialogInstance();
 
   const handleResourceRentalToggle = useCallback(
     (value: boolean) => {
@@ -273,23 +298,7 @@ function ResourceRental() {
                         min: resourcePrice.minutes,
                       },
                     ),
-                    content: (
-                      <Button
-                        flex={1}
-                        textAlign="left"
-                        justifyContent="flex-start"
-                        size="small"
-                        variant="tertiary"
-                        icon="QuestionmarkOutline"
-                        onPress={() =>
-                          openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL)
-                        }
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_learn_more,
-                        })}
-                      </Button>
-                    ),
+                    content: <ResourceRentalLearnMoreButton />,
                   })
                 }
               >
@@ -302,7 +311,10 @@ function ResourceRental() {
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.wallet_energy_rental_low_energy_detected,
+                id:
+                  payType === ETronResourceRentalPayType.Native
+                    ? ETranslations.wallet_energy_rental_low_energy_detected
+                    : ETranslations.wallet_energy_rental_insufficient_trx,
               })}
             </SizableText>
           </YStack>
