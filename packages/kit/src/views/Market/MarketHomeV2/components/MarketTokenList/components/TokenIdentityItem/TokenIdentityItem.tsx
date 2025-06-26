@@ -10,6 +10,9 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import type { GestureResponderEvent } from 'react-native';
 
 interface ITokenIdentityItemProps {
   /**
@@ -40,14 +43,11 @@ interface ITokenIdentityItemProps {
    * copied. Useful when the parent component needs to react.
    */
   onCopied?: (address: string) => void;
+  /**
+   * Whether to show the copy button. Defaults to false.
+   */
+  showCopyButton?: boolean;
 }
-
-// Display helpers ----------------------------------------------------------
-const truncateAddress = (address: string, chunk = 4) => {
-  if (!address) return '';
-  if (address.length <= chunk * 2 + 2) return address;
-  return `${address.slice(0, 2 + chunk)}...${address.slice(-chunk)}`;
-};
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   symbol,
@@ -55,12 +55,22 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   tokenLogoURI,
   networkLogoURI,
   onCopied,
+  showCopyButton = false,
 }) => {
   const { copyText } = useClipboard();
 
-  const shortened = useMemo(() => truncateAddress(address), [address]);
+  const shortened = useMemo(
+    () =>
+      accountUtils.shortenAddress({
+        address,
+        leadingLength: 6,
+        trailingLength: 4,
+      }),
+    [address],
+  );
 
-  const handleCopy = () => {
+  const handleCopy = (e: GestureResponderEvent) => {
+    e.stopPropagation();
     copyText(address);
     onCopied?.(address);
   };
@@ -77,22 +87,29 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {symbol}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        <SizableText
+          fontFamily="$monoRegular"
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
           {shortened}
         </SizableText>
       </Stack>
 
-      <Stack
-        cursor="pointer"
-        p="$1"
-        borderRadius="$full"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        hitSlop={NATIVE_HIT_SLOP}
-        onPress={handleCopy}
-      >
-        <Icon name="Copy2Outline" size="$5" color="$iconSubdued" />
-      </Stack>
+      {showCopyButton ? (
+        <Stack
+          cursor="pointer"
+          p="$1"
+          borderRadius="$full"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          hitSlop={NATIVE_HIT_SLOP}
+          onPress={handleCopy}
+        >
+          <Icon name="Copy2Outline" size="$5" color="$iconSubdued" />
+        </Stack>
+      ) : null}
     </XStack>
   );
 };

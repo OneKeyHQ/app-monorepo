@@ -141,7 +141,18 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         </>
       ) : null}
 
-      <Divider mx="$2" my="$1" />
+      <ActionList.Item
+        label={intl.formatMessage({
+          id: ETranslations.prime_device_management,
+        })}
+        icon="MultipleDevicesOutline"
+        onClose={handleActionListClose}
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeDeviceLimit,
+          });
+        }}
+      />
       <ActionList.Item
         label={intl.formatMessage({
           id: ETranslations.prime_log_out,
@@ -168,6 +179,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         }}
       />
 
+      <Divider mx="$2" my="$1" />
       <ActionList.Item
         label={intl.formatMessage({
           id: ETranslations.id_delete_onekey_id,
@@ -228,9 +240,7 @@ export function PrimeUserInfoMoreButton({
   );
   return (
     <ActionList
-      title={intl.formatMessage({
-        id: ETranslations.global_account,
-      })}
+      title="OneKey ID"
       floatingPanelProps={{
         w: '$80',
       }}

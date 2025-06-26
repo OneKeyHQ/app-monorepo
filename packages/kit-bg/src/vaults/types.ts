@@ -574,6 +574,7 @@ export interface IBuildUnsignedTxParams {
   transferPayload?: ITransferPayload;
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
+  disableMev?: boolean;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };

@@ -1,40 +1,84 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import { Button, Popover } from '@onekeyhq/components';
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IPopoverProps } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { NetworksSearchPanel } from './NetworksSearchPanel';
 
-type IMoreButtonProps = Omit<IButtonProps, 'children'>;
+import type { INetworksSearchPanelProps } from './NetworksSearchPanel';
 
-const MoreButton: FC<IMoreButtonProps> = ({ ...rest }) => (
-  <Popover
-    title="Select Network"
-    renderContent={
-      <NetworksSearchPanel
-        networkId={undefined}
-        onPressItem={(item) => {
-          console.log('Network selected:', item);
-        }}
-      />
+interface IMoreButtonProps
+  extends Omit<IButtonProps, 'children'>,
+    Omit<INetworksSearchPanelProps, 'networkId'> {
+  selectedNetworkId?: string;
+  customTrigger?: (isOpen: boolean, onPress: () => void) => ReactNode;
+  placement?: IPopoverProps['placement'];
+}
+
+const MoreButton: FC<IMoreButtonProps> = ({
+  networks = [],
+  selectedNetworkId,
+  onNetworkSelect,
+  customTrigger,
+  placement,
+  ...rest
+}) => {
+  const intl = useIntl();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleNetworkSelect = (network: ISwapNetwork) => {
+    onNetworkSelect?.(network);
+    setIsOpen(false);
+  };
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const renderTrigger = () => {
+    if (customTrigger) {
+      return customTrigger(isOpen, handleToggle);
     }
-    renderTrigger={
+
+    return (
       <Button
+        m="$0.5"
+        size="small"
         variant="tertiary"
-        size="medium"
-        iconAfter="ChevronDownSmallOutline"
+        iconAfter={
+          isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+        }
         iconColor="$iconSubdued"
-        $platform-native={{
-          px: '$2',
-          py: '$1',
-        }}
         color="$textSubdued"
+        onPress={handleToggle}
         {...rest}
       >
-        More
+        {intl.formatMessage({ id: ETranslations.global_more })}
       </Button>
-    }
-  />
-);
+    );
+  };
+
+  return (
+    <Popover
+      title={intl.formatMessage({ id: ETranslations.global_select_network })}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      placement={placement}
+      renderContent={
+        <NetworksSearchPanel
+          networks={networks}
+          networkId={selectedNetworkId}
+          onNetworkSelect={handleNetworkSelect}
+        />
+      }
+      renderTrigger={renderTrigger()}
+    />
+  );
+};
 
 export { MoreButton };

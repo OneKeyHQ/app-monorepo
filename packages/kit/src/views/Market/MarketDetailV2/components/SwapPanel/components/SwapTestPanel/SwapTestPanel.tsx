@@ -9,8 +9,6 @@ import {
 } from '@onekeyhq/components';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
-import { useSpeedSwapInit } from '../../hooks/useSpeedSwapInit';
-
 import type { useSwapPanel } from '../../hooks/useSwapPanel';
 
 const testNetworks = getPresetNetworks()
@@ -45,18 +43,10 @@ export function SwapTestPanel({
     setNetworkId: setSelectedTestNetworkId,
   } = swapPanel;
 
-  const speedSwapProps = useSpeedSwapInit(selectedTestNetworkId ?? '');
-
   const handleTestHook = () => {
     if (!selectedTestNetworkId) {
       console.log('No test network selected.');
-      return;
     }
-    console.log(
-      'useSpeedSwapInit props for network',
-      selectedTestNetworkId,
-      speedSwapProps,
-    );
   };
 
   const handleTestApproveAllowance = () => {
@@ -80,7 +70,7 @@ export function SwapTestPanel({
       $platform-web={{
         position: 'fixed',
       }}
-      top={70}
+      bottom={70}
       left={220}
       backgroundColor="$bgApp"
       padding="$3"

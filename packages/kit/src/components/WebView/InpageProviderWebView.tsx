@@ -1,11 +1,11 @@
 import type { FC } from 'react';
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
-  ({ src = '' }: IInpageProviderWebViewProps, ref: any) => {
+  ({ src = '', receiveHandler }: IInpageProviderWebViewProps, ref: any) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const iframeWebviewRef = useRef<IWebViewWrapperRef>({
       reload: () => {
@@ -48,6 +48,34 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       };
       return wrapper as IWebViewRef;
     });
+
+    useEffect(() => {
+      const handleMessage = async (event: MessageEvent) => {
+        try {
+          if (event.source !== iframeRef.current?.contentWindow) return;
+
+          let payload: unknown = event.data;
+          if (typeof payload === 'string') {
+            try {
+              payload = JSON.parse(payload);
+            } catch {
+              // do nothing
+            }
+          }
+
+          if (receiveHandler) {
+            receiveHandler(payload as any, undefined);
+          }
+        } catch (error) {
+          console.error('Failed to handle message from iframe:', error);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+      return () => {
+        window.removeEventListener('message', handleMessage);
+      };
+    }, [receiveHandler]);
 
     return (
       <iframe

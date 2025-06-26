@@ -80,13 +80,9 @@ export function SlippageSetting({
         title={intl.formatMessage({
           id: ETranslations.swap_page_provider_slippage_tolerance,
         })}
-        questionMarkContent={
-          <SizableText>
-            {intl.formatMessage({
-              id: ETranslations.slippage_tolerance_popover,
-            })}
-          </SizableText>
-        }
+        questionMarkContent={intl.formatMessage({
+          id: ETranslations.slippage_tolerance_popover,
+        })}
       />
 
       <XStack onPress={onSlippageHandleClick} alignItems="center" gap="$1">

@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { WebView as NativeWebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ViewStyle } from 'react-native';
@@ -22,9 +21,6 @@ export function WebView({
   style: ViewStyle;
   onLoadEnd: () => void;
 }) {
-  const [devSettings] = useDevSettingsPersistAtom();
-  const isTest =
-    devSettings.enabled && devSettings.settings?.useTradingViewTestDomain;
   const handleLoadedEnd = useCallback(() => {
     setTimeout(() => {
       onLoadEnd();
@@ -55,9 +51,7 @@ export function WebView({
         setSupportMultipleWindows={
           platformEnv.isNativeAndroid ? false : undefined
         }
-        onShouldStartLoadWithRequest={
-          isTest ? undefined : onShouldStartLoadWithRequest
-        }
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         source={{
           uri,
         }}

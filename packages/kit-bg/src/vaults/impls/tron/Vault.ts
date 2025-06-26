@@ -4,6 +4,10 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import TronWeb from 'tronweb';
 
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
   IEncodedTxTron,
@@ -900,7 +904,14 @@ export default class Vault extends VaultBase {
             params: {
               method: 'post',
               url: '/api/v1/order/create',
-              data: createOrderParams,
+              data: {
+                ...createOrderParams,
+                sourceFlag: (
+                  await this.getNetwork()
+                ).isTestnet
+                  ? TRON_SOURCE_FLAG_TESTNET
+                  : TRON_SOURCE_FLAG_MAINNET,
+              },
               params: {},
             },
           },

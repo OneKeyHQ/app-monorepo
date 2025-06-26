@@ -283,6 +283,12 @@ export interface IAppEventBusPayload {
     jobId: string;
   };
   [EAppEventBusNames.AddressBookUpdate]: undefined;
+  [EAppEventBusNames.MarketWSDataUpdate]: {
+    channel: string;
+    networkId: string;
+    tokenAddress: string;
+    data: any;
+  };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
   [EAppEventBusNames.SettingsSearchResult]: {
     list: {

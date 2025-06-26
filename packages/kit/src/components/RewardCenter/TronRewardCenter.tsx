@@ -18,6 +18,10 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -50,7 +54,9 @@ function RewardCenterContent({
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
 
-  const claimSource = network?.isTestnet ? 'test' : '1key';
+  const claimSource = network?.isTestnet
+    ? TRON_SOURCE_FLAG_TESTNET
+    : TRON_SOURCE_FLAG_MAINNET;
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {

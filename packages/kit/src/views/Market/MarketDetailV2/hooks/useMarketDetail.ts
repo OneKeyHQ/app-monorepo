@@ -1,46 +1,60 @@
 import { useCallback } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  useNetworkIdAtom,
+  useTokenAddressAtom,
+  useTokenDetailActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 interface IUseMarketDetailDataProps {
   tokenAddress: string;
   networkId: string;
 }
 
-export function useMarketDetail({
-  tokenAddress,
-  networkId,
-}: IUseMarketDetailDataProps) {
-  const {
-    result: tokenDetail,
-    isLoading: isRefreshing,
-    run: fetchMarketTokenDetail,
-  } = usePromiseResult(
-    async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-          tokenAddress,
-          networkId,
-        );
-      return response;
+export function useMarketDetail() {
+  const { current: tokenDetailActions } = useTokenDetailActions();
+  const [storedTokenAddress] = useTokenAddressAtom();
+  const [storedNetworkId] = useNetworkIdAtom();
+
+  // Initialize token detail data (set state and fetch data)
+  const initializeTokenDetail = useCallback(
+    async (data: IUseMarketDetailDataProps) => {
+      // Set the tokenAddress and networkId in jotai state
+      tokenDetailActions.setTokenAddress(data.tokenAddress);
+      tokenDetailActions.setNetworkId(data.networkId);
+
+      // Fetch token detail data
+      await tokenDetailActions.fetchTokenDetail(
+        data.tokenAddress,
+        data.networkId,
+      );
     },
-    [tokenAddress, networkId],
-    {
-      watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 45 }),
+    [tokenDetailActions],
+  );
+
+  // Manual fetch function (without setting state)
+  const fetchTokenDetail = useCallback(
+    async (data: IUseMarketDetailDataProps) => {
+      await tokenDetailActions.fetchTokenDetail(
+        data.tokenAddress,
+        data.networkId,
+      );
     },
+    [tokenDetailActions],
   );
 
   const onRefresh = useCallback(async () => {
-    await fetchMarketTokenDetail();
-  }, [fetchMarketTokenDetail]);
+    await fetchTokenDetail({
+      tokenAddress: storedTokenAddress,
+      networkId: storedNetworkId,
+    });
+  }, [fetchTokenDetail, storedTokenAddress, storedNetworkId]);
+
+  // Auto-initialize when component mounts or params change
 
   return {
-    tokenDetail,
-    fetchMarketTokenDetail,
-    isRefreshing,
+    initializeTokenDetail,
+    fetchTokenDetail,
     onRefresh,
   };
 }
