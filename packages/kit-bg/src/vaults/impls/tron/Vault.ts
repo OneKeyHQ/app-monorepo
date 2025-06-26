@@ -906,7 +906,9 @@ export default class Vault extends VaultBase {
               url: '/api/v1/order/create',
               data: {
                 ...createOrderParams,
-                sourceFlag: this._network.isTestnet
+                sourceFlag: (
+                  await this.getNetwork()
+                ).isTestnet
                   ? TRON_SOURCE_FLAG_TESTNET
                   : TRON_SOURCE_FLAG_MAINNET,
               },
