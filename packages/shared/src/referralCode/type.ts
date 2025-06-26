@@ -62,6 +62,18 @@ export interface IInviteSummary {
   }[];
   HardwareSales: IReward;
   banners: any[];
+  cumulativeRewards: {
+    distributed: string;
+    undistributed: string;
+    nextDistribution: string;
+    token: {
+      networkId: string;
+      address: string;
+      logoURI: string;
+      name: string;
+      symbol: string;
+    };
+  };
 }
 
 export interface IEarnWalletHistoryItem {

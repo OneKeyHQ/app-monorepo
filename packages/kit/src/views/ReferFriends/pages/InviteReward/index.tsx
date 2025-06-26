@@ -13,6 +13,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  LinearGradient,
   NumberSizeableText,
   Page,
   Popover,
@@ -39,6 +40,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function PopoverLine({ children }: PropsWithChildren) {
@@ -307,6 +309,28 @@ function RewardLevelText({
   );
 }
 
+function CumulativeRewardsLinnerItem({
+  bg,
+  amount,
+  title,
+}: {
+  bg: IStackStyle['bg'];
+  title: string;
+  amount: string;
+}) {
+  return (
+    <XStack jc="space-between">
+      <XStack gap="$2" ai="center" jc="center">
+        <Stack w="$2" h="$2" borderRadius="$full" bg={bg} />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {title}
+        </SizableText>
+      </XStack>
+      <Currency size="$bodyMdMedium">{amount}</Currency>
+    </XStack>
+  );
+}
+
 function Dashboard({
   totalRewards,
   enabledNetworks,
@@ -316,6 +340,7 @@ function Dashboard({
   rebateLevels,
   rebateConfig,
   nextRebateLevel,
+  cumulativeRewards,
   fetchSummaryInfo,
   withdrawAddresses,
 }: {
@@ -323,6 +348,7 @@ function Dashboard({
   enabledNetworks: IInviteSummary['enabledNetworks'];
   onChain: IInviteSummary['Onchain'];
   hardwareSales: IInviteSummary['HardwareSales'];
+  cumulativeRewards: IInviteSummary['cumulativeRewards'];
   withdrawAddresses: IInviteSummary['withdrawAddresses'];
   levelPercent: number;
   rebateLevels: IInviteSummary['rebateLevels'];
@@ -341,6 +367,7 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
+      address: withdrawAddresses[0]?.address,
       onAddressAdded: async ({ networkId }: { networkId: string }) => {
         Toast.success({
           title: intl.formatMessage({
@@ -363,6 +390,7 @@ function Dashboard({
     intl,
     isNewEditWithdrawAddress,
     navigation,
+    withdrawAddresses,
   ]);
 
   const toEarnRewardPage = useCallback(() => {
@@ -385,7 +413,7 @@ function Dashboard({
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
   return (
     <YStack px="$5" py="$8" gap="$5">
-      <YStack
+      {/* <YStack
         bg="$bgSuccessSubdued"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSuccessSubdued"
@@ -481,7 +509,113 @@ function Dashboard({
             />
           </XStack>
         </YStack>
-      </YStack>
+      </YStack> */}
+      <LinearGradient
+        colors={['rgba(0, 196, 59, 0.09)', 'rgba(0, 196, 59, 0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+      >
+        <YStack
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderRadius="$3"
+        >
+          <YStack
+            pt="$4"
+            px="$5"
+            borderBottomWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            borderRadius="$3"
+          >
+            <XStack ai="center" jc="space-between">
+              <SizableText size="$headingMd" mx="$6">
+                {intl.formatMessage({
+                  id: ETranslations.referral_cumulative_rewards,
+                })}
+              </SizableText>
+
+              <IconButton
+                variant="tertiary"
+                iconColor="$iconSubdued"
+                icon="ClockTimeHistoryOutline"
+                size="small"
+                iconSize="$5"
+                px="$1.5"
+                mr="$-2"
+                onPress={toRewardDistributionHistoryPage}
+              />
+            </XStack>
+            <Currency
+              textAlign="center"
+              size="$heading5xl"
+              color="$textSuccessStrong"
+              formatter="value"
+              mx="$6"
+            >
+              {BigNumber(cumulativeRewards.distributed)
+                .plus(cumulativeRewards.undistributed)
+                .toFixed(2)}
+            </Currency>
+            <YStack gap="$2">
+              <CumulativeRewardsLinnerItem
+                bg="$iconSuccess"
+                title={intl.formatMessage({
+                  id: ETranslations.referral_distributed,
+                })}
+                amount={cumulativeRewards.distributed}
+              />
+              <CumulativeRewardsLinnerItem
+                bg="$iconCaution"
+                title={intl.formatMessage({
+                  id: ETranslations.referral_undistributed,
+                })}
+                amount={cumulativeRewards.undistributed}
+              />
+            </YStack>
+            <XStack py="$5" jc="space-between" ai="center">
+              <YStack>
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_reward_received_address,
+                  })}
+                </SizableText>
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  flexShrink={1}
+                  numberOfLines={10}
+                >
+                  {withdrawAddresses.length
+                    ? accountUtils.shortenAddress({
+                        address: withdrawAddresses[0].address,
+                      })
+                    : intl.formatMessage({
+                        id: ETranslations.referral_reward_received_address_notset,
+                      })}
+                </SizableText>
+              </YStack>
+              <IconButton
+                title={intl.formatMessage({ id: ETranslations.global_edit })}
+                variant="tertiary"
+                icon="EditOutline"
+                size="small"
+                onPress={toEditAddressPage}
+                iconColor="$iconSubdued"
+              />
+            </XStack>
+          </YStack>
+          <XStack px="$5" h={36} ai="center" jc="space-between">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.referral_next_distribution,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              {cumulativeRewards.nextDistribution}
+            </SizableText>
+          </XStack>
+        </YStack>
+      </LinearGradient>
       <YStack
         pb="$4"
         borderWidth={StyleSheet.hairlineWidth}
@@ -765,6 +899,7 @@ function InviteRewardContent({
     enabledNetworks,
     Onchain,
     HardwareSales,
+    cumulativeRewards,
     levelPercent,
     rebateLevels,
     rebateConfig,
@@ -785,6 +920,7 @@ function InviteRewardContent({
           enabledNetworks={enabledNetworks}
           onChain={Onchain}
           hardwareSales={HardwareSales}
+          cumulativeRewards={cumulativeRewards}
           levelPercent={Number(levelPercent)}
           rebateLevels={rebateLevels}
           rebateConfig={rebateConfig}
