@@ -60,6 +60,9 @@ function KYCDialogContent({
               label={checkbox.text}
               value={checkboxStates[index]}
               onChange={handleCheckboxChange(index)}
+              labelProps={{
+                variant: '$bodyMdMedium',
+              }}
             />
           </XStack>
         ))}
@@ -67,7 +70,7 @@ function KYCDialogContent({
 
       <Dialog.Footer
         onConfirm={handleConfirm}
-        onConfirmText={data.title.text}
+        onConfirmText={data.button.text.text}
         confirmButtonProps={{
           disabled: isConfirmDisabled,
         }}

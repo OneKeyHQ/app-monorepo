@@ -189,13 +189,6 @@ export default function PrimeDeviceLimit() {
               );
             })}
           </Stack>
-          <Stack py="$5" px="$5">
-            <SizableText>
-              {intl.formatMessage({
-                id: ETranslations.prime_device_limit_desc,
-              })}
-            </SizableText>
-          </Stack>
         </Stack>
       </Page.Body>
       {/* <Page.Footer

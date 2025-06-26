@@ -128,6 +128,7 @@ const toTokenProviderListPage = async (
     symbol,
     accountId: earnAccount?.accountId || accountId,
     indexedAccountId: earnAccount?.account.indexedAccountId || indexedAccountId,
+    networkId: protocols[0].networkId,
     onProtocolSelect: async (params) => {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ProtocolDetailsV2,
@@ -395,11 +396,9 @@ function Recommended({
 }
 
 function Overview({
-  isFetchingAccounts,
   isLoading,
   onRefresh,
 }: {
-  isFetchingAccounts: boolean;
   isLoading: boolean;
   onRefresh: () => void;
 }) {
@@ -588,60 +587,58 @@ function BasicEarnHome() {
   const actions = useEarnActions();
   const allNetworkId = useAllNetworkId();
 
-  const {
-    isLoading: isFetchingAccounts,
-    result,
-    run: refreshOverViewData,
-  } = usePromiseResult(
-    async () => {
-      if (!account && !indexedAccount) {
-        return;
-      }
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
-        accountId: account?.id,
-        indexAccountId: indexedAccount?.id,
-        networkId: allNetworkId,
-      });
-
-      const fetchAndUpdateOverview = async () => {
+  const { isLoading: isFetchingAccounts, run: refreshOverViewData } =
+    usePromiseResult(
+      async () => {
         if (!account && !indexedAccount) {
           return;
         }
-
-        const overviewData =
-          await backgroundApiProxy.serviceStaking.fetchAccountOverview({
-            accountId: account?.id ?? '',
-            networkId: allNetworkId,
-            indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-          });
-        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-        actions.current.updateEarnAccounts({
-          key: totalFiatMapKey,
-          earnAccount: {
-            accounts: earnAccountData?.accounts || [],
-            ...overviewData,
-            isOverviewLoaded: true,
-          },
+        const totalFiatMapKey = actions.current.buildEarnAccountsKey({
+          accountId: account?.id,
+          indexAccountId: indexedAccount?.id,
+          networkId: allNetworkId,
         });
-      };
 
-      const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-      if (earnAccountData) {
-        await timerUtils.wait(350);
-        await fetchAndUpdateOverview();
-      } else {
-        await fetchAndUpdateOverview();
-      }
-      return { loaded: true };
-    },
-    [actions, account, allNetworkId, indexedAccount],
-    {
-      watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
-      revalidateOnReconnect: true,
-      alwaysSetState: true,
-    },
-  );
+        const fetchAndUpdateOverview = async () => {
+          if (!account && !indexedAccount) {
+            return;
+          }
+
+          const overviewData =
+            await backgroundApiProxy.serviceStaking.fetchAccountOverview({
+              accountId: account?.id ?? '',
+              networkId: allNetworkId,
+              indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+            });
+          const earnAccountData =
+            actions.current.getEarnAccount(totalFiatMapKey);
+          actions.current.updateEarnAccounts({
+            key: totalFiatMapKey,
+            earnAccount: {
+              accounts: earnAccountData?.accounts || [],
+              ...overviewData,
+              isOverviewLoaded: true,
+            },
+          });
+        };
+
+        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
+        if (earnAccountData) {
+          await timerUtils.wait(350);
+          await fetchAndUpdateOverview();
+        } else {
+          await fetchAndUpdateOverview();
+        }
+        return { loaded: true };
+      },
+      [actions, account, allNetworkId, indexedAccount],
+      {
+        watchLoading: true,
+        pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
+        revalidateOnReconnect: true,
+        alwaysSetState: true,
+      },
+    );
 
   const { result: earnBanners } = usePromiseResult(
     async () => {
@@ -664,11 +661,12 @@ function BasicEarnHome() {
     },
   );
 
-  const { result: faqList } = usePromiseResult(
+  const { result: faqList, isLoading: isFaqLoading } = usePromiseResult(
     async () => backgroundApiProxy.serviceStaking.getFAQListForHome(),
     [],
     {
       initResult: [],
+      watchLoading: true,
     },
   );
 
@@ -814,11 +812,7 @@ function BasicEarnHome() {
                 flexDirection: 'row',
               }}
             >
-              <Overview
-                onRefresh={refreshOverViewData}
-                isLoading={isLoading}
-                isFetchingAccounts={Boolean(result === undefined || isLoading)}
-              />
+              <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
               <YStack
                 px="$5"
                 minHeight="$36"
@@ -856,7 +850,7 @@ function BasicEarnHome() {
                 <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
               </YStack>
               {/* FAQ Panel */}
-              {media.gtLg && faqList.length > 0 ? (
+              {media.gtLg && (isFaqLoading || faqList.length > 0) ? (
                 <YStack
                   gap="$6"
                   py="$4"
@@ -869,13 +863,13 @@ function BasicEarnHome() {
                     w: EARN_RIGHT_PANEL_WIDTH,
                   }}
                 >
-                  <FAQPanel faqList={faqList} />
+                  <FAQPanel faqList={faqList} isLoading={isFaqLoading} />
                 </YStack>
               ) : null}
             </YStack>
-            {media.gtLg || faqList.length === 0 ? null : (
+            {media.gtLg || (faqList.length === 0 && !isFaqLoading) ? null : (
               <YStack mt="$1" px="$4" py="$4">
-                <FAQPanel faqList={faqList} />
+                <FAQPanel faqList={faqList} isLoading={isFaqLoading} />
               </YStack>
             )}
           </YStack>

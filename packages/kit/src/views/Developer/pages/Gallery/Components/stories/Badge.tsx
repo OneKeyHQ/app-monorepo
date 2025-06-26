@@ -140,6 +140,12 @@ function SwapProviderItem({
           </XStack>
         ) : null}
       </XStack>
+      <XStack ai="center" gap="$2">
+        <SizableText size="$headingLg">Holding</SizableText>
+        <Badge badgeType="success" badgeSize="sm">
+          <Badge.Text>赚取收益</Badge.Text>
+        </Badge>
+      </XStack>
       <Stack py="$2" px="$3.5">
         <XStack gap="$3.5" alignItems="center">
           <XStack gap="$1" alignItems="center">

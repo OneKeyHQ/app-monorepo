@@ -6,12 +6,13 @@ export enum EPrimePages {
   PrimeCloudSync = 'PrimeCloudSync',
   PrimeCloudSyncDebug = 'PrimeCloudSyncDebug',
   PrimeFeatures = 'PrimeFeatures',
+  PrimeDeleteAccount = 'PrimeDeleteAccount',
 }
 
 export enum EPrimeFeatures {
   OneKeyCloud = 'OneKeyCloud',
   BulkCopyAddresses = 'BulkCopyAddresses',
-  DeviceManagement = 'DeviceManagement',
+  BulkRevoke = 'BulkRevoke',
 }
 
 export type IPrimeParamList = {
@@ -26,4 +27,5 @@ export type IPrimeParamList = {
     selectedSubscriptionPeriod?: ISubscriptionPeriod;
     showAllFeatures?: boolean;
   };
+  [EPrimePages.PrimeDeleteAccount]: undefined;
 };

@@ -58,9 +58,9 @@ export function BatchCreateAccountButton({
   return (
     <ActionList.Item
       testID="batch-create-account-button-trigger"
-      icon="Back10Outline"
+      icon="ChecklistOutline"
       label={intl.formatMessage({
-        id: ETranslations.global_bulk_add_accounts,
+        id: ETranslations.global_manage_accounts,
       })}
       onClose={onClose}
       onPress={() => {
