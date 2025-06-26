@@ -199,7 +199,7 @@ class ServiceSend extends ServiceBase {
         signature,
         rawTxType,
         disableBroadcast,
-        disableMev: signedTx.disableMev,
+        disableAntiMev: signedTx.disableMev,
       },
       {
         headers:
