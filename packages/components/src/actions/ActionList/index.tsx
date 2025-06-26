@@ -20,6 +20,8 @@ import {
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
+import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
+import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import {
   ButtonFrame,
   Heading,
@@ -370,27 +372,38 @@ const showActionList = (
   props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
     onClose?: () => void;
   },
+  {
+    modalNavigatorContext,
+    pageContextValue,
+  }: {
+    modalNavigatorContext: ReturnType<typeof useModalNavigatorContext>;
+    pageContextValue: ReturnType<typeof usePageContext>;
+  },
 ) => {
   dismissKeyboard();
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <BasicActionList
-      {...props}
-      defaultOpen
-      renderTrigger={null}
-      onOpenChange={(isOpen) => {
-        props.onOpenChange?.(isOpen);
-        if (!isOpen) {
-          setTimeout(() => {
-            props.onClose?.();
-          });
-          // delay the destruction of the reference to allow for the completion of the animation transition.
-          setTimeout(() => {
-            ref.destroy();
-          }, 500);
-        }
-      }}
-    />,
+    <ModalNavigatorContext.Provider value={modalNavigatorContext}>
+      <PageContext.Provider value={pageContextValue}>
+        <BasicActionList
+          {...props}
+          defaultOpen
+          renderTrigger={null}
+          onOpenChange={(isOpen) => {
+            props.onOpenChange?.(isOpen);
+            if (!isOpen) {
+              setTimeout(() => {
+                props.onClose?.();
+              });
+              // delay the destruction of the reference to allow for the completion of the animation transition.
+              setTimeout(() => {
+                ref.destroy();
+              }, 500);
+            }
+          }}
+        />
+      </PageContext.Provider>
+    </ModalNavigatorContext.Provider>,
   );
 };
 const debouncedShowActionList = debounce(
@@ -408,19 +421,31 @@ function ActionListFrame({
 
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
+
+  const modalNavigatorContext = useModalNavigatorContext();
+  const pageContextValue = usePageContext();
   const handleActionListOpen = () => {
     if (isProcessing.current) return;
 
     isProcessing.current = true;
     if (estimatedContentHeight) {
       void estimatedContentHeight().then((height) => {
-        showActionList({
-          ...popoverProps,
-          estimatedContentHeight: height,
-        });
+        showActionList(
+          {
+            ...popoverProps,
+            estimatedContentHeight: height,
+          },
+          {
+            modalNavigatorContext,
+            pageContextValue,
+          },
+        );
       });
     } else {
-      showActionList(popoverProps);
+      showActionList(popoverProps, {
+        modalNavigatorContext,
+        pageContextValue,
+      });
     }
 
     setTimeout(() => {
