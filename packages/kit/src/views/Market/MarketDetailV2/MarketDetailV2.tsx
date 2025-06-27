@@ -16,7 +16,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
 
-import { useAutoRefreshTokenDetail } from './hooks/useAutoRefreshTokenDetail';
+import { useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
