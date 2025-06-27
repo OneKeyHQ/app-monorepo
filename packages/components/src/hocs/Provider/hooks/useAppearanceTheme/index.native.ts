@@ -2,7 +2,6 @@ import { useLayoutEffect } from 'react';
 
 import {
   setBackgroundColorAsync,
-  setBorderColorAsync,
   setButtonStyleAsync,
 } from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
@@ -18,7 +17,7 @@ const setLightContent = (isAnimated = true) => {
     const color = getTokenValue('$bgAppDark', 'color');
     StatusBar.setBackgroundColor(color, isAnimated);
     void setBackgroundColorAsync(color);
-    void setButtonStyleAsync('dark');
+    void setButtonStyleAsync('light');
   }
 };
 
