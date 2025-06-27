@@ -90,7 +90,7 @@ function PaginationFrame({
   // const intl = useIntl();
   const effectiveTotal = maxPages ? Math.min(total, maxPages) : total;
   const paginationRange = usePagination({
-    current,
+    current: Math.min(current, effectiveTotal),
     total: effectiveTotal,
     siblingCount,
   });
