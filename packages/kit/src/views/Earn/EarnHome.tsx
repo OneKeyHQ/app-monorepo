@@ -227,6 +227,7 @@ function RecommendedItem({
       onPress={onPress}
       userSelect="none"
       alignItems="flex-start"
+      overflow="hidden"
       {...rest}
     >
       <YStack alignItems="flex-start">
@@ -267,17 +268,25 @@ function RecommendedContainer({ children }: PropsWithChildren) {
     <YStack
       gap="$3"
       px="$0"
-      $md={{
-        mx: -20,
-      }}
+      $md={
+        platformEnv.isNative
+          ? {
+              mx: -20,
+            }
+          : undefined
+      }
     >
       {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
       <YStack
         gap="$1"
         zIndex={10}
-        $md={{
-          px: '$5',
-        }}
+        $md={
+          platformEnv.isNative
+            ? {
+                px: '$5',
+              }
+            : undefined
+        }
       >
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.market_trending })}
