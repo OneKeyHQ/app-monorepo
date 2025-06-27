@@ -798,8 +798,8 @@ function Dashboard({
                   iconSize="$5"
                   title="Rewards Details"
                   renderContent={
-                    <YStack>
-                      <YStack>
+                    <YStack borderRadius="$3" overflow="hidden">
+                      <YStack px="$5">
                         {onChain.available?.map(
                           ({ token, fiatValue, amount }, index) => {
                             return (
@@ -811,7 +811,7 @@ function Dashboard({
                                 jc="space-between"
                                 py={5}
                               >
-                                <XStack gap="$2.5">
+                                <XStack gap="$2.5" ai="center">
                                   <Token
                                     size="sm"
                                     tokenImageUri={token.logoURI}
@@ -820,7 +820,7 @@ function Dashboard({
                                     {token.symbol.toUpperCase()}
                                   </SizableText>
                                 </XStack>
-                                <YStack>
+                                <YStack ai="flex-end">
                                   <NumberSizeableText
                                     formatter="balance"
                                     size="$bodyMdMedium"
@@ -841,12 +841,20 @@ function Dashboard({
                         )}
                       </YStack>
                       <Divider />
-                      <XStack ai="center" gap="$2" py="$2.5" bg="$bgSubdued">
-                        <Icon
-                          color="$iconSubdued"
-                          size="$4"
-                          name="InfoCircleOutline"
-                        />
+                      <XStack
+                        ai="center"
+                        gap="$2"
+                        py="$2.5"
+                        px="$5"
+                        bg="$bgSubdued"
+                      >
+                        <Stack>
+                          <Icon
+                            color="$iconSubdued"
+                            size="$4"
+                            name="InfoCircleOutline"
+                          />
+                        </Stack>
                         <SizableText
                           numberOfLines={10}
                           size="$bodyMd"
@@ -861,38 +869,6 @@ function Dashboard({
                   }
                 />
               </XStack>
-              {onChain.available?.map(({ token, fiatValue, amount }, index) => {
-                return (
-                  <Fragment key={index}>
-                    <XStack gap="$2" py={5}>
-                      <Token size="xs" tokenImageUri={token.logoURI} />
-                      <NumberSizeableText
-                        formatter="balance"
-                        size="$bodyMd"
-                        formatterOptions={{
-                          tokenSymbol: token.symbol,
-                        }}
-                      >
-                        {amount}
-                      </NumberSizeableText>
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        (
-                        <Currency
-                          formatter="value"
-                          size="$bodyMd"
-                          color="$textSubdued"
-                        >
-                          {fiatValue}
-                        </Currency>
-                        )
-                      </SizableText>
-                    </XStack>
-                    {index !== (onChain.available?.length || 1) - 1 ? (
-                      <Divider bg="$borderSubdued" />
-                    ) : null}
-                  </Fragment>
-                );
-              })}
             </YStack>
           ) : (
             <NoRewardYet />
