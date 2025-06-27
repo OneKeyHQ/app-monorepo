@@ -125,7 +125,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* AntiMEV toggle */}
-      <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
+      <AntiMEVToggle
+        value={antiMEV}
+        onToggle={handleAntiMEVToggle}
+        networkId={networkId}
+      />
     </YStack>
   );
 }
