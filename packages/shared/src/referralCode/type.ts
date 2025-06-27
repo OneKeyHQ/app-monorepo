@@ -11,6 +11,7 @@ interface IReward {
       symbol: string;
     };
     amount: string;
+    usdValue: string;
     fiatValue: string;
   }[];
   pending?: {
@@ -60,8 +61,22 @@ export interface IInviteSummary {
     labelKey: string;
     label: string;
   }[];
-  HardwareSales: IReward;
+  HardwareSales: IReward & {
+    nextStage: { isEnd: boolean; amount: string; label: string };
+  };
   banners: any[];
+  cumulativeRewards: {
+    distributed: string;
+    undistributed: string;
+    nextDistribution: string;
+    token: {
+      networkId: string;
+      address: string;
+      logoURI: string;
+      name: string;
+      symbol: string;
+    };
+  };
 }
 
 export interface IEarnWalletHistoryItem {
