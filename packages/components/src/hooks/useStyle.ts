@@ -1,5 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { getTokens as coreGetTokens, useTheme } from '@tamagui/core';
 
@@ -97,28 +96,25 @@ const getZIndex = (id: number) => {
 
 export const useOverlayZIndex = (open = false): number => {
   const overlayIdRef = useRef(0);
-  const setZIndexRef = useRef<Dispatch<SetStateAction<number>> | undefined>();
-  useEffect(() => {
-    if (overlayIdRef.current && setZIndexRef.current) {
-      if (open) {
-        createNewZIndex(overlayIdRef.current);
-        setZIndexRef.current(getZIndex(overlayIdRef.current));
-      } else {
-        removeZIndexFromStack(overlayIdRef.current);
-      }
-    }
-  }, [open]);
-
-  const [zIndex, setZIndex] = useState(() => {
+  const prevOpenRef = useRef<boolean | undefined>(undefined);
+  useMemo(() => {
     prevOverlayId += 1;
     overlayIdRef.current = prevOverlayId;
     createNewZIndex(overlayIdRef.current);
-    return getZIndex(overlayIdRef.current);
-  });
-
-  useMemo(() => {
-    setZIndexRef.current = setZIndex;
   }, []);
+
+  const zIndex = useMemo(() => {
+    if (prevOpenRef.current !== open) {
+      prevOpenRef.current = open;
+      if (open) {
+        createNewZIndex(overlayIdRef.current);
+        return getZIndex(overlayIdRef.current);
+      }
+      removeZIndexFromStack(overlayIdRef.current);
+      return SHEET_AND_DIALOG_Z_INDEX;
+    }
+    return SHEET_AND_DIALOG_Z_INDEX;
+  }, [open]);
 
   useEffect(
     () => () => {

@@ -25,6 +25,7 @@ import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -586,6 +587,7 @@ export interface IUpdateUnsignedTxParams {
   tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;
   dataInfo?: { data: string };
+  tronResourceRentalInfo?: ITronResourceRentalInfo;
 }
 export interface IBroadcastTransactionParams {
   accountId: string;

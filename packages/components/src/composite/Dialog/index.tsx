@@ -328,6 +328,7 @@ function DialogFrame({
               width={400}
               p="$0"
               {...floatingPanelProps}
+              zIndex={floatingPanelProps?.zIndex || zIndex}
             >
               {renderDialogContent}
             </TMDialog.Content>
@@ -683,6 +684,7 @@ enum EInPageDialogType {
 const useInPageDialog = (type: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
+
   const portalId = useMemo(() => {
     if (type === EInPageDialogType.inTabPages) {
       return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;

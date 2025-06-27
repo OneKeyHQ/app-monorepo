@@ -24,6 +24,7 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IAddressValidation,
@@ -512,25 +513,41 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxTron);
+      return this._buildUnsignedTxFromEncodedTx({
+        encodedTx: encodedTx as IEncodedTxTron,
+        transfersInfo: params.transfersInfo ?? [],
+      });
     }
     throw new OneKeyInternalError();
   }
 
-  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxTron) {
-    return Promise.resolve({ encodedTx });
+  async _buildUnsignedTxFromEncodedTx({
+    encodedTx,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxTron;
+    transfersInfo: ITransferInfo[];
+  }) {
+    return Promise.resolve({ encodedTx, transfersInfo });
   }
 
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, nativeAmountInfo, tokenApproveInfo } = params;
+    const {
+      unsignedTx,
+      nativeAmountInfo,
+      tokenApproveInfo,
+      tronResourceRentalInfo,
+    } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxTron;
+    let updated = false;
     if (tokenApproveInfo) {
       encodedTxNew = await this._updateTokenApproveInfo({
         encodedTx: encodedTxNew,
         tokenApproveInfo,
       });
+      updated = true;
     }
 
     if (nativeAmountInfo) {
@@ -538,8 +555,22 @@ export default class Vault extends VaultBase {
         encodedTx: encodedTxNew,
         nativeAmountInfo,
       });
+      updated = true;
     }
 
+    if (
+      unsignedTx.transfersInfo &&
+      unsignedTx.transfersInfo.length > 0 &&
+      tronResourceRentalInfo &&
+      !updated
+    ) {
+      encodedTxNew = await this._updateTxAfterResourceRental({
+        encodedTx: encodedTxNew,
+        tronResourceRentalInfo,
+        transfersInfo: unsignedTx.transfersInfo,
+      });
+      updated = true;
+    }
     unsignedTx.encodedTx = encodedTxNew;
     return unsignedTx;
   }
@@ -656,6 +687,25 @@ export default class Vault extends VaultBase {
     }
 
     return Promise.resolve(encodedTx);
+  }
+
+  async _updateTxAfterResourceRental(params: {
+    encodedTx: IEncodedTxTron;
+    tronResourceRentalInfo: ITronResourceRentalInfo;
+    transfersInfo: ITransferInfo[];
+  }) {
+    const { encodedTx, tronResourceRentalInfo, transfersInfo } = params;
+
+    if (
+      !tronResourceRentalInfo.isResourceRentalEnabled ||
+      !tronResourceRentalInfo.isResourceRentalNeeded
+    ) {
+      return encodedTx;
+    }
+
+    return this._buildEncodedTxFromTransfer({
+      transfersInfo,
+    });
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
