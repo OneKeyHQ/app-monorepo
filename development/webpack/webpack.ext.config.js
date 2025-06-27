@@ -45,6 +45,16 @@ const chromeExtensionV3ViolationPlugin = new ChromeExtensionV3ViolationPlugin([
     regexToFind: /g\.src=`\${v}\/js\/telegram-login\.js`/g,
     replacement: 'g.src=``',
   },
+  // maps.googleapis.com
+  {
+    regexToFind: /https:\/\/maps\.googleapis\.com\/maps\/api\/js/g,
+    replacement: '',
+  },
+  // js.stripe.com
+  {
+    regexToFind: /\.p="https:\/\/js\.stripe\.com\/v3\/"/g,
+    replacement: '.p=""',
+  },
 ]);
 
 module.exports = ({
