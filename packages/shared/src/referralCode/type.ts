@@ -61,7 +61,9 @@ export interface IInviteSummary {
     labelKey: string;
     label: string;
   }[];
-  HardwareSales: IReward;
+  HardwareSales: IReward & {
+    nextStage: { isEnd: boolean; amount: string; label: string };
+  };
   banners: any[];
   cumulativeRewards: {
     distributed: string;

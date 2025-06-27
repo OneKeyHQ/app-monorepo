@@ -418,6 +418,34 @@ function Dashboard({
       }, BigNumber(0))
       .toFixed(2);
   }, [onChain.available]);
+  const renderNextStage = useCallback(() => {
+    if (hardwareSales.nextStage) {
+      if (hardwareSales.nextStage.isEnd) {
+        return (
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.referral_hw_level_up_diamond,
+            })}
+          </SizableText>
+        );
+      }
+      return (
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          {intl.formatMessage(
+            { id: ETranslations.referral_hw_level_up_remain },
+            {
+              Amount: (
+                <Currency size="$bodySm" formatter="balance" color="$text">
+                  {hardwareSales.nextStage.amount}
+                </Currency>
+              ),
+              LevelName: hardwareSales.nextStage.label,
+            },
+          )}
+        </SizableText>
+      );
+    }
+  }, [hardwareSales.nextStage, intl]);
   return (
     <YStack px="$5" py="$8" gap="$5">
       <LinearGradient
@@ -616,23 +644,7 @@ function Dashboard({
               />
             </YStack>
             <XStack gap="$1" pt="$5" pb="$2">
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                {intl.formatMessage(
-                  { id: ETranslations.referral_hw_level_up_remain },
-                  {
-                    Amount: (
-                      <Currency
-                        size="$bodySm"
-                        formatter="balance"
-                        color="$text"
-                      >
-                        5123
-                      </Currency>
-                    ),
-                    LevelName: 'Gold',
-                  },
-                )}
-              </SizableText>
+              {renderNextStage()}
             </XStack>
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
