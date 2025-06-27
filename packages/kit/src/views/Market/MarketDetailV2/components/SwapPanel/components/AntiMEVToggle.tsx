@@ -31,7 +31,7 @@ export function AntiMEVToggle({
     },
   );
 
-  // swapConfigs
+  // swapConfigs.swapMevNetConfig
   // [
   //   "evm--1",
   //   "evm--56",
@@ -41,9 +41,8 @@ export function AntiMEVToggle({
   // ]
 
   // Check if MEV is available for the current network
-  const mevAvailable = Boolean(
-    networkId && swapConfigs?.swapMevNetConfig?.includes(networkId),
-  );
+  const mevAvailable =
+    networkId && swapConfigs?.swapMevNetConfig?.includes?.(networkId);
 
   // Don't render if MEV is not available for current network or still loading
   if (isLoading || !mevAvailable) {
