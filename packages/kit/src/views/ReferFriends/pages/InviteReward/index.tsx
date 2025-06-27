@@ -13,6 +13,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  LinearGradient,
   NumberSizeableText,
   Page,
   Popover,
@@ -39,6 +40,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function PopoverLine({ children }: PropsWithChildren) {
@@ -249,8 +251,11 @@ function RewardLevelMoney({
       return 'center';
     }
   }, [isLeft, isRight]);
+  if (isLeft || isRight) {
+    return null;
+  }
   return (
-    <YStack position="absolute" gap={5} top={37} width="100%" ai={ai}>
+    <YStack position="absolute" gap={5} top={22} width="100%" ai={ai}>
       <YStack
         w={1}
         h={10}
@@ -260,7 +265,7 @@ function RewardLevelMoney({
         borderBottomLeftRadius="$1"
         borderBottomRightRadius="$1"
       />
-      {threshold ? (
+      {/* {threshold ? (
         <Currency
           formatter="balance"
           textAlign={isRight ? 'right' : undefined}
@@ -272,7 +277,7 @@ function RewardLevelMoney({
         >
           {threshold}
         </Currency>
-      ) : null}
+      ) : null} */}
     </YStack>
   );
 }
@@ -292,11 +297,8 @@ function RewardLevelText({
 }) {
   return (
     <YStack>
-      <SizableText size="$bodySm" textAlign={isRight ? 'right' : 'center'}>
-        {level}
-      </SizableText>
-      <SizableText size="$bodySmMedium" color="$textSubdued">
-        {percent}
+      <SizableText size="$bodySm" color="$textSubdued">
+        {`${level} ${percent}`}
       </SizableText>
       <RewardLevelMoney
         threshold={threshold}
@@ -304,6 +306,28 @@ function RewardLevelText({
         isRight={isRight}
       />
     </YStack>
+  );
+}
+
+function CumulativeRewardsLineItem({
+  bg,
+  amount,
+  title,
+}: {
+  bg: IStackStyle['bg'];
+  title: string;
+  amount: string;
+}) {
+  return (
+    <XStack jc="space-between">
+      <XStack gap="$2" ai="center" jc="center">
+        <Stack w="$2" h="$2" borderRadius="$full" bg={bg} />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {title}
+        </SizableText>
+      </XStack>
+      <Currency size="$bodyMdMedium">{amount}</Currency>
+    </XStack>
   );
 }
 
@@ -316,6 +340,7 @@ function Dashboard({
   rebateLevels,
   rebateConfig,
   nextRebateLevel,
+  cumulativeRewards,
   fetchSummaryInfo,
   withdrawAddresses,
 }: {
@@ -323,6 +348,7 @@ function Dashboard({
   enabledNetworks: IInviteSummary['enabledNetworks'];
   onChain: IInviteSummary['Onchain'];
   hardwareSales: IInviteSummary['HardwareSales'];
+  cumulativeRewards: IInviteSummary['cumulativeRewards'];
   withdrawAddresses: IInviteSummary['withdrawAddresses'];
   levelPercent: number;
   rebateLevels: IInviteSummary['rebateLevels'];
@@ -341,6 +367,7 @@ function Dashboard({
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
       accountId: activeAccount.account?.id ?? '',
+      address: withdrawAddresses[0]?.address,
       onAddressAdded: async ({ networkId }: { networkId: string }) => {
         Toast.success({
           title: intl.formatMessage({
@@ -363,6 +390,7 @@ function Dashboard({
     intl,
     isNewEditWithdrawAddress,
     navigation,
+    withdrawAddresses,
   ]);
 
   const toEarnRewardPage = useCallback(() => {
@@ -383,105 +411,154 @@ function Dashboard({
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
+  const onChainSummary = useMemo(() => {
+    return onChain.available
+      ?.reduce((acc, curr) => {
+        return acc.plus(BigNumber(curr.usdValue));
+      }, BigNumber(0))
+      .toFixed(2);
+  }, [onChain.available]);
+  const renderNextStage = useCallback(() => {
+    if (hardwareSales.nextStage) {
+      if (hardwareSales.nextStage.isEnd) {
+        return (
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.referral_hw_level_up_diamond,
+            })}
+          </SizableText>
+        );
+      }
+      return (
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          {intl.formatMessage(
+            { id: ETranslations.referral_hw_level_up_remain },
+            {
+              Amount: (
+                <Currency size="$bodySm" formatter="balance" color="$text">
+                  {hardwareSales.nextStage.amount}
+                </Currency>
+              ),
+              LevelName: hardwareSales.nextStage.label,
+            },
+          )}
+        </SizableText>
+      );
+    }
+  }, [hardwareSales.nextStage, intl]);
   return (
     <YStack px="$5" py="$8" gap="$5">
-      <YStack
-        bg="$bgSuccessSubdued"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSuccessSubdued"
-        borderRadius="$3"
-        px="$5"
-        py="$4"
-        gap="$4"
+      <LinearGradient
+        colors={['rgba(0, 196, 59, 0.09)', 'rgba(0, 196, 59, 0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
       >
-        <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_total_reward,
-            })}
-          </SizableText>
-          <XStack gap="$2">
-            <Popover
-              placement="top"
-              title={intl.formatMessage({
-                id: ETranslations.referral_total_reward,
-              })}
-              renderTrigger={
-                <Currency
-                  pb={1}
-                  color="$textSuccess"
-                  formatter="value"
-                  size="$bodyLgMedium"
-                  cursor="pointer"
-                  textDecorationLine="underline"
-                  textDecorationColor="$textSuccess"
-                  textDecorationStyle="dotted"
-                  style={{
-                    textUnderlineOffset: 4,
-                  }}
-                >
-                  {totalRewards}
-                </Currency>
-              }
-              renderContent={
-                <Stack gap="$2.5" p="$5">
-                  <PopoverLine>
-                    {intl.formatMessage({
-                      id: ETranslations.referral_total_reward_pop1,
-                    })}
-                  </PopoverLine>
-                  <PopoverLine>
-                    {intl.formatMessage({
-                      id: ETranslations.referral_total_reward_pop2,
-                    })}
-                  </PopoverLine>
-                </Stack>
-              }
-            />
-            <IconButton
-              variant="tertiary"
-              iconColor="$iconSubdued"
-              icon="ClockTimeHistoryOutline"
-              size="small"
-              iconSize="$5"
-              px="$1.5"
-              mr="$-2"
-              onPress={toRewardDistributionHistoryPage}
-            />
-          </XStack>
-        </XStack>
-        <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.referral_reward_received_address,
-            })}
-          </SizableText>
-          <XStack ai="center" jc="space-between" gap="$5">
-            <XStack flexShrink={1}>
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                flexShrink={1}
-                numberOfLines={10}
-              >
-                {withdrawAddresses.length
-                  ? withdrawAddresses[0].address
-                  : intl.formatMessage({
-                      id: ETranslations.referral_reward_received_address_notset,
-                    })}
+        <YStack
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderRadius="$3"
+        >
+          <YStack
+            pt="$4"
+            px="$5"
+            mx={-1}
+            borderBottomWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            borderRadius="$3"
+            shadowColor="rgba(0,0,0,0.04)"
+            shadowOffset={{
+              width: 0,
+              height: 1,
+            }}
+          >
+            <XStack ai="center" jc="space-between">
+              <SizableText size="$headingMd">
+                {intl.formatMessage({
+                  id: ETranslations.referral_cumulative_rewards,
+                })}
               </SizableText>
+              <IconButton
+                variant="tertiary"
+                iconColor="$iconSubdued"
+                icon="ClockTimeHistoryOutline"
+                size="small"
+                iconSize="$5"
+                px="$1.5"
+                mr="$-2"
+                onPress={toRewardDistributionHistoryPage}
+              />
             </XStack>
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_edit })}
-              variant="tertiary"
-              icon="EditOutline"
-              size="small"
-              onPress={toEditAddressPage}
-              iconColor="$iconSubdued"
-            />
+            <Currency
+              textAlign="center"
+              size="$heading5xl"
+              color="$textSuccessStrong"
+              formatter="value"
+              my="$6"
+            >
+              {BigNumber(cumulativeRewards.distributed)
+                .plus(cumulativeRewards.undistributed)
+                .toFixed(2)}
+            </Currency>
+            <YStack gap="$2">
+              <CumulativeRewardsLineItem
+                bg="$iconSuccess"
+                title={intl.formatMessage({
+                  id: ETranslations.referral_distributed,
+                })}
+                amount={cumulativeRewards.distributed}
+              />
+              <CumulativeRewardsLineItem
+                bg="$iconCaution"
+                title={intl.formatMessage({
+                  id: ETranslations.referral_undistributed,
+                })}
+                amount={cumulativeRewards.undistributed}
+              />
+            </YStack>
+            <XStack py="$5" jc="space-between" ai="center">
+              <YStack>
+                <SizableText size="$bodyMdMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_reward_received_address,
+                  })}
+                </SizableText>
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  flexShrink={1}
+                  numberOfLines={10}
+                >
+                  {withdrawAddresses.length
+                    ? accountUtils.shortenAddress({
+                        address: withdrawAddresses[0].address,
+                      })
+                    : intl.formatMessage({
+                        id: ETranslations.referral_reward_received_address_notset,
+                      })}
+                </SizableText>
+              </YStack>
+              <IconButton
+                title={intl.formatMessage({ id: ETranslations.global_edit })}
+                variant="tertiary"
+                icon="EditOutline"
+                size="small"
+                onPress={toEditAddressPage}
+                iconColor="$iconSubdued"
+              />
+            </XStack>
+          </YStack>
+          <XStack px="$5" h={36} ai="center" jc="space-between">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.referral_next_distribution,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              {cumulativeRewards.nextDistribution}
+            </SizableText>
           </XStack>
         </YStack>
-      </YStack>
+      </LinearGradient>
       <YStack
         pb="$4"
         borderWidth={StyleSheet.hairlineWidth}
@@ -502,31 +579,52 @@ function Dashboard({
             {hardwareSales.description}
           </SizableText>
         </YStack>
-        <YStack pt="$4" px="$5">
-          <YStack gap="$2">
-            <XStack>
-              <XStack>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {`${intl.formatMessage({
-                    id: ETranslations.referral_hw_level_title,
-                  })}: `}
-                </SizableText>
-                <SizableText size="$bodyMd">{`${rebateConfig.emoji} ${rebateConfig.label}`}</SizableText>
+        <YStack px="$5">
+          <YStack>
+            <XStack py="$6" jc="space-between" ai="center">
+              <XStack gap="$2" ai="center" jc="center">
+                <XStack
+                  borderRadius="$2"
+                  w="$8"
+                  h="$8"
+                  bg="$bgStrong"
+                  ai="center"
+                  jc="center"
+                >
+                  <SizableText size="$headingXl">
+                    {rebateConfig.emoji}
+                  </SizableText>
+                </XStack>
+                <YStack>
+                  <SizableText size="$headingMd">
+                    {rebateConfig.label}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.referral_hw_level_rebate_rate,
+                      },
+                      {
+                        percent: `${rebateConfig.rebate}%`,
+                      },
+                    )}
+                  </SizableText>
+                </YStack>
               </XStack>
-              <XStack>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {` / ${intl.formatMessage({
-                    id: ETranslations.referral_hw_sales_title,
-                  })}: `}
-                </SizableText>
-                <Currency size="$bodyMd" formatter="value">
+              <YStack ai="flex-end">
+                <Currency size="$headingMd" formatter="value">
                   {hardwareSales?.monthlySalesFiatValue
                     ? BigNumber(hardwareSales.monthlySalesFiatValue).toFixed(2)
                     : 0}
                 </Currency>
-              </XStack>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_hw_sales_title,
+                  })}
+                </SizableText>
+              </YStack>
             </XStack>
-            <YStack h={84} borderRadius="$2" py="$2" bg="$bgSubdued" px="$4">
+            <YStack h={28} borderRadius="$2" py="$2">
               <XStack mb="$2" jc="space-between">
                 {rebateLevels.map((rebateLevel, index) => {
                   return (
@@ -552,9 +650,12 @@ function Dashboard({
                 size="medium"
               />
             </YStack>
+            <XStack gap="$1" pt="$5" pb="$2">
+              {renderNextStage()}
+            </XStack>
           </YStack>
           {showHardwareSalesAvailableFiat || showHardwarePendingFiat ? (
-            <XStack pt="$4" gap="$2">
+            <XStack gap="$2" pt="$4">
               {hardwareSales.available?.[0]?.token?.networkId ||
               hardwareSales.pending?.[0]?.token?.networkId ? (
                 <Token
@@ -621,38 +722,100 @@ function Dashboard({
         <YStack px="$5">
           {showEarnSalesAvailableFiat ? (
             <YStack gap="$2" pt="$4">
-              {onChain.available?.map(({ token, fiatValue, amount }, index) => {
-                return (
-                  <Fragment key={index}>
-                    <XStack gap="$2" py={5}>
-                      <Token size="xs" tokenImageUri={token.logoURI} />
-                      <NumberSizeableText
-                        formatter="balance"
-                        size="$bodyMd"
-                        formatterOptions={{
-                          tokenSymbol: token.symbol,
-                        }}
+              <XStack>
+                <Token
+                  size="xs"
+                  tokenImageUri="https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png"
+                />
+                <XStack pl="$2" pr="$3" gap="$1">
+                  <SizableText size="$bodyMd">≈</SizableText>
+                  <NumberSizeableText
+                    formatter="value"
+                    size="$bodyMd"
+                    formatterOptions={{
+                      tokenSymbol: 'USDC',
+                    }}
+                  >
+                    {onChainSummary}
+                  </NumberSizeableText>
+                </XStack>
+                <Popover.Tooltip
+                  iconSize="$5"
+                  title={intl.formatMessage({
+                    id: ETranslations.referral_earn_reward_details,
+                  })}
+                  renderContent={
+                    <YStack borderRadius="$3" overflow="hidden">
+                      <YStack px="$5">
+                        {onChain.available?.map(
+                          ({ token, fiatValue, amount }, index) => {
+                            return (
+                              <XStack
+                                key={index}
+                                gap="$2"
+                                h={48}
+                                ai="center"
+                                jc="space-between"
+                                py={5}
+                              >
+                                <XStack gap="$2.5" ai="center">
+                                  <Token
+                                    size="sm"
+                                    tokenImageUri={token.logoURI}
+                                  />
+                                  <SizableText size="$bodyMdMedium">
+                                    {token.symbol.toUpperCase()}
+                                  </SizableText>
+                                </XStack>
+                                <YStack ai="flex-end">
+                                  <NumberSizeableText
+                                    formatter="balance"
+                                    size="$bodyMdMedium"
+                                  >
+                                    {amount}
+                                  </NumberSizeableText>
+                                  <Currency
+                                    formatter="balance"
+                                    size="$bodySmMedium"
+                                    color="$textSubdued"
+                                  >
+                                    {fiatValue}
+                                  </Currency>
+                                </YStack>
+                              </XStack>
+                            );
+                          },
+                        )}
+                      </YStack>
+                      <Divider />
+                      <XStack
+                        ai="center"
+                        gap="$2"
+                        py="$2.5"
+                        px="$5"
+                        bg="$bgSubdued"
                       >
-                        {amount}
-                      </NumberSizeableText>
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        (
-                        <Currency
-                          formatter="value"
+                        <Stack>
+                          <Icon
+                            color="$iconSubdued"
+                            size="$4"
+                            name="InfoCircleOutline"
+                          />
+                        </Stack>
+                        <SizableText
+                          numberOfLines={10}
                           size="$bodyMd"
                           color="$textSubdued"
                         >
-                          {fiatValue}
-                        </Currency>
-                        )
-                      </SizableText>
-                    </XStack>
-                    {index !== (onChain.available?.length || 1) - 1 ? (
-                      <Divider bg="$borderSubdued" />
-                    ) : null}
-                  </Fragment>
-                );
-              })}
+                          {intl.formatMessage({
+                            id: ETranslations.referral_earn_reward_details_desc,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    </YStack>
+                  }
+                />
+              </XStack>
             </YStack>
           ) : (
             <NoRewardYet />
@@ -765,6 +928,7 @@ function InviteRewardContent({
     enabledNetworks,
     Onchain,
     HardwareSales,
+    cumulativeRewards,
     levelPercent,
     rebateLevels,
     rebateConfig,
@@ -785,6 +949,7 @@ function InviteRewardContent({
           enabledNetworks={enabledNetworks}
           onChain={Onchain}
           hardwareSales={HardwareSales}
+          cumulativeRewards={cumulativeRewards}
           levelPercent={Number(levelPercent)}
           rebateLevels={rebateLevels}
           rebateConfig={rebateConfig}
