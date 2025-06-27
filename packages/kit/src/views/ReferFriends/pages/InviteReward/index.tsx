@@ -433,17 +433,22 @@ function Dashboard({
           <YStack
             pt="$4"
             px="$5"
+            mx={-1}
             borderBottomWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
             borderRadius="$3"
+            shadowColor="rgba(0,0,0,0.04)"
+            shadowOffset={{
+              width: 0,
+              height: 1,
+            }}
           >
             <XStack ai="center" jc="space-between">
-              <SizableText size="$headingMd" mx="$6">
+              <SizableText size="$headingMd">
                 {intl.formatMessage({
                   id: ETranslations.referral_cumulative_rewards,
                 })}
               </SizableText>
-
               <IconButton
                 variant="tertiary"
                 iconColor="$iconSubdued"
@@ -460,7 +465,7 @@ function Dashboard({
               size="$heading5xl"
               color="$textSuccessStrong"
               formatter="value"
-              mx="$6"
+              my="$6"
             >
               {BigNumber(cumulativeRewards.distributed)
                 .plus(cumulativeRewards.undistributed)
@@ -611,11 +616,22 @@ function Dashboard({
               />
             </YStack>
             <XStack gap="$1" pt="$5" pb="$2">
-              <Currency size="$bodySm" formatter="balance">
-                5123
-              </Currency>
-              <SizableText size="$bodySm" color="$textSubdued">
-                more to Gold level.
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {intl.formatMessage(
+                  { id: ETranslations.referral_hw_level_up_remain },
+                  {
+                    Amount: (
+                      <Currency
+                        size="$bodySm"
+                        formatter="balance"
+                        color="$text"
+                      >
+                        5123
+                      </Currency>
+                    ),
+                    LevelName: 'Gold',
+                  },
+                )}
               </SizableText>
             </XStack>
           </YStack>
