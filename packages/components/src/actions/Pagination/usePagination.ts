@@ -23,7 +23,12 @@ export function usePagination({
   maxPages?: number;
   onChange?: (page: number) => void;
 }) {
-  const effectiveTotal = maxPages ? Math.min(total, maxPages) : total;
+  // Calculate effective total pages, ensuring maxPages is at least 1 to prevent pagination errors
+  const effectiveTotal = maxPages
+    ? Math.min(total, Math.max(maxPages, 1))
+    : total;
+
+  // Ensure current page doesn't exceed the effective total pages
   const effectiveCurrent = Math.min(current, effectiveTotal);
 
   // Auto-sync parent state when current exceeds effectiveTotal
