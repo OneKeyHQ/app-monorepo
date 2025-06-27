@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
@@ -175,6 +176,8 @@ export function AccountSelectorWalletListSideBar({
 
   const CELL_HEIGHT = 68;
 
+  const [settings] = useSettingsPersistAtom();
+
   const getHiddenWalletsLength = useCallback(
     (wallet: IDBWallet) => {
       let _hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
@@ -182,13 +185,14 @@ export function AccountSelectorWalletListSideBar({
         accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
         !accountUtils.isHwHiddenWallet({ wallet }) &&
         isEditableRouteParams &&
-        !wallet?.deprecated
+        !wallet?.deprecated &&
+        settings.showAddHiddenInWalletSidebar
       ) {
         _hiddenWalletsLength += 1; // create hidden wallet button
       }
       return _hiddenWalletsLength;
     },
-    [isEditableRouteParams],
+    [isEditableRouteParams, settings.showAddHiddenInWalletSidebar],
   );
 
   const layoutList = useMemo(() => {

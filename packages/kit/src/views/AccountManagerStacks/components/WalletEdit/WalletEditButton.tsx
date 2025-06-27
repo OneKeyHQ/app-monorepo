@@ -10,6 +10,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AddHiddenWalletButton } from './AddHiddenWalletButton';
 import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
@@ -26,6 +27,13 @@ function WalletEditButtonView({
   const { config } = useAccountSelectorContextData();
 
   const showDeviceManagementButton = useMemo(() => {
+    return (
+      !accountUtils.isHwHiddenWallet({ wallet }) &&
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
+    );
+  }, [wallet]);
+
+  const showAddHiddenWalletButton = useMemo(() => {
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
@@ -66,6 +74,9 @@ function WalletEditButtonView({
     if (showDeviceManagementButton) {
       basicHeight += 54;
     }
+    if (showAddHiddenWalletButton) {
+      basicHeight += 44;
+    }
     if (showRemoveDeviceButton) {
       basicHeight += 44;
     }
@@ -81,6 +92,7 @@ function WalletEditButtonView({
     return basicHeight;
   }, [
     showDeviceManagementButton,
+    showAddHiddenWalletButton,
     showRemoveDeviceButton,
     showRemoveWalletButton,
     showBoundReferralCodeButton,
@@ -119,8 +131,18 @@ function WalletEditButtonView({
                 wallet={wallet}
                 onClose={handleActionListClose}
               />
-              <Divider mx="$2" my="$1" />
             </>
+          ) : null}
+
+          {showAddHiddenWalletButton ? (
+            <AddHiddenWalletButton
+              wallet={wallet}
+              onClose={handleActionListClose}
+            />
+          ) : null}
+
+          {showDeviceManagementButton || showAddHiddenWalletButton ? (
+            <Divider mx="$2" my="$1" />
           ) : null}
 
           {showRemoveWalletButton ? (
@@ -146,6 +168,7 @@ function WalletEditButtonView({
       wallet,
       showBackupButton,
       showDeviceManagementButton,
+      showAddHiddenWalletButton,
       showRemoveDeviceButton,
       showRemoveWalletButton,
     ],
