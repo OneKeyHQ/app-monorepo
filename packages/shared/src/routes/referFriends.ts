@@ -31,6 +31,7 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
     accountId: string;
+    address?: string;
     onAddressAdded: ({
       address,
       networkId,

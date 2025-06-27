@@ -1,5 +1,10 @@
 import { useLayoutEffect } from 'react';
 
+import {
+  setBackgroundColorAsync,
+  setBorderColorAsync,
+  setButtonStyleAsync,
+} from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 import { getTokenValue } from 'tamagui';
 
@@ -10,20 +15,20 @@ import type { IUseAppearanceTheme } from './type';
 const setLightContent = (isAnimated = true) => {
   StatusBar.setBarStyle('light-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
-    StatusBar.setBackgroundColor(
-      getTokenValue('$bgAppDark', 'color'),
-      isAnimated,
-    );
+    const color = getTokenValue('$bgAppDark', 'color');
+    StatusBar.setBackgroundColor(color, isAnimated);
+    void setBackgroundColorAsync(color);
+    void setButtonStyleAsync('dark');
   }
 };
 
 const setDarkContent = (isAnimated = true) => {
   StatusBar.setBarStyle('dark-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
-    StatusBar.setBackgroundColor(
-      getTokenValue('$bgAppLight', 'color'),
-      isAnimated,
-    );
+    const color = getTokenValue('$bgAppLight', 'color');
+    StatusBar.setBackgroundColor(color, isAnimated);
+    void setBackgroundColorAsync(color);
+    void setButtonStyleAsync('dark');
   }
 };
 
