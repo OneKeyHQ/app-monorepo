@@ -38,6 +38,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   maxRecentTokenPairs,
+  mevSwapNetworks,
   swapApprovingStateFetchInterval,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
@@ -2140,6 +2141,7 @@ export default class ServiceSwap extends ServiceBase {
           slippage: 0.5,
           spenderAddress: '',
           defaultTokens: [],
+          swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,
       };
