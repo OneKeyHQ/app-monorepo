@@ -632,7 +632,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   ]);
 
   return (
-    <Stack flex={1} pb={bottom} testID="account-selector-accountList">
+    <Stack
+      key={focusedWalletInfo?.wallet?.id}
+      flex={1}
+      pb={bottom}
+      testID="account-selector-accountList"
+    >
       <WalletDetailsHeader
         wallet={focusedWalletInfo?.wallet}
         device={focusedWalletInfo?.device}
