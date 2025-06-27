@@ -158,6 +158,7 @@ class ServiceSend extends ServiceBase {
       accountAddress,
       signature,
       rawTxType,
+      tronResourceRentalInfo,
     } = params;
 
     // check if the network has custom rpc
@@ -190,6 +191,10 @@ class ServiceSend extends ServiceBase {
       txid = result.txid;
     }
 
+    const hasEnergyRented =
+      tronResourceRentalInfo?.isResourceRentalNeeded &&
+      tronResourceRentalInfo?.isResourceRentalEnabled;
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { result: string };
@@ -203,6 +208,7 @@ class ServiceSend extends ServiceBase {
         rawTxType,
         disableBroadcast,
         disableAntiMev: signedTx.disableMev,
+        hasEnergyRented,
       },
       {
         headers:
@@ -297,7 +303,14 @@ class ServiceSend extends ServiceBase {
   public async signAndSendTransaction(
     params: ISendTxBaseParams & ISignTransactionParamsBase,
   ) {
-    const { networkId, accountId, unsignedTx, signOnly, rawTxType } = params;
+    const {
+      networkId,
+      accountId,
+      unsignedTx,
+      signOnly,
+      rawTxType,
+      tronResourceRentalInfo,
+    } = params;
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -337,6 +350,7 @@ class ServiceSend extends ServiceBase {
         accountAddress,
         signedTx,
         rawTxType,
+        tronResourceRentalInfo,
       });
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
@@ -408,6 +422,7 @@ class ServiceSend extends ServiceBase {
       replaceTxInfo,
       transferPayload,
       successfullySentTxs,
+      tronResourceRentalInfo,
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
@@ -433,6 +448,7 @@ class ServiceSend extends ServiceBase {
               networkId,
               accountId,
               signOnly: false,
+              tronResourceRentalInfo,
             });
         const decodedTx = await this.buildDecodedTx({
           networkId,

@@ -283,6 +283,7 @@ function TxConfirmActions(props: IProps) {
           replaceTxInfo,
           transferPayload,
           successfullySentTxs: successfullySentTxs.current,
+          tronResourceRentalInfo,
         });
 
       if (vaultSettings?.afterSendTxActionEnabled) {
