@@ -297,6 +297,7 @@ function TxConfirmActions(props: IProps) {
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
+      const isTronNetwork = networkUtils.isTronNetworkByNetworkId(networkId);
       defaultLogger.transaction.send.sendConfirm({
         network: networkId,
         txnType: getTxnType({
@@ -304,20 +305,22 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
-        tronResourceRental: networkUtils.isTronNetworkByNetworkId(networkId)
-          ? {
-              isResourceRentalNeeded:
-                tronResourceRentalInfo?.isResourceRentalNeeded,
-              isResourceRentalEnabled:
-                tronResourceRentalInfo?.isResourceRentalEnabled,
-              isSwapTrxEnabled: tronResourceRentalInfo?.isSwapTrxEnabled,
-              payCoinCode: tronResourceRentalInfo?.payTokenInfo?.symbol,
-            }
-          : undefined,
         tokenAddress: transferInfo?.tokenInfo?.address,
         tokenSymbol: transferInfo?.tokenInfo?.symbol,
         tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
         interactContract: undefined,
+        tronIsResourceRentalNeeded: isTronNetwork
+          ? tronResourceRentalInfo?.isResourceRentalNeeded
+          : undefined,
+        tronIsResourceRentalEnabled: isTronNetwork
+          ? tronResourceRentalInfo?.isResourceRentalEnabled
+          : undefined,
+        tronIsSwapTrxEnabled: isTronNetwork
+          ? tronResourceRentalInfo?.isSwapTrxEnabled
+          : undefined,
+        tronPayCoinCode: isTronNetwork
+          ? tronResourceRentalInfo?.payTokenInfo?.symbol
+          : undefined,
       });
 
       Toast.success({
