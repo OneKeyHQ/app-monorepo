@@ -40,17 +40,35 @@ const InAppNotification = () => {
     setInAppNotificationAtom,
   ] = useInAppNotificationAtom();
   const swapApprovingTransactionRef = useRef(swapApprovingTransaction);
-  if (swapApprovingTransactionRef.current !== swapApprovingTransaction) {
-    swapApprovingTransactionRef.current = swapApprovingTransaction;
+  if (
+    swapApprovingTransactionRef.current !== swapApprovingTransaction ||
+    swapApprovingTransactionRef.current?.status !==
+      swapApprovingTransaction?.status ||
+    swapApprovingTransactionRef.current?.txId !== swapApprovingTransaction?.txId
+  ) {
+    swapApprovingTransactionRef.current = swapApprovingTransaction
+      ? {
+          ...swapApprovingTransaction,
+        }
+      : undefined;
   }
 
   const speedSwapApprovingTransactionRef = useRef(
     speedSwapApprovingTransaction,
   );
   if (
-    speedSwapApprovingTransactionRef.current !== speedSwapApprovingTransaction
+    speedSwapApprovingTransactionRef.current !==
+      speedSwapApprovingTransaction ||
+    speedSwapApprovingTransactionRef.current?.status !==
+      speedSwapApprovingTransaction?.status ||
+    speedSwapApprovingTransactionRef.current?.txId !==
+      speedSwapApprovingTransaction?.txId
   ) {
-    speedSwapApprovingTransactionRef.current = speedSwapApprovingTransaction;
+    speedSwapApprovingTransactionRef.current = speedSwapApprovingTransaction
+      ? {
+          ...speedSwapApprovingTransaction,
+        }
+      : undefined;
   }
 
   const intl = useIntl();

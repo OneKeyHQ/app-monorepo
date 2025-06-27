@@ -168,7 +168,7 @@ function RewardCenterContent({
         address: account.address,
         sourceFlag: claimSource ?? '',
         isSuccess: true,
-        resourceType: 'free',
+        resourceType: 'energy',
       });
 
       setIsClaimed(true);
@@ -224,7 +224,7 @@ function RewardCenterContent({
         code,
         sourceFlag: claimSource,
         isSuccess: true,
-        resourceType: 'code',
+        resourceType: 'energy',
       });
 
       Toast.success({

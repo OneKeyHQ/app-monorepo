@@ -123,18 +123,29 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   const renderThirdColumn = useCallback(() => {
     if (isTokenSelector) {
       return (
-        <TokenBalanceView
-          hideValue={hideValue}
-          numberOfLines={1}
-          textAlign="right"
-          size="$bodyLgMedium"
-          $key={token.$key ?? ''}
-          symbol=""
+        <YStack
+          alignItems="flex-end"
           {...(tableLayout && {
             flexGrow: 1,
             flexBasis: 0,
           })}
-        />
+        >
+          <TokenBalanceView
+            hideValue={hideValue}
+            numberOfLines={1}
+            textAlign="right"
+            size="$bodyLgMedium"
+            $key={token.$key ?? ''}
+            symbol=""
+          />
+          <TokenValueView
+            hideValue={hideValue}
+            numberOfLines={1}
+            size="$bodyMd"
+            color="$textSubdued"
+            $key={token.$key ?? ''}
+          />
+        </YStack>
       );
     }
 
