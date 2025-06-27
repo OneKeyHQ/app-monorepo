@@ -7,6 +7,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IBuildExplorerUrlParams } from '@onekeyhq/shared/types/explorer';
 
 import ServiceBase from './ServiceBase';
+import { ONEKEY_BLOCK_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 @backgroundClass()
 class ServiceExplorer extends ServiceBase {
@@ -45,7 +46,7 @@ class ServiceExplorer extends ServiceBase {
     const oldUrl = client.getUri({
       url: `/v1/${network.code}/${type}/${params.param}`,
     });
-    const newUrl = `https://tx.onekey.so/${network.code}/${type}/${params.param}`;
+    const newUrl = `${ONEKEY_BLOCK_EXPLORER_URL}/${network.code}/${type}/${params.param}`;
     return newUrl;
   }
 
