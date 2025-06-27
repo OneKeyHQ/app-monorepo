@@ -600,7 +600,14 @@ function Dashboard({
                     {rebateConfig.label}
                   </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued">
-                    10% reward
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.referral_hw_level_rebate_rate,
+                      },
+                      {
+                        percent: `${rebateConfig.rebate}%`,
+                      },
+                    )}
                   </SizableText>
                 </YStack>
               </XStack>
