@@ -73,6 +73,7 @@ export interface IPaginationProps extends IXStackProps {
   showControls?: boolean;
   disableControls?: boolean;
   pageButtonSize?: 'small' | 'medium' | 'large';
+  maxPages?: number;
 }
 
 function PaginationFrame({
@@ -83,21 +84,23 @@ function PaginationFrame({
   showControls = true,
   disableControls = false,
   pageButtonSize = 'small',
+  maxPages,
   ...rest
 }: IPaginationProps) {
   // const intl = useIntl();
+  const effectiveTotal = maxPages ? Math.min(total, maxPages) : total;
   const paginationRange = usePagination({
     current,
-    total,
+    total: effectiveTotal,
     siblingCount,
   });
 
   const onPageChange = useCallback(
     (page: number) => {
-      if (page < 1 || page > total || page === current) return;
+      if (page < 1 || page > effectiveTotal || page === current) return;
       onChange?.(page);
     },
-    [current, onChange, total],
+    [current, onChange, effectiveTotal],
   );
 
   const onNext = useCallback(
@@ -110,7 +113,7 @@ function PaginationFrame({
   );
 
   const isFirstPage = current === 1;
-  const isLastPage = current === total;
+  const isLastPage = current === effectiveTotal;
 
   return (
     <XStack alignItems="center" gap="$2" {...rest}>
