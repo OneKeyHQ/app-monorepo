@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 const DOTS = 'DOTS';
 
@@ -31,12 +31,16 @@ export function usePagination({
   // Ensure current page doesn't exceed the effective total pages
   const effectiveCurrent = Math.min(current, effectiveTotal);
 
+  // Store the latest onChange callback in a ref to avoid dependency issues
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   // Auto-sync parent state when current exceeds effectiveTotal
   useEffect(() => {
-    if (current !== effectiveCurrent && onChange) {
-      onChange(effectiveCurrent);
+    if (current !== effectiveCurrent && onChangeRef.current) {
+      onChangeRef.current(effectiveCurrent);
     }
-  }, [current, effectiveCurrent, onChange]);
+  }, [current, effectiveCurrent]);
 
   const paginationRange = useMemo<(number | typeof DOTS)[]>(() => {
     // Pages count is less than the page numbers we want to show in pagination

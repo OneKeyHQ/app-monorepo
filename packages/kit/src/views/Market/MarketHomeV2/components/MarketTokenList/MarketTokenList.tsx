@@ -59,7 +59,7 @@ function MarketTokenList({
   sortBy: initialSortBy,
   sortType: initialSortType,
   onItemPress,
-  pageSize = 50,
+  pageSize = 20,
   liquidityFilter,
   toolbar,
   onScrollOffsetChange,
@@ -229,7 +229,7 @@ function MarketTokenList({
       {!showSkeleton && totalPages > 1 ? (
         <XStack justifyContent="center" py="$4">
           <Pagination
-            maxPages={10}
+            maxPages={20}
             current={currentPage}
             total={totalPages}
             onChange={setCurrentPage}
