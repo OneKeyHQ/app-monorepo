@@ -825,6 +825,7 @@ export interface ISpeedSwapConfig {
     slippage: number;
     spenderAddress: string;
     defaultTokens: ISwapTokenBase[];
+    swapMevNetConfig: string[];
   };
   supportSpeedSwap: boolean;
 }

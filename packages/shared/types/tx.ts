@@ -9,7 +9,7 @@ import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
-import type { IFeeInfoUnit } from './fee';
+import type { IFeeInfoUnit, ITronResourceRentalInfo } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 import type { ENFTType } from './nft';
 import type {
@@ -71,6 +71,7 @@ export type ISendTxBaseParams = {
   networkId: string;
   accountId: string;
   accountAddress?: string;
+  tronResourceRentalInfo?: ITronResourceRentalInfo;
 };
 
 export type IDecodedTxInteractInfo = {

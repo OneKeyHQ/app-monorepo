@@ -96,7 +96,7 @@ function TxConfirmHeaderRight(props: {
               </SizableText>
               <YStack gap="$2">
                 <SizableText size={gtMd ? '$bodyMd' : '$bodyLg'}>
-                  Power by
+                  {intl.formatMessage({ id: ETranslations.global_power_by })}
                 </SizableText>
                 <Image width={160} height={40}>
                   <Image.Source
