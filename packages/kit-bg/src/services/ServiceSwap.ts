@@ -1300,6 +1300,13 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSwapHistoryByTxId({ txId }: { txId: string }) {
+    const history =
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryByTxId(txId);
+    return history;
+  }
+
+  @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
     await inAppNotificationAtom.set((pre) => {

@@ -93,4 +93,10 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     const data = await this.getRawData();
     return data?.histories ?? [];
   }
+
+  @backgroundMethod()
+  async getSwapHistoryByTxId(txId: string) {
+    const data = await this.getRawData();
+    return data?.histories?.find((i) => i.txInfo.txId === txId);
+  }
 }
