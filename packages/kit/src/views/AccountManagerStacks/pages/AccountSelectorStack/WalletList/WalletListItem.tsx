@@ -1,4 +1,4 @@
-import { type ComponentProps, useCallback, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -20,11 +20,15 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { useAddHiddenWallet } from '../WalletDetails/hooks/useAddHiddenWallet';
 
 type IWalletListItemProps = {
   isEditMode?: boolean;
@@ -127,115 +131,6 @@ function WalletListItemBaseView({
   return responsiveComponent;
 }
 
-export function useAddHiddenWalletButton() {
-  const intl = useIntl();
-  const actions = useAccountSelectorActions();
-  const [isLoading, setIsLoading] = useState(false);
-  const { createQrWallet } = useCreateQrWallet();
-
-  const createHwHiddenWallet = useCallback(
-    async ({ wallet }: { wallet?: IDBWallet }) => {
-      try {
-        setIsLoading(true);
-        await actions.current.createHWHiddenWallet(
-          {
-            walletId: wallet?.id || '',
-          },
-          {
-            addDefaultNetworkAccounts: true,
-            showAddAccountsLoading: true,
-          },
-        );
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.global_success,
-          }),
-        });
-      } finally {
-        setIsLoading(false);
-        const device =
-          await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
-            walletId: wallet?.id || '',
-          });
-        if (device?.connectId) {
-          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
-            {
-              connectId: device?.connectId,
-              hardClose: true,
-            },
-          );
-        }
-      }
-    },
-    [actions, intl],
-  );
-
-  const createQrHiddenWallet = useCallback(
-    async ({ wallet }: { wallet?: IDBWallet }) => {
-      try {
-        defaultLogger.account.wallet.addWalletStarted({
-          addMethod: 'ConnectHWWallet',
-          details: {
-            hardwareWalletType: 'Hidden',
-            communication: 'QRCode',
-          },
-          isSoftwareWalletOnlyUser: false,
-        });
-
-        await createQrWallet({
-          isOnboarding: true,
-          onFinalizeWalletSetupError: () => {
-            // only pop when finalizeWalletSetup pushed
-            // navigation.pop();
-          },
-        });
-
-        defaultLogger.account.wallet.walletAdded({
-          status: 'success',
-          addMethod: 'ConnectHWWallet',
-          details: {
-            hardwareWalletType: 'Hidden',
-            communication: 'QRCode',
-            deviceType: EDeviceType.Pro,
-          },
-          isSoftwareWalletOnlyUser: false,
-        });
-      } catch (error) {
-        errorToastUtils.toastIfError(error);
-        defaultLogger.account.wallet.walletAdded({
-          status: 'failure',
-          addMethod: 'ConnectHWWallet',
-          details: {
-            hardwareWalletType: 'Hidden',
-            communication: 'QRCode',
-            deviceType: EDeviceType.Pro,
-          },
-          isSoftwareWalletOnlyUser: false,
-        });
-        throw error;
-      }
-    },
-    [createQrWallet],
-  );
-
-  const createHiddenWallet = useCallback(
-    async ({ wallet }: { wallet?: IDBWallet }) => {
-      if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
-        await createHwHiddenWallet({ wallet });
-      }
-      if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
-        await createQrHiddenWallet({ wallet });
-      }
-    },
-    [createHwHiddenWallet, createQrHiddenWallet],
-  );
-
-  return {
-    createHiddenWallet,
-    isLoading,
-  };
-}
-
 function HiddenWalletAddButton({
   wallet,
   isEditMode,
@@ -243,10 +138,16 @@ function HiddenWalletAddButton({
   wallet?: IDBWallet;
   isEditMode?: boolean;
 }) {
-  const { createHiddenWallet, isLoading } = useAddHiddenWalletButton();
+  const { createHiddenWalletWithDialogConfirm, isLoading } =
+    useAddHiddenWallet();
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
 
-  if (!isEditMode || wallet?.deprecated) {
+  if (
+    !isEditMode ||
+    wallet?.deprecated ||
+    !settings.showAddHiddenInWalletSidebar
+  ) {
     return null;
   }
 
@@ -272,7 +173,7 @@ function HiddenWalletAddButton({
         if (isLoading) {
           return;
         }
-        await createHiddenWallet({ wallet });
+        await createHiddenWalletWithDialogConfirm({ wallet });
       }}
     />
   );
@@ -311,6 +212,18 @@ export function WalletListItem({
   const hiddenWallets = wallet?.hiddenWallets;
   const isHwOrQrWallet = accountUtils.isHwOrQrWallet({ walletId: wallet?.id });
   const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+  const [settings, setSettings] = useSettingsPersistAtom();
+
+  useEffect(() => {
+    if (settings?.showAddHiddenInWalletSidebar === undefined) {
+      setSettings(
+        (prev): ISettingsPersistAtom => ({
+          ...prev,
+          showAddHiddenInWalletSidebar: true,
+        }),
+      );
+    }
+  }, [settings?.showAddHiddenInWalletSidebar, setSettings]);
 
   // Use the walletName that has already been processed by i18n in background,
   // otherwise, every time the walletName is displayed elsewhere, it will need to be processed by i18n again.
@@ -334,10 +247,14 @@ export function WalletListItem({
   );
 
   if (isHwOrQrWallet && !isHiddenWallet) {
+    let shouldShowBorder = true;
+    if (!settings.showAddHiddenInWalletSidebar && !hiddenWallets?.length) {
+      shouldShowBorder = false;
+    }
     return (
       <Stack
         borderRadius="$3"
-        borderWidth={1}
+        borderWidth={shouldShowBorder ? 1 : 0}
         borderColor="$borderSubdued"
         gap="$3"
         borderCurve="continuous"
