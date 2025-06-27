@@ -31,7 +31,6 @@ class ServiceExplorer extends ServiceBase {
     if (isCustomNetwork) {
       return this.buildCustomEvmExplorerUrl(params);
     }
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const { networkId } = params;
     void this.check(params);
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
@@ -41,9 +40,13 @@ class ServiceExplorer extends ServiceBase {
       return '';
     }
     const type = params.type === 'transaction' ? 'tx' : params.type;
-    return client.getUri({
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const oldUrl = client.getUri({
       url: `/v1/${network.code}/${type}/${params.param}`,
     });
+    const newUrl = `https://tx.onekey.so/${network.code}/${type}/${params.param}`;
+    return newUrl;
   }
 
   @backgroundMethod()
