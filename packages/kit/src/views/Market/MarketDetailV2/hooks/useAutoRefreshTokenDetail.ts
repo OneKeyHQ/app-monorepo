@@ -23,7 +23,6 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     },
     [data.tokenAddress, data.networkId, tokenDetailActions],
     {
-      watchLoading: true,
       pollingInterval: 5000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
