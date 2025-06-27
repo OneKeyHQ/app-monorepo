@@ -197,13 +197,13 @@ export function AccountSelectorAccountListItem({
       if (currentNetworkAccounts[0]) {
         return {
           address:
-            currentNetworkAccounts[0]?.address &&
+            currentNetworkAccounts?.[0]?.address &&
             !vaultSettings.mergeDeriveAssetsEnabled
               ? accountUtils.shortenAddress({
                   address: currentNetworkAccounts[0]?.address,
                 })
               : '',
-          accountId: currentNetworkAccounts[0].id,
+          accountId: currentNetworkAccounts?.[0]?.id,
           mergeDeriveAssetsEnabled: vaultSettings.mergeDeriveAssetsEnabled,
         };
       }
@@ -397,7 +397,12 @@ export function AccountSelectorAccountListItem({
               </SizableText>
             }
             secondary={
-              <XStack alignItems="center">
+              <XStack
+                key={`${focusedWalletInfo?.wallet?.id || ''}-${item.id}-${
+                  currentNetworkAccount?.address || subTitleInfo.address
+                }`}
+                alignItems="center"
+              >
                 {renderAccountValue()}
                 <AccountAddress
                   num={num}

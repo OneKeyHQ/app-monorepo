@@ -65,6 +65,12 @@ export class SendScene extends BaseScene {
     tokenType: string | undefined;
     tokenSymbol: string | undefined;
     tokenAddress: string | undefined;
+    tronResourceRental?: {
+      isResourceRentalNeeded: boolean | undefined;
+      isResourceRentalEnabled: boolean | undefined;
+      isSwapTrxEnabled: boolean | undefined;
+      payCoinCode: string | undefined;
+    };
   }) {
     return {
       network,

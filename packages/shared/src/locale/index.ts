@@ -39,6 +39,7 @@ const getLanguage = (symbol: string): string => {
 };
 
 const PRIORITY_LOCALE_KEYS: ILocaleSymbol[] = [
+  'en',
   'en-US',
   'zh-CN',
   'zh-HK',

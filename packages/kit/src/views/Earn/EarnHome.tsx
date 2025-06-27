@@ -227,6 +227,7 @@ function RecommendedItem({
       onPress={onPress}
       userSelect="none"
       alignItems="flex-start"
+      overflow="hidden"
       {...rest}
     >
       <YStack alignItems="flex-start">
@@ -264,11 +265,31 @@ function RecommendedItem({
 function RecommendedContainer({ children }: PropsWithChildren) {
   const intl = useIntl();
   return (
-    <YStack gap="$3">
+    <YStack
+      gap="$3"
+      px="$0"
+      $md={
+        platformEnv.isNative
+          ? {
+              mx: -20,
+            }
+          : undefined
+      }
+    >
       {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
-      <YStack gap="$1" zIndex={10}>
+      <YStack
+        gap="$1"
+        zIndex={10}
+        $md={
+          platformEnv.isNative
+            ? {
+                px: '$5',
+              }
+            : undefined
+        }
+      >
         <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_recommended })}
+          {intl.formatMessage({ id: ETranslations.market_trending })}
         </SizableText>
       </YStack>
       {children}
@@ -319,8 +340,14 @@ function Recommended({
         {/* Desktop/Extension with larger screen: 4 items per row */}
         {platformEnv.isNative ? (
           // Mobile: horizontal scrolling skeleton
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack gap="$3" px="$1.5">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+            }}
+          >
+            <XStack gap="$3">
               {Array.from({ length: 4 }).map((_, index) => (
                 <YStack key={index} width="$40">
                   <RecommendedSkeletonItem />
@@ -360,7 +387,7 @@ function Recommended({
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{
-              paddingHorizontal: '$1.5',
+              paddingHorizontal: 20,
             }}
           >
             <XStack gap="$3">

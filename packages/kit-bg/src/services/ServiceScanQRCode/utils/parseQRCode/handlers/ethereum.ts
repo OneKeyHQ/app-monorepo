@@ -24,22 +24,18 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
     target_address: tokenAddress,
     function_name: functionName,
     chain_id: chainId = '1',
-    parameters: { address, uint256, value: amountValue } = {
+    parameters: { address, uint256, value: amountValue, amount } = {
       address: undefined,
       uint256: undefined,
+      amount: undefined,
       value: undefined,
     },
   } = parseValue;
 
-  let nativeAmount: string | undefined;
-  let sendAddress: string | undefined;
-  if (functionName === 'transfer' && address) {
-    nativeAmount = uint256;
-    sendAddress = address;
-  } else if (tokenAddress) {
-    nativeAmount = amountValue;
-    sendAddress = tokenAddress;
-  }
+  const sendAddress: string | undefined =
+    functionName === 'transfer' && address
+      ? address
+      : tokenAddress || undefined;
   if (sendAddress) {
     const networkList =
       await options?.backgroundApi?.serviceNetwork?.getNetworksByImpls?.({
@@ -50,14 +46,11 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
       address: sendAddress,
       id: chainId,
       network,
+      uint256,
+      amount,
+      value: amountValue,
       tokenAddress,
     };
-    if (nativeAmount && network) {
-      ethereumValue.amount = chainValueUtils.convertGweiToAmount({
-        value: nativeAmount,
-        network,
-      });
-    }
     return { type: EQRCodeHandlerType.ETHEREUM, data: ethereumValue };
   }
   return null;
