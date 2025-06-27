@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, XStack, useMedia } from '@onekeyhq/components';
 import {
@@ -18,7 +16,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
 
-import { useMarketDetail } from './hooks/useMarketDetail';
+import { useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
@@ -27,15 +25,11 @@ function MarketDetail({
 }: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
   const { tokenAddress, networkId } = route.params;
 
-  // Initialize market detail data using the custom hook
-  const { initializeTokenDetail } = useMarketDetail();
-
-  useEffect(() => {
-    void initializeTokenDetail({
-      tokenAddress,
-      networkId,
-    });
-  }, [initializeTokenDetail, tokenAddress, networkId]);
+  // Start auto-refresh for token details every 5 seconds
+  useAutoRefreshTokenDetail({
+    tokenAddress,
+    networkId,
+  });
 
   const customHeaderLeft = (
     <XStack gap="$3" ai="center">
