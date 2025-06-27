@@ -500,6 +500,7 @@ function Tooltip({
   title,
   placement = 'bottom',
   iconSize = '$4',
+  renderContent,
 }: IPopoverTooltip & {
   iconSize?: IIconButtonProps['iconSize'];
 }) {
@@ -516,9 +517,11 @@ function Tooltip({
         />
       }
       renderContent={
-        <YStack p="$5">
-          <SizableText size="$bodyLg">{tooltip}</SizableText>
-        </YStack>
+        renderContent || (
+          <YStack p="$5">
+            <SizableText size="$bodyLg">{tooltip}</SizableText>
+          </YStack>
+        )
       }
     />
   );

@@ -38,6 +38,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   maxRecentTokenPairs,
+  mevSwapNetworks,
   swapApprovingStateFetchInterval,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
@@ -1300,6 +1301,13 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSwapHistoryByTxId({ txId }: { txId: string }) {
+    const history =
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryByTxId(txId);
+    return history;
+  }
+
+  @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
     await inAppNotificationAtom.set((pre) => {
@@ -2140,6 +2148,7 @@ export default class ServiceSwap extends ServiceBase {
           slippage: 0.5,
           spenderAddress: '',
           defaultTokens: [],
+          swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,
       };

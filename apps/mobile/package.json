@@ -75,6 +75,7 @@
     "expo-linking": "^6.2.2",
     "expo-local-authentication": "13.6.0",
     "expo-localization": "14.5.0",
+    "expo-navigation-bar": "2.8.1",
     "expo-notifications": "0.27.6",
     "expo-screen-capture": "5.8.0",
     "expo-screen-orientation": "~6.4.1",

@@ -596,6 +596,7 @@ export interface IBroadcastTransactionParams {
   signedTx: ISignedTxPro;
   signature?: string;
   rawTxType?: 'json' | 'hex';
+  tronResourceRentalInfo?: ITronResourceRentalInfo;
 }
 
 export interface IBroadcastTransactionByCustomRpcParams
@@ -635,6 +636,7 @@ export interface IBatchSignTransactionParamsBase {
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
   successfullySentTxs?: string[];
+  tronResourceRentalInfo?: ITronResourceRentalInfo;
 }
 
 export interface ISignMessageParams {
