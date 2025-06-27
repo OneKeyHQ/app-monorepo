@@ -11,6 +11,7 @@ interface IReward {
       symbol: string;
     };
     amount: string;
+    usdValue: string;
     fiatValue: string;
   }[];
   pending?: {

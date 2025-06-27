@@ -411,105 +411,15 @@ function Dashboard({
   const showHardwareSalesAvailableFiat =
     (hardwareSales.available?.length || 0) > 0;
   const showHardwarePendingFiat = (hardwareSales.pending?.length || 0) > 0;
+  const onChainSummary = useMemo(() => {
+    return onChain.available
+      ?.reduce((acc, curr) => {
+        return acc.plus(BigNumber(curr.usdValue));
+      }, BigNumber(0))
+      .toFixed(2);
+  }, [onChain.available]);
   return (
     <YStack px="$5" py="$8" gap="$5">
-      {/* <YStack
-        bg="$bgSuccessSubdued"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSuccessSubdued"
-        borderRadius="$3"
-        px="$5"
-        py="$4"
-        gap="$4"
-      >
-        <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_total_reward,
-            })}
-          </SizableText>
-          <XStack gap="$2">
-            <Popover
-              placement="top"
-              title={intl.formatMessage({
-                id: ETranslations.referral_total_reward,
-              })}
-              renderTrigger={
-                <Currency
-                  pb={1}
-                  color="$textSuccess"
-                  formatter="value"
-                  size="$bodyLgMedium"
-                  cursor="pointer"
-                  textDecorationLine="underline"
-                  textDecorationColor="$textSuccess"
-                  textDecorationStyle="dotted"
-                  style={{
-                    textUnderlineOffset: 4,
-                  }}
-                >
-                  {totalRewards}
-                </Currency>
-              }
-              renderContent={
-                <Stack gap="$2.5" p="$5">
-                  <PopoverLine>
-                    {intl.formatMessage({
-                      id: ETranslations.referral_total_reward_pop1,
-                    })}
-                  </PopoverLine>
-                  <PopoverLine>
-                    {intl.formatMessage({
-                      id: ETranslations.referral_total_reward_pop2,
-                    })}
-                  </PopoverLine>
-                </Stack>
-              }
-            />
-            <IconButton
-              variant="tertiary"
-              iconColor="$iconSubdued"
-              icon="ClockTimeHistoryOutline"
-              size="small"
-              iconSize="$5"
-              px="$1.5"
-              mr="$-2"
-              onPress={toRewardDistributionHistoryPage}
-            />
-          </XStack>
-        </XStack>
-        <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.referral_reward_received_address,
-            })}
-          </SizableText>
-          <XStack ai="center" jc="space-between" gap="$5">
-            <XStack flexShrink={1}>
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                flexShrink={1}
-                numberOfLines={10}
-              >
-                {withdrawAddresses.length
-                  ? withdrawAddresses[0].address
-                  : intl.formatMessage({
-                      id: ETranslations.referral_reward_received_address_notset,
-                    })}
-              </SizableText>
-            </XStack>
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_edit })}
-              variant="tertiary"
-              icon="EditOutline"
-              size="small"
-              onPress={toEditAddressPage}
-              iconColor="$iconSubdued"
-            />
-          </XStack>
-        </YStack>
-      </YStack> */}
       <LinearGradient
         colors={['rgba(0, 196, 59, 0.09)', 'rgba(0, 196, 59, 0)']}
         start={{ x: 0, y: 0 }}
@@ -780,7 +690,7 @@ function Dashboard({
               <XStack>
                 <Token
                   size="xs"
-                  tokenImageUri={onChain.available?.[0]?.token.logoURI}
+                  tokenImageUri="https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png"
                 />
                 <XStack pl="$2" pr="$3" gap="$1">
                   <SizableText size="$bodyMd">≈</SizableText>
@@ -788,15 +698,17 @@ function Dashboard({
                     formatter="value"
                     size="$bodyMd"
                     formatterOptions={{
-                      tokenSymbol: onChain.available?.[0]?.token.symbol,
+                      tokenSymbol: 'USDC',
                     }}
                   >
-                    {onChain.available?.[0]?.amount}
+                    {onChainSummary}
                   </NumberSizeableText>
                 </XStack>
                 <Popover.Tooltip
                   iconSize="$5"
-                  title="Rewards Details"
+                  title={intl.formatMessage({
+                    id: ETranslations.referral_earn_reward_details,
+                  })}
                   renderContent={
                     <YStack borderRadius="$3" overflow="hidden">
                       <YStack px="$5">
