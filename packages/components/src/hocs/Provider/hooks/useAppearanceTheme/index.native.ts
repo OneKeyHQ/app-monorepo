@@ -2,7 +2,6 @@ import { useLayoutEffect } from 'react';
 
 import {
   setBackgroundColorAsync,
-  setBorderColorAsync,
   setButtonStyleAsync,
 } from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
@@ -12,17 +11,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IUseAppearanceTheme } from './type';
 
-const setLightContent = (isAnimated = true) => {
+const setDarkContent = (isAnimated = true) => {
   StatusBar.setBarStyle('light-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
     const color = getTokenValue('$bgAppDark', 'color');
     StatusBar.setBackgroundColor(color, isAnimated);
     void setBackgroundColorAsync(color);
-    void setButtonStyleAsync('dark');
+    void setButtonStyleAsync('light');
   }
 };
 
-const setDarkContent = (isAnimated = true) => {
+const setLightContent = (isAnimated = true) => {
   StatusBar.setBarStyle('dark-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
     const color = getTokenValue('$bgAppLight', 'color');
@@ -35,9 +34,9 @@ const setDarkContent = (isAnimated = true) => {
 export const useAppearanceTheme: IUseAppearanceTheme = (themeVariant) => {
   useLayoutEffect(() => {
     if (themeVariant === 'light') {
-      setDarkContent();
-    } else if (themeVariant === 'dark') {
       setLightContent();
+    } else if (themeVariant === 'dark') {
+      setDarkContent();
     }
   }, [themeVariant]);
 };
