@@ -34,6 +34,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
@@ -476,6 +477,13 @@ const ProtocolDetailsPage = () => {
       }),
     [accountId, indexedAccountId, networkId],
   );
+
+  const isWatchingAccount = useMemo(() => {
+    return accountUtils.isWatchingAccount({
+      accountId: earnAccount?.accountId ?? '',
+    });
+  }, [earnAccount?.accountId]);
+
   const {
     result: detailInfo,
     isLoading,
@@ -739,7 +747,8 @@ const ProtocolDetailsPage = () => {
     return {
       text: item?.text.text,
       buttonProps: {
-        disabled: !earnAccount?.accountAddress || item?.disabled,
+        disabled:
+          !earnAccount?.accountAddress || item?.disabled || isWatchingAccount,
         display: item ? undefined : 'none',
         variant: 'primary',
         onPress: () => {
@@ -773,6 +782,7 @@ const ProtocolDetailsPage = () => {
       } as IButtonProps,
     };
   }, [
+    isWatchingAccount,
     earnAccount?.accountAddress,
     detailInfo?.actions,
     networkId,
