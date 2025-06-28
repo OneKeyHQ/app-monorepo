@@ -67,6 +67,7 @@ import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEvents
 import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { useCheckEthenaKycStatus } from '../../hooks/useCheckEthenaKycStatus';
 import { useHandleSwap } from '../../hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../hooks/useUnsupportedProtocol';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -511,6 +512,11 @@ const ProtocolDetailsPage = () => {
     detailInfo,
     appNavigation,
     setKeepSkeletonVisible,
+  });
+
+  useCheckEthenaKycStatus({
+    provider,
+    refreshEarnDetailData: run,
   });
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {

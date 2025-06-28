@@ -3,7 +3,7 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IEarnExtraData {
-  ethenaKycAddress?: string;
+  ethenaKycAddresses?: string[];
 }
 
 export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> {
@@ -14,14 +14,20 @@ export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> 
   @backgroundMethod()
   async getEthenaKycAddress() {
     const data = await this.getRawData();
-    return data?.ethenaKycAddress ?? '';
+    if (
+      Array.isArray(data?.ethenaKycAddresses) &&
+      data.ethenaKycAddresses.length > 0
+    ) {
+      return data.ethenaKycAddresses[0];
+    }
+    return null;
   }
 
   @backgroundMethod()
-  async setEthenaKycAddress(address: string) {
+  async setEthenaKycAddresses(addresses: string[]) {
     await this.setRawData((v) => ({
       ...v,
-      ethenaKycAddress: address,
+      ethenaKycAddresses: addresses,
     }));
   }
 }
