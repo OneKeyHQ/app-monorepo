@@ -521,6 +521,7 @@ class ServiceStaking extends ServiceBase {
       provider: string;
       publicKey?: string;
       vault?: string;
+      ethenaKycAddress?: string;
     } = { networkId, ...rest };
     const account = await this.getEarnAccount({
       accountId: accountId ?? '',
@@ -536,6 +537,13 @@ class ServiceStaking extends ServiceBase {
     }
     if (requestParams.provider) {
       requestParams.provider = requestParams.provider.toLowerCase();
+    }
+    if (
+      earnUtils.isEthenaProvider({ providerName: requestParams.provider }) &&
+      params.symbol?.toUpperCase() === 'USDE'
+    ) {
+      requestParams.ethenaKycAddress =
+        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
     }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       isV2
@@ -917,14 +925,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearAvailableAssetsCache({ type }: { type?: EAvailableAssetsTypeEnum } = {}) {
-    if (type) {
-      // Clear cache for specific type
-      this._getAvailableAssets.delete({ type });
-    } else {
-      // Clear all available assets cache
-      this._getAvailableAssets.clear();
-    }
+  async clearAvailableAssetsCache() {
+    void this._getAvailableAssets.clear();
   }
 
   handleServerError(data: {
@@ -1509,6 +1511,16 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async resetEarnCache() {
     await this.backgroundApi.simpleDb.earn.resetEarnData();
+  }
+
+  @backgroundMethod()
+  async getEthenaKycAddress() {
+    return this.backgroundApi.simpleDb.earnExtra.getEthenaKycAddress();
+  }
+
+  @backgroundMethod()
+  async setEthenaKycAddress({ address }: { address: string }) {
+    await this.backgroundApi.simpleDb.earnExtra.setEthenaKycAddress(address);
   }
 }
 

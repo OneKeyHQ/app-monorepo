@@ -12,6 +12,7 @@ import {
   Divider,
   Image,
   Page,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -757,16 +758,25 @@ const ProtocolDetailsPage = () => {
               actionData: item,
               onConfirm: async (checkboxStates: boolean[]) => {
                 if (checkboxStates.every(Boolean)) {
-                  await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
-                    {
-                      networkId,
-                      provider,
-                      symbol,
-                      accountAddress: earnAccount?.accountAddress ?? '',
-                      signature: '',
-                      message: '',
-                    },
-                  );
+                  const resp =
+                    await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
+                      {
+                        networkId,
+                        provider,
+                        symbol,
+                        accountAddress: earnAccount?.accountAddress ?? '',
+                        signature: '',
+                        message: '',
+                      },
+                    );
+                  await backgroundApiProxy.serviceStaking.setEthenaKycAddress({
+                    address: earnAccount?.accountAddress ?? '',
+                  });
+                  if (resp.toast) {
+                    Toast.success({
+                      title: resp.toast.text.text,
+                    });
+                  }
                   setTimeout(() => {
                     void run();
                   }, 300);

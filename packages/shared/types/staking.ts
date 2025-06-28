@@ -585,6 +585,11 @@ interface IEarnRisk {
   }[];
 }
 
+interface IEarnToast {
+  type: 'success' | 'error';
+  text: IEarnText;
+}
+
 export interface IEarnWithdrawAction {
   type: 'withdraw';
   data: {
@@ -1065,6 +1070,7 @@ export interface IBuildRegisterSignMessageParams {
 export interface IEarnRegisterSignMessageResponse {
   expiredAt: string;
   message: string;
+  toast?: IEarnToast;
 }
 
 export interface IVerifyRegisterSignMessageParams
