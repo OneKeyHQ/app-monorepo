@@ -686,7 +686,7 @@ function Dashboard({
                         tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
                       }}
                     >
-                      {hardwareSales.pending?.[0]?.fiatValue || 0}
+                      {hardwareSales.pending?.[0]?.amount || 0}
                     </NumberSizeableText>
                   </>
                 ) : null}
