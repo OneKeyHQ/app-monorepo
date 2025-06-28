@@ -165,11 +165,13 @@ export function ActionPopupContent({
                 mx="$2"
                 borderRadius="$full"
                 bg="$iconSubdued"
+                flexShrink={0}
               />
               <SizableText
                 size={text.size || '$bodySm'}
                 color={text.color || '$textSubdued'}
-                numberOfLines={2}
+                flex={1}
+                flexWrap="wrap"
               >
                 {text.text}
               </SizableText>
@@ -390,6 +392,19 @@ function BasicClaimWithKycActionIcon({
 
 const ClaimWithKycActionIcon = memo(BasicClaimWithKycActionIcon);
 
+const f = [
+  {
+    'text': '7% of profit (OneKey 4.2% + Vault manager 2.8%)',
+  },
+  {
+    'text': 'Charged only on profit, not principal',
+  },
+  {
+    'text':
+      'Charged only on profit, not principal, 7% of profit (OneKey 4.2% + Vault manager 2.8%), 7% of profit (OneKey 4.2% + Vault manager 2.8%)',
+  },
+];
+
 function BasicEarnActionIcon({
   title,
   actionIcon,
@@ -454,7 +469,7 @@ function BasicEarnActionIcon({
           }
           renderContent={
             <ActionPopupContent
-              bulletList={actionIcon.data.bulletList}
+              bulletList={f}
               items={actionIcon.data.items}
               panel={actionIcon.data.panel}
             />
