@@ -447,11 +447,12 @@ function Dashboard({
     }
   }, [hardwareSales.nextStage, intl]);
   return (
-    <YStack px="$5" py="$8" gap="$5">
+    <YStack px="$5" py="$8" gap="$5" borderRadius="$3">
       <LinearGradient
         colors={['rgba(0, 196, 59, 0.09)', 'rgba(0, 196, 59, 0)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
+        borderRadius="$3"
       >
         <YStack
           borderWidth={StyleSheet.hairlineWidth}
