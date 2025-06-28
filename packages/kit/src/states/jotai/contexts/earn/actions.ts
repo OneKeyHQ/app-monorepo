@@ -142,6 +142,13 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
       earnAccount: {},
     });
   });
+
+  triggerRefresh = contextAtomMethod((get, set) => {
+    const earnData = get(earnAtom());
+    this.syncToDb.call(set, {
+      refreshTrigger: Number(earnData.refreshTrigger || 0) + 1,
+    });
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsEarn());
@@ -155,6 +162,7 @@ export function useEarnActions() {
   const getPermitCache = actions.getPermitCache.use();
   const updatePermitCache = actions.updatePermitCache.use();
   const removePermitCache = actions.removePermitCache.use();
+  const triggerRefresh = actions.triggerRefresh.use();
 
   const buildEarnAccountsKey = useCallback(
     ({
@@ -178,5 +186,6 @@ export function useEarnActions() {
     getPermitCache,
     updatePermitCache,
     removePermitCache,
+    triggerRefresh,
   });
 }

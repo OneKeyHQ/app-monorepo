@@ -521,6 +521,7 @@ class ServiceStaking extends ServiceBase {
       provider: string;
       publicKey?: string;
       vault?: string;
+      kycAccountAddress?: string;
     } = { networkId, ...rest };
     const account = await this.getEarnAccount({
       accountId: accountId ?? '',
@@ -536,6 +537,16 @@ class ServiceStaking extends ServiceBase {
     }
     if (requestParams.provider) {
       requestParams.provider = requestParams.provider.toLowerCase();
+    }
+    if (
+      earnUtils.isEthenaProvider({ providerName: requestParams.provider }) &&
+      params.symbol?.toUpperCase() === 'USDE'
+    ) {
+      const ethenaKycAddress =
+        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
+      if (ethenaKycAddress) {
+        requestParams.kycAccountAddress = ethenaKycAddress;
+      }
     }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       isV2
@@ -914,6 +925,11 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getAvailableAssets({ type }: { type?: EAvailableAssetsTypeEnum } = {}) {
     return this._getAvailableAssets({ type });
+  }
+
+  @backgroundMethod()
+  async clearAvailableAssetsCache() {
+    void this._getAvailableAssets.clear();
   }
 
   handleServerError(data: {
@@ -1498,6 +1514,44 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async resetEarnCache() {
     await this.backgroundApi.simpleDb.earn.resetEarnData();
+  }
+
+  @backgroundMethod()
+  async checkEthenaKycStatusByAccounts({
+    accounts,
+  }: {
+    accounts: Array<{ accountAddress: string; networkId: string }>;
+  }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.post<{
+        data: {
+          networkId: string;
+          accountAddress: string;
+          kycVerifyStatus: 'none' | 'pending' | 'verified' | 'rejected';
+        }[];
+      }>('/earn/v1/sumsub/status', {
+        accounts,
+      });
+      const result = response.data.data
+        .filter((i) => i.kycVerifyStatus === 'verified')
+        .map((i) => i.accountAddress);
+      if (Array.isArray(result) && result.length > 0) {
+        await this.backgroundApi.simpleDb.earnExtra.setEthenaKycAddresses(
+          result,
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('checkEthenaKycStatusByAccounts error:', e);
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  async getEthenaKycAddress() {
+    return this.backgroundApi.simpleDb.earnExtra.getEthenaKycAddress();
   }
 }
 

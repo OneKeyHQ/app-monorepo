@@ -585,6 +585,11 @@ interface IEarnRisk {
   }[];
 }
 
+interface IEarnToast {
+  type: 'success' | 'error';
+  text: IEarnText;
+}
+
 export interface IEarnWithdrawAction {
   type: 'withdraw';
   data: {
@@ -932,6 +937,7 @@ export type IAvailableAsset = {
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
+  refreshTrigger?: number;
 }
 
 export type IGetPortfolioParams = {
@@ -1064,6 +1070,7 @@ export interface IBuildRegisterSignMessageParams {
 export interface IEarnRegisterSignMessageResponse {
   expiredAt: string;
   message: string;
+  toast?: IEarnToast;
 }
 
 export interface IVerifyRegisterSignMessageParams
