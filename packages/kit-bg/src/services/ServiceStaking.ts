@@ -538,13 +538,16 @@ class ServiceStaking extends ServiceBase {
     if (requestParams.provider) {
       requestParams.provider = requestParams.provider.toLowerCase();
     }
-    if (
-      earnUtils.isEthenaProvider({ providerName: requestParams.provider }) &&
-      params.symbol?.toUpperCase() === 'USDE'
-    ) {
-      requestParams.ethenaKycAddress =
-        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
-    }
+    // if (
+    //   earnUtils.isEthenaProvider({ providerName: requestParams.provider }) &&
+    //   params.symbol?.toUpperCase() === 'USDE'
+    // ) {
+    //   const ethenaKycAddress =
+    //     await this.backgroundApi.serviceStaking.getEthenaKycAddress();
+    //   if (ethenaKycAddress) {
+    //     requestParams.ethenaKycAddress = ethenaKycAddress;
+    //   }
+    // }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       isV2
         ? '/earn/v2/stake-protocol/detail'
