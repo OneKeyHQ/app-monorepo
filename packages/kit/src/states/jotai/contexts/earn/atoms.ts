@@ -19,6 +19,7 @@ export const { atom: basicEarnAtom, useContextAtom } =
   contextAtom<IEarnAtomData>({
     earnAccount: {},
     availableAssetsByType: {},
+    refreshTrigger: 0,
   });
 
 export const { atom: earnStorageReadyAtom, use: useEarnStorageReadyAtom } =
@@ -38,6 +39,7 @@ export const earnAtom = memoizee(() =>
             ...data,
             earnAccount: data.earnAccount || {},
             availableAssetsByType: data.availableAssetsByType || {},
+            refreshTrigger: data.refreshTrigger || 0,
           });
           set(earnStorageReadyAtom(), true);
         });

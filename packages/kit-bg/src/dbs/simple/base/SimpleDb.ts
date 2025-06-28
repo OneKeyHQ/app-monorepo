@@ -18,6 +18,7 @@ import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
+import { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
 import { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
@@ -97,6 +98,8 @@ export class SimpleDb {
   floatingIconSettings = new SimpleDbEntityFloatingIconSettings();
 
   earn = new SimpleDbEntityEarn();
+
+  earnExtra = new SimpleDbEntityEarnExtra();
 
   earnOrders = new SimpleDbEntityEarnOrders();
 

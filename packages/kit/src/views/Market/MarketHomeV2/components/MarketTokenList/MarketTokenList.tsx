@@ -229,6 +229,7 @@ function MarketTokenList({
       {!showSkeleton && totalPages > 1 ? (
         <XStack justifyContent="center" py="$4">
           <Pagination
+            maxPages={20}
             current={currentPage}
             total={totalPages}
             onChange={setCurrentPage}

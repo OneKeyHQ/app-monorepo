@@ -60,6 +60,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     tradeType,
     setTradeType,
     setSlippage,
+    networkId,
   } = swapPanel;
 
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
@@ -113,6 +114,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
           }
           balance={balance}
+          paymentToken={paymentToken}
+          networkId={networkId}
         />
       )}
 

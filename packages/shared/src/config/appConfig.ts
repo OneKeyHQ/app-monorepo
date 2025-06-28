@@ -38,6 +38,7 @@ export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
+export const ONEKEY_BLOCK_EXPLORER_URL = 'https://tx.onekey.so';
 
 export const ONEKEY_API_HOST = 'onekeycn.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';

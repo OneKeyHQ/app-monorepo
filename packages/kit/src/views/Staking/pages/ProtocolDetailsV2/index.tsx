@@ -12,6 +12,7 @@ import {
   Divider,
   Image,
   Page,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -34,6 +35,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
@@ -65,6 +67,7 @@ import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEvents
 import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { useCheckEthenaKycStatus } from '../../hooks/useCheckEthenaKycStatus';
 import { useHandleSwap } from '../../hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../hooks/useUnsupportedProtocol';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -476,6 +479,13 @@ const ProtocolDetailsPage = () => {
       }),
     [accountId, indexedAccountId, networkId],
   );
+
+  const isWatchingAccount = useMemo(() => {
+    return accountUtils.isWatchingAccount({
+      accountId: earnAccount?.accountId ?? '',
+    });
+  }, [earnAccount?.accountId]);
+
   const {
     result: detailInfo,
     isLoading,
@@ -502,6 +512,11 @@ const ProtocolDetailsPage = () => {
     detailInfo,
     appNavigation,
     setKeepSkeletonVisible,
+  });
+
+  useCheckEthenaKycStatus({
+    provider,
+    refreshEarnDetailData: run,
   });
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
@@ -739,7 +754,8 @@ const ProtocolDetailsPage = () => {
     return {
       text: item?.text.text,
       buttonProps: {
-        disabled: !earnAccount?.accountAddress || item?.disabled,
+        disabled:
+          !earnAccount?.accountAddress || item?.disabled || isWatchingAccount,
         display: item ? undefined : 'none',
         variant: 'primary',
         onPress: () => {
@@ -748,16 +764,22 @@ const ProtocolDetailsPage = () => {
               actionData: item,
               onConfirm: async (checkboxStates: boolean[]) => {
                 if (checkboxStates.every(Boolean)) {
-                  await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
-                    {
-                      networkId,
-                      provider,
-                      symbol,
-                      accountAddress: earnAccount?.accountAddress ?? '',
-                      signature: '',
-                      message: '',
-                    },
-                  );
+                  const resp =
+                    await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
+                      {
+                        networkId,
+                        provider,
+                        symbol,
+                        accountAddress: earnAccount?.accountAddress ?? '',
+                        signature: '',
+                        message: '',
+                      },
+                    );
+                  if (resp.toast) {
+                    Toast.success({
+                      title: resp.toast.text.text,
+                    });
+                  }
                   setTimeout(() => {
                     void run();
                   }, 300);
@@ -773,6 +795,7 @@ const ProtocolDetailsPage = () => {
       } as IButtonProps,
     };
   }, [
+    isWatchingAccount,
     earnAccount?.accountAddress,
     detailInfo?.actions,
     networkId,
