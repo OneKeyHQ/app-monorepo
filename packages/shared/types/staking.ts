@@ -932,6 +932,7 @@ export type IAvailableAsset = {
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
+  refreshTrigger?: number;
 }
 
 export type IGetPortfolioParams = {

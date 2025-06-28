@@ -916,6 +916,17 @@ class ServiceStaking extends ServiceBase {
     return this._getAvailableAssets({ type });
   }
 
+  @backgroundMethod()
+  async clearAvailableAssetsCache({ type }: { type?: EAvailableAssetsTypeEnum } = {}) {
+    if (type) {
+      // Clear cache for specific type
+      this._getAvailableAssets.delete({ type });
+    } else {
+      // Clear all available assets cache
+      this._getAvailableAssets.clear();
+    }
+  }
+
   handleServerError(data: {
     code?: string | number;
     message?: string;

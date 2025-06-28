@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useThrottledCallback } from 'use-debounce';
 
 import {
   Badge,
@@ -23,6 +24,7 @@ import {
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
@@ -107,7 +109,7 @@ export function AvailableAssetsTabViewList({
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const [{ availableAssetsByType = {} }] = useEarnAtom();
+  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
   const actions = useEarnActions();
   const intl = useIntl();
   const media = useMedia();
@@ -139,23 +141,34 @@ export function AvailableAssetsTabViewList({
     return availableAssetsByType[currentTabType] || [];
   }, [availableAssetsByType, selectedTabIndex, tabData]);
 
+  // Throttled function to fetch assets data
+  const fetchAssetsData = useThrottledCallback(
+    async (tabType: EAvailableAssetsTypeEnum) => {
+      const tabAssets =
+        await backgroundApiProxy.serviceStaking.getAvailableAssets({
+          type: tabType,
+        });
+
+      // Update the corresponding data in atom
+      actions.current.updateAvailableAssetsByType(tabType, tabAssets);
+      return tabAssets;
+    },
+    timerUtils.getTimeDurationMs({ seconds: 2 }),
+    { leading: true, trailing: false },
+  );
+
   // Load data for the selected tab
   const { isLoading } = usePromiseResult(
     async () => {
       const currentTabType = tabData[selectedTabIndex]?.type;
       if (currentTabType) {
-        const tabAssets =
-          await backgroundApiProxy.serviceStaking.getAvailableAssets({
-            type: currentTabType,
-          });
-
-        // Update the corresponding data in atom
-        actions.current.updateAvailableAssetsByType(currentTabType, tabAssets);
-        return tabAssets;
+        const result = await fetchAssetsData(currentTabType);
+        return result || [];
       }
       return [];
     },
-    [selectedTabIndex, tabData, actions],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedTabIndex, tabData, refreshTrigger, fetchAssetsData],
     {
       watchLoading: true,
     },
