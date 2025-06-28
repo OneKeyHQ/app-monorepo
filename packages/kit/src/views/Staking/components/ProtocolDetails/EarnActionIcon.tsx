@@ -392,19 +392,6 @@ function BasicClaimWithKycActionIcon({
 
 const ClaimWithKycActionIcon = memo(BasicClaimWithKycActionIcon);
 
-const f = [
-  {
-    'text': '7% of profit (OneKey 4.2% + Vault manager 2.8%)',
-  },
-  {
-    'text': 'Charged only on profit, not principal',
-  },
-  {
-    'text':
-      'Charged only on profit, not principal, 7% of profit (OneKey 4.2% + Vault manager 2.8%), 7% of profit (OneKey 4.2% + Vault manager 2.8%)',
-  },
-];
-
 function BasicEarnActionIcon({
   title,
   actionIcon,
@@ -469,7 +456,7 @@ function BasicEarnActionIcon({
           }
           renderContent={
             <ActionPopupContent
-              bulletList={f}
+              bulletList={actionIcon.data.bulletList}
               items={actionIcon.data.items}
               panel={actionIcon.data.panel}
             />
