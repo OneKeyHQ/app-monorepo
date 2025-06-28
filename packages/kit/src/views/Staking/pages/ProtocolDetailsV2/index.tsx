@@ -769,9 +769,9 @@ const ProtocolDetailsPage = () => {
                         message: '',
                       },
                     );
-                  await backgroundApiProxy.serviceStaking.setEthenaKycAddress({
-                    address: earnAccount?.accountAddress ?? '',
-                  });
+                  // await backgroundApiProxy.serviceStaking.setEthenaKycAddress({
+                  //   address: earnAccount?.accountAddress ?? '',
+                  // });
                   if (resp.toast) {
                     Toast.success({
                       title: resp.toast.text.text,
