@@ -26,7 +26,6 @@ export function useCheckEthenaKycStatus({
           .filter((address) => address && address.trim() !== ''),
       ),
     );
-    console.log('=====>>>> all evm accounts', evmAccounts);
     return evmAccounts.map((address) => ({
       accountAddress: address,
       networkId: getNetworkIdsMap().eth,
