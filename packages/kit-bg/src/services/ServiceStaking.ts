@@ -1540,8 +1540,9 @@ class ServiceStaking extends ServiceBase {
         await this.backgroundApi.simpleDb.earnExtra.setEthenaKycAddresses(
           result,
         );
+        return true;
       }
-      return true;
+      return false;
     } catch (e) {
       console.error('checkEthenaKycStatusByAccounts error:', e);
       return false;
