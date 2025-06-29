@@ -27,6 +27,7 @@ function FloatingIconModal() {
           <Image
             borderRadius="$3"
             h="$40"
+            maxWidth="$100"
             source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
           />
           <XStack ai="center" jc="space-between" pt="$4">
