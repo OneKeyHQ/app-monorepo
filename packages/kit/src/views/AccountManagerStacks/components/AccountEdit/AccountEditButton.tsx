@@ -168,40 +168,6 @@ function AccountEditButtonView({
     wallet?.id,
   ]);
 
-  const estimatedContentHeight = useCallback(async () => {
-    let basicHeight = 56;
-    const exportKeysVisible = await getExportKeysVisible();
-    if (exportKeysVisible?.showExportPrivateKey) {
-      basicHeight += 44;
-    }
-
-    if (exportKeysVisible?.showExportPublicKey) {
-      basicHeight += 44;
-    }
-
-    if (exportKeysVisible?.showExportMnemonic) {
-      basicHeight += 44;
-    }
-
-    if (
-      firstIndexedAccount?.id !== indexedAccount?.id ||
-      firstAccount?.id !== account?.id
-    ) {
-      basicHeight += 44;
-    }
-
-    if (showRemoveButton) {
-      basicHeight += 54;
-    }
-    return basicHeight;
-  }, [
-    account?.id,
-    firstAccount?.id,
-    firstIndexedAccount?.id,
-    getExportKeysVisible,
-    indexedAccount?.id,
-    showRemoveButton,
-  ]);
   const renderItems = useCallback(
     async ({
       handleActionListClose,
@@ -322,7 +288,6 @@ function AccountEditButtonView({
         />
       }
       renderItemsAsync={renderItems}
-      estimatedContentHeight={estimatedContentHeight}
     />
   );
 }
