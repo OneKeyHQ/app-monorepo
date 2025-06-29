@@ -458,20 +458,9 @@ function Dashboard({
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
           borderRadius="$3"
+          overflow="hidden"
         >
-          <YStack
-            pt="$4"
-            px="$5"
-            mx={-1}
-            borderBottomWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            borderRadius="$3"
-            shadowColor="rgba(0,0,0,0.04)"
-            shadowOffset={{
-              width: 0,
-              height: 1,
-            }}
-          >
+          <YStack pt="$4" px="$5">
             <XStack ai="center" jc="space-between">
               <XStack gap="$1" ai="center">
                 <Icon name="CoinsAddSolid" size="$5" color="$iconSuccess" />
@@ -520,7 +509,7 @@ function Dashboard({
               />
             </YStack>
             <Divider my="$2" />
-            <XStack pt="$1" pb="$5" jc="space-between" ai="center">
+            <XStack py="$1" jc="space-between" ai="center">
               <YStack>
                 <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
@@ -552,23 +541,31 @@ function Dashboard({
               />
             </XStack>
           </YStack>
-          <XStack
-            px="$5"
-            h={36}
-            ai="center"
-            jc="space-between"
-            bg="$bgSubdued"
-            borderRadius="$3"
-          >
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.referral_next_distribution,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMd">
-              {cumulativeRewards.nextDistribution}
-            </SizableText>
-          </XStack>
+          <YStack bg="$bgSubdued">
+            <XStack
+              h="$4"
+              bg="$bgApp"
+              mx={-1}
+              borderBottomWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              borderRadius="$3"
+              shadowColor="rgba(0,0,0,0.04)"
+              shadowOffset={{
+                width: 0,
+                height: 1,
+              }}
+            />
+            <XStack px="$5" h={36} ai="center" jc="space-between">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.referral_next_distribution,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMd">
+                {cumulativeRewards.nextDistribution}
+              </SizableText>
+            </XStack>
+          </YStack>
         </YStack>
       </LinearGradient>
       <YStack
