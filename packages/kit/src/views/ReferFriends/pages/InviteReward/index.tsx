@@ -821,7 +821,7 @@ function Dashboard({
                           />
                         </Stack>
                         <SizableText
-                          numberOfLines={10}
+                          flex={1}
                           size="$bodyMd"
                           color="$textSubdued"
                         >
