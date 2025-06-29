@@ -480,12 +480,6 @@ const ProtocolDetailsPage = () => {
     [accountId, indexedAccountId, networkId],
   );
 
-  const isWatchingAccount = useMemo(() => {
-    return accountUtils.isWatchingAccount({
-      accountId: earnAccount?.accountId ?? '',
-    });
-  }, [earnAccount?.accountId]);
-
   const {
     result: detailInfo,
     isLoading,
@@ -754,8 +748,7 @@ const ProtocolDetailsPage = () => {
     return {
       text: item?.text.text,
       buttonProps: {
-        disabled:
-          !earnAccount?.accountAddress || item?.disabled || isWatchingAccount,
+        disabled: !earnAccount?.accountAddress || item?.disabled,
         display: item ? undefined : 'none',
         variant: 'primary',
         onPress: () => {
@@ -795,7 +788,6 @@ const ProtocolDetailsPage = () => {
       } as IButtonProps,
     };
   }, [
-    isWatchingAccount,
     earnAccount?.accountAddress,
     detailInfo?.actions,
     networkId,

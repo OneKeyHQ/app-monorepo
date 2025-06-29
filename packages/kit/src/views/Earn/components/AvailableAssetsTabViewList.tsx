@@ -153,7 +153,7 @@ export function AvailableAssetsTabViewList({
       actions.current.updateAvailableAssetsByType(tabType, tabAssets);
       return tabAssets;
     },
-    timerUtils.getTimeDurationMs({ seconds: 2 }),
+    200,
     { leading: true, trailing: false },
   );
 
@@ -181,9 +181,11 @@ export function AvailableAssetsTabViewList({
 
   // Update tab header when selectedTabIndex changes
   useEffect(() => {
-    if (tabHeaderRef.current) {
-      tabHeaderRef.current.scrollToIndex(selectedTabIndex);
-    }
+    setTimeout(() => {
+      if (tabHeaderRef.current) {
+        tabHeaderRef.current.scrollToIndex(selectedTabIndex);
+      }
+    }, 0);
   }, [selectedTabIndex]);
 
   if (assets.length || isLoading) {

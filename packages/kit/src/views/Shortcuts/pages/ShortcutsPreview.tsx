@@ -82,7 +82,7 @@ const sections = [
     items: [
       {
         titleId: ETranslations.explore_new_tab,
-        shortcutKey: EShortcutEvents.NewTab,
+        shortcutKey: EShortcutEvents.NewTab2,
       },
       {
         titleId: ETranslations.global_refresh,
@@ -125,10 +125,6 @@ const sections = [
           ETranslations.global_unpin_from_top,
         ],
         shortcutKey: EShortcutEvents.PinOrUnpinTab,
-      },
-      {
-        titleId: ETranslations.global_copy_url,
-        shortcutKey: EShortcutEvents.CopyAddressOrUrl,
       },
     ],
   },
