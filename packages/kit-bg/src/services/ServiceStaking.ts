@@ -498,6 +498,10 @@ class ServiceStaking extends ServiceBase {
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
     });
     return resp.data.data;
   }
@@ -552,7 +556,13 @@ class ServiceStaking extends ServiceBase {
       isV2
         ? '/earn/v2/stake-protocol/detail'
         : '/earn/v1/stake-protocol/detail',
-      { params: requestParams },
+      {
+        params: requestParams,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
     const result = resp.data.data;
     return result;

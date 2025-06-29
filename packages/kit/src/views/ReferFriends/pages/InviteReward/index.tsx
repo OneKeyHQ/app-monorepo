@@ -447,11 +447,12 @@ function Dashboard({
     }
   }, [hardwareSales.nextStage, intl]);
   return (
-    <YStack px="$5" py="$8" gap="$5">
+    <YStack px="$5" py="$8" gap="$5" borderRadius="$3">
       <LinearGradient
         colors={['rgba(0, 196, 59, 0.09)', 'rgba(0, 196, 59, 0)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
+        borderRadius="$3"
       >
         <YStack
           borderWidth={StyleSheet.hairlineWidth}
@@ -472,11 +473,14 @@ function Dashboard({
             }}
           >
             <XStack ai="center" jc="space-between">
-              <SizableText size="$headingMd">
-                {intl.formatMessage({
-                  id: ETranslations.referral_cumulative_rewards,
-                })}
-              </SizableText>
+              <XStack gap="$1" ai="center">
+                <Icon name="CoinsAddSolid" size="$5" color="$iconSuccess" />
+                <SizableText size="$headingMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_cumulative_rewards,
+                  })}
+                </SizableText>
+              </XStack>
               <IconButton
                 variant="tertiary"
                 iconColor="$iconSubdued"
@@ -547,7 +551,14 @@ function Dashboard({
               />
             </XStack>
           </YStack>
-          <XStack px="$5" h={36} ai="center" jc="space-between">
+          <XStack
+            px="$5"
+            h={36}
+            ai="center"
+            jc="space-between"
+            bg="$bgSubdued"
+            borderRadius="$3"
+          >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.referral_next_distribution,
@@ -572,7 +583,10 @@ function Dashboard({
           cursor="pointer"
         >
           <XStack ai="center" jc="space-between">
-            <SizableText size="$headingMd">{hardwareSales.title}</SizableText>
+            <XStack gap="$1" ai="center">
+              <Icon name="OnekeyLiteOutline" size="$5" />
+              <SizableText size="$headingMd">{hardwareSales.title}</SizableText>
+            </XStack>
             <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
           </XStack>
           <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
@@ -625,7 +639,7 @@ function Dashboard({
               </YStack>
             </XStack>
             <YStack h={28} borderRadius="$2" py="$2">
-              <XStack mb="$2" jc="space-between">
+              <XStack mb="$2" jc="space-between" h="$4">
                 {rebateLevels.map((rebateLevel, index) => {
                   return (
                     <RewardLevelText
@@ -686,7 +700,7 @@ function Dashboard({
                         tokenSymbol: hardwareSales.pending?.[0]?.token.symbol,
                       }}
                     >
-                      {hardwareSales.pending?.[0]?.fiatValue || 0}
+                      {hardwareSales.pending?.[0]?.amount || 0}
                     </NumberSizeableText>
                   </>
                 ) : null}
@@ -712,7 +726,10 @@ function Dashboard({
       >
         <YStack pt="$4" px="$5" onPress={toEarnRewardPage} cursor="pointer">
           <XStack ai="center" jc="space-between">
-            <SizableText size="$headingMd">{onChain.title}</SizableText>
+            <XStack gap="$1" ai="center">
+              <Icon name="CoinsOutline" size="$5" />
+              <SizableText size="$headingMd">{onChain.title}</SizableText>
+            </XStack>
             <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
           </XStack>
           <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
