@@ -447,52 +447,55 @@ function Dashboard({
     }
   }, [hardwareSales.nextStage, intl]);
   return (
-    <YStack px="$5" py="$8" gap="$5" borderRadius="$3">
-      <LinearGradient
-        colors={['rgba(0, 196, 59, 0.09)', 'rgba(0, 196, 59, 0)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        borderRadius="$3"
-      >
+    <YStack py="$8" px="$5" gap="$5" borderRadius="$3">
+      <YStack borderRadius="$3">
         <YStack
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
           borderRadius="$3"
           overflow="hidden"
         >
-          <YStack pt="$4" px="$5">
-            <XStack ai="center" jc="space-between">
-              <XStack gap="$1" ai="center">
-                <Icon name="CoinsAddSolid" size="$5" color="$iconSuccess" />
-                <SizableText size="$headingMd">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_cumulative_rewards,
-                  })}
-                </SizableText>
-              </XStack>
-              <IconButton
-                variant="tertiary"
-                iconColor="$iconSubdued"
-                icon="ClockTimeHistoryOutline"
-                size="small"
-                iconSize="$5"
-                px="$1.5"
-                mr="$-2"
-                onPress={toRewardDistributionHistoryPage}
-              />
-            </XStack>
-            <Currency
-              textAlign="center"
-              size="$heading5xl"
-              color="$textSuccessStrong"
-              formatter="value"
-              my="$6"
+          <YStack>
+            <LinearGradient
+              pt="$4"
+              px="$5"
+              colors={['rgba(0, 196, 59, 0.09)', 'rgba(0, 196, 59, 0)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
             >
-              {BigNumber(cumulativeRewards.distributed)
-                .plus(cumulativeRewards.undistributed)
-                .toFixed(2)}
-            </Currency>
-            <YStack>
+              <XStack ai="center" jc="space-between">
+                <XStack gap="$1" ai="center">
+                  <Icon name="CoinsAddSolid" size="$5" color="$iconSuccess" />
+                  <SizableText size="$headingMd">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_cumulative_rewards,
+                    })}
+                  </SizableText>
+                </XStack>
+                <IconButton
+                  variant="tertiary"
+                  iconColor="$iconSubdued"
+                  icon="ClockTimeHistoryOutline"
+                  size="small"
+                  iconSize="$5"
+                  px="$1.5"
+                  mr="$-2"
+                  onPress={toRewardDistributionHistoryPage}
+                />
+              </XStack>
+              <Currency
+                textAlign="center"
+                size="$heading5xl"
+                color="$textSuccessStrong"
+                formatter="value"
+                my="$6"
+              >
+                {BigNumber(cumulativeRewards.distributed)
+                  .plus(cumulativeRewards.undistributed)
+                  .toFixed(2)}
+              </Currency>
+            </LinearGradient>
+            <YStack px="$5">
               <CumulativeRewardsLineItem
                 bg="$iconSuccess"
                 title={intl.formatMessage({
@@ -508,8 +511,8 @@ function Dashboard({
                 amount={cumulativeRewards.undistributed}
               />
             </YStack>
-            <Divider my="$2" />
-            <XStack py="$1" jc="space-between" ai="center">
+            <Divider my="$2" mx="$5" />
+            <XStack py="$1" px="$5" jc="space-between" ai="center">
               <YStack>
                 <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
@@ -544,7 +547,7 @@ function Dashboard({
           <YStack bg="$bgSubdued">
             <XStack
               h="$4"
-              bg="$bgApp"
+              bg="$bg"
               mx={-1}
               borderBottomWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
@@ -567,7 +570,7 @@ function Dashboard({
             </XStack>
           </YStack>
         </YStack>
-      </LinearGradient>
+      </YStack>
       <YStack
         pb="$4"
         borderWidth={StyleSheet.hairlineWidth}
