@@ -319,7 +319,7 @@ function CumulativeRewardsLineItem({
   amount: string;
 }) {
   return (
-    <XStack jc="space-between">
+    <XStack jc="space-between" h={36} ai="center">
       <XStack gap="$2" ai="center" jc="center">
         <Stack w="$2" h="$2" borderRadius="$full" bg={bg} />
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -503,7 +503,7 @@ function Dashboard({
                 .plus(cumulativeRewards.undistributed)
                 .toFixed(2)}
             </Currency>
-            <YStack gap="$2">
+            <YStack>
               <CumulativeRewardsLineItem
                 bg="$iconSuccess"
                 title={intl.formatMessage({
@@ -519,7 +519,8 @@ function Dashboard({
                 amount={cumulativeRewards.undistributed}
               />
             </YStack>
-            <XStack py="$5" jc="space-between" ai="center">
+            <Divider my="$2" />
+            <XStack pt="$1" pb="$5" jc="space-between" ai="center">
               <YStack>
                 <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
