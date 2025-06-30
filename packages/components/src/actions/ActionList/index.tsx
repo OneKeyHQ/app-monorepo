@@ -302,8 +302,17 @@ function BasicActionList({
       }}
     />
   );
+
+  const trigger = useMemo(() => {
+    return (
+      <Trigger onPress={handleActionListOpen} disabled={disabled}>
+        {renderTrigger}
+      </Trigger>
+    );
+  }, [disabled, renderTrigger, handleActionListOpen]);
+
   if (renderItemsAsync && !asyncItems) {
-    return null;
+    return trigger;
   }
   return (
     <Popover
@@ -347,11 +356,7 @@ function BasicActionList({
         width: '$56',
       }}
       {...props}
-      renderTrigger={
-        <Trigger onPress={handleActionListOpen} disabled={disabled}>
-          {renderTrigger}
-        </Trigger>
-      }
+      renderTrigger={trigger}
     />
   );
 }
