@@ -700,6 +700,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      isPrimeAvailable,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
