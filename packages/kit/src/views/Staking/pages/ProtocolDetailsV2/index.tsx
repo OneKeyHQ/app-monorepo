@@ -179,7 +179,9 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alertsV2'] }) {
             <Alert
               key={`${alertItem.alert}-${index}`}
               type={alertItem.badge}
-              title={alertItem.alert}
+              renderTitle={(props) => {
+                return <EarnText {...props} text={{ text: alertItem.alert }} />;
+              }}
             />
           );
         })}
