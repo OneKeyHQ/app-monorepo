@@ -57,7 +57,7 @@ function EarnOverview({
   earnSummary: IEarnSummary | undefined;
   onHistory: (params?: { filterType?: string }) => void;
 }) {
-  if (!earnSummary) {
+  if (!earnSummary?.items?.length) {
     return null;
   }
   return (
