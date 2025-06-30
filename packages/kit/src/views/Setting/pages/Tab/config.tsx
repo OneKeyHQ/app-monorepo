@@ -480,7 +480,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_hardware_bridge_status,
                   }),
-                  onPress: (navigation) => {
+                  onPress: () => {
                     openUrlExternal(BRIDGE_STATUS_URL);
                   },
                 }
@@ -519,20 +519,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               renderElement: <ListVersionItem />,
             },
             {
-              icon: 'HelpSupportOutline',
+              icon: 'BookOpenOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_help_center,
               }),
-              onPress: (navigation) => {
+              onPress: () => {
                 openUrlExternal(helpCenterUrl);
               },
             },
             {
-              icon: 'EditOutline',
+              icon: 'HelpSupportOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_contact_us,
               }),
-              onPress: (navigation) => {
+              onPress: () => {
                 openUrlExternal(requestUrl);
               },
             },
@@ -544,7 +544,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_rate_app,
                   }),
-                  onPress: (navigation) => {
+                  onPress: () => {
                     if (platformEnv.isExtension) {
                       let url = EXT_RATE_URL.chrome;
                       if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
