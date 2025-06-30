@@ -826,6 +826,29 @@ function BasicEarnHome() {
 
   const isLoading = !!isFetchingAccounts;
 
+  const faqPanel = useMemo(() => {
+    return <FAQPanel faqList={faqList} isLoading={isFaqLoading} />;
+  }, [faqList, isFaqLoading]);
+
+  const gtLgFaqPanel = useMemo(() => {
+    return media.gtLg && (isFaqLoading || faqList.length > 0) ? (
+      <YStack
+        gap="$6"
+        py="$4"
+        px="$5"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderCurve="continuous"
+        $gtMd={{
+          w: EARN_RIGHT_PANEL_WIDTH,
+        }}
+      >
+        {faqPanel}
+      </YStack>
+    ) : null;
+  }, [faqList, isFaqLoading, media.gtLg, faqPanel]);
+
   return (
     <Page fullPage>
       <TabPageHeader
@@ -855,22 +878,26 @@ function BasicEarnHome() {
               }}
             >
               <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
-              <YStack
-                px="$5"
-                minHeight="$36"
-                $md={{
-                  minHeight: '$28',
-                }}
-                borderRadius="$3"
-                width="100%"
-                borderCurve="continuous"
-                $gtLg={{
-                  px: '$0',
-                  w: EARN_RIGHT_PANEL_WIDTH,
-                }}
-              >
-                {banners}
-              </YStack>
+              {banners ? (
+                <YStack
+                  px="$5"
+                  minHeight="$36"
+                  $md={{
+                    minHeight: '$28',
+                  }}
+                  borderRadius="$3"
+                  width="100%"
+                  borderCurve="continuous"
+                  $gtLg={{
+                    px: '$0',
+                    w: EARN_RIGHT_PANEL_WIDTH,
+                  }}
+                >
+                  {banners}
+                </YStack>
+              ) : (
+                gtLgFaqPanel
+              )}
             </YStack>
             {/* Recommended, available assets and introduction */}
             <YStack
@@ -892,26 +919,11 @@ function BasicEarnHome() {
                 <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
               </YStack>
               {/* FAQ Panel */}
-              {media.gtLg && (isFaqLoading || faqList.length > 0) ? (
-                <YStack
-                  gap="$6"
-                  py="$4"
-                  px="$5"
-                  borderRadius="$3"
-                  borderWidth={StyleSheet.hairlineWidth}
-                  borderColor="$borderSubdued"
-                  borderCurve="continuous"
-                  $gtMd={{
-                    w: EARN_RIGHT_PANEL_WIDTH,
-                  }}
-                >
-                  <FAQPanel faqList={faqList} isLoading={isFaqLoading} />
-                </YStack>
-              ) : null}
+              {banners ? gtLgFaqPanel : <XStack w={288} />}
             </YStack>
             {media.gtLg || (faqList.length === 0 && !isFaqLoading) ? null : (
               <YStack mt="$1" px="$4" py="$4">
-                <FAQPanel faqList={faqList} isLoading={isFaqLoading} />
+                {faqPanel}
               </YStack>
             )}
           </YStack>
