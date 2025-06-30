@@ -326,7 +326,7 @@ function CumulativeRewardsLineItem({
           {title}
         </SizableText>
       </XStack>
-      <Currency size="$bodyMdMedium">{amount}</Currency>
+      <Currency size="$bodyMdMedium">{BigNumber(amount).toFixed(2)}</Currency>
     </XStack>
   );
 }
