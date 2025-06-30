@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { debounce, isEqual, noop } from 'lodash';
+import { debounce, isEqual, noop, upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -345,7 +345,9 @@ const useAboutVersion =
                         globalThis.desktopApi.arch || 'unknown'
                       }`}
                     </SizableText>
-                    <SizableText size="$bodySm">{versionString}</SizableText>
+                    <SizableText size="$bodySm">
+                      {upperFirst(versionString)}
+                    </SizableText>
                     <SizableText size="$bodySm">Copyright © OneKey</SizableText>
                   </YStack>
                 </YStack>

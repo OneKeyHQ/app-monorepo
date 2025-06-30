@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useContext, useMemo } from 'react';
 
+import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -515,7 +516,7 @@ export function SocialButtonGroup() {
   );
   const handlePress = useCallback(() => {
     void handleOpenDevMode(() =>
-      copyText(`${versionString}-${platformEnv.githubSHA || ''}`),
+      copyText(`${upperFirst(versionString)}-${platformEnv.githubSHA || ''}`),
     );
   }, [copyText, versionString]);
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
@@ -560,7 +561,7 @@ export function SocialButtonGroup() {
         testID="setting-version"
       >
         <SizableText color={textColor} size={textSize} onPress={handlePress}>
-          {versionString}
+          {upperFirst(versionString)}
         </SizableText>
         {!appUpdateInfo.latestVersion ||
         appUpdateInfo.latestVersion === platformEnv.version ? (

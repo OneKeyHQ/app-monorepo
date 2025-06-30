@@ -69,36 +69,6 @@ function WalletEditButtonView({
     return accountUtils.isHdWallet({ walletId: wallet?.id });
   }, [wallet]);
 
-  const estimatedContentHeight = useCallback(async () => {
-    let basicHeight = 12;
-    if (showDeviceManagementButton) {
-      basicHeight += 54;
-    }
-    if (showAddHiddenWalletButton) {
-      basicHeight += 44;
-    }
-    if (showRemoveDeviceButton) {
-      basicHeight += 44;
-    }
-    if (showRemoveWalletButton) {
-      basicHeight += 44;
-    }
-    if (showBoundReferralCodeButton) {
-      basicHeight += 44;
-    }
-    if (showBackupButton) {
-      basicHeight += 44;
-    }
-    return basicHeight;
-  }, [
-    showDeviceManagementButton,
-    showAddHiddenWalletButton,
-    showRemoveDeviceButton,
-    showRemoveWalletButton,
-    showBoundReferralCodeButton,
-    showBackupButton,
-  ]);
-
   const renderItems = useCallback(
     async ({
       handleActionListClose,
@@ -188,7 +158,6 @@ function WalletEditButtonView({
         />
       }
       renderItemsAsync={renderItems}
-      estimatedContentHeight={estimatedContentHeight}
     />
   );
 }
