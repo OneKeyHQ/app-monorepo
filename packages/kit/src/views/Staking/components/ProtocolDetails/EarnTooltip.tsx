@@ -91,7 +91,7 @@ function RebateDetailsPopoverContent({
   tooltip?: IEarnRebateDetailsTooltip;
 }) {
   return tooltip ? (
-    <YStack borderRadius="$3" overflow="hidden">
+    <YStack borderRadius="$3" overflow="hidden" mb={-20}>
       <YStack>
         {tooltip?.data.tokens?.map(
           ({ info: token, fiatValue, amount }, index) => {
@@ -128,9 +128,9 @@ function RebateDetailsPopoverContent({
         )}
       </YStack>
       <Divider />
-      <XStack ai="center" gap="$2" py="$2.5" px="$5" bg="$bgSubdued">
+      <XStack ai="center" gap="$2" py="$2.5" bg="$bgSubdued">
         <Stack>
-          <Icon color="$iconSubdued" size="$4" name="InfoCircleOutline" />
+          <Icon color="$iconSubdued" size="$5" name="InfoCircleOutline" />
         </Stack>
         <EarnText
           flex={1}
@@ -153,8 +153,11 @@ export function EarnTooltip({
   const { onHistory } = useShareEvents();
 
   const tooltipTitle = useMemo(() => {
-    if (tooltip?.type === 'withdraw' || tooltip?.type === 'rebateDetails') {
+    if (tooltip?.type === 'withdraw') {
       return tooltip.data.title;
+    }
+    if (tooltip?.type === 'rebateDetails') {
+      return tooltip.data.title.text;
     }
     return title || '';
   }, [tooltip, title]);

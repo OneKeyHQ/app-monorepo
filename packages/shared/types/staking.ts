@@ -487,7 +487,8 @@ export interface IEarnRebateDetailsTooltip {
 export type IEarnTooltip =
   | IEarnTextTooltip
   | IEarnRebateTooltip
-  | IEarnWithdrawTooltip;
+  | IEarnWithdrawTooltip
+  | IEarnRebateDetailsTooltip;
 
 export enum EClaimType {
   Claim = 'claim',
