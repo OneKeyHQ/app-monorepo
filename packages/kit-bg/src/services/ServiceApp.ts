@@ -13,6 +13,10 @@ import {
 } from '@onekeyhq/shared/src/cloudfs';
 import { ONEKEY_API_HOST } from '@onekeyhq/shared/src/config/appConfig';
 import {
+  getCachedEndpointPrefix,
+  setCachedEndpointPrefix,
+} from '@onekeyhq/shared/src/config/endpointsMap';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -141,13 +145,11 @@ class ServiceApp extends ServiceBase {
         );
 
         // Get current stored prefix to check if it changed
-        const currentStoredPrefix = await appStorage.getItem(
-          'ONEKEY_ENDPOINT_USE_PREFIX',
-        );
+        const currentStoredPrefix = await getCachedEndpointPrefix();
         const newPrefixValue = 'false';
 
-        // Store false to disable prefix usage
-        await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', newPrefixValue);
+        // Store false to disable prefix usage using cached function
+        await setCachedEndpointPrefix(newPrefixValue);
 
         // Only clear cache if the prefix setting actually changed
         if (currentStoredPrefix !== newPrefixValue) {
@@ -165,13 +167,11 @@ class ServiceApp extends ServiceBase {
         result.data?.code === 0 && result.data?.data?.withByPrefix === true;
 
       // Get current stored prefix to check if it changed
-      const currentStoredPrefix = await appStorage.getItem(
-        'ONEKEY_ENDPOINT_USE_PREFIX',
-      );
+      const currentStoredPrefix = await getCachedEndpointPrefix();
       const newPrefixValue = shouldUsePrefix.toString();
 
-      // Store the result in persistent storage for shared layer to access
-      await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', newPrefixValue);
+      // Store the result in persistent storage for shared layer to access using cached function
+      await setCachedEndpointPrefix(newPrefixValue);
 
       // Only clear cache if the prefix setting actually changed
       if (currentStoredPrefix !== newPrefixValue) {
@@ -191,11 +191,9 @@ class ServiceApp extends ServiceBase {
         error,
       );
       // Store false as fallback only if no value exists
-      const currentValue = await appStorage.getItem(
-        'ONEKEY_ENDPOINT_USE_PREFIX',
-      );
+      const currentValue = await getCachedEndpointPrefix();
       if (currentValue === null) {
-        await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', 'false');
+        await setCachedEndpointPrefix('false');
       }
     }
   }

@@ -11,6 +11,44 @@ import requestHelper from '../request/requestHelper';
 
 import { buildServiceEndpoint } from './appConfig';
 
+// Cache for endpoint prefix to avoid repeated appStorage calls
+let endpointPrefixCache: string | null = null;
+
+// Cached function to get endpoint prefix with storage fallback
+export async function getCachedEndpointPrefix(): Promise<string | null> {
+  if (endpointPrefixCache !== null) {
+    return endpointPrefixCache;
+  }
+
+  try {
+    const storedValue = await appStorage.getItem('ONEKEY_ENDPOINT_USE_PREFIX');
+    endpointPrefixCache = storedValue;
+    return storedValue;
+  } catch (error) {
+    console.warn('Failed to read endpoint prefix from storage:', error);
+    endpointPrefixCache = null;
+    return null;
+  }
+}
+
+// Cached function to set endpoint prefix with cache invalidation
+export async function setCachedEndpointPrefix(newValue: string): Promise<void> {
+  try {
+    // Always update storage
+    await appStorage.setItem('ONEKEY_ENDPOINT_USE_PREFIX', newValue);
+    endpointPrefixCache = newValue; // Update cache with new value
+  } catch (error) {
+    console.error('Failed to set endpoint prefix in storage:', error);
+    // Clear cache on error to ensure consistency
+    endpointPrefixCache = null;
+  }
+}
+
+// Function to clear the endpoint prefix cache
+export function clearEndpointPrefixCache(): void {
+  endpointPrefixCache = null;
+}
+
 // Only OneKey endpoints are allowed here.
 export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   test: {
@@ -170,12 +208,10 @@ export async function getEndpointsMapWithDynamicPrefix() {
     cleanAppClientCache: false,
   });
 
-  // Read the stored endpoint prefix result from background service
+  // Read the stored endpoint prefix result from background service using cached function
   let currentPrefix: string | undefined;
   try {
-    const shouldUsePrefix = await appStorage.getItem(
-      'ONEKEY_ENDPOINT_USE_PREFIX',
-    );
+    const shouldUsePrefix = await getCachedEndpointPrefix();
 
     if (shouldUsePrefix === 'true') {
       currentPrefix = 'by';
