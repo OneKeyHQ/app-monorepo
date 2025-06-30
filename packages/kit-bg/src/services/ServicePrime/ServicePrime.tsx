@@ -711,6 +711,15 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
+  async apiGetCustomerJWT() {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<{ token: string }>>(
+      '/prime/v1/general/customer_jwt',
+    );
+    return result?.data?.data;
+  }
+
+  @backgroundMethod()
   async getLocalUserInfo() {
     return primePersistAtom.get();
   }

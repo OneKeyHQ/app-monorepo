@@ -1,11 +1,16 @@
 import openUrlUtils from '../../utils/openUrlUtils';
 
-import { buildSupportUrl } from './utils';
+import { getCustomerJWT } from './utils';
 
-export const initIntercom = async () => {};
+export const initIntercom = async () => {
+  console.log('initIntercom');
+};
 
 export const showIntercom = async () => {
-  const supportUrl = await buildSupportUrl();
+  const token = await getCustomerJWT();
+  const supportUrl = 'https://intercom-test-beryl.vercel.app/';
 
-  openUrlUtils.openUrlInApp(supportUrl, 'Support');
+  const url = token ? `${supportUrl}?intercom_user_jwt=${token}` : supportUrl;
+
+  openUrlUtils.openUrlInApp(url, 'Support');
 };
