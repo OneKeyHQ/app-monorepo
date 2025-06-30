@@ -38,7 +38,7 @@ function WalletBoundReferralCodeButtonView({
     },
     [wallet?.id],
     {
-      initResult: false,
+      initResult: undefined,
     },
   );
 
@@ -73,6 +73,10 @@ function WalletBoundReferralCodeButtonView({
     bindWalletInviteCode,
     refreshDisplayReferralCodeButton,
   ]);
+
+  if (displayReferralCodeButton === undefined || isLoading) {
+    return <ActionList.SkeletonItem />;
+  }
 
   if (!displayReferralCodeButton) {
     return null;
