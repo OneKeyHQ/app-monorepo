@@ -8,7 +8,9 @@ export const showIntercom = async () => {
   const token = await getCustomerJWT();
 
   const baseUrl = 'https://onekey.so/?openMessenger';
-  const url = token ? `${baseUrl}&intercom_user_jwt=${token}` : baseUrl;
+  const url = token
+    ? `${baseUrl}&intercom_user_jwt=${encodeURIComponent(token)}`
+    : baseUrl;
 
   window.open(url);
 };
