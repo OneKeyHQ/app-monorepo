@@ -27,6 +27,7 @@ function BaseSwiperFlatList<T>(
     autoplayLoop = false,
     autoplayLoopKeepAnimation = false,
     disableGesture = false,
+    initialNumToRender = 1,
     ...restProps
   }: ISwiperProps<T>,
   ref: ForwardedRef<ISwiperRef>,
@@ -121,9 +122,9 @@ function BaseSwiperFlatList<T>(
             renderItem={handleRenderItem}
             data={data}
             extraData={extraData}
-            initialNumToRender={1}
+            initialNumToRender={initialNumToRender}
             initialScrollIndex={index}
-            estimatedItemSize={sharedStyle.height as number}
+            estimatedItemSize={containerWidth}
             width={containerWidth}
             onScrollToIndexFailed={onScrollToIndexFailed}
             onScrollAnimationEnd={onScrollAnimationEnd}

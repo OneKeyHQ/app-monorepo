@@ -440,6 +440,7 @@ export default function PagePrimeFeatures() {
             height={height}
             position="relative"
             index={index}
+            initialNumToRender={3}
             onChangeIndex={onIndexChange}
             // autoplay
             // autoplayLoop

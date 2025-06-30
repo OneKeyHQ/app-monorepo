@@ -8,7 +8,6 @@ import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -21,11 +20,7 @@ import {
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
-import {
-  IPageFooterRef,
-  PageContext,
-  usePageContext,
-} from '../../layouts/Page/PageContext';
+import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import {
   ButtonFrame,
   Heading,
@@ -199,8 +194,6 @@ export interface IActionListProps
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => React.ReactNode;
-  // estimatedContentHeight required if use renderItemsAsync
-  estimatedContentHeight?: number;
   renderItemsAsync?: (params: {
     // TODO use cloneElement to override onClose props
     handleActionListClose: () => void;
@@ -242,7 +235,6 @@ function BasicActionList({
   defaultOpen = false,
   renderItems,
   renderItemsAsync,
-  estimatedContentHeight,
   title,
   trackID,
   ...props
@@ -282,11 +274,6 @@ function BasicActionList({
   const intl = useIntl();
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
-      if (platformEnv.isDev && md && !estimatedContentHeight) {
-        throw new OneKeyLocalError(
-          'ActionList.estimatedContentHeight is required on Async rendering items',
-        );
-      }
       void (async () => {
         const asyncItemsToRender = await renderItemsAsync({
           handleActionListClose,
@@ -296,7 +283,6 @@ function BasicActionList({
       })();
     }
   }, [
-    estimatedContentHeight,
     handleActionListClose,
     handleActionListOpen,
     isOpen,
@@ -316,19 +302,17 @@ function BasicActionList({
       }}
     />
   );
+  if (renderItemsAsync && !asyncItems) {
+    return null;
+  }
   return (
     <Popover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
       renderContent={
-        <YStack
-          p="$1"
-          $md={{ p: '$3', pt: '$0' }}
-          height={estimatedContentHeight}
-        >
+        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
           {items?.map(renderActionListItem)}
-
           {sections?.map((section, sectionIdx) => (
             <YStack key={sectionIdx}>
               {sectionIdx > 0 && section.items.length > 0 ? (
@@ -355,7 +339,7 @@ function BasicActionList({
             handleActionListOpen,
           })}
 
-          {/* custom async render items (estimatedContentHeight required) */}
+          {/* custom async render items */}
           {asyncItems}
         </YStack>
       }
@@ -423,12 +407,7 @@ const debouncedShowActionList = debounce(
   PROCESSING_RESET_DELAY,
 );
 
-function ActionListFrame({
-  estimatedContentHeight,
-  ...props
-}: Omit<IActionListProps, 'estimatedContentHeight'> & {
-  estimatedContentHeight?: () => Promise<number>;
-}) {
+function ActionListFrame(props: IActionListProps) {
   const isProcessing = useRef(false);
 
   const { gtMd } = useMedia();
@@ -444,20 +423,7 @@ function ActionListFrame({
     if (isProcessing.current) return;
 
     isProcessing.current = true;
-    if (estimatedContentHeight) {
-      void estimatedContentHeight().then((height) => {
-        showActionList(
-          {
-            ...popoverProps,
-            estimatedContentHeight: height,
-          },
-          contexts,
-        );
-      });
-    } else {
-      showActionList(popoverProps, contexts);
-    }
-
+    showActionList(popoverProps, contexts);
     setTimeout(() => {
       isProcessing.current = false;
     }, PROCESSING_RESET_DELAY);

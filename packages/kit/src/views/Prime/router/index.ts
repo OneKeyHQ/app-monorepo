@@ -24,6 +24,9 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeDashboard,
     component: PrimeDashboard,
+    options: {
+      headerShown: false,
+    },
   },
   {
     name: EPrimePages.PrimeDeviceLimit,
@@ -40,6 +43,9 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeFeatures,
     component: PrimeFeatures,
+    options: {
+      headerShown: false,
+    },
   },
   {
     name: EPrimePages.PrimeDeleteAccount,
