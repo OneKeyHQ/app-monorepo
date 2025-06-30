@@ -54,17 +54,6 @@ function WalletEditButtonView({
     );
   }, [wallet]);
 
-  const showBoundReferralCodeButton = useMemo(() => {
-    if (wallet?.isMocked) {
-      return false;
-    }
-    return (
-      accountUtils.isHdWallet({ walletId: wallet?.id }) ||
-      (!accountUtils.isHwHiddenWallet({ wallet }) &&
-        accountUtils.isHwWallet({ walletId: wallet?.id }))
-    );
-  }, [wallet]);
-
   const showBackupButton = useMemo(() => {
     return accountUtils.isHdWallet({ walletId: wallet?.id });
   }, [wallet]);
@@ -81,12 +70,10 @@ function WalletEditButtonView({
       return (
         // fix missing context in popover
         <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-          {showBoundReferralCodeButton ? (
-            <WalletBoundReferralCodeButton
-              wallet={wallet}
-              onClose={handleActionListClose}
-            />
-          ) : null}
+          <WalletBoundReferralCodeButton
+            wallet={wallet}
+            onClose={handleActionListClose}
+          />
 
           {showBackupButton ? (
             <HdWalletBackupButton
@@ -134,7 +121,6 @@ function WalletEditButtonView({
     },
     [
       config,
-      showBoundReferralCodeButton,
       wallet,
       showBackupButton,
       showDeviceManagementButton,

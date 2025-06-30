@@ -75,7 +75,7 @@ function WalletBoundReferralCodeButtonView({
   ]);
 
   if (!displayReferralCodeButton) {
-    // return null;
+    return null;
   }
 
   return (
@@ -85,13 +85,6 @@ function WalletBoundReferralCodeButtonView({
       label={intl.formatMessage({
         id: ETranslations.referral_wallet_edit_code,
       })}
-      extra={
-        displayReferralCodeButton ? undefined : (
-          <SizableText size="$bodyMd" color="$textSuccess">
-            已绑定
-          </SizableText>
-        )
-      }
       onPress={handlePress}
       isLoading={isLoading}
       onClose={onClose}
