@@ -21,8 +21,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 interface IProps {
   accountId: string;

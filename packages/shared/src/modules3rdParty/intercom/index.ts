@@ -1,4 +1,6 @@
-import Intercom, { show } from '@intercom/messenger-js-sdk';
+import Intercom, { show, update } from '@intercom/messenger-js-sdk';
+
+import { getCustomerJWT } from './utils';
 
 import type { InitType } from '@intercom/messenger-js-sdk/dist/types';
 
@@ -13,5 +15,13 @@ export const initIntercom = async (settings?: InitType) => {
 };
 
 export const showIntercom = async () => {
+  const customerJWT = await getCustomerJWT();
+
+  if (customerJWT) {
+    update({
+      intercom_user_jwt: customerJWT,
+    });
+  }
+
   show();
 };
