@@ -868,64 +868,76 @@ function BasicEarnHome() {
           }
         >
           {/* container */}
-          <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
-            {/* overview and banner */}
-            <YStack
-              gap="$8"
-              $gtLg={{
-                px: '$5',
-                flexDirection: 'row',
-              }}
-            >
-              <Overview onRefresh={refreshOverViewData} isLoading={isLoading} />
-              {banners ? (
-                <YStack
-                  px="$5"
-                  minHeight="$36"
-                  $md={{
-                    minHeight: '$28',
-                  }}
-                  borderRadius="$3"
-                  width="100%"
-                  borderCurve="continuous"
-                  $gtLg={{
-                    px: '$0',
-                    w: EARN_RIGHT_PANEL_WIDTH,
-                  }}
-                >
-                  {banners}
-                </YStack>
-              ) : (
-                gtLgFaqPanel
-              )}
-            </YStack>
-            {/* Recommended, available assets and introduction */}
-            <YStack
-              px="$5"
-              gap="$8"
-              $gtLg={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-              }}
-            >
+          <YStack
+            w="100%"
+            maxWidth={EARN_PAGE_MAX_WIDTH}
+            mx="auto"
+            gap="$4"
+            flexDirection={banners ? 'column' : 'row'}
+          >
+            <YStack flex={1}>
+              {/* overview and banner */}
               <YStack
-                pt="$3.5"
                 gap="$8"
                 $gtLg={{
-                  flex: 1,
+                  px: '$5',
+                  flexDirection: 'row',
                 }}
               >
-                <Recommended />
-                <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
+                <Overview
+                  onRefresh={refreshOverViewData}
+                  isLoading={isLoading}
+                />
+                {banners ? (
+                  <YStack
+                    px="$5"
+                    minHeight="$36"
+                    $md={{
+                      minHeight: '$28',
+                    }}
+                    borderRadius="$3"
+                    width="100%"
+                    borderCurve="continuous"
+                    $gtLg={{
+                      px: '$0',
+                      w: EARN_RIGHT_PANEL_WIDTH,
+                    }}
+                  >
+                    {banners}
+                  </YStack>
+                ) : null}
               </YStack>
-              {/* FAQ Panel */}
-              {banners ? gtLgFaqPanel : <XStack w={288} />}
+              {/* Recommended, available assets and introduction */}
+              <YStack
+                px="$5"
+                gap="$8"
+                $gtLg={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                }}
+              >
+                <YStack
+                  pt="$3.5"
+                  gap="$8"
+                  $gtLg={{
+                    flex: 1,
+                  }}
+                >
+                  <Recommended />
+                  <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
+                </YStack>
+                {/* FAQ Panel */}
+                {banners ? gtLgFaqPanel : null}
+              </YStack>
+              {media.gtLg || (faqList.length === 0 && !isFaqLoading) ? null : (
+                <YStack mt="$1" px="$4" py="$4">
+                  {faqPanel}
+                </YStack>
+              )}
             </YStack>
-            {media.gtLg || (faqList.length === 0 && !isFaqLoading) ? null : (
-              <YStack mt="$1" px="$4" py="$4">
-                {faqPanel}
-              </YStack>
-            )}
+            {media.gtLg && !banners ? (
+              <YStack mr="$5">{gtLgFaqPanel}</YStack>
+            ) : null}
           </YStack>
         </ScrollView>
       </Page.Body>
