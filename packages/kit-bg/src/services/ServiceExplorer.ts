@@ -2,12 +2,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ONEKEY_BLOCK_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IBuildExplorerUrlParams } from '@onekeyhq/shared/types/explorer';
 
 import ServiceBase from './ServiceBase';
-import { ONEKEY_BLOCK_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 @backgroundClass()
 class ServiceExplorer extends ServiceBase {
