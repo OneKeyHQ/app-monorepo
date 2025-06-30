@@ -165,11 +165,13 @@ export function ActionPopupContent({
                 mx="$2"
                 borderRadius="$full"
                 bg="$iconSubdued"
+                flexShrink={0}
               />
               <SizableText
                 size={text.size || '$bodySm'}
                 color={text.color || '$textSubdued'}
-                numberOfLines={2}
+                flex={1}
+                flexWrap="wrap"
               >
                 {text.text}
               </SizableText>

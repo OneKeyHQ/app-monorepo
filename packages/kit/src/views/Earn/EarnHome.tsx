@@ -185,7 +185,7 @@ function RecommendedItem({
     const {
       activeAccount: { account, indexedAccount },
     } = accountInfo;
-    if ((account || indexedAccount) && token) {
+    if (token) {
       const earnAccount =
         await backgroundApiProxy.serviceStaking.getEarnAccount({
           indexedAccountId: indexedAccount?.id,
