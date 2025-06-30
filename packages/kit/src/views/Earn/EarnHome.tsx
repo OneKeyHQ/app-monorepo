@@ -371,7 +371,7 @@ function Recommended() {
                 key={index}
                 p="$1.5"
                 flexBasis={
-                  platformEnv.isExtension && !platformEnv.isDesktop
+                  md
                     ? '50%' // Extension small screen: 2 per row
                     : '25%' // Desktop: 4 per row
                 }
