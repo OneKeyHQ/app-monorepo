@@ -67,7 +67,11 @@ function BasicTokenListItem(props: ITokenListItemProps) {
                 size="$bodyMd"
                 color="$textSubdued"
               />
-              <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
+              <TokenPriceChangeView
+                $key={token.$key ?? ''}
+                size="$bodyMd"
+                numberOfLines={1}
+              />
             </XStack>
           </YStack>
         </XStack>
@@ -114,8 +118,16 @@ function BasicTokenListItem(props: ITokenListItemProps) {
 
     return (
       <YStack alignItems="flex-end" flexGrow={1} flexBasis={0} maxWidth="$36">
-        <TokenPriceView $key={token.$key ?? ''} size="$bodyMdMedium" />
-        <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
+        <TokenPriceView
+          $key={token.$key ?? ''}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+        />
+        <TokenPriceChangeView
+          $key={token.$key ?? ''}
+          size="$bodyMd"
+          numberOfLines={1}
+        />
       </YStack>
     );
   }, [isTokenSelector, tableLayout, token.$key]);
@@ -152,10 +164,12 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     return (
       <YStack
         alignItems="flex-end"
-        {...(tableLayout && {
-          flexGrow: 1,
-          flexBasis: 0,
-        })}
+        {...(tableLayout
+          ? {
+              flexGrow: 1,
+              flexBasis: 0,
+            }
+          : { flex: 1 })}
       >
         <TokenValueView
           hideValue={hideValue}
