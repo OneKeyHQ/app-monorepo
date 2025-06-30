@@ -468,7 +468,7 @@ export class ResponseUnexpectTypeError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ResponseUnexpectTypeError',
-        defaultKey: ETranslations.hardware_default_error,
+        defaultKey: ETranslations.hardware_communication_error,
       }),
     );
   }
