@@ -520,6 +520,10 @@ export interface IEarnActivateActionIcon {
     title: IEarnText;
     description: IEarnText[];
     checkboxes: IEarnText[];
+    accordions: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
     button: IEarnActivateActionIcon;
   };
 }
