@@ -46,6 +46,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
+import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 
 import {
   AutoLockListItem,
@@ -118,6 +119,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const requestUrl = useHelpLink({ path: 'requests/new' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
+  const { isPrimeAvailable } = usePrimeAvailable();
   return useMemo(
     () => [
       {
@@ -141,32 +143,34 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : null,
-            {
-              icon: 'CloudOutline',
-              title: intl.formatMessage({
-                id: ETranslations.global_onekey_cloud,
-              }),
-              badgeProps: {
-                badgeSize: 'sm',
-                badgeText: 'Prime',
-              },
-              onPress: (navigation) => {
-                if (isPrimeSubscriptionActive) {
-                  navigation?.pushModal(EModalRoutes.PrimeModal, {
-                    screen: EPrimePages.PrimeCloudSync,
-                  });
-                } else {
-                  navigation?.pushModal(EModalRoutes.PrimeModal, {
-                    screen: EPrimePages.PrimeFeatures,
-                    params: {
-                      showAllFeatures: false,
-                      selectedFeature: EPrimeFeatures.OneKeyCloud,
-                      selectedSubscriptionPeriod: 'P1Y',
-                    },
-                  });
+            isPrimeAvailable
+              ? {
+                  icon: 'CloudOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_onekey_cloud,
+                  }),
+                  badgeProps: {
+                    badgeSize: 'sm',
+                    badgeText: 'Prime',
+                  },
+                  onPress: (navigation) => {
+                    if (isPrimeSubscriptionActive) {
+                      navigation?.pushModal(EModalRoutes.PrimeModal, {
+                        screen: EPrimePages.PrimeCloudSync,
+                      });
+                    } else {
+                      navigation?.pushModal(EModalRoutes.PrimeModal, {
+                        screen: EPrimePages.PrimeFeatures,
+                        params: {
+                          showAllFeatures: false,
+                          selectedFeature: EPrimeFeatures.OneKeyCloud,
+                          selectedSubscriptionPeriod: 'P1Y',
+                        },
+                      });
+                    }
+                  },
                 }
-              },
-            },
+              : null,
           ],
           [
             platformEnv.isNative
@@ -696,6 +700,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      isPrimeAvailable,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
