@@ -801,6 +801,7 @@ export enum EStakeProtocolGroupEnum {
   Available = 'available',
   WithdrawOnly = 'withdrawOnly',
   Deposited = 'deposited',
+  Unavailable = 'unavailable',
 }
 
 export type IStakeProtocolListItem = {
