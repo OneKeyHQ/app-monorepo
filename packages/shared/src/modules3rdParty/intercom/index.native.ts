@@ -8,7 +8,7 @@ export const initIntercom = async () => {
 
 export const showIntercom = async () => {
   const token = await getCustomerJWT();
-  const supportUrl = 'https://intercom-test-beryl.vercel.app/';
+  const supportUrl = 'https://intercom.onekey.so/';
 
   const url = token ? `${supportUrl}?intercom_user_jwt=${token}` : supportUrl;
 
