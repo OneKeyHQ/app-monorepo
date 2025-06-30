@@ -43,6 +43,10 @@ const getSectionTitle = (group: string): string => {
       });
     case EStakeProtocolGroupEnum.Deposited:
       return appLocale.intl.formatMessage({ id: ETranslations.earn_deposited });
+    case EStakeProtocolGroupEnum.Unavailable:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.provider_unavailable,
+      });
     default:
       return group;
   }
@@ -267,12 +271,12 @@ function ProtocolListDialogContent({
   }
 
   return (
-    <YStack gap="$2" minHeight={90} p="$0" m="$0">
+    <YStack gap="$4" minHeight={90} p="$0" m="$0">
       {protocolData.map((section) => (
-        <>
+        <YStack key={section.group}>
           {renderSectionHeader({ section })}
           {section.data.map((item) => renderItem({ item }))}
-        </>
+        </YStack>
       ))}
     </YStack>
   );
