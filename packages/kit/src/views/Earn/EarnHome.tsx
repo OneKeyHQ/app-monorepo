@@ -847,7 +847,7 @@ function BasicEarnHome() {
         {faqPanel}
       </YStack>
     ) : null;
-  }, [faqList, isFaqLoading, media.gtLg, faqPanel]);
+  }, [media.gtLg, isFaqLoading, faqList.length, faqPanel]);
 
   return (
     <Page fullPage>
@@ -872,10 +872,9 @@ function BasicEarnHome() {
             w="100%"
             maxWidth={EARN_PAGE_MAX_WIDTH}
             mx="auto"
-            gap="$4"
             flexDirection={banners ? 'column' : 'row'}
           >
-            <YStack flex={1}>
+            <YStack flex={1} gap="$4">
               {/* overview and banner */}
               <YStack
                 gap="$8"
@@ -937,6 +936,11 @@ function BasicEarnHome() {
             </YStack>
             {media.gtLg && !banners ? (
               <YStack mr="$5">{gtLgFaqPanel}</YStack>
+            ) : null}
+            {!media.gtLg && banners ? (
+              <YStack mt="$1" px="$4" py="$4">
+                {faqPanel}
+              </YStack>
             ) : null}
           </YStack>
         </ScrollView>
