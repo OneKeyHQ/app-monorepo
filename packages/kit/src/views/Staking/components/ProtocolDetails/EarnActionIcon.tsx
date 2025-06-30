@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
+  Icon,
   IconButton,
   Image,
   Popover,
@@ -35,6 +36,7 @@ import type {
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
 import { EarnIcon } from './EarnIcon';
+import { EarnText } from './EarnText';
 
 // Hook to handle claim action press
 function useHandleClaimAction({
@@ -398,12 +400,14 @@ function BasicEarnActionIcon({
   protocolInfo,
   tokenInfo,
   token,
+  onHistory,
 }: {
   title?: string;
   actionIcon?: IEarnActionIcon;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
+  onHistory?: (params?: { filterType?: string }) => void;
 }) {
   if (!actionIcon) {
     return null;
@@ -464,6 +468,25 @@ function BasicEarnActionIcon({
           placement="top"
         />
       ) : null;
+    case 'history':
+      return (
+        <XStack
+          gap="$0.5"
+          cursor="pointer"
+          onPress={() => onHistory?.({ filterType: 'rebate' })}
+        >
+          <EarnText
+            text={actionIcon?.text}
+            size="$bodyMd"
+            color="$textSubdued"
+          />
+          <Icon
+            name="ChevronRightSmallOutline"
+            color="$iconSubdued"
+            size="$5"
+          />
+        </XStack>
+      );
     default:
   }
   return icon ? (
