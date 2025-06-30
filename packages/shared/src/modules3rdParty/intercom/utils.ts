@@ -15,10 +15,10 @@ export const getCustomerJWT = async (): Promise<string | undefined> => {
 
     if (isLoggedIn) {
       // Get customer JWT if logged in
-      const { token } =
+      const response =
         await backgroundApiProxy.servicePrime.apiGetCustomerJWT();
 
-      return token as string;
+      return response?.token;
     }
   } catch (error) {
     console.warn('Failed to get customer JWT for Intercom:', error);
