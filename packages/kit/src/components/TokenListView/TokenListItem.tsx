@@ -142,20 +142,20 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             flexBasis: 0,
           })}
         >
+          <TokenValueView
+            hideValue={hideValue}
+            numberOfLines={1}
+            size="$bodyLgMedium"
+            $key={token.$key ?? ''}
+          />
           <TokenBalanceView
             hideValue={hideValue}
             numberOfLines={1}
             textAlign="right"
-            size="$bodyLgMedium"
-            $key={token.$key ?? ''}
-            symbol=""
-          />
-          <TokenValueView
-            hideValue={hideValue}
-            numberOfLines={1}
             size="$bodyMd"
             color="$textSubdued"
             $key={token.$key ?? ''}
+            symbol=""
           />
         </YStack>
       );
