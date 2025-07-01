@@ -47,6 +47,7 @@ import type {
   IEarnInvestmentItem,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
+  IEarnSummary,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
@@ -124,6 +125,26 @@ class ServiceStaking extends ServiceBase {
     });
 
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getEarnSummary({
+    accountAddress,
+    networkId,
+  }: {
+    accountAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IEarnSummary;
+    }>('/earn/v1/rebate', {
+      params: {
+        accountAddress,
+        networkId,
+      },
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -459,9 +480,11 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const isMorphoProvider = earnUtils.isMorphoProvider({
-      providerName: params.provider,
-    });
+    const isMorphoProvider =
+      params.provider &&
+      earnUtils.isMorphoProvider({
+        providerName: params.provider,
+      });
     const data: Record<string, string | undefined> & { type?: string } = {
       accountAddress,
       networkId,

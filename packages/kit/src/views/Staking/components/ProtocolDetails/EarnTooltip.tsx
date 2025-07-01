@@ -1,16 +1,22 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  Divider,
   Icon,
   IconButton,
+  NumberSizeableText,
   Popover,
+  SizableText,
   Stack,
   XStack,
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import type {
   IEarnHistoryActionIcon,
+  IEarnRebateDetailsTooltip,
   IEarnRebateTooltip,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
@@ -79,6 +85,64 @@ function RewardAmountPopoverContent({
   );
 }
 
+function RebateDetailsPopoverContent({
+  tooltip,
+}: {
+  tooltip?: IEarnRebateDetailsTooltip;
+}) {
+  return tooltip ? (
+    <YStack borderRadius="$3" overflow="hidden" mb={-20}>
+      <YStack>
+        {tooltip?.data.tokens?.map(
+          ({ info: token, fiatValue, amount }, index) => {
+            return (
+              <XStack
+                key={index}
+                gap="$2"
+                h={48}
+                ai="center"
+                jc="space-between"
+                py={5}
+              >
+                <XStack gap="$2.5" ai="center">
+                  <Token size="sm" tokenImageUri={token.logoURI} />
+                  <SizableText size="$bodyMdMedium">
+                    {token.symbol.toUpperCase()}
+                  </SizableText>
+                </XStack>
+                <YStack ai="flex-end">
+                  <NumberSizeableText formatter="balance" size="$bodyMdMedium">
+                    {amount}
+                  </NumberSizeableText>
+                  <Currency
+                    formatter="balance"
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                  >
+                    {fiatValue}
+                  </Currency>
+                </YStack>
+              </XStack>
+            );
+          },
+        )}
+      </YStack>
+      <Divider />
+      <XStack ai="center" gap="$2" py="$2.5" bg="$bgSubdued">
+        <Stack>
+          <Icon color="$iconSubdued" size="$5" name="InfoCircleOutline" />
+        </Stack>
+        <EarnText
+          flex={1}
+          size="$bodyMd"
+          color="$textSubdued"
+          text={tooltip.data.description}
+        />
+      </XStack>
+    </YStack>
+  ) : null;
+}
+
 export function EarnTooltip({
   title,
   tooltip,
@@ -91,6 +155,9 @@ export function EarnTooltip({
   const tooltipTitle = useMemo(() => {
     if (tooltip?.type === 'withdraw') {
       return tooltip.data.title;
+    }
+    if (tooltip?.type === 'rebateDetails') {
+      return tooltip.data.title.text;
     }
     return title || '';
   }, [tooltip, title]);
@@ -125,6 +192,11 @@ export function EarnTooltip({
         <RewardAmountPopoverContent tooltip={tooltip} onHistory={onHistory} />
       );
     }
+
+    if (tooltip.type === 'rebateDetails') {
+      return <RebateDetailsPopoverContent tooltip={tooltip} />;
+    }
+
     return <EarnText text={tooltip.data} />;
   }, [onHistory, tooltip]);
   return tooltip ? (
