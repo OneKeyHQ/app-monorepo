@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Divider,
   Empty,
   Heading,
   Icon,
@@ -36,12 +37,63 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  IEarnAccount,
   IEarnInvestmentItem,
   IEarnRewardNum,
+  IEarnSummary,
   IInvestment,
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnIcon } from '../../components/ProtocolDetails/EarnIcon';
+import { EarnText } from '../../components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
+
+function EarnOverview({
+  earnSummary,
+  onHistory,
+}: {
+  earnSummary: IEarnSummary | undefined;
+  onHistory: (params?: { filterType?: string }) => void;
+}) {
+  if (!earnSummary?.items?.length) {
+    return null;
+  }
+  return (
+    <YStack px="$5">
+      <XStack ai="center" gap="$1.5" h={44}>
+        <EarnIcon size="$5" icon={earnSummary.icon} />
+        <EarnText
+          text={earnSummary.title}
+          size="$bodyMdMedium"
+          color="$textSubdued"
+        />
+      </XStack>
+      <YStack>
+        {earnSummary.items.map((item) => (
+          <XStack ai="center" h="$10" jc="space-between" key={item.title.text}>
+            <XStack gap="$1" key={item.title.text}>
+              <EarnText
+                key={item.title.text}
+                text={item.title}
+                size="$bodyMd"
+              />
+              <EarnText
+                text={item.description}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+              <EarnTooltip tooltip={item.tooltip} />
+            </XStack>
+            <EarnActionIcon actionIcon={item.button} onHistory={onHistory} />
+          </XStack>
+        ))}
+      </YStack>
+      <Divider my="$3" />
+    </YStack>
+  );
+}
 
 function ListSkeletonItem() {
   return (
@@ -82,8 +134,9 @@ function BasicInvestmentDetails() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
+  const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
 
-  const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey({
         accountId: accountInfo.activeAccount?.account?.id,
@@ -101,17 +154,32 @@ function BasicInvestmentDetails() {
         list = earnAccountOnNetwork.accounts;
       }
 
-      return list.length
-        ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
-            list.map(({ networkId, accountAddress, publicKey }) => ({
-              networkId,
-              accountAddress,
-              publicKey,
-            })),
-          )
-        : new Promise<IEarnInvestmentItem[]>((resolve) => {
-            setTimeout(() => resolve([]), 1500);
-          });
+      if (list.length > 0) {
+        const evmAccount = list.find((item) => item.networkId === evmNetworkId);
+        if (evmAccount) {
+          const earnSummary =
+            await backgroundApiProxy.serviceStaking.getEarnSummary(evmAccount);
+          const response =
+            await backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
+              list.map(({ networkId, accountAddress, publicKey }) => ({
+                networkId,
+                accountAddress,
+                publicKey,
+              })),
+            );
+          return {
+            evmAccount,
+            earnSummary,
+            earnInvestmentItems: response,
+          };
+        }
+      }
+
+      return {
+        earnSummary: undefined,
+        evmAccount: undefined,
+        earnInvestmentItems: [],
+      };
     },
     [
       accountInfo.activeAccount?.account?.id,
@@ -119,21 +187,63 @@ function BasicInvestmentDetails() {
       actions,
       allNetworkId,
       earnAccount,
+      evmNetworkId,
     ],
     {
       watchLoading: true,
     },
   );
 
-  const sectionData = earnInvestmentItems
-    .map((item) => ({
-      title: item.name,
-      logoURI: item.logoURI,
-      data: item.investment
-        .map((i) => ({ ...i, providerName: item.name }))
-        .filter((i) => !new BigNumber(i.staked).isZero()),
-    }))
-    .filter((i) => i.data.length > 0);
+  const {
+    earnSummary,
+    evmAccount,
+    earnInvestmentItems = [],
+  } = result ||
+  ({} as {
+    earnSummary: IEarnSummary | undefined;
+    evmAccount: IEarnAccount | undefined;
+    earnInvestmentItems: IEarnInvestmentItem[];
+  });
+
+  const appNavigation = useAppNavigation();
+  const onHistory = useMemo(() => {
+    return async (params?: { filterType?: string }) => {
+      if (!evmAccount) {
+        return;
+      }
+      const { filterType } = params || {};
+      const currentEarnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId: accountInfo.activeAccount?.account?.id || '',
+          indexedAccountId: accountInfo.activeAccount?.indexedAccount?.id || '',
+          networkId: evmNetworkId,
+          btcOnlyTaproot: true,
+        });
+      appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+        accountId: currentEarnAccount?.account.id,
+        networkId: evmNetworkId,
+        filterType,
+      });
+    };
+  }, [
+    evmAccount,
+    accountInfo.activeAccount?.account?.id,
+    accountInfo.activeAccount?.indexedAccount?.id,
+    evmNetworkId,
+    appNavigation,
+  ]);
+
+  const sectionData = useMemo(() => {
+    return earnInvestmentItems
+      .map((item) => ({
+        title: item.name,
+        logoURI: item.logoURI,
+        data: item.investment
+          .map((i) => ({ ...i, providerName: item.name }))
+          .filter((i) => !new BigNumber(i.staked).isZero()),
+      }))
+      .filter((i) => i.data.length > 0);
+  }, [earnInvestmentItems]);
   const renderItem = useCallback(
     ({
       item: {
@@ -239,6 +349,9 @@ function BasicInvestmentDetails() {
       />
       <Page.Body>
         <SectionList
+          ListHeaderComponent={
+            <EarnOverview earnSummary={earnSummary} onHistory={onHistory} />
+          }
           ListFooterComponent={<YStack height="$5" />}
           ListEmptyComponent={
             isLoading ? (

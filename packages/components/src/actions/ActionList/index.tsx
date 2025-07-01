@@ -26,6 +26,7 @@ import {
   Heading,
   Icon,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '../../primitives';
@@ -55,6 +56,21 @@ export interface IActionListItemProps {
 
 // Duration to prevent rapid re-triggering of the action list
 const PROCESSING_RESET_DELAY = 350;
+
+export function ActionListSkeletonItem() {
+  return (
+    <XStack
+      flex={1}
+      mx="$2"
+      height="$8"
+      position="relative"
+      borderRadius="$2"
+      overflow="hidden"
+    >
+      <Skeleton height="100%" width="100%" />
+    </XStack>
+  );
+}
 
 export function ActionListItem(
   props: IActionListItemProps & {
@@ -450,4 +466,5 @@ const show = (props: IShowActionListParams) =>
 export const ActionList = withStaticProperties(ActionListFrame, {
   show,
   Item: ActionListItem,
+  SkeletonItem: ActionListSkeletonItem,
 });
