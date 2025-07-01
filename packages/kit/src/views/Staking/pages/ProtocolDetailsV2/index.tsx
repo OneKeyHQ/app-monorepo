@@ -43,6 +43,7 @@ import type {
   IEarnActivateActionIcon,
   IEarnDetailActions,
   IEarnReceiveActionIcon,
+  IEarnText,
   IEarnTokenInfo,
   IEarnTradeActionIcon,
   IEarnWithdrawActionIcon,
@@ -179,7 +180,18 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alertsV2'] }) {
             <Alert
               key={`${alertItem.alert}-${index}`}
               type={alertItem.badge}
-              title={alertItem.alert}
+              renderTitle={(props) => {
+                return (
+                  <EarnText
+                    {...props}
+                    text={
+                      typeof alertItem.alert === 'string'
+                        ? { text: alertItem.alert }
+                        : (alertItem.alert as IEarnText)
+                    }
+                  />
+                );
+              }}
             />
           );
         })}

@@ -471,10 +471,24 @@ export interface IEarnWithdrawTooltip {
   };
 }
 
+export interface IEarnRebateDetailsTooltip {
+  type: 'rebateDetails';
+  data: {
+    title: IEarnText;
+    description: IEarnText;
+    tokens: {
+      info: IEarnToken;
+      fiatValue: string;
+      amount: string;
+    }[];
+  };
+}
+
 export type IEarnTooltip =
   | IEarnTextTooltip
   | IEarnRebateTooltip
-  | IEarnWithdrawTooltip;
+  | IEarnWithdrawTooltip
+  | IEarnRebateDetailsTooltip;
 
 export enum EClaimType {
   Claim = 'claim',
@@ -520,6 +534,10 @@ export interface IEarnActivateActionIcon {
     title: IEarnText;
     description: IEarnText[];
     checkboxes: IEarnText[];
+    accordions: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
     button: IEarnActivateActionIcon;
   };
 }
@@ -797,6 +815,7 @@ export enum EStakeProtocolGroupEnum {
   Available = 'available',
   WithdrawOnly = 'withdrawOnly',
   Deposited = 'deposited',
+  Unavailable = 'unavailable',
 }
 
 export type IStakeProtocolListItem = {
@@ -1084,3 +1103,14 @@ export type IApproveConfirmFnParams = {
   approveType?: EApproveType;
   permitSignature?: string;
 };
+
+export interface IEarnSummary {
+  icon: IEarnIcon;
+  title: IEarnText;
+  items: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+    button?: IEarnActionIcon;
+  }[];
+}
