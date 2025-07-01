@@ -188,7 +188,9 @@ export function useSwapActionState() {
   const swapApprovingMatchLoading = useMemo(() => {
     return (
       swapApprovingLoading &&
-      fromTokenAmount.value === swapApprovingTransaction?.amount &&
+      (fromTokenAmount.value === swapApprovingTransaction?.amount ||
+        fromTokenAmount.value ===
+          swapApprovingTransaction?.resetApproveValue) &&
       equalTokenNoCaseSensitive({
         token1: swapApprovingTransaction?.fromToken,
         token2: fromToken,
@@ -200,12 +202,13 @@ export function useSwapActionState() {
     );
   }, [
     swapApprovingLoading,
-    swapApprovingTransaction?.fromToken,
-    fromToken,
-    swapApprovingTransaction?.toToken,
-    toToken,
-    fromTokenAmount,
+    fromTokenAmount.value,
     swapApprovingTransaction?.amount,
+    swapApprovingTransaction?.resetApproveValue,
+    swapApprovingTransaction?.fromToken,
+    swapApprovingTransaction?.toToken,
+    fromToken,
+    toToken,
   ]);
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
