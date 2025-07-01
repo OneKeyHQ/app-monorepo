@@ -173,7 +173,7 @@ function SubscriptionSection({
   ) : null;
 }
 
-function AlertSection({ alerts }: { alerts: IEarnAlert[] }) {
+function AlertSection({ alerts }: { alerts?: IEarnAlert[] }) {
   return <EarnAlert alerts={alerts} />;
 }
 
