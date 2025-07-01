@@ -299,6 +299,11 @@ function TokenListContainer(_props: ITabPageProps) {
             }
           });
 
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
+
           updateAccountWorth({
             accountId,
             initialized: true,

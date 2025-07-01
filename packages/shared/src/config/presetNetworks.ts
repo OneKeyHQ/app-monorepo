@@ -3183,6 +3183,7 @@ export const getNetworksSupportMevProtection = memoFn(
     {
       name: string;
       logoURI: string;
+      logoURIDark?: string;
     }
   > => ({
     [eth.id]: {
@@ -3196,10 +3197,12 @@ export const getNetworksSupportMevProtection = memoFn(
     [base.id]: {
       name: 'Blink',
       logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
     },
     [sol.id]: {
       name: 'Blink',
       logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
     },
     [sui.id]: {
       name: 'Shio',

@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECloudBackupRoutes,
@@ -537,7 +538,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 id: ETranslations.global_contact_us,
               }),
               onPress: () => {
-                openUrlExternal(requestUrl);
+                void showIntercom();
               },
             },
             platformEnv.isExtension ||
@@ -711,7 +712,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isPrimeSubscriptionActive,
       onPressAddressBook,
       helpCenterUrl,
-      requestUrl,
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
