@@ -712,7 +712,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isPrimeSubscriptionActive,
       onPressAddressBook,
       helpCenterUrl,
-      requestUrl,
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
