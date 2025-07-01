@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "Mất {number} ngày sau khi gửi yêu cầu rút tiền",
   "earn.withdrawal_up_to_number_days": "Việc rút tiền có thể mất đến {number} ngày, sau đó tài sản của bạn đã cược sẽ trở nên khả dụng",
   "earn.withdrawn": "Đã rút lại",
+  "earn_reward_distribution_schedule": "Phần thưởng sẽ được phân phối vào ví Arbitrum của bạn (cùng địa chỉ với Ethereum) vào ngày 10 tháng sau.",
   "edit_fee_custom_set_as_default_description": "Đặt làm mặc định cho tất cả các giao dịch trong tương lai trên {network}",
   "energy_consumed": "Năng lượng tiêu thụ",
   "enter_passcode": "Nhập mã bảo vệ",
