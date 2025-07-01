@@ -117,8 +117,12 @@ const ChainSelectorSectionListContent = ({
             <NetworkAvatarBase
               logoURI={item.logoURI}
               isCustomNetwork={item.isCustomNetwork}
+              isAllNetworks={item.isAllNetworks}
               networkName={item.name}
               size="$8"
+              allNetworksIconProps={{
+                color: '$iconActive',
+              }}
             />
           }
           title={
