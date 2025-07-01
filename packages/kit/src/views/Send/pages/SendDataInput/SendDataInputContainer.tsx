@@ -85,6 +85,7 @@ import {
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
@@ -548,13 +549,19 @@ function SendDataInputContainer() {
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
       console.log('onScanResult', result);
+      if (
+        result.type === EQRCodeHandlerType.UNKNOWN ||
+        !result?.data?.network
+      ) {
+        return;
+      }
       const tokenAddress = result?.data?.tokenAddress;
       const scanNetworkId =
         result?.data?.network?.id || currentAccount.networkId;
       const scanAccountId =
         (await getAccountIdOnNetwork({
           account,
-          network: result?.data?.network,
+          network: result.data.network,
         })) || currentAccount?.accountId;
 
       if (scanAccountId) {
