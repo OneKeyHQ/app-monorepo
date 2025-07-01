@@ -281,8 +281,8 @@ function HistoryList() {
         title: string;
         data: IStakeHistory[];
       }[] = Object.entries(listMap)
-        .map(([title, data]) => ({
-          title,
+        .map(([sectionTitle, data]) => ({
+          title: sectionTitle,
           data: data.map((i) => ({
             ...i,
             token: historyResp.tokens.find(
