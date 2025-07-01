@@ -547,7 +547,7 @@ function Dashboard({
           <YStack bg="$bgSubdued">
             <XStack
               h="$4"
-              bg="$bg"
+              bg="$bgApp"
               mx={-1}
               borderBottomWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
