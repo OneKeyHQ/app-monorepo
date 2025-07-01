@@ -816,7 +816,7 @@ function Dashboard({
                         <Stack>
                           <Icon
                             color="$iconSubdued"
-                            size="$4"
+                            size="$5"
                             name="InfoCircleOutline"
                           />
                         </Stack>
