@@ -828,8 +828,8 @@ class ServiceAccount extends ServiceBase {
           });
           const indexedAccountNo = account.indexedAccountId
             ? accountUtils.parseIndexedAccountId({
-              indexedAccountId: account.indexedAccountId,
-            }).index
+                indexedAccountId: account.indexedAccountId,
+              }).index
             : 0;
           const indexedAccountId = accountUtils.buildIndexedAccountId({
             walletId,
@@ -859,8 +859,8 @@ class ServiceAccount extends ServiceBase {
         indexes: accounts.map((account) =>
           account.indexedAccountId
             ? accountUtils.parseIndexedAccountId({
-              indexedAccountId: account.indexedAccountId,
-            }).index
+                indexedAccountId: account.indexedAccountId,
+              }).index
             : 0,
         ),
         skipIfExists: true,
@@ -2407,8 +2407,8 @@ class ServiceAccount extends ServiceBase {
           details: {
             deviceType: dbDevice.featuresInfo
               ? await deviceUtils.getDeviceTypeFromFeatures({
-                features: dbDevice.featuresInfo,
-              })
+                  features: dbDevice.featuresInfo,
+                })
               : undefined,
             hardwareWalletType: 'Hidden',
           },
