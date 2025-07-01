@@ -58,6 +58,10 @@ const ChainSelectorListViewContent = ({
               logoURI={item.logoURI}
               isCustomNetwork={item.isCustomNetwork}
               networkName={item.name}
+              isAllNetworks={item.isAllNetworks}
+              allNetworksIconProps={{
+                color: '$iconActive',
+              }}
               size="$8"
             />
           }

@@ -230,6 +230,7 @@ const DeriveTypesAddressItem = ({
         <NetworkAvatarBase
           logoURI={network?.logoURI ?? ''}
           isCustomNetwork={network?.isCustomNetwork}
+          isAllNetworks={network?.isAllNetworks}
           networkName={network?.name}
           size="$8"
         />

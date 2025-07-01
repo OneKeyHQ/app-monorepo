@@ -1,4 +1,10 @@
-import type { IImageProps, IXStackProps } from '@onekeyhq/components';
+import type { ComponentProps } from 'react';
+
+import type {
+  IImageProps,
+  IXStackProps,
+  SizeTokens,
+} from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -11,14 +17,37 @@ export const NetworkAvatarBase = ({
   size,
   isCustomNetwork,
   networkName,
+  isAllNetworks,
+  allNetworksIconProps,
 }: {
   logoURI: string;
   size?: IImageProps['size'];
   isCustomNetwork?: boolean;
   networkName?: string;
+  isAllNetworks?: boolean;
+  allNetworksIconProps?: ComponentProps<typeof Icon>;
 }) => {
   if (isCustomNetwork) {
     return <LetterAvatar letter={networkName?.[0]} size={size} />;
+  }
+  if (isAllNetworks) {
+    if (size) {
+      return (
+        <Icon
+          name="GlobusOutline"
+          color="$iconSubdued"
+          size={size as SizeTokens}
+          {...allNetworksIconProps}
+        />
+      );
+    }
+    return (
+      <Icon
+        name="GlobusOutline"
+        color="$iconSubdued"
+        {...allNetworksIconProps}
+      />
+    );
   }
   return (
     <Image size={size} src={logoURI} borderRadius="$full">
@@ -40,9 +69,14 @@ type INetworkAvatarProps = {
   networkId?: string;
   size?: IImageProps['size'];
   isCustomNetwork?: boolean;
+  allNetworksIconProps?: ComponentProps<typeof Icon>;
 };
 
-export function NetworkAvatar({ networkId, size = '$6' }: INetworkAvatarProps) {
+export function NetworkAvatar({
+  networkId,
+  size = '$6',
+  allNetworksIconProps,
+}: INetworkAvatarProps) {
   const { serviceNetwork } = backgroundApiProxy;
   const res = usePromiseResult(
     () =>
@@ -58,11 +92,19 @@ export function NetworkAvatar({ networkId, size = '$6' }: INetworkAvatarProps) {
       checkIsFocused: false,
     },
   );
-  const { logoURI, isCustomNetwork, name } = res.result || {};
+  const { logoURI, isCustomNetwork, name, isAllNetworks } = res.result || {};
+
   if (isCustomNetwork) {
     return <LetterAvatar letter={name?.[0]} size={size} />;
   }
-  return logoURI ? <NetworkAvatarBase size={size} logoURI={logoURI} /> : null;
+  return logoURI ? (
+    <NetworkAvatarBase
+      size={size}
+      logoURI={logoURI}
+      isAllNetworks={isAllNetworks}
+      allNetworksIconProps={allNetworksIconProps}
+    />
+  ) : null;
 }
 
 type INetworkAvatarGroupProps = {
