@@ -258,7 +258,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    actions.sort((a, b) => {
+    actions.sort((a, _b) => {
       if (a.type === EDecodedTxActionType.ASSET_TRANSFER) {
         return -1;
       }

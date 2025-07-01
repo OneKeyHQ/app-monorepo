@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "출금 요청을 한 후 {number} 일이 소요됩니다",
   "earn.withdrawal_up_to_number_days": "출금은 최대 {number}일까지 걸릴 수 있으며, 그 후에는 스테이크된 자산을 사용할 수 있습니다",
   "earn.withdrawn": "빼는",
+  "earn_reward_distribution_schedule": "보상은 다음 달 10일까지 귀하의 Arbitrum 지갑(이더리움과 동일한 주소)으로 분배됩니다.",
   "edit_fee_custom_set_as_default_description": "{network}에서 모든 향후 거래에 대해 기본값으로 설정",
   "energy_consumed": "소비된 에너지",
   "enter_passcode": "암호를 입력하세요",

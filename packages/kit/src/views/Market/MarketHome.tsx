@@ -20,6 +20,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -29,13 +30,14 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
-import { MarketHomeV2 } from './MarketHomeV2';
+import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
 function BasicAnimatedIcon(
@@ -183,21 +185,19 @@ function MarketHome() {
 }
 
 export default function MarketHomeWithProvider() {
-  return <MarketHomeV2 />;
-
-  // return (
-  //   <AccountSelectorProviderMirror
-  //     config={{
-  //       sceneName: EAccountSelectorSceneName.home,
-  //       sceneUrl: '',
-  //     }}
-  //     enabledNum={[0]}
-  //   >
-  //     <MarketWatchListProviderMirror
-  //       storeName={EJotaiContextStoreNames.marketWatchList}
-  //     >
-  //       <MarketHome />
-  //     </MarketWatchListProviderMirror>
-  //   </AccountSelectorProviderMirror>
-  // );
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <MarketWatchListProviderMirror
+        storeName={EJotaiContextStoreNames.marketWatchList}
+      >
+        <MarketHome />
+      </MarketWatchListProviderMirror>
+    </AccountSelectorProviderMirror>
+  );
 }

@@ -41,6 +41,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnActivateActionIcon,
+  IEarnAlert,
   IEarnDetailActions,
   IEarnReceiveActionIcon,
   IEarnText,
@@ -59,6 +60,7 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnAlert } from '../../components/ProtocolDetails/EarnAlert';
 import { EarnIcon } from '../../components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
@@ -171,34 +173,8 @@ function SubscriptionSection({
   ) : null;
 }
 
-function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alertsV2'] }) {
-  if (alerts && alerts.length) {
-    return (
-      <>
-        {alerts.map((alertItem, index) => {
-          return (
-            <Alert
-              key={`${alertItem.alert}-${index}`}
-              type={alertItem.badge}
-              renderTitle={(props) => {
-                return (
-                  <EarnText
-                    {...props}
-                    text={
-                      typeof alertItem.alert === 'string'
-                        ? { text: alertItem.alert }
-                        : (alertItem.alert as IEarnText)
-                    }
-                  />
-                );
-              }}
-            />
-          );
-        })}
-      </>
-    );
-  }
-  return null;
+function AlertSection({ alerts }: { alerts?: IEarnAlert[] }) {
+  return <EarnAlert alerts={alerts} />;
 }
 
 function ProtocolRewards({

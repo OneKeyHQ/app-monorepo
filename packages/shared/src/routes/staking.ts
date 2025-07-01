@@ -1,4 +1,5 @@
 import type {
+  IEarnAlert,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeProtocolDetails,
@@ -76,5 +77,7 @@ export type IModalStakingParamList = {
     stakeTag?: string;
     morphoVault?: string;
     filterType?: string;
+    title?: string;
+    alerts?: IEarnAlert[];
   };
 };

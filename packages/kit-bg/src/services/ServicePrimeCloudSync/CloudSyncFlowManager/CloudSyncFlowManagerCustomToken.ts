@@ -94,7 +94,7 @@ export class CloudSyncFlowManagerCustomToken extends CloudSyncFlowManagerBase<
     return true;
   }
 
-  override async getDBRecordBySyncPayload(params: {
+  override async getDBRecordBySyncPayload(_params: {
     payload: ICloudSyncPayloadCustomToken;
   }): Promise<ICloudSyncCustomToken | undefined> {
     return undefined;
