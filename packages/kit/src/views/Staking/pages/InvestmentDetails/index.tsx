@@ -46,6 +46,7 @@ import type {
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnAlert } from '../../components/ProtocolDetails/EarnAlert';
 import { EarnIcon } from '../../components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
@@ -62,6 +63,7 @@ function EarnOverview({
   }
   return (
     <YStack px="$5">
+      <EarnAlert alerts={earnSummary.alerts} />
       <XStack ai="center" gap="$1.5" h={44}>
         <EarnIcon size="$5" icon={earnSummary.icon} />
         <EarnText
