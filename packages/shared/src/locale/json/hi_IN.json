@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "निकासी अनुरोध जारी करने के {number} दिन बाद लें",
   "earn.withdrawal_up_to_number_days": "निकासी {number} दिनों तक ले सकती है, और फिर आपके दांव किए गए संपत्तियां उपलब्ध होंगी",
   "earn.withdrawn": "वापस लिया गया",
+  "earn_reward_distribution_schedule": "पुरस्कार अगले महीने की 10 तारीख तक आपके आर्बिट्रम वॉलेट (इथेरियम के समान पता) में वितरित कर दिए जाएंगे।",
   "edit_fee_custom_set_as_default_description": "{network} पर सभी भविष्य के लेनदेन के लिए डिफ़ॉल्ट के रूप में सेट करें",
   "energy_consumed": "खपत की गई ऊर्जा",
   "enter_passcode": "पासकोड दर्ज करें",

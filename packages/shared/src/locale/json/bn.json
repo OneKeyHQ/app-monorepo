@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "প্রত্যাহারের অনুরোধ জানানোর পর {number} দিন সময় নিন",
   "earn.withdrawal_up_to_number_days": "উত্তোলন {number} দিন পর্যন্ত সময় নিতে পারে, এরপর আপনার স্টেকড সম্পদগুলি উপলব্ধ হবে",
   "earn.withdrawn": "প্রত্যাহার করা হয়েছে",
+  "earn_reward_distribution_schedule": "আগামী মাসের ১০ তারিখের মধ্যে আপনার Arbitrum ওয়ালেটে (Ethereum এর ঠিকানায়) পুরষ্কার বিতরণ করা হবে।",
   "edit_fee_custom_set_as_default_description": "সমস্ত ভবিষ্যৎ লেনদেনের জন্য {network}-এ ডিফল্ট হিসাবে সেট করুন",
   "energy_consumed": "ব্যবহৃত শক্তি",
   "enter_passcode": "পাসকোড প্রবেশ করুন",

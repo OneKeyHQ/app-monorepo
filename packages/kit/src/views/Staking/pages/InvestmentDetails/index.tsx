@@ -35,9 +35,11 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnAccount,
+  IEarnAlert,
   IEarnInvestmentItem,
   IEarnRewardNum,
   IEarnSummary,
@@ -46,6 +48,7 @@ import type {
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnAlert } from '../../components/ProtocolDetails/EarnAlert';
 import { EarnIcon } from '../../components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
@@ -62,6 +65,7 @@ function EarnOverview({
   }
   return (
     <YStack px="$5">
+      <EarnAlert alerts={earnSummary.alerts} />
       <XStack ai="center" gap="$1.5" h={44}>
         <EarnIcon size="$5" icon={earnSummary.icon} />
         <EarnText
@@ -73,7 +77,7 @@ function EarnOverview({
       <YStack>
         {earnSummary.items.map((item) => (
           <XStack ai="center" h="$10" jc="space-between" key={item.title.text}>
-            <XStack gap="$1" key={item.title.text}>
+            <XStack gap="$1.5" key={item.title.text}>
               <EarnText
                 key={item.title.text}
                 text={item.title}
@@ -220,6 +224,18 @@ function BasicInvestmentDetails() {
           btcOnlyTaproot: true,
         });
       appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+        title: intl.formatMessage({
+          id: ETranslations.referral_reward_history,
+        }),
+        alerts: [
+          {
+            key: ESpotlightTour.earnRewardHistory,
+            badge: 'info',
+            alert: intl.formatMessage({
+              id: ETranslations.earn_reward_distribution_schedule,
+            }),
+          } as IEarnAlert,
+        ],
         accountId: currentEarnAccount?.account.id,
         networkId: evmNetworkId,
         filterType,
@@ -231,6 +247,7 @@ function BasicInvestmentDetails() {
     accountInfo.activeAccount?.indexedAccount?.id,
     evmNetworkId,
     appNavigation,
+    intl,
   ]);
 
   const sectionData = useMemo(() => {
