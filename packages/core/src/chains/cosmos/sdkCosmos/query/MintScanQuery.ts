@@ -19,7 +19,7 @@ import type {
 import type { AxiosInstance } from 'axios';
 
 const NetworkIDMinScanMap: Record<string, string> = {
-  [getNetworkIdsMap().cryptoorgchain]: 'cryptoorg',
+  [getNetworkIdsMap().cronosposchain]: 'cryptoorg',
   [getNetworkIdsMap().cosmoshub]: 'cosmos',
   [getNetworkIdsMap().akash]: 'akash',
   [getNetworkIdsMap().fetch]: 'fetchai',

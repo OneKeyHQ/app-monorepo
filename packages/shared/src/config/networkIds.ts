@@ -42,7 +42,7 @@ export type INetworkShortCode =
   | 'akash'
   | 'fetch'
   | 'terra'
-  | 'cryptoorgchain'
+  | 'cronosposchain'
   | 'injective'
   | 'polygon'
   | 'tlightning'
