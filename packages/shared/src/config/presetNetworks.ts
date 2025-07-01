@@ -2095,17 +2095,17 @@ const akash: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const cryptoorgchain: IServerNetwork = {
+const cronosPosChain: IServerNetwork = {
   'chainId': 'crypto-org-chain-mainnet-1',
-  'code': 'cryptoorgchain',
+  'code': 'cronosposchain',
   'decimals': 8,
   'id': 'cosmos--crypto-org-chain-mainnet-1',
   'impl': 'cosmos',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/cryptoorg.png',
-  'name': 'Crypto.org',
-  'shortcode': 'cryptoorgchain',
-  'shortname': 'Crypto.org',
+  'name': 'Cronos POS Chain',
+  'shortcode': 'cronosposchain',
+  'shortname': 'Cronos POS Chain',
   'symbol': 'CRO',
   'feeMeta': {
     'decimals': 8,
@@ -2918,7 +2918,7 @@ export const presetNetworksMap = {
   secret,
   juno,
   fetchai,
-  cryptoorgchain,
+  cronosPosChain,
   akash,
   osmosis,
   cosmoshub,
@@ -3112,7 +3112,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     secret,
     juno,
     fetchai,
-    cryptoorgchain,
+    cronosPosChain,
     akash,
     osmosis,
     cosmoshub,

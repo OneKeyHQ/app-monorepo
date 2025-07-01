@@ -195,7 +195,7 @@ module.exports = [
   'Cron',
   'crosshair',
   'Crosshair',
-  'cryptoorgchain',
+  'cronosposchain',
   'csp',
   'ctime',
   'Ctx',
