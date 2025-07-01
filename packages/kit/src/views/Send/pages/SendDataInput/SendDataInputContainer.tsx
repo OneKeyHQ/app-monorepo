@@ -63,11 +63,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-  EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -577,34 +579,15 @@ function SendDataInputContainer() {
             setIsUseFiat(true);
             form.setValue('amount', amountFromScan);
           }
-
-          const formToAddress = form.getValues('to').raw;
           const formNetworkId = form.getValues('networkId');
-          if (formNetworkId !== scanNetworkId) {
-            navigation.pop();
-            await timerUtils.wait(150);
-            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-              screen: EModalSignatureConfirmRoutes.TxDataInput,
-              params: {
-                accountId: scanAccountId,
+          if (formNetworkId === scanNetworkId) {
+            if (currentAccount.accountId && scanNetworkId) {
+              setCurrentAccount({
+                accountId: currentAccount.accountId,
                 networkId: scanNetworkId,
-                activeAccountId: scanAccountId,
-                activeNetworkId: scanNetworkId,
-                isNFT: false,
-                token: scanToken,
-                address: formToAddress,
-                amount: amountFromScan,
-              },
-            });
-            return;
-          }
-
-          if (currentAccount.accountId && scanNetworkId) {
-            setCurrentAccount({
-              accountId: currentAccount.accountId,
-              networkId: scanNetworkId,
-            });
-            setTokenInfo(scanToken);
+              });
+              setTokenInfo(scanToken);
+            }
           }
         }
       }
@@ -615,7 +598,6 @@ function SendDataInputContainer() {
       currentAccount.accountId,
       currentAccount.networkId,
       form,
-      navigation,
       networkId,
       token,
     ],
