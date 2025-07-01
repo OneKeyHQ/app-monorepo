@@ -20,6 +20,9 @@ export function WalletListView({
 }: IWalletListViewProps) {
   return (
     <ListView
+      contentContainerStyle={{
+        paddingBottom: 20,
+      }}
       data={walletList}
       renderItem={({ item }) => (
         <ListItem

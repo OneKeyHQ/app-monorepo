@@ -520,6 +520,10 @@ export interface IEarnActivateActionIcon {
     title: IEarnText;
     description: IEarnText[];
     checkboxes: IEarnText[];
+    accordions: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
     button: IEarnActivateActionIcon;
   };
 }
@@ -583,6 +587,11 @@ interface IEarnRisk {
       icon: IEarnIcon;
     }[];
   }[];
+}
+
+interface IEarnToast {
+  type: 'success' | 'error';
+  text: IEarnText;
 }
 
 export interface IEarnWithdrawAction {
@@ -792,6 +801,7 @@ export enum EStakeProtocolGroupEnum {
   Available = 'available',
   WithdrawOnly = 'withdrawOnly',
   Deposited = 'deposited',
+  Unavailable = 'unavailable',
 }
 
 export type IStakeProtocolListItem = {
@@ -932,6 +942,7 @@ export type IAvailableAsset = {
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
+  refreshTrigger?: number;
 }
 
 export type IGetPortfolioParams = {
@@ -1064,6 +1075,7 @@ export interface IBuildRegisterSignMessageParams {
 export interface IEarnRegisterSignMessageResponse {
   expiredAt: string;
   message: string;
+  toast?: IEarnToast;
 }
 
 export interface IVerifyRegisterSignMessageParams

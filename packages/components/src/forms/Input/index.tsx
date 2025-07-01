@@ -355,6 +355,11 @@ function BaseInput(
     [onChangeText],
   );
 
+  const isNumberKeyboardType = useMemo(
+    () => keyboardType === 'decimal-pad' || keyboardType === 'number-pad',
+    [keyboardType],
+  );
+
   return (
     <Group
       orientation="horizontal"
@@ -420,9 +425,7 @@ function BaseInput(
           {...props}
           onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
           onChangeText={
-            platformEnv.isNativeIOS && keyboardType === 'decimal-pad'
-              ? onNumberPadChangeText
-              : onChangeText
+            isNumberKeyboardType ? onNumberPadChangeText : onChangeText
           }
         />
       </Group.Item>

@@ -8,7 +8,6 @@ import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -20,6 +19,8 @@ import {
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
+import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
+import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import {
   ButtonFrame,
   Heading,
@@ -193,8 +194,6 @@ export interface IActionListProps
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => React.ReactNode;
-  // estimatedContentHeight required if use renderItemsAsync
-  estimatedContentHeight?: number;
   renderItemsAsync?: (params: {
     // TODO use cloneElement to override onClose props
     handleActionListClose: () => void;
@@ -236,7 +235,6 @@ function BasicActionList({
   defaultOpen = false,
   renderItems,
   renderItemsAsync,
-  estimatedContentHeight,
   title,
   trackID,
   ...props
@@ -276,11 +274,6 @@ function BasicActionList({
   const intl = useIntl();
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
-      if (platformEnv.isDev && md && !estimatedContentHeight) {
-        throw new OneKeyLocalError(
-          'ActionList.estimatedContentHeight is required on Async rendering items',
-        );
-      }
       void (async () => {
         const asyncItemsToRender = await renderItemsAsync({
           handleActionListClose,
@@ -290,7 +283,6 @@ function BasicActionList({
       })();
     }
   }, [
-    estimatedContentHeight,
     handleActionListClose,
     handleActionListOpen,
     isOpen,
@@ -310,19 +302,26 @@ function BasicActionList({
       }}
     />
   );
+
+  const trigger = useMemo(() => {
+    return (
+      <Trigger onPress={handleActionListOpen} disabled={disabled}>
+        {renderTrigger}
+      </Trigger>
+    );
+  }, [disabled, renderTrigger, handleActionListOpen]);
+
+  if (renderItemsAsync && !asyncItems) {
+    return trigger;
+  }
   return (
     <Popover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
       renderContent={
-        <YStack
-          p="$1"
-          $md={{ p: '$3', pt: '$0' }}
-          height={estimatedContentHeight}
-        >
+        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
           {items?.map(renderActionListItem)}
-
           {sections?.map((section, sectionIdx) => (
             <YStack key={sectionIdx}>
               {sectionIdx > 0 && section.items.length > 0 ? (
@@ -349,7 +348,7 @@ function BasicActionList({
             handleActionListOpen,
           })}
 
-          {/* custom async render items (estimatedContentHeight required) */}
+          {/* custom async render items */}
           {asyncItems}
         </YStack>
       }
@@ -357,40 +356,55 @@ function BasicActionList({
         width: '$56',
       }}
       {...props}
-      renderTrigger={
-        <Trigger onPress={handleActionListOpen} disabled={disabled}>
-          {renderTrigger}
-        </Trigger>
-      }
+      renderTrigger={trigger}
     />
   );
 }
 
+type IShowActionListParams = Omit<
+  IActionListProps,
+  'renderTrigger' | 'defaultOpen'
+> & {
+  onClose?: () => void;
+};
 const showActionList = (
-  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
-    onClose?: () => void;
-  },
+  props: IShowActionListParams,
+  contexts:
+    | {
+        modalNavigatorContext: ReturnType<typeof useModalNavigatorContext>;
+        pageContextValue?: ReturnType<typeof usePageContext>;
+      }
+    | undefined,
 ) => {
+  const { modalNavigatorContext, pageContextValue } = contexts || {};
   dismissKeyboard();
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <BasicActionList
-      {...props}
-      defaultOpen
-      renderTrigger={null}
-      onOpenChange={(isOpen) => {
-        props.onOpenChange?.(isOpen);
-        if (!isOpen) {
-          setTimeout(() => {
-            props.onClose?.();
-          });
-          // delay the destruction of the reference to allow for the completion of the animation transition.
-          setTimeout(() => {
-            ref.destroy();
-          }, 500);
-        }
-      }}
-    />,
+    <ModalNavigatorContext.Provider
+      value={modalNavigatorContext || { portalId: '' }}
+    >
+      <PageContext.Provider
+        value={pageContextValue || { footerRef: { current: null } as any }}
+      >
+        <BasicActionList
+          {...props}
+          defaultOpen
+          renderTrigger={null}
+          onOpenChange={(isOpen) => {
+            props.onOpenChange?.(isOpen);
+            if (!isOpen) {
+              setTimeout(() => {
+                props.onClose?.();
+              });
+              // delay the destruction of the reference to allow for the completion of the animation transition.
+              setTimeout(() => {
+                ref.destroy();
+              }, 500);
+            }
+          }}
+        />
+      </PageContext.Provider>
+    </ModalNavigatorContext.Provider>,
   );
 };
 const debouncedShowActionList = debounce(
@@ -398,31 +412,23 @@ const debouncedShowActionList = debounce(
   PROCESSING_RESET_DELAY,
 );
 
-function ActionListFrame({
-  estimatedContentHeight,
-  ...props
-}: Omit<IActionListProps, 'estimatedContentHeight'> & {
-  estimatedContentHeight?: () => Promise<number>;
-}) {
+function ActionListFrame(props: IActionListProps) {
   const isProcessing = useRef(false);
 
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
+
+  const modalNavigatorContext = useModalNavigatorContext();
+  const pageContextValue = usePageContext();
+  const contexts = {
+    modalNavigatorContext,
+    pageContextValue,
+  };
   const handleActionListOpen = () => {
     if (isProcessing.current) return;
 
     isProcessing.current = true;
-    if (estimatedContentHeight) {
-      void estimatedContentHeight().then((height) => {
-        showActionList({
-          ...popoverProps,
-          estimatedContentHeight: height,
-        });
-      });
-    } else {
-      showActionList(popoverProps);
-    }
-
+    showActionList(popoverProps, contexts);
     setTimeout(() => {
       isProcessing.current = false;
     }, PROCESSING_RESET_DELAY);
@@ -438,7 +444,10 @@ function ActionListFrame({
   );
 }
 
+const show = (props: IShowActionListParams) =>
+  debouncedShowActionList(props, undefined);
+
 export const ActionList = withStaticProperties(ActionListFrame, {
-  show: debouncedShowActionList,
+  show,
   Item: ActionListItem,
 });

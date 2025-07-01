@@ -172,7 +172,7 @@ function List({
                         key={itemIndex}
                         py="$2"
                       >
-                        <YStack>
+                        <YStack flexShrink={1}>
                           <SizableText size="$bodyMd">
                             {accountUtils.shortenAddress({
                               address: accountAddress,
@@ -180,8 +180,13 @@ function List({
                               trailingLength: 4,
                             })}
                           </SizableText>
-                          <SizableText size="$bodySm" color="$textSubdued">
+                          <SizableText
+                            size="$bodySm"
+                            color="$textSubdued"
+                            flexShrink={1}
+                          >
                             <NumberSizeableText
+                              flexShrink={1}
                               formatter="balance"
                               size="$bodySm"
                               color="$textSubdued"
@@ -198,22 +203,29 @@ function List({
                             })}`}
                           </SizableText>
                         </YStack>
-                        <XStack ai="center">
-                          <Token
-                            size="xs"
-                            tokenImageUri={item.token.logoURI}
-                            mr="$2"
-                          />
-                          <XStack mr="$1">
-                            <NumberSizeableText
-                              formatter="balance"
-                              size="$bodyMd"
-                              formatterOptions={{
-                                tokenSymbol: item.token.symbol || '',
-                              }}
-                            >
-                              {item.amount}
-                            </NumberSizeableText>
+                        <Stack
+                          ai="flex-end"
+                          flexDirection="column"
+                          $gtMd={{ flexDirection: 'row' }}
+                          gap="$2"
+                        >
+                          <XStack>
+                            <Token
+                              size="xs"
+                              tokenImageUri={item.token.logoURI}
+                              mr="$2"
+                            />
+                            <XStack mr="$1">
+                              <NumberSizeableText
+                                formatter="balance"
+                                size="$bodyMd"
+                                formatterOptions={{
+                                  tokenSymbol: item.token.symbol || '',
+                                }}
+                              >
+                                {item.amount}
+                              </NumberSizeableText>
+                            </XStack>
                           </XStack>
                           <XStack ai="center">
                             <SizableText size="$bodyMd" color="$textSubdued">
@@ -226,7 +238,7 @@ function List({
                               )
                             </SizableText>
                           </XStack>
-                        </XStack>
+                        </Stack>
                       </XStack>
                     );
                   })}

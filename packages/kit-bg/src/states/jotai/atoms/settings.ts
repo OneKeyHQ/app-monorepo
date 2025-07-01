@@ -47,6 +47,7 @@ export type ISettingsPersistAtom = {
   hardwareTransportType?: EHardwareTransportType;
 
   hiddenWalletImmediately: boolean;
+  showAddHiddenInWalletSidebar?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -80,6 +81,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
     ? EHardwareTransportType.BLE
     : EHardwareTransportType.Bridge,
   hiddenWalletImmediately: true,
+  showAddHiddenInWalletSidebar: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

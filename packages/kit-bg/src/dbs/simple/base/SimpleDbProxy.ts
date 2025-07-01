@@ -22,6 +22,7 @@ import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomT
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
+import type { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
 import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
@@ -190,6 +191,8 @@ export class SimpleDbProxy
   ) as SimpleDbEntityLegacyWalletNames;
 
   earn = this._createProxyService('earn') as SimpleDbEntityEarn;
+
+  earnExtra = this._createProxyService('earnExtra') as SimpleDbEntityEarnExtra;
 
   earnOrders = this._createProxyService(
     'earnOrders',

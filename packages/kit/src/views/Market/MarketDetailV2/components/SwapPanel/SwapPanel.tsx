@@ -37,8 +37,14 @@ export function SwapPanel() {
     slippage,
   } = swapPanel;
 
-  const { isLoading, speedConfig, supportSpeedSwap, defaultTokens, provider } =
-    useSpeedSwapInit(networkId || '');
+  const {
+    isLoading,
+    speedConfig,
+    supportSpeedSwap,
+    defaultTokens,
+    provider,
+    swapMevNetConfig,
+  } = useSpeedSwapInit(networkId || '');
 
   const useSpeedSwapActionsParams = {
     slippage,
@@ -110,6 +116,7 @@ export function SwapPanel() {
 
   const swapPanelContent = (
     <SwapPanelContent
+      swapMevNetConfig={swapMevNetConfig}
       swapPanel={swapPanel}
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}

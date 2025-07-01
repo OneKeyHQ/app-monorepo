@@ -1,14 +1,12 @@
 import appGlobals from '../../appGlobals';
-import stringUtils from '../../utils/stringUtils';
 
-// Shared utility function to get OneKey ID user email
-export const getOneKeyIdUserEmail = async (): Promise<string | undefined> => {
+export const getCustomerJWT = async (): Promise<string | undefined> => {
   try {
     // Use appGlobals to access backgroundApiProxy instead of direct import
     const backgroundApiProxy = appGlobals.$backgroundApiProxy;
 
     if (!backgroundApiProxy) {
-      console.warn('backgroundApiProxy not available for Intercom user info');
+      console.warn('backgroundApiProxy not available for customer JWT');
       return undefined;
     }
 
@@ -16,27 +14,15 @@ export const getOneKeyIdUserEmail = async (): Promise<string | undefined> => {
     const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
 
     if (isLoggedIn) {
-      // Get user info if logged in
-      const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
+      // Get customer JWT if logged in
+      const response =
+        await backgroundApiProxy.servicePrime.apiGetCustomerJWT();
 
-      // Validate email format before returning
-      if (userInfo.email && stringUtils.isValidEmail(userInfo.email)) {
-        return userInfo.email;
-      }
-
-      return undefined;
+      return response?.token;
     }
   } catch (error) {
-    // If there's an error accessing the API, continue without user email
-    console.warn('Failed to get OneKey ID user info for Intercom:', error);
+    console.warn('Failed to get customer JWT for Intercom:', error);
   }
 
   return undefined;
-};
-
-// Shared utility function to build support URL with user email
-export const buildSupportUrl = async (): Promise<string> => {
-  const supportUrl = 'https://intercom-test-beryl.vercel.app/';
-
-  return supportUrl;
 };

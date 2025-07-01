@@ -58,6 +58,10 @@ export class SendScene extends BaseScene {
     tokenType,
     tokenSymbol,
     tokenAddress,
+    tronIsResourceRentalNeeded,
+    tronIsResourceRentalEnabled,
+    tronIsSwapTrxEnabled,
+    tronPayCoinCode,
   }: {
     network: string | undefined;
     txnType: string | undefined;
@@ -65,12 +69,10 @@ export class SendScene extends BaseScene {
     tokenType: string | undefined;
     tokenSymbol: string | undefined;
     tokenAddress: string | undefined;
-    tronResourceRental?: {
-      isResourceRentalNeeded: boolean | undefined;
-      isResourceRentalEnabled: boolean | undefined;
-      isSwapTrxEnabled: boolean | undefined;
-      payCoinCode: string | undefined;
-    };
+    tronIsResourceRentalNeeded: boolean | undefined;
+    tronIsResourceRentalEnabled: boolean | undefined;
+    tronIsSwapTrxEnabled: boolean | undefined;
+    tronPayCoinCode: string | undefined;
   }) {
     return {
       network,
@@ -79,6 +81,10 @@ export class SendScene extends BaseScene {
       tokenType,
       tokenSymbol,
       tokenAddress,
+      tronIsResourceRentalNeeded,
+      tronIsResourceRentalEnabled,
+      tronIsSwapTrxEnabled,
+      tronPayCoinCode,
     };
   }
 

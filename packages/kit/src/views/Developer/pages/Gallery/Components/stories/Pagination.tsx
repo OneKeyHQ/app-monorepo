@@ -114,6 +114,31 @@ const SiblingCountPagination = () => {
   );
 };
 
+const MaxPagesPagination = () => {
+  const [current1, setCurrent1] = useState(1);
+  const [current2, setCurrent2] = useState(1);
+  return (
+    <YStack gap="$6">
+      <Stack>
+        <Pagination
+          current={current1}
+          total={20}
+          maxPages={10}
+          onChange={(page) => setCurrent1(page)}
+        />
+      </Stack>
+      <Stack>
+        <Pagination
+          current={current2}
+          total={5}
+          maxPages={10}
+          onChange={(page) => setCurrent2(page)}
+        />
+      </Stack>
+    </YStack>
+  );
+};
+
 const PaginationGallery = () => (
   <Layout
     componentName="Pagination"
@@ -148,6 +173,10 @@ const PaginationGallery = () => (
       {
         title: 'Different Sibling Count',
         element: <SiblingCountPagination />,
+      },
+      {
+        title: 'Max Pages Limit',
+        element: <MaxPagesPagination />,
       },
     ]}
   />

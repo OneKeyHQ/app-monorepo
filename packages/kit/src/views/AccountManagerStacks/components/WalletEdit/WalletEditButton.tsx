@@ -10,6 +10,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AddHiddenWalletButton } from './AddHiddenWalletButton';
 import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
@@ -32,6 +33,13 @@ function WalletEditButtonView({
     );
   }, [wallet]);
 
+  const showAddHiddenWalletButton = useMemo(() => {
+    return (
+      !accountUtils.isHwHiddenWallet({ wallet }) &&
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
+    );
+  }, [wallet]);
+
   const showRemoveWalletButton = useMemo(() => {
     return (
       !wallet?.isMocked &&
@@ -46,46 +54,9 @@ function WalletEditButtonView({
     );
   }, [wallet]);
 
-  const showBoundReferralCodeButton = useMemo(() => {
-    if (wallet?.isMocked) {
-      return false;
-    }
-    return (
-      accountUtils.isHdWallet({ walletId: wallet?.id }) ||
-      (!accountUtils.isHwHiddenWallet({ wallet }) &&
-        accountUtils.isHwWallet({ walletId: wallet?.id }))
-    );
-  }, [wallet]);
-
   const showBackupButton = useMemo(() => {
     return accountUtils.isHdWallet({ walletId: wallet?.id });
   }, [wallet]);
-
-  const estimatedContentHeight = useCallback(async () => {
-    let basicHeight = 12;
-    if (showDeviceManagementButton) {
-      basicHeight += 54;
-    }
-    if (showRemoveDeviceButton) {
-      basicHeight += 44;
-    }
-    if (showRemoveWalletButton) {
-      basicHeight += 44;
-    }
-    if (showBoundReferralCodeButton) {
-      basicHeight += 44;
-    }
-    if (showBackupButton) {
-      basicHeight += 44;
-    }
-    return basicHeight;
-  }, [
-    showDeviceManagementButton,
-    showRemoveDeviceButton,
-    showRemoveWalletButton,
-    showBoundReferralCodeButton,
-    showBackupButton,
-  ]);
 
   const renderItems = useCallback(
     async ({
@@ -99,12 +70,10 @@ function WalletEditButtonView({
       return (
         // fix missing context in popover
         <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-          {showBoundReferralCodeButton ? (
-            <WalletBoundReferralCodeButton
-              wallet={wallet}
-              onClose={handleActionListClose}
-            />
-          ) : null}
+          <WalletBoundReferralCodeButton
+            wallet={wallet}
+            onClose={handleActionListClose}
+          />
 
           {showBackupButton ? (
             <HdWalletBackupButton
@@ -119,8 +88,18 @@ function WalletEditButtonView({
                 wallet={wallet}
                 onClose={handleActionListClose}
               />
-              <Divider mx="$2" my="$1" />
             </>
+          ) : null}
+
+          {showAddHiddenWalletButton ? (
+            <AddHiddenWalletButton
+              wallet={wallet}
+              onClose={handleActionListClose}
+            />
+          ) : null}
+
+          {showDeviceManagementButton || showAddHiddenWalletButton ? (
+            <Divider mx="$2" my="$1" />
           ) : null}
 
           {showRemoveWalletButton ? (
@@ -142,10 +121,10 @@ function WalletEditButtonView({
     },
     [
       config,
-      showBoundReferralCodeButton,
       wallet,
       showBackupButton,
       showDeviceManagementButton,
+      showAddHiddenWalletButton,
       showRemoveDeviceButton,
       showRemoveWalletButton,
     ],
@@ -165,7 +144,6 @@ function WalletEditButtonView({
         />
       }
       renderItemsAsync={renderItems}
-      estimatedContentHeight={estimatedContentHeight}
     />
   );
 }

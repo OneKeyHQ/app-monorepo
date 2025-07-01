@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useThrottledCallback } from 'use-debounce';
 
 import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
@@ -184,7 +185,7 @@ function RecommendedItem({
     const {
       activeAccount: { account, indexedAccount },
     } = accountInfo;
-    if ((account || indexedAccount) && token) {
+    if (token) {
       const earnAccount =
         await backgroundApiProxy.serviceStaking.getEarnAccount({
           indexedAccountId: indexedAccount?.id,
@@ -227,6 +228,7 @@ function RecommendedItem({
       onPress={onPress}
       userSelect="none"
       alignItems="flex-start"
+      overflow="hidden"
       {...rest}
     >
       <YStack alignItems="flex-start">
@@ -267,17 +269,25 @@ function RecommendedContainer({ children }: PropsWithChildren) {
     <YStack
       gap="$3"
       px="$0"
-      $md={{
-        mx: -20,
-      }}
+      $md={
+        platformEnv.isNative
+          ? {
+              mx: -20,
+            }
+          : undefined
+      }
     >
       {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
       <YStack
         gap="$1"
         zIndex={10}
-        $md={{
-          px: '$5',
-        }}
+        $md={
+          platformEnv.isNative
+            ? {
+                px: '$5',
+              }
+            : undefined
+        }
       >
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.market_trending })}
@@ -288,17 +298,13 @@ function RecommendedContainer({ children }: PropsWithChildren) {
   );
 }
 
-function Recommended({
-  isFetchingAccounts = false,
-}: {
-  isFetchingAccounts: boolean;
-}) {
+function Recommended() {
   const actions = useEarnActions();
   const { md } = useMedia();
-  const [{ availableAssetsByType = {} }] = useEarnAtom();
+  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
 
-  // Get recommended assets
-  const { isLoading } = usePromiseResult(
+  // Throttled function to fetch recommended assets
+  const fetchRecommendedAssets = useThrottledCallback(
     async () => {
       const recommendedAssets =
         await backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -312,7 +318,18 @@ function Recommended({
       );
       return recommendedAssets;
     },
-    [actions],
+    timerUtils.getTimeDurationMs({ seconds: 2 }),
+    { leading: true, trailing: false },
+  );
+
+  // Get recommended assets
+  const { isLoading } = usePromiseResult(
+    async () => {
+      const result = await fetchRecommendedAssets();
+      return result || [];
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshTrigger, fetchRecommendedAssets], // Add refreshTrigger as dependency
     {
       watchLoading: true,
     },
@@ -325,7 +342,7 @@ function Recommended({
   }, [availableAssetsByType]);
 
   // Render skeleton when loading
-  if ((isLoading || isFetchingAccounts) && tokens.length < 1) {
+  if (isLoading || tokens.length < 1) {
     return (
       <RecommendedContainer>
         {/* Desktop/Extension with larger screen: 4 items per row */}
@@ -459,6 +476,13 @@ function Overview({
     });
   }, [navigation]);
   const intl = useIntl();
+
+  const handleRefresh = useCallback(() => {
+    onRefresh();
+    void backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+    actions.current.triggerRefresh();
+  }, [onRefresh, actions]);
+
   return (
     <YStack
       gap="$1"
@@ -503,7 +527,7 @@ function Overview({
               icon="RefreshCcwOutline"
               variant="tertiary"
               loading={isLoading}
-              onPress={onRefresh}
+              onPress={handleRefresh}
             />
           )}
         </XStack>
@@ -864,7 +888,7 @@ function BasicEarnHome() {
                   flex: 1,
                 }}
               >
-                <Recommended isFetchingAccounts={isLoading} />
+                <Recommended />
                 <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
               </YStack>
               {/* FAQ Panel */}

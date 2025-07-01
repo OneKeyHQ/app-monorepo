@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { cloneElement, useCallback, useContext, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -16,7 +17,7 @@ import {
 } from '../../primitives';
 import { IconButton } from '../IconButton';
 
-import type { IKeyOfIcons } from '../../primitives';
+import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
 export type IAlertType =
@@ -48,6 +49,7 @@ export type IAlertProps = {
   type?: IAlertType;
   fullBleed?: boolean;
   title?: string;
+  renderTitle?: (props: ISizableTextProps) => ReactElement;
   titleNumberOfLines?: number;
   description?: string;
   descriptionComponent?: React.ReactNode;
@@ -126,6 +128,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
   const {
     icon,
     title,
+    renderTitle,
     description,
     descriptionComponent,
     closable,
@@ -173,6 +176,15 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
             {title}
           </SizableText>
         ) : null}
+        {renderTitle
+          ? renderTitle({
+              size: '$bodyMdMedium',
+              color: isDanger ? dangerTextColor : undefined,
+              ...(titleNumberOfLines
+                ? { numberOfLines: titleNumberOfLines }
+                : {}),
+            })
+          : null}
         {description ? (
           <SizableText
             size="$bodyMd"

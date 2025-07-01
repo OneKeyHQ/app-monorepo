@@ -74,10 +74,6 @@ function RewardCenterContent({
           totalReceivedLimit: number;
           remaining: number;
           isReceived: boolean;
-          monthRemain: number;
-          monthLimit: number;
-          monthIPRemain: number;
-          monthIPLimit: number;
           error?: string;
           success: boolean;
         }>({
@@ -94,7 +90,7 @@ function RewardCenterContent({
         });
 
       setIsClaimed(resp.isReceived);
-      setRemaining(resp.monthRemain);
+      setRemaining(resp.remaining);
 
       return resp;
     },
@@ -105,7 +101,7 @@ function RewardCenterContent({
   );
 
   const renderClaimButtonText = useCallback(() => {
-    if (result?.remaining === 0 || result?.monthRemain === 0) {
+    if (result?.remaining === 0 || result?.totalReceivedLimit === 0) {
       return intl.formatMessage({
         id: ETranslations.wallet_subsidy_all_used,
       });
@@ -120,7 +116,7 @@ function RewardCenterContent({
     return intl.formatMessage({
       id: ETranslations.wallet_subsidy_claim,
     });
-  }, [result?.remaining, result?.monthRemain, isClaimed, intl]);
+  }, [result?.remaining, result?.totalReceivedLimit, isClaimed, intl]);
 
   const handleClaimResource = useCallback(async () => {
     if (!account || !network) {
@@ -168,7 +164,7 @@ function RewardCenterContent({
         address: account.address,
         sourceFlag: claimSource ?? '',
         isSuccess: true,
-        resourceType: 'free',
+        resourceType: 'energy',
       });
 
       setIsClaimed(true);
@@ -224,7 +220,7 @@ function RewardCenterContent({
         code,
         sourceFlag: claimSource,
         isSuccess: true,
-        resourceType: 'code',
+        resourceType: 'energy',
       });
 
       Toast.success({
@@ -261,7 +257,7 @@ function RewardCenterContent({
                   },
                   {
                     remaining,
-                    total: result?.monthLimit,
+                    total: result?.totalReceivedLimit,
                   },
                 )}
               </SizableText>
@@ -275,7 +271,7 @@ function RewardCenterContent({
                 isClaiming ||
                 isClaimed ||
                 result?.remaining === 0 ||
-                result?.monthRemain === 0
+                result?.totalReceivedLimit === 0
               }
               onPress={handleClaimResource}
             >

@@ -10,6 +10,7 @@ function BasicNetworkAlert() {
   const intl = useIntl();
   return isInternetReachable ? null : (
     <Alert
+      mt="$2"
       type="critical"
       icon="CloudOffOutline"
       title={intl.formatMessage({

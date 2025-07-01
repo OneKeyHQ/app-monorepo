@@ -31,6 +31,7 @@ export type ISwapPanelContentProps = {
   balanceToken?: IToken;
   onApprove: () => void;
   onSwap: () => void;
+  swapMevNetConfig: string[];
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -46,6 +47,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     balanceToken,
     onApprove,
     onSwap,
+    swapMevNetConfig,
   } = props;
 
   const {
@@ -58,6 +60,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     tradeType,
     setTradeType,
     setSlippage,
+    networkId,
   } = swapPanel;
 
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
@@ -99,7 +102,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
 
       {!isApproved ? (
-        <ApproveButton onApprove={onApprove} />
+        <ApproveButton onApprove={onApprove} loading={isLoading} />
       ) : (
         <ActionButton
           disabled={!supportSpeedSwap}
@@ -111,6 +114,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
           }
           balance={balance}
+          paymentToken={paymentToken}
+          networkId={networkId}
         />
       )}
 
@@ -122,7 +127,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* AntiMEV toggle */}
-      <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
+      {swapMevNetConfig?.includes(swapPanel.networkId ?? '') ? (
+        <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
+      ) : null}
     </YStack>
   );
 }

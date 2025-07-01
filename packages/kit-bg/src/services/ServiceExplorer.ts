@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ONEKEY_BLOCK_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IBuildExplorerUrlParams } from '@onekeyhq/shared/types/explorer';
@@ -31,7 +32,6 @@ class ServiceExplorer extends ServiceBase {
     if (isCustomNetwork) {
       return this.buildCustomEvmExplorerUrl(params);
     }
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const { networkId } = params;
     void this.check(params);
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
@@ -41,9 +41,13 @@ class ServiceExplorer extends ServiceBase {
       return '';
     }
     const type = params.type === 'transaction' ? 'tx' : params.type;
-    return client.getUri({
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const oldUrl = client.getUri({
       url: `/v1/${network.code}/${type}/${params.param}`,
     });
+    const newUrl = `${ONEKEY_BLOCK_EXPLORER_URL}/${network.code}/${type}/${params.param}`;
+    return newUrl;
   }
 
   @backgroundMethod()

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Anchor, Dialog, Stack } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import {
   EOneKeyErrorClassNames,
@@ -37,18 +37,6 @@ export function GlobalErrorHandlerContainer() {
           onConfirmText: appLocale.intl.formatMessage({
             id: ETranslations.global_enable,
           }),
-          renderContent: (
-            <Anchor
-              href="https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets"
-              color="$textInfo"
-              size="$bodyMd"
-              textDecorationLine="underline"
-            >
-              {appLocale.intl.formatMessage({
-                id: ETranslations.global_learn_more,
-              })}
-            </Anchor>
-          ),
           onConfirm: async () => {
             await backgroundApiProxy.serviceHardware.setPassphraseEnabled({
               walletId: '',

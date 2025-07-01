@@ -60,7 +60,7 @@ export function useMarketTokenList({
     ],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 

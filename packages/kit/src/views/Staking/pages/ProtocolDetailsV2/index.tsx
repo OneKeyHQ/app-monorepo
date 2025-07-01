@@ -12,6 +12,7 @@ import {
   Divider,
   Image,
   Page,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -34,6 +35,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
@@ -41,6 +43,7 @@ import type {
   IEarnActivateActionIcon,
   IEarnDetailActions,
   IEarnReceiveActionIcon,
+  IEarnText,
   IEarnTokenInfo,
   IEarnTradeActionIcon,
   IEarnWithdrawActionIcon,
@@ -65,6 +68,7 @@ import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEvents
 import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { useCheckEthenaKycStatus } from '../../hooks/useCheckEthenaKycStatus';
 import { useHandleSwap } from '../../hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../hooks/useUnsupportedProtocol';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -176,7 +180,18 @@ function AlertSection({ alerts }: { alerts: IStakeEarnDetail['alertsV2'] }) {
             <Alert
               key={`${alertItem.alert}-${index}`}
               type={alertItem.badge}
-              title={alertItem.alert}
+              renderTitle={(props) => {
+                return (
+                  <EarnText
+                    {...props}
+                    text={
+                      typeof alertItem.alert === 'string'
+                        ? { text: alertItem.alert }
+                        : (alertItem.alert as IEarnText)
+                    }
+                  />
+                );
+              }}
             />
           );
         })}
@@ -476,6 +491,7 @@ const ProtocolDetailsPage = () => {
       }),
     [accountId, indexedAccountId, networkId],
   );
+
   const {
     result: detailInfo,
     isLoading,
@@ -502,6 +518,11 @@ const ProtocolDetailsPage = () => {
     detailInfo,
     appNavigation,
     setKeepSkeletonVisible,
+  });
+
+  useCheckEthenaKycStatus({
+    provider,
+    refreshEarnDetailData: run,
   });
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
@@ -748,16 +769,22 @@ const ProtocolDetailsPage = () => {
               actionData: item,
               onConfirm: async (checkboxStates: boolean[]) => {
                 if (checkboxStates.every(Boolean)) {
-                  await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
-                    {
-                      networkId,
-                      provider,
-                      symbol,
-                      accountAddress: earnAccount?.accountAddress ?? '',
-                      signature: '',
-                      message: '',
-                    },
-                  );
+                  const resp =
+                    await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
+                      {
+                        networkId,
+                        provider,
+                        symbol,
+                        accountAddress: earnAccount?.accountAddress ?? '',
+                        signature: '',
+                        message: '',
+                      },
+                    );
+                  if (resp.toast) {
+                    Toast.success({
+                      title: resp.toast.text.text,
+                    });
+                  }
                   setTimeout(() => {
                     void run();
                   }, 300);

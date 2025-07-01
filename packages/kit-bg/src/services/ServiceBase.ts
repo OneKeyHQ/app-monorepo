@@ -80,7 +80,7 @@ export default class ServiceBase {
           const errorCode: number | undefined = errorData?.data?.code;
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
-          if ([90_002, 90_003, 90_008].includes(errorCode)) {
+          if ([90_002, 90_003].includes(errorCode)) {
             appEventBus.emit(
               EAppEventBusNames.PrimeLoginInvalidToken,
               undefined,

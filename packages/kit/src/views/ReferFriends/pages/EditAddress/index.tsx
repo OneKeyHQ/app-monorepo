@@ -111,7 +111,7 @@ function BasicEditAddress() {
       values: {
         networkId: enabledNetworks[0],
         deriveType: undefined,
-        to: { raw: '', resolved: undefined },
+        to: { raw: route?.params?.address || '', resolved: undefined },
       },
       mode: 'onChange' as IFormMode,
       reValidateMode: 'onBlur' as IReValidateMode,
@@ -119,7 +119,7 @@ function BasicEditAddress() {
         await onSubmitRef.current?.(formContext);
       },
     }),
-    [enabledNetworks],
+    [enabledNetworks, route?.params?.address],
   );
   const form = useForm<IFormValues>(formOptions);
 
