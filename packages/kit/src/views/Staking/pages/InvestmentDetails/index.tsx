@@ -77,7 +77,7 @@ function EarnOverview({
       <YStack>
         {earnSummary.items.map((item) => (
           <XStack ai="center" h="$10" jc="space-between" key={item.title.text}>
-            <XStack gap="$1" key={item.title.text}>
+            <XStack gap="$1.5" key={item.title.text}>
               <EarnText
                 key={item.title.text}
                 text={item.title}
