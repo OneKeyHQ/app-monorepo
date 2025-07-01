@@ -1,6 +1,14 @@
+import { useCallback } from 'react';
+
 import { StyleSheet } from 'react-native';
 
-import { Image, SizableText, Tooltip, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
 export type INetworksFilterItemProps = {
@@ -9,6 +17,7 @@ export type INetworksFilterItemProps = {
   isSelected?: boolean;
   tooltipContent?: string;
   disabled?: boolean;
+  isAllNetworks?: boolean;
 } & IXStackProps;
 
 export function NetworksFilterItem({
@@ -17,8 +26,39 @@ export function NetworksFilterItem({
   isSelected,
   tooltipContent,
   disabled,
+  isAllNetworks,
   ...rest
 }: INetworksFilterItemProps) {
+  const renderNetworkImage = useCallback(() => {
+    if (isAllNetworks) {
+      return (
+        <Icon
+          name="GlobusOutline"
+          color="$iconActive"
+          size="$6"
+          $gtMd={{ size: '$5' }}
+        />
+      );
+    }
+    return networkImageUri ? (
+      <Image
+        height="$6"
+        width="$6"
+        borderRadius="$full"
+        $gtMd={{
+          height: '$5',
+          width: '$5',
+        }}
+      >
+        <Image.Source
+          source={{
+            uri: networkImageUri,
+          }}
+        />
+      </Image>
+    ) : null;
+  }, [isAllNetworks, networkImageUri]);
+
   const BaseComponent = (
     <XStack
       justifyContent="center"
@@ -48,23 +88,7 @@ export function NetworksFilterItem({
       })}
       {...rest}
     >
-      {networkImageUri ? (
-        <Image
-          height="$6"
-          width="$6"
-          borderRadius="$full"
-          $gtMd={{
-            height: '$5',
-            width: '$5',
-          }}
-        >
-          <Image.Source
-            source={{
-              uri: networkImageUri,
-            }}
-          />
-        </Image>
-      ) : null}
+      {renderNetworkImage()}
       {networkName ? (
         <SizableText
           numberOfLines={1}

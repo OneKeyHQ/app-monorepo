@@ -356,11 +356,17 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       <NetworkAvatarBase
         logoURI={network.logoURI}
         isCustomNetwork={network.isCustomNetwork}
+        isAllNetworks={network.isAllNetworks}
         networkName={network.name}
         size="$10"
       />
     ),
-    [network.isCustomNetwork, network.logoURI, network.name],
+    [
+      network.isAllNetworks,
+      network.isCustomNetwork,
+      network.logoURI,
+      network.name,
+    ],
   );
 
   return useMemo(
