@@ -973,7 +973,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToCache,
     hideCheckingDeviceLoading,
     skipCloseHardwareUiStateDialog,
-    skipDeviceCancel,
     showUIProgress,
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,

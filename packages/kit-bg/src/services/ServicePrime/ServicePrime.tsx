@@ -307,7 +307,7 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiPreparePrimeLogin({ email }: { email: string }): Promise<{
+  async apiPreparePrimeLogin(_props: { email: string }): Promise<{
     isRegistered: boolean;
     verifyUUID: string;
     captchaRequired: boolean;

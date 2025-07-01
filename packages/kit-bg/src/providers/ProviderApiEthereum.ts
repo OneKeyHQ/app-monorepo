@@ -718,8 +718,8 @@ class ProviderApiEthereum extends ProviderApiBase {
     async (
       request: IJsBridgeMessagePayload,
       params: IAddEthereumChainParameter,
-      address?: string,
-      ...others: any[]
+      _address?: string,
+      ..._others: any[]
     ) => {
       const networkId = `evm--${new BigNumber(params.chainId).toFixed()}`;
       const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
