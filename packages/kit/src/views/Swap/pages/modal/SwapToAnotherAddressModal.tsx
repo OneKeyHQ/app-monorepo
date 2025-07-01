@@ -142,7 +142,7 @@ const SwapToAnotherAddressPage = () => {
             networkId={accountInfo?.network?.id}
             enableAddressBook
             enableWalletName
-            enableVerifySendFundToSelf
+            // enableVerifySendFundToSelf
             enableAddressInteractionStatus
             enableAddressContract
             enableAllowListValidation
