@@ -623,6 +623,10 @@ class ServiceSend extends ServiceBase {
       newUnsignedTx.feeInfo = feeInfo;
     }
 
+    if (transfersInfo) {
+      newUnsignedTx.transfersInfo = transfersInfo;
+    }
+
     const isNonceRequired = (
       await this.backgroundApi.serviceNetwork.getVaultSettings({
         networkId,

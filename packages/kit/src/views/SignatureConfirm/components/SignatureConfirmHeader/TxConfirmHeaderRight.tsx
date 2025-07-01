@@ -12,6 +12,7 @@ import {
   Skeleton,
   YStack,
   useMedia,
+  useThemeName,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworksSupportMevProtection } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -27,6 +28,7 @@ function TxConfirmHeaderRight(props: {
   const { decodedTxs, unsignedTxs } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const theme = useThemeName();
 
   const decodedTx = decodedTxs?.[0];
 
@@ -102,7 +104,11 @@ function TxConfirmHeaderRight(props: {
                   <Image.Source
                     resizeMode="contain"
                     source={{
-                      uri: mevProtectionProvider.logoURI,
+                      uri:
+                        theme === 'dark'
+                          ? mevProtectionProvider.logoURIDark ||
+                            mevProtectionProvider.logoURI
+                          : mevProtectionProvider.logoURI,
                     }}
                   />
                   <Image.Loading>
