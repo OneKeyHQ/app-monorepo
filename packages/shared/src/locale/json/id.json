@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "Ambil {number} hari setelah mengajukan permintaan penarikan",
   "earn.withdrawal_up_to_number_days": "Penarikan dapat memakan waktu hingga {number} hari, dan setelah itu aset yang Anda staking akan tersedia",
   "earn.withdrawn": "Ditarik",
+  "earn_reward_distribution_schedule": "Hadiah akan didistribusikan ke dompet Arbitrum Anda (alamat yang sama dengan Ethereum) paling lambat tanggal 10 bulan depan.",
   "edit_fee_custom_set_as_default_description": "Tetapkan sebagai default untuk semua transaksi di masa mendatang pada {network}",
   "energy_consumed": "Energi yang dikonsumsi",
   "enter_passcode": "Masukkan kode sandi",

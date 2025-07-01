@@ -12,9 +12,11 @@ import type { FormatXMLElementFn } from 'intl-messageformat';
 
 export function PrimeTermsAndPrivacy() {
   const intl = useIntl();
-  const termsLink = useHelpLink({ path: 'articles/11967482818831' });
+  const termsLink = useHelpLink({
+    path: 'articles/11461297-user-service-agreement',
+  });
   const privacyLink = useHelpLink({
-    path: 'articles/360002003315-Privacy-Policy',
+    path: 'articles/11461298-privacy-policy',
   });
 
   const renderAnchor = useCallback(

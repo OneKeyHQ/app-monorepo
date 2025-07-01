@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "Подождите {number} дней после подачи запроса на вывод средств",
   "earn.withdrawal_up_to_number_days": "Вывод средств может занять до {number} дней, после чего ваши заложенные активы станут доступными",
   "earn.withdrawn": "Изъято",
+  "earn_reward_distribution_schedule": "Вознаграждения будут зачислены на ваш кошелек Arbitrum (тот же адрес, что и Ethereum) до 10 числа следующего месяца.",
   "edit_fee_custom_set_as_default_description": "Установить по умолчанию для всех будущих транзакций в {network}",
   "energy_consumed": "Потребленная энергия",
   "enter_passcode": "Введите код доступа",

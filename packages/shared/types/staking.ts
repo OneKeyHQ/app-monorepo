@@ -7,6 +7,7 @@ import type {
 
 import type { INetworkAccount } from './account';
 import type { IFetchTokenDetailItem, IToken } from './token';
+import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
 
 export type IAllowanceOverview = {
@@ -651,6 +652,12 @@ export type IEarnDetailActions =
   | IEarnWithdrawOrderActionIcon
   | IEarnActivateActionIcon;
 
+export interface IEarnAlert {
+  alert: string;
+  key: ESpotlightTour;
+  badge: IBadgeType;
+}
+
 export interface IStakeEarnDetail {
   protection?: {
     title: IEarnText;
@@ -708,7 +715,7 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnGridItem[];
   };
-  alertsV2?: { alert: string; badge: IBadgeType }[];
+  alertsV2?: IEarnAlert[];
   faqs?: {
     title: IEarnText;
     items: IEarnFAQItem[];
@@ -1107,6 +1114,7 @@ export type IApproveConfirmFnParams = {
 export interface IEarnSummary {
   icon: IEarnIcon;
   title: IEarnText;
+  alerts?: IEarnAlert[];
   items: {
     title: IEarnText;
     description: IEarnText;

@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "出金リクエストを出してから{number}日後に受け取ります",
   "earn.withdrawal_up_to_number_days": "引き出しは最大{number}日かかり、その後、ステークされた資産が利用可能になります",
   "earn.withdrawn": "撤回",
+  "earn_reward_distribution_schedule": "報酬は来月10日までにArbitrumウォレット（Ethereumと同じアドレス）に配布されます。",
   "edit_fee_custom_set_as_default_description": "{network}のすべての将来のトランザクションのデフォルトとして設定する",
   "energy_consumed": "消費エネルギー",
   "enter_passcode": "パスコードを入力してください",

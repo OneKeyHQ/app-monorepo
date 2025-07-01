@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "ใช้เวลา {number} วันหลังจากส่งคำขอถอนเงิน",
   "earn.withdrawal_up_to_number_days": "การถอนอาจใช้เวลาสูงสุดถึง {number} วัน แล้วคุณจะสามารถใช้สินทรัพย์ที่คุณได้จัดสรรไว้",
   "earn.withdrawn": "ถอนออก",
+  "earn_reward_distribution_schedule": "รางวัลจะถูกแจกจ่ายไปยังกระเป๋าเงิน Arbitrum ของคุณ (ที่อยู่เดียวกับ Ethereum) ภายในวันที่ 10 ของเดือนหน้า",
   "edit_fee_custom_set_as_default_description": "ตั้งเป็นค่าเริ่มต้นสำหรับธุรกรรมทั้งหมดในอนาคตบน {network}",
   "energy_consumed": "พลังงานที่ใช้ไป",
   "enter_passcode": "กรุณาใส่รหัสผ่าน",
