@@ -25,6 +25,7 @@ export class TronRewardScene extends BaseScene {
     };
   }
 
+  @LogToServer()
   public redeemResource({
     networkId,
     address,

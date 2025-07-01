@@ -349,11 +349,17 @@ class ServiceUniversalSearch extends ServiceBase {
   }
 
   private getUniversalValidateNetworkIds = memoizee(
-    async () => {
+    async ({ networkId }: { networkId?: string }) => {
       const { serviceNetwork } = this.backgroundApi;
       const { networks } = await serviceNetwork.getAllNetworks();
       let isEvmAddressChecked = false;
       const items: string[] = [];
+
+      if (networkId && networkUtils.isEvmNetwork({ networkId })) {
+        isEvmAddressChecked = true;
+        items.push(networkId);
+      }
+
       for (const network of networks) {
         if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
           // eslint-disable-next-line no-continue
@@ -395,7 +401,9 @@ class ServiceUniversalSearch extends ServiceBase {
     });
 
     // Step 1: Get supported networks and batch validate
-    const networkIdList = await this.getUniversalValidateNetworkIds();
+    const networkIdList = await this.getUniversalValidateNetworkIds({
+      networkId,
+    });
     const batchValidateResult =
       await serviceValidator.serverBatchValidateAddress({
         networkIdList,
