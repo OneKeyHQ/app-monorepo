@@ -74,7 +74,7 @@ function WalletBoundReferralCodeButtonView({
     refreshDisplayReferralCodeButton,
   ]);
 
-  if (displayReferralCodeButton === undefined || isLoading) {
+  if (displayReferralCodeButton === undefined && isLoading) {
     return <ActionList.SkeletonItem />;
   }
 
