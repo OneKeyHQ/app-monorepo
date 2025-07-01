@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
-  Accordion,
+  Button,
   Checkbox,
   Dialog,
   Icon,
@@ -31,6 +31,11 @@ function KYCDialogContent({
     data.checkboxes.map(() => false),
   );
 
+  // Initialize accordion expand states
+  const [expandedItems, setExpandedItems] = useState<boolean[]>(
+    data.accordions?.map(() => false) || [],
+  );
+
   const handleCheckboxChange = useCallback(
     (index: number) => (value: ICheckedState) => {
       setCheckboxStates((prev) =>
@@ -39,6 +44,12 @@ function KYCDialogContent({
     },
     [],
   );
+
+  const toggleExpandedItem = useCallback((index: number) => {
+    setExpandedItems((prev) =>
+      prev.map((expanded, i) => (i === index ? !expanded : expanded)),
+    );
+  }, []);
 
   const handleConfirm = useCallback(
     () =>
@@ -62,69 +73,61 @@ function KYCDialogContent({
       ))}
 
       {Array.isArray(data.accordions) && data.accordions.length > 0 ? (
-        <YStack pt="$1">
-          <Accordion type="multiple" gap="$2">
-            {data.accordions.map(({ title, description }, index) => (
-              <Accordion.Item value={String(index)} key={String(index)}>
-                <Accordion.Trigger
-                  unstyled
-                  flexDirection="row"
-                  alignItems="center"
-                  borderWidth={0}
-                  bg="$transparent"
-                  px="$2"
-                  py="$1"
-                  mx="$-2"
-                  my="$-1"
-                  hoverStyle={{
-                    bg: '$bgHover',
-                  }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
-                  borderRadius="$2"
-                >
-                  {({ open }: { open: boolean }) => (
-                    <XStack ai="center">
-                      <SizableText
-                        textAlign="left"
-                        flex={1}
-                        size="$bodyMd"
-                        color={open ? '$text' : '$textSubdued'}
-                      >
-                        {title.text}
-                      </SizableText>
-                      <Stack
-                        animation="quick"
-                        rotate={open ? '180deg' : '0deg'}
-                      >
-                        <Icon
-                          name="ChevronDownSmallOutline"
-                          color={open ? '$iconActive' : '$iconSubdued'}
-                          size="$5"
-                        />
-                      </Stack>
-                    </XStack>
-                  )}
-                </Accordion.Trigger>
-                <Accordion.HeightAnimator animation="quick">
-                  <Accordion.Content
-                    unstyled
-                    pt="$2"
-                    animation="100ms"
-                    enterStyle={{ opacity: 0 }}
-                    exitStyle={{ opacity: 0 }}
+        <YStack gap="$2">
+          {data.accordions.map(({ title, description }, index) => (
+            <YStack key={String(index)}>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={() => toggleExpandedItem(index)}
+                px="$2"
+                py="$1"
+                mx="$-2"
+                // my="$-1"
+                bg="$transparent"
+                borderWidth={0}
+                borderRadius="$2"
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                pressStyle={{
+                  bg: '$bgActive',
+                }}
+                justifyContent="space-between"
+                alignItems="center"
+                flexDirection="row"
+              >
+                <XStack alignItems="center" gap="$1">
+                  <SizableText
+                    textAlign="left"
+                    flex={1}
+                    size="$bodyMd"
+                    color={expandedItems[index] ? '$text' : '$textSubdued'}
                   >
-                    <EarnText
-                      text={description}
-                      size="$bodySm"
-                      color="$textSubdued"
+                    {title.text}
+                  </SizableText>
+                  <Stack rotate={expandedItems[index] ? '180deg' : '0deg'}>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      color={
+                        expandedItems[index] ? '$iconActive' : '$iconSubdued'
+                      }
+                      size="$5"
                     />
-                  </Accordion.Content>
-                </Accordion.HeightAnimator>
-              </Accordion.Item>
-            ))}
-          </Accordion>
+                  </Stack>
+                </XStack>
+              </Button>
+              {expandedItems[index] ? (
+                <YStack pt="$2">
+                  <EarnText
+                    text={description}
+                    size="$bodySm"
+                    color="$textSubdued"
+                  />
+                </YStack>
+              ) : null}
+            </YStack>
+          ))}
         </YStack>
       ) : null}
 
