@@ -207,6 +207,7 @@ const useParseQRCode = () => {
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
         case EQRCodeHandlerType.SUI:
+        case EQRCodeHandlerType.LIGHTNING_NETWORK:
           {
             const account = options?.account;
             if (!account) {
