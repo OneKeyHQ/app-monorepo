@@ -155,7 +155,6 @@ export default class ServiceNotification extends ServiceBase {
   onPushProviderConnected = async ({
     jpushId,
     socketId,
-    socket,
   }: {
     jpushId?: string;
     socketId?: string;
@@ -272,7 +271,6 @@ export default class ServiceNotification extends ServiceBase {
   onNotificationClosed = async ({
     notificationId,
     params,
-    webEvent,
   }: {
     notificationId: string | undefined;
     params: INotificationShowParams | undefined;

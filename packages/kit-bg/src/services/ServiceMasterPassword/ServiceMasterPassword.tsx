@@ -401,10 +401,6 @@ class ServiceMasterPassword extends ServiceBase {
       throw new OneKeyLocalError('FetchPrimeUserInfo ERROR: No primeUserId');
     }
 
-    const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
-    // Use getRandomBytes() to generate a high-random instance salt, which should not be sent to the server, and use secure storage
-    const instancePrivateSalt = '';
-
     let localPasscode = passcode;
     if (!localPasscode) {
       ({ password: localPasscode } =
@@ -812,7 +808,6 @@ class ServiceMasterPassword extends ServiceBase {
   // startResetPassword
   @backgroundMethod()
   async startForgetPassword({
-    email,
     passwordDialogPromiseId,
   }: {
     email: string;
@@ -894,7 +889,6 @@ class ServiceMasterPassword extends ServiceBase {
       },
       async () => this.backgroundApi.servicePrime.apiFetchPrimeUserInfo(),
     );
-    const serverPasswordUUID = serverUserInfo?.pwdHash;
 
     // verify old password
     const oldPasswordResult = await this.prepareMasterPassword({

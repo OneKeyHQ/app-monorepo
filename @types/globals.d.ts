@@ -88,7 +88,7 @@ declare global {
     $$autoToastErrorTriggered?: boolean;
   }
 
-  // eslint-disable-next-line @typescript-eslint/naming-convention
+  // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-unused-vars
   interface Promise<T> {
     toString(
       PromiseToStringNotAllowed1: boolean,

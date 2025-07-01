@@ -39,7 +39,7 @@ export class KeyringQr extends KeyringQrBase {
   }
 
   override async normalizeGetMultiAccountsPath(
-    params: INormalizeGetMultiAccountsPathParams,
+    _params: INormalizeGetMultiAccountsPathParams,
   ): Promise<string> {
     throw new NotImplemented();
   }

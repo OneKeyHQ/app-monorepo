@@ -542,7 +542,6 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async connect({
     device,
-    awaitBonded,
   }: {
     device: SearchDevice;
     awaitBonded?: boolean;
@@ -599,7 +598,6 @@ class ServiceHardware extends ServiceBase {
   async cancel({
     connectId,
     walletId,
-    forceDeviceResetToHome,
   }: {
     connectId?: string;
     walletId?: string;

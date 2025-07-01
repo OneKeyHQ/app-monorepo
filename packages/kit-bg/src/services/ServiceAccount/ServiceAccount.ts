@@ -957,7 +957,6 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     exportType,
-    accountName,
   }: {
     accountId: string | undefined;
     indexedAccountId: string | undefined;
