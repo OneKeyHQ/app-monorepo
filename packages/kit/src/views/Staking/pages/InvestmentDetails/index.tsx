@@ -35,9 +35,11 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnAccount,
+  IEarnAlert,
   IEarnInvestmentItem,
   IEarnRewardNum,
   IEarnSummary,
@@ -222,6 +224,18 @@ function BasicInvestmentDetails() {
           btcOnlyTaproot: true,
         });
       appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+        title: intl.formatMessage({
+          id: ETranslations.referral_reward_history,
+        }),
+        alerts: [
+          {
+            key: ESpotlightTour.earnRewardHistory,
+            badge: 'info',
+            alert: intl.formatMessage({
+              id: ETranslations.earn_reward_distribution_schedule,
+            }),
+          } as IEarnAlert,
+        ],
         accountId: currentEarnAccount?.account.id,
         networkId: evmNetworkId,
         filterType,
@@ -233,6 +247,7 @@ function BasicInvestmentDetails() {
     accountInfo.activeAccount?.indexedAccount?.id,
     evmNetworkId,
     appNavigation,
+    intl,
   ]);
 
   const sectionData = useMemo(() => {

@@ -38,6 +38,7 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { EarnAlert } from '../../components/ProtocolDetails/EarnAlert';
 import { useEarnTxLabel } from '../../hooks/useEarnTxLabel';
 import { capitalizeString } from '../../utils/utils';
 
@@ -256,6 +257,8 @@ function HistoryList() {
     provider,
     stakeTag,
     morphoVault,
+    title,
+    alerts,
     filterType: defaultFilterType,
   } = route.params;
   const [filterType, setFilterType] = useState(defaultFilterType || 'all');
@@ -368,7 +371,9 @@ function HistoryList() {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_history })}
+        title={
+          title || intl.formatMessage({ id: ETranslations.global_history })
+        }
       />
       <Page.Body>
         <PageFrame
@@ -377,6 +382,9 @@ function HistoryList() {
           loading={isLoadingState({ result, isLoading })}
           onRefresh={run}
         >
+          <XStack px="$5">
+            <EarnAlert alerts={alerts} />
+          </XStack>
           {result ? (
             <HistoryContent
               sections={result.sections}

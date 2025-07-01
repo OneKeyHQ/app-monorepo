@@ -7,6 +7,7 @@ import type {
 
 import type { INetworkAccount } from './account';
 import type { IFetchTokenDetailItem, IToken } from './token';
+import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
 
 export type IAllowanceOverview = {
@@ -653,6 +654,7 @@ export type IEarnDetailActions =
 
 export interface IEarnAlert {
   alert: string;
+  key: ESpotlightTour;
   badge: IBadgeType;
 }
 

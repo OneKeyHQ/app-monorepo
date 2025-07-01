@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "Займає {number} днів після подання запиту на зняття коштів",
   "earn.withdrawal_up_to_number_days": "Виведення коштів може тривати до {number} днів, а потім ваши забезпечені активи стануть доступними",
   "earn.withdrawn": "Вилучено",
+  "earn_reward_distribution_schedule": "Винагороди будуть розподілені на ваш гаманець Arbitrum (та сама адреса, що й Ethereum) до 10-го числа наступного місяця.",
   "edit_fee_custom_set_as_default_description": "Встановити як типове для всіх майбутніх транзакцій у мережі {network}",
   "energy_consumed": "Енергія, що споживається",
   "enter_passcode": "Введіть код доступу",

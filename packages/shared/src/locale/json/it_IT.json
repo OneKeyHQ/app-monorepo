@@ -750,6 +750,7 @@
   "earn.withdrawal_take_up_to_number_days": "Occorrono {number} giorni dopo aver effettuato una richiesta di prelievo",
   "earn.withdrawal_up_to_number_days": "Il prelievo può richiedere fino a {number} giorni, dopodiché i tuoi asset investiti saranno disponibili",
   "earn.withdrawn": "Ritirato",
+  "earn_reward_distribution_schedule": "Le ricompense verranno distribuite sul tuo portafoglio Arbitrum (stesso indirizzo di Ethereum) entro il 10 del mese prossimo.",
   "edit_fee_custom_set_as_default_description": "Imposta come predefinito per tutte le future transazioni su {network}",
   "energy_consumed": "Energia consumata",
   "enter_passcode": "Inserisci il codice di accesso",
