@@ -248,7 +248,10 @@ const useParseQRCode = () => {
 
               await closeScanPage();
               const newNetworkId =
-                nativeToken?.networkId || params.network?.id || '';
+                nativeToken?.networkId ||
+                network.id ||
+                params.network?.id ||
+                '';
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxDataInput,
                 params: {
