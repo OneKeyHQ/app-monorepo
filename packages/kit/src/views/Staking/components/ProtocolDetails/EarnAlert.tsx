@@ -6,7 +6,7 @@ import { EarnText } from './EarnText';
 export function EarnAlert({ alerts }: { alerts?: IEarnAlert[] }) {
   if (alerts?.length) {
     return (
-      <YStack gap="$1" py="$1">
+      <YStack gap="$1.5" py="$1.5">
         {alerts.map((alertItem, index) => {
           return (
             <Alert
