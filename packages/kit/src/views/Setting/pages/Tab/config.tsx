@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECloudBackupRoutes,
@@ -116,7 +117,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const biometricAuthInfo = useBiometricAuthInfo();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-  const requestUrl = useHelpLink({ path: 'requests/new' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -537,7 +537,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 id: ETranslations.global_contact_us,
               }),
               onPress: () => {
-                openUrlExternal(requestUrl);
+                void showIntercom();
               },
             },
             platformEnv.isExtension ||
@@ -711,7 +711,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isPrimeSubscriptionActive,
       onPressAddressBook,
       helpCenterUrl,
-      requestUrl,
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
