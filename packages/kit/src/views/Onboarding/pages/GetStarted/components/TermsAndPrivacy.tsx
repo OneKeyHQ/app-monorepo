@@ -13,9 +13,9 @@ import type { FormatXMLElementFn } from 'intl-messageformat';
 export function TermsAndPrivacy() {
   const intl = useIntl();
   const termsLink = useHelpLink({
-    path: 'articles/11461297-user-service-agreement ',
+    path: 'articles/11461297-user-service-agreement',
   });
-  const privacyLink = useHelpLink({ path: '11461298-privacy-policy' });
+  const privacyLink = useHelpLink({ path: 'articles/11461298-privacy-policy' });
 
   const renderAnchor = useCallback(
     (link: string, chunks: string[]) =>

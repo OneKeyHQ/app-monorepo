@@ -22,7 +22,7 @@ export const FIRMWARE_UPDATE_FULL_RES_GUIDE =
 export const FIRMWARE_UPDATE_BRIDGE_GUIDE =
   'https://help.onekey.so/articles/11461117';
 
-export const HELP_CENTER_URL = 'https://help.onekey.so/';
+export const HELP_CENTER_URL = 'https://help.onekey.so';
 export const HELP_CENTER_COMMON_FAQ_URL =
   'https://help.onekey.so/collections/13034346';
 export const LITE_CARD_URL =
