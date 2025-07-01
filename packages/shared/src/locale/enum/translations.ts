@@ -755,6 +755,7 @@
   earn_withdrawal_take_up_to_number_days = 'earn.withdrawal_take_up_to_number_days',
   earn_withdrawal_up_to_number_days = 'earn.withdrawal_up_to_number_days',
   earn_withdrawn = 'earn.withdrawn',
+  earn_reward_distribution_schedule = 'earn_reward_distribution_schedule',
   edit_fee_custom_set_as_default_description = 'edit_fee_custom_set_as_default_description',
   energy_consumed = 'energy_consumed',
   enter_passcode = 'enter_passcode',

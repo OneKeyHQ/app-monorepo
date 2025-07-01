@@ -21,6 +21,7 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
         [ESpotlightTour.hardwareSalesRewardAlert]: 0,
         [ESpotlightTour.earnRewardAlert]: 0,
         [ESpotlightTour.allNetworksInfo]: 0,
+        [ESpotlightTour.earnRewardHistory]: 0,
       },
     },
   });
