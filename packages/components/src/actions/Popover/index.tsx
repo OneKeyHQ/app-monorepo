@@ -20,6 +20,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
+import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import {
   ModalNavigatorContext,
@@ -379,8 +380,7 @@ function RawPopover({
                   borderTopRightRadius="$6"
                   backgroundColor="$bg"
                   mx="$5"
-                  px="$5"
-                  py="$4"
+                  p="$5"
                   justifyContent="space-between"
                   alignItems="center"
                   borderCurve="continuous"
@@ -421,6 +421,7 @@ function RawPopover({
                 mb={bottom || '$5'}
                 borderCurve="continuous"
               >
+                {showHeader ? <Divider mx="$5" /> : null}
                 {content}
               </TMPopover.Sheet.ScrollView>
             </TMPopover.Sheet.Frame>
