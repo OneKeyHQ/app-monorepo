@@ -2,7 +2,6 @@
 import { parse as ethParser } from 'eth-url-parser';
 
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IEthereumValue, IQRCodeHandler } from '../type';

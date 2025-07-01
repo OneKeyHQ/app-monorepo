@@ -285,13 +285,13 @@ export abstract class KeyringBase extends VaultContext {
   }
 
   async buildHwAllNetworkPrepareAccountsParams(
-    params: IBuildHwAllNetworkPrepareAccountsParams,
+    _params: IBuildHwAllNetworkPrepareAccountsParams,
   ): Promise<AllNetworkAddressParams | undefined> {
     return undefined;
   }
 
   buildPrepareAccountsPrefixedPath(
-    params: IBuildPrepareAccountsPrefixedPathParams,
+    _params: IBuildPrepareAccountsPrefixedPathParams,
   ): string {
     throw new NotImplemented();
   }

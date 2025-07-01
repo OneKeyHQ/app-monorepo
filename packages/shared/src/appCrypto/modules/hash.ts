@@ -335,7 +335,6 @@ function sha512ProByNoble({
       : hash;
     hash = bufferUtils.bytesToHex(sha512ByNobleFn(nextHash));
   }
-  // return `${hash}111111111111111111111111111111111111111111111111`;
   return hash;
 }
 
@@ -357,7 +356,6 @@ async function sha512ProAsync({
       await sha512(bufferUtils.utf8ToBytes(nextHash)),
     );
   }
-  // return `${hash}111111111111111111111111111111111111111111111111`;
   return hash;
 }
 
@@ -380,7 +378,6 @@ function sha512ProSync({
       sha512Sync(bufferUtils.utf8ToBytes(nextHash)),
     );
   }
-  // return `${hash}111111111111111111111111111111111111111111111111`;
   return hash;
 }
 
