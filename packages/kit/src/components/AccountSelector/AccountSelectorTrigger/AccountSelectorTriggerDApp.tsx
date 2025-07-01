@@ -436,6 +436,7 @@ export function AccountSelectorTriggerAddressSingle({
         logoURI={network?.logoURI ?? ''}
         isCustomNetwork={network?.isCustomNetwork}
         networkName={network?.name}
+        isAllNetworks={network?.isAllNetworks}
         size="$4"
       />
       <SizableText

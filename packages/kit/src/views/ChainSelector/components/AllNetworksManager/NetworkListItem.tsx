@@ -44,6 +44,10 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
           logoURI={network.logoURI}
           isCustomNetwork={network.isCustomNetwork}
           networkName={network.name}
+          isAllNetworks={network.isAllNetworks}
+          allNetworksIconProps={{
+            color: '$iconActive',
+          }}
           size="$8"
         />
       }
