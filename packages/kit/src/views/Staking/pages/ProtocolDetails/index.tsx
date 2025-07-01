@@ -391,7 +391,6 @@ const ProtocolDetailsPage = () => {
     }),
     [onHistory],
   );
-  console.log('contextValue---', contextValue);
   return (
     <Page scrollEnabled>
       <Page.Header
