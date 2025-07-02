@@ -13,6 +13,7 @@ import {
   Image,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
@@ -21,7 +22,6 @@ import type {
   IKeyOfIcons,
   ISizableTextProps,
   IStackStyle,
-  Stack,
 } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -53,6 +53,7 @@ export interface IDesktopTabItemProps {
   onClose?: () => void;
   children?: React.ReactNode;
   trackId?: string;
+  showDot?: boolean;
 }
 
 function BasicDesktopTabItemImage({
@@ -104,6 +105,7 @@ export function DesktopTabItem(
     trackId,
     size = 'medium',
     children,
+    showDot,
     ...rest
   } = props;
 
@@ -177,13 +179,28 @@ export function DesktopTabItem(
         }
       >
         {icon ? (
-          <Icon
-            flexShrink={0}
-            name={icon}
-            color={selected ? '$iconActive' : '$iconSubdued'}
-            size="$5"
-            {...tabBarIconStyle}
-          />
+          <XStack flexShrink={0}>
+            <Icon
+              flexShrink={0}
+              name={icon}
+              color={selected ? '$iconActive' : '$iconSubdued'}
+              size="$5"
+              {...tabBarIconStyle}
+            />
+            {showDot ? (
+              <Stack
+                width="$3"
+                height="$3"
+                bg="$iconInfo"
+                borderRadius="$full"
+                position="absolute"
+                right={-4}
+                top={-4}
+                borderWidth="$0.5"
+                borderColor="$bgSubdued"
+              />
+            ) : null}
+          </XStack>
         ) : null}
         {showAvatar ? (
           <DesktopTabItemImage avatarSrc={avatarSrc} selected={selected} />
@@ -250,6 +267,7 @@ export function DesktopTabItem(
       rest,
       icon,
       tabBarIconStyle,
+      showDot,
       showAvatar,
       avatarSrc,
       label,
