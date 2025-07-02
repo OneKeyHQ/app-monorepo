@@ -35,12 +35,12 @@ function AddHiddenWalletDialogContent() {
 
   return (
     <YStack mx="$-5" mt="$-10">
-      <XStack p="$4" gap="$2" flexWrap="wrap">
+      <XStack p="$4" gap="$2" flexWrap="wrap" justifyContent="center">
         {Array.from({ length: 12 }).map((_, index) => (
           <XStack
             key={index}
             minWidth="$15"
-            flex={1}
+            // flex={1}
             gap="$2"
             alignItems="center"
           >
