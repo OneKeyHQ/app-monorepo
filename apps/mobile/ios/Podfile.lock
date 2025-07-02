@@ -2957,7 +2957,7 @@ PODS:
     - Yoga
   - RNFlashList (1.6.3):
     - React-Core
-  - RNGestureHandler (2.25.0):
+  - RNGestureHandler (2.27.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -4008,7 +4008,7 @@ SPEC CHECKSUMS:
   RNFastImage: 462a183c4b0b6b26fdfd639e1ed6ba37536c3b87
   RNFileLogger: e82bd936fbd9ef1e6c202b91820cf56c75abdfdd
   RNFlashList: 1076a3fb7c4608a8cdf265f0783592b8fc41b6a7
-  RNGestureHandler: 4b8ff058379cc847e5c6f56d0e9838139c7f8f19
+  RNGestureHandler: 1fb6ea7f6b3e07214d6fb8e5951f1beba36a1401
   RNImageCropPicker: d8a9a73e819282572c9ac4864d5d8031d4f68c79
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559
   RNPermissions: f36fc337110645e96adadad6598f9daffabab168
