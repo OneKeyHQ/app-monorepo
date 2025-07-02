@@ -136,6 +136,9 @@ function KYCDialogContent({
         {data.checkboxes.map((checkbox, index) => (
           <XStack key={index} alignItems="flex-start" gap="$2">
             <Checkbox
+              labelContainerProps={{
+                flex: 1,
+              }}
               label={checkbox.text}
               value={checkboxStates[index]}
               onChange={handleCheckboxChange(index)}
