@@ -66,8 +66,6 @@ import { SubSearchSettings } from './SubSettings';
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
-  subText?: string;
-  subTextProps?: ISizableTextProps;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -97,8 +95,6 @@ export type ISettingsConfig = (
       tabBarItemStyle?: IStackStyle;
       tabBarIconStyle?: IIconProps;
       tabBarLabelStyle?: ISizableTextProps;
-      subText?: string;
-      subTextProps?: ISizableTextProps;
       Component?: ComponentType<{
         name: string;
         settingsConfig: ISettingsConfig;
@@ -517,15 +513,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           id: ETranslations.global_about,
         }),
         showDot: !!appUpdateInfo.isNeedUpdate,
-        subText: appUpdateInfo.isNeedUpdate
-          ? intl.formatMessage({
-              id: ETranslations.settings_app_update_available,
-            })
-          : undefined,
-        subTextProps: {
-          size: '$bodyLgMedium',
-          color: '$textInfo',
-        },
         configs: [
           [
             {
