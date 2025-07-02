@@ -115,7 +115,8 @@ function ListSkeletonItem() {
   );
 }
 
-const isTrue = (value: number | string) => Number(value) > 0;
+const isTrue = (value: number | string | undefined) =>
+  value && Number(value) > 0;
 const hasPositiveReward = ({
   rewardNum,
 }: {
@@ -271,6 +272,7 @@ function BasicInvestmentDetails() {
         overflow,
         providerName,
         rewardNum,
+        rewards,
         vault,
       },
     }: {
@@ -326,7 +328,9 @@ function BasicInvestmentDetails() {
               </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
-              {isTrue(claimable) || hasPositiveReward({ rewardNum }) ? (
+              {isTrue(claimable) ||
+              hasPositiveReward({ rewardNum }) ||
+              isTrue(rewards) ? (
                 <Badge
                   badgeType="info"
                   badgeSize="sm"
