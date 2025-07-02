@@ -313,41 +313,43 @@ function RawPopover({
         </Trigger>
       </TMPopover.Trigger>
       {/* floating panel */}
-      <TMPopover.Content
-        unstyled
-        outlineColor="$neutral3"
-        outlineStyle="solid"
-        outlineWidth="$px"
-        display={display}
-        style={{
-          transformOrigin,
-        }}
-        enterStyle={{
-          scale: 0.95,
-          opacity: 0,
-        }}
-        exitStyle={{ scale: 0.95, opacity: 0 }}
-        w="$96"
-        bg="$bg"
-        borderRadius="$3"
-        elevation={20}
-        animation={[
-          'quick',
-          {
-            opacity: {
-              overshootClamping: true,
+      {platformEnv.isNative ? null : (
+        <TMPopover.Content
+          unstyled
+          outlineColor="$neutral3"
+          outlineStyle="solid"
+          outlineWidth="$px"
+          display={display}
+          style={{
+            transformOrigin,
+          }}
+          enterStyle={{
+            scale: 0.95,
+            opacity: 0,
+          }}
+          exitStyle={{ scale: 0.95, opacity: 0 }}
+          w="$96"
+          bg="$bg"
+          borderRadius="$3"
+          elevation={20}
+          animation={[
+            'quick',
+            {
+              opacity: {
+                overshootClamping: true,
+              },
             },
-          },
-        ]}
-        {...floatingPanelProps}
-      >
-        <TMPopover.ScrollView
-          testID="TMPopover-ScrollView"
-          style={{ maxHeight: maxScrollViewHeight }}
+          ]}
+          {...floatingPanelProps}
         >
-          {content}
-        </TMPopover.ScrollView>
-      </TMPopover.Content>
+          <TMPopover.ScrollView
+            testID="TMPopover-ScrollView"
+            style={{ maxHeight: maxScrollViewHeight }}
+          >
+            {content}
+          </TMPopover.ScrollView>
+        </TMPopover.Content>
+      )}
       {/* sheet */}
       {usingSheet ? (
         <TMPopover.Adapt when={platformEnv.isNative ? when : 'md'}>
@@ -467,7 +469,9 @@ function BasicPopover({
     // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
       <>
-        <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+        {renderTrigger ? (
+          <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+        ) : null}
         <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
           <ModalNavigatorContext.Provider value={modalNavigatorContext}>
             <PageContext.Provider value={pageContextValue}>
