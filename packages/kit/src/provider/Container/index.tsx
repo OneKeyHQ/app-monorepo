@@ -20,7 +20,6 @@ import { CreateAddressContainer } from './CreateAddressContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
-import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
@@ -118,11 +117,6 @@ export function Container() {
           <ErrorToastContainer />
           <GlobalErrorHandlerContainer />
           <ForceFirmwareUpdateContainer />
-          {process.env.NODE_ENV !== 'production' ? (
-            <>
-              <FlipperPluginsContainer />
-            </>
-          ) : null}
           <ColdStartByNotification />
           <PrimeGlobalEffect />
         </NavigationContainer>
