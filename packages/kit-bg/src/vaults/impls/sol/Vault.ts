@@ -43,6 +43,7 @@ import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import { isEmpty, isNil } from 'lodash';
 
+import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IDecodedTxExtraSol,
@@ -55,6 +56,7 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
@@ -134,6 +136,7 @@ import type {
   TransferInstructionArgs,
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
+import type { FailedAttemptError } from 'p-retry';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
@@ -1452,5 +1455,18 @@ export default class Vault extends VaultBase {
 
   override async buildOkxSwapEncodedTx(params: IBuildOkxSwapEncodedTxParams) {
     return Promise.resolve(params.okxTx.data);
+  }
+
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code ===
+      BLOCK_HASH_NOT_FOUND_ERROR_CODE
+    ) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      return true;
+    }
+    return false;
   }
 }

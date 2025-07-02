@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "ウォレット名の長さが制限を超えています。",
   "wallet.enter_redemption_code": "引き換えコードを入力してください",
   "wallet.error_trade_with_watched_acocunt": "監視中のアカウントとは取引できません。",
-  "wallet.exchange_rate": "為替レート：{price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "交換レート：{price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "十分なTRXがない場合は、USDTを使ってエネルギーをレンタルすることもできます。USDTでの支払いはTRXよりも高くなります。今後の利用のために、支払いの一部をTRXで受け取ることも可能です。",
   "wallet.exchange_usdt_for_trx": "{price_usdt} USDT を {price_trx} TRX と交換する",
   "wallet.generic_string_length_requirement": "アカウント名の長さが制限を超えています。",

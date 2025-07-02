@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "Wallet name length exceeds the limit.",
   "wallet.enter_redemption_code": "Enter redemption code",
   "wallet.error_trade_with_watched_acocunt": "Cannot trade with a watch-only wallet.",
-  "wallet.exchange_rate": "Exchange rate: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Exchange rate: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "If you don’t have enough TRX, you can choose to use USDT to rent energy. USDT payments cost more than TRX. You may opt to receive part of your payment as TRX for future use.",
   "wallet.exchange_usdt_for_trx": "Exchange {price_usdt} USDT for {price_trx} TRX",
   "wallet.generic_string_length_requirement": "Account name length exceeds the limit.",

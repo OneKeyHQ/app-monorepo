@@ -1,0 +1,1 @@
+export const BLOCK_HASH_NOT_FOUND_ERROR_CODE = 40_028;

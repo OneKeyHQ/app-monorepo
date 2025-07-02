@@ -19,7 +19,11 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -127,6 +131,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { FailedAttemptError } from 'p-retry';
 import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
@@ -1478,5 +1483,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAddressEncoding(): Promise<EAddressEncodings | undefined> {
     return undefined;
+  }
+
+  async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

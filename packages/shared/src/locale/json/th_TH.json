@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "ความยาวของชื่อกระเป๋าเงินเกินขีดจำกัด",
   "wallet.enter_redemption_code": "กรอกรหัสแลกของรางวัล",
   "wallet.error_trade_with_watched_acocunt": "ไม่สามารถซื้อขายกับบัญชีที่ถูกตรวจสอบ",
-  "wallet.exchange_rate": "อัตราแลกเปลี่ยน: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "อัตราแลกเปลี่ยน: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "หากคุณมี TRX ไม่เพียงพอ คุณสามารถเลือกใช้ USDT เพื่อเช่า Energy ได้ การชำระเงินด้วย USDT จะมีค่าใช้จ่ายสูงกว่า TRX คุณอาจเลือกที่จะรับเงินบางส่วนเป็น TRX เพื่อใช้ในอนาคตได้",
   "wallet.exchange_usdt_for_trx": "แลกเปลี่ยน {price_usdt} USDT เป็น {price_trx} TRX",
   "wallet.generic_string_length_requirement": "ความยาวของชื่อบัญชีเกินขีดจำกัด",

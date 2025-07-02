@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "Tên ví đã vượt quá giới hạn cho phép.",
   "wallet.enter_redemption_code": "Nhập mã đổi thưởng",
   "wallet.error_trade_with_watched_acocunt": "Không thể giao dịch với một tài khoản đang được theo dõi.",
-  "wallet.exchange_rate": "Tỷ giá: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Tỷ giá quy đổi: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "Nếu bạn không có đủ TRX, bạn có thể chọn sử dụng USDT để thuê năng lượng. Thanh toán bằng USDT sẽ tốn nhiều chi phí hơn so với TRX. Bạn cũng có thể chọn nhận một phần thanh toán dưới dạng TRX để sử dụng cho lần sau.",
   "wallet.exchange_usdt_for_trx": "Đổi {price_usdt} USDT lấy {price_trx} TRX",
   "wallet.generic_string_length_requirement": "Tên tài khoản vượt quá giới hạn độ dài.",

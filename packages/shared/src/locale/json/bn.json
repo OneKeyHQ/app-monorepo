@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "ওয়ালেটের নামের দৈর্ঘ্য সীমা অতিক্রম করেছে।",
   "wallet.enter_redemption_code": "রিডেম্পশন কোড লিখুন",
   "wallet.error_trade_with_watched_acocunt": "নজরদারি করা অ্যাকাউন্টের সাথে বিনিময় করা যাবে না।",
-  "wallet.exchange_rate": "বিনিময় হার: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "বিনিময় হার: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "যদি আপনার কাছে যথেষ্ট TRX না থাকে, তাহলে আপনি শক্তি ভাড়ার জন্য USDT ব্যবহার করতে পারেন। USDT দিয়ে পেমেন্ট করলে TRX-এর তুলনায় খরচ বেশি হয়। ভবিষ্যতে ব্যবহারের জন্য আপনি আপনার পেমেন্টের একটি অংশ TRX হিসেবে গ্রহণ করতে পারেন।",
   "wallet.exchange_usdt_for_trx": "{price_usdt} USDT এর বিনিময়ে {price_trx} TRX এক্সচেঞ্জ করুন",
   "wallet.generic_string_length_requirement": "অ্যাকাউন্টের নামের দৈর্ঘ্য সীমা অতিক্রম করেছে।",

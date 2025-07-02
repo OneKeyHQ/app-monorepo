@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "El nombre de la billetera excede el límite.",
   "wallet.enter_redemption_code": "Introduce el código de canje",
   "wallet.error_trade_with_watched_acocunt": "No se puede comerciar con una cuenta vigilada.",
-  "wallet.exchange_rate": "Tipo de cambio: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Tipo de cambio: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "Si no tienes suficiente TRX, puedes optar por usar USDT para alquilar energía. Los pagos con USDT cuestan más que con TRX. Puedes elegir recibir parte de tu pago en TRX para usarlo en el futuro.",
   "wallet.exchange_usdt_for_trx": "Intercambia {price_usdt} USDT por {price_trx} TRX",
   "wallet.generic_string_length_requirement": "La longitud del nombre de la cuenta supera el límite.",

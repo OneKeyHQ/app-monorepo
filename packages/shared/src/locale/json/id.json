@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "Panjang nama dompet melebihi batas.",
   "wallet.enter_redemption_code": "Masukkan kode penukaran",
   "wallet.error_trade_with_watched_acocunt": "Tidak dapat berdagang dengan akun yang sedang dipantau.",
-  "wallet.exchange_rate": "Kurs: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Kurs penukaran: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "Jika Anda tidak memiliki cukup TRX, Anda dapat memilih untuk menggunakan USDT untuk menyewa energi. Pembayaran dengan USDT lebih mahal daripada TRX. Anda dapat memilih untuk menerima sebagian pembayaran Anda dalam bentuk TRX untuk digunakan di masa mendatang.",
   "wallet.exchange_usdt_for_trx": "Tukar {price_usdt} USDT dengan {price_trx} TRX",
   "wallet.generic_string_length_requirement": "Panjang nama akun melebihi batas.",
