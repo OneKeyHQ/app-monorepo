@@ -273,8 +273,8 @@ PODS:
     - SocketRocket
     - Yoga
   - MultiplatformBleAdapter (0.2.0)
-  - PurchasesHybridCommon (13.14.0):
-    - RevenueCat (= 5.14.0)
+  - PurchasesHybridCommon (13.35.0):
+    - RevenueCat (= 5.27.1)
   - RCT-Folly (2024.11.18.00):
     - boost
     - DoubleConversion
@@ -2713,7 +2713,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RevenueCat (5.14.0)
+  - RevenueCat (5.27.1)
   - RNCAsyncStorage (1.22.0):
     - React-Core
   - RNDeviceInfo (14.0.4):
@@ -2854,8 +2854,8 @@ PODS:
     - React-Core
   - RNPermissions (5.4.1):
     - React-Core
-  - RNPurchases (8.5.0):
-    - PurchasesHybridCommon (= 13.14.0)
+  - RNPurchases (8.11.3):
+    - PurchasesHybridCommon (= 13.35.0)
     - React-Core
   - RNReanimated (3.6.1):
     - boost
@@ -3476,7 +3476,7 @@ SPEC CHECKSUMS:
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: a68b753911dfc53e8e8006a85cf044f7237efc83
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
-  PurchasesHybridCommon: ea662e5a551e6fc79c1eb17feb0478c01c59f3e6
+  PurchasesHybridCommon: 18288b8ad932cfeb5f142f592d5c65e626a35770
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: ff787f6c860a1b97dd1bc27264b61d23ad1994da
   RCTRequired: 664eb8399ed8a83e26ab65af7c2ad390f7e61696
@@ -3563,7 +3563,7 @@ SPEC CHECKSUMS:
   ReactNativeSecureWindow: aca1652c05825f4a3c1706b942a5a12060c54742
   RealmJS: ff8a7d6d6e339c1b3410a96ceb4151b151fe56f5
   RestartNewArch: 642c6593eca08c7824c51c4605a4a5740796e138
-  RevenueCat: 34f4147c8d26d2f3c691be4e3c9f033698e557f2
+  RevenueCat: 87171c9f2412778354c8523f5625d1fece2560a5
   RNCAsyncStorage: 992e0c559d9c1b2b637ecb343f6f1713e99b6598
   RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
   RNFastImage: 462a183c4b0b6b26fdfd639e1ed6ba37536c3b87
@@ -3573,7 +3573,7 @@ SPEC CHECKSUMS:
   RNImageCropPicker: d071b5133ad38e201bb1809f947e9abd3a721e1b
   RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559
   RNPermissions: 9f4476706df2b05684f039e7db0acb6853f0f990
-  RNPurchases: a8ab3d5abe8f58899f9eb6f1a321598ee5f77e70
+  RNPurchases: 614ae87f4071d2be2fbfcb9e7fe6064080cc676f
   RNReanimated: 908f6085a0702ea264bd0b0c3cbc0162eec8f21b
   RNScreens: 6b2e8201122985511c0cf74fdd7fa0890c8bea9a
   RNSentry: 8c55a963344fbb0ef7be6b9e3bfa10b796b7737b

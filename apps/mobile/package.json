@@ -109,7 +109,7 @@
     "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn73",
     "react-native-network-logger": "2.0.0",
     "react-native-permissions": "5.4.1",
-    "react-native-purchases": "^8.5.0",
+    "react-native-purchases": "8.11.3",
     "react-native-reanimated": "3.6.1",
     "react-native-restart": "npm:react-native-restart-newarch@1.0.72",
     "react-native-safe-area-context": "5.4.1",
