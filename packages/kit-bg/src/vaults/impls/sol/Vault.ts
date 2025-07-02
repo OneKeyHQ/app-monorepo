@@ -1466,7 +1466,7 @@ export default class Vault extends VaultBase {
       if (retryCount > 5) {
         return false;
       }
-      await timerUtils.wait(3000);
+      await timerUtils.wait(retryCount * 1000);
       return true;
     }
     return false;
