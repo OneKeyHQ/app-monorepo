@@ -222,7 +222,6 @@ PODS:
   - hermes-engine/Pre-built (0.80.0)
   - ImageColors (2.4.0):
     - ExpoModulesCore
-  - IQKeyboardManagerSwift (6.5.16)
   - JCore (2.0.3):
     - React
   - JPush (2.9.2):
@@ -2850,10 +2849,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeKeyboardManager (6.5.16-0):
-    - IQKeyboardManagerSwift (= 6.5.16)
-    - React-Core
-    - React-RCTText
   - ReactNativeSecureWindow (0.1.1):
     - ExpoModulesCore
     - ScreenshotPreventing
@@ -3533,7 +3528,6 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
   - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
-  - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - "ReactNativeSecureWindow (from `../../../node_modules/@bufgix/react-native-secure-window/ios`)"
   - RealmJS (from `../../../node_modules/realm`)
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
@@ -3559,7 +3553,6 @@ SPEC REPOS:
   trunk:
     - CocoaAsyncSocket
     - CocoaLumberjack
-    - IQKeyboardManagerSwift
     - JXCategoryView
     - JXPagingView
     - libwebp
@@ -3826,8 +3819,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeFs:
     :path: "../../../node_modules/react-native-fs"
-  ReactNativeKeyboardManager:
-    :path: "../../../node_modules/react-native-keyboard-manager"
   ReactNativeSecureWindow:
     :path: "../../../node_modules/@bufgix/react-native-secure-window/ios"
   RealmJS:
@@ -3906,7 +3897,6 @@ SPEC CHECKSUMS:
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 7068e976238b29e97b3bafd09a994542af7d5c0b
   ImageColors: 869f48b27ca2afb347fd0bada3257a5f698ee55e
-  IQKeyboardManagerSwift: 12d89768845bb77b55cc092ecc2b1f9370f06b76
   JCore: 4707d226b452782383a401bea8ee2518565017e6
   JPush: 7888dd3b0b4b2acaec7e1368eb8a9e3418e311d1
   JXCategoryView: 262d503acea0b1278c79a1c25b7332ffaef4d518
@@ -3998,7 +3988,6 @@ SPEC CHECKSUMS:
   ReactCommon: 3d916b13ac777fc387b8035ab80ceb90aca4f747
   ReactNativeCameraKit: 89ee66d4866846c6f8381ff0fdcb0534cbb5cb14
   ReactNativeFs: 1ed2ed85f0891078199238e74959ad1b6bf426aa
-  ReactNativeKeyboardManager: 5abe57da962b386508945888c75abee4b93f382d
   ReactNativeSecureWindow: aca1652c05825f4a3c1706b942a5a12060c54742
   RealmJS: ff8a7d6d6e339c1b3410a96ceb4151b151fe56f5
   RestartNewArch: 331ea53ed402d816997964df8c28e4290ac70a77

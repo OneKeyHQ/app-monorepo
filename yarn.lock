@@ -7660,7 +7660,6 @@ __metadata:
     react-native-get-random-values: "npm:1.9.0"
     react-native-image-colors: "npm:^2.4.0"
     react-native-image-crop-picker: "npm:0.50.0"
-    react-native-keyboard-manager: "npm:6.5.16-0"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:3.2.0"
     react-native-modal: "npm:^13.0.1"
@@ -35044,15 +35043,6 @@ __metadata:
   peerDependencies:
     react-native: ">=0.48.4"
   checksum: 10/95d8ed8a46426b16e819713495d64766a3eed5d63a03fb4feca0351cce55d74197f75d8b01dd3f2c491cda29c155bb71c8063d2fba23e8a0044208aad03d0d91
-  languageName: node
-  linkType: hard
-
-"react-native-keyboard-manager@npm:6.5.16-0":
-  version: 6.5.16-0
-  resolution: "react-native-keyboard-manager@npm:6.5.16-0"
-  peerDependencies:
-    react-native: ">=0.60"
-  checksum: 10/ea7950835fb0d1b0d5a90420f04117f0fb67f885a327595bc28bc3fc4dfc15149082880aa4d4b4736600940150579f16557c3b5ef0dd0ebedc9182b1093e9c2d
   languageName: node
   linkType: hard
 
