@@ -267,6 +267,7 @@ export function DesktopTabItem(
       rest,
       icon,
       tabBarIconStyle,
+      showDot,
       showAvatar,
       avatarSrc,
       label,
