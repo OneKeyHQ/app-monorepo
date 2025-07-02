@@ -16,6 +16,7 @@ import {
   useInTabDialog,
 } from '@onekeyhq/components';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
+import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -277,8 +278,10 @@ function InviteCode({
 
 export function useWalletBoundReferralCode({
   entry,
+  mnemonicType,
 }: {
   entry?: 'tab' | 'modal';
+  mnemonicType?: EMnemonicType;
 } = {}) {
   const intl = useIntl();
   const [shouldBondReferralCode, setShouldBondReferralCode] = useState<
@@ -293,6 +296,10 @@ export function useWalletBoundReferralCode({
     walletId: string | undefined;
     skipIfTimeout?: boolean;
   }) => {
+    if (mnemonicType === EMnemonicType.TON) {
+      return false;
+    }
+
     const walletInfo = await getReferralCodeWalletInfo(walletId);
     if (!walletInfo) {
       return false;

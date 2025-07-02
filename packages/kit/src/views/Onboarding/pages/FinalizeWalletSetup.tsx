@@ -67,6 +67,7 @@ function FinalizeWalletSetupPage({
     bindWalletInviteCode,
   } = useWalletBoundReferralCode({
     entry: 'tab',
+    mnemonicType,
   });
 
   useEffect(() => {
