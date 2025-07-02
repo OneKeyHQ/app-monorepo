@@ -381,8 +381,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       await this.ensureCloudSyncIsAvailable();
     }
 
-    const { masterPasswordUUID: _masterPasswordUUID } =
-      await primeMasterPasswordPersistAtom.get();
     let pwdHash = '';
     let lockItem: IDBCloudSyncItem | undefined;
 
