@@ -332,19 +332,27 @@ function CumulativeRewardsLineItem({
 }
 
 function Dashboard({
-  totalRewards,
   enabledNetworks,
   hardwareSales,
   onChain,
   levelPercent,
   rebateLevels,
   rebateConfig,
-  nextRebateLevel,
-  cumulativeRewards,
+  cumulativeRewards = {
+    distributed: '0',
+    undistributed: '0',
+    nextDistribution: '0',
+    token: {
+      networkId: '',
+      address: '',
+      logoURI: '',
+      name: '',
+      symbol: '',
+    },
+  },
   fetchSummaryInfo,
   withdrawAddresses,
 }: {
-  totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
   onChain: IInviteSummary['Onchain'];
   hardwareSales: IInviteSummary['HardwareSales'];
@@ -353,7 +361,6 @@ function Dashboard({
   levelPercent: number;
   rebateLevels: IInviteSummary['rebateLevels'];
   rebateConfig: IInviteSummary['rebateConfig'];
-  nextRebateLevel: string;
   fetchSummaryInfo: () => void;
 }) {
   const navigation = useAppNavigation();
@@ -418,6 +425,13 @@ function Dashboard({
       }, BigNumber(0))
       .toFixed(2);
   }, [onChain.available]);
+
+  const { result: earnNetwork } = usePromiseResult(() => {
+    return backgroundApiProxy.serviceNetwork.getNetwork({
+      networkId: 'evm--42161',
+    });
+  }, []);
+
   const renderNextStage = useCallback(() => {
     if (hardwareSales.nextStage) {
       if (hardwareSales.nextStage.isEnd) {
@@ -741,10 +755,7 @@ function Dashboard({
           {showEarnSalesAvailableFiat ? (
             <YStack gap="$2" pt="$4">
               <XStack>
-                <Token
-                  size="xs"
-                  tokenImageUri="https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png"
-                />
+                <Token size="xs" tokenImageUri={earnNetwork?.logoURI} />
                 <XStack pl="$2" pr="$3" gap="$1">
                   <SizableText size="$bodyMd">≈</SizableText>
                   <NumberSizeableText
@@ -942,7 +953,6 @@ function InviteRewardContent({
     faqs,
     inviteUrl,
     inviteCode,
-    totalRewards,
     enabledNetworks,
     Onchain,
     HardwareSales,
@@ -950,7 +960,6 @@ function InviteRewardContent({
     levelPercent,
     rebateLevels,
     rebateConfig,
-    nextRebateLevel,
     withdrawAddresses,
   } = summaryInfo;
   return (
@@ -963,7 +972,6 @@ function InviteRewardContent({
         enabledNum={[0]}
       >
         <Dashboard
-          totalRewards={totalRewards}
           enabledNetworks={enabledNetworks}
           onChain={Onchain}
           hardwareSales={HardwareSales}
@@ -971,7 +979,6 @@ function InviteRewardContent({
           levelPercent={Number(levelPercent)}
           rebateLevels={rebateLevels}
           rebateConfig={rebateConfig}
-          nextRebateLevel={nextRebateLevel}
           fetchSummaryInfo={fetchSummaryInfo}
           withdrawAddresses={withdrawAddresses}
         />
