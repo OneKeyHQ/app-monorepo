@@ -21,6 +21,6 @@
 		<string>NotificationService</string>
 	</dict>
 	<key>RCTNewArchEnabled</key>
-	<false/>
+	<true/>
 </dict>
 </plist>

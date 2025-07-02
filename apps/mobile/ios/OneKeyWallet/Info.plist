@@ -82,7 +82,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
 	<key>RCTNewArchEnabled</key>
-	<false/>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
