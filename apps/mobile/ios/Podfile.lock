@@ -59,11 +59,6 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (6.1.4):
     - ExpoModulesCore
-  - EXBarCodeScanner (14.0.1):
-    - EXImageLoader
-    - ExpoModulesCore
-    - ZXingObjC/OneD
-    - ZXingObjC/PDF417
   - EXConstants (17.1.6):
     - ExpoModulesCore
   - EXImageLoader (5.1.0):
@@ -102,6 +97,10 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (14.1.5):
     - ExpoModulesCore
+  - ExpoCamera (16.1.10):
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
   - ExpoClipboard (7.1.4):
     - ExpoModulesCore
   - ExpoCrypto (14.1.5):
@@ -2752,13 +2751,13 @@ DEPENDENCIES:
   - CheckBiometricAuthChanged (from `../../../node_modules/react-native-check-biometric-auth-changed`)
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
-  - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo`)
   - ExpoAsset (from `../../../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
+  - ExpoCamera (from `../../../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoCrypto (from `../../../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
@@ -2924,8 +2923,6 @@ EXTERNAL SOURCES:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
     :path: "../../../node_modules/expo-application/ios"
-  EXBarCodeScanner:
-    :path: "../../../node_modules/expo-barcode-scanner/ios"
   EXConstants:
     :path: "../../../node_modules/expo-constants/ios"
   EXImageLoader:
@@ -2938,6 +2935,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-asset/ios"
   ExpoBlur:
     :path: "../../../node_modules/expo-blur/ios"
+  ExpoCamera:
+    :path: "../../../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../../../node_modules/expo-clipboard/ios"
   ExpoCrypto:
@@ -3201,13 +3200,13 @@ SPEC CHECKSUMS:
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
-  EXBarCodeScanner: 2370ec3ec10403e01894d07379148697b96fad34
   EXConstants: 9f310f44bfedba09087042756802040e464323c0
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
   EXNotifications: 1afe5275cf399920480fc5a9008676749a767d19
   Expo: a70d5b708d805073b66aebecd9768be7d364288a
   ExpoAsset: 5dede4a6226fe287c95e38c46c86ad39bc8ca630
   ExpoBlur: 3c8885b9bf9eef4309041ec87adec48b5f1986a9
+  ExpoCamera: 7edf99216d92e40b991d4e7ed69eba9527c94cda
   ExpoClipboard: c9771e7aa5f1316183e4a6f40a5755a0b98a6b8d
   ExpoCrypto: a9f1d75baeea6ef8b03c1660621585196c382e85
   ExpoDevice: 7082f03af1c588333ef1417d5aa8287081d94b24

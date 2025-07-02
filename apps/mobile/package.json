@@ -137,13 +137,11 @@
     "autolinking": {
       "android": {
         "exclude": [
-          "expo-camera",
           "@privy-io/expo-native-extensions"
         ]
       },
       "ios": {
         "exclude": [
-          "expo-camera",
           "@react-native-google-signin/google-signin"
         ]
       }
