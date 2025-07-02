@@ -434,6 +434,11 @@ function BasicInvestmentDetails() {
               </Heading>
             </XStack>
           )}
+          SectionSeparatorComponent={
+            <XStack h="$6" px="$5" ai="center">
+              <Divider />
+            </XStack>
+          }
           estimatedItemSize={60}
         />
       </Page.Body>
