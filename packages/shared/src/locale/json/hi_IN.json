@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "वॉलेट का नाम सीमा से अधिक है।",
   "wallet.enter_redemption_code": "रिडेम्पशन कोड दर्ज करें",
   "wallet.error_trade_with_watched_acocunt": "निगरानी वाले खाते के साथ व्यापार नहीं कर सकते।",
-  "wallet.exchange_rate": "विनिमय दर: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "विनिमय दर: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "यदि आपके पास पर्याप्त TRX नहीं है, तो आप ऊर्जा किराए पर लेने के लिए USDT का उपयोग कर सकते हैं। USDT भुगतान की लागत TRX से अधिक होती है। आप भविष्य में उपयोग के लिए अपने भुगतान का एक हिस्सा TRX के रूप में प्राप्त करने का विकल्प चुन सकते हैं।",
   "wallet.exchange_usdt_for_trx": "{price_usdt} USDT के बदले {price_trx} TRX एक्सचेंज करें",
   "wallet.generic_string_length_requirement": "खाता नाम की लंबाई सीमा से अधिक है।",
