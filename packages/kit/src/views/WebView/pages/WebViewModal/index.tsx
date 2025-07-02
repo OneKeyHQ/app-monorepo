@@ -111,11 +111,11 @@ export default function WebViewModal() {
         setNavigationTitle(webTitle);
       }
       // Update current URL when navigation occurs
-      if (newUrl && newUrl !== currentUrl) {
+      if (newUrl) {
         setCurrentUrl(newUrl);
       }
     },
-    [title, setNavigationTitle, currentUrl],
+    [title, setNavigationTitle],
   );
   const webembedCustomReceiveHandler = useCallback(
     (payload: IJsBridgeMessagePayload) => {
