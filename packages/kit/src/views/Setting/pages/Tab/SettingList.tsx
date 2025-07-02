@@ -58,6 +58,8 @@ export function SettingList() {
                       iconProps={config.tabBarIconStyle}
                       title={config.title}
                       px="$7"
+                      subText={config.subText}
+                      subTextProps={config.subTextProps}
                       titleProps={config.tabBarLabelStyle}
                       onPress={() => {
                         navigation.push(
