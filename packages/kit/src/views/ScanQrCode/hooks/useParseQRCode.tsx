@@ -47,16 +47,13 @@ export const parseOnChainAmount = async (
     data: IBaseValue;
   },
   token: IToken | null,
-) => {
+): Promise<string> => {
   const data = value.data as IChainValue;
   if (
     data.network &&
     data.network.id &&
     value.type === EQRCodeHandlerType.ETHEREUM
   ) {
-    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-      networkId: data.network.id,
-    });
     const chainValue = value.data as IEthereumValue;
     if (chainValue.value && token) {
       return chainValueUtils.convertTokenChainValueToAmount({
@@ -66,7 +63,7 @@ export const parseOnChainAmount = async (
     }
 
     if (chainValue.amount) {
-      return chainValue.amount;
+      return String(chainValue.amount);
     }
 
     if (token && chainValue.uint256) {
@@ -76,7 +73,7 @@ export const parseOnChainAmount = async (
       });
     }
   }
-  return data.amount;
+  return String(data.amount);
 };
 
 export const getAccountIdOnNetwork = async ({
@@ -263,7 +260,7 @@ const useParseQRCode = () => {
                   isNFT: false,
                   token: nativeToken,
                   address: chainValue.address,
-                  amount: chainValue?.amount,
+                  amount: await parseOnChainAmount(result, nativeToken),
                 },
               });
               break;
