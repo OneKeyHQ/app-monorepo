@@ -227,12 +227,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onMessage={onMessage || defaultOnMessage}
           useGeckoView={useGeckoView}
           {...nativeWebviewProps}
-          // style={{
-          //   flex: 1,
-          //   width: 500,
-          //   height: 100,
-          //   backgroundColor: 'red',
-          // }}
         />
       </Stack>
     );
