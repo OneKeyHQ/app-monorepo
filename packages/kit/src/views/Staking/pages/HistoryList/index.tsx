@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Empty,
   Icon,
+  IconButton,
   NumberSizeableText,
   Page,
   SectionList,
@@ -19,12 +20,14 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAssetDetailRoutes,
   type EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IStakeHistoriesResponse,
@@ -64,7 +67,16 @@ const HistoryItem = ({
     IModalStakingParamList,
     EModalStakingRoutes.HistoryList
   >();
-  const { accountId } = route.params;
+  const { accountId, filterType } = route.params;
+
+  const { result: accountAddress } = usePromiseResult(async () => {
+    return network?.networkId
+      ? backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          networkId: network.networkId,
+          accountId,
+        })
+      : '';
+  }, [network?.networkId, accountId]);
   const logoURI = useMemo(() => {
     if (token?.logoURI) {
       return token.logoURI;
@@ -97,13 +109,44 @@ const HistoryItem = ({
       isAllNetworks: false,
     });
   }, [accountId, item, navigation]);
+  const subtitle = useMemo(() => {
+    if (filterType === 'rebate') {
+      return (
+        <XStack gap="$1.5" ai="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {accountUtils.shortenAddress({
+              address: accountAddress,
+              leadingLength: 6,
+              trailingLength: 6,
+            })}
+          </SizableText>
+          <IconButton
+            icon="OpenOutline"
+            size="small"
+            variant="tertiary"
+            onPress={() => {
+              void openExplorerAddressUrl({
+                networkId: network?.networkId,
+                address: accountAddress,
+                openInExternal: true,
+              });
+            }}
+          />
+        </XStack>
+      );
+    }
+    if (provider) {
+      return capitalizeString(provider);
+    }
+    return undefined;
+  }, [accountAddress, filterType, network?.networkId, provider]);
   return (
     <ListItem
       avatarProps={{
         src: logoURI,
       }}
       title={item.title}
-      subtitle={provider ? capitalizeString(provider) : undefined}
+      subtitle={subtitle}
       onPress={onPress}
     >
       <YStack>

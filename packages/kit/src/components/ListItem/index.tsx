@@ -247,7 +247,7 @@ export type IListItemProps = PropsWithChildren<{
   title?: string;
   titleMatch?: IFuseResultMatch;
   titleProps?: IListItemTextProps['primaryTextProps'];
-  subtitle?: string;
+  subtitle?: string | ReactNode;
   subTitleMatch?: IFuseResultMatch;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: IListItemAvatarProps;
