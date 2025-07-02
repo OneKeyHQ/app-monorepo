@@ -91,8 +91,8 @@ function RebateDetailsPopoverContent({
   tooltip?: IEarnRebateDetailsTooltip;
 }) {
   return tooltip ? (
-    <YStack borderRadius="$3" overflow="hidden" mb={-20}>
-      <YStack>
+    <YStack borderRadius="$3" mb={-20} mx={-20} overflow="hidden">
+      <YStack px="$5">
         {tooltip?.data.tokens?.map(
           ({ info: token, fiatValue, amount }, index) => {
             return (
@@ -127,18 +127,20 @@ function RebateDetailsPopoverContent({
           },
         )}
       </YStack>
-      <Divider />
-      <XStack ai="center" gap="$2" py="$2.5" bg="$bgSubdued">
-        <Stack>
-          <Icon color="$iconSubdued" size="$5" name="InfoCircleOutline" />
-        </Stack>
-        <EarnText
-          flex={1}
-          size="$bodyMd"
-          color="$textSubdued"
-          text={tooltip.data.description}
-        />
-      </XStack>
+      <YStack bg="$bgSubdued">
+        <Divider />
+        <XStack ai="center" gap="$2" py="$2.5" px="$5">
+          <Stack>
+            <Icon color="$iconSubdued" size="$5" name="InfoCircleOutline" />
+          </Stack>
+          <EarnText
+            flex={1}
+            size="$bodyMd"
+            color="$textSubdued"
+            text={tooltip.data.description}
+          />
+        </XStack>
+      </YStack>
     </YStack>
   ) : null;
 }

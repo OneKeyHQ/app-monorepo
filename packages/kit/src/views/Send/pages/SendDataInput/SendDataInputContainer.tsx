@@ -63,11 +63,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-  EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -83,6 +85,7 @@ import {
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
@@ -546,13 +549,19 @@ function SendDataInputContainer() {
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
       console.log('onScanResult', result);
+      if (
+        result.type === EQRCodeHandlerType.UNKNOWN ||
+        !result?.data?.network
+      ) {
+        return;
+      }
       const tokenAddress = result?.data?.tokenAddress;
       const scanNetworkId =
         result?.data?.network?.id || currentAccount.networkId;
       const scanAccountId =
         (await getAccountIdOnNetwork({
           account,
-          network: result?.data?.network,
+          network: result.data.network,
         })) || currentAccount?.accountId;
 
       if (scanAccountId) {
@@ -577,34 +586,15 @@ function SendDataInputContainer() {
             setIsUseFiat(true);
             form.setValue('amount', amountFromScan);
           }
-
-          const formToAddress = form.getValues('to').raw;
           const formNetworkId = form.getValues('networkId');
-          if (formNetworkId !== scanNetworkId) {
-            navigation.pop();
-            await timerUtils.wait(150);
-            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-              screen: EModalSignatureConfirmRoutes.TxDataInput,
-              params: {
-                accountId: scanAccountId,
+          if (formNetworkId === scanNetworkId) {
+            if (currentAccount.accountId && scanNetworkId) {
+              setCurrentAccount({
+                accountId: currentAccount.accountId,
                 networkId: scanNetworkId,
-                activeAccountId: scanAccountId,
-                activeNetworkId: scanNetworkId,
-                isNFT: false,
-                token: scanToken,
-                address: formToAddress,
-                amount: amountFromScan,
-              },
-            });
-            return;
-          }
-
-          if (currentAccount.accountId && scanNetworkId) {
-            setCurrentAccount({
-              accountId: currentAccount.accountId,
-              networkId: scanNetworkId,
-            });
-            setTokenInfo(scanToken);
+              });
+              setTokenInfo(scanToken);
+            }
           }
         }
       }
@@ -615,7 +605,6 @@ function SendDataInputContainer() {
       currentAccount.accountId,
       currentAccount.networkId,
       form,
-      navigation,
       networkId,
       token,
     ],

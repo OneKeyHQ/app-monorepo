@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Image as RNImage } from 'react-native';
 
 import {
   Button,
@@ -20,6 +21,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const mevProtectionProviders = getNetworksSupportMevProtection();
+
+const DEFAULT_IMAGE_HEIGHT = 40;
 
 function TxConfirmHeaderRight(props: {
   decodedTxs: IDecodedTx[] | undefined;
@@ -69,7 +72,38 @@ function TxConfirmHeaderRight(props: {
     }
   }, [unsignedTxs, decodedTx?.txDisplay?.mevProtectionProvider]);
 
-  if (!mevProtectionProvider) return null;
+  const imageUri = useMemo(() => {
+    if (!mevProtectionProvider) {
+      return '';
+    }
+    return theme === 'dark'
+      ? mevProtectionProvider?.logoURIDark || mevProtectionProvider?.logoURI
+      : mevProtectionProvider?.logoURI;
+  }, [mevProtectionProvider, theme]);
+
+  const [providerImageSize, setProviderImageSize] = useState<
+    | {
+        width: number;
+        height: number;
+      }
+    | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (imageUri) {
+      void RNImage.getSize(imageUri, (width: number, height: number) => {
+        setProviderImageSize({ width, height });
+      });
+    }
+  }, [imageUri]);
+
+  if (!mevProtectionProvider) {
+    return null;
+  }
+
+  const ratio = providerImageSize
+    ? DEFAULT_IMAGE_HEIGHT / providerImageSize.height
+    : 1;
 
   return (
     <HeaderButtonGroup>
@@ -100,21 +134,24 @@ function TxConfirmHeaderRight(props: {
                 <SizableText size={gtMd ? '$bodyMd' : '$bodyLg'}>
                   {intl.formatMessage({ id: ETranslations.global_power_by })}
                 </SizableText>
-                <Image width={160} height={40}>
-                  <Image.Source
-                    resizeMode="contain"
-                    source={{
-                      uri:
-                        theme === 'dark'
-                          ? mevProtectionProvider.logoURIDark ||
-                            mevProtectionProvider.logoURI
-                          : mevProtectionProvider.logoURI,
-                    }}
-                  />
-                  <Image.Loading>
-                    <Skeleton width="100%" height="100%" />
-                  </Image.Loading>
-                </Image>
+                {providerImageSize ? (
+                  <Image
+                    width={providerImageSize.width * ratio}
+                    height={DEFAULT_IMAGE_HEIGHT}
+                  >
+                    <Image.Source
+                      resizeMode="contain"
+                      source={{
+                        uri: imageUri,
+                      }}
+                    />
+                    <Image.Loading>
+                      <Skeleton width="100%" height="100%" />
+                    </Image.Loading>
+                  </Image>
+                ) : (
+                  <Skeleton height={DEFAULT_IMAGE_HEIGHT} width="100%" />
+                )}
               </YStack>
               <SizableText
                 size="$bodyMd"

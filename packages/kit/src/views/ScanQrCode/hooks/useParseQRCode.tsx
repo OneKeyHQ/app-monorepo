@@ -207,6 +207,7 @@ const useParseQRCode = () => {
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
         case EQRCodeHandlerType.SUI:
+        case EQRCodeHandlerType.LIGHTNING_NETWORK:
           {
             const account = options?.account;
             if (!account) {
@@ -248,7 +249,10 @@ const useParseQRCode = () => {
 
               await closeScanPage();
               const newNetworkId =
-                nativeToken?.networkId || params.network?.id || '';
+                nativeToken?.networkId ||
+                network.id ||
+                params.network?.id ||
+                '';
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxDataInput,
                 params: {

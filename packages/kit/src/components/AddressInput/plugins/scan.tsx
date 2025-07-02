@@ -40,6 +40,7 @@ export function ScanPlugin({
         EQRCodeHandlerNames.solana,
         EQRCodeHandlerNames.walletconnect,
         EQRCodeHandlerNames.sui,
+        EQRCodeHandlerNames.lightningNetwork,
       ],
       autoHandleResult: false,
     })) as IQRCodeHandlerParseResult<IChainValue>;
