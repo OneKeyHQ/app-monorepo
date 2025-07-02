@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Badge, YStack } from '@onekeyhq/components';
+import { Badge, SizableText, YStack } from '@onekeyhq/components';
 import type {
   IBadgeProps,
   IIconProps,
@@ -33,10 +33,18 @@ export function TabSettingsSection(props: IStackProps & IStackStyle) {
   );
 }
 
-export function TabSettingsListItem(
-  props: IListItemProps & IStackStyle & IStackProps,
-) {
-  return <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props} />;
+export function TabSettingsListItem({
+  subText,
+  subTextProps,
+  ...props
+}: IListItemProps &
+  IStackStyle &
+  IStackProps & { subText?: string; subTextProps?: ISizableTextProps }) {
+  return (
+    <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props}>
+      {subText ? <SizableText {...subTextProps}>{subText}</SizableText> : null}
+    </BaseListItem>
+  );
 }
 
 export function TabSettingsListGrid({
@@ -89,6 +97,9 @@ export function TabSettingsListGrid({
       title={item?.title}
       drillIn
     >
+      {item?.subText ? (
+        <SizableText {...item.subTextProps}>{item.subText}</SizableText>
+      ) : null}
       {item?.badgeProps ? (
         <Badge
           badgeSize={item.badgeProps.badgeSize as IBadgeProps['badgeSize']}

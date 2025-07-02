@@ -66,6 +66,8 @@ import { SubSearchSettings } from './SubSettings';
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
+  subText?: string;
+  subTextProps?: ISizableTextProps;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -91,9 +93,12 @@ export type ISettingsConfig = (
       title: string;
       name: ESettingsTabNames;
       isHidden?: boolean;
+      showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
       tabBarIconStyle?: IIconProps;
       tabBarLabelStyle?: ISizableTextProps;
+      subText?: string;
+      subTextProps?: ISizableTextProps;
       Component?: ComponentType<{
         name: string;
         settingsConfig: ISettingsConfig;
@@ -117,7 +122,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const biometricAuthInfo = useBiometricAuthInfo();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-  const requestUrl = useHelpLink({ path: 'requests/new' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -512,6 +516,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),
+        showDot: !!appUpdateInfo.isNeedUpdate,
+        subText: appUpdateInfo.isNeedUpdate
+          ? intl.formatMessage({
+              id: ETranslations.settings_app_update_available,
+            })
+          : undefined,
+        subTextProps: {
+          size: '$bodyLgMedium',
+          color: '$textInfo',
+        },
         configs: [
           [
             {

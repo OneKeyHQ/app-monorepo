@@ -51,6 +51,7 @@ function TabItemView({
     tabBarIconStyle?: IIconProps;
     tabBarLabelStyle?: ISizableTextProps;
     isHidden?: boolean;
+    showDot?: boolean;
   };
 }) {
   useMemo(() => {
@@ -74,6 +75,7 @@ function TabItemView({
           tabBarItemStyle={options.tabBarItemStyle}
           tabBarIconStyle={options.tabBarIconStyle}
           tabBarLabelStyle={options.tabBarLabelStyle}
+          showDot={options.showDot}
           // @ts-expect-error
           icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
           label={options.tabBarLabel as string}
