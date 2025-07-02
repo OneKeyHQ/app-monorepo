@@ -31,7 +31,7 @@ import type {
   IDesktopSystemInfo,
 } from './config';
 import type { IMacBundleInfo } from './libs/utils';
-// import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
+import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
@@ -334,8 +334,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
   },
   // Desktop Bluetooth
-  // TODO: Re-enable after implementing ipcMain.handle for BLE messages
-  /*
   nobleBle: {
     enumerate: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE),
@@ -387,7 +385,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
       };
     },
   },
-  */
 });
 
 globalThis.desktopApi = desktopApi;
