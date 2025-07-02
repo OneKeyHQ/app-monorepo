@@ -43,6 +43,7 @@ import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import { isEmpty, isNil } from 'lodash';
 
+import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IDecodedTxExtraSol,
@@ -55,6 +56,7 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
@@ -1452,5 +1454,21 @@ export default class Vault extends VaultBase {
 
   override async buildOkxSwapEncodedTx(params: IBuildOkxSwapEncodedTxParams) {
     return Promise.resolve(params.okxTx.data);
+  }
+
+  override async checkShouldRetryBroadcastTx(params: {
+    retryCount: number;
+    error: OneKeyError;
+  }): Promise<boolean> {
+    const { retryCount, error } = params;
+
+    if (error?.code === BLOCK_HASH_NOT_FOUND_ERROR_CODE) {
+      if (retryCount > 5) {
+        return false;
+      }
+      await timerUtils.wait(3000);
+      return true;
+    }
+    return false;
   }
 }

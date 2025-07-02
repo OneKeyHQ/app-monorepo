@@ -19,7 +19,11 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -1478,5 +1482,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAddressEncoding(): Promise<EAddressEncodings | undefined> {
     return undefined;
+  }
+
+  async checkShouldRetryBroadcastTx(params: {
+    retryCount: number;
+    error: OneKeyError;
+  }): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }
