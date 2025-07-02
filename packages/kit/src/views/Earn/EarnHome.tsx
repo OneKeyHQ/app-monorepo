@@ -928,7 +928,8 @@ function BasicEarnHome() {
                 {/* FAQ Panel */}
                 {banners ? gtLgFaqPanel : null}
               </YStack>
-              {media.gtLg || (faqList.length === 0 && !isFaqLoading) ? null : (
+              {banners &&
+              (media.gtLg || (faqList.length === 0 && !isFaqLoading)) ? null : (
                 <YStack mt="$1" px="$4" py="$4">
                   {faqPanel}
                 </YStack>
@@ -936,11 +937,6 @@ function BasicEarnHome() {
             </YStack>
             {media.gtLg && !banners ? (
               <YStack mr="$5">{gtLgFaqPanel}</YStack>
-            ) : null}
-            {!media.gtLg && banners ? (
-              <YStack mt="$1" px="$4" py="$4">
-                {faqPanel}
-              </YStack>
             ) : null}
           </YStack>
         </ScrollView>
