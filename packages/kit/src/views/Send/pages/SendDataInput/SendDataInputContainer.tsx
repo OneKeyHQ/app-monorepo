@@ -548,7 +548,6 @@ function SendDataInputContainer() {
 
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
-      console.log('onScanResult', result);
       if (
         result.type === EQRCodeHandlerType.UNKNOWN ||
         !result?.data?.network
@@ -1561,7 +1560,11 @@ function SendDataInputContainer() {
                         <SizableText
                           size="$bodyMd"
                           color="$textSubdued"
-                          style={{ wordBreak: 'break-all' }}
+                          style={
+                            platformEnv.isNative
+                              ? undefined
+                              : { wordBreak: 'break-all' }
+                          }
                         >
                           {!isNil(nft?.itemId)
                             ? `${intl.formatMessage({
