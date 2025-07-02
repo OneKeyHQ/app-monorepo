@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-import { initElectronBleBridge } from '@onekeyfe/hd-transport-electron';
+import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
   attachTitlebarToWindow,
   setupTitlebar,
@@ -778,7 +778,7 @@ function createMainWindow() {
     }
   });
 
-  initElectronBleBridge(browserWindow.webContents);
+  void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;
 }
