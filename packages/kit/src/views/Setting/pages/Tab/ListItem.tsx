@@ -40,7 +40,6 @@ export function TabSettingsListItem({
 }: IListItemProps &
   IStackStyle &
   IStackProps & { subText?: string; subTextProps?: ISizableTextProps }) {
-  console.log('subText', props.title, subText);
   return (
     <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props}>
       {subText ? <SizableText {...subTextProps}>{subText}</SizableText> : null}
