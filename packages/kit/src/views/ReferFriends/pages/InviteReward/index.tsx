@@ -52,6 +52,9 @@ function PopoverLine({ children }: PropsWithChildren) {
   );
 }
 
+const DEFAULT_EARN_IMAGE_URL =
+  'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png';
+
 function NoRewardYet() {
   const intl = useIntl();
   return (
@@ -426,11 +429,13 @@ function Dashboard({
       .toFixed(2);
   }, [onChain.available]);
 
-  const { result: earnNetwork } = usePromiseResult(() => {
-    return backgroundApiProxy.serviceNetwork.getNetwork({
+  const { result: earnToken } = usePromiseResult(async () => {
+    return backgroundApiProxy.serviceToken.getToken({
       networkId: 'evm--42161',
+      tokenIdOnNetwork: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      accountId: activeAccount.account?.id ?? '',
     });
-  }, []);
+  }, [activeAccount.account?.id]);
 
   const renderNextStage = useCallback(() => {
     if (hardwareSales.nextStage) {
@@ -755,7 +760,10 @@ function Dashboard({
           {showEarnSalesAvailableFiat ? (
             <YStack gap="$2" pt="$4">
               <XStack>
-                <Token size="xs" tokenImageUri={earnNetwork?.logoURI} />
+                <Token
+                  size="xs"
+                  tokenImageUri={earnToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
+                />
                 <XStack pl="$2" pr="$3" gap="$1">
                   <SizableText size="$bodyMd">≈</SizableText>
                   <NumberSizeableText
