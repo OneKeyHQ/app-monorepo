@@ -271,6 +271,7 @@ function BasicInvestmentDetails() {
         overflow,
         providerName,
         rewardNum,
+        rewards,
         vault,
       },
     }: {
@@ -326,7 +327,9 @@ function BasicInvestmentDetails() {
               </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
-              {isTrue(claimable) || hasPositiveReward({ rewardNum }) ? (
+              {isTrue(claimable) ||
+              hasPositiveReward({ rewardNum }) ||
+              hasPositiveReward({ rewards }) ? (
                 <Badge
                   badgeType="info"
                   badgeSize="sm"
