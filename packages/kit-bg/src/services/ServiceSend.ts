@@ -346,33 +346,26 @@ class ServiceSend extends ServiceBase {
         accountId,
       });
 
-      let retryCount = 1;
-      let shouldRetryBroadcast = false;
-      let txid: string | undefined;
-      do {
-        try {
-          const resp = await vault.broadcastTransaction({
-            accountId,
-            networkId,
-            accountAddress,
-            signedTx,
-            rawTxType,
-            tronResourceRentalInfo,
-          });
-          txid = resp.txid;
-          shouldRetryBroadcast = false;
-        } catch (error) {
-          shouldRetryBroadcast = await vault.checkShouldRetryBroadcastTx({
-            retryCount,
-            error: error as OneKeyError,
-          });
-          retryCount += 1;
-          if (!shouldRetryBroadcast) {
-            throw error;
-          }
-        }
-      } while (shouldRetryBroadcast);
+      const broadcastTx = async () => {
+        return vault.broadcastTransaction({
+          accountId,
+          networkId,
+          accountAddress,
+          signedTx,
+          rawTxType,
+          tronResourceRentalInfo,
+        });
+      };
 
+      const { txid } = await pRetry(broadcastTx, {
+        retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
+        minTimeout:
+          vaultSettings.minRetryBroadcastTxInterval ??
+          timerUtils.getTimeDurationMs({ seconds: 3 }),
+        shouldRetry: async (error) => {
+          return vault.checkShouldRetryBroadcastTx(error);
+        },
+      });
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
           return signedTx;

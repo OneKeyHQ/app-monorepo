@@ -131,6 +131,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { FailedAttemptError } from 'p-retry';
 import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
@@ -1484,10 +1485,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return undefined;
   }
 
-  async checkShouldRetryBroadcastTx(params: {
-    retryCount: number;
-    error: OneKeyError;
-  }): Promise<boolean> {
+  async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
     return Promise.resolve(false);
   }
 }

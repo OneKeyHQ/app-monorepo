@@ -136,6 +136,7 @@ import type {
   TransferInstructionArgs,
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
+import type { FailedAttemptError } from 'p-retry';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
@@ -1456,17 +1457,14 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.okxTx.data);
   }
 
-  override async checkShouldRetryBroadcastTx(params: {
-    retryCount: number;
-    error: OneKeyError;
-  }): Promise<boolean> {
-    const { retryCount, error } = params;
-
-    if (error?.code === BLOCK_HASH_NOT_FOUND_ERROR_CODE) {
-      if (retryCount > 5) {
-        return false;
-      }
-      await timerUtils.wait(retryCount * 1000);
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code ===
+      BLOCK_HASH_NOT_FOUND_ERROR_CODE
+    ) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
       return true;
     }
     return false;
