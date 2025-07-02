@@ -29,6 +29,7 @@ import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+import BigNumber from 'bignumber.js';
 
 const TRON_RESOURCE_RENTAL_DOC_URL = 'https://help.onekey.so/articles/11461320';
 
@@ -199,7 +200,12 @@ function ResourceRental() {
                                   id: ETranslations.wallet_exchange_rate,
                                 },
                                 {
-                                  price_usdt: payTokenInfo?.trxRatio,
+                                  price_usdt: new BigNumber(
+                                    payTokenInfo?.exchangeFee ?? 0,
+                                  )
+                                    .plus(1)
+                                    .times(payTokenInfo?.trxRatio ?? 0)
+                                    .toFixed(),
                                   price_trx: '1',
                                 },
                               )}

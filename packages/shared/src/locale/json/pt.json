@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "O comprimento do nome da carteira excede o limite.",
   "wallet.enter_redemption_code": "Inserir código de resgate",
   "wallet.error_trade_with_watched_acocunt": "Não é possível negociar com uma conta monitorada.",
-  "wallet.exchange_rate": "Taxa de câmbio: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Taxa de câmbio: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "Se você não tiver TRX suficiente, pode optar por usar USDT para alugar energia. Pagamentos em USDT custam mais do que em TRX. Você pode optar por receber parte do seu pagamento em TRX para uso futuro.",
   "wallet.exchange_usdt_for_trx": "Trocar {price_usdt} USDT por {price_trx} TRX",
   "wallet.generic_string_length_requirement": "O comprimento do nome da conta excede o limite.",

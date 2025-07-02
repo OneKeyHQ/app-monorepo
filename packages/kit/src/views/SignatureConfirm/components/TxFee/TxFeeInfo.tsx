@@ -310,6 +310,7 @@ function TxFeeInfo(props: IProps) {
                 symbol: info?.payCoinCode ?? '',
                 price: tokenPrices[tokenAddress] ?? '0',
                 trxRatio: info?.ratio ?? '0',
+                exchangeFee: info?.exchangeFee ?? 0,
                 payTxFeeAmount: new BigNumber(info?.payCoinAmt ?? 0)
                   .minus(info?.purchaseTRXFee ?? 0)
                   .toFixed(),
