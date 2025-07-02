@@ -7932,7 +7932,7 @@ __metadata:
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:7.2.2"
     path-browserify: "npm:^1.0.1"
-    react: "npm:18.2.0"
+    react: "npm:19.1.0"
     react-native: "npm:0.80.0"
     react-native-aes-crypto: "npm:3.2.1"
     react-native-ble-plx: "npm:3.5.0"
@@ -7967,7 +7967,6 @@ __metadata:
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
-    react-native-zip-archive: "npm:7.0.1"
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.14.2"
     realm-flipper-plugin-device: "npm:^1.1.0"
@@ -36085,16 +36084,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-zip-archive@npm:7.0.1":
-  version: 7.0.1
-  resolution: "react-native-zip-archive@npm:7.0.1"
-  peerDependencies:
-    react: ">=16.8.6"
-    react-native: ">=0.60.0"
-  checksum: 10/833c4f67d4916a921e78efebf159ed6007b5f57bb22d2da31cdfc9a6398922f6213ea519c3b79c4bc48ad7e306ae783b955e7e64cf932f36fd83e6e969506904
-  languageName: node
-  linkType: hard
-
 "react-native@npm:*":
   version: 0.74.1
   resolution: "react-native@npm:0.74.1"
@@ -36388,6 +36377,13 @@ __metadata:
   dependencies:
     loose-envify: "npm:^1.1.0"
   checksum: 10/b9214a9bd79e99d08de55f8bef2b7fc8c39630be97c4e29d7be173d14a9a10670b5325e94485f74cd8bff4966ef3c78ee53c79a7b0b9b70cba20aa8973acc694
+  languageName: node
+  linkType: hard
+
+"react@npm:19.1.0":
+  version: 19.1.0
+  resolution: "react@npm:19.1.0"
+  checksum: 10/d0180689826fd9de87e839c365f6f361c561daea397d61d724687cae88f432a307d1c0f53a0ee95ddbe3352c10dac41d7ff1ad85530fb24951b27a39e5398db4
   languageName: node
   linkType: hard
 
