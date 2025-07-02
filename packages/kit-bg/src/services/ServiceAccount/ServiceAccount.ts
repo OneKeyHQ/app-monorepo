@@ -1125,14 +1125,13 @@ class ServiceAccount extends ServiceBase {
           networkId,
           account,
         });
-      const { prepareParams, deviceParams: _deviceParams } =
-        await this.getPrepareHDOrHWAccountsParams({
-          walletId,
-          networkId,
-          indexedAccountId,
-          deriveType,
-          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
-        });
+      const { prepareParams } = await this.getPrepareHDOrHWAccountsParams({
+        walletId,
+        networkId,
+        indexedAccountId,
+        deriveType,
+        confirmOnDevice: EConfirmOnDeviceType.EveryItem,
+      });
 
       // const accounts = await vault.keyring.prepareAccounts(prepareParams);
       const { accountsForCreate } =
