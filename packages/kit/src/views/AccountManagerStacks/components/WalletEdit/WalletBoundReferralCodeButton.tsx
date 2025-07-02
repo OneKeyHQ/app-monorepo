@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, SizableText } from '@onekeyhq/components';
+import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -28,6 +28,7 @@ function WalletBoundReferralCodeButtonView({
   const {
     result: displayReferralCodeButton,
     run: refreshDisplayReferralCodeButton,
+    isLoading: isLoadingReferralCodeButton,
   } = usePromiseResult(
     async () => {
       const referralCodeInfo =
@@ -39,6 +40,7 @@ function WalletBoundReferralCodeButtonView({
     [wallet?.id],
     {
       initResult: undefined,
+      watchLoading: true,
     },
   );
 
@@ -74,7 +76,7 @@ function WalletBoundReferralCodeButtonView({
     refreshDisplayReferralCodeButton,
   ]);
 
-  if (displayReferralCodeButton === undefined) {
+  if (isLoadingReferralCodeButton) {
     return <ActionList.SkeletonItem />;
   }
 
