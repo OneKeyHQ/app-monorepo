@@ -110,11 +110,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     );
 
     const nativeInjectedJsCode = useMemo(() => {
-      let code = '';
+      let code: string = useInjectedNativeCode ? injectedNativeCode : '';
 
-      if (useInjectedNativeCode) {
-        code += injectedNativeCode;
-      }
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
