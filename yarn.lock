@@ -7562,7 +7562,7 @@ __metadata:
     date-fns: "npm:^2.29.3"
     dequal: "npm:^2.0.3"
     eth-chains: "npm:^1.0.0"
-    expo-camera: "npm:14.1.3"
+    expo-camera: "npm:16.1.10"
     folderslint: "npm:^1.2.0"
     fuse.js: "npm:^7.0.0"
     lightweight-charts: "npm:^3.8.0"
@@ -7613,7 +7613,6 @@ __metadata:
     burnt: "npm:0.12.2"
     expo: "npm:53.0.16"
     expo-application: "npm:6.1.4"
-    expo-barcode-scanner: "npm:12.9.3"
     expo-blur: "npm:14.1.5"
     expo-clipboard: "npm:7.1.4"
     expo-constants: "npm:17.1.6"
@@ -24378,17 +24377,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-barcode-scanner@npm:12.9.3":
-  version: 12.9.3
-  resolution: "expo-barcode-scanner@npm:12.9.3"
-  dependencies:
-    expo-image-loader: "npm:~4.6.0"
-  peerDependencies:
-    expo: "*"
-  checksum: 10/7fce148925ddaad05b310967341af115cdd104b05327993943a721886a113b6eb58c2db7d1577f78e13e6d5d29a14a2f378841fd54e7f31bf601978c6c05be3f
-  languageName: node
-  linkType: hard
-
 "expo-blur@npm:14.1.5":
   version: 14.1.5
   resolution: "expo-blur@npm:14.1.5"
@@ -24400,14 +24388,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-camera@npm:14.1.3":
-  version: 14.1.3
-  resolution: "expo-camera@npm:14.1.3"
+"expo-camera@npm:16.1.10":
+  version: 16.1.10
+  resolution: "expo-camera@npm:16.1.10"
   dependencies:
     invariant: "npm:^2.2.4"
   peerDependencies:
     expo: "*"
-  checksum: 10/ed972d598c15cbe7f9fd288cc70925dd02b66842fd2d5d0b28e4d166b3000fe73812d63cfdb13862ccd5a7b273c0946c1ef51cc55dc09dcd2341ce321e02a4d3
+    react: "*"
+    react-native: "*"
+    react-native-web: "*"
+  peerDependenciesMeta:
+    react-native-web:
+      optional: true
+  checksum: 10/40cabe31c6567fe4e97aa9420a7958a0103bb35a9563c70a27052a1674aba3c2e21ec9605df7d77e6fe9af49adafe0d09a71b2513c8ae8e1e4a347ab21cbacbb
   languageName: node
   linkType: hard
 
@@ -24506,15 +24500,6 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/7c99e534dff619090f39f753e460471e4a84cc868ea21269e3c060f348e216c3ad1f0762512a048885d88380e4c4b763a77ac9d4688a85d31b0ee61834613968
-  languageName: node
-  linkType: hard
-
-"expo-image-loader@npm:~4.6.0":
-  version: 4.6.0
-  resolution: "expo-image-loader@npm:4.6.0"
-  peerDependencies:
-    expo: "*"
-  checksum: 10/02981667f03dc429cd9db37e0acc302e4a0c4bb5875dc087b1c26388ef64563481e52dddc1d42dd32794eb7051d1acf5bc0c078413469c29025a02d4d4af1154
   languageName: node
   linkType: hard
 

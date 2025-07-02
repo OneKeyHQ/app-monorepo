@@ -58,7 +58,6 @@
     "burnt": "0.12.2",
     "expo": "53.0.16",
     "expo-application": "6.1.4",
-    "expo-barcode-scanner": "12.9.3",
     "expo-blur": "14.1.5",
     "expo-clipboard": "7.1.4",
     "expo-constants": "17.1.6",
