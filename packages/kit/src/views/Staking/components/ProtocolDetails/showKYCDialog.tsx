@@ -100,7 +100,6 @@ function KYCDialogContent({
                 <XStack alignItems="center" gap="$1">
                   <SizableText
                     textAlign="left"
-                    flex={1}
                     size="$bodyMd"
                     color={expandedItems[index] ? '$text' : '$textSubdued'}
                   >
@@ -136,6 +135,9 @@ function KYCDialogContent({
         {data.checkboxes.map((checkbox, index) => (
           <XStack key={index} alignItems="flex-start" gap="$2">
             <Checkbox
+              labelContainerProps={{
+                flex: 1,
+              }}
               label={checkbox.text}
               value={checkboxStates[index]}
               onChange={handleCheckboxChange(index)}

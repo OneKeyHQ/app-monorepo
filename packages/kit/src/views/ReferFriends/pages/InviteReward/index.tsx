@@ -52,6 +52,9 @@ function PopoverLine({ children }: PropsWithChildren) {
   );
 }
 
+const DEFAULT_EARN_IMAGE_URL =
+  'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png';
+
 function NoRewardYet() {
   const intl = useIntl();
   return (
@@ -332,19 +335,27 @@ function CumulativeRewardsLineItem({
 }
 
 function Dashboard({
-  totalRewards,
   enabledNetworks,
   hardwareSales,
   onChain,
   levelPercent,
   rebateLevels,
   rebateConfig,
-  nextRebateLevel,
-  cumulativeRewards,
+  cumulativeRewards = {
+    distributed: '0',
+    undistributed: '0',
+    nextDistribution: '0',
+    token: {
+      networkId: '',
+      address: '',
+      logoURI: '',
+      name: '',
+      symbol: '',
+    },
+  },
   fetchSummaryInfo,
   withdrawAddresses,
 }: {
-  totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
   onChain: IInviteSummary['Onchain'];
   hardwareSales: IInviteSummary['HardwareSales'];
@@ -353,7 +364,6 @@ function Dashboard({
   levelPercent: number;
   rebateLevels: IInviteSummary['rebateLevels'];
   rebateConfig: IInviteSummary['rebateConfig'];
-  nextRebateLevel: string;
   fetchSummaryInfo: () => void;
 }) {
   const navigation = useAppNavigation();
@@ -418,6 +428,15 @@ function Dashboard({
       }, BigNumber(0))
       .toFixed(2);
   }, [onChain.available]);
+
+  const { result: earnToken } = usePromiseResult(async () => {
+    return backgroundApiProxy.serviceToken.getToken({
+      networkId: 'evm--42161',
+      tokenIdOnNetwork: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      accountId: activeAccount.account?.id ?? '',
+    });
+  }, [activeAccount.account?.id]);
+
   const renderNextStage = useCallback(() => {
     if (hardwareSales.nextStage) {
       if (hardwareSales.nextStage.isEnd) {
@@ -743,7 +762,7 @@ function Dashboard({
               <XStack>
                 <Token
                   size="xs"
-                  tokenImageUri="https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png"
+                  tokenImageUri={earnToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
                 />
                 <XStack pl="$2" pr="$3" gap="$1">
                   <SizableText size="$bodyMd">≈</SizableText>
@@ -942,7 +961,6 @@ function InviteRewardContent({
     faqs,
     inviteUrl,
     inviteCode,
-    totalRewards,
     enabledNetworks,
     Onchain,
     HardwareSales,
@@ -950,7 +968,6 @@ function InviteRewardContent({
     levelPercent,
     rebateLevels,
     rebateConfig,
-    nextRebateLevel,
     withdrawAddresses,
   } = summaryInfo;
   return (
@@ -963,7 +980,6 @@ function InviteRewardContent({
         enabledNum={[0]}
       >
         <Dashboard
-          totalRewards={totalRewards}
           enabledNetworks={enabledNetworks}
           onChain={Onchain}
           hardwareSales={HardwareSales}
@@ -971,7 +987,6 @@ function InviteRewardContent({
           levelPercent={Number(levelPercent)}
           rebateLevels={rebateLevels}
           rebateConfig={rebateConfig}
-          nextRebateLevel={nextRebateLevel}
           fetchSummaryInfo={fetchSummaryInfo}
           withdrawAddresses={withdrawAddresses}
         />

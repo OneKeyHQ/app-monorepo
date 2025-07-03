@@ -66,12 +66,18 @@ function EarnOverview({
   return (
     <YStack px="$5">
       <EarnAlert alerts={earnSummary.alerts} />
-      <XStack ai="center" gap="$1.5" h={44}>
-        <EarnIcon size="$5" icon={earnSummary.icon} />
-        <EarnText
-          text={earnSummary.title}
-          size="$bodyMdMedium"
-          color="$textSubdued"
+      <XStack ai="center" jc="space-between" h={44}>
+        <XStack ai="center" gap="$1.5">
+          <EarnIcon size="$5" icon={earnSummary.icon} />
+          <EarnText
+            text={earnSummary.title}
+            size="$bodyMdMedium"
+            color="$textSubdued"
+          />
+        </XStack>
+        <EarnActionIcon
+          actionIcon={earnSummary.items[0].button}
+          onHistory={onHistory}
         />
       </XStack>
       <YStack>
@@ -90,7 +96,6 @@ function EarnOverview({
               />
               <EarnTooltip tooltip={item.tooltip} />
             </XStack>
-            <EarnActionIcon actionIcon={item.button} onHistory={onHistory} />
           </XStack>
         ))}
       </YStack>
@@ -115,7 +120,8 @@ function ListSkeletonItem() {
   );
 }
 
-const isTrue = (value: number | string) => Number(value) > 0;
+const isTrue = (value: number | string | undefined) =>
+  value && Number(value) > 0;
 const hasPositiveReward = ({
   rewardNum,
 }: {
@@ -271,6 +277,7 @@ function BasicInvestmentDetails() {
         overflow,
         providerName,
         rewardNum,
+        rewards,
         vault,
       },
     }: {
@@ -326,7 +333,9 @@ function BasicInvestmentDetails() {
               </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
-              {isTrue(claimable) || hasPositiveReward({ rewardNum }) ? (
+              {isTrue(claimable) ||
+              hasPositiveReward({ rewardNum }) ||
+              isTrue(rewards) ? (
                 <Badge
                   badgeType="info"
                   badgeSize="sm"
@@ -425,6 +434,11 @@ function BasicInvestmentDetails() {
               </Heading>
             </XStack>
           )}
+          SectionSeparatorComponent={
+            <XStack h="$6" px="$5" ai="center">
+              <Divider />
+            </XStack>
+          }
           estimatedItemSize={60}
         />
       </Page.Body>

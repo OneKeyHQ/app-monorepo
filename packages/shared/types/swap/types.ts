@@ -700,8 +700,16 @@ export enum ESwapTxHistoryStatus {
   PARTIALLY_FILLED = 'partiallyFilled',
 }
 
+export enum ESwapExtraStatus {
+  WAITING = 'WAITING',
+  CONFIRMING = 'CONFIRMING',
+  HOLD = 'HOLD',
+  REFUNDED = 'REFUNDED',
+  EXPIRED = 'EXPIRED',
+}
 export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
@@ -724,6 +732,7 @@ export interface ISwapCheckSupportResponse {
 
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;

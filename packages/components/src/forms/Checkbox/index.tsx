@@ -27,6 +27,7 @@ export type ICheckboxProps = IFormFieldProps<
     description?: string;
     labelProps?: ILabelProps;
     containerProps?: StackProps;
+    labelContainerProps?: StackProps;
   }
 > & {
   isUncontrolled?: boolean;
@@ -39,6 +40,7 @@ function RawCheckbox({
   onChange,
   value,
   containerProps,
+  labelContainerProps,
   defaultChecked,
   isUncontrolled,
   ...checkboxProps
@@ -97,6 +99,7 @@ function RawCheckbox({
           py="$2"
           my="$-2"
           flex={platformEnv.isNative ? undefined : 1}
+          {...labelContainerProps}
         >
           {label ? (
             <Label

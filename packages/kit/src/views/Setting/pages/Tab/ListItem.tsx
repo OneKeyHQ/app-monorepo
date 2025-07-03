@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Badge, YStack } from '@onekeyhq/components';
+import { Badge, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type {
   IBadgeProps,
   IIconProps,
@@ -33,10 +33,17 @@ export function TabSettingsSection(props: IStackProps & IStackStyle) {
   );
 }
 
-export function TabSettingsListItem(
-  props: IListItemProps & IStackStyle & IStackProps,
-) {
-  return <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props} />;
+export function TabSettingsListItem({
+  showDot,
+  ...props
+}: IListItemProps & IStackStyle & IStackProps & { showDot?: boolean }) {
+  return (
+    <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props}>
+      {showDot ? (
+        <Stack width="$2" height="$2" bg="$iconInfo" borderRadius="$full" />
+      ) : null}
+    </BaseListItem>
+  );
 }
 
 export function TabSettingsListGrid({

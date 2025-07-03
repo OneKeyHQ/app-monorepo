@@ -7,6 +7,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -102,6 +103,8 @@ const settings: IVaultSettings = {
     },
   },
   stakingResultPollingInterval: 5,
+  maxRetryBroadcastTxCount: 5,
+  minRetryBroadcastTxInterval: timerUtils.getTimeDurationMs({ seconds: 1 }),
 };
 
 export default Object.freeze(settings);

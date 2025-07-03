@@ -41,6 +41,9 @@ export default function WebViewModal() {
 
   const { copyText } = useClipboard();
   const intl = useIntl();
+
+  // Track current URL to handle in-page navigation changes
+  const [currentUrl, setCurrentUrl] = useState(url);
   const headerRight = useCallback(
     () => (
       <ActionList
@@ -63,10 +66,10 @@ export default function WebViewModal() {
                   Share.share(
                     platformEnv.isNativeIOS
                       ? {
-                          url,
+                          url: currentUrl,
                         }
                       : {
-                          message: url,
+                          message: currentUrl,
                         },
                   ).catch(() => {});
                 },
@@ -78,7 +81,7 @@ export default function WebViewModal() {
                 }),
                 icon: 'LinkOutline',
                 onPress: async () => {
-                  copyText(url);
+                  copyText(currentUrl);
                 },
               },
               {
@@ -87,7 +90,7 @@ export default function WebViewModal() {
                 }),
                 icon: 'GlobusOutline',
                 onPress: async () => {
-                  openUrlExternal(url);
+                  openUrlExternal(currentUrl);
                 },
               },
             ],
@@ -95,7 +98,7 @@ export default function WebViewModal() {
         ]}
       />
     ),
-    [webviewRef, url, copyText, intl],
+    [webviewRef, currentUrl, copyText, intl],
   );
 
   const [navigationTitle, setNavigationTitle] = useState(title);
@@ -103,9 +106,13 @@ export default function WebViewModal() {
     setNavigationTitle('');
   }, []);
   const onNavigationStateChange = useCallback(
-    ({ title: webTitle }: { title: string }) => {
+    ({ title: webTitle, url: newUrl }: { title: string; url?: string }) => {
       if (!title) {
         setNavigationTitle(webTitle);
+      }
+      // Update current URL when navigation occurs
+      if (newUrl) {
+        setCurrentUrl(newUrl);
       }
     },
     [title, setNavigationTitle],

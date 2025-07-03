@@ -15,7 +15,12 @@ import type {
   IEarnAtomData,
 } from '@onekeyhq/shared/types/staking';
 
-import { contextAtomMethod, earnAtom, earnPermitCacheAtom } from './atoms';
+import {
+  contextAtomMethod,
+  earnAtom,
+  earnLoadingStatesAtom,
+  earnPermitCacheAtom,
+} from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -149,6 +154,26 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
       refreshTrigger: Number(earnData.refreshTrigger || 0) + 1,
     });
   });
+
+  setLoadingState = contextAtomMethod(
+    (get, set, key: string, isLoading: boolean) => {
+      const loadingStates = get(earnLoadingStatesAtom());
+      set(earnLoadingStatesAtom(), {
+        ...loadingStates,
+        [key]: isLoading,
+      });
+    },
+  );
+
+  getLoadingState = contextAtomMethod((get, set, key: string) => {
+    const loadingStates = get(earnLoadingStatesAtom());
+    return loadingStates[key] || false;
+  });
+
+  isDataIncomplete = contextAtomMethod((get, set, key: string) => {
+    const loadingStates = get(earnLoadingStatesAtom());
+    return loadingStates[key] || false;
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsEarn());
@@ -163,6 +188,9 @@ export function useEarnActions() {
   const updatePermitCache = actions.updatePermitCache.use();
   const removePermitCache = actions.removePermitCache.use();
   const triggerRefresh = actions.triggerRefresh.use();
+  const setLoadingState = actions.setLoadingState.use();
+  const getLoadingState = actions.getLoadingState.use();
+  const isDataIncomplete = actions.isDataIncomplete.use();
 
   const buildEarnAccountsKey = useCallback(
     ({
@@ -187,5 +215,8 @@ export function useEarnActions() {
     updatePermitCache,
     removePermitCache,
     triggerRefresh,
+    setLoadingState,
+    getLoadingState,
+    isDataIncomplete,
   });
 }

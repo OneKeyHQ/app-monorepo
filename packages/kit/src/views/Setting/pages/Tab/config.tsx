@@ -91,6 +91,7 @@ export type ISettingsConfig = (
       title: string;
       name: ESettingsTabNames;
       isHidden?: boolean;
+      showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
       tabBarIconStyle?: IIconProps;
       tabBarLabelStyle?: ISizableTextProps;
@@ -117,7 +118,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const biometricAuthInfo = useBiometricAuthInfo();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-  const requestUrl = useHelpLink({ path: 'requests/new' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -512,6 +512,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),
+        showDot: !!appUpdateInfo.isNeedUpdate,
         configs: [
           [
             {

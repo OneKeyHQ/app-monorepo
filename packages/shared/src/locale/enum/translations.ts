@@ -2510,6 +2510,7 @@
   swap_approve_token_est_time = 'swap.approve_token_est_time',
   swap_btn_approving = 'swap.btn_approving',
   swap_btn_building = 'swap.btn_building',
+  swap_ch_status_hold = 'swap.ch_status_hold',
   swap_loading_content = 'swap.loading_content',
   swap_network_cost_dialog_content = 'swap.network_cost_dialog_content',
   swap_network_cost_dialog_description = 'swap.network_cost_dialog_description',
