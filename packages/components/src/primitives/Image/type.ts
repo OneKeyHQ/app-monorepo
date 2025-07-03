@@ -42,6 +42,8 @@ export type IUseImageComponent = (
   imageSource?: ImageSourcePropType,
 ) => typeof Image;
 
-export type IPreloadImagesFunc = (sources: { uri?: string }[]) => Promise<void>;
+export type IPreloadImagesFunc = (
+  sources: { uri?: string }[],
+) => Promise<boolean>;
 
-export type IPreloadImageFunc = (source: { uri?: string }) => Promise<void>;
+export type IPreloadImageFunc = (source: { uri?: string }) => Promise<boolean>;
