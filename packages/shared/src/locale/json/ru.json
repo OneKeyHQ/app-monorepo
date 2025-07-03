@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "Оценка через {num} секунд",
   "swap.btn_approving": "Одобрение...",
   "swap.btn_building": "Создание заказа...",
+  "swap.ch_status_hold": "Связаться со службой поддержки",
   "swap.loading_content": "Вычисление лучшей цены...",
   "swap.network_cost_dialog_content": "Сетевая комиссия за этот заказ высока по сравнению с общей суммой заказа. Вы можете продолжить обмен, но значительная часть может быть поглощена сетевыми расходами.",
   "swap.network_cost_dialog_description": "Сетевые расходы превышают {number} от суммы заказа",

@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "{num} সেকেন্ডে স্থাপিত",
   "swap.btn_approving": "অনুমোদন করা হচ্ছে...",
   "swap.btn_building": "অর্ডার তৈরি হচ্ছে...",
+  "swap.ch_status_hold": "সহায়তার সাথে যোগাযোগ করুন",
   "swap.loading_content": "সেরা মূল্য গণনা করা হচ্ছে...",
   "swap.network_cost_dialog_content": "এই অর্ডারের জন্য নেটওয়ার্ক ফি মোট অর্ডার পরিমাণের তুলনায় বেশি। আপনি বিনিময় চালিয়ে যেতে পারেন, তবে একটি উল্লেখযোগ্য অংশ নেটওয়ার্ক খরচ দ্বারা খরচ হতে পারে।",
   "swap.network_cost_dialog_description": "নেটওয়ার্ক খরচ অর্ডার পরিমাণের {number} এর বেশি।",

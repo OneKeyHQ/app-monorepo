@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "Est. in {num} s",
   "swap.btn_approving": "Approving...",
   "swap.btn_building": "Building order...",
+  "swap.ch_status_hold": "Contact support",
   "swap.loading_content": "Calculating the best price...",
   "swap.network_cost_dialog_content": "The network fee for this order is high relative to the total order amount. You can proceed with the swap, but a significant portion may be consumed by network costs.",
   "swap.network_cost_dialog_description": "Network costs exceed {number} of the order amount",

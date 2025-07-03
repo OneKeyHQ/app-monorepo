@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "Diperkirakan dalam {num} detik",
   "swap.btn_approving": "Menyetujui...",
   "swap.btn_building": "Membangun pesanan...",
+  "swap.ch_status_hold": "Hubungi dukungan",
   "swap.loading_content": "Menghitung harga terbaik...",
   "swap.network_cost_dialog_content": "Biaya jaringan untuk pesanan ini tinggi dibandingkan dengan jumlah total pesanan. Anda dapat melanjutkan pertukaran, tetapi sebagian besar mungkin akan habis oleh biaya jaringan.",
   "swap.network_cost_dialog_description": "Biaya jaringan melebihi {number} dari jumlah pesanan",

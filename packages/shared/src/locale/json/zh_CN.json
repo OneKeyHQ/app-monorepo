@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "预计完成 {num} 秒",
   "swap.btn_approving": "授权中...",
   "swap.btn_building": "创建订单中...",
+  "swap.ch_status_hold": "联系客服",
   "swap.loading_content": "正在计算最佳价格...",
   "swap.network_cost_dialog_content": "这笔订单的网络费用相对于订单总金额较高。您可以继续执行兑换，但其中很大一部分可能会被网络费用消耗",
   "swap.network_cost_dialog_description": "网络费用超过订单金额的{number}",

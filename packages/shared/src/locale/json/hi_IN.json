@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "{num} सेकंड में स्थापित।",
   "swap.btn_approving": "स्वीकृत कर रहा है...",
   "swap.btn_building": "ऑर्डर बनाना...",
+  "swap.ch_status_hold": "समर्थन से संपर्क करें",
   "swap.loading_content": "सबसे अच्छी कीमत की गणना कर रहे हैं...",
   "swap.network_cost_dialog_content": "इस ऑर्डर के लिए नेटवर्क शुल्क कुल ऑर्डर राशि की तुलना में अधिक है। आप स्वैप के साथ आगे बढ़ सकते हैं, लेकिन नेटवर्क लागत द्वारा एक महत्वपूर्ण हिस्सा खपत हो सकता है।",
   "swap.network_cost_dialog_description": "नेटवर्क लागत आदेश राशि के {number} से अधिक है",

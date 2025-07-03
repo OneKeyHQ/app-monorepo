@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "預計完成 {num} 秒",
   "swap.btn_approving": "授權中...",
   "swap.btn_building": "建立訂單中...",
+  "swap.ch_status_hold": "聯繫支援人員",
   "swap.loading_content": "計算最佳價格中...",
   "swap.network_cost_dialog_content": "這筆訂單的網路費用相對於訂單總金額較高。您可以繼續執行兌換，但其中很大一部分可能會被網路費用消耗",
   "swap.network_cost_dialog_description": "網絡费用超過訂單金額的{number}",

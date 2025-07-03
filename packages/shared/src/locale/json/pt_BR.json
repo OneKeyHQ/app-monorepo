@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "Est. em {num} segundos",
   "swap.btn_approving": "Aprovando...",
   "swap.btn_building": "Criando pedido...",
+  "swap.ch_status_hold": "Entre em contato com o suporte",
   "swap.loading_content": "Calculando o melhor preço...",
   "swap.network_cost_dialog_content": "A taxa de rede para este pedido é alta em relação ao valor total do pedido. Você pode prosseguir com a troca, mas uma parte significativa pode ser consumida pelos custos de rede.",
   "swap.network_cost_dialog_description": "Os custos de rede excedem {number} do valor do pedido",

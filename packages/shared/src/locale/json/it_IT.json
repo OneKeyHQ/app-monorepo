@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "Stimato in {num} secondi",
   "swap.btn_approving": "Approvazione in corso...",
   "swap.btn_building": "Costruzione dell'ordine...",
+  "swap.ch_status_hold": "Contatta l'assistenza",
   "swap.loading_content": "Calcolando il miglior prezzo...",
   "swap.network_cost_dialog_content": "La commissione di rete per questo ordine è alta rispetto all'importo totale dell'ordine. Puoi procedere con lo scambio, ma una parte significativa potrebbe essere consumata dai costi di rete.",
   "swap.network_cost_dialog_description": "I costi di rete superano {number} dell'importo dell'ordine",

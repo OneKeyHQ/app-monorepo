@@ -262,6 +262,7 @@ const SwapHistoryDetailModal = () => {
     const { status } = txHistory ?? {};
     const { key, color } = getSwapHistoryStatusTextProps(
       status ?? ESwapTxHistoryStatus.PENDING,
+      txHistory?.extraStatus,
     );
     return (
       <XStack gap="$2" alignItems="center">

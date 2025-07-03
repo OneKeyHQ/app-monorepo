@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "Ước tính trong {num} giây",
   "swap.btn_approving": "Đang phê duyệt...",
   "swap.btn_building": "Đang xây dựng đơn hàng...",
+  "swap.ch_status_hold": "Liên hệ hỗ trợ",
   "swap.loading_content": "Đang tính toán giá tốt nhất...",
   "swap.network_cost_dialog_content": "Phí mạng cho đơn hàng này cao so với tổng số tiền đơn hàng. Bạn có thể tiếp tục hoán đổi, nhưng một phần đáng kể có thể bị tiêu tốn bởi chi phí mạng.",
   "swap.network_cost_dialog_description": "Chi phí mạng vượt quá {number} của số tiền đơn hàng",

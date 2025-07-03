@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "In {num} Sekunden geschätzt.",
   "swap.btn_approving": "Genehmigung läuft...",
   "swap.btn_building": "Bestellung wird erstellt...",
+  "swap.ch_status_hold": "Support kontaktieren",
   "swap.loading_content": "Berechnung des besten Preises...",
   "swap.network_cost_dialog_content": "Die Netzwerkgebühr für diese Bestellung ist im Verhältnis zum Gesamtbestellbetrag hoch. Sie können mit dem Tausch fortfahren, aber ein erheblicher Teil könnte durch Netzwerkkosten verbraucht werden.",
   "swap.network_cost_dialog_description": "Netzwerkkosten übersteigen {number} des Bestellbetrags",

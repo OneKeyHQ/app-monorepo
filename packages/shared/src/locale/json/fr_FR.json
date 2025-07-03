@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "Est. en {num} secondes",
   "swap.btn_approving": "Approbation...",
   "swap.btn_building": "Construction de la commande...",
+  "swap.ch_status_hold": "Contacter le support",
   "swap.loading_content": "Calcul en cours du meilleur prix...",
   "swap.network_cost_dialog_content": "Les frais de réseau pour cette commande sont élevés par rapport au montant total de la commande. Vous pouvez procéder à l'échange, mais une partie importante pourrait être consommée par les coûts de réseau.",
   "swap.network_cost_dialog_description": "Les coûts de réseau dépassent {number} du montant de la commande",

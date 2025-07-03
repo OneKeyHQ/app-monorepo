@@ -2505,6 +2505,7 @@
   "swap.approve_token_est_time": "{num}秒で設立",
   "swap.btn_approving": "承認中...",
   "swap.btn_building": "注文を作成中...",
+  "swap.ch_status_hold": "サポートにお問い合わせください",
   "swap.loading_content": "最適な価格を計算中...",
   "swap.network_cost_dialog_content": "この注文のネットワーク手数料は、注文の合計金額に対して高いです。スワップを進めることはできますが、ネットワークコストによってかなりの部分が消費される可能性があります。",
   "swap.network_cost_dialog_description": "ネットワークコストが注文金額の{number}を超えています",
