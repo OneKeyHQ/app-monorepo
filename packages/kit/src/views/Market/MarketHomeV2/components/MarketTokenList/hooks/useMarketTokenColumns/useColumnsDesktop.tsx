@@ -2,8 +2,8 @@ import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  IconButton,
   NumberSizeableText,
+  SizableText,
   Skeleton,
   Stack,
   XStack,
@@ -30,17 +30,9 @@ export const useColumnsDesktop = (
   return [
     {
       title: (
-        <IconButton
-          ml="$1"
-          pointerEvents="none"
-          variant="tertiary"
-          size="small"
-          iconSize="$4"
-          icon={watchlistActive ? 'StarSolid' : 'StarOutline'}
-          iconProps={{
-            color: watchlistActive ? '$iconActive' : '$iconDisabled',
-          }}
-        />
+        <SizableText size={watchlistActive ? '$bodyMdMedium' : '$bodyMd'}>
+          收藏
+        </SizableText>
       ) as any,
       dataIndex: 'star',
       columnWidth: 50,
