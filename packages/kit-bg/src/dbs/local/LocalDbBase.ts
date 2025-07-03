@@ -78,6 +78,7 @@ import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   INetworkAccount,
   IQrWalletAirGapAccountsInfo,
@@ -2601,6 +2602,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       isFirmwareVerified,
       defaultIsTemp,
       isMockedStandardHwWallet,
+      transportType,
     } = params;
     console.log('createHwWallet', features);
     const { connectId } = device;
@@ -2655,6 +2657,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let addedHdAccountIndex = -1;
     const now = await this.timeNow();
 
+    // Set appropriate connectId fields based on transport type
+    let usbConnectId: string | undefined;
+    let bleConnectId: string | undefined;
+
+    if (transportType) {
+      // Import the enum values to use
+      const { EHardwareTransportType } = await import('@onekeyhq/shared/types');
+
+      switch (transportType) {
+        case EHardwareTransportType.WEBUSB:
+        case EHardwareTransportType.Bridge:
+          usbConnectId = connectId;
+          break;
+        case EHardwareTransportType.BLE:
+        case EHardwareTransportType.DesktopWebBle:
+          bleConnectId = connectId;
+          break;
+        default:
+          break;
+      }
+    }
+
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
       name: deviceName,
@@ -2668,6 +2692,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       } as IDBDeviceSettings),
       createdAt: now,
       updatedAt: now,
+      usbConnectId,
+      bleConnectId,
     };
 
     const walletToAdd: IDBWallet = {
@@ -4526,10 +4552,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     connectId,
     featuresDeviceId,
     features,
+    transportType,
   }: {
     connectId?: string;
     featuresDeviceId?: string; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    transportType?: EHardwareTransportType;
   }): Promise<IDBDevice | undefined> {
     const { getDeviceUUID } = await CoreSDKLoader();
     const { devices } = await this.getAllDevices();
@@ -4543,7 +4571,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       };
       if (connectId) {
-        mergePredicate(item.connectId === connectId);
+        // If transportType is specified, use getDeviceConnectId to get the appropriate connectId
+        if (transportType) {
+          const expectedConnectId = deviceUtils.getDeviceConnectId(
+            item,
+            transportType,
+          );
+          mergePredicate(expectedConnectId === connectId);
+        } else {
+          // Otherwise, match any of the connectId fields (legacy behavior + new fields)
+          mergePredicate(
+            item.connectId === connectId ||
+              item.usbConnectId === connectId ||
+              item.bleConnectId === connectId,
+          );
+        }
       }
       if (featuresDeviceId) {
         mergePredicate(item.deviceId === featuresDeviceId);

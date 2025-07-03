@@ -9,7 +9,7 @@ export const IS_DB_BUCKET_SUPPORT = Boolean(
 );
 
 const LOCAL_DB_NAME = 'OneKeyV5';
-const LOCAL_DB_VERSION = 11;
+const LOCAL_DB_VERSION = 12;
 
 // ----------------------------------------------
 

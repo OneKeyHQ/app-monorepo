@@ -58,6 +58,16 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
 
   public verifiedAtVersion?: string;
 
+  /**
+   * USB connection ID (serial number)
+   */
+  public usbConnectId?: string;
+
+  /**
+   * BLE connection ID (MAC address)
+   */
+  public bleConnectId?: string;
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Device,
     primaryKey: 'id',
@@ -73,6 +83,8 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       createdAt: 'int',
       updatedAt: 'int',
       verifiedAtVersion: 'string?',
+      usbConnectId: 'string?',
+      bleConnectId: 'string?',
     },
   };
 
@@ -90,6 +102,8 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       verifiedAtVersion: this.verifiedAtVersion,
+      usbConnectId: this.usbConnectId,
+      bleConnectId: this.bleConnectId,
     };
   }
 }
