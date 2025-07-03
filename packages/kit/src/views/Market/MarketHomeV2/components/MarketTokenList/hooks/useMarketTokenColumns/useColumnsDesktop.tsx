@@ -21,7 +21,6 @@ import type { IMarketToken } from '../../MarketTokenData';
 
 export const useColumnsDesktop = (
   networkId?: string,
-  watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -30,8 +29,8 @@ export const useColumnsDesktop = (
   return [
     {
       title: (
-        <SizableText size={watchlistActive ? '$bodyMdMedium' : '$bodyMd'}>
-          收藏
+        <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
+          #
         </SizableText>
       ) as any,
       dataIndex: 'star',

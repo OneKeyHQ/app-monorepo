@@ -52,6 +52,15 @@ type IMarketTokenListProps = {
    * header.
    */
   defaultShowWatchlistOnly?: boolean;
+  /**
+   * External control for watchlist display state. When provided, the star
+   * column header will no longer be clickable and the watchlist toggle
+   * is controlled externally.
+   */
+  externalWatchlistControl?: {
+    showWatchlistOnly: boolean;
+    onToggle: () => void;
+  };
 };
 
 function MarketTokenList({
@@ -65,6 +74,7 @@ function MarketTokenList({
   onScrollOffsetChange,
   onScroll,
   defaultShowWatchlistOnly,
+  externalWatchlistControl,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
@@ -84,19 +94,23 @@ function MarketTokenList({
   );
 
   // ---------------- WATCHLIST ------------------
-  const [showWatchlistOnly, setShowWatchlistOnly] = useState(
+  const [internalShowWatchlistOnly, setInternalShowWatchlistOnly] = useState(
     defaultShowWatchlistOnly ?? false,
   );
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
 
+  // Use external control if provided, otherwise use internal state
+  const showWatchlistOnly =
+    externalWatchlistControl?.showWatchlistOnly ?? internalShowWatchlistOnly;
+
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      // Star column toggle watchlist
-      if (column.dataIndex === 'star') {
+      // Star column toggle watchlist - only if not externally controlled
+      if (column.dataIndex === 'star' && !externalWatchlistControl) {
         return {
           onPress: () => {
-            setShowWatchlistOnly((prev) => !prev);
+            setInternalShowWatchlistOnly((prev) => !prev);
           },
         };
       }
@@ -115,7 +129,7 @@ function MarketTokenList({
 
       return undefined;
     },
-    [handleSortChange, setShowWatchlistOnly],
+    [handleSortChange, externalWatchlistControl],
   );
 
   const marketTokenColumns = useMarketTokenColumns(
