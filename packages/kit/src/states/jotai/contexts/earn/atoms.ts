@@ -57,4 +57,7 @@ earnAtom().onMount = (setAtom) => {
 export const { atom: earnPermitCacheAtom, use: useEarnPermitCacheAtom } =
   contextAtom<Record<string, IEarnPermitCache>>({});
 
+export const { atom: earnLoadingStatesAtom, use: useEarnLoadingStatesAtom } =
+  contextAtom<Record<string, boolean>>({});
+
 export const useEarnAtom = () => useContextAtom(earnAtom());

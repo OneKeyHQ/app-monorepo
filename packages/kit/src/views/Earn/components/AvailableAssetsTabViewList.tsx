@@ -24,7 +24,6 @@ import {
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
@@ -144,14 +143,21 @@ export function AvailableAssetsTabViewList({
   // Throttled function to fetch assets data
   const fetchAssetsData = useThrottledCallback(
     async (tabType: EAvailableAssetsTypeEnum) => {
-      const tabAssets =
-        await backgroundApiProxy.serviceStaking.getAvailableAssets({
-          type: tabType,
-        });
+      const loadingKey = `availableAssets-${tabType}`;
+      actions.current.setLoadingState(loadingKey, true);
 
-      // Update the corresponding data in atom
-      actions.current.updateAvailableAssetsByType(tabType, tabAssets);
-      return tabAssets;
+      try {
+        const tabAssets =
+          await backgroundApiProxy.serviceStaking.getAvailableAssets({
+            type: tabType,
+          });
+
+        // Update the corresponding data in atom
+        actions.current.updateAvailableAssetsByType(tabType, tabAssets);
+        return tabAssets;
+      } finally {
+        actions.current.setLoadingState(loadingKey, false);
+      }
     },
     200,
     { leading: true, trailing: false },
@@ -229,7 +235,7 @@ export function AvailableAssetsTabViewList({
           onSelectedPageIndex={handleTabChange}
         />
 
-        {isLoading ? (
+        {isLoading && assets.length === 0 ? (
           <AvailableAssetsSkeleton />
         ) : (
           <YStack
