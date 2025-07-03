@@ -2997,7 +2997,7 @@
   "wallet.subsidy_all_used": "已領完",
   "wallet.subsidy_claim": "領取",
   "wallet.subsidy_claimed": "已領取",
-  "wallet.subsidy_description": "補貼有效期為10分鐘，先到先得。用戶每月可領取15次免費補貼。",
+  "wallet.subsidy_description": "每日補貼限量發放，先到先得，有效期 10 分鐘，請盡快使用。每月最多可領取 15 次。",
   "wallet.subsidy_label": "補貼",
   "wallet.subsidy_redeem_title": "補貼/兌換",
   "wallet.subsidy_remaining": "剩餘 {remaining} / {total}",

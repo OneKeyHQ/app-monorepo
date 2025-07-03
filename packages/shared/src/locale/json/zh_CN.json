@@ -2997,7 +2997,7 @@
   "wallet.subsidy_all_used": "已领完",
   "wallet.subsidy_claim": "领取",
   "wallet.subsidy_claimed": "已领取",
-  "wallet.subsidy_description": "补贴有效期为10分钟，先到先得。用户每月可领取15次免费补贴。",
+  "wallet.subsidy_description": "每日补贴数量有限，先到先得，有效期 10 分钟，请尽快使用。每月最多可领取 15 次。",
   "wallet.subsidy_label": "补贴",
   "wallet.subsidy_redeem_title": "补贴/兑换",
   "wallet.subsidy_remaining": "剩余 {remaining} / {total}",
