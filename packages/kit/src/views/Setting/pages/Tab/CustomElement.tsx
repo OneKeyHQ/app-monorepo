@@ -310,6 +310,18 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
+      if (platformEnv.isDesktopMac) {
+        return [
+          {
+            label: 'Bridge',
+            value: EHardwareTransportType.Bridge,
+          },
+          {
+            label: 'Bluetooth',
+            value: EHardwareTransportType.DesktopWebBle,
+          },
+        ];
+      }
       return [
         {
           label: 'Bridge',
@@ -332,16 +344,40 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
     }
     return [];
   }, []);
-  const onChange = useCallback(async (value: string) => {
-    if (platformEnv.isWeb || platformEnv.isExtension) {
-      await backgroundApiProxy.serviceHardware.switchTransport({
-        transportType: value as EHardwareTransportType,
-      });
-    }
-    await backgroundApiProxy.serviceSetting.setHardwareTransportType(
-      value as EHardwareTransportType,
-    );
-  }, []);
+  const onChange = useCallback(
+    async (value: string) => {
+      const newTransportType = value as EHardwareTransportType;
+      const currentTransportType = hardwareTransportType;
+
+      if (platformEnv.isWeb || platformEnv.isExtension) {
+        await backgroundApiProxy.serviceHardware.switchTransport({
+          transportType: newTransportType,
+        });
+      }
+      await backgroundApiProxy.serviceSetting.setHardwareTransportType(
+        newTransportType,
+      );
+
+      // Restart app when switching between Bridge and Bluetooth on desktop Mac
+      if (
+        platformEnv.isDesktopMac &&
+        currentTransportType !== newTransportType
+      ) {
+        const shouldRestart =
+          (currentTransportType === EHardwareTransportType.Bridge &&
+            newTransportType === EHardwareTransportType.DesktopWebBle) ||
+          (currentTransportType === EHardwareTransportType.DesktopWebBle &&
+            newTransportType === EHardwareTransportType.Bridge);
+
+        if (shouldRestart) {
+          setTimeout(() => {
+            backgroundApiProxy.serviceApp.restartApp();
+          }, 0);
+        }
+      }
+    },
+    [hardwareTransportType],
+  );
 
   return (
     <Select

@@ -470,7 +470,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 navigation?.push(EModalSettingRoutes.SettingCustomRPC);
               },
             },
-            platformEnv.isSupportWebUSB
+            platformEnv.isSupportWebUSB || platformEnv.isDesktopMac
               ? {
                   icon: 'UsbOutline',
                   title: intl.formatMessage({
