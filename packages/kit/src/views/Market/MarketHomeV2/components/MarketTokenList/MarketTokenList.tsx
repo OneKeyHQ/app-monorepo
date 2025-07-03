@@ -171,9 +171,9 @@ function MarketTokenList({
 
         {/* Table container with horizontal scroll support */}
         <Stack
+          flex={1}
           className="normal-scrollbar"
           style={{
-            flex: 1,
             overflowX: 'auto',
           }}
         >
