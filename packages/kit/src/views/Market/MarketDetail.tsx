@@ -1,3 +1,3 @@
-import { MarketDetailV1 } from './MarketDetailV1';
+import { MarketDetailV2 } from './MarketDetailV2';
 
-export { MarketDetailV1 as default };
+export { MarketDetailV2 as default };
