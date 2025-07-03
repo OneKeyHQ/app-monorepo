@@ -113,6 +113,13 @@ PODS:
     - ExpoModulesCore
   - ExpoHaptics (14.1.4):
     - ExpoModulesCore
+  - ExpoImage (2.3.2):
+    - ExpoModulesCore
+    - libavif/libdav1d
+    - SDWebImage (~> 5.21.0)
+    - SDWebImageAVIFCoder (~> 0.11.0)
+    - SDWebImageSVGCoder (~> 1.7.0)
+    - SDWebImageWebPCoder (~> 0.14.6)
   - ExpoImageManipulator (13.1.7):
     - EXImageLoader
     - ExpoModulesCore
@@ -202,6 +209,11 @@ PODS:
     - React
   - JXCategoryView (1.6.8)
   - JXPagingView/Pager (2.1.3)
+  - libavif/core (0.11.1)
+  - libavif/libdav1d (0.11.1):
+    - libavif/core
+    - libdav1d (>= 0.6.0)
+  - libdav1d (1.2.0)
   - libwebp (1.5.0):
     - libwebp/demux (= 1.5.0)
     - libwebp/mux (= 1.5.0)
@@ -2331,10 +2343,6 @@ PODS:
     - Yoga
   - RNDeviceInfo (14.0.4):
     - React-Core
-  - RNFastImage (8.6.3):
-    - React-Core
-    - SDWebImage (~> 5.11.1)
-    - SDWebImageWebPCoder (~> 0.8.4)
   - RNFileLogger (0.6.0):
     - CocoaLumberjack (~> 3.8.5)
     - DoubleConversion
@@ -2725,12 +2733,17 @@ PODS:
   - ScreenshotPreventing (1.4.0):
     - ScreenshotPreventing/Core (= 1.4.0)
   - ScreenshotPreventing/Core (1.4.0)
-  - SDWebImage (5.11.1):
-    - SDWebImage/Core (= 5.11.1)
-  - SDWebImage/Core (5.11.1)
-  - SDWebImageWebPCoder (0.8.5):
+  - SDWebImage (5.21.1):
+    - SDWebImage/Core (= 5.21.1)
+  - SDWebImage/Core (5.21.1)
+  - SDWebImageAVIFCoder (0.11.0):
+    - libavif/core (>= 0.11.0)
+    - SDWebImage (~> 5.10)
+  - SDWebImageSVGCoder (1.7.0):
+    - SDWebImage/Core (~> 5.6)
+  - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
-    - SDWebImage/Core (~> 5.10)
+    - SDWebImage/Core (~> 5.17)
   - Sentry/HybridSDK (8.53.1)
   - SocketRocket (0.7.1)
   - SPAlert (4.2.0)
@@ -2764,6 +2777,7 @@ DEPENDENCIES:
   - ExpoFileSystem (from `../../../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../../../node_modules/expo-font/ios`)
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
+  - ExpoImage (from `../../../node_modules/expo-image/ios`)
   - ExpoImageManipulator (from `../../../node_modules/expo-image-manipulator/ios`)
   - ExpoImagePicker (from `../../../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
@@ -2873,7 +2887,6 @@ DEPENDENCIES:
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
-  - RNFastImage (from `../../../node_modules/react-native-fast-image`)
   - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
   - "RNFlashList (from `../../../node_modules/@shopify/flash-list`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
@@ -2885,7 +2898,6 @@ DEPENDENCIES:
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - "RNSentry (from `../../../node_modules/@sentry/react-native`)"
   - RNSVG (from `../../../node_modules/react-native-svg`)
-  - SDWebImageWebPCoder (= 0.8.5)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -2894,6 +2906,8 @@ SPEC REPOS:
     - CocoaLumberjack
     - JXCategoryView
     - JXPagingView
+    - libavif
+    - libdav1d
     - libwebp
     - lottie-ios
     - MultiplatformBleAdapter
@@ -2901,6 +2915,8 @@ SPEC REPOS:
     - RevenueCat
     - ScreenshotPreventing
     - SDWebImage
+    - SDWebImageAVIFCoder
+    - SDWebImageSVGCoder
     - SDWebImageWebPCoder
     - Sentry
     - SocketRocket
@@ -2949,6 +2965,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-font/ios"
   ExpoHaptics:
     :path: "../../../node_modules/expo-haptics/ios"
+  ExpoImage:
+    :path: "../../../node_modules/expo-image/ios"
   ExpoImageManipulator:
     :path: "../../../node_modules/expo-image-manipulator/ios"
   ExpoImagePicker:
@@ -3164,8 +3182,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
   RNDeviceInfo:
     :path: "../../../node_modules/react-native-device-info"
-  RNFastImage:
-    :path: "../../../node_modules/react-native-fast-image"
   RNFileLogger:
     :path: "../../../node_modules/react-native-file-logger"
   RNFlashList:
@@ -3213,6 +3229,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 7f92f7be2f5c5ed40a7c9efc8fa30821181d9d63
   ExpoFont: abbb91a911eb961652c2b0a22eef801860425ed6
   ExpoHaptics: 0ff6e0d83cd891178a306e548da1450249d54500
+  ExpoImage: 785f7673cfecd97045cf333fd6486b57ccab4b71
   ExpoImageManipulator: 1e06e7a1e56f454e75d01b7032c1e44963bfc865
   ExpoImagePicker: 0963da31800c906e01c03e25d7c849f16ebf02a2
   ExpoKeepAwake: bf0811570c8da182bfb879169437d4de298376e7
@@ -3236,6 +3253,8 @@ SPEC CHECKSUMS:
   JPush: 7888dd3b0b4b2acaec7e1368eb8a9e3418e311d1
   JXCategoryView: 262d503acea0b1278c79a1c25b7332ffaef4d518
   JXPagingView: afdd2e9af09c90160dd232b970d603cc6e7ddd0e
+  libavif: 84bbb62fb232c3018d6f1bab79beea87e35de7b7
+  libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: 825856a41d05a933539ea4fdf384d67c10590547
@@ -3327,7 +3346,6 @@ SPEC CHECKSUMS:
   RevenueCat: 87171c9f2412778354c8523f5625d1fece2560a5
   RNCAsyncStorage: b582a51d35079f9f2ae1c6e63ae39704a445627e
   RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
-  RNFastImage: 462a183c4b0b6b26fdfd639e1ed6ba37536c3b87
   RNFileLogger: e69a92361284d3f7fda29c1435ae06b48a85307c
   RNFlashList: 1076a3fb7c4608a8cdf265f0783592b8fc41b6a7
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
@@ -3340,8 +3358,10 @@ SPEC CHECKSUMS:
   RNSentry: 857855d887a12dd8f049e7b72bf38d09f92ea7dc
   RNSVG: 45e3c3210465e75ab6374c9f746179e75d76ce48
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
-  SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
-  SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
+  SDWebImage: f29024626962457f3470184232766516dee8dfea
+  SDWebImageAVIFCoder: 00310d246aab3232ce77f1d8f0076f8c4b021d90
+  SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
+  SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   Sentry: 1e4e974d45f09d153af4b30b42acfb1c79e957d3
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
@@ -3351,6 +3371,6 @@ SPEC CHECKSUMS:
   Yoga: bfcce202dba74007f8974ee9c5f903a9a286c445
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 19b51ae3e63e65f7ec3c89d4aa91948ba692640f
+PODFILE CHECKSUM: 092b2bab2260c6d91d9bd4a7d4424f1409f46dc4
 
 COCOAPODS: 1.16.2

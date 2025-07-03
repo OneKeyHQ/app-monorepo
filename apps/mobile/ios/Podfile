@@ -122,6 +122,4 @@ target 'OneKeyWallet' do
     end
   end
 
-  pod 'SDWebImageWebPCoder', '0.8.5'
-
 end

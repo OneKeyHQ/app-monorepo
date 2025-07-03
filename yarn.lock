@@ -796,6 +796,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@babel/plugin-proposal-class-properties@npm:^7.18.6":
+  version: 7.18.6
+  resolution: "@babel/plugin-proposal-class-properties@npm:7.18.6"
+  dependencies:
+    "@babel/helper-create-class-features-plugin": "npm:^7.18.6"
+    "@babel/helper-plugin-utils": "npm:^7.18.6"
+  peerDependencies:
+    "@babel/core": ^7.0.0-0
+  checksum: 10/49a78a2773ec0db56e915d9797e44fd079ab8a9b2e1716e0df07c92532f2c65d76aeda9543883916b8e0ff13606afeffa67c5b93d05b607bc87653ad18a91422
+  languageName: node
+  linkType: hard
+
 "@babel/plugin-proposal-class-static-block@npm:^7.21.0":
   version: 7.21.0
   resolution: "@babel/plugin-proposal-class-static-block@npm:7.21.0"
@@ -845,6 +857,18 @@ __metadata:
   peerDependencies:
     "@babel/core": ^7.0.0-0
   checksum: 10/84ff22bacc5d30918a849bfb7e0e90ae4c5b8d8b65f2ac881803d1cf9068dffbe53bd657b0e4bc4c20b4db301b1c85f1e74183cf29a0dd31e964bd4e97c363ef
+  languageName: node
+  linkType: hard
+
+"@babel/plugin-proposal-nullish-coalescing-operator@npm:^7.18.6":
+  version: 7.18.6
+  resolution: "@babel/plugin-proposal-nullish-coalescing-operator@npm:7.18.6"
+  dependencies:
+    "@babel/helper-plugin-utils": "npm:^7.18.6"
+    "@babel/plugin-syntax-nullish-coalescing-operator": "npm:^7.8.3"
+  peerDependencies:
+    "@babel/core": ^7.0.0-0
+  checksum: 10/949c9ddcdecdaec766ee610ef98f965f928ccc0361dd87cf9f88cf4896a6ccd62fce063d4494778e50da99dea63d270a1be574a62d6ab81cbe9d85884bf55a7d
   languageName: node
   linkType: hard
 
@@ -2419,7 +2443,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/preset-typescript@npm:^7.23.0":
+"@babel/preset-typescript@npm:^7.23.0, @babel/preset-typescript@npm:^7.27.1":
   version: 7.27.1
   resolution: "@babel/preset-typescript@npm:7.27.1"
   dependencies:
@@ -7209,13 +7233,16 @@ __metadata:
   dependencies:
     "@aivenio/tsc-output-parser": "npm:^2.1.1"
     "@alephium/web3": "npm:^1.5.2"
+    "@babel/plugin-proposal-class-properties": "npm:^7.18.6"
     "@babel/plugin-proposal-class-static-block": "npm:^7.21.0"
     "@babel/plugin-proposal-export-namespace-from": "npm:^7.18.9"
+    "@babel/plugin-proposal-nullish-coalescing-operator": "npm:^7.18.6"
     "@babel/plugin-proposal-private-methods": "npm:^7.18.6"
     "@babel/plugin-proposal-private-property-in-object": "npm:^7.21.11"
     "@babel/plugin-transform-numeric-separator": "npm:^7.25.9"
     "@babel/plugin-transform-optional-chaining": "npm:^7.25.9"
     "@babel/preset-env": "npm:^7.22.9"
+    "@babel/preset-typescript": "npm:^7.27.1"
     "@benfen/bfc.js": "npm:0.2.7"
     "@cityofzion/neon-core": "npm:^5.7.0"
     "@cowprotocol/contracts": "npm:^1.7.0"
@@ -7271,7 +7298,7 @@ __metadata:
     "@types/punycode": "npm:^2"
     "@types/react": "npm:^19.0.0"
     "@types/react-beautiful-dnd": "npm:13.1.8"
-    "@types/react-dom": "npm:~18.3.0"
+    "@types/react-dom": "npm:~19.0.0"
     "@types/validator": "npm:^13"
     "@types/w3c-web-usb": "npm:^1.0.10"
     "@types/web": "npm:0.0.151"
@@ -7620,6 +7647,7 @@ __metadata:
     expo-device: "npm:7.1.4"
     expo-font: "npm:13.3.1"
     expo-haptics: "npm:14.1.4"
+    expo-image: "npm:2.3.2"
     expo-image-loader: "npm:5.1.0"
     expo-image-manipulator: "npm:13.1.7"
     expo-image-picker: "npm:16.1.4"
@@ -7652,7 +7680,6 @@ __metadata:
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:14.0.4"
-    react-native-fast-image: "npm:8.6.3"
     react-native-file-logger: "npm:0.6.0"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.33.1"
     react-native-gesture-handler: "npm:2.27.1"
@@ -15017,12 +15044,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:~18.3.0":
-  version: 18.3.0
-  resolution: "@types/react-dom@npm:18.3.0"
-  dependencies:
-    "@types/react": "npm:*"
-  checksum: 10/6ff53f5a7b7fba952a68e114d3b542ebdc1e87a794234785ebab0bcd9bde7fb4885f21ebaf93d26dc0a1b5b93287f42cad68b78ae04dddf6b20da7aceff0beaf
+"@types/react-dom@npm:~19.0.0":
+  version: 19.0.6
+  resolution: "@types/react-dom@npm:19.0.6"
+  peerDependencies:
+    "@types/react": ^19.0.0
+  checksum: 10/4ba1fa3005dc9f59b949903bc32d610b7efcc55791f51cc092bfc707f6c53faa6a5078f1729ce2cc32ae37f4e48124a277dcd767752e68f5b329d4be8c59f357
   languageName: node
   linkType: hard
 
@@ -24522,6 +24549,21 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/a6006614f6c2f42177747010f35901d85cbb673031cfeb1acac55b8c23c8bd92f432191df5759555bf4401ed3c2eee8fc96ea97500a2d75e0a1b95d048aadc7a
+  languageName: node
+  linkType: hard
+
+"expo-image@npm:2.3.2":
+  version: 2.3.2
+  resolution: "expo-image@npm:2.3.2"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+    react-native-web: "*"
+  peerDependenciesMeta:
+    react-native-web:
+      optional: true
+  checksum: 10/ffd66be885c5dd969f97c1f112b0859b5741d0d255539750fa81e10500650ae207fc07e6aa81c34b0b6f920327f1c7db670013fda655b6a868a7b616c76f473f
   languageName: node
   linkType: hard
 
@@ -34574,18 +34616,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:^18.2.0 || ^19.0.0":
-  version: 18.3.1
-  resolution: "react-dom@npm:18.3.1"
-  dependencies:
-    loose-envify: "npm:^1.1.0"
-    scheduler: "npm:^0.23.2"
-  peerDependencies:
-    react: ^18.3.1
-  checksum: 10/3f4b73a3aa083091173b29812b10394dd06f4ac06aff410b74702cfb3aa29d7b0ced208aab92d5272919b612e5cda21aeb1d54191848cf6e46e9e354f3541f81
-  languageName: node
-  linkType: hard
-
 "react-dropzone@npm:^14.2.3":
   version: 14.3.8
   resolution: "react-dropzone@npm:14.3.8"
@@ -34857,16 +34887,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/9476f00c4cb60861799a4b306aa8e26275a503468f2b37e53af9c66a4eb2660b56b58f7bc4a77ee4c7ad7105cd489e186a08cda63a568c41217517b8f940be8a
-  languageName: node
-  linkType: hard
-
-"react-native-fast-image@npm:8.6.3":
-  version: 8.6.3
-  resolution: "react-native-fast-image@npm:8.6.3"
-  peerDependencies:
-    react: ^17 || ^18
-    react-native: ">=0.60.0"
-  checksum: 10/ed340c2b6c2e76658fa0a899a45132871017018bec0a03423b7456610810e79b2844dfa16063c05d98b89a7613eeb0de2fdf3ad978cdfa4d488a4e01228a7349
   languageName: node
   linkType: hard
 
@@ -36738,15 +36758,6 @@ __metadata:
   version: 0.26.0
   resolution: "scheduler@npm:0.26.0"
   checksum: 10/1ecf2e5d7de1a7a132796834afe14a2d589ba7e437615bd8c06f3e0786a3ac3434655e67aac8755d9b14e05754c177e49c064261de2673aaa3c926bc98caa002
-  languageName: node
-  linkType: hard
-
-"scheduler@npm:^0.23.2":
-  version: 0.23.2
-  resolution: "scheduler@npm:0.23.2"
-  dependencies:
-    loose-envify: "npm:^1.1.0"
-  checksum: 10/e8d68b89d18d5b028223edf090092846868a765a591944760942b77ea1f69b17235f7e956696efbb62c8130ab90af7e0949bfb8eba7896335507317236966bc9
   languageName: node
   linkType: hard
 
