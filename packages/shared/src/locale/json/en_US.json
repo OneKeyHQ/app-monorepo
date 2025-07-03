@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "Supports major blockchains, including ETH, BNB, TRX, and more.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} network is not supported yet.",
   "wallet.history_settings_hide_risk_transaction_title": "Hide risky transactions",
-  "wallet.history_settings_hide_small_transaction_desc": "This filter skips transactions you send and any without available price data.",
+  "wallet.history_settings_hide_small_transaction_desc": "Filters received transactions by value. Unpriced tokens not filtered.",
   "wallet.history_settings_hide_small_transaction_title": "Hide small transactions",
   "wallet.last_ledger_sequence": "Last ledger sequence",
   "wallet.ledger_index": "Ledger index",

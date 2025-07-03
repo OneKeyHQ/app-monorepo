@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX 등을 포함한 주요 블록체인을 지원합니다.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} 네트워크는 아직 지원되지 않습니다.",
   "wallet.history_settings_hide_risk_transaction_title": "위험한 거래 숨기기",
-  "wallet.history_settings_hide_small_transaction_desc": "이 필터는 보내는 거래 및 가격 정보가 없는 거래를 숨깁니다.",
+  "wallet.history_settings_hide_small_transaction_desc": "소액 거래를 숨깁니다. 가격이 책정되지 않은 토큰은 필터링되지 않습니다.",
   "wallet.history_settings_hide_small_transaction_title": "소액 거래 숨기기",
   "wallet.last_ledger_sequence": "마지막 원장 순서",
   "wallet.ledger_index": "원장 인덱스",
