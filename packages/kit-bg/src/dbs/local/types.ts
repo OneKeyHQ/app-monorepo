@@ -22,6 +22,12 @@ import type {
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
 import type {
+  IDBBaseObject,
+  IDBBaseObjectWithName,
+  IDBAccountBase,
+  IDBWalletBase,
+} from '@onekeyhq/shared/src/types/base';
+import type {
   IOneKeyDeviceFeatures,
   IQrWalletDevice,
 } from '@onekeyhq/shared/types/device';
@@ -50,13 +56,7 @@ import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { DBSchema } from 'idb';
 
 // ---------------------------------------------- base
-export type IDBBaseObject = {
-  id: string;
-};
-
-export type IDBBaseObjectWithName = IDBBaseObject & {
-  name: string;
-};
+// Base types are now imported from @onekeyhq/shared/src/types/base
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
   nextHD: number;
@@ -128,7 +128,7 @@ export type IDBWalletNextIdKeys =
   | 'accountGlobalNum'
   | 'hiddenWalletNum';
 export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
-export type IDBWallet = IDBBaseObjectWithName & {
+export type IDBWallet = IDBWalletBase & {
   type: IDBWalletType;
   backuped: boolean;
   // only for singleton wallet
@@ -246,7 +246,7 @@ export type IDBAvatar = string; // stringify(IAvatarInfo)
 //   emoji: string | 'img'; // lazy load EmojiTypes
 //   bgColor: string;
 // };
-export type IDBBaseAccount = IDBBaseObjectWithName & {
+export type IDBBaseAccount = IDBAccountBase & {
   type: EDBAccountType | undefined;
   path: string;
   pathIndex?: number;

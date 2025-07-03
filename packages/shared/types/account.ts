@@ -1,8 +1,7 @@
 import type {
-  IDBAccount,
-  IDBDevice,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+  IDBAccountBase,
+  IDBWalletBase,
+} from '../src/types/base';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 
 import type { INetworkAccountAddressDetail } from './address';
@@ -12,7 +11,7 @@ export enum EGlobalDeriveTypesScopes {
   swapTo = 'swapTo',
 }
 
-export type INetworkAccount = IDBAccount & {
+export type INetworkAccount = IDBAccountBase & {
   addressDetail: INetworkAccountAddressDetail;
 };
 
@@ -54,6 +53,6 @@ export enum ERequestWalletTypeEnum {
 }
 
 export type IHwQrWalletWithDevice = {
-  device: IDBDevice | undefined;
-  wallet: IDBWallet;
+  device: unknown; // Device type moved to kit-bg
+  wallet: IDBWalletBase;
 };

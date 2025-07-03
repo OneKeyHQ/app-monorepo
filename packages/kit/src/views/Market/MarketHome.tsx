@@ -105,6 +105,9 @@ function MarketHome() {
     () =>
       categories?.map((category, index) => ({
         title: category.name,
+        // FIXME: Tab component API requires function components to be created during render
+        // This is an anti-pattern that should be fixed by refactoring the Tab component
+        // to accept data props and render components internally
         // eslint-disable-next-line react/no-unstable-nested-components
         page: () =>
           index === 0 ? (
@@ -120,7 +123,7 @@ function MarketHome() {
   const headerProps = useMemo(
     () => ({
       showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
-      renderItem: (item: any, index: any, titleStyle: any) =>
+      renderItem: (_item: any, index: any, titleStyle: any) =>
         index === 0 && !gtMd ? (
           <AnimatedIcon
             ref={ref}

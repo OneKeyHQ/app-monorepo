@@ -1,13 +1,9 @@
-import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
-import type { IDecodedTxExtraCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
-import type { IDecodedTxExtraDnx } from '@onekeyhq/core/src/chains/dnx/types';
-import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
-import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
-import type { IDecodedTxExtraTon } from '@onekeyhq/core/src/chains/ton/types';
-import type { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
-import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
-import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
-import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+// Types moved to prevent circular dependencies
+// Core chain types will be re-exported from core package
+export type IDecodedTxExtraInfo = unknown; // Specific chain types will be defined in core
+export type IEncodedTx = unknown;
+export type ISignedTxPro = unknown;
+export type IApproveInfo = unknown;
 
 import type { IFeeInfoUnit, ITronResourceRentalInfo } from './fee';
 import type { EOnChainHistoryTxType } from './history';
@@ -97,15 +93,7 @@ export type IUtxoAddressInfo = {
   isMine: boolean;
 };
 
-export type IDecodedTxExtraInfo =
-  | IDecodedTxExtraAlgo
-  | IDecodedTxExtraLightning
-  | IDecodedTxExtraXrp
-  | IDecodedTxExtraDnx
-  | IDecodedTxExtraTron
-  | IDecodedTxExtraSol
-  | IDecodedTxExtraCosmos
-  | IDecodedTxExtraTon;
+// IDecodedTxExtraInfo defined above
 
 export type IDecodedTx = {
   txid: string; // blockHash

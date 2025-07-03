@@ -1,11 +1,11 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
-import type { EAddressEncodings } from '@onekeyhq/core/src/types';
+import type { EAddressEncodings } from '../consts/addressEncodingConsts';
 import type {
-  IDBAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+  IDBAccountBase,
+  IDBWalletBase,
+} from '../types/base';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -236,7 +236,7 @@ function isHwOrQrWallet({ walletId }: { walletId: string | undefined }) {
   return isHwWallet({ walletId }) || isQrWallet({ walletId });
 }
 
-function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
+function isHwHiddenWallet({ wallet }: { wallet: IDBWalletBase | undefined }) {
   return (
     wallet &&
     (isHwWallet({ walletId: wallet.id }) ||
@@ -539,7 +539,7 @@ function isAccountCompatibleWithNetwork({
   account,
   networkId,
 }: {
-  account: IDBAccount;
+  account: IDBAccountBase;
   networkId: string;
 }) {
   if (!networkId) {
@@ -570,7 +570,7 @@ function getAccountCompatibleNetwork({
   account,
   networkId,
 }: {
-  account: IDBAccount;
+  account: IDBAccountBase;
   networkId: string | undefined;
 }) {
   let accountNetworkId = networkId || account.createAtNetwork;
@@ -756,7 +756,7 @@ function buildDeviceDbId() {
 function buildHiddenWalletName({
   parentWallet,
 }: {
-  parentWallet: IDBWallet | undefined;
+  parentWallet: IDBWalletBase | undefined;
 }) {
   return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
 }
