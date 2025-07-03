@@ -26,7 +26,6 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
-import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
@@ -96,7 +95,6 @@ export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <KeyboardContainer />
         <NavigationContainer>
           <InAppNotification />
           <GlobalRootAppNavigationUpdate />

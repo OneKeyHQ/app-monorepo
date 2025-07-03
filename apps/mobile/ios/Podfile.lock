@@ -93,6 +93,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - ExpoAppleAuthentication (7.2.4):
+    - ExpoModulesCore
   - ExpoAsset (11.1.6):
     - ExpoModulesCore
   - ExpoBlur (14.1.5):
@@ -163,6 +165,8 @@ PODS:
     - Yoga
   - ExpoNativeExtensions (0.0.4):
     - ExpoModulesCore
+  - ExpoScreenCapture (7.1.5):
+    - ExpoModulesCore
   - ExpoScreenOrientation (8.1.7):
     - DoubleConversion
     - ExpoModulesCore
@@ -193,6 +197,8 @@ PODS:
   - ExpoSharing (13.1.5):
     - ExpoModulesCore
   - ExpoSplashScreen (0.30.9):
+    - ExpoModulesCore
+  - ExpoWebBrowser (14.2.0):
     - ExpoModulesCore
   - fast_float (6.1.4)
   - FBLazyVector (0.79.5)
@@ -2289,6 +2295,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - ReactNativePasskeys (0.3.3):
+    - ExpoModulesCore
   - ReactNativeSecureWindow (0.1.1):
     - ExpoModulesCore
     - ScreenshotPreventing
@@ -2770,6 +2778,7 @@ DEPENDENCIES:
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo`)
+  - ExpoAppleAuthentication (from `../../../node_modules/expo-apple-authentication/ios`)
   - ExpoAsset (from `../../../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
   - ExpoCamera (from `../../../node_modules/expo-camera/ios`)
@@ -2789,10 +2798,12 @@ DEPENDENCIES:
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
   - "ExpoNativeExtensions (from `../../../node_modules/@privy-io/expo-native-extensions/ios`)"
+  - ExpoScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
   - ExpoScreenOrientation (from `../../../node_modules/expo-screen-orientation/ios`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - ExpoSharing (from `../../../node_modules/expo-sharing/ios`)
   - ExpoSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
+  - ExpoWebBrowser (from `../../../node_modules/expo-web-browser/ios`)
   - fast_float (from `../../../node_modules/react-native/third-party-podspecs/fast_float.podspec`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - fmt (from `../../../node_modules/react-native/third-party-podspecs/fmt.podspec`)
@@ -2885,6 +2896,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
   - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
+  - ReactNativePasskeys (from `../../../node_modules/react-native-passkeys/ios`)
   - "ReactNativeSecureWindow (from `../../../node_modules/@bufgix/react-native-secure-window/ios`)"
   - RealmJS (from `../../../node_modules/realm`)
   - RestartNewArch (from `../../../node_modules/react-native-restart`)
@@ -2950,6 +2962,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-notifications/ios"
   Expo:
     :path: "../../../node_modules/expo"
+  ExpoAppleAuthentication:
+    :path: "../../../node_modules/expo-apple-authentication/ios"
   ExpoAsset:
     :path: "../../../node_modules/expo-asset/ios"
   ExpoBlur:
@@ -2988,6 +3002,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-modules-core"
   ExpoNativeExtensions:
     :path: "../../../node_modules/@privy-io/expo-native-extensions/ios"
+  ExpoScreenCapture:
+    :path: "../../../node_modules/expo-screen-capture/ios"
   ExpoScreenOrientation:
     :path: "../../../node_modules/expo-screen-orientation/ios"
   ExpoSecureStore:
@@ -2996,6 +3012,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-sharing/ios"
   ExpoSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
+  ExpoWebBrowser:
+    :path: "../../../node_modules/expo-web-browser/ios"
   fast_float:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/fast_float.podspec"
   FBLazyVector:
@@ -3177,6 +3195,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeFs:
     :path: "../../../node_modules/react-native-fs"
+  ReactNativePasskeys:
+    :path: "../../../node_modules/react-native-passkeys/ios"
   ReactNativeSecureWindow:
     :path: "../../../node_modules/@bufgix/react-native-secure-window/ios"
   RealmJS:
@@ -3225,6 +3245,7 @@ SPEC CHECKSUMS:
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
   EXNotifications: 1afe5275cf399920480fc5a9008676749a767d19
   Expo: a70d5b708d805073b66aebecd9768be7d364288a
+  ExpoAppleAuthentication: 4d2e0c88a4463229760f1fbb9a937a810efb6863
   ExpoAsset: 5dede4a6226fe287c95e38c46c86ad39bc8ca630
   ExpoBlur: 3c8885b9bf9eef4309041ec87adec48b5f1986a9
   ExpoCamera: 7edf99216d92e40b991d4e7ed69eba9527c94cda
@@ -3244,10 +3265,12 @@ SPEC CHECKSUMS:
   ExpoLocalization: f6c6aaa3bfff77b666bb958bdfeb5c55df21d990
   ExpoModulesCore: b0282ef361d46ddf759228430382226293060051
   ExpoNativeExtensions: eb96bc06b4243500e240b435d120e580787b8d1d
+  ExpoScreenCapture: 936adc13394b58fc78a9785723e08aa28a10bc41
   ExpoScreenOrientation: c883a8f448232c4f185cea4f08ce54ebdf9d010d
   ExpoSecureStore: b367d9f62c9102d808afbeb1561636d4276e439d
   ExpoSharing: b0377be82430d07398c6a4cd60b5a15696accbd3
   ExpoSplashScreen: 03ef991c0f9575a10269e08083cb4bd10e0989bc
+  ExpoWebBrowser: dc39a88485f007e61a3dff05d6a75f22ab4a2e92
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: d2a9cd223302b6c9aa4aa34c1a775e9db609eb52
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
@@ -3346,6 +3369,7 @@ SPEC CHECKSUMS:
   ReactCommon: 1aa48867a0fc71a2b4f9e8a1529f5673648354f3
   ReactNativeCameraKit: d6ddbeddcd1eea74cf480f98fda4d18c9d13de88
   ReactNativeFs: 8df20f858388123492752dbadf11f1712030d215
+  ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativeSecureWindow: aca1652c05825f4a3c1706b942a5a12060c54742
   RealmJS: ff8a7d6d6e339c1b3410a96ceb4151b151fe56f5
   RestartNewArch: 8f05b9ac18db934e1df999f89d4781872ea1e7f4
