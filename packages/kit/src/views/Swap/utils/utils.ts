@@ -2,6 +2,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapCrossChainStatus,
+  ESwapExtraStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -35,10 +36,19 @@ export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
   return networks;
 }
 
-export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
+export function getSwapHistoryStatusTextProps(
+  status: ESwapTxHistoryStatus,
+  extraStatus?: ESwapExtraStatus,
+): {
   key: ETranslations;
   color: ColorValue;
 } {
+  if (extraStatus === ESwapExtraStatus.HOLD) {
+    return {
+      key: ETranslations.swap_ch_status_hold,
+      color: '$textCaution',
+    };
+  }
   if (status === ESwapTxHistoryStatus.PENDING) {
     return {
       key: ETranslations.swap_history_status_pending,
