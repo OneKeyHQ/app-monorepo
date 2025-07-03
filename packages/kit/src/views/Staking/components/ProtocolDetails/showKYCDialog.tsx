@@ -100,7 +100,6 @@ function KYCDialogContent({
                 <XStack alignItems="center" gap="$1">
                   <SizableText
                     textAlign="left"
-                    flex={1}
                     size="$bodyMd"
                     color={expandedItems[index] ? '$text' : '$textSubdued'}
                   >
