@@ -499,11 +499,7 @@ function SupportButton({ text }: { text: string }) {
   );
 }
 
-export function SocialButtonGroup({
-  showVersionTips = false,
-}: {
-  showVersionTips?: boolean;
-}) {
+export function SocialButtonGroup() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
@@ -567,7 +563,7 @@ export function SocialButtonGroup({
         <SizableText color={textColor} size={textSize} onPress={handlePress}>
           {upperFirst(versionString)}
         </SizableText>
-        {showVersionTips &&
+        {!isTabNavigator &&
         (!appUpdateInfo.latestVersion ||
           appUpdateInfo.latestVersion === platformEnv.version) ? (
           <SizableText

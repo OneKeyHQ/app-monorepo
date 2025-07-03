@@ -75,7 +75,7 @@ export function SettingList() {
             )}
           </ScrollView>
         </YStack>
-        <SocialButtonGroup showVersionTips />
+        <SocialButtonGroup />
       </Page.Body>
     </Page>
   );
