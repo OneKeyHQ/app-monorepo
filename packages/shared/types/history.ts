@@ -174,6 +174,7 @@ export type IFetchAccountHistoryParams = {
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
   filterScam?: boolean;
+  filterLowValue?: boolean;
   excludeTestNetwork?: boolean;
 };
 

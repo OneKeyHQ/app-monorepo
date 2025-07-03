@@ -44,6 +44,7 @@ function TokenDetailsHistory(props: IProps) {
         networkId,
         tokenIdOnNetwork: tokenInfo.address,
         filterScam: settings.isFilterScamHistoryEnabled,
+        filterLowValue: settings.isFilterLowValueHistoryEnabled,
       });
       setHistoryInit(true);
       return r.txs;
@@ -52,6 +53,7 @@ function TokenDetailsHistory(props: IProps) {
       accountId,
       networkId,
       settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
       tokenInfo.address,
     ],
     {

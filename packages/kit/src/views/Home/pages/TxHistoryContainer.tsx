@@ -159,6 +159,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
               networkId: network.id,
               isManualRefresh: isManualRefresh.current,
               filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
             }),
           ),
         );
@@ -189,6 +190,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
           networkId: network.id,
           isManualRefresh: isManualRefresh.current,
           filterScam: settings.isFilterScamHistoryEnabled,
+          filterLowValue: settings.isFilterLowValueHistoryEnabled,
           excludeTestNetwork: true,
         });
         updateAddressesInfo({
@@ -227,6 +229,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       network,
       setIsHeaderRefreshing,
       settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
       updateAddressesInfo,
       updateAllNetworksState,
     ],
@@ -261,6 +264,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
               accountId: networkAccount.account?.id ?? '',
               networkId,
               filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
             }),
           ),
         );
@@ -278,6 +282,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
             accountId,
             networkId,
             filterScam: settings.isFilterScamHistoryEnabled,
+            filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
           });
       }
@@ -311,6 +316,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
     mergeDeriveAddressData,
     network?.id,
     settings.isFilterScamHistoryEnabled,
+    settings.isFilterLowValueHistoryEnabled,
     updateSearchKey,
     wallet?.id,
   ]);

@@ -401,11 +401,13 @@ class ServiceHistory extends ServiceBase {
     accountId,
     networkId,
     filterScam,
+    filterLowValue,
     excludeTestNetwork,
   }: {
     accountId: string;
     networkId: string;
     filterScam?: boolean;
+    filterLowValue?: boolean;
     excludeTestNetwork?: boolean;
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
