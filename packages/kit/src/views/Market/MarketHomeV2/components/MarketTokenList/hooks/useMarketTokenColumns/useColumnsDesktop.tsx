@@ -19,7 +19,7 @@ import { Txns } from '../../components/Txns';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
-export const useDesktopColumns = (
+export const useColumnsDesktop = (
   networkId?: string,
   watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {

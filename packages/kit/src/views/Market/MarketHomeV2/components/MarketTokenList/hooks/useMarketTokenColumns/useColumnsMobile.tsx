@@ -9,7 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { type IMarketToken } from '../../MarketTokenData';
 
-export const useMobileColumns = (
+export const useColumnsMobile = (
   networkId?: string,
   _watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
