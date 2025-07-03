@@ -418,9 +418,9 @@ class ServiceHistory extends ServiceBase {
     filterScam?: boolean;
     filterLowValue?: boolean;
     excludeTestNetwork?: boolean;
-    sourceCurrency: string;
+    sourceCurrency?: string;
     targetCurrency?: string;
-    currencyMap: Record<string, ICurrencyItem>;
+    currencyMap?: Record<string, ICurrencyItem>;
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       const accounts = (

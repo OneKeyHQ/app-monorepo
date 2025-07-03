@@ -280,9 +280,9 @@ export function checkIsLowValueReceiveTx({
   currencyMap,
 }: {
   tx: IAccountHistoryTx;
-  sourceCurrency: string;
-  targetCurrency: string;
-  currencyMap: Record<string, ICurrencyItem>;
+  sourceCurrency?: string;
+  targetCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
 }) {
   const actions = tx.decodedTx.actions;
 
@@ -320,19 +320,21 @@ export function checkIsLowValueReceiveTx({
     return false;
   }
 
-  const sourceCurrencyInfo = currencyMap[sourceCurrency];
-  const targetCurrencyInfo = currencyMap[targetCurrency];
+  if (currencyMap && sourceCurrency && targetCurrency) {
+    const sourceCurrencyInfo = currencyMap[sourceCurrency];
+    const targetCurrencyInfo = currencyMap[targetCurrency];
 
-  if (
-    sourceCurrencyInfo &&
-    targetCurrencyInfo &&
-    sourceCurrencyInfo.id !== targetCurrencyInfo.id
-  ) {
-    const targetTotalFiatValue = totalFiatValue
-      .div(new BigNumber(sourceCurrencyInfo.value))
-      .times(new BigNumber(targetCurrencyInfo.value));
+    if (
+      sourceCurrencyInfo &&
+      targetCurrencyInfo &&
+      sourceCurrencyInfo.id !== targetCurrencyInfo.id
+    ) {
+      const targetTotalFiatValue = totalFiatValue
+        .div(new BigNumber(sourceCurrencyInfo.value))
+        .times(new BigNumber(targetCurrencyInfo.value));
 
-    return targetTotalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
+      return targetTotalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
+    }
   }
 
   return totalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
@@ -346,18 +348,18 @@ export function checkIsScamTx({ tx }: { tx: IAccountHistoryTx }) {
 
 export function filterHistoryTxs({
   txs,
-  sourceCurrency,
+  sourceCurrency = 'usd',
   targetCurrency = 'usd',
   filterScam,
   filterLowValue,
   currencyMap,
 }: {
   txs: IAccountHistoryTx[];
-  sourceCurrency: string;
+  sourceCurrency?: string;
   targetCurrency?: string;
   filterScam?: boolean;
   filterLowValue?: boolean;
-  currencyMap: Record<string, ICurrencyItem>;
+  currencyMap?: Record<string, ICurrencyItem>;
 }) {
   if (!filterScam && !filterLowValue) {
     return txs;

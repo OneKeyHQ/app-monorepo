@@ -328,7 +328,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
     account?.id,
     indexedAccount?.id,
     mergeDeriveAddressData,
-    network.id,
+    network?.id,
     settings.isFilterScamHistoryEnabled,
     settings.isFilterLowValueHistoryEnabled,
     updateSearchKey,

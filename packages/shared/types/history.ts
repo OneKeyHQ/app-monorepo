@@ -177,9 +177,9 @@ export type IFetchAccountHistoryParams = {
   filterScam?: boolean;
   filterLowValue?: boolean;
   excludeTestNetwork?: boolean;
-  sourceCurrency: string;
+  sourceCurrency?: string;
   targetCurrency?: string;
-  currencyMap: Record<string, ICurrencyItem>;
+  currencyMap?: Record<string, ICurrencyItem>;
 };
 
 export type IOnChainHistoryTxToken = {
