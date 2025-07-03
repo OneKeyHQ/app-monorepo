@@ -1,4 +1,4 @@
-import { BarcodeType, CameraView } from 'expo-camera';
+import { CameraView } from 'expo-camera';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -22,7 +22,7 @@ export function ScanCamera({
       onBarcodeScanned={({ data }) => handleScanResult?.(data)}
       barCodeScannerSettings={{
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        barCodeTypes: [BarcodeType.qr],
+        barCodeTypes: ['qr'],
       }}
       responsiveOrientationWhenOrientationLocked={platformEnv.isNativeIOSPad}
       {...rest}
