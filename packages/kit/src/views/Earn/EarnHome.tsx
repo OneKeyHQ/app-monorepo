@@ -55,6 +55,7 @@ import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -306,24 +307,31 @@ function Recommended() {
   // Throttled function to fetch recommended assets
   const fetchRecommendedAssets = useThrottledCallback(
     async () => {
-      const recommendedAssets =
-        await backgroundApiProxy.serviceStaking.getAvailableAssets({
-          type: EAvailableAssetsTypeEnum.Recommend,
-        });
+      const loadingKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
+      actions.current.setLoadingState(loadingKey, true);
 
-      // Update the corresponding data in atom
-      actions.current.updateAvailableAssetsByType(
-        EAvailableAssetsTypeEnum.Recommend,
-        recommendedAssets,
-      );
-      return recommendedAssets;
+      try {
+        const recommendedAssets =
+          await backgroundApiProxy.serviceStaking.getAvailableAssets({
+            type: EAvailableAssetsTypeEnum.Recommend,
+          });
+
+        // Update the corresponding data in atom
+        actions.current.updateAvailableAssetsByType(
+          EAvailableAssetsTypeEnum.Recommend,
+          recommendedAssets,
+        );
+        return recommendedAssets;
+      } finally {
+        actions.current.setLoadingState(loadingKey, false);
+      }
     },
     timerUtils.getTimeDurationMs({ seconds: 2 }),
     { leading: true, trailing: false },
   );
 
   // Get recommended assets
-  const { isLoading } = usePromiseResult(
+  usePromiseResult(
     async () => {
       const result = await fetchRecommendedAssets();
       return result || [];
@@ -332,6 +340,7 @@ function Recommended() {
     [refreshTrigger, fetchRecommendedAssets], // Add refreshTrigger as dependency
     {
       watchLoading: true,
+      initResult: [],
     },
   );
 
@@ -341,8 +350,9 @@ function Recommended() {
     return recommendAssets;
   }, [availableAssetsByType]);
 
-  // Render skeleton when loading
-  if (isLoading || tokens.length < 1) {
+  // Render skeleton when loading and no data
+  const shouldShowSkeleton = tokens.length === 0;
+  if (shouldShowSkeleton) {
     return (
       <RecommendedContainer>
         {/* Desktop/Extension with larger screen: 4 items per row */}
@@ -682,7 +692,7 @@ function BasicEarnHome() {
       },
     );
 
-  const { result: earnBanners } = usePromiseResult(
+  const { result: earnBanners, run: refetchBanners } = usePromiseResult(
     async () => {
       const bannerResult =
         await backgroundApiProxy.serviceStaking.fetchEarnHomePageData();
@@ -700,21 +710,69 @@ function BasicEarnHome() {
     [],
     {
       revalidateOnReconnect: true,
+      revalidateOnFocus: true,
     },
   );
 
-  const { result: faqList, isLoading: isFaqLoading } = usePromiseResult(
-    async () => backgroundApiProxy.serviceStaking.getFAQListForHome(),
+  const {
+    result: faqList,
+    isLoading: isFaqLoading,
+    run: refetchFAQ,
+  } = usePromiseResult(
+    async () => {
+      const result =
+        await backgroundApiProxy.serviceStaking.getFAQListForHome();
+      return result;
+    },
     [],
     {
       initResult: [],
       watchLoading: true,
+      revalidateOnFocus: true,
     },
   );
 
   const navigation = useAppNavigation();
 
   const accountSelectorActions = useAccountSelectorActions();
+
+  // Listen to tab focus state and refetch incomplete data
+  useListenTabFocusState(
+    ETabRoutes.Earn,
+    useCallback(
+      (isFocus, isHideByModal) => {
+        if (isFocus && !isHideByModal) {
+          // Check and refetch incomplete data when tab becomes focused
+          const recommendKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
+          const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
+          const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
+          const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
+
+          // Check loading states and data for each key
+          const keys = [recommendKey, allKey, stableKey, nativeKey];
+
+          // Check if any data is incomplete and trigger refresh
+          const hasIncompleteData = keys.some((key) =>
+            actions.current.isDataIncomplete(key),
+          );
+
+          if (hasIncompleteData) {
+            // Clear loading states and trigger refresh to restart data fetching
+            keys.forEach((key) => {
+              actions.current.setLoadingState(key, false);
+            });
+            actions.current.triggerRefresh();
+          }
+
+          // Always refetch banner and FAQ data when tab becomes focused
+          // since they are not managed by atom loading states
+          void refetchBanners();
+          void refetchFAQ();
+        }
+      },
+      [actions, refetchBanners, refetchFAQ],
+    ),
+  );
 
   // Create adapter function for AvailableAssetsTabViewList
   const handleTokenPress = useCallback(
@@ -791,6 +849,9 @@ function BasicEarnHome() {
   );
 
   const banners = useMemo(() => {
+    // Only show skeleton if earnBanners is undefined
+    const shouldShowSkeleton = earnBanners === undefined;
+
     if (earnBanners) {
       return earnBanners.length ? (
         <Banner
@@ -813,21 +874,29 @@ function BasicEarnHome() {
         />
       ) : null;
     }
-    return (
-      <Skeleton
-        height="$36"
-        $md={{
-          height: '$28',
-        }}
-        width="100%"
-      />
-    );
+
+    if (shouldShowSkeleton) {
+      return (
+        <Skeleton
+          height="$36"
+          $md={{
+            height: '$28',
+          }}
+          width="100%"
+        />
+      );
+    }
+
+    return null;
   }, [earnBanners, media.gtLg, onBannerPress]);
 
   const isLoading = !!isFetchingAccounts;
 
   const faqPanel = useMemo(() => {
-    return <FAQPanel faqList={faqList} isLoading={isFaqLoading} />;
+    // Only show loading if we have no data
+    const shouldShowLoading =
+      isFaqLoading && (!faqList || faqList.length === 0);
+    return <FAQPanel faqList={faqList || []} isLoading={shouldShowLoading} />;
   }, [faqList, isFaqLoading]);
 
   const gtLgFaqPanel = useMemo(() => {
