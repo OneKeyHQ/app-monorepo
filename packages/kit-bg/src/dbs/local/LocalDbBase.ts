@@ -2668,10 +2668,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       switch (transportType) {
         case EHardwareTransportType.WEBUSB:
         case EHardwareTransportType.Bridge:
+          // Bridge and WEBUSB are both USB-based connections
           usbConnectId = connectId;
           break;
         case EHardwareTransportType.BLE:
         case EHardwareTransportType.DesktopWebBle:
+          // BLE connections
           bleConnectId = connectId;
           break;
         default:
@@ -2786,6 +2788,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.uuid = deviceUUID;
               item.deviceId = rawDeviceId;
               item.deviceType = deviceType;
+
+              // Update USB/BLE connectId fields
+              if (usbConnectId !== undefined) {
+                item.usbConnectId = usbConnectId;
+              }
+              if (bleConnectId !== undefined) {
+                item.bleConnectId = bleConnectId;
+              }
 
               item.settingsRaw =
                 item.settingsRaw ||

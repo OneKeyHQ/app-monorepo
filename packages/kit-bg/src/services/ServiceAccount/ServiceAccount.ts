@@ -2470,9 +2470,17 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
+    // Get current transport type to set correct connectId fields
+    const transportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
-        this.createHWWalletBase({ ...params, fillingXfpByCallingSdk: true }),
+        this.createHWWalletBase({
+          ...params,
+          fillingXfpByCallingSdk: true,
+          transportType,
+        }),
       {
         deviceParams: {
           dbDevice: params.device as IDBDevice,

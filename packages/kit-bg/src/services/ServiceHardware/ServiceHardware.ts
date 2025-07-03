@@ -298,8 +298,13 @@ class ServiceHardware extends ServiceBase {
     // Handler Request Pin
     // If the user set is to enter pin on the device, change the event to enter pin on the hardware
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PIN) {
+      // Get current transport type for precise device query
+      const hardwareTransportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
       const dbDevice = await localDb.getDeviceByQuery({
         connectId: newPayload.connectId,
+        transportType: hardwareTransportType,
       });
 
       if (
@@ -790,8 +795,13 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getAboutDeviceFeatures(params: { connectId: string }) {
+    // Get current transport type for precise device query
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.connectId,
+      transportType: hardwareTransportType,
     });
     if (!dbDevice) {
       throw new OneKeyLocalError('device not found');
@@ -860,9 +870,14 @@ class ServiceHardware extends ServiceBase {
         });
         dbDeviceId = wallet?.associatedDevice;
       } else {
+        // Get current transport type for precise device query when connectId is used
+        const hardwareTransportType =
+          await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
         const device = await localDb.getDeviceByQuery({
           connectId: p.connectId,
           featuresDeviceId: p.featuresDeviceId,
+          transportType: p.connectId ? hardwareTransportType : undefined,
         });
         dbDeviceId = device?.id;
       }
@@ -1036,8 +1051,13 @@ class ServiceHardware extends ServiceBase {
   async updateDeviceVersionAfterFirmwareUpdate(
     params: IUpdateFirmwareWorkflowParams,
   ) {
+    // Get current transport type for precise device query
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.releaseResult.originalConnectId,
+      transportType: hardwareTransportType,
     });
     if (!dbDevice) {
       return;

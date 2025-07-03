@@ -230,9 +230,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     }
     if (!device) {
       if (connectId || featuresDeviceId) {
+        // Get current transport type for precise device query when connectId is used
+        const hardwareTransportType = connectId
+          ? await this.backgroundApi.serviceSetting.getHardwareTransportType()
+          : undefined;
+
         device = await localDb.getDeviceByQuery({
           connectId,
           featuresDeviceId,
+          transportType: hardwareTransportType,
         });
       }
     }
