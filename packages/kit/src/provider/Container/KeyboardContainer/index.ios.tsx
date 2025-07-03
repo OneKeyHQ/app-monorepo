@@ -1,7 +1,6 @@
 import { useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
-// import KeyboardManager from 'react-native-keyboard-manager';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 

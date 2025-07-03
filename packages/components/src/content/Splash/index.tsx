@@ -1,8 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
-
 import { Stack } from '../../primitives';
 
 import { SplashView } from './SplashView';
@@ -13,9 +11,7 @@ export type ISplashProps = PropsWithChildren;
 
 export function Splash({ children }: ISplashProps) {
   const resolveSplash = useRef<() => void>();
-  const handleExitComplete = useCallback(() => {
-    markFPTime();
-  }, []);
+  const handleExitComplete = useCallback(() => {}, []);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { height } = e.nativeEvent.layout;

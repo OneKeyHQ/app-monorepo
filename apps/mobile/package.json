@@ -109,6 +109,7 @@
     "react-native-network-logger": "2.0.0",
     "react-native-permissions": "5.4.1",
     "react-native-purchases": "8.11.3",
+    "react-native-randombytes": "3.6.2",
     "react-native-reanimated": "3.18.0",
     "react-native-restart": "npm:react-native-restart-newarch@1.0.72",
     "react-native-safe-area-context": "5.4.1",
