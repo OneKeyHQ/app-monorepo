@@ -1,6 +1,7 @@
 import { isNil, unionBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
@@ -11,12 +12,12 @@ import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  filterHistoryTxs,
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -66,6 +67,10 @@ class ServiceHistory extends ServiceBase {
       networkId,
       tokenIdOnNetwork,
       filterScam,
+      filterLowValue,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
       excludeTestNetwork,
     } = params;
     let dbAccount;
@@ -371,13 +376,14 @@ class ServiceHistory extends ServiceBase {
       });
     }
 
-    if (filterScam) {
-      result = result.filter(
-        (tx) =>
-          !tx.decodedTx.riskyLevel ||
-          tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
-      );
-    }
+    result = filterHistoryTxs({
+      txs: result,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+      filterScam,
+      filterLowValue,
+    });
 
     return {
       accounts,
@@ -402,6 +408,9 @@ class ServiceHistory extends ServiceBase {
     networkId,
     filterScam,
     filterLowValue,
+    sourceCurrency,
+    targetCurrency,
+    currencyMap,
     excludeTestNetwork,
   }: {
     accountId: string;
@@ -409,6 +418,9 @@ class ServiceHistory extends ServiceBase {
     filterScam?: boolean;
     filterLowValue?: boolean;
     excludeTestNetwork?: boolean;
+    sourceCurrency: string;
+    targetCurrency?: string;
+    currencyMap: Record<string, ICurrencyItem>;
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       const accounts = (
@@ -431,7 +443,7 @@ class ServiceHistory extends ServiceBase {
       const localHistoryPendingTxs =
         await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
-      let result = unionBy(
+      const result = unionBy(
         [
           ...localHistoryPendingTxs,
           ...localHistoryConfirmedTxs.sort(
@@ -451,15 +463,13 @@ class ServiceHistory extends ServiceBase {
         tx.decodedTx.networkLogoURI = network.logoURI;
       }
 
-      if (filterScam) {
-        result = result.filter(
-          (tx) =>
-            !tx.decodedTx.riskyLevel ||
-            tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
-        );
-      }
-
-      return result;
+      return filterHistoryTxs({
+        txs: result,
+        sourceCurrency,
+        targetCurrency,
+        currencyMap,
+        filterScam,
+      });
     }
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -485,20 +495,19 @@ class ServiceHistory extends ServiceBase {
         xpub,
       });
 
-    let result = unionBy(
+    const result = unionBy(
       [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
       (tx) => tx.id,
     );
 
-    if (filterScam) {
-      result = result.filter(
-        (tx) =>
-          !tx.decodedTx.riskyLevel ||
-          tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
-      );
-    }
-
-    return result;
+    return filterHistoryTxs({
+      txs: result,
+      filterScam,
+      filterLowValue,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+    });
   }
 
   @backgroundMethod()
@@ -700,6 +709,7 @@ class ServiceHistory extends ServiceBase {
       isManualRefresh,
       isAllNetworks,
       filterScam,
+      filterLowValue,
     } = params;
     const vault = await vaultFactory.getVault({
       accountId,
@@ -747,6 +757,7 @@ class ServiceHistory extends ServiceBase {
           isForceRefresh: isManualRefresh,
           isAllNetwork: isAllNetworks,
           onlySafe: filterScam,
+          withoutDust: filterLowValue,
         },
         {
           headers:

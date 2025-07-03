@@ -1,3 +1,4 @@
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressBadge, IAddressInfo } from './address';
@@ -176,6 +177,9 @@ export type IFetchAccountHistoryParams = {
   filterScam?: boolean;
   filterLowValue?: boolean;
   excludeTestNetwork?: boolean;
+  sourceCurrency: string;
+  targetCurrency?: string;
+  currencyMap: Record<string, ICurrencyItem>;
 };
 
 export type IOnChainHistoryTxToken = {
