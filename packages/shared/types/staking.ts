@@ -1002,6 +1002,7 @@ export interface IInvestment {
   stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
   rewardNum?: IEarnRewardNum;
+  rewards?: string;
   vault?: string;
 }
 export interface IEarnInvestmentItem {

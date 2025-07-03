@@ -14,6 +14,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   OneKeyLocalError,
   PendingQueueTooLong,
@@ -344,13 +345,26 @@ class ServiceSend extends ServiceBase {
         networkId,
         accountId,
       });
-      const { txid } = await vault.broadcastTransaction({
-        accountId,
-        networkId,
-        accountAddress,
-        signedTx,
-        rawTxType,
-        tronResourceRentalInfo,
+
+      const broadcastTx = async () => {
+        return vault.broadcastTransaction({
+          accountId,
+          networkId,
+          accountAddress,
+          signedTx,
+          rawTxType,
+          tronResourceRentalInfo,
+        });
+      };
+
+      const { txid } = await pRetry(broadcastTx, {
+        retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
+        minTimeout:
+          vaultSettings.minRetryBroadcastTxInterval ??
+          timerUtils.getTimeDurationMs({ seconds: 3 }),
+        shouldRetry: async (error) => {
+          return vault.checkShouldRetryBroadcastTx(error);
+        },
       });
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
