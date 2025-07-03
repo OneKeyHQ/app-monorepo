@@ -7626,7 +7626,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    "@privy-io/expo": "npm:0.49.1"
+    "@privy-io/expo": "npm:0.55.4"
     "@privy-io/expo-native-extensions": "npm:0.0.4"
     "@react-native-async-storage/async-storage": "npm:1.22.0"
     "@react-native-community/netinfo": "npm:^11.4.1"
@@ -7698,7 +7698,7 @@ __metadata:
     react-native-permissions: "npm:5.4.1"
     react-native-purchases: "npm:8.11.3"
     react-native-qrcode-styled: "npm:0.3.3"
-    react-native-randombytes: "npm:3.6.2"
+    react-native-randombytes: "npm:react-native-get-random-values@1.11.0"
     react-native-reanimated: "npm:3.18.0"
     react-native-restart: "npm:react-native-restart-newarch@1.0.72"
     react-native-safe-area-context: "npm:5.4.1"
@@ -9463,6 +9463,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@privy-io/api-base@npm:1.5.2":
+  version: 1.5.2
+  resolution: "@privy-io/api-base@npm:1.5.2"
+  dependencies:
+    zod: "npm:^3.24.3"
+  checksum: 10/ffb2329247ebef216012e0848cbca8ead436922040343cc684ed1db3798709a705b3b7d69902face93aeb477432589fbf7d126dba8089f7ed02df2518cf3c634
+  languageName: node
+  linkType: hard
+
+"@privy-io/chains@npm:0.0.2":
+  version: 0.0.2
+  resolution: "@privy-io/chains@npm:0.0.2"
+  checksum: 10/8ab0989f145c2ea33bdf914c006be44fee5fa23bb0f88daa4198df4d32c077f6af8552f182348392ce7841b18d1109453a617f1ce65d5ced2e7e0b3ceff0344a
+  languageName: node
+  linkType: hard
+
 "@privy-io/expo-native-extensions@npm:0.0.4":
   version: 0.0.4
   resolution: "@privy-io/expo-native-extensions@npm:0.0.4"
@@ -9474,26 +9490,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@privy-io/expo@npm:0.49.1":
-  version: 0.49.1
-  resolution: "@privy-io/expo@npm:0.49.1"
+"@privy-io/expo@npm:0.55.4":
+  version: 0.55.4
+  resolution: "@privy-io/expo@npm:0.55.4"
   dependencies:
-    "@privy-io/js-sdk-core": "npm:0.45.1"
+    "@privy-io/js-sdk-core": "npm:0.52.4"
+    "@scure/base": "npm:^1.2.4"
     react-fast-compare: "npm:^3.2.2"
-    zustand: "npm:^4.4.1"
+    tweetnacl: "npm:^1.0.3"
+    zustand: "npm:^5.0.4"
   peerDependencies:
     "@expo-google-fonts/inter": "*"
-    "@privy-io/expo-native-extensions": 0.0.4
+    "@privy-io/expo-native-extensions": 0.0.5
     expo-apple-authentication: "*"
     expo-application: "*"
     expo-clipboard: "*"
-    expo-constants: "*"
     expo-crypto: "*"
     expo-font: "*"
     expo-linking: "*"
     expo-secure-store: "*"
     expo-web-browser: "*"
-    permissionless: ^0.2.10
+    permissionless: ^0.2.47
     react: "*"
     react-native: "*"
     react-native-passkeys: ^0.3.0
@@ -9501,17 +9518,25 @@ __metadata:
     react-native-safe-area-context: "*"
     react-native-svg: "*"
     react-native-webview: "*"
-    viem: ^2.21.36
+    viem: ^2.30.6
   peerDependenciesMeta:
     "@expo-google-fonts/inter":
+      optional: true
+    expo-clipboard:
       optional: true
     expo-font:
       optional: true
     permissionless:
       optional: true
+    react-native-qrcode-styled:
+      optional: true
+    react-native-safe-area-context:
+      optional: true
+    react-native-svg:
+      optional: true
     viem:
       optional: true
-  checksum: 10/f12d3bbcd6274f7e015097a0d342a0b66b23dfd63c3bdd41f0ebd61a9bcd3f7741113916cfadac231ca8c29f740e0e7f6082a55b6019e55d72df8f7a7f2756d0
+  checksum: 10/ad17a82d9d70a1e9aa4944f17afc2a302207bad3d8d895838ba3b7fafba43bece6837fcbc2f48180ff29e42b73c9e2a8fbd0c1cdb26ba8e83c0cf3c08b6b7d54
   languageName: node
   linkType: hard
 
@@ -9546,6 +9571,39 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@privy-io/js-sdk-core@npm:0.52.4":
+  version: 0.52.4
+  resolution: "@privy-io/js-sdk-core@npm:0.52.4"
+  dependencies:
+    "@ethersproject/abstract-signer": "npm:^5.7.0"
+    "@ethersproject/bignumber": "npm:^5.7.0"
+    "@ethersproject/contracts": "npm:^5.7.0"
+    "@ethersproject/providers": "npm:^5.7.2"
+    "@ethersproject/transactions": "npm:^5.7.0"
+    "@ethersproject/units": "npm:^5.7.0"
+    "@privy-io/api-base": "npm:1.5.2"
+    "@privy-io/chains": "npm:0.0.2"
+    "@privy-io/public-api": "npm:2.37.1"
+    canonicalize: "npm:^2.0.0"
+    eventemitter3: "npm:^5.0.1"
+    fetch-retry: "npm:^6.0.0"
+    jose: "npm:^4.15.5"
+    js-cookie: "npm:^3.0.5"
+    libphonenumber-js: "npm:^1.10.44"
+    set-cookie-parser: "npm:^2.6.0"
+    uuid: "npm:>=8 <10"
+  peerDependencies:
+    permissionless: ^0.2.47
+    viem: ^2.30.6
+  peerDependenciesMeta:
+    permissionless:
+      optional: true
+    viem:
+      optional: true
+  checksum: 10/eabb3cdad2f68ab65af0e3b5975cd285b7eb2dda3fe90402df19f981ecc27ae03d08451cb7d2209543993ef7625a8a7d5ee81f1fedd8a64697fc3de2124018d6
+  languageName: node
+  linkType: hard
+
 "@privy-io/public-api@npm:2.19.1":
   version: 2.19.1
   resolution: "@privy-io/public-api@npm:2.19.1"
@@ -9556,6 +9614,19 @@ __metadata:
     viem: "npm:^2"
     zod: "npm:^3.22.4"
   checksum: 10/870056465b0e5d7a55ea2652deb5e698dac3ef8b91562d3ce317c1d58d8f3be178896b905ea9820e2c862eb106f9207781bf2ddb0b897371a0f0252ad3371b4d
+  languageName: node
+  linkType: hard
+
+"@privy-io/public-api@npm:2.37.1":
+  version: 2.37.1
+  resolution: "@privy-io/public-api@npm:2.37.1"
+  dependencies:
+    "@privy-io/api-base": "npm:1.5.2"
+    bs58: "npm:^5.0.0"
+    libphonenumber-js: "npm:^1.10.31"
+    viem: "npm:^2"
+    zod: "npm:^3.24.3"
+  checksum: 10/16ae023bb6c4aa648b05f04efb278a3d5ee5d60c7022fb0c18618fbff1d1ee5d337dc9a82124b3c14a7308e266d2ff353a1c1b131a729791c45949e55ef15172
   languageName: node
   linkType: hard
 
@@ -18258,7 +18329,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"base64-js@npm:*, base64-js@npm:^1.0.2, base64-js@npm:^1.2.3, base64-js@npm:^1.3.0, base64-js@npm:^1.3.1, base64-js@npm:^1.5.1":
+"base64-js@npm:*, base64-js@npm:^1.2.3, base64-js@npm:^1.3.0, base64-js@npm:^1.3.1, base64-js@npm:^1.5.1":
   version: 1.5.1
   resolution: "base64-js@npm:1.5.1"
   checksum: 10/669632eb3745404c2f822a18fc3a0122d2f9a7a13f7fb8b5823ee19d1d2ff9ee5b52c53367176ea4ad093c332fd5ab4bd0ebae5a8e27917a4105a4cfc86b1005
@@ -19164,17 +19235,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"buffer@npm:^4.9.1":
-  version: 4.9.2
-  resolution: "buffer@npm:4.9.2"
-  dependencies:
-    base64-js: "npm:^1.0.2"
-    ieee754: "npm:^1.1.4"
-    isarray: "npm:^1.0.0"
-  checksum: 10/4852a455e167bc8ca580c3c585176bbe0931c9929aeb68f3e0b49adadcb4e513fd0922a43efdf67ddb2e8785bbe8254ae17f4b69038dd06329ee9e3283c8508f
-  languageName: node
-  linkType: hard
-
 "buffer@npm:^5.0.5, buffer@npm:^5.1.0, buffer@npm:^5.2.0, buffer@npm:^5.4.3, buffer@npm:^5.5.0, buffer@npm:^5.6.0":
   version: 5.7.1
   resolution: "buffer@npm:5.7.1"
@@ -19565,6 +19625,15 @@ __metadata:
   version: 1.0.30001726
   resolution: "caniuse-lite@npm:1.0.30001726"
   checksum: 10/04d4bd6be8e426199aace9b4d26402bbb043358b590136417b8a1b3888c43301256bff007b30276c37c3d56e3e97aa8f547d80ffb9ac3644937b2ba4a3f9b156
+  languageName: node
+  linkType: hard
+
+"canonicalize@npm:^2.0.0":
+  version: 2.1.0
+  resolution: "canonicalize@npm:2.1.0"
+  bin:
+    canonicalize: bin/canonicalize.js
+  checksum: 10/6ab9b9c2b84e6a210e1d55f9f1194d69c1b955512f38cc53b0529c654807f469e21b5099750c76e2b8464650d829c01234c923526450fac263a1d89cf2bb61df
   languageName: node
   linkType: hard
 
@@ -25212,6 +25281,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fetch-retry@npm:^6.0.0":
+  version: 6.0.0
+  resolution: "fetch-retry@npm:6.0.0"
+  checksum: 10/0c8d3082e2d76fff2df75adef6280bc854bc36fd3ef38506674f0216d0d819e2efd14da7477d3f1732415aea1d2cfde7cd3e1aeae46f45f2adbfc5133296e8de
+  languageName: node
+  linkType: hard
+
 "figures@npm:^3.0.0":
   version: 3.2.0
   resolution: "figures@npm:3.2.0"
@@ -27153,7 +27229,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ieee754@npm:^1.1.13, ieee754@npm:^1.1.4, ieee754@npm:^1.2.1":
+"ieee754@npm:^1.1.13, ieee754@npm:^1.2.1":
   version: 1.2.1
   resolution: "ieee754@npm:1.2.1"
   checksum: 10/d9f2557a59036f16c282aaeb107832dc957a93d73397d89bbad4eb1130560560eb695060145e8e6b3b498b15ab95510226649a0b8f52ae06583575419fe10fc4
@@ -28087,17 +28163,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isarray@npm:^1.0.0, isarray@npm:~1.0.0":
-  version: 1.0.0
-  resolution: "isarray@npm:1.0.0"
-  checksum: 10/f032df8e02dce8ec565cf2eb605ea939bdccea528dbcf565cdf92bfa2da9110461159d86a537388ef1acef8815a330642d7885b29010e8f7eac967c9993b65ab
-  languageName: node
-  linkType: hard
-
 "isarray@npm:^2.0.5":
   version: 2.0.5
   resolution: "isarray@npm:2.0.5"
   checksum: 10/1d8bc7911e13bb9f105b1b3e0b396c787a9e63046af0b8fe0ab1414488ab06b2b099b87a2d8a9e31d21c9a6fad773c7fc8b257c4880f2d957274479d28ca3414
+  languageName: node
+  linkType: hard
+
+"isarray@npm:~1.0.0":
+  version: 1.0.0
+  resolution: "isarray@npm:1.0.0"
+  checksum: 10/f032df8e02dce8ec565cf2eb605ea939bdccea528dbcf565cdf92bfa2da9110461159d86a537388ef1acef8815a330642d7885b29010e8f7eac967c9993b65ab
   languageName: node
   linkType: hard
 
@@ -35197,13 +35273,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-randombytes@npm:3.6.2":
-  version: 3.6.2
-  resolution: "react-native-randombytes@npm:3.6.2"
+"react-native-randombytes@npm:react-native-get-random-values@1.11.0":
+  version: 1.11.0
+  resolution: "react-native-get-random-values@npm:1.11.0"
   dependencies:
-    buffer: "npm:^4.9.1"
-    sjcl: "npm:^1.0.3"
-  checksum: 10/290b3501681a52086179dd0d444847fa2977fe8f06da244abbf0a4177a9cac271f7c3481c9534f9f552c57d0a37c45ac6d353bd86d54788cd9b9c2718c9729af
+    fast-base64-decode: "npm:^1.0.0"
+  peerDependencies:
+    react-native: ">=0.56"
+  checksum: 10/eb04833ce2b66309d737f1447ab01ad32aca00a8d1cc4de7b4e751c23f4d9f8059a2643bb16e0b6f3e6b074a9e57e769bb2bf2afc50a912c5661d80a6ce4de34
   languageName: node
   linkType: hard
 
@@ -37470,13 +37547,6 @@ __metadata:
   version: 1.0.5
   resolution: "sisteransi@npm:1.0.5"
   checksum: 10/aba6438f46d2bfcef94cf112c835ab395172c75f67453fe05c340c770d3c402363018ae1ab4172a1026a90c47eaccf3af7b6ff6fa749a680c2929bd7fa2b37a4
-  languageName: node
-  linkType: hard
-
-"sjcl@npm:^1.0.3":
-  version: 1.0.8
-  resolution: "sjcl@npm:1.0.8"
-  checksum: 10/5ab9fe956bc38608e97a3ad09858702610f4a89a6d445aefcda6aa177fc4f808fdb95dbe6c6f3c235af93b3c363e684ef7ceca8a8f69080fb3ec98e38c98ffd9
   languageName: node
   linkType: hard
 
@@ -42384,6 +42454,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"zod@npm:^3.24.3":
+  version: 3.25.71
+  resolution: "zod@npm:3.25.71"
+  checksum: 10/5467883fa8635ea0b88cdac1d494e84ee3dc1a4f0a5aaf0a1a0644d09a529bc3c6344114e95987981f47896f1743ee2677330ed0732ce2a448a4173ed31ce3a1
+  languageName: node
+  linkType: hard
+
 "zustand@npm:4.4.1":
   version: 4.4.1
   resolution: "zustand@npm:4.4.1"
@@ -42462,6 +42539,27 @@ __metadata:
     use-sync-external-store:
       optional: true
   checksum: 10/35728fdaa68291ea3e469524316dda4fe1d8cc22d8be3df309ca99bda0dbc7e66a1c502f66c26f76abfb4bd49a6e1368160353eb3cb173c24042a5f252075462
+  languageName: node
+  linkType: hard
+
+"zustand@npm:^5.0.4":
+  version: 5.0.6
+  resolution: "zustand@npm:5.0.6"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    immer: ">=9.0.6"
+    react: ">=18.0.0"
+    use-sync-external-store: ">=1.2.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    immer:
+      optional: true
+    react:
+      optional: true
+    use-sync-external-store:
+      optional: true
+  checksum: 10/9f727b05c36101ce659e65af452e23e66c2c51c9001d94085e43d02400344b2840544cc876b13c26cafc5d780f1a5c83f46b91f6f7684634af2be23f740c27cc
   languageName: node
   linkType: hard
 
