@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "Mendukung blockchain utama, termasuk ETH, BNB, TRX, dan lainnya.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Jaringan {networkName} belum didukung.",
   "wallet.history_settings_hide_risk_transaction_title": "Sembunyikan transaksi berisiko",
-  "wallet.history_settings_hide_small_transaction_desc": "Filter ini menyembunyikan transaksi terkirim dan transaksi apa pun tanpa data harga yang tersedia.",
+  "wallet.history_settings_hide_small_transaction_desc": "Menyembunyikan transaksi bernilai kecil. Token yang belum memiliki harga tidak akan disaring.",
   "wallet.history_settings_hide_small_transaction_title": "Sembunyikan transaksi nominal kecil",
   "wallet.last_ledger_sequence": "Urutan buku besar terakhir",
   "wallet.ledger_index": "Indeks buku besar",

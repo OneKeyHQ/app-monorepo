@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "Hỗ trợ các blockchain chính, bao gồm ETH, BNB, TRX và nhiều hơn nữa.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Mạng {networkName} chưa được hỗ trợ.",
   "wallet.history_settings_hide_risk_transaction_title": "Ẩn các giao dịch rủi ro",
-  "wallet.history_settings_hide_small_transaction_desc": "Bộ lọc này ẩn các giao dịch đã gửi và bất kỳ giao dịch nào không có dữ liệu về giá.",
+  "wallet.history_settings_hide_small_transaction_desc": "Ẩn các giao dịch giá trị nhỏ. Token chưa có giá sẽ không bị lọc.",
   "wallet.history_settings_hide_small_transaction_title": "Ẩn giao dịch giá trị nhỏ",
   "wallet.last_ledger_sequence": "Số hạch toán cuối cùng",
   "wallet.ledger_index": "Chỉ số sổ cái",

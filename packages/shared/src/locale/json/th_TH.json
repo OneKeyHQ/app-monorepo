@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "รองรับบล็อกเชนหลัก ๆ รวมถึง ETH, BNB, TRX และอื่น ๆ",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "เครือข่าย {networkName} ยังไม่รองรับในขณะนี้",
   "wallet.history_settings_hide_risk_transaction_title": "ซ่อนธุรกรรมที่มีความเสี่ยง",
-  "wallet.history_settings_hide_small_transaction_desc": "ตัวกรองนี้จะซ่อนธุรกรรมที่ส่งแล้วและรายการที่ไม่มีข้อมูลราคา",
+  "wallet.history_settings_hide_small_transaction_desc": "ซ่อนธุรกรรมมูลค่าน้อย โทเค็นที่ยังไม่มีการกำหนดราคาจะไม่ถูกกรอง",
   "wallet.history_settings_hide_small_transaction_title": "ซ่อนธุรกรรมมูลค่าเล็กน้อย",
   "wallet.last_ledger_sequence": "ลำดับบัญชีสุดท้าย",
   "wallet.ledger_index": "ดัชนีบัญชี",

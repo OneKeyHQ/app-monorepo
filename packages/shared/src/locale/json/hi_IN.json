@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "ETH, BNB, TRX और अन्य सहित प्रमुख ब्लॉकचेन का समर्थन करता है।",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} नेटवर्क अभी तक समर्थित नहीं है।",
   "wallet.history_settings_hide_risk_transaction_title": "जोखिम भरे लेन-देन छुपाएं",
-  "wallet.history_settings_hide_small_transaction_desc": "यह फ़िल्टर भेजी गई लेन-देन और बिना उपलब्ध मूल्य डेटा वाली लेन-देन को छिपाता है।",
+  "wallet.history_settings_hide_small_transaction_desc": "कम मूल्य के लेनदेन छुपाता है। बिना कीमत वाले टोकन फ़िल्टर नहीं होते।",
   "wallet.history_settings_hide_small_transaction_title": "छोटी राशियों के लेनदेन छिपाएँ",
   "wallet.last_ledger_sequence": "अंतिम खाता अनुक्रम",
   "wallet.ledger_index": "लेजर सूची",
