@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "ETH、BNB、TRXなど、主要なブロックチェーンをサポートしています。",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} ネットワークはまだサポートされていません。",
   "wallet.history_settings_hide_risk_transaction_title": "リスクのある取引を隠す",
-  "wallet.history_settings_hide_small_transaction_desc": "このフィルターは、送信済みの取引と価格データのない取引を非表示にします。",
+  "wallet.history_settings_hide_small_transaction_desc": "少額取引を非表示にします。価格が設定されていないトークンはフィルタリングされません。",
   "wallet.history_settings_hide_small_transaction_title": "少額の取引を非表示",
   "wallet.last_ledger_sequence": "最後の元帳シーケンス",
   "wallet.ledger_index": "元帳インデックス",

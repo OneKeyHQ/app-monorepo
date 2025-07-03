@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "Поддерживает основные блокчейны, включая ETH, BNB, TRX и другие.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Сеть {networkName} пока не поддерживается.",
   "wallet.history_settings_hide_risk_transaction_title": "Скрыть рискованные транзакции",
-  "wallet.history_settings_hide_small_transaction_desc": "Этот фильтр скрывает отправленные транзакции и транзакции без данных о цене.",
+  "wallet.history_settings_hide_small_transaction_desc": "Скрывает транзакции с низкой стоимостью. Токены без цены не фильтруются.",
   "wallet.history_settings_hide_small_transaction_title": "Скрыть небольшие транзакции",
   "wallet.last_ledger_sequence": "Последняя последовательность журнала",
   "wallet.ledger_index": "Индекс журнала",

@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "Unterstützt große Blockchains, einschließlich ETH, BNB, TRX und mehr.",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "Das {networkName} Netzwerk wird noch nicht unterstützt.",
   "wallet.history_settings_hide_risk_transaction_title": "Riskante Transaktionen verbergen",
-  "wallet.history_settings_hide_small_transaction_desc": "Dieser Filter blendet gesendete Transaktionen und alle ohne verfügbare Preisdaten aus.",
+  "wallet.history_settings_hide_small_transaction_desc": "Blendet Transaktionen mit geringem Wert aus. Token ohne Preis werden nicht gefiltert.",
   "wallet.history_settings_hide_small_transaction_title": "Kleine Transaktionen ausblenden",
   "wallet.last_ledger_sequence": "Letzte Ledger-Sequenz",
   "wallet.ledger_index": "Kontenindex",

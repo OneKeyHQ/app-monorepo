@@ -2984,7 +2984,7 @@
   "wallet.history_settings_hide_risk_transaction_desc": "支持熱門網絡，包括 ETH、BNB、TRX 等。",
   "wallet.history_settings_hide_risk_transaction_desc_unsupported": "{networkName} 網絡尚未支援。",
   "wallet.history_settings_hide_risk_transaction_title": "隱藏 高風險 交易",
-  "wallet.history_settings_hide_small_transaction_desc": "此篩選器將隱藏你傳送的以及無可用價格數據的交易。",
+  "wallet.history_settings_hide_small_transaction_desc": "根據價值過濾小額交易。未定價的代幣不會被隱藏。",
   "wallet.history_settings_hide_small_transaction_title": "隱藏小額交易",
   "wallet.last_ledger_sequence": "最後的帳本序列",
   "wallet.ledger_index": "帳本索引",
