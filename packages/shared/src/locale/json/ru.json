@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "Длина названия кошелька превышает лимит.",
   "wallet.enter_redemption_code": "Введите код для активации",
   "wallet.error_trade_with_watched_acocunt": "Невозможно торговать с контролируемым аккаунтом.",
-  "wallet.exchange_rate": "Курс обмена: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Курс обмена: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "Если у вас недостаточно TRX, вы можете выбрать оплату USDT для аренды энергии. Оплата в USDT обходится дороже, чем в TRX. Вы также можете выбрать получение части оплаты в TRX для будущего использования.",
   "wallet.exchange_usdt_for_trx": "Обменять {price_usdt} USDT на {price_trx} TRX",
   "wallet.generic_string_length_requirement": "Длина имени учетной записи превышает допустимый предел.",

@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "Довжина назви гаманця перевищує ліміт.",
   "wallet.enter_redemption_code": "Введіть код погашення",
   "wallet.error_trade_with_watched_acocunt": "Не можна торгувати з обліковим записом, за яким ведеться спостереження.",
-  "wallet.exchange_rate": "Курс обміну: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Курс обміну: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "Якщо у вас недостатньо TRX, ви можете використати USDT для оренди енергії. Платежі в USDT коштують дорожче, ніж у TRX. Ви можете вибрати отримання частини вашого платежу у вигляді TRX для майбутнього використання.",
   "wallet.exchange_usdt_for_trx": "Обміняти {price_usdt} USDT на {price_trx} TRX",
   "wallet.generic_string_length_requirement": "Довжина назви облікового запису перевищує ліміт.",

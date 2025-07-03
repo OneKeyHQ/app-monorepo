@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "Die Länge des Wallet-Namens überschreitet das Limit.",
   "wallet.enter_redemption_code": "Einlösungscode eingeben",
   "wallet.error_trade_with_watched_acocunt": "Kann nicht mit einem beobachteten Konto handeln.",
-  "wallet.exchange_rate": "Wechselkurs: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "Wechselkurs: {price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "Wenn Sie nicht genügend TRX haben, können Sie stattdessen USDT verwenden, um Energie zu mieten. Zahlungen mit USDT sind teurer als mit TRX. Sie können sich dafür entscheiden, einen Teil Ihrer Zahlung als TRX für die zukünftige Nutzung zu erhalten.",
   "wallet.exchange_usdt_for_trx": "Tausche {price_usdt} USDT gegen {price_trx} TRX",
   "wallet.generic_string_length_requirement": "Die Länge des Kontonamens überschreitet das Limit.",

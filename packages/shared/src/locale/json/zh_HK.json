@@ -2975,7 +2975,7 @@
   "wallet.engine_wallet_name_length_error": "錢包名稱長度超出限制",
   "wallet.enter_redemption_code": "輸入兌換碼",
   "wallet.error_trade_with_watched_acocunt": "觀察錢包無法進行交易",
-  "wallet.exchange_rate": "兌換率: {price_usdt} USDT → {price_trx} TRX",
+  "wallet.exchange_rate": "兌換比率：{price_trx} TRX → {price_usdt} USDT",
   "wallet.exchange_usdt_description": "如果您的 TRX 不足，您可以選擇使用 USDT 租賃能源。 USDT 的支付成本高於 TRX。您可以選擇將部分付款轉換為 TRX，以備將來使用。",
   "wallet.exchange_usdt_for_trx": "將 {price_usdt} USDT 兌換為 {price_trx} TRX",
   "wallet.generic_string_length_requirement": "帳戶名長度超出限制",

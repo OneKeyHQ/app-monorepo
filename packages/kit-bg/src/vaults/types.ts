@@ -277,6 +277,9 @@ export type IVaultSettings = {
   skipFixFeeInfoDecimal?: boolean;
 
   payWithTokenEnabled?: boolean;
+
+  maxRetryBroadcastTxCount?: number;
+  minRetryBroadcastTxInterval?: number;
 };
 
 export type IVaultFactoryOptions = {

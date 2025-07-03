@@ -24,6 +24,7 @@ export type ITronResourceRentalInfo = {
     symbol: string;
     price: string;
     trxRatio: string;
+    exchangeFee: number;
     payTxFeeAmount: string;
     payPurchaseTrxAmount: string;
     extraTrxNum: number;
@@ -85,6 +86,7 @@ export type IFeeTron = {
     payCoinCode: string;
     extraTrxNum: number;
     purchaseTRXFee: number;
+    exchangeFee: number;
   };
   createOrderParams?: {
     fromAddress: string;
