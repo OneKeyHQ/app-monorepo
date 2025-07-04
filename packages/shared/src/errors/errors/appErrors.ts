@@ -619,7 +619,7 @@ export class WatchedAccountTradeError extends OneKeyAppError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'WatchedAccountTradeError',
-        defaultKey: ETranslations.wallet_error_trade_with_watched_acocunt,
+        defaultKey: ETranslations.wallet_error_trade_with_watched_account,
       }),
     );
   }
@@ -678,7 +678,7 @@ export class TooManyWatchingAccounts extends NumberLimit {
 export class TooManyExternalAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ETranslations = ETranslations.wallet_engine_ttoo_many_external_accounts,
+    key: ETranslations = ETranslations.wallet_engine_too_many_external_accounts,
   ) {
     super({ limit, key, defaultMessage: 'TooManyExternalAccounts' });
   }
@@ -906,7 +906,7 @@ export class MinimumTransferBalanceRequiredError extends OneKeyAppError<IMinimum
       normalizeErrorProps(props, {
         defaultMessage: 'MinimumTransferBalanceRequiredError',
         defaultKey:
-          ETranslations.send_the_minimum_value_for_transffering_to_a_new_account_is_str_str,
+          ETranslations.send_the_minimum_value_for_transferring_to_a_new_account_is_str_str,
       }),
     );
   }

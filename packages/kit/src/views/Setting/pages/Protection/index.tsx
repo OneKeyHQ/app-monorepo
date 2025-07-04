@@ -228,7 +228,7 @@ const SettingProtectionModal = () => {
           </ListItem>
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.Setting_Reset_app_description,
+              id: ETranslations.settings_reset_app_description,
             })}
           </SizableText>
         </YStack>

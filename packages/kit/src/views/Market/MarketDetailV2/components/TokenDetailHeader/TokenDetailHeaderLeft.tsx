@@ -79,7 +79,6 @@ export function TokenDetailHeaderLeft({
           {address ? (
             <XStack
               borderRadius="$1"
-              p="$0.5"
               ai="center"
               gap="$1"
               onPress={handleCopyAddress}
@@ -95,7 +94,7 @@ export function TokenDetailHeaderLeft({
                 })}
               </SizableText>
 
-              <Icon name="Copy1Outline" size="$4" color="$iconSubdued" />
+              <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
             </XStack>
           ) : null}
 

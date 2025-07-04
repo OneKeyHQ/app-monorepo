@@ -6,7 +6,10 @@ import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
@@ -70,6 +73,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
 
   const mergeDeriveAddressData =
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
@@ -159,6 +163,9 @@ function TxHistoryListContainer(_props: ITabPageProps) {
               networkId: network.id,
               isManualRefresh: isManualRefresh.current,
               filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
+              sourceCurrency: settings.currencyInfo.id,
+              currencyMap,
             }),
           ),
         );
@@ -189,7 +196,10 @@ function TxHistoryListContainer(_props: ITabPageProps) {
           networkId: network.id,
           isManualRefresh: isManualRefresh.current,
           filterScam: settings.isFilterScamHistoryEnabled,
+          filterLowValue: settings.isFilterLowValueHistoryEnabled,
           excludeTestNetwork: true,
+          sourceCurrency: settings.currencyInfo.id,
+          currencyMap,
         });
         updateAddressesInfo({
           data: r.addressMap ?? {},
@@ -221,14 +231,17 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       isManualRefresh.current = false;
     },
     [
-      account,
-      indexedAccount?.id,
-      mergeDeriveAddressData,
       network,
-      setIsHeaderRefreshing,
-      settings.isFilterScamHistoryEnabled,
-      updateAddressesInfo,
+      account,
+      mergeDeriveAddressData,
       updateAllNetworksState,
+      setIsHeaderRefreshing,
+      indexedAccount?.id,
+      updateAddressesInfo,
+      settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
+      settings.currencyInfo.id,
+      currencyMap,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -261,6 +274,9 @@ function TxHistoryListContainer(_props: ITabPageProps) {
               accountId: networkAccount.account?.id ?? '',
               networkId,
               filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
+              sourceCurrency: settings.currencyInfo.id,
+              currencyMap,
             }),
           ),
         );
@@ -278,7 +294,10 @@ function TxHistoryListContainer(_props: ITabPageProps) {
             accountId,
             networkId,
             filterScam: settings.isFilterScamHistoryEnabled,
+            filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
+            sourceCurrency: settings.currencyInfo.id,
+            currencyMap,
           });
       }
 
@@ -311,8 +330,11 @@ function TxHistoryListContainer(_props: ITabPageProps) {
     mergeDeriveAddressData,
     network?.id,
     settings.isFilterScamHistoryEnabled,
+    settings.isFilterLowValueHistoryEnabled,
     updateSearchKey,
     wallet?.id,
+    settings.currencyInfo.id,
+    currencyMap,
   ]);
 
   useEffect(() => {

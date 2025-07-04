@@ -1543,6 +1543,7 @@ export default class ServiceSwap extends ServiceBase {
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
           status: txStatusRes.state,
+          extraStatus: txStatusRes.extraStatus,
           swapInfo: {
             ...currentSwapTxHistory.swapInfo,
             surplus:
