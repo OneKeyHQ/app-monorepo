@@ -10,7 +10,7 @@ import {
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function DesktopLayout() {
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail, isLoading } = useTokenDetail();
 
   return (
     <>
@@ -38,7 +38,11 @@ export function DesktopLayout() {
 
         {/* Right column */}
         <Stack w={320}>
-          <SwapPanel />
+          <SwapPanel
+            loading={isLoading}
+            networkId={networkId}
+            tokenAddress={tokenDetail?.address}
+          />
 
           <Divider mx="$4" my="$2" />
 
