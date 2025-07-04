@@ -141,7 +141,7 @@ function CreateInvoice() {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.lighting_invoice })}
+        title={intl.formatMessage({ id: ETranslations.lightning_invoice })}
       />
       <Page.Body p="$5">
         <Form form={form}>
@@ -163,7 +163,7 @@ function CreateInvoice() {
               min: {
                 value: 0,
                 message: intl.formatMessage({
-                  id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                  id: ETranslations.form_lightning_invoice_error_positive_integer_only,
                 }),
               },
               pattern:
@@ -175,7 +175,7 @@ function CreateInvoice() {
                   : {
                       value: /^[0-9]*$/,
                       message: intl.formatMessage({
-                        id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                        id: ETranslations.form_lightning_invoice_error_positive_integer_only,
                       }),
                     },
               validate: (value) => {
@@ -185,7 +185,7 @@ function CreateInvoice() {
                 const valueBN = new BigNumber(value);
                 if (lnUnit === ELightningUnit.SATS && !valueBN.isInteger()) {
                   return intl.formatMessage({
-                    id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                    id: ETranslations.form_lightning_invoice_error_positive_integer_only,
                   });
                 }
                 if (
@@ -194,7 +194,7 @@ function CreateInvoice() {
                 ) {
                   return intl.formatMessage(
                     {
-                      id: ETranslations.form_lighting_invoice_amount_error_max,
+                      id: ETranslations.form_lightning_invoice_amount_error_max,
                     },
                     {
                       amount: linkedInvoiceConfig.maxReceiveAmount,
@@ -263,7 +263,7 @@ function CreateInvoice() {
                 size: 'medium',
               }}
               placeholder={intl.formatMessage({
-                id: ETranslations.form_lighting_invoice_placeholder,
+                id: ETranslations.form_lightning_invoice_placeholder,
               })}
             />
           </Form.Field>

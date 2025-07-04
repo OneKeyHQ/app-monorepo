@@ -332,7 +332,6 @@ class ServiceSetting extends ServiceBase {
     topped.sort((a, b) => toppedImpl[a.impl] ?? 0 - toppedImpl[b.impl] ?? 0);
 
     networks = [...topped, ...bottomed];
-    const networkIds = networks.map((n) => n.id);
 
     const config: IAccountDerivationConfigItem[] = networks.map(
       (network, i) => ({

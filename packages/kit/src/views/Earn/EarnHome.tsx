@@ -819,15 +819,28 @@ function BasicEarnHome() {
                 accountId: account?.id ?? '',
                 networkId,
               });
-            void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
+            const navigationParams: {
+              accountId?: string;
+              networkId: string;
+              indexedAccountId?: string;
+              symbol: string;
+              provider: string;
+              vault?: string;
+            } = {
               accountId: earnAccount?.accountId || account?.id || '',
               indexedAccountId:
                 earnAccount?.account.indexedAccountId || indexedAccount?.id,
               provider,
               symbol,
               networkId,
-              vault: vault ?? '',
-            });
+            };
+            if (vault) {
+              navigationParams.vault = vault;
+            }
+            void EarnNavigation.pushDetailPageFromDeeplink(
+              navigation,
+              navigationParams,
+            );
           }
           return;
         }
