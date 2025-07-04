@@ -79,7 +79,7 @@ function MarketTokenList({
   const toDetailPage = useToDetailPage();
 
   const [currentSortBy, setCurrentSortBy] = useState<string | undefined>(
-    initialSortBy || 'liquidity',
+    initialSortBy || 'v24hUSD',
   );
   const [currentSortType, setCurrentSortType] = useState<
     'asc' | 'desc' | undefined
