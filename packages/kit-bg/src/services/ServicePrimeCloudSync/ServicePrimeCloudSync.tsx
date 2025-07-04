@@ -162,7 +162,6 @@ class ServicePrimeCloudSync extends ServiceBase {
   async apiFetchSyncLock() {
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
     // TODO return pwdHash from server
-    const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
     const result = await client.get<
       IApiClientResponse<{
         lock: ICloudSyncServerItemByDownloaded;
@@ -382,7 +381,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       await this.ensureCloudSyncIsAvailable();
     }
 
-    const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
     let pwdHash = '';
     let lockItem: IDBCloudSyncItem | undefined;
 
@@ -1200,7 +1198,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         );
       const securityPasswordR1 = securityPasswordR1Info?.securityPasswordR1;
       const accountSalt = securityPasswordR1Info?.accountSalt;
-      const primeUserId = securityPasswordR1Info?.primeUserId;
 
       if (!securityPasswordR1) {
         throw new OneKeyError('Failed to decrypt securityPasswordR1');
