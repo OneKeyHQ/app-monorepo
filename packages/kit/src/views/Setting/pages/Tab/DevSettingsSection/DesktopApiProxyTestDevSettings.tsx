@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Dialog, Page, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export default function DesktopApiProxyTestDevSettings() {
   const [devToolsEnabled, setDevToolsEnabled] = useState(false);
@@ -37,6 +38,7 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testSystemRestore = useCallback(async () => {
     try {
+      await timerUtils.wait(2000);
       await globalThis.desktopApiProxy.system.restore();
       Dialog.debugMessage({
         debugMessage: { result: 'restore() called successfully' },
@@ -63,6 +65,7 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testSystemFocus = useCallback(async () => {
     try {
+      await timerUtils.wait(2000);
       await globalThis.desktopApiProxy.system.focus();
       Dialog.debugMessage({
         debugMessage: { result: 'focus() called successfully' },
@@ -400,7 +403,7 @@ export default function DesktopApiProxyTestDevSettings() {
 
         <ListItem
           title="restore()"
-          subtitle="Restore application"
+          subtitle="Restore application, wait 2 seconds"
           drillIn
           onPress={testSystemRestore}
         />
@@ -414,7 +417,7 @@ export default function DesktopApiProxyTestDevSettings() {
 
         <ListItem
           title="focus()"
-          subtitle="Focus application window"
+          subtitle="Focus application window, wait 2 seconds"
           drillIn
           onPress={testSystemFocus}
         />
