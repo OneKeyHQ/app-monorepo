@@ -73,7 +73,7 @@ export default class NotificationProvider extends NotificationProviderBase {
 
     // iOS: not working when jpush enabled, use JPush.addLocalNotificationListener instead
     // Android: working
-    const sub1 = addNotificationResponseReceivedListener(async (event) => {
+    addNotificationResponseReceivedListener(async (event) => {
       const data = event?.notification?.request?.content?.data as
         | IJPushNotificationLocalEvent
         | undefined;
@@ -107,8 +107,8 @@ export default class NotificationProvider extends NotificationProviderBase {
         });
       }
     });
-    const sub2 = setNotificationHandler({
-      handleNotification: async ({ request }) => ({
+    setNotificationHandler({
+      handleNotification: async ({ request: _request }) => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,

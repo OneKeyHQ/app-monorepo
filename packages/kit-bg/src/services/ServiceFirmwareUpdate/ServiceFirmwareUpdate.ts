@@ -1642,8 +1642,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
 
     return this.withFirmwareUpdateEvents(async () => {
-      const { connectId, bleVersion, firmwareVersion, bootloaderVersion } =
-        params;
+      const { connectId } = params;
       await firmwareUpdateStepInfoAtom.set({
         step: EFirmwareUpdateSteps.installing,
         payload: {

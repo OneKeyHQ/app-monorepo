@@ -65,7 +65,6 @@ export async function transfer(
   {
     config = undefined,
     requireToAddress = true,
-    splitChangeCell = false,
   }: Options & {
     requireToAddress?: boolean;
     splitChangeCell: false;
