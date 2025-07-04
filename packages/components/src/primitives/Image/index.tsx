@@ -33,7 +33,7 @@ function ImageContainer({ children }: PropsWithChildren) {
 }
 
 /**
- * @deprecated Use Imagev2 instead
+ * @deprecated Use Image.V2 instead. example: packages/kit/src/views/Developer/pages/Gallery/Components/stories/Image.tsx
  */
 function BasicImage({
   children,

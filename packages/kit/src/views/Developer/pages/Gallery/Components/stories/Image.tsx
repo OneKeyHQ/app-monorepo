@@ -91,36 +91,23 @@ const ImageGallery = () => (
         title: 'Loading Fallback',
         element: (
           <YStack gap="$4">
-            <Image height="$10" width="$10">
-              <Image.Source
-                delayMs={2500}
-                src="https://uni.onekey-asset.com/static/chain/btc.png"
-              />
-              <Image.Skeleton />
-            </Image>
-            <Image
+            <Image.V2
+              size="$10"
+              source={{
+                uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
+              }}
+            />
+            <Image.V2
               size="$14"
               borderRadius="$3"
               $gtLg={{
                 w: '$12',
                 h: '$12',
               }}
-            >
-              <Image.Source
-                source={{
-                  uri: 'https://dev.onekey-asset.com/dashboard/dapp/upload_1706684476225.0.17899416707349025.0.jpeg',
-                }}
-              />
-              <Image.Fallback>
-                <Icon
-                  size="$14"
-                  $gtLg={{
-                    size: '$12',
-                  }}
-                  name="GlobusOutline"
-                />
-              </Image.Fallback>
-            </Image>
+              source={{
+                uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
+              }}
+            />
           </YStack>
         ),
       },
@@ -128,60 +115,13 @@ const ImageGallery = () => (
         title: 'onError',
         element: (
           <YStack gap="$4">
-            <Image height="$10" width="$10">
-              <Image.Source src="https://uni.onekey-asset.com/static/chain/btc.pn" />
-              <Image.Skeleton />
-            </Image>
-            <Image
-              size="$14"
-              borderRadius="$3"
-              $gtLg={{
-                w: '$12',
-                h: '$12',
+            <Image.V2
+              size="$10"
+              source={{
+                uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
               }}
-            >
-              <Image.Source
-                source={{
-                  uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
-                }}
-              />
-              <Image.Fallback>
-                <Icon
-                  size="$14"
-                  $gtLg={{
-                    size: '$12',
-                  }}
-                  name="GlobusOutline"
-                />
-              </Image.Fallback>
-            </Image>
-            <Image
-              size="$14"
-              borderRadius="$3"
-              $gtLg={{
-                w: '$12',
-                h: '$12',
-              }}
-            >
-              <Image.Source
-                delayMs={10 * 1000}
-                source={{
-                  uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
-                }}
-              />
-              <Image.Fallback>
-                <Icon
-                  size="$14"
-                  $gtLg={{
-                    size: '$12',
-                  }}
-                  name="GlobusOutline"
-                />
-              </Image.Fallback>
-              <Image.Loading>
-                <Skeleton width="100%" height="100%" />
-              </Image.Loading>
-            </Image>
+              fallback={<Icon name="ImageMountainsOutline" size="$8" />}
+            />
           </YStack>
         ),
       },

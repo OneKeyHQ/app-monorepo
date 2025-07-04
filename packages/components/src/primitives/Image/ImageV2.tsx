@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage } from 'expo-image';
 import { usePropsAndStyle } from 'tamagui';
@@ -15,6 +15,7 @@ export interface IBasicImageV2Props extends ImageProps {
 }
 export type IImageV2Props = Omit<IBasicImageV2Props, 'source' | 'src'> &
   IStackStyle & {
+    size?: IStackStyle['height'];
     source?: ImageSource | string | number;
     skeleton?: React.ReactNode;
     fallback?: React.ReactNode;
@@ -26,6 +27,18 @@ const getRandomRetryTimes = () => {
 };
 
 export function ImageV2(props: IImageV2Props) {
+  useMemo(() => {
+    // eslint-disable-next-line react/destructuring-assignment
+    if (props.size) {
+      // eslint-disable-next-line react/destructuring-assignment
+      const imageHeight = props.height || props.h || props.size;
+      // eslint-disable-next-line react/destructuring-assignment
+      const imageWidth = props.width || props.w || props.size;
+      props.width = imageWidth;
+      props.height = imageHeight;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react/destructuring-assignment
+  }, [props.size]);
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   }) as unknown as [IImageV2Props, ImageStyle];
@@ -49,7 +62,7 @@ export function ImageV2(props: IImageV2Props) {
   if (!image) {
     return (
       restProps.skeleton || (
-        <Stack style={style}>
+        <Stack style={style} ai="center" jc="center">
           <Skeleton width="100%" />
         </Stack>
       )
@@ -57,7 +70,11 @@ export function ImageV2(props: IImageV2Props) {
   }
 
   if (hasError) {
-    return <Stack style={style}>{restProps.fallback}</Stack>;
+    return (
+      <Stack style={style} ai="center" jc="center">
+        {restProps.fallback}
+      </Stack>
+    );
   }
 
   return <ExpoImage source={image} style={style} onError={reFetchImage} />;

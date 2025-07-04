@@ -9,7 +9,7 @@ import { useVisible } from './useVisible';
 import type { IImageFallbackProps, IImageSkeletonProps } from './type';
 
 /**
- * @deprecated Use Imagev2 instead
+ * @deprecated Use Image.V2 instead. example: packages/kit/src/views/Developer/pages/Gallery/Components/stories/Image.tsx
  */
 export function ImageFallback({
   delayMs = 80,
@@ -33,7 +33,7 @@ export function ImageFallback({
 }
 
 /**
- * @deprecated Use Imagev2 instead
+ * @deprecated Use Image.V2 instead. example: packages/kit/src/views/Developer/pages/Gallery/Components/stories/Image.tsx
  */
 export function ImageSkeleton(props: IImageSkeletonProps) {
   return (
