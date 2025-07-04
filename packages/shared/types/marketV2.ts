@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 export interface IMarketTokenDetail {
   address: string;
   logoUrl: string;
