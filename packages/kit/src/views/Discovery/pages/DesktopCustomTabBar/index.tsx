@@ -102,9 +102,14 @@ function DesktopCustomTabBar() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      void closeWebTab({ tabId: id, entry: 'Menu' });
+      void closeWebTab({
+        tabId: id,
+        entry: 'Menu',
+        isDesktop: true,
+        navigation,
+      });
     },
-    [closeWebTab],
+    [closeWebTab, navigation],
   );
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {

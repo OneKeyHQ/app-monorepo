@@ -47,23 +47,6 @@ function DesktopBrowser() {
     }
   }, [route.params, addBrowserHomeTab]);
 
-  const navigation = useAppNavigation();
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (
-      !firstRender.current &&
-      // unpin == 0
-      tabs.filter((x) => !x.isPinned).length === 0 &&
-      // pin & active == 0
-      tabs.filter((x) => x.isPinned && x.isActive).length === 0
-    ) {
-      navigation.switchTab(ETabRoutes.Discovery);
-    }
-    if (firstRender.current) {
-      firstRender.current = false;
-    }
-  }, [tabs, navigation]);
-
   useDAppNotifyChanges({ tabId: activeTabId });
 
   // Sort tabs by id to maintain stable order and prevent re-renders
