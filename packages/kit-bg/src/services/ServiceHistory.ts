@@ -469,6 +469,7 @@ class ServiceHistory extends ServiceBase {
         targetCurrency,
         currencyMap,
         filterScam,
+        filterLowValue,
       });
     }
     const [accountAddress, xpub] = await Promise.all([
