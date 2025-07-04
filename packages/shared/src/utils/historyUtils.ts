@@ -1,12 +1,15 @@
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 import { ETranslations } from '../locale';
+import { TX_RISKY_LEVEL_SPAM } from '../walletConnect/constant';
 
 import { formatDate } from './dateUtils';
 
@@ -17,6 +20,9 @@ import type {
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '../../types/history';
+
+// usd
+const LOW_VALUE_RECEIVE_TX_THRESHOLD = 0.01;
 
 export function getOnChainHistoryTxStatus(
   onChainTxStatus: EOnChainHistoryTxStatus,
@@ -265,4 +271,115 @@ export function buildAddressMapInfoKey({
   address: string;
 }) {
   return `${networkId}_${address}`;
+}
+
+export function checkIsLowValueReceiveTx({
+  tx,
+  sourceCurrency,
+  targetCurrency,
+  currencyMap,
+}: {
+  tx: IAccountHistoryTx;
+  sourceCurrency?: string;
+  targetCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
+}) {
+  const actions = tx.decodedTx.actions;
+
+  if (actions.length !== 1) {
+    return false;
+  }
+
+  const action = actions[0];
+  if (!action.assetTransfer) {
+    return false;
+  }
+
+  const { sends, receives } = action.assetTransfer;
+
+  if (sends && sends.length > 0) {
+    return false;
+  }
+
+  if (!receives || receives.length === 0) {
+    return false;
+  }
+
+  let totalFiatValue = new BigNumber(0);
+
+  receives.forEach((receive) => {
+    const { amount, price } = receive;
+    if (price) {
+      totalFiatValue = totalFiatValue.plus(
+        new BigNumber(amount ?? 0).multipliedBy(price ?? 0),
+      );
+    }
+  });
+
+  if (totalFiatValue.isZero()) {
+    return false;
+  }
+
+  if (currencyMap && sourceCurrency && targetCurrency) {
+    const sourceCurrencyInfo = currencyMap[sourceCurrency];
+    const targetCurrencyInfo = currencyMap[targetCurrency];
+
+    if (
+      sourceCurrencyInfo &&
+      targetCurrencyInfo &&
+      sourceCurrencyInfo.id !== targetCurrencyInfo.id
+    ) {
+      const targetTotalFiatValue = totalFiatValue
+        .div(new BigNumber(sourceCurrencyInfo.value))
+        .times(new BigNumber(targetCurrencyInfo.value));
+
+      return targetTotalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
+    }
+  }
+
+  return totalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
+}
+
+export function checkIsScamTx({ tx }: { tx: IAccountHistoryTx }) {
+  return (
+    tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel > TX_RISKY_LEVEL_SPAM
+  );
+}
+
+export function filterHistoryTxs({
+  txs,
+  sourceCurrency = 'usd',
+  targetCurrency = 'usd',
+  filterScam,
+  filterLowValue,
+  currencyMap,
+}: {
+  txs: IAccountHistoryTx[];
+  sourceCurrency?: string;
+  targetCurrency?: string;
+  filterScam?: boolean;
+  filterLowValue?: boolean;
+  currencyMap?: Record<string, ICurrencyItem>;
+}) {
+  if (!filterScam && !filterLowValue) {
+    return txs;
+  }
+
+  return txs.filter((tx) => {
+    if (filterScam && checkIsScamTx({ tx })) {
+      return false;
+    }
+    if (
+      filterLowValue &&
+      checkIsLowValueReceiveTx({
+        tx,
+        sourceCurrency,
+        targetCurrency,
+        currencyMap,
+      })
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
