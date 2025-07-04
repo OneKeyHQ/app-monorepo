@@ -714,7 +714,7 @@ function SendDataInputContainer() {
           ) {
             throw new OneKeyError({
               message: intl.formatMessage({
-                id: ETranslations.wallet_error_trade_with_watched_acocunt,
+                id: ETranslations.wallet_error_trade_with_watched_account,
               }),
               autoToast: true,
             });
