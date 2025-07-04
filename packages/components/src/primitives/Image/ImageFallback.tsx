@@ -8,6 +8,9 @@ import { useVisible } from './useVisible';
 
 import type { IImageFallbackProps, IImageSkeletonProps } from './type';
 
+/**
+ * @deprecated Use Imagev2 instead
+ */
 export function ImageFallback({
   delayMs = 80,
   children,
@@ -29,6 +32,9 @@ export function ImageFallback({
   ) : null;
 }
 
+/**
+ * @deprecated Use Imagev2 instead
+ */
 export function ImageSkeleton(props: IImageSkeletonProps) {
   return (
     <ImageFallback {...props}>

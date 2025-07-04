@@ -14,7 +14,7 @@ export const preloadImage: IPreloadImageFunc = (source) =>
 
 export const loadImage = (source: { uri?: string }) => {
   if (!source.uri) {
-    return Promise.resolve(false);
+    return Promise.resolve(null);
   }
   return Image.loadAsync(source.uri);
 };

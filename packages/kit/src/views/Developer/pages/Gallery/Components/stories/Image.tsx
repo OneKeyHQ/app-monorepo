@@ -13,12 +13,12 @@ const ImageGallery = () => (
         title: 'load Image via source',
         element: (
           <YStack gap={10}>
-            <Image
+            <Image.V2
               height="$10"
               width="$10"
               source={require('@onekeyhq/kit/assets/walletLogo/cosmos_keplr.png')}
             />
-            <Image
+            <Image.V2
               height="$10"
               width="$10"
               source={{
@@ -32,7 +32,7 @@ const ImageGallery = () => (
         title: 'load Image via src',
         element: (
           <YStack gap={10}>
-            <Image
+            <Image.V2
               height="$10"
               width="$10"
               src="https://uni.onekey-asset.com/static/chain/btc.png"
@@ -44,13 +44,7 @@ const ImageGallery = () => (
         title: 'uri is empty string',
         element: (
           <YStack gap={10}>
-            <Image w="$5" h="$5">
-              <Image.Source
-                source={{
-                  uri: '',
-                }}
-              />
-            </Image>
+            <Image.V2 w="$5" h="$5" source={{ uri: '' }} />
           </YStack>
         ),
       },
@@ -58,7 +52,7 @@ const ImageGallery = () => (
         title: 'base64 Image',
         element: (
           <YStack gap={10}>
-            <Image size="$10" source={{ uri: base64Image }} />
+            <Image.V2 w="$10" h="$10" source={{ uri: base64Image }} />
           </YStack>
         ),
       },
@@ -66,59 +60,30 @@ const ImageGallery = () => (
         title: 'Loading Fallback',
         element: (
           <YStack gap={10}>
-            <Image height="$10" width="$10">
-              <Image.Source
-                source={{
-                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
-                }}
-              />
-              <Image.Fallback>
-                <Skeleton width="100%" height="100%" />
-              </Image.Fallback>
-            </Image>
-            <Image height="$10" width="$10">
-              <Image.Source
-                delayMs={2500}
-                source={{
-                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
-                }}
-              />
-              <Image.Fallback>
-                <Skeleton width="100%" height="100%" />
-              </Image.Fallback>
-            </Image>
+            <Image.V2
+              w="$10"
+              h="$10"
+              source={{
+                uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
+              }}
+            />
 
-            <Image height="$10" width="$10">
-              <Image.Source
-                delayMs={2500}
-                source={{
-                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
-                }}
-              />
-              <Image.Fallback>
-                <Icon name="ImageMountainsOutline" size="$8" />
-              </Image.Fallback>
-            </Image>
+            <Image.V2
+              w="$10"
+              h="$10"
+              source={{
+                uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
+              }}
+              fallback={<Icon name="ImageMountainsOutline" size="$8" />}
+            />
 
-            <Image height="$10" width="$10">
-              <Image.Source
-                delayMs={2500}
-                source={{
-                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
-                }}
-              />
-              <Image.Skeleton />
-            </Image>
-            <Image height="$10" width="$10">
-              <Image.Source
-                source={{
-                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
-                }}
-              />
-              <Image.Fallback delayMs={2500}>
-                <Skeleton width="100%" height="100%" />
-              </Image.Fallback>
-            </Image>
+            <Image.V2
+              w="$10"
+              h="$10"
+              source={{
+                uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
+              }}
+            />
           </YStack>
         ),
       },

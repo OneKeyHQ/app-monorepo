@@ -10,10 +10,10 @@ import { ImageContext } from './context';
 import { ImageFallback, ImageSkeleton } from './ImageFallback';
 import { ImageLoading } from './ImageLoading';
 import { ImageSource } from './ImageSource';
+import { ImageV2 } from './ImageV2';
 import { loadImage, preloadImage, preloadImages } from './preload';
 
 import type { IImageProps, IImageSourceProps } from './type';
-import { ImageV2 } from './ImageV2';
 
 function ImageContainer({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
@@ -67,7 +67,7 @@ function BasicImage({
 }
 
 export const Image = withStaticProperties(BasicImage, {
-  ImageV2,
+  V2: ImageV2,
   Source: ImageSource,
   Fallback: ImageFallback,
   Skeleton: ImageSkeleton,

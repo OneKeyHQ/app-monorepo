@@ -91,8 +91,13 @@ function TxConfirmHeaderRight(props: {
 
   useEffect(() => {
     if (imageUri) {
-      void RNImage.getSize(imageUri, (width: number, height: number) => {
-        setProviderImageSize({ width, height });
+      void Image.loadImage({ uri: imageUri }).then((imageRef) => {
+        if (imageRef) {
+          setProviderImageSize({
+            width: imageRef.width,
+            height: imageRef.height,
+          });
+        }
       });
     }
   }, [imageUri]);

@@ -7,6 +7,9 @@ import { useVisible } from './useVisible';
 
 import type { IImageLoadingProps } from './type';
 
+/**
+ * @deprecated Use Imagev2 instead
+ */
 export function ImageLoading({
   children,
   delayMs = 0,

@@ -36,6 +36,9 @@ const retryFetchImage = async (
   }
 };
 
+/**
+ * @deprecated Use Imagev2 instead
+ */
 export function ImageSource({
   source,
   src,
