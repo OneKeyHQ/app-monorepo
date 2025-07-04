@@ -122,7 +122,7 @@ jobs:
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
 
           # For production environment, use production URL
-          echo "PUBLIC_URL=https://app.onekey.so/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
+          echo "PUBLIC_URL=https://app-assets.onekey.so/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
 
       - name: Install Dependency
         env:
