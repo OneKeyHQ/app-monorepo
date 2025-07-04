@@ -799,7 +799,7 @@ export const DevSettingsSection = () => {
           });
         }}
       />
-      
+
       {platformEnv.isNativeAndroid ? (
         <SectionPressItem
           title="chekc webview version"
