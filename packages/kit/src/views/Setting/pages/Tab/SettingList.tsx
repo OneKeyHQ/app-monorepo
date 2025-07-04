@@ -53,6 +53,7 @@ export function SettingList() {
                     <TabSettingsListItem
                       {...config.tabBarItemStyle}
                       drillIn
+                      showDot={config.showDot}
                       key={config.title}
                       icon={config.icon as IKeyOfIcons}
                       iconProps={config.tabBarIconStyle}

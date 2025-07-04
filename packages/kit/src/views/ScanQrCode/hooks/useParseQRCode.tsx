@@ -73,7 +73,7 @@ export const parseOnChainAmount = async (
       });
     }
   }
-  return String(data.amount);
+  return data.amount ? String(data.amount) : '';
 };
 
 export const getAccountIdOnNetwork = async ({
