@@ -336,7 +336,7 @@ function MessageConfirm() {
       <Page.Header
         title={
           parsedMessage?.title ||
-          intl.formatMessage({ id: ETranslations.sig_sigature_request_label })
+          intl.formatMessage({ id: ETranslations.sig_signature_request_label })
         }
       />
       <Page.Body px="$5">{renderMessageConfirmContent()}</Page.Body>

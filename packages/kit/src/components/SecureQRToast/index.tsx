@@ -133,7 +133,7 @@ const SecureQRToastBase = ({
           >
             {message ||
               intl.formatMessage({
-                id: ETranslations.san_qr_code_to_verify_details,
+                id: ETranslations.scan_qr_code_to_verify_details,
               })}
           </SizableText>
         </XStack>

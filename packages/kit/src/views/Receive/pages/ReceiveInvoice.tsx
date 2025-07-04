@@ -132,7 +132,7 @@ function ReceiveInvoice() {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.lighting_invoice })}
+        title={intl.formatMessage({ id: ETranslations.lightning_invoice })}
       />
       <Page.Body
         flex={1}
