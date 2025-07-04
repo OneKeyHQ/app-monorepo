@@ -2,8 +2,8 @@ import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  IconButton,
   NumberSizeableText,
+  SizableText,
   Skeleton,
   Stack,
   XStack,
@@ -19,9 +19,8 @@ import { Txns } from '../../components/Txns';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
-export const useDesktopColumns = (
+export const useColumnsDesktop = (
   networkId?: string,
-  watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -30,17 +29,9 @@ export const useDesktopColumns = (
   return [
     {
       title: (
-        <IconButton
-          ml="$1"
-          pointerEvents="none"
-          variant="tertiary"
-          size="small"
-          iconSize="$4"
-          icon={watchlistActive ? 'StarSolid' : 'StarOutline'}
-          iconProps={{
-            color: watchlistActive ? '$iconActive' : '$iconDisabled',
-          }}
-        />
+        <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
+          #
+        </SizableText>
       ) as any,
       dataIndex: 'star',
       columnWidth: 50,

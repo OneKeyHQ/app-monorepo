@@ -75,6 +75,17 @@ function TxHistorySettings() {
     [setSettings],
   );
 
+  const handleFilterLowValueHistoryOnChange = useCallback(
+    (value: boolean) => {
+      setSettings((v) => ({
+        ...v,
+        isFilterLowValueHistoryEnabled: !!value,
+      }));
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+    },
+    [setSettings],
+  );
+
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
@@ -130,6 +141,21 @@ function TxHistorySettings() {
                     ? settings.isFilterScamHistoryEnabled
                     : false
                 }
+              />
+            </ListItem>
+            <ListItem
+              title={intl.formatMessage({
+                id: ETranslations.wallet_history_settings_hide_small_transaction_title,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.wallet_history_settings_hide_small_transaction_desc,
+              })}
+            >
+              <Switch
+                isUncontrolled
+                size={ESwitchSize.small}
+                onChange={handleFilterLowValueHistoryOnChange}
+                defaultChecked={settings.isFilterLowValueHistoryEnabled}
               />
             </ListItem>
           </Stack>
