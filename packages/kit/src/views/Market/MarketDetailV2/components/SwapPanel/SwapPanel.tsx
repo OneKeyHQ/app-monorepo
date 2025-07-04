@@ -3,15 +3,13 @@ import { Spinner, Stack } from '@onekeyhq/components';
 import { SwapPanelWrap } from './SwapPanelWrap';
 
 export function SwapPanel({
-  loading,
   networkId,
   tokenAddress,
 }: {
-  loading?: boolean;
   networkId?: string;
   tokenAddress?: string;
 }) {
-  if (loading || !networkId || !tokenAddress) {
+  if (!networkId || !tokenAddress) {
     return (
       <Stack
         minHeight={400}

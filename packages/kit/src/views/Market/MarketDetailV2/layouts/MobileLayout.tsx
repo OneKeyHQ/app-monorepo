@@ -57,7 +57,7 @@ const createOverviewPageComponent = () => {
 };
 
 export function MobileLayout() {
-  const { tokenAddress, networkId, tokenDetail, isLoading } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
 
   // Memoize Chart and Overview components to avoid re-creation on each render
   const ChartPageComponent = useMemo(
@@ -88,11 +88,7 @@ export function MobileLayout() {
       <Tab data={tabs} />
 
       {/* Swap panel placed outside the tabs for global visibility */}
-      <SwapPanel
-        loading={isLoading}
-        networkId={networkId}
-        tokenAddress={tokenDetail?.address}
-      />
+      <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
     </>
   );
 }
