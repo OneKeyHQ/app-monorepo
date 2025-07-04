@@ -9,7 +9,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 class DesktopApiInAppPurchase {
   async testDelay() {
-    const delay = 5000;
+    const delay = 3651;
     await timerUtils.wait(delay);
     return `testDelay: ${delay}`;
   }

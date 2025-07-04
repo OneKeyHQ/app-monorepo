@@ -1,9 +1,9 @@
 import * as Sentry from '@sentry/electron/main';
+import { app } from 'electron';
 import si from 'systeminformation';
-import { ipcRenderer } from 'electron';
 
 import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import * as store from '@onekeyhq/desktop/app/libs/store';
 
 class DesktopApiSystem {
   async getSystemInfo(): Promise<IDesktopSystemInfo> {
@@ -14,6 +14,7 @@ class DesktopApiSystem {
 
     const result: IDesktopSystemInfo = {
       sentryContexts: data.contexts,
+      // sentryContexts: undefined,
       system,
       cpu,
       os,
@@ -22,52 +23,64 @@ class DesktopApiSystem {
     return result;
   }
 
-  ready(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_READY);
+  async reload(): Promise<void> {
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    safelyBrowserWindow?.reload();
   }
 
-  reload(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_RELOAD);
+  async focus(): Promise<void> {
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    if (safelyBrowserWindow) {
+      safelyBrowserWindow.show();
+      safelyBrowserWindow.focus();
+    }
   }
 
-  focus(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_FOCUS);
+  async restore(): Promise<void> {
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    if (safelyBrowserWindow) {
+      safelyBrowserWindow.show();
+      safelyBrowserWindow.focus();
+    }
   }
 
-  restore(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW);
+  async quitApp(): Promise<void> {
+    app.quit();
   }
 
-  quitApp(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_QUIT);
+  async isFocused(): Promise<boolean> {
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    const result = safelyBrowserWindow?.isFocused() || false;
+    console.log('isFocused', result);
+    return result;
   }
 
-  isFocused(): boolean {
-    return ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED);
+  async changeDevTools(isOpen: boolean): Promise<void> {
+    store.setDevTools(isOpen);
+    globalThis.$desktopMainAppFunctions?.refreshMenu?.();
   }
 
-  changeDevTools(isOpen: boolean): void {
-    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen);
+  async changeLanguage(lang: string): Promise<void> {
+    store.setLanguage(lang);
+    globalThis.$desktopMainAppFunctions?.refreshMenu?.();
   }
 
-  changeTheme(theme: string): void {
-    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme);
-  }
-
-  changeLanguage(lang: string): void {
-    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
-  }
-
-  toggleMaximizeWindow(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW);
-  }
-
-  clearWebViewCache(): void {
-    ipcRenderer.send(ipcMessageKeys.CLEAR_WEBVIEW_CACHE);
-  }
-
-  reloadBridgeProcess(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS);
+  async toggleMaximizeWindow(): Promise<void> {
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    const isMaximized = safelyBrowserWindow?.isMaximized();
+    console.log('toggleMaximizeWindow', isMaximized);
+    if (isMaximized) {
+      // Restore the original window size
+      safelyBrowserWindow?.unmaximize();
+    } else {
+      // Maximized window
+      safelyBrowserWindow?.maximize();
+    }
   }
 }
 

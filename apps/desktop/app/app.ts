@@ -104,7 +104,6 @@ const getSafelyMainWindow = () => {
   }
   return undefined;
 };
-globalThis.$getDesktopMainWindowSafe = getSafelyMainWindow;
 
 function showMainWindow() {
   const safelyMainWindow = getSafelyMainWindow();
@@ -215,8 +214,14 @@ const initMenu = () => {
               { role: 'reload' },
               { role: 'forceReload' },
               { role: 'toggleDevTools' },
+              isDev
+                ? {
+                    role: 'toggleDevTools',
+                    label: `Toggle DevTools: ${store.getDevTools().toString()}`,
+                  }
+                : null,
               { type: 'separator' },
-            ]
+            ].filter(Boolean)
           : []),
         {
           role: 'resetZoom',
@@ -469,6 +474,14 @@ function createMainWindow() {
       return browserWindow;
     }
     return undefined;
+  };
+
+  globalThis.$desktopMainAppFunctions = {
+    getSafelyMainWindow,
+    getSafelyBrowserWindow,
+    getBackgroundColor,
+    showMainWindow,
+    refreshMenu,
   };
 
   if (isMac) {

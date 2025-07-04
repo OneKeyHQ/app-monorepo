@@ -28,7 +28,14 @@ type IOneKeyPerfTrace = {
 };
 
 declare global {
-  var $getDesktopMainWindowSafe: (() => BrowserWindow | undefined) | undefined;
+  var $desktopMainAppFunctions: {
+    getSafelyMainWindow: () => BrowserWindow | undefined;
+    getSafelyBrowserWindow: () => BrowserWindow | undefined;
+    getBackgroundColor: (themeKey: string) => string;
+    showMainWindow: () => void;
+    refreshMenu: () => void;
+  };
+
   var $$appGlobals: IAppGlobals;
   var $onekeySystemDiskIsFull: boolean | undefined;
   var $indexedDBIsMigratedToBucket:

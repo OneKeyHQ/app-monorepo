@@ -15,7 +15,7 @@ export type IDesktopSystemInfo = {
   system: Systeminformation.SystemData;
   cpu: Systeminformation.CpuData;
   os: Systeminformation.OsData;
-  sentryContexts: Contexts;
+  sentryContexts: Contexts|undefined;
 };
 
 export type IDesktopIAPGetProductsParams = {

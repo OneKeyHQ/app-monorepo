@@ -1,10 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { Dialog, Page, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function DesktopApiProxyTestDevSettings() {
+  const [devToolsEnabled, setDevToolsEnabled] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState('en-US');
+
   // System Tests
   const testSystemGetSystemInfo = useCallback(async () => {
     try {
@@ -19,22 +22,9 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testSystemReady = useCallback(() => {
+  const testSystemReload = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.system.ready();
-      Dialog.debugMessage({
-        debugMessage: { result: 'ready() called successfully' },
-      });
-    } catch (error) {
-      Dialog.debugMessage({
-        debugMessage: { error: (error as Error)?.message },
-      });
-    }
-  }, []);
-
-  const testSystemReload = useCallback(() => {
-    try {
-      globalThis.desktopApiProxy.system.reload();
+      await globalThis.desktopApiProxy.system.reload();
       Dialog.debugMessage({
         debugMessage: { result: 'reload() called successfully' },
       });
@@ -45,9 +35,35 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testSystemFocus = useCallback(() => {
+  const testSystemRestore = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.system.focus();
+      await globalThis.desktopApiProxy.system.restore();
+      Dialog.debugMessage({
+        debugMessage: { result: 'restore() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSystemQuitApp = useCallback(async () => {
+    try {
+      await globalThis.desktopApiProxy.system.quitApp();
+      Dialog.debugMessage({
+        debugMessage: { result: 'quitApp() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSystemFocus = useCallback(async () => {
+    try {
+      await globalThis.desktopApiProxy.system.focus();
       Dialog.debugMessage({
         debugMessage: { result: 'focus() called successfully' },
       });
@@ -58,9 +74,9 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testSystemIsFocused = useCallback(() => {
+  const testSystemIsFocused = useCallback(async () => {
     try {
-      const result = globalThis.desktopApiProxy.system.isFocused();
+      const result = await globalThis.desktopApiProxy.system.isFocused();
       Dialog.debugMessage({
         debugMessage: { isFocused: result },
       });
@@ -71,9 +87,9 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testSystemToggleMaximizeWindow = useCallback(() => {
+  const testSystemToggleMaximizeWindow = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.system.toggleMaximizeWindow();
+      await globalThis.desktopApiProxy.system.toggleMaximizeWindow();
       Dialog.debugMessage({
         debugMessage: { result: 'toggleMaximizeWindow() called successfully' },
       });
@@ -84,18 +100,39 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testSystemChangeTheme = useCallback(() => {
+  const testSystemChangeDevTools = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.system.changeTheme('dark');
+      const newState = !devToolsEnabled;
+      await globalThis.desktopApiProxy.system.changeDevTools(newState);
+      setDevToolsEnabled(newState);
       Dialog.debugMessage({
-        debugMessage: { result: 'changeTheme(dark) called successfully' },
+        debugMessage: {
+          result: `changeDevTools(${newState.toString()}) called successfully`,
+        },
       });
     } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
     }
-  }, []);
+  }, [devToolsEnabled]);
+
+  const testSystemChangeLanguage = useCallback(async () => {
+    try {
+      const newLanguage = currentLanguage === 'en-US' ? 'zh-CN' : 'en-US';
+      await globalThis.desktopApiProxy.system.changeLanguage(newLanguage);
+      setCurrentLanguage(newLanguage);
+      Dialog.debugMessage({
+        debugMessage: {
+          result: `changeLanguage(${newLanguage}) called successfully`,
+        },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, [currentLanguage]);
 
   // Security Tests
   const testSecurityCanPromptTouchID = useCallback(() => {
@@ -162,17 +199,19 @@ export default function DesktopApiProxyTestDevSettings() {
     try {
       // Test set
       await globalThis.desktopApiProxy.storage.storeSetItemAsync(
-        'testKey',
+        'testKey' as any,
         'testValue',
       );
 
       // Test get
       const value = await globalThis.desktopApiProxy.storage.storeGetItemAsync(
-        'testKey',
+        'testKey' as any,
       );
 
       // Test delete
-      await globalThis.desktopApiProxy.storage.storeDelItemAsync('testKey');
+      await globalThis.desktopApiProxy.storage.storeDelItemAsync(
+        'testKey' as any,
+      );
 
       Dialog.debugMessage({
         debugMessage: {
@@ -239,7 +278,7 @@ export default function DesktopApiProxyTestDevSettings() {
     try {
       globalThis.desktopApiProxy.notification.showNotification({
         title: 'Test Notification',
-        body: 'This is a test notification from DesktopApiProxy',
+        description: 'This is a test notification from DesktopApiProxy',
       });
       Dialog.debugMessage({
         debugMessage: { result: 'showNotification() called successfully' },
@@ -353,17 +392,24 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="ready()"
-          subtitle="Signal app ready"
-          drillIn
-          onPress={testSystemReady}
-        />
-
-        <ListItem
           title="reload()"
           subtitle="Reload application"
           drillIn
           onPress={testSystemReload}
+        />
+
+        <ListItem
+          title="restore()"
+          subtitle="Restore application"
+          drillIn
+          onPress={testSystemRestore}
+        />
+
+        <ListItem
+          title="quitApp()"
+          subtitle="Quit application"
+          drillIn
+          onPress={testSystemQuitApp}
         />
 
         <ListItem
@@ -388,10 +434,19 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="changeTheme('dark')"
-          subtitle="Change application theme"
+          title={`changeDevTools(${(!devToolsEnabled).toString()})`}
+          subtitle="Toggle application development tools"
           drillIn
-          onPress={testSystemChangeTheme}
+          onPress={testSystemChangeDevTools}
+        />
+
+        <ListItem
+          title={`changeLanguage(${
+            currentLanguage === 'en-US' ? 'zh-CN' : 'en-US'
+          })`}
+          subtitle="Toggle application language"
+          drillIn
+          onPress={testSystemChangeLanguage}
         />
 
         {/* Security Module Tests */}
@@ -525,6 +580,25 @@ export default function DesktopApiProxyTestDevSettings() {
           subtitle="Check if payments are available"
           drillIn
           onPress={testInAppPurchaseCanMakePayments}
+        />
+
+        <ListItem
+          title="testDelay()"
+          subtitle="Test delay"
+          drillIn
+          onPress={async () => {
+            try {
+              const result =
+                await globalThis.desktopApiProxy.inAppPurchase.testDelay();
+              Dialog.debugMessage({
+                debugMessage: { canMakePayments: result },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
         />
       </YStack>
     </Page>

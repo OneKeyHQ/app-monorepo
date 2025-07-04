@@ -22,7 +22,8 @@ export class JsBridgeDesktopApiOfMain extends JsBridgeBase {
   override sendPayload(payload: IJsBridgeMessagePayload | string): void {
     // ipcMain.emit is only valid in the main process
     // ipcMain.emit(REPLY_DESKTOP_API_EVENT_NAME, payload);
-    const mainWindow = globalThis?.$getDesktopMainWindowSafe?.();
+    const mainWindow =
+      globalThis?.$desktopMainAppFunctions.getSafelyMainWindow?.();
     if (mainWindow) {
       mainWindow.webContents.send(REPLY_DESKTOP_API_EVENT_NAME, payload);
     }
