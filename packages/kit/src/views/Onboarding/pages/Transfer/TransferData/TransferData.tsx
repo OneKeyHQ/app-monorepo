@@ -28,7 +28,7 @@ export function TransferData() {
 
   return (
     <Page>
-      <Page.Header title="Transfer Data" />
+      <Page.Header title="TransferData" />
       <Page.Body>
         <Stack p="$5" gap="$3.5">
           <Stack gap="$1">

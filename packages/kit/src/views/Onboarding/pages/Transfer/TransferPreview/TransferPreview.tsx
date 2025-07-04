@@ -50,11 +50,7 @@ export function TransferPreview() {
 
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.global_transfer,
-        })}
-      />
+      <Page.Header title="TransferPreview" />
       <Page.Body>
         <Stack p="$5" gap="$5">
           <SizableText size="$headingXl">

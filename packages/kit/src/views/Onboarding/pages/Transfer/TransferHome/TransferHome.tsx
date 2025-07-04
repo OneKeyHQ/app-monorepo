@@ -40,7 +40,7 @@ export function TransferHome() {
 
   return (
     <Page>
-      <Page.Header title="Transfer" />
+      <Page.Header title="TransferHome" />
       <Page.Body>
         <Stack px="$4" gap="$4">
           <SegmentControl

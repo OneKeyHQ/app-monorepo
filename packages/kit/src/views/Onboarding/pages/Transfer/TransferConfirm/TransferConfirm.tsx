@@ -26,11 +26,7 @@ export function TransferConfirm() {
 
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.global_confirm,
-        })}
-      />
+      <Page.Header title="TransferConfirm" />
       <Page.Body>
         <Stack p="$5" gap="$5">
           <Stack gap="$4">

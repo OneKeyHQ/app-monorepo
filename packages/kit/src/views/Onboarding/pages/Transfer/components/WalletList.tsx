@@ -9,7 +9,7 @@ interface IWalletListProps {
   multiSelect?: boolean;
 }
 
-export function WalletList({
+function WalletList({
   wallets,
   onWalletListSelectChange,
   onSelectWallet,

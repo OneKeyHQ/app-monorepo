@@ -190,6 +190,17 @@ export function ImportWalletOptions() {
     },
     {
       data: [
+        {
+          icon: 'MultipleDevicesOutline',
+          title: intl.formatMessage({
+            id: ETranslations.global_transfer,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.onboarding_transfer_desc,
+          }),
+          badge: <Badge badgeType="success">Prime</Badge>,
+          onPress: handleTransferPress,
+        } as IOptionItem,
         !platformEnv.isWeb
           ? ({
               icon: 'MultipleDevicesOutline',
