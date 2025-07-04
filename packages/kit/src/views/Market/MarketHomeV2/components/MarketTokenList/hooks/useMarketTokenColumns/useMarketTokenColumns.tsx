@@ -12,7 +12,7 @@ export const useMarketTokenColumns = (
   networkId?: string,
   watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
-  const desktopColumns = useColumnsDesktop(networkId, watchlistActive);
+  const desktopColumns = useColumnsDesktop(networkId);
   const mobileColumns = useColumnsMobile(networkId, watchlistActive);
 
   const { md } = useMedia();
