@@ -740,7 +740,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     account: IBatchCreateAccount;
   }) {
-    const { addressDetail, existsInDb, displayAddress, ...dbAccount } = account;
+    const { ...dbAccount } = account;
     if (isNil(dbAccount.pathIndex)) {
       throw new OneKeyLocalError(
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
@@ -1125,17 +1125,12 @@ class ServiceAccount extends ServiceBase {
           networkId,
           account,
         });
-      const { prepareParams, deviceParams } =
-        await this.getPrepareHDOrHWAccountsParams({
-          walletId,
-          networkId,
-          indexedAccountId,
-          deriveType,
-          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
-        });
-      const vault = await vaultFactory.getWalletOnlyVault({
-        networkId,
+      const { prepareParams } = await this.getPrepareHDOrHWAccountsParams({
         walletId,
+        networkId,
+        indexedAccountId,
+        deriveType,
+        confirmOnDevice: EConfirmOnDeviceType.EveryItem,
       });
 
       // const accounts = await vault.keyring.prepareAccounts(prepareParams);

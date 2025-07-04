@@ -284,9 +284,7 @@ class ServiceHardwareUI extends ServiceBase {
       skipDeviceCancel = false,
       skipCloseHardwareUiStateDialog = false,
       skipDeviceCancelAtFirst = true,
-      skipWaitingAnimationAtFirst,
       hideCheckingDeviceLoading,
-      debugMethodName,
     } = params;
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
