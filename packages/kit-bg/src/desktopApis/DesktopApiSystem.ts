@@ -29,13 +29,8 @@ class DesktopApiSystem {
     safelyBrowserWindow?.reload();
   }
 
-  async focus(): Promise<void> {
-    const safelyBrowserWindow =
-      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
-    if (safelyBrowserWindow) {
-      safelyBrowserWindow.show();
-      safelyBrowserWindow.focus();
-    }
+  async quitApp(): Promise<void> {
+    app.quit();
   }
 
   async restore(): Promise<void> {
@@ -47,8 +42,13 @@ class DesktopApiSystem {
     }
   }
 
-  async quitApp(): Promise<void> {
-    app.quit();
+  async focus(): Promise<void> {
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    if (safelyBrowserWindow) {
+      safelyBrowserWindow.show();
+      safelyBrowserWindow.focus();
+    }
   }
 
   async isFocused(): Promise<boolean> {

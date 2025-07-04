@@ -402,17 +402,17 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="restore()"
-          subtitle="Restore application, wait 2 seconds"
-          drillIn
-          onPress={testSystemRestore}
-        />
-
-        <ListItem
           title="quitApp()"
           subtitle="Quit application"
           drillIn
           onPress={testSystemQuitApp}
+        />
+
+        <ListItem
+          title="restore()"
+          subtitle="Restore application, wait 2 seconds"
+          drillIn
+          onPress={testSystemRestore}
         />
 
         <ListItem
@@ -430,13 +430,6 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="toggleMaximizeWindow()"
-          subtitle="Toggle window maximize state"
-          drillIn
-          onPress={testSystemToggleMaximizeWindow}
-        />
-
-        <ListItem
           title={`changeDevTools(${(!devToolsEnabled).toString()})`}
           subtitle="Toggle application development tools"
           drillIn
@@ -450,6 +443,13 @@ export default function DesktopApiProxyTestDevSettings() {
           subtitle="Toggle application language"
           drillIn
           onPress={testSystemChangeLanguage}
+        />
+
+        <ListItem
+          title="toggleMaximizeWindow()"
+          subtitle="Toggle window maximize state"
+          drillIn
+          onPress={testSystemToggleMaximizeWindow}
         />
 
         {/* Security Module Tests */}
