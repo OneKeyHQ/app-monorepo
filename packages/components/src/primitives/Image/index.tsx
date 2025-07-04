@@ -13,6 +13,7 @@ import { ImageSource } from './ImageSource';
 import { loadImage, preloadImage, preloadImages } from './preload';
 
 import type { IImageProps, IImageSourceProps } from './type';
+import { ImageV2 } from './ImageV2';
 
 function ImageContainer({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
@@ -31,6 +32,9 @@ function ImageContainer({ children }: PropsWithChildren) {
   );
 }
 
+/**
+ * @deprecated Use Imagev2 instead
+ */
 function BasicImage({
   children,
   size,
@@ -63,6 +67,7 @@ function BasicImage({
 }
 
 export const Image = withStaticProperties(BasicImage, {
+  ImageV2,
   Source: ImageSource,
   Fallback: ImageFallback,
   Skeleton: ImageSkeleton,
@@ -72,6 +77,8 @@ export const Image = withStaticProperties(BasicImage, {
   preloadImages,
   loadImage,
 });
+
+export type { IImageV2Props } from './ImageV2';
 
 export type {
   IImageFallbackProps,
