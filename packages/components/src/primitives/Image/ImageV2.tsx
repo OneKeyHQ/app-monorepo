@@ -20,6 +20,8 @@ export type IImageV2Props = Omit<IBasicImageV2Props, 'source' | 'src'> &
     skeleton?: React.ReactNode;
     fallback?: React.ReactNode;
     src?: string;
+    /** Retry times when image loading fails, default is 5 */
+    retryTimes?: number;
   };
 
 const getRandomRetryTimes = () => {
@@ -27,28 +29,34 @@ const getRandomRetryTimes = () => {
 };
 
 export function ImageV2(props: IImageV2Props) {
-  useMemo(() => {
+  const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
-    if (props.size) {
+    if (props?.size) {
       // eslint-disable-next-line react/destructuring-assignment
-      const imageHeight = props.height || props.h || props.size;
+      const imageHeight = props?.height || props?.h || props?.size;
       // eslint-disable-next-line react/destructuring-assignment
-      const imageWidth = props.width || props.w || props.size;
-      props.width = imageWidth;
-      props.height = imageHeight;
+      const imageWidth = props?.width || props?.w || props?.size;
+      return {
+        height: imageHeight,
+        width: imageWidth,
+      };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react/destructuring-assignment
-  }, [props.size]);
-  const [restProps, style] = usePropsAndStyle(props, {
-    resolveValues: 'auto',
-  }) as unknown as [IImageV2Props, ImageStyle];
+    return undefined;
+  }, [props?.size, props?.height, props?.h, props?.width, props?.w]);
+  const [restProps, style] = usePropsAndStyle(
+    sizeProps ? { ...props, ...sizeProps } : props,
+    {
+      resolveValues: 'auto',
+    },
+  ) as unknown as [IImageV2Props, ImageStyle];
+  const retryTimesLimit = useRef<number>(restProps.retryTimes || 5);
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
   const { image, reFetchImage } = useImage(restProps.source, {
     onError(error, retry) {
       console.error('Loading failed:', error.message);
-      if (retryTimes.current < 10) {
+      if (retryTimes.current < retryTimesLimit.current) {
         retryTimes.current += 1;
         setTimeout(() => {
           retry();
@@ -60,20 +68,15 @@ export function ImageV2(props: IImageV2Props) {
   });
 
   if (!image) {
+    if (hasError) {
+      return restProps.fallback;
+    }
     return (
       restProps.skeleton || (
         <Stack style={style} ai="center" jc="center">
           <Skeleton width="100%" />
         </Stack>
       )
-    );
-  }
-
-  if (hasError) {
-    return (
-      <Stack style={style} ai="center" jc="center">
-        {restProps.fallback}
-      </Stack>
     );
   }
 
