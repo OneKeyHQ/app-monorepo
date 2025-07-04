@@ -13,6 +13,24 @@ const createDesktopApiModule = memoizee(
     if (name === 'system') {
       return new (await import('../DesktopApiSystem')).default();
     }
+    if (name === 'security') {
+      return new (await import('../DesktopApiSecurity')).default();
+    }
+    if (name === 'storage') {
+      return new (await import('../DesktopApiStorage')).default();
+    }
+    if (name === 'updater') {
+      return new (await import('../DesktopApiUpdater')).default();
+    }
+    if (name === 'network') {
+      return new (await import('../DesktopApiNetwork')).default();
+    }
+    if (name === 'notification') {
+      return new (await import('../DesktopApiNotification')).default();
+    }
+    if (name === 'dev') {
+      return new (await import('../DesktopApiDev')).default();
+    }
     if (name === 'inAppPurchase') {
       return new (await import('../DesktopApiInAppPurchase')).default();
     }

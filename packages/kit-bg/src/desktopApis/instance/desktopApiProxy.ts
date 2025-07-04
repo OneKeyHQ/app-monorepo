@@ -10,8 +10,14 @@ import type {
   IDesktopApiKeys,
   IDesktopApiMessagePayload,
 } from '../base/types';
+import type DesktopApiDev from '../DesktopApiDev';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
+import type DesktopApiNetwork from '../DesktopApiNetwork';
+import type DesktopApiNotification from '../DesktopApiNotification';
+import type DesktopApiSecurity from '../DesktopApiSecurity';
+import type DesktopApiStorage from '../DesktopApiStorage';
 import type DesktopApiSystem from '../DesktopApiSystem';
+import type DesktopApiUpdater from '../DesktopApiUpdater';
 
 export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
   bridge = new JsBridgeDesktopApiOfRender();
@@ -47,6 +53,18 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
   }
 
   system: DesktopApiSystem = this._createProxyModule<IDesktopApiKeys>('system');
+
+  security: DesktopApiSecurity = this._createProxyModule<IDesktopApiKeys>('security');
+
+  storage: DesktopApiStorage = this._createProxyModule<IDesktopApiKeys>('storage');
+
+  updater: DesktopApiUpdater = this._createProxyModule<IDesktopApiKeys>('updater');
+
+  network: DesktopApiNetwork = this._createProxyModule<IDesktopApiKeys>('network');
+
+  notification: DesktopApiNotification = this._createProxyModule<IDesktopApiKeys>('notification');
+
+  dev: DesktopApiDev = this._createProxyModule<IDesktopApiKeys>('dev');
 
   inAppPurchase: DesktopApiInAppPurchase =
     this._createProxyModule<IDesktopApiKeys>('inAppPurchase');
