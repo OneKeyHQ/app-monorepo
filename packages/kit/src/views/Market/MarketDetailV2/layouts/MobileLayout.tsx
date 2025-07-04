@@ -88,7 +88,7 @@ export function MobileLayout() {
       <Tab data={tabs} />
 
       {/* Swap panel placed outside the tabs for global visibility */}
-      <SwapPanel />
+      <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
     </>
   );
 }
