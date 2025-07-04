@@ -1019,7 +1019,7 @@ export default class VaultBtc extends VaultBase {
         if (!feeUTXO || isEmpty(feeUTXO)) {
           throw new OneKeyInternalError(
             appLocale.intl.formatMessage({
-              id: ETranslations.feedback_failed_to_fet_fee_rate,
+              id: ETranslations.feedback_failed_to_fetch_fee_rate,
             }),
           );
         }
@@ -1069,7 +1069,7 @@ export default class VaultBtc extends VaultBase {
         console.error(e);
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
-            id: ETranslations.feedback_failed_to_fet_fee_rate,
+            id: ETranslations.feedback_failed_to_fetch_fee_rate,
           }),
         );
       }
