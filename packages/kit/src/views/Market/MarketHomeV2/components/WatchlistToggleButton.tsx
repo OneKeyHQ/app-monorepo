@@ -33,7 +33,7 @@ export function WatchlistToggleButton({
         />
         <SizableText
           size="$bodyMd"
-          color={isActive ? '$textInteractive' : '$textSubdued'}
+          color={isActive ? '$textOnPrimary' : '$textSubdued'}
         >
           {intl.formatMessage({
             id: ETranslations.global_watchlist,
