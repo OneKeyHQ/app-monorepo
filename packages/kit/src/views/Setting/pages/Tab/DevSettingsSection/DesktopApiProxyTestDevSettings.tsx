@@ -138,9 +138,10 @@ export default function DesktopApiProxyTestDevSettings() {
   }, [currentLanguage]);
 
   // Security Tests
-  const testSecurityCanPromptTouchID = useCallback(() => {
+  const testSecurityCanPromptTouchID = useCallback(async () => {
     try {
-      const result = globalThis.desktopApiProxy.security.canPromptTouchID();
+      const result =
+        await globalThis.desktopApiProxy.security.canPromptTouchID();
       Dialog.debugMessage({
         debugMessage: { canPromptTouchID: result },
       });
@@ -231,9 +232,9 @@ export default function DesktopApiProxyTestDevSettings() {
   }, []);
 
   // Updater Tests
-  const testUpdaterCheckForUpdates = useCallback(() => {
+  const testUpdaterCheckForUpdates = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.updater.checkForUpdates(true);
+      await globalThis.desktopApiProxy.updater.checkForUpdates(true);
       Dialog.debugMessage({
         debugMessage: { result: 'checkForUpdates(true) called successfully' },
       });
@@ -244,10 +245,10 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testUpdaterGetPreviousUpdateBuildNumber = useCallback(() => {
+  const testUpdaterGetPreviousUpdateBuildNumber = useCallback(async () => {
     try {
       const result =
-        globalThis.desktopApiProxy.updater.getPreviousUpdateBuildNumber();
+        await globalThis.desktopApiProxy.updater.getPreviousUpdateBuildNumber();
       Dialog.debugMessage({
         debugMessage: { previousUpdateBuildNumber: result },
       });
@@ -259,9 +260,9 @@ export default function DesktopApiProxyTestDevSettings() {
   }, []);
 
   // Network Tests
-  const testNetworkSetAllowedPhishingUrls = useCallback(() => {
+  const testNetworkSetAllowedPhishingUrls = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.network.setAllowedPhishingUrls([
+      await globalThis.desktopApiProxy.network.setAllowedPhishingUrls([
         'https://test.com',
       ]);
       Dialog.debugMessage({
@@ -277,9 +278,9 @@ export default function DesktopApiProxyTestDevSettings() {
   }, []);
 
   // Notification Tests
-  const testNotificationShow = useCallback(() => {
+  const testNotificationShow = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.notification.showNotification({
+      await globalThis.desktopApiProxy.notification.showNotification({
         title: 'Test Notification',
         description: 'This is a test notification from DesktopApiProxy',
       });
@@ -293,9 +294,9 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testNotificationSetBadge = useCallback(() => {
+  const testNotificationSetBadge = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.notification.setBadge({ count: 5 });
+      await globalThis.desktopApiProxy.notification.setBadge({ count: 5 });
       Dialog.debugMessage({
         debugMessage: { result: 'setBadge(5) called successfully' },
       });
@@ -306,10 +307,10 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testNotificationGetPermission = useCallback(() => {
+  const testNotificationGetPermission = useCallback(async () => {
     try {
       const result =
-        globalThis.desktopApiProxy.notification.getNotificationPermission();
+        await globalThis.desktopApiProxy.notification.getNotificationPermission();
       Dialog.debugMessage({
         debugMessage: result,
       });
@@ -321,11 +322,52 @@ export default function DesktopApiProxyTestDevSettings() {
   }, []);
 
   // Dev Tests
-  const testDevOpenLoggerFile = useCallback(() => {
+  const testDevOpenLoggerFile = useCallback(async () => {
     try {
-      globalThis.desktopApiProxy.dev.openLoggerFile();
+      await globalThis.desktopApiProxy.dev.openLoggerFile();
       Dialog.debugMessage({
         debugMessage: { result: 'openLoggerFile() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testDevTestCrash = useCallback(async () => {
+    try {
+      // TODO: test crash not working
+      // await globalThis.desktopApiProxy.dev.testCrash();
+      globalThis.desktopApi.testCrash();
+      Dialog.debugMessage({
+        debugMessage: { result: 'testCrash() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testDevCallDevOnlyApi = useCallback(async () => {
+    try {
+      // Test with shell.openExternal
+      const result = await globalThis.desktopApiProxy.dev.callDevOnlyApi({
+        module: 'shell',
+        method: 'openExternal',
+        params: [
+          // 'https://onekey.so',
+          // 'https://www.baidu.com',
+          'x-apple.systempreferences:com.apple.preference.notifications',
+          'x-apple.systempreferences:com.apple.preference.security?Privacy_Notifications',
+        ],
+      });
+      Dialog.debugMessage({
+        debugMessage: {
+          result: 'callDevOnlyApi() called successfully',
+          returnValue: result,
+        },
       });
     } catch (error) {
       Dialog.debugMessage({
@@ -563,6 +605,20 @@ export default function DesktopApiProxyTestDevSettings() {
           subtitle="Open application log file"
           drillIn
           onPress={testDevOpenLoggerFile}
+        />
+
+        <ListItem
+          title="testCrash()"
+          subtitle="Test application crash (will crash the app!)"
+          drillIn
+          onPress={testDevTestCrash}
+        />
+
+        <ListItem
+          title="callDevOnlyApi()"
+          subtitle="Call dev-only API (opens onekey.so)"
+          drillIn
+          onPress={testDevCallDevOnlyApi}
         />
 
         {/* InAppPurchase Module Tests */}

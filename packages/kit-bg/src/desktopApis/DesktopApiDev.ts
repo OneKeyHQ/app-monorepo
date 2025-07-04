@@ -1,20 +1,33 @@
-import { ipcRenderer } from 'electron';
+import * as path from 'path';
+
+import { ipcMain, shell } from 'electron';
+import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
 class DesktopApiDev {
-  callDevOnlyApi(params: IDesktopMainProcessDevOnlyApiParams): any {
-    return ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params);
+  async callDevOnlyApi(
+    params: IDesktopMainProcessDevOnlyApiParams,
+  ): Promise<any> {
+    if (process.env.NODE_ENV !== 'production') {
+      const { module, method, params: apiParams } = params;
+      console.log('call APP_DEV_ONLY_API::', module, method, apiParams);
+      if (module === 'shell') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        return (shell as any)[method](...apiParams);
+      }
+    }
+    return undefined;
   }
 
-  openLoggerFile(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE);
+  async openLoggerFile(): Promise<void> {
+    await shell.openPath(path.dirname(logger.transports.file.getFile().path));
   }
 
-  testCrash(): void {
-    ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH);
-  }
+  // not working, use globalThis.desktopApi.testCrash(); instead
+  // async testCrash(): Promise<void> {}
 }
 
 export default DesktopApiDev;

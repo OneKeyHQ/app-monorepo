@@ -1,6 +1,4 @@
-import { ipcRenderer } from 'electron';
-
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import * as store from '@onekeyhq/desktop/app/libs/store';
 import type {
   EDesktopStoreKeys,
   IDesktopStoreMap,
@@ -11,24 +9,21 @@ class DesktopApiStorage {
     key: T,
     value: IDesktopStoreMap[T],
   ): Promise<void> {
-    return ipcRenderer.sendSync(ipcMessageKeys.STORE_SET_ITEM_ASYNC, {
-      key,
-      value,
-    });
+    store.instance.set(key, value);
   }
 
   async storeGetItemAsync<T extends EDesktopStoreKeys>(
     key: T,
   ): Promise<IDesktopStoreMap[T]> {
-    return ipcRenderer.sendSync(ipcMessageKeys.STORE_GET_ITEM_ASYNC, { key });
+    return store.instance.get(key);
   }
 
   async storeDelItemAsync<T extends EDesktopStoreKeys>(key: T): Promise<void> {
-    return ipcRenderer.sendSync(ipcMessageKeys.STORE_DEL_ITEM_ASYNC, { key });
+    store.instance.delete(key);
   }
 
   async storeClear(): Promise<void> {
-    return ipcRenderer.sendSync(ipcMessageKeys.STORE_CLEAR);
+    store.instance.clear();
   }
 }
 
