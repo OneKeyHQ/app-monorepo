@@ -54,15 +54,20 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 
   system: DesktopApiSystem = this._createProxyModule<IDesktopApiKeys>('system');
 
-  security: DesktopApiSecurity = this._createProxyModule<IDesktopApiKeys>('security');
+  security: DesktopApiSecurity =
+    this._createProxyModule<IDesktopApiKeys>('security');
 
-  storage: DesktopApiStorage = this._createProxyModule<IDesktopApiKeys>('storage');
+  storage: DesktopApiStorage =
+    this._createProxyModule<IDesktopApiKeys>('storage');
 
-  updater: DesktopApiUpdater = this._createProxyModule<IDesktopApiKeys>('updater');
+  updater: DesktopApiUpdater =
+    this._createProxyModule<IDesktopApiKeys>('updater');
 
-  network: DesktopApiNetwork = this._createProxyModule<IDesktopApiKeys>('network');
+  network: DesktopApiNetwork =
+    this._createProxyModule<IDesktopApiKeys>('network');
 
-  notification: DesktopApiNotification = this._createProxyModule<IDesktopApiKeys>('notification');
+  notification: DesktopApiNotification =
+    this._createProxyModule<IDesktopApiKeys>('notification');
 
   dev: DesktopApiDev = this._createProxyModule<IDesktopApiKeys>('dev');
 

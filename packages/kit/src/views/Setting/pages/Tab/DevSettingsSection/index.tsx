@@ -460,6 +460,19 @@ export const DevSettingsSection = () => {
         }}
       />
 
+      {platformEnv.isDesktop ? (
+        <SectionPressItem
+          title="DesktopApiProxy Test"
+          subtitle="Test all DesktopApiProxy modules and methods"
+          testID="desktop-api-proxy-test-menu"
+          onPress={() => {
+            navigation.push(
+              EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
+            );
+          }}
+        />
+      ) : null}
+
       <SectionPressItem
         title="NotificationDevSettings"
         onPress={() => {
