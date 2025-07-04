@@ -35,10 +35,12 @@ export function TabSettingsSection(props: IStackProps & IStackStyle) {
 
 export function TabSettingsListItem({
   showDot,
+  children,
   ...props
 }: IListItemProps & IStackStyle & IStackProps & { showDot?: boolean }) {
   return (
     <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props}>
+      {children}
       {showDot ? (
         <Stack width="$2" height="$2" bg="$iconInfo" borderRadius="$full" />
       ) : null}
