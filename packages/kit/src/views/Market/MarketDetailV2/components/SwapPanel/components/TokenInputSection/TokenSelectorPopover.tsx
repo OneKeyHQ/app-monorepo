@@ -26,6 +26,9 @@ export function TokenSelectorPopover({
 
   return (
     <Popover
+      floatingPanelProps={{
+        width: 288,
+      }}
       title={intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
       open={isOpen}
       onOpenChange={onOpenChange}
