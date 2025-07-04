@@ -99,7 +99,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* Unsupported swap warning */}
-      {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
+      {!isLoading && !supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
 
       {!isApproved ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />
