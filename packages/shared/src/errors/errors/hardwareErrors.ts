@@ -289,7 +289,7 @@ export class DeviceNotBonded extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotBonded',
-        defaultKey: ETranslations.feedback_bluetooth_unparied,
+        defaultKey: ETranslations.feedback_bluetooth_unpaired,
       }),
     );
   }
@@ -668,7 +668,7 @@ export class DeviceNotSame extends OneKeyHardwareError {
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotSame',
         defaultKey:
-          ETranslations.hardware_device_information_is_inconsistent_it_may_caused_by_device_reset,
+          ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
       }),
     );
   }
