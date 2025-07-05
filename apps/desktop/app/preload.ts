@@ -132,8 +132,6 @@ type IDesktopAPILegacy = {
   stopServer: () => void;
   quitApp: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
-  setAllowedPhishingUrls: (urls: string[]) => void;
-  clearWebViewCache: () => void;
   showNotification: (params: INotificationShowParams) => void;
   setBadge: (params: INotificationSetBadgeParams) => void;
   getNotificationPermission: () => INotificationPermissionDetail;
@@ -450,12 +448,6 @@ const desktopApi = Object.freeze({
       cb?.();
     });
     ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
-  },
-  setAllowedPhishingUrls: (urls: string[]) => {
-    ipcRenderer.send(ipcMessageKeys.SET_ALLOWED_PHISHING_URLS, urls);
-  },
-  clearWebViewCache: () => {
-    ipcRenderer.send(ipcMessageKeys.CLEAR_WEBVIEW_CACHE);
   },
   showNotification: (params: INotificationShowParams) => {
     ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SHOW, params);

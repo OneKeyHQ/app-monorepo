@@ -15,7 +15,7 @@ export type IDesktopSystemInfo = {
   system: Systeminformation.SystemData;
   cpu: Systeminformation.CpuData;
   os: Systeminformation.OsData;
-  sentryContexts: Contexts|undefined;
+  sentryContexts: Contexts | undefined;
 };
 
 export type IDesktopIAPGetProductsParams = {
@@ -127,9 +127,8 @@ export const ipcMessageKeys = {
 
   // webview
   WEBVIEW_NEW_WINDOW: 'webview/newWindow',
-  SET_ALLOWED_PHISHING_URLS: 'webview/setAllowedPhishingUrls',
-  CLEAR_WEBVIEW_CACHE: 'webview/clearCache',
 
+  // notification
   NOTIFICATION_SHOW: 'notification/show',
   NOTIFICATION_GET_PERMISSION: 'notification/getPermission',
   NOTIFICATION_SET_BADGE: 'notification/setBadge',

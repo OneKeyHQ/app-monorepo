@@ -33,6 +33,19 @@ class DesktopApiStorage {
   async storeClear(): Promise<void> {
     store.instance.clear();
   }
+
+  async secureSetItemAsync(key: string, value: string): Promise<void> {
+    store.setSecureItem(key, value);
+  }
+
+  async secureGetItemAsync(key: string): Promise<string | null> {
+    const value = store.getSecureItem(key);
+    return value || null;
+  }
+
+  async secureDelItemAsync(key: string): Promise<void> {
+    store.deleteSecureItem(key);
+  }
 }
 
 export default DesktopApiStorage;

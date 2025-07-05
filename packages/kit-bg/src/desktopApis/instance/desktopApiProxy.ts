@@ -12,12 +12,12 @@ import type {
 } from '../base/types';
 import type DesktopApiDev from '../DesktopApiDev';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
-import type DesktopApiNetwork from '../DesktopApiNetwork';
 import type DesktopApiNotification from '../DesktopApiNotification';
 import type DesktopApiSecurity from '../DesktopApiSecurity';
 import type DesktopApiStorage from '../DesktopApiStorage';
 import type DesktopApiSystem from '../DesktopApiSystem';
 import type DesktopApiUpdater from '../DesktopApiUpdater';
+import type DesktopApiWebview from '../DesktopApiWebview';
 
 export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
   bridge = new JsBridgeDesktopApiOfRender();
@@ -63,8 +63,8 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
   updater: DesktopApiUpdater =
     this._createProxyModule<IDesktopApiKeys>('updater');
 
-  network: DesktopApiNetwork =
-    this._createProxyModule<IDesktopApiKeys>('network');
+  webview: DesktopApiWebview =
+    this._createProxyModule<IDesktopApiKeys>('webview');
 
   notification: DesktopApiNotification =
     this._createProxyModule<IDesktopApiKeys>('notification');

@@ -170,19 +170,18 @@ export default function DesktopApiProxyTestDevSettings() {
   const testSecuritySecureStorage = useCallback(async () => {
     try {
       // Test set
-      await globalThis.desktopApiProxy.security.secureSetItemAsync(
+      await globalThis.desktopApiProxy.storage.secureSetItemAsync(
         'test_key',
         'test_value',
       );
 
       // Test get
-      const value =
-        await globalThis.desktopApiProxy.security.secureGetItemAsync(
-          'test_key',
-        );
+      const value = await globalThis.desktopApiProxy.storage.secureGetItemAsync(
+        'test_key',
+      );
 
       // Test delete
-      await globalThis.desktopApiProxy.security.secureDelItemAsync('test_key');
+      await globalThis.desktopApiProxy.storage.secureDelItemAsync('test_key');
 
       Dialog.debugMessage({
         debugMessage: {
@@ -262,7 +261,7 @@ export default function DesktopApiProxyTestDevSettings() {
   // Network Tests
   const testNetworkSetAllowedPhishingUrls = useCallback(async () => {
     try {
-      await globalThis.desktopApiProxy.network.setAllowedPhishingUrls([
+      await globalThis.desktopApiProxy.webview.setAllowedPhishingUrls([
         'https://test.com',
       ]);
       Dialog.debugMessage({
@@ -424,7 +423,7 @@ export default function DesktopApiProxyTestDevSettings() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="FirmwareUpdateDevSettings" />
+      <Page.Header title="DesktopApiProxyTestDevSettings" />
       <YStack space="$2">
         {/* System Module Tests */}
         <ListItem
@@ -495,6 +494,87 @@ export default function DesktopApiProxyTestDevSettings() {
           subtitle="Toggle window maximize state"
           drillIn
           onPress={testSystemToggleMaximizeWindow}
+        />
+
+        <ListItem
+          title="openPreferences('notification')"
+          subtitle="Open notification preferences"
+          drillIn
+          onPress={async () => {
+            try {
+              await globalThis.desktopApiProxy.system.openPreferences(
+                'notification',
+              );
+              Dialog.debugMessage({
+                debugMessage: {
+                  result: 'openPreferences() called successfully',
+                },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
+        />
+
+        <ListItem
+          title="openPreferences('default')"
+          subtitle="Open security preferences"
+          drillIn
+          onPress={async () => {
+            try {
+              await globalThis.desktopApiProxy.system.openPreferences(
+                'default',
+              );
+
+              Dialog.debugMessage({
+                debugMessage: {
+                  result: 'openPreferences() called successfully',
+                },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
+        />
+
+        <ListItem
+          title="openPrivacyPanel()"
+          subtitle="Open privacy panel"
+          drillIn
+          onPress={async () => {
+            try {
+              await globalThis.desktopApiProxy.system.openPrivacyPanel();
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
+        />
+
+        <ListItem
+          title="getMediaAccessStatus('camera')"
+          subtitle="Get camera access status"
+          drillIn
+          onPress={async () => {
+            try {
+              const result =
+                await globalThis.desktopApiProxy.system.getMediaAccessStatus(
+                  'camera',
+                );
+              Dialog.debugMessage({
+                debugMessage: { result },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
         />
 
         {/* Security Module Tests */}

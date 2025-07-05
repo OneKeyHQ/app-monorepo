@@ -25,6 +25,7 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 import si from 'systeminformation';
 
+import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -843,22 +844,6 @@ function createMainWindow() {
 
   desktopApi.desktopApiSetup();
 
-  ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {
-    void session.defaultSession.clearStorageData({
-      storages: ['cookies', 'cachestorage'],
-    });
-  });
-
-  let templatePhishingUrls: string[] = [];
-  ipcMain.on(
-    ipcMessageKeys.SET_ALLOWED_PHISHING_URLS,
-    (event, urls: string[]) => {
-      if (Array.isArray(urls)) {
-        templatePhishingUrls = urls;
-      }
-    },
-  );
-
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
@@ -918,7 +903,7 @@ function createMainWindow() {
         const { url } = e;
         const { action } = uriUtils.parseDappRedirect(
           url,
-          templatePhishingUrls,
+          getTemplatePhishingUrls(),
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();

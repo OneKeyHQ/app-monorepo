@@ -1,13 +1,13 @@
 import os from 'os';
 
 import * as Sentry from '@sentry/electron/main';
-import { app, shell } from 'electron';
+import { app, shell, systemPreferences } from 'electron';
 import si from 'systeminformation';
 
 import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { getMacAppId } from '@onekeyhq/desktop/app/libs/utils';
-import type { IPrefType } from '@onekeyhq/shared/types/desktop';
+import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -105,6 +105,10 @@ class DesktopApiSystem {
         );
         // old version MacOS
         // 'x-apple.systempreferences:com.apple.preference.security?Privacy_Notifications'
+      } else if (prefType === 'default') {
+        await shell.openExternal(
+          'x-apple.systempreferences:com.apple.preference.security',
+        );
       } else {
         void shell.openPath(
           '/System/Library/PreferencePanes/Security.prefPane',
@@ -122,6 +126,21 @@ class DesktopApiSystem {
     } else {
       // Linux ??
     }
+  }
+
+  async openPrivacyPanel(): Promise<void> {
+    await shell.openExternal(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy',
+    );
+  }
+
+  async getMediaAccessStatus(
+    prefType: IMediaType,
+  ): Promise<
+    'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
+  > {
+    const result = systemPreferences?.getMediaAccessStatus?.(prefType);
+    return result || 'unknown';
   }
 }
 

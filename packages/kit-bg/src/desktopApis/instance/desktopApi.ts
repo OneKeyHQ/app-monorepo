@@ -6,12 +6,12 @@ import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
 import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
 import DesktopApiDev from '../DesktopApiDev';
 import DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
-import DesktopApiNetwork from '../DesktopApiNetwork';
 import DesktopApiNotification from '../DesktopApiNotification';
 import DesktopApiSecurity from '../DesktopApiSecurity';
 import DesktopApiStorage from '../DesktopApiStorage';
 import DesktopApiSystem from '../DesktopApiSystem';
 import DesktopApiUpdater from '../DesktopApiUpdater';
+import DesktopApiWebview from '../DesktopApiWebview';
 
 import type {
   IDesktopApi,
@@ -40,7 +40,7 @@ class DesktopApi implements IDesktopApi {
     desktopApi: this,
   });
 
-  network: DesktopApiNetwork = new DesktopApiNetwork({
+  webview: DesktopApiWebview = new DesktopApiWebview({
     desktopApi: this,
   });
 

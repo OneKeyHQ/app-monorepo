@@ -1,11 +1,11 @@
-import { autoUpdater } from 'electron-updater';
 import logger from 'electron-log/main';
+import { autoUpdater } from 'electron-updater';
 
+import * as store from '@onekeyhq/desktop/app/libs/store';
 import type {
   IInstallUpdateParams,
   IVerifyUpdateParams,
 } from '@onekeyhq/desktop/app/preload';
-import * as store from '@onekeyhq/desktop/app/libs/store';
 import type { IDesktopStoreUpdateSettings } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -26,7 +26,9 @@ class DesktopApiUpdater {
     }
   }
 
-  async disableShortcuts(params: { disableAllShortcuts?: boolean }): Promise<void> {
+  async disableShortcuts(params: {
+    disableAllShortcuts?: boolean;
+  }): Promise<void> {
     store.setDisableKeyboardShortcuts(params);
   }
 
@@ -77,7 +79,9 @@ class DesktopApiUpdater {
     store.clearASCFile();
   }
 
-  async setAutoUpdateSettings(settings: IDesktopStoreUpdateSettings): Promise<void> {
+  async setAutoUpdateSettings(
+    settings: IDesktopStoreUpdateSettings,
+  ): Promise<void> {
     store.setUpdateSettings(settings);
   }
 

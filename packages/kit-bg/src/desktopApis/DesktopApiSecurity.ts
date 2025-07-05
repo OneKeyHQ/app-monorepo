@@ -88,36 +88,6 @@ class DesktopApiSecurity {
       };
     }
   }
-
-  async secureSetItemAsync(key: string, value: string): Promise<void> {
-    store.setSecureItem(key, value);
-  }
-
-  async secureGetItemAsync(key: string): Promise<string | null> {
-    const value = store.getSecureItem(key);
-    return value || null;
-  }
-
-  async secureDelItemAsync(key: string): Promise<void> {
-    store.deleteSecureItem(key);
-  }
-
-  async getMediaAccessStatus(
-    prefType: IMediaType,
-  ): Promise<
-    'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
-  > {
-    const result = systemPreferences?.getMediaAccessStatus?.(prefType);
-    return result || 'unknown';
-  }
-
-  async openPreferences(prefType: IPrefType): Promise<void> {
-    if (prefType === 'default') {
-      await shell.openExternal(
-        'x-apple.systempreferences:com.apple.preference.security',
-      );
-    }
-  }
 }
 
 export default DesktopApiSecurity;
