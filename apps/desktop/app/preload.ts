@@ -132,20 +132,8 @@ type IDesktopAPILegacy = {
   stopServer: () => void;
   quitApp: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
-  showNotification: (params: INotificationShowParams) => void;
-  setBadge: (params: INotificationSetBadgeParams) => void;
-  getNotificationPermission: () => INotificationPermissionDetail;
-  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
   openLoggerFile: () => void;
   testCrash: () => void;
-  iapGetProducts: (
-    params: IDesktopIAPGetProductsParams,
-  ) => Promise<IDesktopIAPGetProductsResult>;
-
-  // Desktop API 异步调用方法
-  sendDesktopApiCall: (message: any) => void;
-  addDesktopApiResponseListener: (listener: (response: any) => void) => void;
-  removeDesktopApiResponseListener: (listener: (response: any) => void) => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -448,54 +436,6 @@ const desktopApi = Object.freeze({
       cb?.();
     });
     ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
-  },
-  showNotification: (params: INotificationShowParams) => {
-    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SHOW, params);
-  },
-  setBadge: (params: INotificationSetBadgeParams) => {
-    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SET_BADGE, params);
-    // if windows
-    if (process.platform === 'win32') {
-      /* 
-      // If invokeType is set to "handle"
-      // Replace 8 with whatever number you want the badge to display
-      ipcRenderer.invoke('notificationCount', 8); 
-      */
-      // handle -> ipcRenderer.invoke
-      void ipcRenderer.invoke(
-        ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
-        params.count ?? 0,
-      );
-    }
-  },
-  getNotificationPermission: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
-  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
-  iapGetProducts: async (params: IDesktopIAPGetProductsParams) =>
-    ipcRenderer.sendSync(ipcMessageKeys.IAP_GET_PRODUCTS, params),
-
-  // Desktop API 异步调用
-  sendDesktopApiCall: (message: any) => {
-    ipcRenderer.send(ipcMessageKeys.DESKTOP_API_CALL, message);
-  },
-
-  addDesktopApiResponseListener: (listener: (response: any) => void) => {
-    ipcRenderer.addListener(
-      ipcMessageKeys.DESKTOP_API_RESPONSE,
-      (_, response) => {
-        listener(response);
-      },
-    );
-  },
-
-  removeDesktopApiResponseListener: (listener: (response: any) => void) => {
-    ipcRenderer.removeListener(
-      ipcMessageKeys.DESKTOP_API_RESPONSE,
-      (_, response) => {
-        listener(response);
-      },
-    );
   },
 });
 

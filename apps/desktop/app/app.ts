@@ -40,9 +40,6 @@ import type {
   IMediaType,
 } from '@onekeyhq/shared/types/desktop';
 
-import appDevOnlyApi from './appDevOnlyApi';
-import appIAP from './appIAP';
-import appNotification from './appNotification';
 import appPermission from './appPermission';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
@@ -483,6 +480,7 @@ function createMainWindow() {
     getBackgroundColor,
     showMainWindow,
     refreshMenu,
+    getAppName: () => APP_NAME,
   };
 
   if (isMac) {
@@ -622,10 +620,7 @@ function createMainWindow() {
     APP_NAME,
     getSafelyMainWindow,
   };
-  appNotification.init(subModuleInitParams);
   appPermission.init(subModuleInitParams);
-  appDevOnlyApi.init(subModuleInitParams);
-  appIAP.init(subModuleInitParams);
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();

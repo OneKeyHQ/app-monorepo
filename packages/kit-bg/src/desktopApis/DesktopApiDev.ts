@@ -1,10 +1,8 @@
 import * as path from 'path';
 
-import { ipcMain, shell } from 'electron';
+import { shell } from 'electron';
 import logger from 'electron-log/main';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';

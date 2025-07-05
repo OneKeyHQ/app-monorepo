@@ -34,6 +34,7 @@ declare global {
     getBackgroundColor: (themeKey: string) => string;
     showMainWindow: () => void;
     refreshMenu: () => void;
+    getAppName: () => string;
   };
 
   var $$appGlobals: IAppGlobals;

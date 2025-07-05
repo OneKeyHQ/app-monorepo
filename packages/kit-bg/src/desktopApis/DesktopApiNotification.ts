@@ -1,5 +1,6 @@
 import { Notification, app, ipcMain, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
+import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -290,9 +291,40 @@ async function getElectronNotificationPermission(): Promise<{
 class DesktopApiNotification {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
+    this.initWin32TaskBarBadge(
+      globalThis.$desktopMainAppFunctions?.getAppName?.() || 'OneKey Wallet',
+    );
   }
 
   desktopApi: IDesktopApi;
+
+  private initWin32TaskBarBadge(APP_NAME: string) {
+    if (process.platform === 'win32') {
+      app.setAppUserModelId(APP_NAME);
+      const safelyMainWindow =
+        globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
+
+      if (safelyMainWindow) {
+        // TODO not working on Windows 11 (UTM)
+        const badge = new TaskBarBadgeWindows(safelyMainWindow, {
+          fontColor: '#000000',
+          font: '62px Microsoft Yahei',
+          color: '#000000',
+          radius: 48,
+          updateBadgeEvent: ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
+          badgeDescription: '',
+          invokeType: 'handle', // handle -> ipcRenderer.invoke,  send -> ipcRenderer.sendSync
+          max: 99,
+          fit: false,
+          useSystemAccentTheme: true,
+          additionalFunc: (count) => {
+            console.log(`Received ${count} new notifications!`);
+          },
+        });
+        console.log('TaskBarBadgeWindows init', badge);
+      }
+    }
+  }
 
   async showNotification(params: INotificationShowParams): Promise<void> {
     const { title, description, icon } = params;
@@ -328,13 +360,12 @@ class DesktopApiNotification {
     }
 
     if (isWin) {
-      const safelyBrowserWindow =
-        globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
-      if (safelyBrowserWindow) {
+      const win = globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
+      if (win) {
         if (!isNil(count) && count > 0) {
           // TaskBarBadgeWindows will handle badge count render
         } else {
-          safelyBrowserWindow.setOverlayIcon(null, '');
+          win.setOverlayIcon(null, '');
         }
       }
 

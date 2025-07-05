@@ -791,9 +791,10 @@ export const DevSettingsSection = () => {
         title="In-App-Purchase(Mac)"
         subtitle="设备信息"
         onPress={async () => {
-          const products = await desktopApi.iapGetProducts({
-            productIDs: ['Prime_Yearly', 'Prime_Monthly'],
-          });
+          const products =
+            await globalThis.desktopApiProxy.inAppPurchase.getProducts({
+              productIDs: ['Prime_Yearly', 'Prime_Monthly'],
+            });
           Dialog.debugMessage({
             debugMessage: products,
           });

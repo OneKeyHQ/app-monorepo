@@ -339,7 +339,7 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testDevTestCrash = useCallback(async () => {
     try {
-      // TODO: test crash not working
+      // TODO: desktopApiProxy.dev.testCrash() not working
       // await globalThis.desktopApiProxy.dev.testCrash();
       globalThis.desktopApi.testCrash();
       Dialog.debugMessage({

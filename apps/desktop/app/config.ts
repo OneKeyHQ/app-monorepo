@@ -30,8 +30,6 @@ export type IDesktopIAPGetProductsResult = {
 
 export const ipcMessageKeys = {
   IS_DEV: 'IS_DEV',
-  // DEV Only
-  APP_DEV_ONLY_API: 'electronAppMainProcessDevOnly/api',
 
   // Updater
   SHOW_ABOUT_WINDOW: 'showAboutWindow',
@@ -129,21 +127,5 @@ export const ipcMessageKeys = {
   WEBVIEW_NEW_WINDOW: 'webview/newWindow',
 
   // notification
-  NOTIFICATION_SHOW: 'notification/show',
-  NOTIFICATION_GET_PERMISSION: 'notification/getPermission',
-  NOTIFICATION_SET_BADGE: 'notification/setBadge',
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
-
-  // IAP
-  IAP_GET_PRODUCTS: 'iap/getProducts',
-  // IAP_CAN_MAKE_PAYMENTS: 'iap/canMakePayments',
-  // IAP_BUY_PRODUCT: 'iap/buyProduct',
-  // IAP_GET_PROMOTION_RIGHTS: 'iap/getPromotionRights',
-  // IAP_GET_PROMOTION_RIGHTS_STATUS: 'iap/getPromotionRightsStatus',
-  // IAP_GET_PROMOTION_RIGHTS_STATUS_RES: 'iap/getPromotionRightsStatus/res',
-  // IAP_GET_PROMOTION_RIGHTS_STATUS_ERROR: 'iap/getPromotionRightsStatus/error',
-
-  // Desktop API
-  DESKTOP_API_CALL: 'desktop/api/call',
-  DESKTOP_API_RESPONSE: 'desktop/api/response',
 };
