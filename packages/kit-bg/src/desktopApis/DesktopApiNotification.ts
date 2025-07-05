@@ -25,7 +25,7 @@ const isLinux = process.platform === 'linux';
  * - Linux: libnotify.
  */
 async function testNotificationPermission(): Promise<ENotificationPermission> {
-  return ENotificationPermission.denied;
+  return ENotificationPermission.default;
 
   // return new Promise((resolve) => {
   //   try {
