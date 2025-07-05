@@ -40,7 +40,6 @@ import type {
   IMediaType,
 } from '@onekeyhq/shared/types/desktop';
 
-import appPermission from './appPermission';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -620,7 +619,6 @@ function createMainWindow() {
     APP_NAME,
     getSafelyMainWindow,
   };
-  appPermission.init(subModuleInitParams);
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();

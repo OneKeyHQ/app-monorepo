@@ -55,7 +55,6 @@ type IDesktopAPILegacy = {
   getMediaAccessStatus: (
     prefType: IMediaType,
   ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-  openPreferences: (prefType: IPrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
@@ -280,8 +279,6 @@ const desktopApi = Object.freeze({
   },
   getMediaAccessStatus: (prefType: IMediaType) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
-  openPreferences: (prefType: IPrefType) =>
-    ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES, prefType),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
   changeDevTools: (isOpen: boolean) =>

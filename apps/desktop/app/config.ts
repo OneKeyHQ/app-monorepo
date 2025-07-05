@@ -69,7 +69,6 @@ export const ipcMessageKeys = {
   APP_QUIT: 'app/quit',
   APP_RESTORE_MAIN_WINDOW: 'app/restoreMainWindow',
   APP_GET_MEDIA_ACCESS_STATUS: 'app/getMediaAccessStatus',
-  APP_OPEN_PREFERENCES: 'app/openPreferences',
   APP_TOGGLE_MAXIMIZE_WINDOW: 'app/toggleMaximizeWindow',
   APP_RELOAD_BRIDGE_PROCESS: 'app/reloadBridgeProcess',
   APP_SHORCUT: 'app/shortcut',
