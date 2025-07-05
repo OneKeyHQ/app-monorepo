@@ -381,7 +381,7 @@ class ServiceApp extends ServiceBase {
 
       if (platformEnv.isDesktop) {
         try {
-          await globalThis.desktopApi?.storeClear();
+          await globalThis.desktopApiProxy?.storage.storeClear();
         } catch (error) {
           console.error('desktopApi.storeClear() error', error);
         }

@@ -17,7 +17,7 @@ async function backupInstanceMeta(instanceMeta: IInstanceMetaBackup) {
   }
   try {
     if (platformEnv.isDesktop) {
-      await globalThis.desktopApi?.storeSetItemAsync(
+      await globalThis.desktopApiProxy?.storage?.storeSetItemAsync(
         EDesktopStoreKeys.AppInstanceMetaBackup, // INSTANCE_META_BACKUP_KEY,
         instanceMeta,
       );
@@ -57,7 +57,7 @@ async function getBackupedInstanceMeta(): Promise<
 
   try {
     if (platformEnv.isDesktop) {
-      result = await globalThis.desktopApi?.storeGetItemAsync(
+      result = await globalThis.desktopApiProxy?.storage?.storeGetItemAsync(
         EDesktopStoreKeys.AppInstanceMetaBackup,
       );
     }

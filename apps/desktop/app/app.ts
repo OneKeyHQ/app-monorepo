@@ -750,62 +750,6 @@ function createMainWindow() {
     }
   });
 
-  ipcMain.on(
-    ipcMessageKeys.SECURE_SET_ITEM_ASYNC,
-    (event, { key, value }: { key: string; value: string }) => {
-      store.setSecureItem(key, value);
-      event.returnValue = '';
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.SECURE_GET_ITEM_ASYNC,
-    (event, { key }: { key: string }) => {
-      const value = store.getSecureItem(key);
-      event.returnValue = value;
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.SECURE_DEL_ITEM_ASYNC,
-    (event, { key }: { key: string }) => {
-      store.deleteSecureItem(key);
-      event.returnValue = '';
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.STORE_GET_ITEM_ASYNC,
-    async (event, { key }: { key: keyof IDesktopStoreMap }) => {
-      const value = store.instance.get(key);
-      event.returnValue = value;
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.STORE_SET_ITEM_ASYNC,
-    async (
-      event,
-      { key, value }: { key: keyof IDesktopStoreMap; value: any },
-    ) => {
-      store.instance.set(key, value);
-      event.returnValue = undefined;
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.STORE_DEL_ITEM_ASYNC,
-    async (event, { key }: { key: keyof IDesktopStoreMap }) => {
-      store.instance.delete(key);
-      event.returnValue = undefined;
-    },
-  );
-
-  ipcMain.on(ipcMessageKeys.STORE_CLEAR, async (event) => {
-    store.instance.clear();
-    event.returnValue = undefined;
-  });
-
   ipcMain.on(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, (event) => {
     logger.debug('reloadBridgeProcess receive');
     void restartBridge();

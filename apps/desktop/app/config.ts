@@ -88,26 +88,17 @@ export const ipcMessageKeys = {
   // Theme
   THEME_UPDATE: 'theme/update',
 
-  // Touch
+  // TouchID
   TOUCH_ID_CAN_PROMPT: 'touchId/canPrompt',
   TOUCH_ID_PROMPT_RES: 'touchId/prompt-res',
   TOUCH_ID_PROMPT: 'touchId/prompt',
   CHECK_BIOMETRIC_AUTH_CHANGED: 'touchId/checkBiometricAuthChanged',
+
+  // OneKey Touch
   TOUCH_RES: 'touch/res',
   TOUCH_OPEN_PRIVACY_PANEL: 'touch/openPrivacyPanel',
 
-  // Secure storage
-  SECURE_SET_ITEM_ASYNC: 'secure/setItemAsync',
-  SECURE_GET_ITEM_ASYNC: 'secure/getItemAsync',
-  SECURE_DEL_ITEM_ASYNC: 'secure/delItemAsync',
-
-  // store
-  STORE_SET_ITEM_ASYNC: 'store/setItemAsync',
-  STORE_GET_ITEM_ASYNC: 'store/getItemAsync',
-  STORE_DEL_ITEM_ASYNC: 'store/delItemAsync',
-  STORE_CLEAR: 'store/clear',
-
-  // Server
+  // In-app http server
   SERVER_START: 'server/start',
   SERVER_STOP: 'server/stop',
   SERVER_START_RES: 'server/start/res',

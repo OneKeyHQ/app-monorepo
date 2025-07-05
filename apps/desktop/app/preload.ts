@@ -65,19 +65,6 @@ type IDesktopAPILegacy = {
   changeTheme: (theme: string) => void;
   changeLanguage: (theme: string) => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
-  secureSetItemAsync: (key: string, value: string) => Promise<void>;
-  secureGetItemAsync: (key: string) => Promise<string | null>;
-  secureDelItemAsync: (key: string) => Promise<void>;
-
-  storeSetItemAsync: <T extends EDesktopStoreKeys>(
-    key: T,
-    value: IDesktopStoreMap[T],
-  ) => Promise<void>;
-  storeGetItemAsync: <T extends EDesktopStoreKeys>(
-    key: T,
-  ) => Promise<IDesktopStoreMap[T]>;
-  storeDelItemAsync: (key: EDesktopStoreKeys) => Promise<void>;
-  storeClear: () => Promise<void>;
 
   reloadBridgeProcess: () => void;
   addIpcEventListener: (
@@ -312,32 +299,6 @@ const desktopApi = Object.freeze({
       });
       ipcRenderer.send(ipcMessageKeys.TOUCH_ID_PROMPT, msg);
     }),
-  secureSetItemAsync(key: string, value: string) {
-    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_SET_ITEM_ASYNC, {
-      key,
-      value,
-    });
-  },
-  secureGetItemAsync(key: string) {
-    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_GET_ITEM_ASYNC, { key });
-  },
-  secureDelItemAsync(key: string) {
-    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_DEL_ITEM_ASYNC, { key });
-  },
-
-  storeSetItemAsync: async <T extends EDesktopStoreKeys>(
-    key: T,
-    value: IDesktopStoreMap[T],
-  ) =>
-    ipcRenderer.sendSync(ipcMessageKeys.STORE_SET_ITEM_ASYNC, {
-      key,
-      value,
-    }),
-  storeGetItemAsync: async <T extends EDesktopStoreKeys>(key: T) =>
-    ipcRenderer.sendSync(ipcMessageKeys.STORE_GET_ITEM_ASYNC, { key }),
-  storeDelItemAsync: async <T extends EDesktopStoreKeys>(key: T) =>
-    ipcRenderer.sendSync(ipcMessageKeys.STORE_DEL_ITEM_ASYNC, { key }),
-  storeClear: async () => ipcRenderer.sendSync(ipcMessageKeys.STORE_CLEAR),
 
   // SystemInfo
   getSystemInfo: async () => {
