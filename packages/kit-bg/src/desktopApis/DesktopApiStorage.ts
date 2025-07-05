@@ -4,7 +4,15 @@ import type {
   IDesktopStoreMap,
 } from '@onekeyhq/shared/types/desktop';
 
+import type { IDesktopApi } from './instance/IDesktopApi';
+
 class DesktopApiStorage {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
   async storeSetItemAsync<T extends EDesktopStoreKeys>(
     key: T,
     value: IDesktopStoreMap[T],

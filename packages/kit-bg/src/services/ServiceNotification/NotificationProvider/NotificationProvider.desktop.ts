@@ -51,7 +51,7 @@ export default class NotificationProvider extends NotificationProviderBase {
   }
 
   override async openPermissionSettings(): Promise<void> {
-    globalThis.desktopApi.openPreferences('notification');
+    await globalThis.desktopApiProxy.notification.openPermissionSettings();
   }
 
   override async showNotification(

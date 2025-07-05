@@ -7,7 +7,15 @@ import type {
 import { getMacAppId } from '@onekeyhq/desktop/app/libs/utils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import type { IDesktopApi } from './instance/IDesktopApi';
+
 class DesktopApiInAppPurchase {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
   async testDelay() {
     const delay = 3651;
     await timerUtils.wait(delay);

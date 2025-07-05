@@ -1,6 +1,14 @@
 import { shell } from 'electron';
 
+import type { IDesktopApi } from './instance/IDesktopApi';
+
 class DesktopApiNetwork {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
   private templatePhishingUrls: string[] = [];
 
   async setAllowedPhishingUrls(urls: string[]): Promise<void> {

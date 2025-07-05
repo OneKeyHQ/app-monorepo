@@ -1,15 +1,27 @@
+import os from 'os';
+
 import * as Sentry from '@sentry/electron/main';
-import { app } from 'electron';
+import { app, shell } from 'electron';
 import si from 'systeminformation';
 
 import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
+import { getMacAppId } from '@onekeyhq/desktop/app/libs/utils';
+import type { IPrefType } from '@onekeyhq/shared/types/desktop';
+
+import type { IDesktopApi } from './instance/IDesktopApi';
 
 class DesktopApiSystem {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
   async getSystemInfo(): Promise<IDesktopSystemInfo> {
     const system = await si.system();
     const cpu = await si.cpu();
-    const os = await si.osInfo();
+    const osInfo = await si.osInfo();
     const data = Sentry.getGlobalScope().getScopeData();
 
     const result: IDesktopSystemInfo = {
@@ -17,7 +29,7 @@ class DesktopApiSystem {
       // sentryContexts: undefined,
       system,
       cpu,
-      os,
+      os: osInfo,
     };
 
     return result;
@@ -80,6 +92,35 @@ class DesktopApiSystem {
     } else {
       // Maximized window
       safelyBrowserWindow?.maximize();
+    }
+  }
+
+  async openPreferences(prefType: IPrefType): Promise<void> {
+    const platform = os.type();
+    if (platform === 'Darwin') {
+      if (prefType === 'notification') {
+        const appId = getMacAppId();
+        void shell.openExternal(
+          `x-apple.systempreferences:com.apple.preference.notifications?id=${appId}`,
+        );
+        // old version MacOS
+        // 'x-apple.systempreferences:com.apple.preference.security?Privacy_Notifications'
+      } else {
+        void shell.openPath(
+          '/System/Library/PreferencePanes/Security.prefPane',
+        );
+      }
+    } else if (platform === 'Windows_NT') {
+      if (prefType === 'notification') {
+        void shell.openExternal('ms-settings:notifications');
+      }
+      // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
+      if (prefType === 'camera') {
+        void shell.openExternal('ms-settings:privacy-webcam');
+      }
+      // BlueTooth is not supported on desktop currently
+    } else {
+      // Linux ??
     }
   }
 }

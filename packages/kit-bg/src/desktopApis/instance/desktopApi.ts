@@ -1,40 +1,63 @@
 /* eslint-disable new-cap */
 import { buildCallRemoteApiMethod } from '@onekeyhq/kit-bg/src/apis/RemoteApiProxyBase';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
 import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
+import DesktopApiDev from '../DesktopApiDev';
+import DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
+import DesktopApiNetwork from '../DesktopApiNetwork';
+import DesktopApiNotification from '../DesktopApiNotification';
+import DesktopApiSecurity from '../DesktopApiSecurity';
+import DesktopApiStorage from '../DesktopApiStorage';
+import DesktopApiSystem from '../DesktopApiSystem';
+import DesktopApiUpdater from '../DesktopApiUpdater';
 
-import type { IDesktopApiKeys, IDesktopApiMessagePayload } from '../base/types';
+import type {
+  IDesktopApi,
+  IDesktopApiKeys,
+  IDesktopApiMessagePayload,
+} from '../base/types';
+
+class DesktopApi implements IDesktopApi {
+  inAppPurchase: DesktopApiInAppPurchase = new DesktopApiInAppPurchase({
+    desktopApi: this,
+  });
+
+  system: DesktopApiSystem = new DesktopApiSystem({
+    desktopApi: this,
+  });
+
+  security: DesktopApiSecurity = new DesktopApiSecurity({
+    desktopApi: this,
+  });
+
+  storage: DesktopApiStorage = new DesktopApiStorage({
+    desktopApi: this,
+  });
+
+  updater: DesktopApiUpdater = new DesktopApiUpdater({
+    desktopApi: this,
+  });
+
+  network: DesktopApiNetwork = new DesktopApiNetwork({
+    desktopApi: this,
+  });
+
+  notification: DesktopApiNotification = new DesktopApiNotification({
+    desktopApi: this,
+  });
+
+  dev: DesktopApiDev = new DesktopApiDev({
+    desktopApi: this,
+  });
+}
+
+const desktopApi = new DesktopApi();
 
 const createDesktopApiModule = memoizee(
   async (name: IDesktopApiKeys) => {
-    if (name === 'system') {
-      return new (await import('../DesktopApiSystem')).default();
-    }
-    if (name === 'security') {
-      return new (await import('../DesktopApiSecurity')).default();
-    }
-    if (name === 'storage') {
-      return new (await import('../DesktopApiStorage')).default();
-    }
-    if (name === 'updater') {
-      return new (await import('../DesktopApiUpdater')).default();
-    }
-    if (name === 'network') {
-      return new (await import('../DesktopApiNetwork')).default();
-    }
-    if (name === 'notification') {
-      return new (await import('../DesktopApiNotification')).default();
-    }
-    if (name === 'dev') {
-      return new (await import('../DesktopApiDev')).default();
-    }
-    if (name === 'inAppPurchase') {
-      return new (await import('../DesktopApiInAppPurchase')).default();
-    }
-    throw new OneKeyLocalError(`Unknown Desktop API module: ${name as string}`);
+    return desktopApi[name];
   },
   {
     promise: true,

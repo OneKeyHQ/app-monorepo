@@ -296,9 +296,12 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testNotificationSetBadge = useCallback(async () => {
     try {
-      await globalThis.desktopApiProxy.notification.setBadge({ count: 5 });
+      const count = Math.floor(Math.random() * 10);
+      await globalThis.desktopApiProxy.notification.setBadge({
+        count,
+      });
       Dialog.debugMessage({
-        debugMessage: { result: 'setBadge(5) called successfully' },
+        debugMessage: { result: `setBadge(${count}) called successfully` },
       });
     } catch (error) {
       Dialog.debugMessage({
@@ -581,7 +584,7 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="setBadge(5)"
+          title="setBadge(random)"
           subtitle="Set application badge count"
           drillIn
           onPress={testNotificationSetBadge}
@@ -592,6 +595,26 @@ export default function DesktopApiProxyTestDevSettings() {
           subtitle="Get notification permission status"
           drillIn
           onPress={testNotificationGetPermission}
+        />
+
+        <ListItem
+          title="openPermissionSettings()"
+          subtitle="Open notification permission settings"
+          drillIn
+          onPress={async () => {
+            try {
+              await globalThis.desktopApiProxy.notification.openPermissionSettings();
+              Dialog.debugMessage({
+                debugMessage: {
+                  result: 'openPermissionSettings() called successfully',
+                },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
         />
 
         {/* Dev Module Tests */}

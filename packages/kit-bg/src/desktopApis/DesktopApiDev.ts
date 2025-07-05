@@ -7,7 +7,15 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
+import type { IDesktopApi } from './instance/IDesktopApi';
+
 class DesktopApiDev {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
   async callDevOnlyApi(
     params: IDesktopMainProcessDevOnlyApiParams,
   ): Promise<any> {

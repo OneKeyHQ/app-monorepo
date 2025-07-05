@@ -8,7 +8,15 @@ import type {
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import type { IDesktopStoreUpdateSettings } from '@onekeyhq/shared/types/desktop';
 
+import type { IDesktopApi } from './instance/IDesktopApi';
+
 class DesktopApiUpdater {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
   async checkForUpdates(isManual?: boolean): Promise<void> {
     try {
       logger.info('Checking for updates...', { isManual });

@@ -9,10 +9,18 @@ import {
 } from '@onekeyhq/desktop/app/service';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
+import type { IDesktopApi } from './instance/IDesktopApi';
+
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 
 class DesktopApiSecurity {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
   async canPromptTouchID(): Promise<boolean> {
     if (isWin) {
       logger.info('[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync');
