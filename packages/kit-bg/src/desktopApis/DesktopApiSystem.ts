@@ -142,6 +142,12 @@ class DesktopApiSystem {
     const result = systemPreferences?.getMediaAccessStatus?.(prefType);
     return result || 'unknown';
   }
+
+  // TODO
+  //  getEnvPath: () =>
+  // ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
+  // [key: string]: string;
+  // },
 }
 
 export default DesktopApiSystem;

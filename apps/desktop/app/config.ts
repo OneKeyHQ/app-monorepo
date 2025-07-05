@@ -32,7 +32,6 @@ export const ipcMessageKeys = {
   IS_DEV: 'IS_DEV',
 
   // Updater
-  SHOW_ABOUT_WINDOW: 'showAboutWindow',
   UPDATE_CHECK: 'update/check',
   UPDATE_SETTINGS: 'update/settings',
   UPDATE_CLEAR_SETTINGS: 'update/clearSettings',
@@ -48,9 +47,6 @@ export const ipcMessageKeys = {
   UPDATE_ERROR: 'update/error',
   UPDATE_DOWNLOADING: 'update/downloading',
   UPDATE_DOWNLOADED: 'update/downloaded',
-  CHECK_FOR_UPDATES: 'update/checkForUpdates',
-  TOUCH_UPDATE_RES_SUCCESS: 'touch/update-res-success',
-  TOUCH_UPDATE_PROGRESS: 'touch/update-progress',
   UPDATE_DOWNLOAD_ASC: 'update/download-asc',
   UPDATE_VERIFY_ASC: 'update/verify-asc',
   UPDATE_DOWNLOAD_ASC_DONE: 'update/download-asc-done',
@@ -58,8 +54,15 @@ export const ipcMessageKeys = {
   UPDATE_MANUAL_INSTALLATION: 'update/manual-installation',
   UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER:
     'update/getPreviousUpdateBuildNumber',
+  CHECK_FOR_UPDATES: 'update/checkForUpdates',
+  TOUCH_UPDATE_RES_SUCCESS: 'touch/update-res-success',
+  TOUCH_UPDATE_PROGRESS: 'touch/update-progress',
+  // OneKey Touch
+  TOUCH_RES: 'touch/res',
+  TOUCH_OPEN_PRIVACY_PANEL: 'touch/openPrivacyPanel',
 
   // App
+  SHOW_ABOUT_WINDOW: 'showAboutWindow',
   APP_VERSION: 'app/version',
   APP_SYSTEM_INFO: 'app/systemInfo',
   APP_STATE: 'appState',
@@ -87,16 +90,6 @@ export const ipcMessageKeys = {
 
   // Theme
   THEME_UPDATE: 'theme/update',
-
-  // TouchID
-  TOUCH_ID_CAN_PROMPT: 'touchId/canPrompt',
-  TOUCH_ID_PROMPT_RES: 'touchId/prompt-res',
-  TOUCH_ID_PROMPT: 'touchId/prompt',
-  CHECK_BIOMETRIC_AUTH_CHANGED: 'touchId/checkBiometricAuthChanged',
-
-  // OneKey Touch
-  TOUCH_RES: 'touch/res',
-  TOUCH_OPEN_PRIVACY_PANEL: 'touch/openPrivacyPanel',
 
   // In-app http server
   SERVER_START: 'server/start',

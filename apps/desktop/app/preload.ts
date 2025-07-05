@@ -57,14 +57,11 @@ type IDesktopAPILegacy = {
   ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
-  canPromptTouchID: () => boolean;
-  checkBiometricAuthChanged: () => boolean;
   getEnvPath: () => { [key: string]: string };
   isFocused: () => boolean;
   changeDevTools: (isOpen: boolean) => void;
   changeTheme: (theme: string) => void;
   changeLanguage: (theme: string) => void;
-  promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
 
   reloadBridgeProcess: () => void;
   addIpcEventListener: (
@@ -277,10 +274,7 @@ const desktopApi = Object.freeze({
   changeLanguage: (lang: string) => {
     ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
   },
-  canPromptTouchID: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
-  checkBiometricAuthChanged: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.CHECK_BIOMETRIC_AUTH_CHANGED),
+
   getEnvPath: () =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
       [key: string]: string;
@@ -290,15 +284,6 @@ const desktopApi = Object.freeze({
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
-  promptTouchID: async (
-    msg: string,
-  ): Promise<{ success: boolean; error?: string }> =>
-    new Promise((resolve) => {
-      ipcRenderer.once(ipcMessageKeys.TOUCH_ID_PROMPT_RES, (_, arg) => {
-        resolve(arg);
-      });
-      ipcRenderer.send(ipcMessageKeys.TOUCH_ID_PROMPT, msg);
-    }),
 
   // SystemInfo
   getSystemInfo: async () => {

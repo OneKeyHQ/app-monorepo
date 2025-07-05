@@ -635,39 +635,6 @@ function createMainWindow() {
     event.returnValue = isDev;
   });
 
-  ipcMain.on(ipcMessageKeys.CHECK_BIOMETRIC_AUTH_CHANGED, async (event) => {
-    if (!isMac) {
-      event.returnValue = false;
-      return;
-    }
-    try {
-      const result = await checkBiometricAuthChanged();
-      event.returnValue = result;
-    } catch (error) {
-      logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
-      event.returnValue = false;
-    }
-  });
-
-  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
-    if (isWin) {
-      logger.info('[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync');
-      try {
-        const result = await checkAvailabilityAsync();
-        event.returnValue = result;
-      } catch (error) {
-        logger.info(
-          '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',
-          error,
-        );
-        event.returnValue = false;
-      }
-      return;
-    }
-    const result = systemPreferences?.canPromptTouchID?.();
-    event.returnValue = !!result;
-  });
-
   ipcMain.on(ipcMessageKeys.APP_GET_ENV_PATH, (event) => {
     const home: string = app.getPath('home');
     const appData: string = app.getPath('appData');
@@ -709,45 +676,6 @@ function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     event.returnValue = safelyBrowserWindow?.isFocused();
-  });
-
-  ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
-    if (isWin) {
-      logger.info(
-        '[TOUCH_ID_PROMPT] Windows requestVerificationAsync',
-        isAppReady,
-      );
-      try {
-        const { success, error } = await requestVerificationAsync(msg);
-        event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success });
-        if (error) {
-          logger.info(
-            '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
-            error,
-          );
-        }
-      } catch (e: any) {
-        logger.info(
-          '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
-          e,
-        );
-        event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-          success: false,
-          error: e.message,
-        });
-      }
-      return;
-    }
-
-    try {
-      await systemPreferences.promptTouchID(msg);
-      event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success: true });
-    } catch (e: any) {
-      event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-        success: false,
-        error: e.message,
-      });
-    }
   });
 
   ipcMain.on(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, (event) => {
