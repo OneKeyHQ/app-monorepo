@@ -5,15 +5,15 @@ import { useMedia } from '@onekeyhq/components';
 
 import { type IMarketToken } from '../../MarketTokenData';
 
-import { useDesktopColumns } from './useDesktopColumns';
-import { useMobileColumns } from './useMobileColumns';
+import { useColumnsDesktop } from './useColumnsDesktop';
+import { useColumnsMobile } from './useColumnsMobile';
 
 export const useMarketTokenColumns = (
   networkId?: string,
   watchlistActive = false,
 ): ITableColumn<IMarketToken>[] => {
-  const desktopColumns = useDesktopColumns(networkId, watchlistActive);
-  const mobileColumns = useMobileColumns(networkId, watchlistActive);
+  const desktopColumns = useColumnsDesktop(networkId);
+  const mobileColumns = useColumnsMobile(networkId, watchlistActive);
 
   const { md } = useMedia();
 

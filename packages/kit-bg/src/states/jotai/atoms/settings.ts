@@ -44,6 +44,7 @@ export type ISettingsPersistAtom = {
   isCustomTxMessageEnabled: boolean;
   isFloatingIconAlwaysDisplay: boolean;
   isFilterScamHistoryEnabled: boolean;
+  isFilterLowValueHistoryEnabled: boolean;
   hardwareTransportType?: EHardwareTransportType;
 
   hiddenWalletImmediately: boolean;
@@ -77,6 +78,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: true,
+  isFilterLowValueHistoryEnabled: false,
   hardwareTransportType: platformEnv.isNative
     ? EHardwareTransportType.BLE
     : EHardwareTransportType.Bridge,

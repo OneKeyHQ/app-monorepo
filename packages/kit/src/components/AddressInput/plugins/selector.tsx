@@ -173,20 +173,20 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     <ActionList
       disabled={disabled}
       title={intl.formatMessage({
-        id: ETranslations.send_to_contacts_selecor_account_title,
+        id: ETranslations.send_to_contacts_selector_account_title,
       })}
       items={[
         {
           icon: 'WalletCryptoOutline' as const,
           label: intl.formatMessage({
-            id: ETranslations.send_to_contacts_selecor_account,
+            id: ETranslations.send_to_contacts_selector_account,
           }),
           onPress: onShowAccountSelector,
         },
         {
           icon: 'ContactsOutline' as const,
           label: intl.formatMessage({
-            id: ETranslations.send_to_contacts_selecor_address_book,
+            id: ETranslations.send_to_contacts_selector_address_book,
           }),
           onPress: onContacts,
         },

@@ -57,7 +57,7 @@ function MarketDetail({
   );
 }
 
-function MarketDetailWithProvider(
+function MarketDetailV2(
   props: IPageScreenProps<
     ITabMarketV2ParamList,
     ETabMarketV2Routes.MarketDetail
@@ -78,4 +78,4 @@ function MarketDetailWithProvider(
   );
 }
 
-export { MarketDetailWithProvider };
+export { MarketDetailV2 };
