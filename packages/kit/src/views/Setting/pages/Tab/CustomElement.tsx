@@ -563,8 +563,9 @@ export function SocialButtonGroup() {
         <SizableText color={textColor} size={textSize} onPress={handlePress}>
           {upperFirst(versionString)}
         </SizableText>
-        {!appUpdateInfo.latestVersion ||
-        appUpdateInfo.latestVersion === platformEnv.version ? (
+        {!isTabNavigator &&
+        (!appUpdateInfo.latestVersion ||
+          appUpdateInfo.latestVersion === platformEnv.version) ? (
           <SizableText
             color={textColor}
             size={textSize}
