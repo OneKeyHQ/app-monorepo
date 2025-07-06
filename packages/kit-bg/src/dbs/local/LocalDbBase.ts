@@ -2660,6 +2660,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // Set appropriate connectId fields based on transport type
     let usbConnectId: string | undefined;
     let bleConnectId: string | undefined;
+    let compatibleConnectId: string | undefined;
 
     if (transportType) {
       // Import the enum values to use
@@ -2673,8 +2674,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           break;
         case EHardwareTransportType.BLE:
         case EHardwareTransportType.DesktopWebBle:
-          // BLE connections
+          // BLE connections - set bleConnectId but don't override connectId
           bleConnectId = connectId;
+          // If connectId is empty, get it from getDeviceUUID for compatibility
+          if (!compatibleConnectId) {
+            const { getDeviceUUID } = await CoreSDKLoader();
+            compatibleConnectId = getDeviceUUID(features);
+          }
           break;
         default:
           break;
@@ -2684,7 +2690,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
       name: deviceName,
-      connectId: connectId || '',
+      connectId: compatibleConnectId || '',
       uuid: deviceUUID,
       deviceId: rawDeviceId,
       deviceType,
@@ -2784,7 +2790,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.features = featuresStr;
               item.updatedAt = now;
 
-              item.connectId = connectId || '';
+              // Use compatibleConnectId which includes getDeviceUUID fallback for BLE
+              item.connectId = compatibleConnectId || item.connectId || '';
               item.uuid = deviceUUID;
               item.deviceId = rawDeviceId;
               item.deviceType = deviceType;
