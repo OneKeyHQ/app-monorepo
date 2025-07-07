@@ -70,6 +70,12 @@ export interface IAppEventBusPayload {
     orderFromToken: ISwapTokenBase;
     orderToToken: ISwapTokenBase;
   };
+  [EAppEventBusNames.SwapSpeedBuildTxSuccess]: {
+    fromToken: ISwapTokenBase;
+    toToken: ISwapTokenBase;
+    fromAmount: string;
+    toAmount: string;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };
