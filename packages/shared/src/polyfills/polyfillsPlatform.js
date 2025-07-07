@@ -37,8 +37,7 @@ if (platformEnv.isNative || typeof TextEncoder === 'undefined') {
 }
 
 // Buffer polyfill
-// Hermes Buffer implementation has compatibility issues with native JS library Buffer
-if (platformEnv.isNative || typeof Buffer === 'undefined') {
+if (typeof Buffer === 'undefined') {
   shimsInjectedLog('Buffer');
   // global.Buffer = require('@craftzdog/react-native-buffer').Buffer;
   global.Buffer = require('buffer').Buffer;
