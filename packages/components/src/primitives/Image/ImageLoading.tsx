@@ -18,7 +18,7 @@ export function ImageLoading({
   const { loading } = useContext(ImageContext);
   const visible = useVisible(delayMs);
 
-  return loading && visible ? (
+  return loading && !visible ? (
     <Stack
       bg="$bgApp"
       position="absolute"
