@@ -251,7 +251,6 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-
   // Storage Tests - Individual Methods
   const testStorageSetItem = useCallback(async () => {
     try {
@@ -345,7 +344,9 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testSecureDelItem = useCallback(async () => {
     try {
-      await globalThis.desktopApiProxy.storage.secureDelItemAsync('test_secure_key');
+      await globalThis.desktopApiProxy.storage.secureDelItemAsync(
+        'test_secure_key',
+      );
       Dialog.debugMessage({
         debugMessage: { result: 'secureDelItemAsync() called successfully' },
       });
@@ -720,7 +721,9 @@ export default function DesktopApiProxyTestDevSettings() {
                 disableAllShortcuts: true,
               });
               Dialog.debugMessage({
-                debugMessage: { result: 'disableShortcuts() called successfully' },
+                debugMessage: {
+                  result: 'disableShortcuts() called successfully',
+                },
               });
             } catch (error) {
               Dialog.debugMessage({
@@ -756,7 +759,8 @@ export default function DesktopApiProxyTestDevSettings() {
           drillIn
           onPress={async () => {
             try {
-              const result = await globalThis.desktopApiProxy.security.checkBiometricAuthChanged();
+              const result =
+                await globalThis.desktopApiProxy.security.checkBiometricAuthChanged();
               Dialog.debugMessage({
                 debugMessage: { biometricAuthChanged: result },
               });
@@ -844,7 +848,9 @@ export default function DesktopApiProxyTestDevSettings() {
             try {
               await globalThis.desktopApiProxy.webview.clearWebViewCache();
               Dialog.debugMessage({
-                debugMessage: { result: 'clearWebViewCache() called successfully' },
+                debugMessage: {
+                  result: 'clearWebViewCache() called successfully',
+                },
               });
             } catch (error) {
               Dialog.debugMessage({
