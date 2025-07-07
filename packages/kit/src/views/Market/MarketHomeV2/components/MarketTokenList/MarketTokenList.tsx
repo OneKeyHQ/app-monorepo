@@ -1,8 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { ScrollView } from 'react-native';
-
 import {
   Pagination,
   Stack,
@@ -22,7 +20,6 @@ import { useToDetailPage } from './hooks/useToDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
 import type { ILiquidityFilter } from '../../types';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
@@ -43,8 +40,6 @@ type IMarketTokenListProps = {
    * current list view (e.g. refresh button, export menu, etc.)
    */
   toolbar?: ReactNode;
-  onScrollOffsetChange?: (offsetY: number) => void;
-  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /**
    * If provided, the list will initially display only tokens in the user's
    * watchlist. This prop controls the *initial* state only; users can still
@@ -71,8 +66,6 @@ function MarketTokenList({
   pageSize = 20,
   liquidityFilter,
   toolbar,
-  onScrollOffsetChange,
-  onScroll,
   defaultShowWatchlistOnly,
   externalWatchlistControl,
 }: IMarketTokenListProps) {
@@ -201,25 +194,6 @@ function MarketTokenList({
                 dataSource={data}
                 keyExtractor={(item) => item.address + item.symbol}
                 onHeaderRow={handleHeaderRow}
-                // Inject custom scroll component if callback provided
-                renderScrollComponent={
-                  onScrollOffsetChange
-                    ? (props) => (
-                        <ScrollView
-                          {...props}
-                          onScroll={(
-                            e: NativeSyntheticEvent<NativeScrollEvent>,
-                          ) => {
-                            onScrollOffsetChange?.(
-                              e.nativeEvent?.contentOffset?.y ?? 0,
-                            );
-                            onScroll?.(e);
-                          }}
-                          scrollEventThrottle={16}
-                        />
-                      )
-                    : undefined
-                }
                 onRow={
                   onItemPress
                     ? (item) => ({
