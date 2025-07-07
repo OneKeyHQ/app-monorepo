@@ -2671,6 +2671,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         case EHardwareTransportType.Bridge:
           // Bridge and WEBUSB are both USB-based connections
           usbConnectId = connectId;
+          compatibleConnectId = connectId;
           break;
         case EHardwareTransportType.BLE:
         case EHardwareTransportType.DesktopWebBle:
