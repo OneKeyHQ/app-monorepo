@@ -7,6 +7,7 @@ const module: typeof RNFS | undefined = {
   mkdir: async () => {},
   unlink: async () => {},
   moveFile: async () => {},
+  write: async () => {},
   writeFile: async () => {},
   readFile: async () => '',
   read: async () => '',
