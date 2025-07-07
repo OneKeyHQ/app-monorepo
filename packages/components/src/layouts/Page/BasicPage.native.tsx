@@ -116,7 +116,7 @@ function LoadingScreen({
 
 export function BasicPage({
   children,
-  skipLoading = false,
+  skipLoading = true,
   fullPage = false,
 }: IBasicPageProps) {
   return (
