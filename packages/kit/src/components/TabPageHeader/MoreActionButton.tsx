@@ -49,6 +49,7 @@ import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -425,6 +426,10 @@ function MoreActionContentGrid() {
   }, [toMyOneKeyModal]);
 
   const navigation = useAppNavigation();
+  const {
+    activeAccount: { wallet, account, network },
+  } = useActiveAccount({ num: 0 });
+
   const handleSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
@@ -444,16 +449,20 @@ function MoreActionContentGrid() {
   const openBulkCopyAddressesModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
+      params: {
+        walletId: wallet?.id,
+        networkId: networkUtils.toNetworkIdFallback({
+          networkId: network?.id,
+        }),
+      },
     });
-  }, [navigation]);
+  }, [navigation, wallet?.id, network?.id]);
 
   const { toReferFriendsPage } = useReferFriends();
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
+
   const scanQrCode = useScanQrCode();
 
   const handleScan = useCallback(async () => {
