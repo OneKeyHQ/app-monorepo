@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-global-this */
 // used in babel config so must be commonjs format
 // can only access "process.env" here as it would be shared between buildtime and runtime
 const isJest =

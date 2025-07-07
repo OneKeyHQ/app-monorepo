@@ -8,6 +8,7 @@ import type {
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
 
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
+import type { BrowserWindow } from 'electron';
 
 type IWindowOneKeyHub = {
   $private: ProviderPrivate & {
@@ -27,6 +28,16 @@ type IOneKeyPerfTrace = {
 };
 
 declare global {
+  var $desktopMainAppFunctions: {
+    getSafelyMainWindow: () => BrowserWindow | undefined;
+    getSafelyBrowserWindow: () => BrowserWindow | undefined;
+    getBackgroundColor: (themeKey: string) => string;
+    quitOrMinimizeApp: () => void;
+    showMainWindow: () => void;
+    refreshMenu: () => void;
+    getAppName: () => string;
+  };
+
   var $$appGlobals: IAppGlobals;
   var $onekeySystemDiskIsFull: boolean | undefined;
   var $indexedDBIsMigratedToBucket:

@@ -148,7 +148,9 @@ export function ScanQrCode({
   const handlePermission = useCallback(async () => {
     const readSilentStatus =
       platformEnv.isDesktopMac || platformEnv.isDesktopWin
-        ? globalThis.desktopApi.getMediaAccessStatus('camera')
+        ? await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(
+            'camera',
+          )
         : (await getPermissionsAsync())?.status;
     if (readSilentStatus === PermissionStatus.GRANTED) {
       setCurrentPermission(PermissionStatus.GRANTED);

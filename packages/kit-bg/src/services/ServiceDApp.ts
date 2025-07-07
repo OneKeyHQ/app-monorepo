@@ -42,11 +42,11 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import {
+  EAlignPrimaryAccountMode,
   type IConnectedAccountInfo,
   type IConnectionAccountInfo,
   type IConnectionItem,
