@@ -453,6 +453,7 @@ function MoreActionContentGrid() {
         walletId: wallet?.id,
         networkId: networkUtils.toNetworkIdFallback({
           networkId: network?.id,
+          allNetworkFallbackToBtc: true,
         }),
       },
     });
