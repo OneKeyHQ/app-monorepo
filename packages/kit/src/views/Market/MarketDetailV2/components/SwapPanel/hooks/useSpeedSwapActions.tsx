@@ -121,6 +121,7 @@ export function useSpeedSwapActions(props: {
 
   const handleSpeedSwapBuildTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
+      setSpeedSwapBuildTxLoading(false);
       const transactionSignedInfo = data[0].signedTx;
       const transactionDecodedInfo = data[0].decodedTx;
       const txId = transactionSignedInfo.txid;
@@ -130,7 +131,15 @@ export function useSpeedSwapActions(props: {
         totalFeeFiatValue,
         networkId: txNetworkId,
       } = transactionDecodedInfo;
+
       if (swapInfo) {
+        appEventBus.emit(EAppEventBusNames.SwapSpeedBuildTxSuccess, {
+          fromToken,
+          toToken,
+          fromAmount: swapInfo.sender.amount,
+          toAmount: swapInfo.receiver.amount,
+        });
+
         const fromNetworkPreset = Object.values(presetNetworksMap).find(
           (item) => item.id === swapInfo.sender.token.networkId,
         );
@@ -225,11 +234,12 @@ export function useSpeedSwapActions(props: {
         }
       }
     },
-    [settingsAtom.currencyInfo?.symbol],
+    [settingsAtom.currencyInfo?.symbol, fromToken, toToken],
   );
 
   const cancelSpeedSwapBuildTx = useCallback(() => {
     // todo cancel build tx
+    setSpeedSwapBuildTxLoading(false);
   }, []);
 
   const speedSwapBuildTx = useCallback(async () => {
@@ -254,69 +264,72 @@ export function useSpeedSwapActions(props: {
       setSpeedSwapBuildTxLoading(false);
       return;
     }
-    let transferInfo: ITransferInfo | undefined;
-    let encodedTx: IEncodedTx | undefined;
-    if (buildRes?.OKXTxObject) {
-      encodedTx = await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
-        accountId: netAccountRes.result?.id ?? '',
-        networkId: fromToken.networkId,
-        okxTx: buildRes.OKXTxObject,
-        fromTokenInfo: buildRes.result.fromTokenInfo,
-        type: ESwapTabSwitchType.SWAP,
-      });
-    } else if (buildRes?.tx) {
-      transferInfo = undefined;
-      if (typeof buildRes.tx !== 'string' && buildRes.tx.data) {
-        const valueHex = toBigIntHex(new BigNumber(buildRes.tx.value ?? 0));
-        encodedTx = {
-          ...buildRes?.tx,
-          value: valueHex,
-          from: userAddress,
-        };
-      } else {
-        encodedTx = buildRes.tx as string;
-      }
-    }
-    const swapInfo: ISwapTxInfo = {
-      protocol: EProtocolOfExchange.SWAP,
-      sender: {
-        amount: fromTokenAmount,
-        token: fromToken,
-        accountInfo: {
+    try {
+      let transferInfo: ITransferInfo | undefined;
+      let encodedTx: IEncodedTx | undefined;
+      if (buildRes?.OKXTxObject) {
+        encodedTx = await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
           accountId: netAccountRes.result?.id ?? '',
           networkId: fromToken.networkId,
+          okxTx: buildRes.OKXTxObject,
+          fromTokenInfo: buildRes.result.fromTokenInfo,
+          type: ESwapTabSwitchType.SWAP,
+        });
+      } else if (buildRes?.tx) {
+        transferInfo = undefined;
+        if (typeof buildRes.tx !== 'string' && buildRes.tx.data) {
+          const valueHex = toBigIntHex(new BigNumber(buildRes.tx.value ?? 0));
+          encodedTx = {
+            ...buildRes?.tx,
+            value: valueHex,
+            from: userAddress,
+          };
+        } else {
+          encodedTx = buildRes.tx as string;
+        }
+      }
+      const swapInfo: ISwapTxInfo = {
+        protocol: EProtocolOfExchange.SWAP,
+        sender: {
+          amount: fromTokenAmount,
+          token: fromToken,
+          accountInfo: {
+            accountId: netAccountRes.result?.id ?? '',
+            networkId: fromToken.networkId,
+          },
         },
-      },
-      receiver: {
-        amount: buildRes?.result.toAmount ?? '',
-        token: toToken,
-        accountInfo: {
-          accountId: netAccountRes.result?.id ?? '',
-          networkId: toToken.networkId,
+        receiver: {
+          amount: buildRes?.result.toAmount ?? '',
+          token: toToken,
+          accountInfo: {
+            accountId: netAccountRes.result?.id ?? '',
+            networkId: toToken.networkId,
+          },
         },
-      },
-      accountAddress: userAddress,
-      receivingAddress: userAddress,
-      swapBuildResData: {
-        ...buildRes,
-        result: {
-          ...(buildRes?.result ?? {}),
-          slippage: buildRes?.result?.slippage ?? slippage,
+        accountAddress: userAddress,
+        receivingAddress: userAddress,
+        swapBuildResData: {
+          ...buildRes,
+          result: {
+            ...(buildRes?.result ?? {}),
+            slippage: buildRes?.result?.slippage ?? slippage,
+          },
         },
-      },
-    };
-    setSpeedSwapBuildTxLoading(false);
-    await navigationToTxConfirm({
-      isInternalSwap: true,
-      transfersInfo: transferInfo ? [transferInfo] : undefined,
-      encodedTx,
-      swapInfo,
-      approvesInfo: [], // todo
-      onSuccess: handleSpeedSwapBuildTxSuccess,
-      onCancel: cancelSpeedSwapBuildTx,
-      disableMev: !antiMEV,
-    });
-    return buildRes;
+      };
+      await navigationToTxConfirm({
+        isInternalSwap: true,
+        transfersInfo: transferInfo ? [transferInfo] : undefined,
+        encodedTx,
+        swapInfo,
+        approvesInfo: [], // todo
+        onSuccess: handleSpeedSwapBuildTxSuccess,
+        onCancel: cancelSpeedSwapBuildTx,
+        disableMev: !antiMEV,
+      });
+      return buildRes;
+    } catch (e) {
+      setSpeedSwapBuildTxLoading(false);
+    }
   }, [
     netAccountRes.result?.address,
     netAccountRes.result?.id,
