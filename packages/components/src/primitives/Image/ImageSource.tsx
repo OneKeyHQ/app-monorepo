@@ -78,7 +78,7 @@ export function ImageSource({
         setLoading?.(false);
         setLoadedSuccessfully?.(!hasError.current);
       },
-      diff > delayMs ? 0 : delayMs - diff,
+      diff > delayMs ? 0 : Math.max(delayMs - diff, 0),
     );
   }, [delayMs, setLoadedSuccessfully, setLoading]);
 
