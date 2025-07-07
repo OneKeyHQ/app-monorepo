@@ -297,26 +297,37 @@ export function checkIsLowValueReceiveTx({
 
   const { sends, receives } = action.assetTransfer;
 
-  if (sends && sends.length > 0) {
+  const filteredSends = sends.filter((send) =>
+    isNil(send.isOwn) ? true : send.isOwn,
+  );
+
+  const filteredReceives = receives.filter((receive) =>
+    isNil(receive.isOwn) ? true : receive.isOwn,
+  );
+
+  if (filteredSends && filteredSends.length > 0) {
     return false;
   }
 
-  if (!receives || receives.length === 0) {
+  if (!filteredReceives || filteredReceives.length === 0) {
     return false;
   }
 
   let totalFiatValue = new BigNumber(0);
+  let hasNonZeroPrice = false;
 
-  receives.forEach((receive) => {
+  filteredReceives.forEach((receive) => {
     const { amount, price } = receive;
-    if (price) {
+
+    if (new BigNumber(price ?? 0).gt(0)) {
+      hasNonZeroPrice = true;
       totalFiatValue = totalFiatValue.plus(
         new BigNumber(amount ?? 0).multipliedBy(price ?? 0),
       );
     }
   });
 
-  if (totalFiatValue.isZero()) {
+  if (!hasNonZeroPrice) {
     return false;
   }
 
