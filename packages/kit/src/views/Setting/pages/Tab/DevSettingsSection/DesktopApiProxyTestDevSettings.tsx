@@ -251,28 +251,16 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testSecuritySecureStorage = useCallback(async () => {
+
+  // Storage Tests - Individual Methods
+  const testStorageSetItem = useCallback(async () => {
     try {
-      // Test set
-      await globalThis.desktopApiProxy.storage.secureSetItemAsync(
-        'test_key',
-        'test_value',
+      await globalThis.desktopApiProxy.storage.storeSetItemAsync(
+        'testKey' as any,
+        'testValue',
       );
-
-      // Test get
-      const value = await globalThis.desktopApiProxy.storage.secureGetItemAsync(
-        'test_key',
-      );
-
-      // Test delete
-      await globalThis.desktopApiProxy.storage.secureDelItemAsync('test_key');
-
       Dialog.debugMessage({
-        debugMessage: {
-          setValue: 'test_value',
-          getValue: value,
-          deleteResult: 'success',
-        },
+        debugMessage: { result: 'storeSetItemAsync() called successfully' },
       });
     } catch (error) {
       Dialog.debugMessage({
@@ -281,31 +269,85 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  // Storage Tests
-  const testStorageOperations = useCallback(async () => {
+  const testStorageGetItem = useCallback(async () => {
     try {
-      // Test set
-      await globalThis.desktopApiProxy.storage.storeSetItemAsync(
-        'testKey' as any,
-        'testValue',
-      );
-
-      // Test get
       const value = await globalThis.desktopApiProxy.storage.storeGetItemAsync(
         'testKey' as any,
       );
+      Dialog.debugMessage({
+        debugMessage: { getValue: value },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
 
-      // Test delete
+  const testStorageDelItem = useCallback(async () => {
+    try {
       await globalThis.desktopApiProxy.storage.storeDelItemAsync(
         'testKey' as any,
       );
-
       Dialog.debugMessage({
-        debugMessage: {
-          setValue: 'testValue',
-          getValue: value,
-          deleteResult: 'success',
-        },
+        debugMessage: { result: 'storeDelItemAsync() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testStorageClear = useCallback(async () => {
+    try {
+      await globalThis.desktopApiProxy.storage.storeClear();
+      Dialog.debugMessage({
+        debugMessage: { result: 'storeClear() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSecureSetItem = useCallback(async () => {
+    try {
+      await globalThis.desktopApiProxy.storage.secureSetItemAsync(
+        'test_secure_key',
+        'test_secure_value',
+      );
+      Dialog.debugMessage({
+        debugMessage: { result: 'secureSetItemAsync() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSecureGetItem = useCallback(async () => {
+    try {
+      const value = await globalThis.desktopApiProxy.storage.secureGetItemAsync(
+        'test_secure_key',
+      );
+      Dialog.debugMessage({
+        debugMessage: { secureValue: value },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSecureDelItem = useCallback(async () => {
+    try {
+      await globalThis.desktopApiProxy.storage.secureDelItemAsync('test_secure_key');
+      Dialog.debugMessage({
+        debugMessage: { result: 'secureDelItemAsync() called successfully' },
       });
     } catch (error) {
       Dialog.debugMessage({
@@ -668,6 +710,26 @@ export default function DesktopApiProxyTestDevSettings() {
           onPress={testSystemGetAppName}
         />
 
+        <ListItem
+          title="disableShortcuts()"
+          subtitle="Disable keyboard shortcuts"
+          drillIn
+          onPress={async () => {
+            try {
+              await globalThis.desktopApiProxy.system.disableShortcuts({
+                disableAllShortcuts: true,
+              });
+              Dialog.debugMessage({
+                debugMessage: { result: 'disableShortcuts() called successfully' },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
+        />
+
         {/* Security Module Tests */}
         <ListItem
           title="🔐 Security Module"
@@ -689,10 +751,21 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="Secure Storage Test"
-          subtitle="Test secure set/get/delete operations"
+          title="checkBiometricAuthChanged()"
+          subtitle="Check if biometric auth changed (macOS)"
           drillIn
-          onPress={testSecuritySecureStorage}
+          onPress={async () => {
+            try {
+              const result = await globalThis.desktopApiProxy.security.checkBiometricAuthChanged();
+              Dialog.debugMessage({
+                debugMessage: { biometricAuthChanged: result },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
         />
 
         {/* Storage Module Tests */}
@@ -702,10 +775,52 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="Storage Operations Test"
-          subtitle="Test store set/get/delete operations"
+          title="storeSetItemAsync()"
+          subtitle="Set item in desktop store"
           drillIn
-          onPress={testStorageOperations}
+          onPress={testStorageSetItem}
+        />
+
+        <ListItem
+          title="storeGetItemAsync()"
+          subtitle="Get item from desktop store"
+          drillIn
+          onPress={testStorageGetItem}
+        />
+
+        <ListItem
+          title="storeDelItemAsync()"
+          subtitle="Delete item from desktop store"
+          drillIn
+          onPress={testStorageDelItem}
+        />
+
+        <ListItem
+          title="storeClear()"
+          subtitle="Clear all store data"
+          drillIn
+          onPress={testStorageClear}
+        />
+
+        <ListItem
+          title="secureSetItemAsync()"
+          subtitle="Set item in secure storage"
+          drillIn
+          onPress={testSecureSetItem}
+        />
+
+        <ListItem
+          title="secureGetItemAsync()"
+          subtitle="Get item from secure storage"
+          drillIn
+          onPress={testSecureGetItem}
+        />
+
+        <ListItem
+          title="secureDelItemAsync()"
+          subtitle="Delete item from secure storage"
+          drillIn
+          onPress={testSecureDelItem}
         />
 
         {/* Webview Module Tests */}
@@ -719,6 +834,24 @@ export default function DesktopApiProxyTestDevSettings() {
           subtitle="Set allowed phishing URLs"
           drillIn
           onPress={testNetworkSetAllowedPhishingUrls}
+        />
+
+        <ListItem
+          title="clearWebViewCache()"
+          subtitle="Clear webview cache and cookies"
+          drillIn
+          onPress={async () => {
+            try {
+              await globalThis.desktopApiProxy.webview.clearWebViewCache();
+              Dialog.debugMessage({
+                debugMessage: { result: 'clearWebViewCache() called successfully' },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
         />
 
         {/* Notification Module Tests */}
