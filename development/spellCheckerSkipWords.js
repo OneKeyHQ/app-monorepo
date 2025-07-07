@@ -73,6 +73,7 @@ module.exports = [
   'axfer',
   'axios',
   'Axios',
+  'binded',
   'babylon',
   'backends',
   'backgrounded',

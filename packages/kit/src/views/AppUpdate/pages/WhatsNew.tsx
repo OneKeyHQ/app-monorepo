@@ -1,13 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Heading,
-  Markdown,
-  Page,
-  ScrollView,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Markdown, Page, ScrollView } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

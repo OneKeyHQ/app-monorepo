@@ -28,8 +28,6 @@ function AddressListItem(props: IAddressListItemProps) {
 
   const shouldDisplayAccount = showAccount && !!accountName;
   const shouldDisplayType = showType && !!addressType;
-  const shouldDisplayHierarchyIndicator =
-    showHierarchyIndicator && shouldDisplayAccount;
 
   return (
     <YStack
