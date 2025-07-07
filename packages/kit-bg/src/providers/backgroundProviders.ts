@@ -48,9 +48,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.near]: new ProviderApiNear({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.aptos]: new ProviderApiAptos({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.aptos]: new ProviderApiAptos({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.conflux]: new ProviderApiConflux({
       backgroundApi,
     }),
