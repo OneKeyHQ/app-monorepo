@@ -694,7 +694,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx, transferPayload, saveToLocalHistory } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
 

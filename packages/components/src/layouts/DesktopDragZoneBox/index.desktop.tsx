@@ -25,7 +25,7 @@ const toggleMaxWindow = () => {
     num += 1;
   }
   if (num === 1) {
-    globalThis.desktopApi.toggleMaximizeWindow();
+    void globalThis.desktopApiProxy.system.toggleMaximizeWindow();
   }
 };
 

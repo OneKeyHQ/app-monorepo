@@ -102,14 +102,14 @@ export const useDiscoveryShortcuts = () => {
               // empty
             }
           } else {
-            globalThis.desktopApi.reload();
+            void globalThis.desktopApiProxy?.system?.reload?.();
           }
           break;
         case EShortcutEvents.CloseTab:
           if (isAtBrowserTab.current) {
             handleCloseWebTab();
           } else {
-            globalThis.desktopApi.quitApp();
+            void globalThis.desktopApiProxy?.system?.quitApp?.();
           }
           return;
         case EShortcutEvents.ViewHistory:

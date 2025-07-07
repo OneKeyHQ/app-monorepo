@@ -201,14 +201,14 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  restartApp() {
+  async restartApp() {
     defaultLogger.setting.page.restartApp();
     if (platformEnv.isNative) {
       RNRestart.restart();
       return;
     }
     if (platformEnv.isDesktop) {
-      return globalThis.desktopApi?.reload?.();
+      return globalThis.desktopApiProxy?.system?.reload?.();
     }
     // restartApp() MUST be called from background in Ext, UI reload will close whole Browser
     if (platformEnv.isExtensionBackground) {
@@ -381,7 +381,7 @@ class ServiceApp extends ServiceBase {
 
       if (platformEnv.isDesktop) {
         try {
-          await globalThis.desktopApi?.storeClear();
+          await globalThis.desktopApiProxy?.storage.storeClear();
         } catch (error) {
           console.error('desktopApi.storeClear() error', error);
         }
@@ -434,7 +434,7 @@ class ServiceApp extends ServiceBase {
       await timerUtils.wait(600);
     }
 
-    this.restartApp();
+    await this.restartApp();
   }
 
   @backgroundMethod()

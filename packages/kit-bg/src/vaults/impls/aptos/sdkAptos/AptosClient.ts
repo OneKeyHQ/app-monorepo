@@ -36,7 +36,7 @@ export class AptosClient {
   getAccountModule(
     accountAddress: string,
     moduleName: string,
-    options?: LedgerVersionArg,
+    _options?: LedgerVersionArg,
   ): Promise<MoveModuleBytecode> {
     return this.proxyRequest('getAccountModule', [accountAddress, moduleName]);
   }

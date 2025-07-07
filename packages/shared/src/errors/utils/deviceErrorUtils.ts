@@ -177,7 +177,7 @@ export function convertDeviceError(
       return new HardwareErrors.BridgeNetworkError({ payload });
     case HardwareErrorCode.BridgeTimeoutError:
       if (platformEnv.isDesktop) {
-        globalThis.desktopApi.reloadBridgeProcess();
+        void globalThis.desktopApiProxy?.system?.reloadBridgeProcess?.();
       }
       return new HardwareErrors.BridgeTimeoutError({ payload });
     case HardwareErrorCode.PollingTimeout:
