@@ -1277,41 +1277,32 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    // For onboarding case where device is not in DB yet,
-    // directly use the connectId based on current transport type
-    if (platformEnv.isDesktop) {
-      const transportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
-      if (transportType === EHardwareTransportType.DesktopWebBle) {
-        // In BLE mode, the connectId from SearchDevice is already the BLE connectId
-        return connectId;
-      }
-    }
-
-    // Try to get device from DB for saved devices
+    // Try to get device from DB first
     const device = await localDb.getDeviceByQuery({
       connectId,
       featuresDeviceId: featuresDeviceId || undefined,
       features,
     });
 
-    if (!device) {
-      // Device not found in DB (onboarding case), use the provided connectId as-is
-      return connectId;
-    }
-
-    // Device found in DB, use the appropriate connectId based on transport type
     if (platformEnv.isDesktop) {
       const transportType =
         await this.backgroundApi.serviceSetting.getHardwareTransportType();
+
       if (transportType === EHardwareTransportType.DesktopWebBle) {
-        if (!device.bleConnectId) {
+        if (device?.bleConnectId) {
+          // Device found in DB and has BLE connectId, use it
+          return device.bleConnectId;
+        }
+        if (!device) {
+          return connectId;
+        }
+        if (device && !device.bleConnectId) {
           throw new OneKeyLocalError('BLE connectId not set');
         }
-        return device.bleConnectId;
       }
     }
-    return device.connectId;
+
+    return device?.connectId || connectId;
   }
 }
 

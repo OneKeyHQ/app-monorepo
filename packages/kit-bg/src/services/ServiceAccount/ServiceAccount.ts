@@ -2363,6 +2363,22 @@ class ServiceAccount extends ServiceBase {
 
     const wallet = await this.getWallet({ walletId });
     const dbDevice = await this.getWalletDevice({ walletId });
+
+    // Ensure connectId is compatible for the current transport type
+    if (dbDevice.connectId) {
+      try {
+        dbDevice.connectId =
+          await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+            connectId: dbDevice.connectId,
+            featuresDeviceId: dbDevice.deviceId,
+            features: dbDevice.featuresInfo,
+          });
+      } catch (error) {
+        // If getCompatibleConnectId fails, use the original connectId
+        console.warn('Failed to get compatible connectId:', error);
+      }
+    }
+
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,

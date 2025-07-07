@@ -2679,7 +2679,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // If connectId is empty, get it from getDeviceUUID for compatibility
           if (!compatibleConnectId) {
             const { getDeviceUUID } = await CoreSDKLoader();
-            compatibleConnectId = getDeviceUUID(features);
+            const uuid = getDeviceUUID(features);
+            compatibleConnectId = uuid;
+            usbConnectId = uuid;
           }
           break;
         default:
@@ -2797,7 +2799,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.deviceType = deviceType;
 
               // Update USB/BLE connectId fields
-              if (usbConnectId !== undefined) {
+              if (!item.usbConnectId && usbConnectId !== undefined) {
                 item.usbConnectId = usbConnectId;
               }
               if (bleConnectId !== undefined) {
@@ -4556,20 +4558,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         (item) => item.id === wallet.associatedDevice,
       );
       if (deviceFromAllDevices) {
-        // Ensure connectId is compatible for the current transport type
-        // This is needed because allDevices may not have been processed through getCompatibleConnectId
-        if (deviceFromAllDevices.connectId) {
-          try {
-            deviceFromAllDevices.connectId =
-              await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-                connectId: deviceFromAllDevices.connectId,
-                featuresDeviceId: deviceFromAllDevices.deviceId,
-              });
-          } catch (error) {
-            // If getCompatibleConnectId fails, use the original connectId
-            console.warn('Failed to get compatible connectId:', error);
-          }
-        }
         return deviceFromAllDevices;
       }
       return this.getDevice(wallet.associatedDevice);
@@ -4628,25 +4616,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: ELocalDBStoreNames.Device,
       id: dbDeviceId,
     });
-    const refillDevice = this.refillDeviceInfo({ device });
-
-    // Ensure connectId is compatible for the current transport type
-    // Note: For saved devices, connectId should already be properly set based on transport type
-    // This is a safety measure for edge cases
-    if (refillDevice.connectId) {
-      try {
-        refillDevice.connectId =
-          await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-            connectId: refillDevice.connectId,
-            featuresDeviceId: refillDevice.deviceId,
-          });
-      } catch (error) {
-        // If getCompatibleConnectId fails, use the original connectId
-        console.warn('Failed to get compatible connectId:', error);
-      }
-    }
-
-    return refillDevice;
+    return this.refillDeviceInfo({ device });
   }
 
   async getDeviceSafe(dbDeviceId: string): Promise<IDBDevice | undefined> {
