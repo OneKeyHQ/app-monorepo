@@ -32,7 +32,11 @@ export function useMarketWatchlistTokenList({
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
 
-  const { result: apiResult, isLoading } = usePromiseResult(
+  const {
+    result: apiResult,
+    isLoading,
+    run: refetchData,
+  } = usePromiseResult(
     async () => {
       if (!watchlist || watchlist.length === 0) return { list: [] } as const;
       const tokenAddressList = watchlist.map((item) => ({
@@ -100,6 +104,13 @@ export function useMarketWatchlistTokenList({
   const totalCount = sortedData.length;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
 
+  // Auto-adjust currentPage when totalPages changes (data-driven approach)
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(Math.max(1, totalPages));
+    }
+  }, [totalPages, currentPage]);
+
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return sortedData.slice(start, start + pageSize);
@@ -112,8 +123,6 @@ export function useMarketWatchlistTokenList({
     totalPages,
     totalCount,
     setCurrentPage,
-    refetch: () => {
-      /* no-op for now */
-    },
+    refetch: refetchData,
   } as const;
 }
