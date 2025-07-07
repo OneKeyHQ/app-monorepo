@@ -7714,7 +7714,6 @@ __metadata:
     realm-flipper-plugin-device: "npm:^1.1.0"
     rimraf: "npm:^3"
     stream-http: "npm:^3.2.0"
-    text-encoding: "npm:^0.7.0"
     uuid: "npm:^3.0.0"
   languageName: unknown
   linkType: soft
@@ -39177,13 +39176,6 @@ __metadata:
   version: 1.0.2
   resolution: "text-encoding-utf-8@npm:1.0.2"
   checksum: 10/845bb4bd058d6ec7bb9e1f00be7dab394cd7facd270e2bc266912e975ffe29bc3953cce369da70b92bec964ddc48961c3a5146402d094e11a7a4654e4a365204
-  languageName: node
-  linkType: hard
-
-"text-encoding@npm:^0.7.0":
-  version: 0.7.0
-  resolution: "text-encoding@npm:0.7.0"
-  checksum: 10/c61b7a59a54c58f0714da0ef4c1f65732821bb1f761e6f21c3e681e51c6dd56fdefa4fcfccd3254bf47132d87420fbc9898da21a804c89e87861f4e1478d5f18
   languageName: node
   linkType: hard
 
