@@ -307,6 +307,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CheckEndpointPrefix]: {
     cleanAppClientCache?: boolean;
   };
+  [EAppEventBusNames.DesktopBleRepairRequired]: {
+    connectId: string;
+    deviceId?: string;
+    deviceName?: string;
+    features?: any;
+  };
+  [EAppEventBusNames.DesktopBleRepairProgress]: {
+    stage: 'searching' | 'matching' | 'connecting' | 'success' | 'failed';
+    message: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

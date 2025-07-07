@@ -47,6 +47,8 @@ import type {
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   EHardwareUiStateAction,
@@ -1264,6 +1266,205 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async autoRepairBleConnectId({
+    connectId,
+    featuresDeviceId,
+    features,
+  }: {
+    connectId?: string;
+    featuresDeviceId?: string | undefined | null;
+    features?: IOneKeyDeviceFeatures;
+  }): Promise<string | null> {
+    if (!connectId || !features) {
+      return null;
+    }
+
+    try {
+      // Step 1: Search for available BLE devices
+      const searchResult = await this.searchDevices();
+      if (!searchResult?.success || !searchResult?.payload?.length) {
+        return null;
+      }
+
+      // Step 2: Get expected device name from features
+      const expectedDeviceName = features.ble_name;
+
+      // Step 3: Find matching device by name and model
+      const matchingDevice = searchResult.payload.find((device) => {
+        const nameMatch = device.name === expectedDeviceName;
+        return nameMatch;
+      });
+
+      if (!matchingDevice) {
+        return null;
+      }
+
+      // Step 4: Try to connect and verify
+      const hardwareSDK = await this.getSDKInstance();
+      const connectResult = await hardwareSDK.getFeatures(
+        matchingDevice.connectId || '',
+      );
+
+      if (
+        connectResult.success &&
+        connectResult.payload?.device_id === features.device_id
+      ) {
+        // Step 5: Update device in DB with BLE connectId
+        const device = await localDb.getDeviceByQuery({
+          connectId,
+          featuresDeviceId: featuresDeviceId || undefined,
+          features,
+        });
+
+        // TODO: 优化 DB 写入操作，不能直接在这里调用 withTransaction
+        if (device) {
+          // Update device with BLE connectId using the same pattern as other methods
+          await localDb.withTransaction(
+            EIndexedDBBucketNames.account,
+            async (tx) => {
+              await localDb.txUpdateRecords({
+                tx,
+                name: ELocalDBStoreNames.Device,
+                ids: [device.id],
+                updater: async (item) => {
+                  item.bleConnectId = matchingDevice.connectId || undefined;
+                  return item;
+                },
+              });
+            },
+          );
+          return matchingDevice.connectId;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Auto repair BLE connectId failed:', error);
+      return null;
+    }
+  }
+
+  @backgroundMethod()
+  async repairBleConnectIdWithProgress({
+    connectId,
+    featuresDeviceId,
+    features,
+  }: {
+    connectId?: string;
+    featuresDeviceId?: string | undefined | null;
+    features?: IOneKeyDeviceFeatures;
+  }): Promise<string | null> {
+    if (!connectId || !features) {
+      return null;
+    }
+
+    try {
+      // Step 1: Notify UI that search is starting
+      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+        stage: 'searching',
+        message: 'Searching for Bluetooth devices...',
+      });
+
+      // Step 2: Search for available BLE devices
+      const searchResult = await this.searchDevices();
+      if (!searchResult?.success || !searchResult?.payload?.length) {
+        appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+          stage: 'failed',
+          message: 'No Bluetooth devices found',
+        });
+        return null;
+      }
+
+      // Step 3: Get expected device name from features
+      const expectedDeviceName = features.ble_name;
+
+      // Step 4: Notify UI that matching is in progress
+      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+        stage: 'matching',
+        message: `Looking for device: ${expectedDeviceName || 'Unknown'}`,
+      });
+
+      // Step 5: Find matching device by name and model
+      const matchingDevice = searchResult.payload.find((device) => {
+        const nameMatch = device.name === expectedDeviceName;
+        return nameMatch;
+      });
+
+      if (!matchingDevice) {
+        appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+          stage: 'failed',
+          message: `Device ${expectedDeviceName || 'Unknown'} not found`,
+        });
+        return null;
+      }
+
+      // Step 6: Notify UI that connection is being tested
+      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+        stage: 'connecting',
+        message: `Connecting to ${expectedDeviceName || 'Unknown'}...`,
+      });
+
+      // Step 7: Try to connect and verify
+      const hardwareSDK = await this.getSDKInstance();
+      const connectResult = await hardwareSDK.getFeatures(
+        matchingDevice.connectId || '',
+      );
+
+      if (
+        connectResult.success &&
+        connectResult.payload?.device_id === features.device_id
+      ) {
+        // Step 8: Update device in DB with BLE connectId
+        const device = await localDb.getDeviceByQuery({
+          connectId,
+          featuresDeviceId: featuresDeviceId || undefined,
+          features,
+        });
+
+        if (device) {
+          // Update device with BLE connectId using the same pattern as other methods
+          await localDb.withTransaction(
+            EIndexedDBBucketNames.account,
+            async (tx) => {
+              await localDb.txUpdateRecords({
+                tx,
+                name: ELocalDBStoreNames.Device,
+                ids: [device.id],
+                updater: async (item) => {
+                  item.bleConnectId = matchingDevice.connectId || undefined;
+                  return item;
+                },
+              });
+            },
+          );
+
+          // Notify UI that repair was successful
+          appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+            stage: 'success',
+            message: 'Connection repaired successfully',
+          });
+
+          return matchingDevice.connectId;
+        }
+      }
+
+      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+        stage: 'failed',
+        message: 'Device verification failed',
+      });
+
+      return null;
+    } catch (error) {
+      console.error('Repair BLE connectId with progress failed:', error);
+      appEventBus.emit(EAppEventBusNames.DesktopBleRepairProgress, {
+        stage: 'failed',
+        message: `Repair failed: ${(error as Error).message}`,
+      });
+      return null;
+    }
+  }
+
+  @backgroundMethod()
   async getCompatibleConnectId({
     connectId,
     featuresDeviceId,
@@ -1297,6 +1498,15 @@ class ServiceHardware extends ServiceBase {
           return connectId;
         }
         if (device && !device.bleConnectId) {
+          // Directly emit event for UI dialog, no auto repair
+          appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+            deviceName: features?.label || device.name,
+            features,
+          });
+
+          // TODO: 封装 servicePromise 方法，等待 UI 层获取到的 bleConnectId
           throw new OneKeyLocalError('BLE connectId not set');
         }
       }

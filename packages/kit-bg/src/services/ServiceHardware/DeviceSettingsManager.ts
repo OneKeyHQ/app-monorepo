@@ -62,9 +62,10 @@ export type IDeviceHomeScreenConfig = {
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async changePin(connectId: string, remove = false): Promise<Success> {
-    const compatibleConnectId = await this.serviceHardware.getCompatibleConnectId({
-      connectId,
-    });
+    const compatibleConnectId =
+      await this.serviceHardware.getCompatibleConnectId({
+        connectId,
+      });
     const hardwareSDK = await this.getSDKInstance();
 
     return convertDeviceResponse(() =>
@@ -79,9 +80,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     connectId: string,
     settings: DeviceSettingsParams,
   ) {
-    const compatibleConnectId = await this.serviceHardware.getCompatibleConnectId({
-      connectId,
-    });
+    const compatibleConnectId =
+      await this.serviceHardware.getCompatibleConnectId({
+        connectId,
+      });
     const hardwareSDK = await this.getSDKInstance();
 
     return convertDeviceResponse(() =>
@@ -192,12 +194,16 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
-          const compatibleConnectId = await this.serviceHardware.getCompatibleConnectId({
-            connectId: device.connectId,
-            featuresDeviceId: device.deviceId,
-          });
+          const compatibleConnectId =
+            await this.serviceHardware.getCompatibleConnectId({
+              connectId: device.connectId,
+              featuresDeviceId: device.deviceId,
+            });
           await convertDeviceResponse(() =>
-            hardwareSDK.deviceUploadResource(compatibleConnectId, uploadResParams),
+            hardwareSDK.deviceUploadResource(
+              compatibleConnectId,
+              uploadResParams,
+            ),
           );
         } else {
           const { getHomeScreenHex } = await CoreSDKLoader();

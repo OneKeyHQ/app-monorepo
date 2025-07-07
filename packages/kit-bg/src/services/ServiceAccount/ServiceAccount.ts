@@ -2376,6 +2376,7 @@ class ServiceAccount extends ServiceBase {
       } catch (error) {
         // If getCompatibleConnectId fails, use the original connectId
         console.warn('Failed to get compatible connectId:', error);
+        throw error;
       }
     }
 
