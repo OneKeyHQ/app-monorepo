@@ -14,7 +14,6 @@ import { useWatchListAction } from './watchListHooks';
 
 function BasicMarketMore({
   coingeckoId,
-  symbol,
   showMoreAction,
   isSupportBuy,
   ...props

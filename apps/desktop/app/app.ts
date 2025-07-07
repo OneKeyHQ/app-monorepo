@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
@@ -11,19 +10,15 @@ import {
   BrowserWindow,
   Menu,
   app,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  inAppPurchase,
   ipcMain,
   nativeTheme,
   powerMonitor,
   session,
   shell,
-  systemPreferences,
 } from 'electron';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import si from 'systeminformation';
 
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
@@ -35,27 +30,17 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
-  IDesktopStoreMap,
   IDesktopSubModuleInitParams,
-  IMediaType,
 } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import { parseContentPList } from './libs/utils';
-import initProcess, { restartBridge } from './process';
+import initProcess from './process';
 import { resourcesPath, staticPath } from './resoucePath';
-import { Sentry, initSentry } from './sentry';
-import {
-  checkAvailabilityAsync,
-  checkBiometricAuthChanged,
-  requestVerificationAsync,
-  startServices,
-} from './service';
-
-import type { IDesktopSystemInfo } from './config';
+import { initSentry } from './sentry';
+import { startServices } from './service';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -582,11 +567,6 @@ function createMainWindow() {
     app.exit(0);
     disposeContextMenu?.();
   });
-
-  const subModuleInitParams: IDesktopSubModuleInitParams = {
-    APP_NAME,
-    getSafelyMainWindow,
-  };
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;

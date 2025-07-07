@@ -394,8 +394,6 @@ const PasswordVerifyContainer = ({
     ],
   );
 
-  const [isPasswordEncryptorReady, setIsPasswordEncryptorReady] =
-    useState(false);
   const [passwordEncryptorInitError, setPasswordEncryptorInitError] =
     useState('');
   useEffect(() => {
@@ -403,11 +401,6 @@ const PasswordVerifyContainer = ({
       try {
         setPasswordEncryptorInitError('');
         await timerUtils.wait(600);
-        const isReady =
-          await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
-        if (isReady) {
-          setIsPasswordEncryptorReady(isReady);
-        }
       } catch (e) {
         console.error('failed to waitPasswordEncryptorReady with error', e);
         const errorMessage = (e as Error)?.message || '';
@@ -422,16 +415,6 @@ const PasswordVerifyContainer = ({
       }
     })();
   }, []);
-
-  const loadingView = useMemo(() => {
-    return passwordEncryptorInitError ? (
-      <SizableText size="$bodyMd" color="$textCritical" textAlign="center">
-        {passwordEncryptorInitError}
-      </SizableText>
-    ) : (
-      <Spinner />
-    );
-  }, [passwordEncryptorInitError]);
 
   return (
     <Stack onLayout={onLayout}>

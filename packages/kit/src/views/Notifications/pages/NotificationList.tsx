@@ -285,7 +285,7 @@ function NotificationList() {
         <SectionList
           sections={sectionsData}
           renderSectionHeader={
-            ({ section: { title } }) => null // <SectionList.SectionHeader title={title} />
+            () => null // <SectionList.SectionHeader title={title} />
           }
           renderItem={({
             item,

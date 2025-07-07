@@ -1,4 +1,3 @@
-/* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import { cloneDeep } from 'lodash';
 
@@ -17,7 +16,6 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
-// import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
@@ -33,7 +31,7 @@ import type {
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
-import type { IAccountToken, IToken, ITokenFiat } from '../../types/token';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { FuseResult } from 'fuse.js';
 

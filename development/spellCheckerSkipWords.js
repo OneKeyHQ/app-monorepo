@@ -1,5 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 module.exports = [
+  'Bech32',
   'tradingview',
   'ohlcv',
   '_j_msgid',
