@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage } from 'expo-image';
 import { usePropsAndStyle } from 'tamagui';
@@ -8,7 +8,12 @@ import { type IStackStyle, Stack } from '../Stack';
 
 import { useImage } from './useImage';
 
-import type { ImageProps, ImageSource, ImageStyle } from 'expo-image';
+import type {
+  ImageErrorEventData,
+  ImageProps,
+  ImageSource,
+  ImageStyle,
+} from 'expo-image';
 
 export interface IBasicImageV2Props extends ImageProps {
   src: string;
@@ -67,12 +72,29 @@ export function ImageV2(props: IImageV2Props) {
     },
   });
 
+  const {
+    onError,
+    fallback,
+    skeleton,
+    onLoad,
+    onLoadEnd,
+    onLoadStart,
+    onDisplay,
+  } = restProps;
+  const handleError = useCallback(
+    (event: ImageErrorEventData) => {
+      reFetchImage();
+      onError?.(event);
+    },
+    [onError, reFetchImage],
+  );
+
   if (!image) {
     if (hasError) {
-      return restProps.fallback;
+      return fallback;
     }
     return (
-      restProps.skeleton || (
+      skeleton || (
         <Stack style={style} ai="center" jc="center">
           <Skeleton width="100%" />
         </Stack>
@@ -80,5 +102,15 @@ export function ImageV2(props: IImageV2Props) {
     );
   }
 
-  return <ExpoImage source={image} style={style} onError={reFetchImage} />;
+  return (
+    <ExpoImage
+      source={image}
+      style={style}
+      onError={handleError}
+      onLoad={onLoad}
+      onLoadEnd={onLoadEnd}
+      onDisplay={onDisplay}
+      onLoadStart={onLoadStart}
+    />
+  );
 }
