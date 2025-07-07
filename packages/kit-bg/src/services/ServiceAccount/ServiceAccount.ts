@@ -127,6 +127,7 @@ import simpleDb from '../../dbs/simple/simpleDb';
 import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
+  indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
@@ -201,6 +202,11 @@ class ServiceAccount extends ServiceBase {
   clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
     localDb.clearStoreCachedData();
+  }
+
+  @backgroundMethod()
+  async resetIndexedAccountAddressCreationState() {
+    await indexedAccountAddressCreationStateAtom.set(undefined);
   }
 
   @backgroundMethod()

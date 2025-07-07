@@ -21,6 +21,7 @@ module.exports = [
   'Abi',
   'Abis',
   'acc',
+  'beforeunload',
   'nobleRipemd160',
   'bitwarden',
   'Accum',
