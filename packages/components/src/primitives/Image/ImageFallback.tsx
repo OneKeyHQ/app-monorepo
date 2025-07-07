@@ -19,7 +19,7 @@ export function ImageFallback({
   const { loadedSuccessfully } = useContext(ImageContext);
 
   const visible = useVisible(delayMs);
-  return !loadedSuccessfully && visible ? (
+  return !loadedSuccessfully && !visible ? (
     <Stack
       position="absolute"
       bg="$bgApp"
