@@ -90,7 +90,7 @@ export class KeyringQr extends KeyringQrBase {
   override getChildPathTemplates(
     params: IGetChildPathTemplatesParams,
   ): IGetChildPathTemplatesResult {
-    const { airGapAccount, index } = params;
+    const { airGapAccount } = params;
     // TODO get deriveType by path
     if (
       airGapAccount.note &&
@@ -209,7 +209,7 @@ export class KeyringQr extends KeyringQrBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxEvm;
-    const { tx, serializedTxWithout0x, digest } = packUnsignedTxForSignEvm({
+    const { tx, serializedTxWithout0x } = packUnsignedTxForSignEvm({
       encodedTx,
     });
     let dataType = EAirGapDataTypeEvm.transaction;
@@ -241,7 +241,6 @@ export class KeyringQr extends KeyringQrBase {
           checkIsDefined(signatureUr),
         );
         const signatureHex = signature.signature;
-        const origin = signature.origin || '';
 
         // const verifyMessageFn = verifyMessage;
         // // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -287,7 +286,7 @@ export class KeyringQr extends KeyringQrBase {
   }
 
   override async getVerifyAddressChainParams(
-    query: IQrWalletGetVerifyAddressChainParamsQuery,
+    _query: IQrWalletGetVerifyAddressChainParamsQuery,
   ): Promise<IQrWalletGetVerifyAddressChainParamsResult> {
     const chainId = await this.getNetworkChainId();
     return {
