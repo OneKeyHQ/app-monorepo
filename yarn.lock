@@ -7414,7 +7414,7 @@ __metadata:
     openpgp: "npm:5.11.3"
     p-limit: "npm:^6.2.0"
     p-retry: "npm:^6.2.1"
-    patch-package: "npm:^7.0.0"
+    patch-package: "npm:8.0.0"
     prettier: "npm:^2.8.1"
     progress-bar-webpack-plugin: "npm:^2.1.0"
     punycode: "npm:^2.3.1"
@@ -7550,7 +7550,6 @@ __metadata:
     near-api-js: "npm:^2.1.4"
     ripple-keypairs: "npm:^1.3.1"
     tonweb-mnemonic: "npm:^1.0.1"
-    tronweb: "npm:^6.0.0"
     xrpl: "npm:^2.13.0"
   languageName: unknown
   linkType: soft
@@ -14531,13 +14530,6 @@ __metadata:
   version: 2.0.0
   resolution: "@tootallnate/once@npm:2.0.0"
   checksum: 10/ad87447820dd3f24825d2d947ebc03072b20a42bfc96cbafec16bff8bbda6c1a81fcb0be56d5b21968560c5359a0af4038a68ba150c3e1694fe4c109a063bed8
-  languageName: node
-  linkType: hard
-
-"@tronweb3/google-protobuf@npm:^3.21.2":
-  version: 3.21.4
-  resolution: "@tronweb3/google-protobuf@npm:3.21.4"
-  checksum: 10/9e3b1ffc118721798f6b84b7a1c60bed2b5d6b6a0e5ee733d5d11941f1d62f94e6f698409987ebed0c1d14c7677e24d9fa16f8a5ba7e8d871db4ae59775dacb6
   languageName: node
   linkType: hard
 
@@ -24451,21 +24443,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethers@npm:^6.13.1":
-  version: 6.14.3
-  resolution: "ethers@npm:6.14.3"
-  dependencies:
-    "@adraffy/ens-normalize": "npm:1.10.1"
-    "@noble/curves": "npm:1.2.0"
-    "@noble/hashes": "npm:1.3.2"
-    "@types/node": "npm:22.7.5"
-    aes-js: "npm:4.0.0-beta.5"
-    tslib: "npm:2.7.0"
-    ws: "npm:8.17.1"
-  checksum: 10/ce68b962f117fd651090bd8096fde708428ce23f0d044c365bc8cbf2e8f3cb70e1661ff0194364848ccac06d607d4a977f2a0c9e370b9712809c0ca6c36131f9
-  languageName: node
-  linkType: hard
-
 "ethers@npm:^6.13.4":
   version: 6.13.6
   resolution: "ethers@npm:6.13.6"
@@ -33252,31 +33229,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"patch-package@npm:^7.0.0":
-  version: 7.0.2
-  resolution: "patch-package@npm:7.0.2"
-  dependencies:
-    "@yarnpkg/lockfile": "npm:^1.1.0"
-    chalk: "npm:^4.1.2"
-    ci-info: "npm:^3.7.0"
-    cross-spawn: "npm:^7.0.3"
-    find-yarn-workspace-root: "npm:^2.0.0"
-    fs-extra: "npm:^9.0.0"
-    klaw-sync: "npm:^6.0.0"
-    minimist: "npm:^1.2.6"
-    open: "npm:^7.4.2"
-    rimraf: "npm:^2.6.3"
-    semver: "npm:^7.5.3"
-    slash: "npm:^2.0.0"
-    tmp: "npm:^0.0.33"
-    yaml: "npm:^2.2.2"
-  bin:
-    patch-package: index.js
-  checksum: 10/6aacba5e9a68ed4ae81eae2d656f916be4e007ad8cabb683e7286b0b0a01b3c79d862098425576a929d0dfca28a8e89cf55939c1c933c5b9245704da28993df9
-  languageName: node
-  linkType: hard
-
-"patch-package@npm:^8.0.0":
+"patch-package@npm:8.0.0, patch-package@npm:^8.0.0":
   version: 8.0.0
   resolution: "patch-package@npm:8.0.0"
   dependencies:
@@ -39810,23 +39763,6 @@ __metadata:
   bin:
     tree-kill: cli.js
   checksum: 10/49117f5f410d19c84b0464d29afb9642c863bc5ba40fcb9a245d474c6d5cc64d1b177a6e6713129eb346b40aebb9d4631d967517f9fbe8251c35b21b13cd96c7
-  languageName: node
-  linkType: hard
-
-"tronweb@npm:6.0.0":
-  version: 6.0.0
-  resolution: "tronweb@npm:6.0.0"
-  dependencies:
-    "@babel/runtime": "npm:^7.0.0"
-    "@tronweb3/google-protobuf": "npm:^3.21.2"
-    axios: "npm:^1.7.4"
-    bignumber.js: "npm:^9.0.1"
-    ethereum-cryptography: "npm:^2.1.3"
-    ethers: "npm:^6.13.1"
-    eventemitter3: "npm:^3.1.0"
-    semver: "npm:^5.6.0"
-    validator: "npm:^13.7.0"
-  checksum: 10/93ae9d761273018150e90fb5f20f78df109a58cff031a3bc05f31370c05ca1b6c9b4a3bc1a39c24a59b3c12915243c577935d6d8ce2b4accf36c38bd81c29047
   languageName: node
   linkType: hard
 
