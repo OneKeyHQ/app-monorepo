@@ -2400,7 +2400,7 @@ PODS:
     - Yoga
   - RNDeviceInfo (14.0.4):
     - React-Core
-  - RNFileLogger (0.6.0):
+  - RNFileLogger (0.6.1):
     - CocoaLumberjack (~> 3.8.5)
     - DoubleConversion
     - glog
@@ -2424,7 +2424,7 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - SSZipArchive (~> 2.4.3)
+    - SSZipArchive (~> 2.5.5)
     - Yoga
   - RNFlashList (1.6.3):
     - React-Core
@@ -2787,6 +2787,13 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNZipArchive (7.0.2):
+    - React-Core
+    - RNZipArchive/Core (= 7.0.2)
+    - SSZipArchive (~> 2.5.5)
+  - RNZipArchive/Core (7.0.2):
+    - React-Core
+    - SSZipArchive (~> 2.5.5)
   - ScreenshotPreventing (1.4.0):
     - ScreenshotPreventing/Core (= 1.4.0)
   - ScreenshotPreventing/Core (1.4.0)
@@ -2805,7 +2812,7 @@ PODS:
   - SocketRocket (0.7.1)
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
-  - SSZipArchive (2.4.3)
+  - SSZipArchive (2.5.5)
   - TOCropViewController (2.7.4)
   - Yoga (0.0.0)
   - ZXingObjC/Core (3.6.9)
@@ -2960,6 +2967,7 @@ DEPENDENCIES:
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - "RNSentry (from `../../../node_modules/@sentry/react-native`)"
   - RNSVG (from `../../../node_modules/react-native-svg`)
+  - RNZipArchive (from `../../../node_modules/react-native-zip-archive`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -3276,6 +3284,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@sentry/react-native"
   RNSVG:
     :path: "../../../node_modules/react-native-svg"
+  RNZipArchive:
+    :path: "../../../node_modules/react-native-zip-archive"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
@@ -3423,7 +3433,7 @@ SPEC CHECKSUMS:
   RevenueCat: 87171c9f2412778354c8523f5625d1fece2560a5
   RNCAsyncStorage: b582a51d35079f9f2ae1c6e63ae39704a445627e
   RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
-  RNFileLogger: e69a92361284d3f7fda29c1435ae06b48a85307c
+  RNFileLogger: 52442d388d36b29b1e7884b5ffbfa916ecfbc06b
   RNFlashList: 1076a3fb7c4608a8cdf265f0783592b8fc41b6a7
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
@@ -3434,6 +3444,7 @@ SPEC CHECKSUMS:
   RNScreens: aa030a8cc31468a252c6589967e6e3dccfd1bb2e
   RNSentry: 857855d887a12dd8f049e7b72bf38d09f92ea7dc
   RNSVG: 45e3c3210465e75ab6374c9f746179e75d76ce48
+  RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: f29024626962457f3470184232766516dee8dfea
   SDWebImageAVIFCoder: 00310d246aab3232ce77f1d8f0076f8c4b021d90
@@ -3443,11 +3454,11 @@ SPEC CHECKSUMS:
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
-  SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
+  SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
   Yoga: bfcce202dba74007f8974ee9c5f903a9a286c445
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 092b2bab2260c6d91d9bd4a7d4424f1409f46dc4
+PODFILE CHECKSUM: dbb97fd1307cb3311941b683086de3e62a15d54a
 
 COCOAPODS: 1.16.2

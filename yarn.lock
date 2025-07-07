@@ -7331,6 +7331,7 @@ __metadata:
     "@types/react": "npm:^19.0.0"
     "@types/react-beautiful-dnd": "npm:13.1.8"
     "@types/react-dom": "npm:~19.0.0"
+    "@types/text-encoding": "npm:^0"
     "@types/validator": "npm:^13"
     "@types/w3c-web-usb": "npm:^1.0.10"
     "@types/web": "npm:0.0.151"
@@ -7446,6 +7447,7 @@ __metadata:
     systeminformation: "npm:^5.25.11"
     tamagui: "npm:1.108.0"
     tamagui-loader: "npm:1.108.0"
+    text-encoding: "npm:^0.7.0"
     timeout-signal: "npm:^2.0.0"
     tonweb: "npm:^0.0.66"
     ts-jest: "npm:^29.1.1"
@@ -7715,7 +7717,7 @@ __metadata:
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:14.0.4"
-    react-native-file-logger: "npm:0.6.0"
+    react-native-file-logger: "npm:0.6.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
     react-native-gesture-handler: "npm:2.27.1"
     react-native-get-random-values: "npm:1.9.0"
@@ -7742,6 +7744,7 @@ __metadata:
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
+    react-native-zip-archive: "npm:7.0.2"
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.14.2"
     realm-flipper-plugin-device: "npm:^1.1.0"
@@ -15464,6 +15467,13 @@ __metadata:
   dependencies:
     "@types/node": "npm:*"
   checksum: 10/c8f6480cf68d95b5e9f64fa6210f50915e8ff124638965a2c5a4c87641cc7f762155b9a8e01e3e517d48f8931e2d3920a40c4e677398e8b93c9cf1c8a36d2fbb
+  languageName: node
+  linkType: hard
+
+"@types/text-encoding@npm:^0":
+  version: 0.0.40
+  resolution: "@types/text-encoding@npm:0.0.40"
+  checksum: 10/7eef99107cdf5c1827b51b830a3b65cfd3cc34f9aa760bc2be2f5547cec28fef5c4104473f0d1fdd739eebd7ac9f1d743902af7e1c31852a4a3e748900001e51
   languageName: node
   linkType: hard
 
@@ -35274,15 +35284,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-file-logger@npm:0.6.0":
-  version: 0.6.0
-  resolution: "react-native-file-logger@npm:0.6.0"
+"react-native-file-logger@npm:0.6.1":
+  version: 0.6.1
+  resolution: "react-native-file-logger@npm:0.6.1"
   dependencies:
     util: "npm:^0.12.5"
   peerDependencies:
     react: ">=16.0.0"
     react-native: ">=0.60.0"
-  checksum: 10/3277d7760b52a56fdc4dda824aecbc497fcc90c95b0888a33a8eaa2baf024466c7e1ff90221cb949e1f3a49b03db97336e5978706fffe51c51065c78d4ac826c
+  checksum: 10/3f072d5d0dc569bded33ca8c49aec1ff1668418bb0d86c6c74a3993ea543d373b68dbb279157ce67c25c434fc39436acd4775ce8fe6d3dc4f3e9e14d9ea842af
   languageName: node
   linkType: hard
 
@@ -35845,6 +35855,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/7b2be47895f176b8269ee61273b9f72fe88c05ee0ee881ddd464b219ec2b7f1a19845d19770e52f6d626811658ed54780278b769395c454aaf5d6111edc9b353
+  languageName: node
+  linkType: hard
+
+"react-native-zip-archive@npm:7.0.2":
+  version: 7.0.2
+  resolution: "react-native-zip-archive@npm:7.0.2"
+  peerDependencies:
+    react: ">=16.8.6"
+    react-native: ">=0.60.0"
+  checksum: 10/63a0bc5e946d84a9564ac1fd0319fa01b8a0af72d841007db41b374254e6dbc5d38d28aea43703c6f5458c72742c9cc8e7d7fc17cee6717da0ab106da71fe35f
   languageName: node
   linkType: hard
 
@@ -39461,6 +39481,13 @@ __metadata:
   version: 1.0.2
   resolution: "text-encoding-utf-8@npm:1.0.2"
   checksum: 10/845bb4bd058d6ec7bb9e1f00be7dab394cd7facd270e2bc266912e975ffe29bc3953cce369da70b92bec964ddc48961c3a5146402d094e11a7a4654e4a365204
+  languageName: node
+  linkType: hard
+
+"text-encoding@npm:^0.7.0":
+  version: 0.7.0
+  resolution: "text-encoding@npm:0.7.0"
+  checksum: 10/c61b7a59a54c58f0714da0ef4c1f65732821bb1f761e6f21c3e681e51c6dd56fdefa4fcfccd3254bf47132d87420fbc9898da21a804c89e87861f4e1478d5f18
   languageName: node
   linkType: hard
 
