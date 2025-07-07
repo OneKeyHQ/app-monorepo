@@ -220,8 +220,8 @@ body > div.cet-container {
 }
 
 .normal-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 0px;
+  height: 0px;
 }
 
 .normal-scrollbar::-webkit-scrollbar-track {

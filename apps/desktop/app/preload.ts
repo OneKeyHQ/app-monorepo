@@ -5,6 +5,8 @@ import path from 'path';
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
+import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import type {
   EDesktopStoreKeys,
   IDesktopAppState,
@@ -38,7 +40,7 @@ export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
 }
 
-export type IDesktopAPI = {
+type IDesktopAPILegacy = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   arch: string;
   platform: string;
@@ -46,39 +48,11 @@ export type IDesktopAPI = {
   isMas: boolean;
   isDev: boolean;
   channel?: string;
-  reload: () => void;
   ready: () => void;
-  focus: () => void;
-  getSystemInfo: () => Promise<IDesktopSystemInfo>;
-  getMediaAccessStatus: (
-    prefType: IMediaType,
-  ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-  openPreferences: (prefType: IPrefType) => void;
-  toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
-  canPromptTouchID: () => boolean;
-  checkBiometricAuthChanged: () => boolean;
-  getEnvPath: () => { [key: string]: string };
   isFocused: () => boolean;
-  changeDevTools: (isOpen: boolean) => void;
   changeTheme: (theme: string) => void;
-  changeLanguage: (theme: string) => void;
-  promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
-  secureSetItemAsync: (key: string, value: string) => Promise<void>;
-  secureGetItemAsync: (key: string) => Promise<string | null>;
-  secureDelItemAsync: (key: string) => Promise<void>;
 
-  storeSetItemAsync: <T extends EDesktopStoreKeys>(
-    key: T,
-    value: IDesktopStoreMap[T],
-  ) => Promise<void>;
-  storeGetItemAsync: <T extends EDesktopStoreKeys>(
-    key: T,
-  ) => Promise<IDesktopStoreMap[T]>;
-  storeDelItemAsync: (key: EDesktopStoreKeys) => Promise<void>;
-  storeClear: () => Promise<void>;
-
-  reloadBridgeProcess: () => void;
   addIpcEventListener: (
     event: string,
     listener: (...args: any[]) => void,
@@ -90,7 +64,6 @@ export type IDesktopAPI = {
 
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
-  disableShortcuts: (params: { disableAllShortcuts?: boolean }) => void;
   downloadUpdate: () => void;
   downloadASC: (event: IVerifyUpdateParams) => void;
   verifyASC: (event: IVerifyUpdateParams) => void;
@@ -107,7 +80,6 @@ export type IDesktopAPI = {
   }) => void;
   openPrivacyPanel: () => void;
   clearAutoUpdateSettings: () => void;
-  restore: () => void;
   // startServer: (port: number) => Promise<{ success: boolean; error?: string }>;
   startServer: (
     port: number,
@@ -128,29 +100,21 @@ export type IDesktopAPI = {
     body: string,
   ) => void;
   stopServer: () => void;
-  quitApp: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
-  setAllowedPhishingUrls: (urls: string[]) => void;
-  clearWebViewCache: () => void;
-  showNotification: (params: INotificationShowParams) => void;
-  setBadge: (params: INotificationSetBadgeParams) => void;
-  getNotificationPermission: () => INotificationPermissionDetail;
-  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
-  openLoggerFile: () => void;
   testCrash: () => void;
-  iapGetProducts: (
-    params: IDesktopIAPGetProductsParams,
-  ) => Promise<IDesktopIAPGetProductsResult>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
-    desktopApi: IDesktopAPI;
+    desktopApi: IDesktopAPILegacy;
+    desktopApiProxy: DesktopApiProxy;
     INJECT_PATH: string;
   }
 
   // eslint-disable-next-line vars-on-top, no-var
-  var desktopApi: IDesktopAPI;
+  var desktopApi: IDesktopAPILegacy;
+  // eslint-disable-next-line vars-on-top, no-var
+  var desktopApiProxy: DesktopApiProxy;
 }
 
 ipcRenderer.on(
@@ -199,7 +163,6 @@ const validChannels = [
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
-  ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS,
   ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
 ];
 
@@ -250,8 +213,7 @@ const updateGlobalTitleBarBackgroundColor = () => {
   }
 };
 
-const desktopApi = Object.freeze({
-  getVersion: () => ipcRenderer.sendSync(ipcMessageKeys.APP_VERSION) as string,
+const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_, ...args) => func(...args));
@@ -264,8 +226,6 @@ const desktopApi = Object.freeze({
   isDev,
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
-  reload: () => ipcRenderer.send(ipcMessageKeys.APP_RELOAD),
-  focus: () => ipcRenderer.send(ipcMessageKeys.APP_FOCUS),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
     ipcRenderer.addListener(event, listener);
   },
@@ -282,85 +242,16 @@ const desktopApi = Object.freeze({
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
   },
-  getMediaAccessStatus: (prefType: IMediaType) =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
-  openPreferences: (prefType: IPrefType) =>
-    ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES, prefType),
-  toggleMaximizeWindow: () =>
-    ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
-  changeDevTools: (isOpen: boolean) =>
-    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
   changeTheme: (theme: string) => {
     ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme);
     updateGlobalTitleBarBackgroundColor();
   },
-  changeLanguage: (lang: string) => {
-    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
-  },
-  canPromptTouchID: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
-  checkBiometricAuthChanged: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.CHECK_BIOMETRIC_AUTH_CHANGED),
-  getEnvPath: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
-      [key: string]: string;
-    },
-  getBundleInfo: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
-  openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
-  promptTouchID: async (
-    msg: string,
-  ): Promise<{ success: boolean; error?: string }> =>
-    new Promise((resolve) => {
-      ipcRenderer.once(ipcMessageKeys.TOUCH_ID_PROMPT_RES, (_, arg) => {
-        resolve(arg);
-      });
-      ipcRenderer.send(ipcMessageKeys.TOUCH_ID_PROMPT, msg);
-    }),
-  secureSetItemAsync(key: string, value: string) {
-    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_SET_ITEM_ASYNC, {
-      key,
-      value,
-    });
-  },
-  secureGetItemAsync(key: string) {
-    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_GET_ITEM_ASYNC, { key });
-  },
-  secureDelItemAsync(key: string) {
-    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_DEL_ITEM_ASYNC, { key });
-  },
-
-  storeSetItemAsync: async <T extends EDesktopStoreKeys>(
-    key: T,
-    value: IDesktopStoreMap[T],
-  ) =>
-    ipcRenderer.sendSync(ipcMessageKeys.STORE_SET_ITEM_ASYNC, {
-      key,
-      value,
-    }),
-  storeGetItemAsync: async <T extends EDesktopStoreKeys>(key: T) =>
-    ipcRenderer.sendSync(ipcMessageKeys.STORE_GET_ITEM_ASYNC, { key }),
-  storeDelItemAsync: async <T extends EDesktopStoreKeys>(key: T) =>
-    ipcRenderer.sendSync(ipcMessageKeys.STORE_DEL_ITEM_ASYNC, { key }),
-  storeClear: async () => ipcRenderer.sendSync(ipcMessageKeys.STORE_CLEAR),
-
-  // SystemInfo
-  getSystemInfo: async () => {
-    return ipcRenderer.sendSync(
-      ipcMessageKeys.APP_SYSTEM_INFO,
-    ) as IDesktopSystemInfo;
-  },
-  reloadBridgeProcess: () => {
-    ipcRenderer.send(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS);
-  },
 
   // Updater
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
-  disableShortcuts: (params: { disableAllShortcuts?: boolean }) =>
-    ipcRenderer.send(ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS, params),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
   downloadASC: (params: IVerifyUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD_ASC, params),
@@ -390,9 +281,6 @@ const desktopApi = Object.freeze({
   openPrivacyPanel: () =>
     ipcRenderer.send(ipcMessageKeys.TOUCH_OPEN_PRIVACY_PANEL),
 
-  restore: () => {
-    ipcRenderer.send(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW);
-  },
   startServer: (port: number, cb: (data: string, success: boolean) => void) => {
     ipcRenderer.on(ipcMessageKeys.SERVER_START_RES, (_, arg) => {
       const { data, success } = arg;
@@ -432,50 +320,17 @@ const desktopApi = Object.freeze({
       body,
     });
   },
-  quitApp: () => {
-    ipcRenderer.send(ipcMessageKeys.APP_QUIT);
-  },
   setSystemIdleTime: (idleTime: number, cb?: () => void) => {
     ipcRenderer.on(ipcMessageKeys.APP_IDLE, () => {
       cb?.();
     });
     ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
   },
-  setAllowedPhishingUrls: (urls: string[]) => {
-    ipcRenderer.send(ipcMessageKeys.SET_ALLOWED_PHISHING_URLS, urls);
-  },
-  clearWebViewCache: () => {
-    ipcRenderer.send(ipcMessageKeys.CLEAR_WEBVIEW_CACHE);
-  },
-  showNotification: (params: INotificationShowParams) => {
-    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SHOW, params);
-  },
-  setBadge: (params: INotificationSetBadgeParams) => {
-    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SET_BADGE, params);
-    // if windows
-    if (process.platform === 'win32') {
-      /* 
-      // If invokeType is set to "handle"
-      // Replace 8 with whatever number you want the badge to display
-      ipcRenderer.invoke('notificationCount', 8); 
-      */
-      // handle -> ipcRenderer.invoke
-      void ipcRenderer.invoke(
-        ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
-        params.count ?? 0,
-      );
-    }
-  },
-  getNotificationPermission: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
-  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
-  iapGetProducts: async (params: IDesktopIAPGetProductsParams) =>
-    ipcRenderer.sendSync(ipcMessageKeys.IAP_GET_PRODUCTS, params),
 });
 
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
+globalThis.desktopApiProxy = desktopApiProxy;
 
 if (!isMac) {
   globalThis.addEventListener('DOMContentLoaded', () => {

@@ -202,12 +202,12 @@ function AddCustomTokenModal() {
         setIsLoading(false);
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.manger_token_custom_token_address_required,
+            id: ETranslations.manage_token_custom_token_address_required,
           }),
         });
         dappApprove.reject({
           error: new OneKeyError({
-            key: ETranslations.manger_token_custom_token_address_required,
+            key: ETranslations.manage_token_custom_token_address_required,
           }),
         });
         return;
@@ -367,7 +367,7 @@ function AddCustomTokenModal() {
                 validate: () => {
                   if (isEmptyContract) {
                     return intl.formatMessage({
-                      id: ETranslations.Token_manage_custom_token_address_faild,
+                      id: ETranslations.token_manage_custom_token_address_failed,
                     });
                   }
                 },

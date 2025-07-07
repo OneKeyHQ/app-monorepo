@@ -29,7 +29,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   async signTransaction(): Promise<ISignedTxPro> {
     throw new OneKeyInternalError(
       appLocale.intl.formatMessage({
-        id: ETranslations.wallet_error_trade_with_watched_acocunt,
+        id: ETranslations.wallet_error_trade_with_watched_account,
       }),
     );
   }
@@ -37,7 +37,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   async signMessage(): Promise<string[]> {
     throw new OneKeyInternalError(
       appLocale.intl.formatMessage({
-        id: ETranslations.wallet_error_trade_with_watched_acocunt,
+        id: ETranslations.wallet_error_trade_with_watched_account,
       }),
     );
   }

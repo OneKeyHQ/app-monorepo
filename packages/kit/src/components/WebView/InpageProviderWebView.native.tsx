@@ -27,19 +27,19 @@ const desktopUserAgent = platformEnv.isNativeIOS
   ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
   : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-const injectedJavaScript = `
-  const updateMedate = () => {
-    setTimeout(() => {
+const injectedMetaJavaScript = `
+  ;(function() {
+      const updateMedate = () => {
       const meta = document.createElement('meta');
       meta.setAttribute('content', 'width=device-width, initial-scale=0.5, maximum-scale=2, user-scalable=2'); 
       meta.setAttribute('name', 'viewport');
       document.getElementsByTagName('head')[0].appendChild(meta);
-    }, 1500);
-  };
-  document.addEventListener("DOMContentLoaded", () => {
+    };
+    document.addEventListener("DOMContentLoaded", () => {
+      updateMedate();
+    });
     updateMedate();
-  });
-  updateMedate();
+  })();
 `;
 
 const defaultOnMessage = (_event: any) => {};
@@ -101,6 +101,14 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onOpenWindow,
       onShouldStartLoadWithRequest,
     ]);
+
+    const isDesktopMode = useMemo(
+      () =>
+        // Enable desktop mode by default on iPad
+        platformEnv.isNativeIOSPad ? true : siteMode === ESiteMode.desktop,
+      [siteMode],
+    );
+
     const nativeInjectedJsCode = useMemo(() => {
       let code: string = useInjectedNativeCode ? injectedNativeCode : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
@@ -112,8 +120,19 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         })();
         `;
       }
+      if (
+        platformEnv.isNative &&
+        !platformEnv.isNativeIOSPad &&
+        isDesktopMode
+      ) {
+        code += injectedMetaJavaScript;
+      }
       return code;
-    }, [nativeInjectedJavaScriptBeforeContentLoaded, useInjectedNativeCode]);
+    }, [
+      isDesktopMode,
+      nativeInjectedJavaScriptBeforeContentLoaded,
+      useInjectedNativeCode,
+    ]);
 
     const progressLoading = useMemo(() => {
       if (!displayProgressBar) {
@@ -153,13 +172,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       }
       return null;
     }, [isSpinnerLoading, progress, displayProgressBar]);
-    const isDesktopMode = useMemo(
-      () =>
-        // Enable desktop mode by default on iPad
-        platformEnv.isNativeIOSPad ? true : siteMode === ESiteMode.desktop,
-      [siteMode],
-    );
-
     const containerStyle = useMemo(() => {
       if (platformEnv.isNativeAndroid && keyboardHeight > 0) {
         return {
@@ -185,11 +197,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
-          injectedJavaScript={
-            platformEnv.isNative && !platformEnv.isNativeIOSPad && isDesktopMode
-              ? injectedJavaScript
-              : undefined
-          }
           onLoadProgress={({ nativeEvent }) => {
             const p = Math.ceil(nativeEvent.progress * 100);
             onProgress?.(p);

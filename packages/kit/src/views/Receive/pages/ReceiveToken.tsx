@@ -371,7 +371,7 @@ function ReceiveToken() {
             {shouldShowAddress && addressState === EAddressState.ForceShow ? (
               <Badge badgeType="critical">
                 {intl.formatMessage({
-                  id: ETranslations.receive_address_unconfimed_alert_message,
+                  id: ETranslations.receive_address_unconfirmed_alert_message,
                 })}
               </Badge>
             ) : null}

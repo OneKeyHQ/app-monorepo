@@ -17,9 +17,11 @@ interface IDesktopLayoutProps {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
     liquidityFilter: ILiquidityFilter;
+    showWatchlistOnly: boolean;
     onNetworkIdChange: (networkId: string) => void;
     onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
     onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
+    onWatchlistToggle: () => void;
   };
   selectedNetworkId: string;
   liquidityFilter: ILiquidityFilter;
@@ -75,6 +77,10 @@ export function DesktopLayout({
           liquidityFilter={liquidityFilter}
           onScrollOffsetChange={handleScrollOffsetChange}
           defaultShowWatchlistOnly={activeTab === EMarketHomeTab.Watchlist}
+          externalWatchlistControl={{
+            showWatchlistOnly: filterBarProps.showWatchlistOnly,
+            onToggle: filterBarProps.onWatchlistToggle,
+          }}
           key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
         />
       </Stack>

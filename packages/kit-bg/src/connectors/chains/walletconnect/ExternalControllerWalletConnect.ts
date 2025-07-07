@@ -112,7 +112,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
       // (cleanupInactiveSessions)
       throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
-          id: ETranslations.feedback_walletconnect_session_discconected,
+          id: ETranslations.feedback_walletconnect_session_disconnected,
         }),
       );
     }
@@ -131,7 +131,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     ) {
       throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
-          id: ETranslations.feedback_external_wallet_doesn_not_approve_address,
+          id: ETranslations.feedback_external_wallet_does_not_approve_address,
         })}: ${networkId} ${address}`,
       );
     }

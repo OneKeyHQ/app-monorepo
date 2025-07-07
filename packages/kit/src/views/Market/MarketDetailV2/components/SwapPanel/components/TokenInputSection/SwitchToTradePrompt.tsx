@@ -27,8 +27,9 @@ export function SwitchToTradePrompt(props: ISwitchToTradePromptProps) {
       px="$5"
       py="$2"
       alignItems="center"
+      justifyContent="center"
     >
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
         If you wish to trade other tokens, switch to{' '}
         <SizableText fontWeight="bold" cursor="pointer">
           {intl.formatMessage({ id: ETranslations.global_trade })}

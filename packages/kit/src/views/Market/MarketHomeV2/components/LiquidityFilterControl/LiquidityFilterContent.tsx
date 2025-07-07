@@ -82,12 +82,12 @@ function LiquidityFilterContent({
           <Stack flex={1} gap="$2">
             <Heading size="$headingSm">
               {intl.formatMessage({
-                id: ETranslations.dexmarket_custom_fliters_min,
+                id: ETranslations.dexmarket_custom_filters_min,
               })}
             </Heading>
             <Input
               placeholder={intl.formatMessage({
-                id: ETranslations.dexmarket_custom_fliters_min,
+                id: ETranslations.dexmarket_custom_filters_min,
               })}
               value={minValue}
               onChangeText={setMinValue}
@@ -96,12 +96,12 @@ function LiquidityFilterContent({
           <Stack flex={1} gap="$2">
             <Heading size="$headingSm">
               {intl.formatMessage({
-                id: ETranslations.dexmarket_custom_fliters_max,
+                id: ETranslations.dexmarket_custom_filters_max,
               })}
             </Heading>
             <Input
               placeholder={intl.formatMessage({
-                id: ETranslations.dexmarket_custom_fliters_max,
+                id: ETranslations.dexmarket_custom_filters_max,
               })}
               value={maxValue}
               onChangeText={setMaxValue}
@@ -115,7 +115,7 @@ function LiquidityFilterContent({
           </Button>
           <Button variant="primary" flex={1} onPress={handleApply}>
             {intl.formatMessage({
-              id: ETranslations.dexmarket_custom_fliters_apply,
+              id: ETranslations.dexmarket_custom_filters_apply,
             })}
           </Button>
         </XStack>
