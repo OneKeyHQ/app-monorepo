@@ -57,12 +57,12 @@ export class KeyringHardware extends KeyringHardwareBase {
           params,
           usedIndexes,
           sdkGetAddressFn: async ({
-            connectId,
-            deviceId,
-            pathPrefix,
-            pathSuffix,
+            connectId: _connectId,
+            deviceId: _deviceId,
+            pathPrefix: _pathPrefix,
+            pathSuffix: _pathSuffix,
             template,
-            showOnOnekeyFn,
+            showOnOnekeyFn: _showOnOnekeyFn,
           }) => {
             const buildFullPath = (p: { index: number }) =>
               accountUtils.buildPathFromTemplate({

@@ -108,10 +108,10 @@ export class KeyringQr extends KeyringQrBase {
     let unsignedPsbt: Psbt | undefined;
     const signedTx = await this.baseSignByQrcode(params, {
       signRequestUrBuilder: async ({
-        path,
-        account,
-        chainId,
-        requestId,
+        path: _path,
+        account: _account,
+        chainId: _chainId,
+        requestId: _requestId,
         xfp,
       }) => {
         unsignedPsbt = await buildPsbt({
