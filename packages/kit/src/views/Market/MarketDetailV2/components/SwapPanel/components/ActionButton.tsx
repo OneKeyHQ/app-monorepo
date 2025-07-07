@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
@@ -37,6 +39,7 @@ export function ActionButton({
 }: IActionButtonProps) {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
+  const [settingsValue] = useSettingsPersistAtom();
 
   // Get payment token price for buy orders
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
@@ -87,7 +90,14 @@ export function ActionButton({
 
   let buttonText = `${actionText} ${displayAmount} ${token?.symbol || ''}`;
   if (typeof totalValue === 'number') {
-    buttonText += `($${totalValue.toFixed(2)})`;
+    buttonText += `(${
+      numberFormat(totalValue.toFixed(2), {
+        formatter: 'value',
+        formatterOptions: {
+          currency: settingsValue.currencyInfo.symbol,
+        },
+      }) as string
+    })`;
   }
 
   if (shouldDisable) {
@@ -96,11 +106,17 @@ export function ActionButton({
     });
   }
 
+  if (!hasAmount) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_enter_amount,
+    });
+  }
+
   return (
     <Button
       variant="primary"
       size="medium"
-      disabled={shouldDisable || disabled}
+      disabled={shouldDisable || disabled || !hasAmount}
       onPress={shouldDisable ? undefined : onPress}
       {...otherProps}
     >
