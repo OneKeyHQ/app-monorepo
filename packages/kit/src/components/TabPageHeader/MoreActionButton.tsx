@@ -104,6 +104,7 @@ function MoreActionContentHeader() {
       toOneKeyIdPageOnLoginSuccess: true,
     });
   }, [closePopover, loginOneKeyId]);
+
   return (
     <XStack
       px="$5"
@@ -247,6 +248,7 @@ interface IMoreActionContentGridItemProps {
   showBadges?: boolean;
   badges?: number;
   lottieSrc?: string;
+  isPrimeFeature?: boolean;
 }
 
 function MoreActionContentGridItem({
@@ -259,6 +261,7 @@ function MoreActionContentGridItem({
   showBadges,
   badges = 0,
   lottieSrc,
+  isPrimeFeature,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
@@ -270,6 +273,19 @@ function MoreActionContentGridItem({
       });
     }
   }, [closePopover, onPress, trackID]);
+
+  const themeVariant = useThemeVariant();
+  const { user } = usePrimeAuthV2();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+
+  const primeIcon = useMemo(() => {
+    if (isPrimeUser) {
+      return themeVariant === 'light'
+        ? 'OnekeyPrimeLightColored'
+        : 'OnekeyPrimeDarkColored';
+    }
+    return 'PrimeOutline';
+  }, [isPrimeUser, themeVariant]);
   return (
     <YStack
       testID={testID}
@@ -294,6 +310,7 @@ function MoreActionContentGridItem({
         $group-press={{
           bg: '$bgActive',
         }}
+        overflow="hidden"
       >
         {icon ? <Icon name={icon} /> : null}
         {lottieSrc ? (
@@ -337,6 +354,25 @@ function MoreActionContentGridItem({
                 )}
               </Stack>
             </Stack>
+          </Stack>
+        ) : null}
+        {isPrimeFeature ? (
+          <Stack
+            position="absolute"
+            left={-1}
+            top={-1}
+            backgroundColor="$bgStrong"
+            paddingLeft={5}
+            paddingRight={4}
+            py={1.5}
+            borderBottomRightRadius="$2"
+          >
+            <Icon
+              color={isPrimeUser ? '$icon' : '$iconDisabled'}
+              width={10}
+              height={10}
+              name={primeIcon}
+            />
           </Stack>
         ) : null}
       </YStack>
@@ -505,6 +541,7 @@ function MoreActionContentGrid() {
         icon: 'Copy3Outline',
         onPress: openBulkCopyAddressesModal,
         trackID: 'bulk-copy-addresses-in-more-action',
+        isPrimeFeature: true,
       },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
