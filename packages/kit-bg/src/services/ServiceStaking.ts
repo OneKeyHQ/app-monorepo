@@ -285,8 +285,8 @@ class ServiceStaking extends ServiceBase {
         accountId,
       });
     if (walletReferralCode) {
-      paramsToSend.boundAccountAddress = walletReferralCode.address;
-      paramsToSend.boundNetworkId = walletReferralCode.networkId;
+      paramsToSend.bindedAccountAddress = walletReferralCode.address;
+      paramsToSend.bindedNetworkId = walletReferralCode.networkId;
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
