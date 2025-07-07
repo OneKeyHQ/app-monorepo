@@ -80,8 +80,14 @@ function MarketTokenList({
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      setCurrentSortBy(sortBy);
-      setCurrentSortType(sortType);
+      // When sortType is undefined, reset to default sorting
+      if (sortType === undefined) {
+        setCurrentSortBy('v24hUSD');
+        setCurrentSortType('desc');
+      } else {
+        setCurrentSortBy(sortBy);
+        setCurrentSortType(sortType);
+      }
     },
     [],
   );
