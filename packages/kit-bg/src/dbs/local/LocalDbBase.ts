@@ -4569,12 +4569,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     connectId,
     featuresDeviceId,
     features,
-    transportType,
   }: {
     connectId?: string;
     featuresDeviceId?: string; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
-    transportType?: EHardwareTransportType;
   }): Promise<IDBDevice | undefined> {
     const { getDeviceUUID } = await CoreSDKLoader();
     const { devices } = await this.getAllDevices();
@@ -4588,21 +4586,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       };
       if (connectId) {
-        // If transportType is specified, use getDeviceConnectId to get the appropriate connectId
-        if (transportType) {
-          const expectedConnectId = deviceUtils.getDeviceConnectId(
-            item,
-            transportType,
-          );
-          mergePredicate(expectedConnectId === connectId);
-        } else {
-          // Otherwise, match any of the connectId fields (legacy behavior + new fields)
-          mergePredicate(
-            item.connectId === connectId ||
-              item.usbConnectId === connectId ||
-              item.bleConnectId === connectId,
-          );
-        }
+        // Match any of the connectId fields (legacy behavior + new fields)
+        mergePredicate(
+          item.connectId === connectId ||
+            item.usbConnectId === connectId ||
+            item.bleConnectId === connectId,
+        );
       }
       if (featuresDeviceId) {
         mergePredicate(item.deviceId === featuresDeviceId);
@@ -4625,7 +4614,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: ELocalDBStoreNames.Device,
       id: dbDeviceId,
     });
-    return this.refillDeviceInfo({ device });
+    const refillDevice = this.refillDeviceInfo({ device });
+
+    // Ensure connectId is compatible for the current transport type
+    // Note: For saved devices, connectId should already be properly set based on transport type
+    // This is a safety measure for edge cases
+    if (refillDevice.connectId) {
+      try {
+        refillDevice.connectId =
+          await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+            connectId: refillDevice.connectId,
+            featuresDeviceId: refillDevice.deviceId,
+          });
+      } catch (error) {
+        // If getCompatibleConnectId fails, use the original connectId
+        console.warn('Failed to get compatible connectId:', error);
+      }
+    }
+
+    return refillDevice;
   }
 
   async getDeviceSafe(dbDeviceId: string): Promise<IDBDevice | undefined> {

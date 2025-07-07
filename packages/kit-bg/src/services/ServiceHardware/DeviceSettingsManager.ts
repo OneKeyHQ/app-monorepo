@@ -62,10 +62,13 @@ export type IDeviceHomeScreenConfig = {
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async changePin(connectId: string, remove = false): Promise<Success> {
+    const compatibleConnectId = await this.serviceHardware.getCompatibleConnectId({
+      connectId,
+    });
     const hardwareSDK = await this.getSDKInstance();
 
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceChangePin(connectId, {
+      hardwareSDK?.deviceChangePin(compatibleConnectId, {
         remove,
       }),
     );
@@ -76,10 +79,13 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     connectId: string,
     settings: DeviceSettingsParams,
   ) {
+    const compatibleConnectId = await this.serviceHardware.getCompatibleConnectId({
+      connectId,
+    });
     const hardwareSDK = await this.getSDKInstance();
 
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceSettings(connectId, settings),
+      hardwareSDK?.deviceSettings(compatibleConnectId, settings),
     );
   }
 
@@ -186,8 +192,12 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
+          const compatibleConnectId = await this.serviceHardware.getCompatibleConnectId({
+            connectId: device.connectId,
+            featuresDeviceId: device.deviceId,
+          });
           await convertDeviceResponse(() =>
-            hardwareSDK.deviceUploadResource(device.connectId, uploadResParams),
+            hardwareSDK.deviceUploadResource(compatibleConnectId, uploadResParams),
           );
         } else {
           const { getHomeScreenHex } = await CoreSDKLoader();
@@ -230,15 +240,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     }
     if (!device) {
       if (connectId || featuresDeviceId) {
-        // Get current transport type for precise device query when connectId is used
-        const hardwareTransportType = connectId
-          ? await this.backgroundApi.serviceSetting.getHardwareTransportType()
-          : undefined;
-
         device = await localDb.getDeviceByQuery({
           connectId,
           featuresDeviceId,
-          transportType: hardwareTransportType,
         });
       }
     }

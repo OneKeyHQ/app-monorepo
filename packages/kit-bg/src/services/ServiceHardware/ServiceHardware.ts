@@ -298,13 +298,8 @@ class ServiceHardware extends ServiceBase {
     // Handler Request Pin
     // If the user set is to enter pin on the device, change the event to enter pin on the hardware
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PIN) {
-      // Get current transport type for precise device query
-      const hardwareTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
-
       const dbDevice = await localDb.getDeviceByQuery({
         connectId: newPayload.connectId,
-        transportType: hardwareTransportType,
       });
 
       if (
@@ -573,9 +568,15 @@ class ServiceHardware extends ServiceBase {
       );
     }
 
+    // Get compatible connectId for the current transport type
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      featuresDeviceId: device.deviceId,
+    });
+
     if (platformEnv.isNative) {
       try {
-        return await this.connectDevice(connectId);
+        return await this.connectDevice(compatibleConnectId);
       } catch (e: any) {
         this.handlerConnectError(e);
       }
@@ -584,7 +585,7 @@ class ServiceHardware extends ServiceBase {
        * USB does not need the extra getFeatures call
        */
       try {
-        return await this.connectDevice(connectId);
+        return await this.connectDevice(compatibleConnectId);
       } catch (e: any) {
         return (device as KnownDevice).features;
       }
@@ -595,20 +596,26 @@ class ServiceHardware extends ServiceBase {
   @toastIfError()
   async unlockDevice({ connectId }: { connectId: string }) {
     const hardwareSDK = await this.getSDKInstance();
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+    });
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceUnlock(connectId, {}),
+      hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
     );
   }
 
   @backgroundMethod()
   async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
-    let features = await this.getFeaturesWithoutCache({
+    const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
+    });
+    let features = await this.getFeaturesWithoutCache({
+      connectId: compatibleConnectId,
     });
 
     if (!features.unlocked) {
       // unlock device
-      features = await this.unlockDevice({ connectId });
+      features = await this.unlockDevice({ connectId: compatibleConnectId });
     }
 
     return features;
@@ -660,7 +667,12 @@ class ServiceHardware extends ServiceBase {
       // cancel the hardware process
       // (cancel not working on enter pin on device mode, use getFeatures() later)
       try {
-        sdk.cancel(connectId);
+        const compatibleConnectId = connectId
+          ? await this.getCompatibleConnectId({
+              connectId,
+            })
+          : undefined;
+        sdk.cancel(compatibleConnectId);
       } catch (e: any) {
         const { message } = e || {};
         console.log('sdk.cancel error: ', message);
@@ -717,9 +729,12 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getDeviceSupportFeatures(connectId: string) {
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+    });
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceSupportFeatures(connectId),
+      hardwareSDK?.deviceSupportFeatures(compatibleConnectId),
     );
   }
 
@@ -790,26 +805,26 @@ class ServiceHardware extends ServiceBase {
     const device = await this.backgroundApi.serviceAccount.getWalletDevice({
       walletId,
     });
+    // device.connectId is already processed by LocalDbBase.getDevice()
     return this.getFeatures({ connectId: device.connectId });
   }
 
   @backgroundMethod()
   async getAboutDeviceFeatures(params: { connectId: string }) {
-    // Get current transport type for precise device query
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
-
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.connectId,
-      transportType: hardwareTransportType,
     });
     if (!dbDevice) {
       throw new OneKeyLocalError('device not found');
     }
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId: params.connectId,
+      featuresDeviceId: dbDevice.deviceId,
+    });
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.getFeaturesWithoutCache({
-          connectId: params.connectId,
+          connectId: compatibleConnectId,
           params: { retryCount: 1 },
         }),
       {
@@ -870,14 +885,9 @@ class ServiceHardware extends ServiceBase {
         });
         dbDeviceId = wallet?.associatedDevice;
       } else {
-        // Get current transport type for precise device query when connectId is used
-        const hardwareTransportType =
-          await this.backgroundApi.serviceSetting.getHardwareTransportType();
-
         const device = await localDb.getDeviceByQuery({
           connectId: p.connectId,
           featuresDeviceId: p.featuresDeviceId,
-          transportType: p.connectId ? hardwareTransportType : undefined,
         });
         dbDeviceId = device?.id;
       }
@@ -1005,9 +1015,12 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+    });
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceUploadResource(connectId, params),
+      hardwareSDK?.deviceUploadResource(compatibleConnectId, params),
     );
   }
 
@@ -1051,13 +1064,8 @@ class ServiceHardware extends ServiceBase {
   async updateDeviceVersionAfterFirmwareUpdate(
     params: IUpdateFirmwareWorkflowParams,
   ) {
-    // Get current transport type for precise device query
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
-
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.releaseResult.originalConnectId,
-      transportType: hardwareTransportType,
     });
     if (!dbDevice) {
       return;
@@ -1105,10 +1113,14 @@ class ServiceHardware extends ServiceBase {
     path: string;
   }): Promise<string | null> {
     try {
+      const compatibleConnectId = await this.getCompatibleConnectId({
+        connectId: params.connectId,
+        featuresDeviceId: params.deviceId,
+      });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
       const evmAddressResponse = await convertDeviceResponse(() =>
-        hardwareSDK?.evmGetAddress(params.connectId, params.deviceId, {
+        hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
           showOnOneKey: false,
           useEmptyPassphrase: true,
@@ -1142,15 +1154,23 @@ class ServiceHardware extends ServiceBase {
       return;
     }
     try {
+      const compatibleConnectId = await this.getCompatibleConnectId({
+        connectId,
+        featuresDeviceId: deviceId,
+      });
       const hardwareSDK = await this.getSDKInstance();
       await timerUtils.wait(600);
       const result = await convertDeviceResponse(() => {
-        return hardwareSDK.btcGetPublicKey(connectId, deviceId || '', {
-          path: BTC_FIRST_TAPROOT_PATH,
-          showOnOneKey: false,
-          useEmptyPassphrase: passphraseState ? undefined : true,
-          passphraseState: passphraseState || undefined,
-        });
+        return hardwareSDK.btcGetPublicKey(
+          compatibleConnectId,
+          deviceId || '',
+          {
+            path: BTC_FIRST_TAPROOT_PATH,
+            showOnOneKey: false,
+            useEmptyPassphrase: passphraseState ? undefined : true,
+            passphraseState: passphraseState || undefined,
+          },
+        );
       });
       if (result.root_fingerprint && result.xpub) {
         const xfp = numberUtils
@@ -1241,6 +1261,57 @@ class ServiceHardware extends ServiceBase {
     await hardwareSDK.switchTransport(
       transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
     );
+  }
+
+  @backgroundMethod()
+  async getCompatibleConnectId({
+    connectId,
+    featuresDeviceId,
+    features,
+  }: {
+    connectId?: string;
+    featuresDeviceId?: string | undefined | null; // rawDeviceId
+    features?: IOneKeyDeviceFeatures;
+  }) {
+    if (!connectId) {
+      throw new OneKeyLocalError('connectId is required');
+    }
+
+    // For onboarding case where device is not in DB yet,
+    // directly use the connectId based on current transport type
+    if (platformEnv.isDesktop) {
+      const transportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      if (transportType === EHardwareTransportType.DesktopWebBle) {
+        // In BLE mode, the connectId from SearchDevice is already the BLE connectId
+        return connectId;
+      }
+    }
+
+    // Try to get device from DB for saved devices
+    const device = await localDb.getDeviceByQuery({
+      connectId,
+      featuresDeviceId: featuresDeviceId || undefined,
+      features,
+    });
+
+    if (!device) {
+      // Device not found in DB (onboarding case), use the provided connectId as-is
+      return connectId;
+    }
+
+    // Device found in DB, use the appropriate connectId based on transport type
+    if (platformEnv.isDesktop) {
+      const transportType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      if (transportType === EHardwareTransportType.DesktopWebBle) {
+        if (!device.bleConnectId) {
+          throw new OneKeyLocalError('BLE connectId not set');
+        }
+        return device.bleConnectId;
+      }
+    }
+    return device.connectId;
   }
 }
 
