@@ -51,8 +51,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    const chainId = await this.getNetworkChainId();
-
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const { curve } = await this.getNetworkInfo();
@@ -64,11 +62,11 @@ export class KeyringHardware extends KeyringHardwareBase {
           params,
           usedIndexes,
           sdkGetPublicKeysFn: async ({
-            connectId,
-            deviceId,
-            pathPrefix,
+            connectId: _connectId,
+            deviceId: _deviceId,
+            pathPrefix: _pathPrefix,
             template,
-            showOnOnekeyFn,
+            showOnOnekeyFn: _showOnOnekeyFn,
           }) => {
             const buildFullPath = (p: { index: number }) =>
               accountUtils.buildPathFromTemplate({
@@ -81,7 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               usedIndexes,
               hwSdkNetwork: this.hwSdkNetwork,
               buildPath: buildFullPath,
-              buildResultAccount: ({ account, index }) => ({
+              buildResultAccount: ({ account, index: _index }) => ({
                 path: account.path,
                 publicKey: account.payload?.publicKey || '',
               }),

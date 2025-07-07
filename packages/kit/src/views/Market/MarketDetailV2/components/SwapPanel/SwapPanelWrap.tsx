@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, useMedia } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -86,11 +87,24 @@ export function SwapPanelWrap() {
     fetchBalanceLoading,
   } = speedSwapActions;
 
+  const filterDefaultTokens = useMemo(() => {
+    return defaultTokens.filter(
+      (token) =>
+        !equalTokenNoCaseSensitive({
+          token1: token,
+          token2: {
+            networkId: networkId || '',
+            contractAddress: tokenDetail?.address || '',
+          },
+        }),
+    );
+  }, [defaultTokens, networkId, tokenDetail]);
+
   useEffect(() => {
-    if (defaultTokens.length > 0 && !paymentToken) {
-      setPaymentToken(defaultTokens[0]);
+    if (filterDefaultTokens.length > 0 && !paymentToken) {
+      setPaymentToken(filterDefaultTokens[0]);
     }
-  }, [defaultTokens, paymentToken, setPaymentToken]);
+  }, [paymentToken, setPaymentToken, filterDefaultTokens]);
 
   useEffect(() => {
     if (speedConfig?.slippage) {
@@ -131,7 +145,7 @@ export function SwapPanelWrap() {
       isApproved={!shouldApprove}
       slippageAutoValue={speedConfig?.slippage}
       supportSpeedSwap={supportSpeedSwap}
-      defaultTokens={defaultTokens}
+      defaultTokens={filterDefaultTokens}
       onApprove={handleApprove}
     />
   );
