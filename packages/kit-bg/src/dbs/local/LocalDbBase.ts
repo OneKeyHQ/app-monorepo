@@ -4556,6 +4556,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         (item) => item.id === wallet.associatedDevice,
       );
       if (deviceFromAllDevices) {
+        // Ensure connectId is compatible for the current transport type
+        // This is needed because allDevices may not have been processed through getCompatibleConnectId
+        if (deviceFromAllDevices.connectId) {
+          try {
+            deviceFromAllDevices.connectId =
+              await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+                connectId: deviceFromAllDevices.connectId,
+                featuresDeviceId: deviceFromAllDevices.deviceId,
+              });
+          } catch (error) {
+            // If getCompatibleConnectId fails, use the original connectId
+            console.warn('Failed to get compatible connectId:', error);
+          }
+        }
         return deviceFromAllDevices;
       }
       return this.getDevice(wallet.associatedDevice);
