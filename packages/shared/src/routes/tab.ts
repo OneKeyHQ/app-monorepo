@@ -20,18 +20,18 @@ export enum ETabRoutes {
   Developer = 'Developer',
   Earn = 'Earn',
   Swap = 'Swap',
-  Perps = 'Perps',
+  Perp = 'Perp',
   MultiTabBrowser = 'MultiTabBrowser',
   DeviceManagement = 'DeviceManagement',
   ReferFriends = 'ReferFriends',
 }
 
-export enum ETabPerpsRoutes {
-  TabPerps = 'TabPerps',
+export enum ETabPerpRoutes {
+  TabPerp = 'TabPerp',
 }
 
-export type ITabPerpsParamList = {
-  [ETabPerpsRoutes.TabPerps]: undefined;
+export type ITabPerpParamList = {
+  [ETabPerpRoutes.TabPerp]: undefined;
 };
 
 export type ITabStackParamList = {
@@ -42,7 +42,7 @@ export type ITabStackParamList = {
   [ETabRoutes.Earn]: ITabEarnParamList;
   [ETabRoutes.Market]: ITabMarketParamList;
   [ETabRoutes.Swap]: ITabSwapParamList;
-  [ETabRoutes.Perps]: ITabPerpsParamList;
+  [ETabRoutes.Perp]: ITabPerpParamList;
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
   [ETabRoutes.DeviceManagement]: IModalDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: IModalReferFriendsParamList;

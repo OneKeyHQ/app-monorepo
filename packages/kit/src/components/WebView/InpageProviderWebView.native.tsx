@@ -127,6 +127,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       ) {
         code += injectedMetaJavaScript;
       }
+      console.log('Perp---nativeInjectedJsCode', code);
       return code;
     }, [
       isDesktopMode,

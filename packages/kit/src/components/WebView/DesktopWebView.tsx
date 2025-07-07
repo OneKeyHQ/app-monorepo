@@ -87,6 +87,7 @@ const DesktopWebView = forwardRef(
       // @ts-expect-error
       onNewWindow,
       onDomReady,
+      nativeInjectedJavaScriptBeforeContentLoaded,
       ...props
     }: ComponentProps<typeof WEBVIEW_TAG> &
       IElectronWebViewEvents &
@@ -151,7 +152,87 @@ const DesktopWebView = forwardRef(
           onLoadEnd?.(e);
         };
 
-        webview.addEventListener('did-start-loading', onDidStartLoading);
+        // 在 DOM 准备就绪时立即注入 JavaScript
+        const domReady = (e: any) => {
+          onDomReady?.(e);
+
+          // 注入自定义 JavaScript
+          if (nativeInjectedJavaScriptBeforeContentLoaded && webview) {
+            try {
+              const executeCode = `
+              ;(function() {
+                  ;
+                  ${nativeInjectedJavaScriptBeforeContentLoaded ?? ''}
+                  ;
+              })();
+              `;
+              webview.executeJavaScript(executeCode);
+              console.log(
+                'Perp---Desktop WebView: Custom JavaScript injected at DOM ready',
+              );
+            } catch (error) {
+              console.error(
+                'Perp---Desktop WebView: Failed to inject custom JavaScript',
+                error,
+              );
+            }
+          }
+        };
+
+        // 在 WebView 附加时立即注入，这是最早的时机
+        const didAttach = (e: any) => {
+          // 立即注入，不等待延迟
+          if (nativeInjectedJavaScriptBeforeContentLoaded && webview) {
+            try {
+              const executeCode = `
+              ;(function() {
+                  ;
+                  ${nativeInjectedJavaScriptBeforeContentLoaded ?? ''}
+                  ;
+              })();
+              `;
+              webview.executeJavaScript(executeCode);
+              console.log(
+                'Perp---Desktop WebView: Custom JavaScript injected at did-attach (earliest)',
+              );
+            } catch (error) {
+              console.error(
+                'Perp---Desktop WebView: Failed to inject custom JavaScript at did-attach',
+                error,
+              );
+            }
+          }
+        };
+
+        // 在开始加载时也注入，作为备用
+        const didStartLoading = (e: any) => {
+          onDidStartLoading?.(e);
+
+          // 立即注入，不等待延迟
+          if (nativeInjectedJavaScriptBeforeContentLoaded && webview) {
+            try {
+              const executeCode = `
+              ;(function() {
+                  ;
+                  ${nativeInjectedJavaScriptBeforeContentLoaded ?? ''}
+                  ;
+              })();
+              `;
+              webview.executeJavaScript(executeCode);
+              console.log(
+                'Perp---Desktop WebView: Custom JavaScript injected at start loading (backup)',
+              );
+            } catch (error) {
+              console.error(
+                'Perp---Desktop WebView: Failed to inject custom JavaScript at start loading',
+                error,
+              );
+            }
+          }
+        };
+
+        webview.addEventListener('did-attach', didAttach);
+        webview.addEventListener('did-start-loading', didStartLoading);
         webview.addEventListener(
           'did-start-navigation',
           innerHandleDidStartNavigationNavigation,
@@ -162,10 +243,11 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('page-title-updated', onPageTitleUpdated);
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
         webview.addEventListener('new-window', onNewWindow);
-        webview.addEventListener('dom-ready', onDomReady);
+        webview.addEventListener('dom-ready', domReady);
 
         return () => {
-          webview.removeEventListener('did-start-loading', onDidStartLoading);
+          webview.removeEventListener('did-attach', didAttach);
+          webview.removeEventListener('did-start-loading', didStartLoading);
           webview.removeEventListener(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
@@ -179,7 +261,7 @@ const DesktopWebView = forwardRef(
             onPageFaviconUpdated,
           );
           webview.removeEventListener('new-window', onNewWindow);
-          webview.removeEventListener('dom-ready', onDomReady);
+          webview.removeEventListener('dom-ready', domReady);
         };
       } catch (error) {
         console.error(error);
@@ -195,6 +277,7 @@ const DesktopWebView = forwardRef(
       onPageTitleUpdated,
       onDidStartNavigation,
       onLoadEnd,
+      nativeInjectedJavaScriptBeforeContentLoaded,
     ]);
     if (isDev && props.preload) {
       console.warn(

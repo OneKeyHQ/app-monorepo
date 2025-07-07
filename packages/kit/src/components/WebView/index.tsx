@@ -109,6 +109,7 @@ const WebView: FC<IWebViewProps> = ({
       </Stack>
     );
   }
+  console.log('Perp---WebView', src);
   return (
     <Stack flex={1} bg="background-default" {...containerProps}>
       <InpageProviderWebView

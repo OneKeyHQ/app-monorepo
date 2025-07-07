@@ -22,7 +22,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     {
       id,
       src = '',
-      onSrcChange,
       receiveHandler,
       allowpopups,
       isSpinnerLoading,
@@ -35,6 +34,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onPageFaviconUpdated,
       onLoadEnd,
       onDomReady,
+      nativeInjectedJavaScriptBeforeContentLoaded,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -122,7 +122,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           id={id}
           ref={setWebViewRef}
           src={src}
-          onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
           // Warning: any string work, any bool not work
           // @ts-expect-error
@@ -140,6 +139,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onPageTitleUpdated={onPageTitleUpdated}
           onPageFaviconUpdated={onPageFaviconUpdated}
           onDomReady={onDomReady}
+          nativeInjectedJavaScriptBeforeContentLoaded={
+            nativeInjectedJavaScriptBeforeContentLoaded
+          }
         />
       </Stack>
     );

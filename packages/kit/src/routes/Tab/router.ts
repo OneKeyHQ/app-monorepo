@@ -22,7 +22,7 @@ import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
-import { perpsRouters } from './Perps/router';
+import { perpRouters } from './Perp/router';
 import { swapRouters } from './Swap/router';
 
 type IGetTabRouterParams = {
@@ -120,19 +120,18 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: earnRouters,
           trackId: 'global-earn',
         },
-        // 只在桌面端和移动端显示 Perps tab，放在 Discovery 上面
         (platformEnv.isDesktop || platformEnv.isNative) &&
         !platformEnv.isExtension
           ? {
-              name: ETabRoutes.Perps,
+              name: ETabRoutes.Perp,
               tabBarIcon: (focused?: boolean) =>
-                focused ? 'TrendingUpSolid' : 'TrendingUpOutline',
-              translationId: 'perps',
+                focused ? 'CoinsSolid' : 'CoinsOutline',
+              translationId: 'perp',
               freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/perps',
+              rewrite: '/perp',
               exact: true,
-              children: perpsRouters,
-              trackId: 'global-perps',
+              children: perpRouters,
+              trackId: 'global-perp',
             }
           : undefined,
         isShowMyOneKeyOnTabbar
