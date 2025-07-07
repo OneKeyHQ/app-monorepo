@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import makeBlockie from 'ethereum-blockies-base64';
-import * as RNFS from 'react-native-fs';
+
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 
 import {
   BLOCKIE_IMAGE_BASE64_PREFIX,
