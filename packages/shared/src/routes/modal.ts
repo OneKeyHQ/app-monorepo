@@ -4,6 +4,7 @@ import type { IAppUpdatePagesParamList } from './appUpdate';
 import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
 import type { IAssetSelectorParamList } from './assetSelector';
+import type { IModalBulkCopyAddressesParamList } from './bulkCopyAddresses';
 import type { IChainSelectorParamList } from './chainSelector';
 import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
@@ -62,6 +63,7 @@ export enum EModalRoutes {
   SignatureConfirmModal = 'SignatureConfirmModal',
   DeviceManagementModal = 'DeviceManagementModal',
   ReferFriendsModal = 'ReferFriendsModal',
+  BulkCopyAddressesModal = 'BulkCopyAddressesModal',
 }
 
 export type IModalParamList = {
@@ -97,4 +99,5 @@ export type IModalParamList = {
   [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
+  [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
 };

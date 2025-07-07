@@ -180,6 +180,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.ReferFriendsModal,
     children: ReferFriendsRouter,
   },
+  {
+    name: EModalRoutes.BulkCopyAddressesModal,
+    children: BulkCopyAddressesModalRouter,
+  },
 ];
 
 // Pages in Dev Mode

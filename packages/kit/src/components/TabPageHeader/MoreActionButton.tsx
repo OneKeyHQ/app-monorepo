@@ -46,6 +46,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -404,6 +405,12 @@ function MoreActionContentGrid() {
     });
   }, [navigation]);
 
+  const openBulkCopyAddressesModal = useCallback(async () => {
+    navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
+      screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
+    });
+  }, [navigation]);
+
   const { toReferFriendsPage } = useReferFriends();
 
   const [allTokens] = useAllTokenListAtom();
@@ -491,6 +498,14 @@ function MoreActionContentGrid() {
             badges: badge,
             trackID: 'notification-in-more-action',
           },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_bulk_copy_addresses,
+        }),
+        icon: 'Copy3Outline',
+        onPress: openBulkCopyAddressesModal,
+        trackID: 'bulk-copy-addresses-in-more-action',
+      },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
     badge,
@@ -503,6 +518,7 @@ function MoreActionContentGrid() {
     intl,
     openAddressBook,
     openNotificationsModal,
+    openBulkCopyAddressesModal,
     themeVariant,
     toReferFriendsPage,
   ]);
