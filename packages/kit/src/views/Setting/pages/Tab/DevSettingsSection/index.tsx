@@ -141,7 +141,7 @@ export const DevSettingsSection = () => {
       onConfirm: () => {
         void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
         if (platformEnv.isDesktop) {
-          globalThis?.desktopApi.changeDevTools(false);
+          void globalThis?.desktopApiProxy?.dev?.changeDevTools(false);
         }
       },
     });
@@ -151,14 +151,14 @@ export const DevSettingsSection = () => {
     showDevOnlyPasswordDialog({
       title: 'Danger Zone: Open Chrome DevTools',
       onConfirm: async () => {
-        globalThis?.desktopApi.changeDevTools(true);
+        void globalThis?.desktopApiProxy?.dev?.changeDevTools(true);
       },
     });
   }, []);
 
   const forceIntoRTL = useCallback(() => {
     I18nManager.forceRTL(!I18nManager.isRTL);
-    backgroundApiProxy.serviceApp.restartApp();
+    void backgroundApiProxy.serviceApp.restartApp();
   }, []);
 
   if (!devSettings.enabled) {
@@ -185,7 +185,8 @@ export const DevSettingsSection = () => {
             title="Print Env Path in Desktop"
             subtitle="getEnvPath()"
             onPress={async () => {
-              const envPath = globalThis?.desktopApi.getEnvPath();
+              const envPath =
+                await globalThis?.desktopApiProxy?.system?.getEnvPath?.();
               console.log(envPath);
               Dialog.show({
                 title: 'getEnvPath',
@@ -230,7 +231,7 @@ export const DevSettingsSection = () => {
             });
           }
           setTimeout(() => {
-            backgroundApiProxy.serviceApp.restartApp();
+            void backgroundApiProxy.serviceApp.restartApp();
           }, 300);
         }}
       >
@@ -251,7 +252,7 @@ export const DevSettingsSection = () => {
           title="Enable WebviewDebugging"
           onValueChange={() => {
             setTimeout(() => {
-              backgroundApiProxy.serviceApp.restartApp();
+              void backgroundApiProxy.serviceApp.restartApp();
             }, 300);
           }}
         >
@@ -291,11 +292,11 @@ export const DevSettingsSection = () => {
         name="disableAllShortcuts"
         title="禁止桌面快捷键"
         onValueChange={(value: boolean) => {
-          globalThis.desktopApi.disableShortcuts({
+          void globalThis.desktopApiProxy.system.disableShortcuts({
             disableAllShortcuts: value,
           });
           setTimeout(() => {
-            backgroundApiProxy.serviceApp.restartApp();
+            void backgroundApiProxy.serviceApp.restartApp();
           }, 300);
         }}
       >
@@ -561,7 +562,7 @@ export const DevSettingsSection = () => {
                           params,
                         );
                         if (platformEnv.isExtension) {
-                          backgroundApiProxy.serviceApp.restartApp();
+                          await backgroundApiProxy.serviceApp.restartApp();
                         }
                         Toast.success({
                           title: 'Success',

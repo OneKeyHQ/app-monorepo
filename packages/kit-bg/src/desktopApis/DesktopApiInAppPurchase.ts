@@ -5,6 +5,7 @@ import type {
   IDesktopIAPGetProductsResult,
 } from '@onekeyhq/desktop/app/config';
 import { getMacAppId } from '@onekeyhq/desktop/app/libs/utils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -20,6 +21,10 @@ class DesktopApiInAppPurchase {
     const delay = 3651;
     await timerUtils.wait(delay);
     return `testDelay: ${delay}`;
+  }
+
+  async testError() {
+    throw new OneKeyLocalError(`testError: ${Date.now()}`);
   }
 
   async getProducts(

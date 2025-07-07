@@ -63,35 +63,20 @@ export const ipcMessageKeys = {
 
   // App
   SHOW_ABOUT_WINDOW: 'showAboutWindow',
-  APP_VERSION: 'app/version',
-  APP_SYSTEM_INFO: 'app/systemInfo',
   APP_STATE: 'appState',
   APP_READY: 'app/ready',
-  APP_RELOAD: 'app/reload',
-  APP_FOCUS: 'app/focus',
-  APP_QUIT: 'app/quit',
-  APP_RESTORE_MAIN_WINDOW: 'app/restoreMainWindow',
-  APP_GET_MEDIA_ACCESS_STATUS: 'app/getMediaAccessStatus',
-  APP_TOGGLE_MAXIMIZE_WINDOW: 'app/toggleMaximizeWindow',
-  APP_RELOAD_BRIDGE_PROCESS: 'app/reloadBridgeProcess',
   APP_SHORCUT: 'app/shortcut',
   APP_IDLE: 'app/idle',
   APP_SET_IDLE_TIME: 'app/setIdleTime',
-  APP_CHANGE_DEV_TOOLS_STATUS: 'app/changeDevTools',
   APP_OPEN_SETTINGS: 'app/openSettings',
-  APP_CHANGE_LANGUAGE: 'app/changeLanguage',
   APP_LOCK_NOW: 'app/lockNow',
-  APP_GET_ENV_PATH: 'app/getEnvPath',
-  APP_GET_BUNDLE_INFO: 'app/getBundleInfo',
-  APP_OPEN_LOGGER_FILE: 'app/openLoggerFile',
   APP_TEST_CRASH: 'app/testCrash',
-  APP_UPDATE_DISABLE_SHORTCUTS: 'app/updateDisableShortcuts',
   APP_IS_FOCUSED: 'app/isFocused',
 
   // Theme
   THEME_UPDATE: 'theme/update',
 
-  // In-app http server
+  // build-in http server
   SERVER_START: 'server/start',
   SERVER_STOP: 'server/stop',
   SERVER_START_RES: 'server/start/res',

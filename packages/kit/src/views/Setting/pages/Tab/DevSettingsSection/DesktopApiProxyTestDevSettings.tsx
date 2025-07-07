@@ -79,7 +79,8 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testSystemIsFocused = useCallback(async () => {
     try {
-      const result = await globalThis.desktopApiProxy.system.isFocused();
+      // await globalThis.desktopApiProxy.system.isFocused();
+      const result = globalThis.desktopApi.isFocused();
       Dialog.debugMessage({
         debugMessage: { isFocused: result },
       });
@@ -103,10 +104,10 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  const testSystemChangeDevTools = useCallback(async () => {
+  const testDevChangeDevTools = useCallback(async () => {
     try {
       const newState = !devToolsEnabled;
-      await globalThis.desktopApiProxy.system.changeDevTools(newState);
+      await globalThis.desktopApiProxy.dev.changeDevTools(newState);
       setDevToolsEnabled(newState);
       Dialog.debugMessage({
         debugMessage: {
@@ -136,6 +137,89 @@ export default function DesktopApiProxyTestDevSettings() {
       });
     }
   }, [currentLanguage]);
+
+  // New system methods tests
+  const testSystemGetVersion = useCallback(async () => {
+    try {
+      const result = await globalThis.desktopApiProxy.system.getVersion();
+      Dialog.debugMessage({
+        debugMessage: { version: result },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSystemGetEnvPath = useCallback(async () => {
+    try {
+      const result = await globalThis.desktopApiProxy.system.getEnvPath();
+      Dialog.debugMessage({
+        debugMessage: result,
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSystemGetBundleInfo = useCallback(async () => {
+    try {
+      const result = await globalThis.desktopApiProxy.system.getBundleInfo();
+      Dialog.debugMessage({
+        debugMessage: result,
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSystemOpenLoggerFile = useCallback(async () => {
+    try {
+      await globalThis.desktopApiProxy.system.openLoggerFile();
+      Dialog.debugMessage({
+        debugMessage: { result: 'openLoggerFile() called successfully' },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSystemReloadBridgeProcess = useCallback(async () => {
+    try {
+      const result =
+        await globalThis.desktopApiProxy.system.reloadBridgeProcess();
+      Dialog.debugMessage({
+        debugMessage: {
+          result: 'reloadBridgeProcess() called successfully',
+          returnValue: result,
+        },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
+  const testSystemGetAppName = useCallback(async () => {
+    try {
+      const result = await globalThis.desktopApiProxy.system.getAppName();
+      Dialog.debugMessage({
+        debugMessage: { appName: result },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
 
   // Security Tests
   const testSecurityCanPromptTouchID = useCallback(async () => {
@@ -230,35 +314,7 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
-  // Updater Tests
-  const testUpdaterCheckForUpdates = useCallback(async () => {
-    try {
-      await globalThis.desktopApiProxy.updater.checkForUpdates(true);
-      Dialog.debugMessage({
-        debugMessage: { result: 'checkForUpdates(true) called successfully' },
-      });
-    } catch (error) {
-      Dialog.debugMessage({
-        debugMessage: { error: (error as Error)?.message },
-      });
-    }
-  }, []);
-
-  const testUpdaterGetPreviousUpdateBuildNumber = useCallback(async () => {
-    try {
-      const result =
-        await globalThis.desktopApiProxy.updater.getPreviousUpdateBuildNumber();
-      Dialog.debugMessage({
-        debugMessage: { previousUpdateBuildNumber: result },
-      });
-    } catch (error) {
-      Dialog.debugMessage({
-        debugMessage: { error: (error as Error)?.message },
-      });
-    }
-  }, []);
-
-  // Network Tests
+  // Webview Tests
   const testNetworkSetAllowedPhishingUrls = useCallback(async () => {
     try {
       await globalThis.desktopApiProxy.webview.setAllowedPhishingUrls([
@@ -474,13 +530,6 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title={`changeDevTools(${(!devToolsEnabled).toString()})`}
-          subtitle="Toggle application development tools"
-          drillIn
-          onPress={testSystemChangeDevTools}
-        />
-
-        <ListItem
           title={`changeLanguage(${
             currentLanguage === 'en-US' ? 'zh-CN' : 'en-US'
           })`}
@@ -577,6 +626,48 @@ export default function DesktopApiProxyTestDevSettings() {
           }}
         />
 
+        <ListItem
+          title="getVersion()"
+          subtitle="Get application version"
+          drillIn
+          onPress={testSystemGetVersion}
+        />
+
+        <ListItem
+          title="getEnvPath()"
+          subtitle="Get environment paths"
+          drillIn
+          onPress={testSystemGetEnvPath}
+        />
+
+        <ListItem
+          title="getBundleInfo()"
+          subtitle="Get bundle information (Mac only)"
+          drillIn
+          onPress={testSystemGetBundleInfo}
+        />
+
+        <ListItem
+          title="openLoggerFile()"
+          subtitle="Open logger file directory"
+          drillIn
+          onPress={testSystemOpenLoggerFile}
+        />
+
+        <ListItem
+          title="reloadBridgeProcess()"
+          subtitle="Reload bridge process"
+          drillIn
+          onPress={testSystemReloadBridgeProcess}
+        />
+
+        <ListItem
+          title="getAppName()"
+          subtitle="Get application name"
+          drillIn
+          onPress={testSystemGetAppName}
+        />
+
         {/* Security Module Tests */}
         <ListItem
           title="🔐 Security Module"
@@ -617,29 +708,9 @@ export default function DesktopApiProxyTestDevSettings() {
           onPress={testStorageOperations}
         />
 
-        {/* Updater Module Tests */}
+        {/* Webview Module Tests */}
         <ListItem
-          title="🔄 Updater Module"
-          titleProps={{ color: '$textInfo', size: '$headingLg' }}
-        />
-
-        <ListItem
-          title="checkForUpdates(true)"
-          subtitle="Check for updates manually"
-          drillIn
-          onPress={testUpdaterCheckForUpdates}
-        />
-
-        <ListItem
-          title="getPreviousUpdateBuildNumber()"
-          subtitle="Get previous update build number"
-          drillIn
-          onPress={testUpdaterGetPreviousUpdateBuildNumber}
-        />
-
-        {/* Network Module Tests */}
-        <ListItem
-          title="🌐 Network Module"
+          title="🌐 Webview Module"
           titleProps={{ color: '$textInfo', size: '$headingLg' }}
         />
 
@@ -724,6 +795,13 @@ export default function DesktopApiProxyTestDevSettings() {
           onPress={testDevCallDevOnlyApi}
         />
 
+        <ListItem
+          title={`changeDevTools(${(!devToolsEnabled).toString()})`}
+          subtitle="Toggle application development tools"
+          drillIn
+          onPress={testDevChangeDevTools}
+        />
+
         {/* InAppPurchase Module Tests */}
         <ListItem
           title="💳 InAppPurchase Module"
@@ -754,6 +832,24 @@ export default function DesktopApiProxyTestDevSettings() {
                 await globalThis.desktopApiProxy.inAppPurchase.testDelay();
               Dialog.debugMessage({
                 debugMessage: { canMakePayments: result },
+              });
+            } catch (error) {
+              Dialog.debugMessage({
+                debugMessage: { error: (error as Error)?.message },
+              });
+            }
+          }}
+        />
+
+        <ListItem
+          title="testError()"
+          subtitle="Test error"
+          drillIn
+          onPress={async () => {
+            try {
+              await globalThis.desktopApiProxy.inAppPurchase.testError();
+              Dialog.debugMessage({
+                debugMessage: { result: 'testError() called successfully' },
               });
             } catch (error) {
               Dialog.debugMessage({

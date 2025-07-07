@@ -1,12 +1,19 @@
 import os from 'os';
+import path from 'path';
 
 import * as Sentry from '@sentry/electron/main';
 import { app, shell, systemPreferences } from 'electron';
+import logger from 'electron-log/main';
 import si from 'systeminformation';
 
 import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
-import { getMacAppId } from '@onekeyhq/desktop/app/libs/utils';
+import type { IMacBundleInfo } from '@onekeyhq/desktop/app/libs/utils';
+import {
+  getMacAppId,
+  parseContentPList,
+} from '@onekeyhq/desktop/app/libs/utils';
+import { restartBridge } from '@onekeyhq/desktop/app/process';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -42,38 +49,16 @@ class DesktopApiSystem {
   }
 
   async quitApp(): Promise<void> {
-    app.quit();
+    globalThis.$desktopMainAppFunctions?.quitOrMinimizeApp?.();
   }
 
-  async restore(): Promise<void> {
-    const safelyBrowserWindow =
-      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
-    if (safelyBrowserWindow) {
-      safelyBrowserWindow.show();
-      safelyBrowserWindow.focus();
-    }
+  async restore(): Promise<boolean> {
+    globalThis.$desktopMainAppFunctions?.showMainWindow?.();
+    return true;
   }
 
   async focus(): Promise<void> {
-    const safelyBrowserWindow =
-      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
-    if (safelyBrowserWindow) {
-      safelyBrowserWindow.show();
-      safelyBrowserWindow.focus();
-    }
-  }
-
-  async isFocused(): Promise<boolean> {
-    const safelyBrowserWindow =
-      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
-    const result = safelyBrowserWindow?.isFocused() || false;
-    console.log('isFocused', result);
-    return result;
-  }
-
-  async changeDevTools(isOpen: boolean): Promise<void> {
-    store.setDevTools(isOpen);
-    globalThis.$desktopMainAppFunctions?.refreshMenu?.();
+    globalThis.$desktopMainAppFunctions?.showMainWindow?.();
   }
 
   async changeLanguage(lang: string): Promise<void> {
@@ -143,11 +128,57 @@ class DesktopApiSystem {
     return result || 'unknown';
   }
 
-  // TODO
-  //  getEnvPath: () =>
-  // ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
-  // [key: string]: string;
-  // },
+  async getVersion(): Promise<string> {
+    return app.getVersion();
+  }
+
+  async getEnvPath(): Promise<{ [key: string]: string }> {
+    const home: string = app.getPath('home');
+    const appData: string = app.getPath('appData');
+    const userData: string = app.getPath('userData');
+    const sessionData: string = app.getPath('sessionData');
+    const exe: string = app.getPath('exe');
+    const temp: string = app.getPath('temp');
+    const module: string = app.getPath('module');
+    const desktop: string = app.getPath('desktop');
+    const appPath: string = app.getAppPath();
+    return {
+      userData,
+      appPath,
+      home,
+      appData,
+      sessionData,
+      exe,
+      temp,
+      module,
+      desktop,
+    };
+  }
+
+  async getBundleInfo(): Promise<IMacBundleInfo | undefined> {
+    return parseContentPList();
+  }
+
+  async openLoggerFile(): Promise<void> {
+    await shell.openPath(path.dirname(logger.transports.file.getFile().path));
+  }
+
+  async reloadBridgeProcess(): Promise<boolean> {
+    await restartBridge();
+    return true;
+  }
+
+  async getAppName(): Promise<string> {
+    return (
+      globalThis.$desktopMainAppFunctions?.getAppName?.() || 'OneKey Wallet'
+    );
+  }
+
+  async disableShortcuts(params: {
+    disableAllShortcuts?: boolean;
+  }): Promise<void> {
+    store.setDisableKeyboardShortcuts(params);
+  }
 }
 
 export default DesktopApiSystem;

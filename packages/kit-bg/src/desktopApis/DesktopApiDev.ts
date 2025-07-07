@@ -3,6 +3,7 @@ import * as path from 'path';
 import { shell } from 'electron';
 import logger from 'electron-log/main';
 
+import * as store from '@onekeyhq/desktop/app/libs/store';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -30,6 +31,11 @@ class DesktopApiDev {
 
   async openLoggerFile(): Promise<void> {
     await shell.openPath(path.dirname(logger.transports.file.getFile().path));
+  }
+
+  async changeDevTools(isOpen: boolean): Promise<void> {
+    store.setDevTools(isOpen);
+    globalThis.$desktopMainAppFunctions?.refreshMenu?.();
   }
 
   // not working, use globalThis.desktopApi.testCrash(); instead

@@ -10,7 +10,6 @@ import DesktopApiNotification from '../DesktopApiNotification';
 import DesktopApiSecurity from '../DesktopApiSecurity';
 import DesktopApiStorage from '../DesktopApiStorage';
 import DesktopApiSystem from '../DesktopApiSystem';
-import DesktopApiUpdater from '../DesktopApiUpdater';
 import DesktopApiWebview from '../DesktopApiWebview';
 
 import type {
@@ -33,10 +32,6 @@ class DesktopApi implements IDesktopApi {
   });
 
   storage: DesktopApiStorage = new DesktopApiStorage({
-    desktopApi: this,
-  });
-
-  updater: DesktopApiUpdater = new DesktopApiUpdater({
     desktopApi: this,
   });
 

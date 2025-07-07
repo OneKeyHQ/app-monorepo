@@ -4,14 +4,12 @@ import type DesktopApiNotification from '../DesktopApiNotification';
 import type DesktopApiSecurity from '../DesktopApiSecurity';
 import type DesktopApiStorage from '../DesktopApiStorage';
 import type DesktopApiSystem from '../DesktopApiSystem';
-import type DesktopApiUpdater from '../DesktopApiUpdater';
 import type DesktopApiWebview from '../DesktopApiWebview';
 
 export interface IDesktopApi {
   system: DesktopApiSystem;
   security: DesktopApiSecurity;
   storage: DesktopApiStorage;
-  updater: DesktopApiUpdater;
   webview: DesktopApiWebview;
   notification: DesktopApiNotification;
   dev: DesktopApiDev;

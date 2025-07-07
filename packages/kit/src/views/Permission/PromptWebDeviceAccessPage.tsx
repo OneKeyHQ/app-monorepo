@@ -27,7 +27,7 @@ export default function PromptWebDeviceAccessPage() {
     try {
       await promptWebUsbDeviceAccess();
       if (platformEnv.isExtensionUiExpandTab) {
-        backgroundApiProxy.serviceApp.restartApp();
+        await backgroundApiProxy.serviceApp.restartApp();
         window.close();
       }
     } catch (error) {

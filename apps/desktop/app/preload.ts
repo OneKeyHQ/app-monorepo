@@ -48,22 +48,11 @@ type IDesktopAPILegacy = {
   isMas: boolean;
   isDev: boolean;
   channel?: string;
-  reload: () => void;
   ready: () => void;
-  focus: () => void;
-  getSystemInfo: () => Promise<IDesktopSystemInfo>;
-  getMediaAccessStatus: (
-    prefType: IMediaType,
-  ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-  toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
-  getEnvPath: () => { [key: string]: string };
   isFocused: () => boolean;
-  changeDevTools: (isOpen: boolean) => void;
   changeTheme: (theme: string) => void;
-  changeLanguage: (theme: string) => void;
 
-  reloadBridgeProcess: () => void;
   addIpcEventListener: (
     event: string,
     listener: (...args: any[]) => void,
@@ -75,7 +64,6 @@ type IDesktopAPILegacy = {
 
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
-  disableShortcuts: (params: { disableAllShortcuts?: boolean }) => void;
   downloadUpdate: () => void;
   downloadASC: (event: IVerifyUpdateParams) => void;
   verifyASC: (event: IVerifyUpdateParams) => void;
@@ -92,7 +80,6 @@ type IDesktopAPILegacy = {
   }) => void;
   openPrivacyPanel: () => void;
   clearAutoUpdateSettings: () => void;
-  restore: () => void;
   // startServer: (port: number) => Promise<{ success: boolean; error?: string }>;
   startServer: (
     port: number,
@@ -113,9 +100,7 @@ type IDesktopAPILegacy = {
     body: string,
   ) => void;
   stopServer: () => void;
-  quitApp: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
-  openLoggerFile: () => void;
   testCrash: () => void;
 };
 declare global {
@@ -178,7 +163,6 @@ const validChannels = [
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
-  ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS,
   ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
 ];
 
@@ -229,8 +213,7 @@ const updateGlobalTitleBarBackgroundColor = () => {
   }
 };
 
-const desktopApi = Object.freeze({
-  getVersion: () => ipcRenderer.sendSync(ipcMessageKeys.APP_VERSION) as string,
+const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_, ...args) => func(...args));
@@ -243,8 +226,6 @@ const desktopApi = Object.freeze({
   isDev,
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
-  reload: () => ipcRenderer.send(ipcMessageKeys.APP_RELOAD),
-  focus: () => ipcRenderer.send(ipcMessageKeys.APP_FOCUS),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
     ipcRenderer.addListener(event, listener);
   },
@@ -261,45 +242,16 @@ const desktopApi = Object.freeze({
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
   },
-  getMediaAccessStatus: (prefType: IMediaType) =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
-  toggleMaximizeWindow: () =>
-    ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
-  changeDevTools: (isOpen: boolean) =>
-    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
   changeTheme: (theme: string) => {
     ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme);
     updateGlobalTitleBarBackgroundColor();
   },
-  changeLanguage: (lang: string) => {
-    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
-  },
-
-  getEnvPath: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
-      [key: string]: string;
-    },
-  getBundleInfo: () =>
-    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
-  openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
-
-  // SystemInfo
-  getSystemInfo: async () => {
-    return ipcRenderer.sendSync(
-      ipcMessageKeys.APP_SYSTEM_INFO,
-    ) as IDesktopSystemInfo;
-  },
-  reloadBridgeProcess: () => {
-    ipcRenderer.send(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS);
-  },
 
   // Updater
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
-  disableShortcuts: (params: { disableAllShortcuts?: boolean }) =>
-    ipcRenderer.send(ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS, params),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
   downloadASC: (params: IVerifyUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD_ASC, params),
@@ -329,9 +281,6 @@ const desktopApi = Object.freeze({
   openPrivacyPanel: () =>
     ipcRenderer.send(ipcMessageKeys.TOUCH_OPEN_PRIVACY_PANEL),
 
-  restore: () => {
-    ipcRenderer.send(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW);
-  },
   startServer: (port: number, cb: (data: string, success: boolean) => void) => {
     ipcRenderer.on(ipcMessageKeys.SERVER_START_RES, (_, arg) => {
       const { data, success } = arg;
@@ -370,9 +319,6 @@ const desktopApi = Object.freeze({
       type,
       body,
     });
-  },
-  quitApp: () => {
-    ipcRenderer.send(ipcMessageKeys.APP_QUIT);
   },
   setSystemIdleTime: (idleTime: number, cb?: () => void) => {
     ipcRenderer.on(ipcMessageKeys.APP_IDLE, () => {

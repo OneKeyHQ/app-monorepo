@@ -16,7 +16,6 @@ import type DesktopApiNotification from '../DesktopApiNotification';
 import type DesktopApiSecurity from '../DesktopApiSecurity';
 import type DesktopApiStorage from '../DesktopApiStorage';
 import type DesktopApiSystem from '../DesktopApiSystem';
-import type DesktopApiUpdater from '../DesktopApiUpdater';
 import type DesktopApiWebview from '../DesktopApiWebview';
 
 export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
@@ -59,9 +58,6 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 
   storage: DesktopApiStorage =
     this._createProxyModule<IDesktopApiKeys>('storage');
-
-  updater: DesktopApiUpdater =
-    this._createProxyModule<IDesktopApiKeys>('updater');
 
   webview: DesktopApiWebview =
     this._createProxyModule<IDesktopApiKeys>('webview');

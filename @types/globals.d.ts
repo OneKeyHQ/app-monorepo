@@ -32,6 +32,7 @@ declare global {
     getSafelyMainWindow: () => BrowserWindow | undefined;
     getSafelyBrowserWindow: () => BrowserWindow | undefined;
     getBackgroundColor: (themeKey: string) => string;
+    quitOrMinimizeApp: () => void;
     showMainWindow: () => void;
     refreshMenu: () => void;
     getAppName: () => string;
