@@ -1096,6 +1096,10 @@ class ServiceV4Migration extends ServiceBase {
 
   @backgroundMethod()
   async getV4CustomRpcUrls() {
+    const isV4DbExists = await this.checkIfV4DbExist();
+    if (!isV4DbExists) {
+      return;
+    }
     const reduxData = await v4dbHubs.v4reduxDb.reduxData;
     const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
     if (customNetworkRpcMap) {
@@ -1143,6 +1147,10 @@ class ServiceV4Migration extends ServiceBase {
 
   @backgroundMethod()
   async getV4CustomNetworkIncludeTokens() {
+    const isV4DbExists = await this.checkIfV4DbExist();
+    if (!isV4DbExists) {
+      return;
+    }
     const v4EvmNetworks = await this.getV4CustomEvmNetworks();
     const v4CustomTokenList = await this.getV4CustomTokenList();
     return v4EvmNetworks.map((network) => {

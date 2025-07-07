@@ -45,7 +45,7 @@ export const getDisableKeyboardShortcuts = () =>
   });
 
 export const setDisableKeyboardShortcuts = (config: {
-  disableAllShortcuts: boolean;
+  disableAllShortcuts?: boolean;
 }) => {
   store.set(EDesktopStoreKeys.DisableKeyboardShortcuts, {
     ...getDisableKeyboardShortcuts(),

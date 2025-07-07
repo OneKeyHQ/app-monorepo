@@ -23,7 +23,7 @@ export default class NotificationProvider extends NotificationProviderBase {
 
   override async getPermission(): Promise<INotificationPermissionDetail> {
     const mainProcessPermission =
-      globalThis.desktopApi.getNotificationPermission();
+      await globalThis.desktopApiProxy.notification.getNotificationPermission();
     const permission: NotificationPermission = Notification.permission;
     console.log('Desktop -- Notification.permission', permission);
 
@@ -51,7 +51,7 @@ export default class NotificationProvider extends NotificationProviderBase {
   }
 
   override async openPermissionSettings(): Promise<void> {
-    globalThis.desktopApi.openPreferences('notification');
+    await globalThis.desktopApiProxy.notification.openPermissionSettings();
   }
 
   override async showNotification(
@@ -63,7 +63,7 @@ export default class NotificationProvider extends NotificationProviderBase {
 
     if (params.showByElectronMainProcess) {
       // use main process Electron Notification
-      globalThis.desktopApi.showNotification({
+      void globalThis.desktopApiProxy.notification.showNotification({
         notificationId,
         title,
         description,
@@ -137,11 +137,11 @@ export default class NotificationProvider extends NotificationProviderBase {
   }
 
   override async setBadge(params: INotificationSetBadgeParams): Promise<void> {
-    globalThis.desktopApi.setBadge(params);
+    void globalThis.desktopApiProxy.notification.setBadge(params);
   }
 
   override async showAndFocusApp(): Promise<void> {
-    globalThis.desktopApi.restore();
+    void globalThis.desktopApiProxy.system.restore();
   }
 
   override async clearNotificationCache(): Promise<void> {

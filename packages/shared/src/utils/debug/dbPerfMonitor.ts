@@ -49,11 +49,19 @@ const shouldLocalDbDebuggerRule: Record<string, number> = {
   'appStorage.setItem__g_states_v5:notificationsAtom': 999,
 };
 
-const IS_ENABLED =
-  platformEnv.isDev ||
-  Boolean(
-    syncStorage?.getBoolean(EAppSyncStorageKeys.onekey_developer_mode_enabled),
-  );
+let IS_ENABLED = false;
+
+function updateIsEnabled() {
+  IS_ENABLED =
+    platformEnv.isDev ||
+    Boolean(
+      syncStorage?.getBoolean(
+        EAppSyncStorageKeys.onekey_developer_mode_enabled,
+      ),
+    );
+}
+
+updateIsEnabled();
 
 let settings: IOneKeyDBPerfMonitorSettings | undefined = (() => {
   if (!IS_ENABLED) {
@@ -282,6 +290,7 @@ function toastWarningAndReset(key: string) {
     }
 
     if (shouldShowToast) {
+      updateIsEnabled();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       appGlobals?.$Toast?.error({
         title: 'IndexedDB is being accessed too frequently',
