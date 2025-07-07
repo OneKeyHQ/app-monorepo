@@ -1,4 +1,10 @@
-import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from 'react';
 import type { Ref } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -11,7 +17,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -63,10 +75,12 @@ function TokenInputSectionComponent(
 
   const handleInternalChange = useCallback(
     (newValue: string) => {
-      setInternalValue(newValue);
-      onChange(newValue);
+      if (validateAmountInput(newValue, selectedToken?.decimals)) {
+        setInternalValue(newValue);
+        onChange(newValue);
+      }
     },
-    [onChange],
+    [onChange, selectedToken?.decimals],
   );
 
   const handleTokenSelect = useCallback(
@@ -86,6 +100,38 @@ function TokenInputSectionComponent(
       : intl.formatMessage({
           id: ETranslations.dexmarket_details_history_amount,
         });
+
+  useEffect(() => {
+    const handleSwapSpeedBuildTxSuccess = (data: {
+      fromToken: import('@onekeyhq/shared/types/swap/types').ISwapTokenBase;
+      toToken: import('@onekeyhq/shared/types/swap/types').ISwapTokenBase;
+      fromAmount: string;
+      toAmount: string;
+    }) => {
+      if (
+        selectedToken &&
+        equalTokenNoCaseSensitive({
+          token1: selectedToken,
+          token2: data.fromToken,
+        })
+      ) {
+        setInternalValue('');
+        onChange('');
+      }
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.SwapSpeedBuildTxSuccess,
+      handleSwapSpeedBuildTxSuccess,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapSpeedBuildTxSuccess,
+        handleSwapSpeedBuildTxSuccess,
+      );
+    };
+  }, [selectedToken, onChange]);
 
   return (
     <YStack gap="$0.5">
