@@ -133,7 +133,6 @@ export function useSpeedSwapActions(props: {
       } = transactionDecodedInfo;
 
       if (swapInfo) {
-        // 发送事件通知 TokenInputSection 清空输入
         appEventBus.emit(EAppEventBusNames.SwapSpeedBuildTxSuccess, {
           fromToken,
           toToken,

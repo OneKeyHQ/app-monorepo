@@ -101,7 +101,6 @@ function TokenInputSectionComponent(
           id: ETranslations.dexmarket_details_history_amount,
         });
 
-  // 监听 SwapSpeedBuildTxSuccess 事件，清空输入
   useEffect(() => {
     const handleSwapSpeedBuildTxSuccess = (data: {
       fromToken: import('@onekeyhq/shared/types/swap/types').ISwapTokenBase;
@@ -109,7 +108,6 @@ function TokenInputSectionComponent(
       fromAmount: string;
       toAmount: string;
     }) => {
-      // 检查当前选中的 token 是否与事件中的 fromToken 匹配
       if (
         selectedToken &&
         equalTokenNoCaseSensitive({
@@ -117,7 +115,6 @@ function TokenInputSectionComponent(
           token2: data.fromToken,
         })
       ) {
-        // 清空输入
         setInternalValue('');
         onChange('');
       }

@@ -98,7 +98,6 @@ export function ActionButton({
         },
       }) as string
     })`;
-    // buttonText += `($${totalValue.toFixed(2)})`;
   }
 
   if (shouldDisable) {
