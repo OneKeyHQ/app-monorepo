@@ -85,6 +85,7 @@ export function SwapPanelWrap() {
     balance,
     balanceToken,
     fetchBalanceLoading,
+    priceRate,
   } = speedSwapActions;
 
   const filterDefaultTokens = useMemo(() => {
@@ -130,6 +131,7 @@ export function SwapPanelWrap() {
 
   const swapPanelContent = (
     <SwapPanelContent
+      priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
       swapPanel={swapPanel}
       balance={balance ?? new BigNumber(0)}

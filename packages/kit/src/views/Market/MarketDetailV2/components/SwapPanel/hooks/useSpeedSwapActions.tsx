@@ -81,6 +81,14 @@ export function useSpeedSwapActions(props: {
 
   const [baseToken, setBaseToken] = useState<ISwapTokenBase | undefined>();
   const [fetchBalanceLoading, setFetchBalanceLoading] = useState(false);
+  const [priceRate, setPriceRate] = useState<
+    | {
+        rate: number;
+        fromTokenSymbol: string;
+        toTokenSymbol: string;
+      }
+    | undefined
+  >(undefined);
   const [balance, setBalance] = useState<BigNumber | undefined>(
     new BigNumber(0),
   );
@@ -658,6 +666,39 @@ export function useSpeedSwapActions(props: {
     ],
   );
 
+  const fetchTokenPrice = useCallback(async () => {
+    const [fromTokenPrice, toTokenPrice] = await Promise.all([
+      backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+        networkId: fromToken.networkId ?? '',
+        contractAddress: fromToken.contractAddress ?? '',
+      }),
+      backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+        networkId: toToken.networkId ?? '',
+        contractAddress: toToken.contractAddress ?? '',
+      }),
+    ]);
+    if (fromTokenPrice?.length && toTokenPrice?.length) {
+      const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
+      const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
+      setPriceRate({
+        rate: fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
+        fromTokenSymbol: fromToken.symbol,
+        toTokenSymbol: toToken.symbol,
+      });
+    }
+  }, [
+    fromToken.symbol,
+    toToken.symbol,
+    fromToken.networkId,
+    toToken.networkId,
+    fromToken.contractAddress,
+    toToken.contractAddress,
+  ]);
+
+  useEffect(() => {
+    void fetchTokenPrice();
+  }, [fetchTokenPrice]);
+
   useEffect(() => {
     appEventBus.off(
       EAppEventBusNames.SwapSpeedBalanceUpdate,
@@ -748,5 +789,6 @@ export function useSpeedSwapActions(props: {
     balance,
     balanceToken,
     fetchBalanceLoading,
+    priceRate,
   };
 }
