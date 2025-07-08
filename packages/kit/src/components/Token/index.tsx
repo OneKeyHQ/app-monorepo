@@ -89,7 +89,9 @@ export function Token({
           color="$iconSubdued"
         />
       }
-      skeleton={<Skeleton width="100%" height="100%" radius="round" />}
+      skeleton={
+        <Skeleton w={tokenImageSize} h={tokenImageSize} radius="round" />
+      }
       {...rest}
     />
   );

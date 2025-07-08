@@ -52,6 +52,9 @@ export function useImage(
   const isEffectValid = useRef(true);
 
   const loadImage = useCallback(() => {
+    if (!resolvedSource) {
+      return;
+    }
     Image.loadAsync(resolvedSource, optionsRef.current)
       .then((remoteImage) => {
         if (isEffectValid.current) {

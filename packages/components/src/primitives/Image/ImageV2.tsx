@@ -111,13 +111,7 @@ export function ImageV2(props: IImageV2Props) {
     if (hasError) {
       return fallback;
     }
-    return (
-      skeleton || (
-        <Stack style={style} ai="center" jc="center">
-          <Skeleton width="100%" />
-        </Stack>
-      )
-    );
+    return skeleton || <Skeleton width={style.width} height={style.height} />;
   }
 
   return (
