@@ -447,14 +447,18 @@ function MoreActionContentGrid() {
   }, [navigation]);
 
   const openBulkCopyAddressesModal = useCallback(async () => {
+    const networkId = networkUtils.toNetworkIdFallback({
+      networkId: network?.id,
+      allNetworkFallbackToBtc: true,
+    });
+
+    if (!networkId) return;
+
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
       params: {
         walletId: wallet?.id,
-        networkId: networkUtils.toNetworkIdFallback({
-          networkId: network?.id,
-          allNetworkFallbackToBtc: true,
-        }),
+        networkId,
       },
     });
   }, [navigation, wallet?.id, network?.id]);
