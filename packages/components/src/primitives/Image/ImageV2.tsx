@@ -10,23 +10,41 @@ import { useImage } from './useImage';
 
 import type {
   ImageErrorEventData,
+  ImageLoadEventData,
+  ImageProgressEventData,
   ImageProps,
   ImageSource,
   ImageStyle,
 } from 'expo-image';
+import type { ImageSourcePropType } from 'react-native';
 
-export interface IBasicImageV2Props extends ImageProps {
-  src: string;
-}
-export type IImageV2Props = Omit<IBasicImageV2Props, 'source' | 'src'> &
+export type IImageV2Props = Omit<
+  ImageProps,
+  | 'source'
+  | 'src'
+  | 'pointerEvents'
+  | 'onError'
+  | 'onLoad'
+  | 'resizeMode'
+  | 'tintColor'
+  | 'onProgress'
+> &
   IStackStyle & {
     size?: IStackStyle['height'];
-    source?: ImageSource | string | number;
+    source?: ImageSourcePropType | string | number;
     skeleton?: React.ReactNode;
     fallback?: React.ReactNode;
     src?: string;
     /** Retry times when image loading fails, default is 5 */
     retryTimes?: number;
+    onError?: (event: ImageErrorEventData) => void;
+    onLoad?: (event: ImageLoadEventData) => void;
+    onLoadEnd?: () => void;
+    onLoadStart?: () => void;
+    onDisplay?: () => void;
+    resizeMode?: ImageProps['resizeMode'];
+    tintColor?: ImageProps['tintColor'];
+    onProgress?: (event: ImageProgressEventData) => void;
   };
 
 const getRandomRetryTimes = () => {
@@ -58,7 +76,7 @@ export function ImageV2(props: IImageV2Props) {
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
-  const { image, reFetchImage } = useImage(restProps.source, {
+  const { image, reFetchImage } = useImage(restProps.source as ImageSource, {
     onError(error, retry) {
       console.error('Loading failed:', error.message);
       if (retryTimes.current < retryTimesLimit.current) {
