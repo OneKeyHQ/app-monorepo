@@ -422,7 +422,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {},
         },
@@ -468,7 +469,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
             extraField: 'stuff',
           },
           message: {},
@@ -515,7 +517,8 @@ describe('hashMessage', () => {
             customChainId: 1,
             customVerifyingContract:
               '0x0000000000000000000000000000000000000000',
-            customSalt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            customSalt: Buffer.from(new Int32Array([1, 2, 3])),
             extraField: 'stuff',
           },
           message: {},
@@ -558,7 +561,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {
             data: 'Hello!',
@@ -602,7 +606,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {
             data: 'Hello!',
@@ -643,7 +648,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {},
         },
@@ -752,7 +758,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {},
         },
@@ -798,7 +805,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
             extraField: 'stuff',
           },
           message: {},
@@ -845,7 +853,8 @@ describe('hashMessage', () => {
             customChainId: 1,
             customVerifyingContract:
               '0x0000000000000000000000000000000000000000',
-            customSalt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            customSalt: Buffer.from(new Int32Array([1, 2, 3])),
             extraField: 'stuff',
           },
           message: {},
@@ -888,7 +897,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {
             data: 'Hello!',
@@ -932,7 +942,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {
             data: 'Hello!',
@@ -973,7 +984,8 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from([1, 2, 3]),
+            // @ts-expect-error TypeScript 5.7.3 stricter Buffer.from() typing
+            salt: Buffer.from(new Int32Array([1, 2, 3])),
           },
           message: {},
         },
