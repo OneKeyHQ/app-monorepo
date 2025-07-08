@@ -7426,7 +7426,7 @@ __metadata:
     react-native: "npm:0.79.5"
     react-native-confirmation-code-field: "npm:^7.4.0"
     react-native-copy-asset: "npm:^3.0.2"
-    react-native-draggable-flatlist: "npm:4.0.1"
+    react-native-draggable-flatlist: "npm:4.0.3"
     react-native-get-random-values: "npm:1.9.0"
     react-native-reanimated: "npm:3.18.0"
     react-native-screens: "npm:4.11.0"
@@ -35204,16 +35204,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-draggable-flatlist@npm:4.0.1":
-  version: 4.0.1
-  resolution: "react-native-draggable-flatlist@npm:4.0.1"
+"react-native-draggable-flatlist@npm:4.0.3":
+  version: 4.0.3
+  resolution: "react-native-draggable-flatlist@npm:4.0.3"
   dependencies:
     "@babel/preset-typescript": "npm:^7.17.12"
   peerDependencies:
     react-native: ">=0.64.0"
     react-native-gesture-handler: ">=2.0.0"
     react-native-reanimated: ">=2.8.0"
-  checksum: 10/4d9c8bfef6185ab51ebef8d00a0a06f8fd57c96a5a9e60cb6e7cd56ec6222d37643c53fc998cc93efcb8be88d32c2e5e43788f1816d8cded4eb2b60076001749
+  checksum: 10/012be40527dc84b690ac590f54062a297bb2d494e578c4b215446e42f0a4f4e26d276aa8c4d010b9fb5677df3d7bf6843d6bc2af95c835465853511c3bf12aab
   languageName: node
   linkType: hard
 
