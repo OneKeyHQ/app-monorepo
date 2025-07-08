@@ -465,26 +465,12 @@ function BasicPopover({
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
 
-  const nativeOpenPopover = useCallback(() => {
-    openPopover();
-    setTimeout(() => {
-      const ref = Portal.Render(
-        Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-        <ModalNavigatorContext.Provider value={modalNavigatorContext}>
-          <PageContext.Provider value={pageContextValue}>
-            {memoPopover}
-          </PageContext.Provider>
-        </ModalNavigatorContext.Provider>,
-      );
-    }, 0);
-  }, [memoPopover, modalNavigatorContext, openPopover, pageContextValue]);
-
   if (platformEnv.isNative) {
     // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
       <>
         {renderTrigger ? (
-          <Trigger onPress={nativeOpenPopover}>{renderTrigger}</Trigger>
+          <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
         ) : null}
         {isOpen ? (
           <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
