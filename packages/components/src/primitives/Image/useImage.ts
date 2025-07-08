@@ -121,7 +121,10 @@ export function useImage(
 
   return useMemo(() => {
     return {
-      image: fetchImageTimesLimit.current > 0 ? image : cachedImage || image,
+      image:
+        fetchImageTimesLimit.current > 0 && image
+          ? image
+          : cachedImage || image,
       reFetchImage,
     };
   }, [cachedImage, image, reFetchImage]);
