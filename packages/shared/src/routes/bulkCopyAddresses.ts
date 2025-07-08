@@ -1,6 +1,13 @@
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
+
+import type { INetworkAccount } from '../../types/account';
+
 export enum EModalBulkCopyAddressesRoutes {
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
-  ExportAddresses = 'ExportAddresses',
+  ExportAddressesModal = 'ExportAddressesModal',
 }
 
 export type IModalBulkCopyAddressesParamList = {
@@ -8,11 +15,16 @@ export type IModalBulkCopyAddressesParamList = {
     walletId?: string;
     networkId?: string;
   };
-};
-
-export type IModalBulkCopyAddressesExportAddressesParamList = {
-  [EModalBulkCopyAddressesRoutes.ExportAddresses]: {
+  [EModalBulkCopyAddressesRoutes.ExportAddressesModal]: {
     walletId: string;
     networkId: string;
+    networkAccountsByDeriveType: Record<
+      string,
+      {
+        deriveType: IAccountDeriveTypes;
+        deriveInfo: IAccountDeriveInfo;
+        account: INetworkAccount;
+      }[]
+    >;
   };
 };

@@ -22,7 +22,7 @@ export const BulkCopyAddressesModalRouter: IModalFlowNavigatorConfig<
     component: BulkCopyAddresses,
   },
   {
-    name: EModalBulkCopyAddressesRoutes.ExportAddresses,
+    name: EModalBulkCopyAddressesRoutes.ExportAddressesModal,
     component: ExportAddresses,
   },
 ];

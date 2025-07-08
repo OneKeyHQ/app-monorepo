@@ -17,21 +17,21 @@ import {
   XStack,
   YStack,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import type {
-  EModalBulkCopyAddressesRoutes,
-  IModalBulkCopyAddressesParamList,
-} from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '../../../components/AccountSelector';
-import { WalletAvatar } from '../../../components/WalletAvatar';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ListItem } from '../../../components/ListItem';
+import { WalletAvatar } from '../../../components/WalletAvatar';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 enum EBulkCopyType {
   Account = 'account',
@@ -46,6 +46,9 @@ function BulkCopyAddresses({
 >) {
   const intl = useIntl();
   const { walletId, networkId } = route.params;
+  const { gtMd } = useMedia();
+
+  const navigation = useAppNavigation();
 
   const [copyType, setCopyType] = useState<EBulkCopyType>(
     EBulkCopyType.Account,
@@ -209,13 +212,18 @@ function BulkCopyAddresses({
     );
   }, [copyType, intl, isLoadingAccounts, networkAccountsByDeriveType]);
 
-  const renderBulkCopyByRange = useMemo(() => {
-    return null;
-  }, []);
-
   const handleExportAddresses = useCallback(() => {
-    console.log('handleExportAddresses');
-  }, []);
+    navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
+      walletId: selectedWalletId,
+      networkId: selectedNetworkId,
+      networkAccountsByDeriveType,
+    });
+  }, [
+    navigation,
+    networkAccountsByDeriveType,
+    selectedNetworkId,
+    selectedWalletId,
+  ]);
 
   return (
     <Page>
@@ -324,7 +332,7 @@ function BulkCopyAddresses({
             id: ETranslations.global_export,
           })}
           confirmButtonProps={{
-            size: 'large',
+            size: gtMd ? 'medium' : 'large',
             variant: 'primary',
           }}
         />
