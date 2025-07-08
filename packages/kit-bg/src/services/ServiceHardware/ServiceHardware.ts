@@ -1404,16 +1404,16 @@ class ServiceHardware extends ServiceBase {
         message: `Connecting to ${expectedDeviceName || 'Unknown'}...`,
       });
 
-      // Step 7: Try to connect and verify
-      const hardwareSDK = await this.getSDKInstance();
-      const connectResult = await hardwareSDK.getFeatures(
-        matchingDevice.connectId || '',
-      );
+      // Step 7: Try to connect and verify using this.connect
+      const connectResult = await this.connect({
+        device: {
+          ...matchingDevice,
+          connectId: matchingDevice.connectId || '',
+          deviceId: features.device_id,
+        },
+      });
 
-      if (
-        connectResult.success &&
-        connectResult.payload?.device_id === features.device_id
-      ) {
+      if (connectResult && connectResult.device_id === features.device_id) {
         // Step 8: Update device in DB with BLE connectId
         const device = await localDb.getDeviceByQuery({
           connectId,
@@ -1498,16 +1498,24 @@ class ServiceHardware extends ServiceBase {
           return connectId;
         }
         if (device && !device.bleConnectId) {
-          // Directly emit event for UI dialog, no auto repair
-          appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
-            connectId,
-            deviceId: featuresDeviceId || undefined,
-            deviceName: features?.label || device.name,
-            features,
+          // Use servicePromise to wait for UI dialog to complete BLE pairing
+          const bleConnectId = await new Promise<string>((resolve, reject) => {
+            const promiseId = this.backgroundApi.servicePromise.createCallback({
+              resolve,
+              reject,
+            });
+
+            // Emit event for UI dialog with promiseId
+            appEventBus.emit(EAppEventBusNames.DesktopBleRepairRequired, {
+              connectId,
+              deviceId: featuresDeviceId || undefined,
+              deviceName: features?.label || device.name,
+              features,
+              promiseId,
+            });
           });
 
-          // TODO: 封装 servicePromise 方法，等待 UI 层获取到的 bleConnectId
-          throw new OneKeyLocalError('BLE connectId not set');
+          return bleConnectId;
         }
       }
     }

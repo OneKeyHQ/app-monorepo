@@ -312,6 +312,7 @@ export interface IAppEventBusPayload {
     deviceId?: string;
     deviceName?: string;
     features?: any;
+    promiseId?: number;
   };
   [EAppEventBusNames.DesktopBleRepairProgress]: {
     stage: 'searching' | 'matching' | 'connecting' | 'success' | 'failed';

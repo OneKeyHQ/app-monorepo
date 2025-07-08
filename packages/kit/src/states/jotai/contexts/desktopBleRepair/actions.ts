@@ -22,7 +22,17 @@ class ContextJotaiActionsDesktopBleRepair extends ContextJotaiActionsBase {
     },
   );
 
-  hideDesktopBleRepairDialog = contextAtomMethod((get, set) => {
+  hideDesktopBleRepairDialog = contextAtomMethod(async (get, set) => {
+    const currentData = get(desktopBleRepairAtom());
+
+    // Reject the servicePromise if exists (user cancelled)
+    if (currentData.data?.promiseId) {
+      await backgroundApiProxy.servicePromise.rejectCallback({
+        id: currentData.data.promiseId,
+        error: new Error('BLE pairing cancelled by user'),
+      });
+    }
+
     set(desktopBleRepairAtom(), {
       isVisible: false,
       data: undefined,
@@ -96,7 +106,15 @@ class ContextJotaiActionsDesktopBleRepair extends ContextJotaiActionsBase {
           );
 
         if (repairedConnectId) {
-          // Repair successful, close dialog
+          // Repair successful, resolve the servicePromise with the new connectId
+          if (data.promiseId) {
+            await backgroundApiProxy.servicePromise.resolveCallback({
+              id: data.promiseId,
+              data: repairedConnectId,
+            });
+          }
+
+          // Close dialog
           set(desktopBleRepairAtom(), {
             isVisible: false,
             data: undefined,
@@ -107,7 +125,15 @@ class ContextJotaiActionsDesktopBleRepair extends ContextJotaiActionsBase {
           return true;
         }
 
-        // Repair failed, keep dialog open but stop loading
+        // Repair failed, reject the servicePromise if exists
+        if (data.promiseId) {
+          await backgroundApiProxy.servicePromise.rejectCallback({
+            id: data.promiseId,
+            error: new Error('BLE pairing failed'),
+          });
+        }
+
+        // Keep dialog open but stop loading
         set(desktopBleRepairAtom(), (prev) => ({
           ...prev,
           isRepairing: false,
@@ -115,6 +141,15 @@ class ContextJotaiActionsDesktopBleRepair extends ContextJotaiActionsBase {
         return false;
       } catch (error) {
         console.error('BLE repair failed:', error);
+
+        // Reject the servicePromise if exists
+        if (data.promiseId) {
+          await backgroundApiProxy.servicePromise.rejectCallback({
+            id: data.promiseId,
+            error: error as Error,
+          });
+        }
+
         set(desktopBleRepairAtom(), (prev) => ({
           ...prev,
           isRepairing: false,
