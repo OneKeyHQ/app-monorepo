@@ -479,9 +479,9 @@ export const EditableChainSelectorContent = ({
                   ?.data as IServerNetwork[];
                 setTempFrequentlyUsedItems(itemList);
               }}
-              // initialScrollIndex={
-              //   platformEnv.isNative ? initialScrollIndex : undefined
-              // }
+              initialScrollIndex={
+                platformEnv.isNative ? initialScrollIndex : undefined
+              }
               dragItemOverflowHitSlop={dragItemOverflowHitSlop}
               getItemLayout={(_, index) => {
                 if (index === -1) {
