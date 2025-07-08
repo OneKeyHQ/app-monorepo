@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { KeyboardEventListener } from 'react-native';
 
-export { default as useIsKeyboardShown } from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
+export { useIsKeyboardShown } from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
 
 export const KEYBOARD_SHOW_EVENT_NAME = platformEnv.isNativeIOS
   ? 'keyboardWillShow'
