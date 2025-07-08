@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { flatten, groupBy, isEmpty, map } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { flatten, groupBy, isEmpty, isNaN, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -8,6 +9,7 @@ import {
   Empty,
   Form,
   Icon,
+  Input,
   Page,
   SegmentControl,
   Select,
@@ -21,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -30,6 +33,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { ControlledNetworkSelectorTrigger } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
+import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -50,12 +54,12 @@ function BulkCopyAddresses({
 
   const navigation = useAppNavigation();
 
+  const runCancelAtFirst = useRef(false);
   const [copyType, setCopyType] = useState<EBulkCopyType>(
     EBulkCopyType.Account,
   );
-
+  const [isGeneratingAddresses, setIsGeneratingAddresses] = useState(false);
   const walletsMap = useRef<Record<string, IDBWallet>>({});
-
   const sharedStyles = getSharedInputStyles({
     size: 'large',
   });
@@ -68,7 +72,17 @@ function BulkCopyAddresses({
     mode: 'onChange',
   });
 
+  const formRange = useForm({
+    defaultValues: {
+      deriveType: '',
+      startIndex: 1,
+      amount: 10,
+    },
+    mode: 'onChange',
+  });
+
   const { selectedWalletId, selectedNetworkId } = form.watch();
+  const formRangeWatchFields = formRange.watch();
 
   const { result: availableWallets } = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
@@ -95,6 +109,10 @@ function BulkCopyAddresses({
 
   const selectedWallet = walletsMap.current[selectedWalletId ?? ''];
 
+  const { vaultSettings } = useAccountData({
+    networkId: selectedNetworkId,
+  });
+
   const { result: availableNetworksIds } = usePromiseResult(async () => {
     if (!selectedWalletId) {
       return [];
@@ -119,6 +137,10 @@ function BulkCopyAddresses({
   const { result: networkAccountsByDeriveType, isLoading: isLoadingAccounts } =
     usePromiseResult(
       async () => {
+        if (copyType !== EBulkCopyType.Account) {
+          return {};
+        }
+
         if (!selectedNetworkId || !selectedWallet) {
           return {};
         }
@@ -141,11 +163,111 @@ function BulkCopyAddresses({
 
         return groupBy(flatten(map(resp, 'networkAccounts')), 'deriveType');
       },
-      [selectedNetworkId, selectedWallet],
+      [selectedNetworkId, selectedWallet, copyType],
       {
         watchLoading: true,
       },
     );
+
+  const handleGenerateAddresses = useCallback(async () => {
+    if (
+      !formRangeWatchFields.deriveType ||
+      !selectedNetworkId ||
+      !selectedWalletId ||
+      !vaultSettings?.accountDeriveInfo
+    ) {
+      return {};
+    }
+    setIsGeneratingAddresses(true);
+
+    try {
+      const fromIndex = new BigNumber(formRangeWatchFields.startIndex)
+        .minus(1)
+        .toNumber();
+      const toIndex = new BigNumber(fromIndex)
+        .plus(formRangeWatchFields.amount)
+        .minus(1)
+        .toNumber();
+
+      const indexes =
+        await backgroundApiProxy.serviceBatchCreateAccount.buildIndexesByFromAndTo(
+          {
+            fromIndex,
+            toIndex,
+          },
+        );
+
+      if (
+        accountUtils.isHwWallet({ walletId: selectedWalletId }) &&
+        !runCancelAtFirst.current
+      ) {
+        runCancelAtFirst.current = true;
+      }
+
+      const { accountsForCreate } =
+        await backgroundApiProxy.serviceBatchCreateAccount.previewBatchBuildAccounts(
+          {
+            walletId: selectedWalletId,
+            networkId: selectedNetworkId,
+            deriveType: formRangeWatchFields.deriveType as IAccountDeriveTypes,
+            indexes,
+            saveToCache: true,
+          },
+        );
+      return {
+        [formRangeWatchFields.deriveType]: accountsForCreate.map((account) => {
+          return {
+            account,
+            deriveType: formRangeWatchFields.deriveType,
+            deriveInfo:
+              // @ts-ignore
+              vaultSettings.accountDeriveInfo[
+                formRangeWatchFields.deriveType as IAccountDeriveTypes
+              ],
+          };
+        }),
+      };
+    } finally {
+      setIsGeneratingAddresses(false);
+    }
+  }, [
+    formRangeWatchFields.deriveType,
+    formRangeWatchFields.amount,
+    formRangeWatchFields.startIndex,
+    selectedNetworkId,
+    selectedWalletId,
+    vaultSettings?.accountDeriveInfo,
+  ]);
+
+  const handleFormValueOnChange = useCallback(
+    ({
+      name,
+      value,
+      intRequired,
+    }: {
+      name: string;
+      value: string | undefined;
+      intRequired?: boolean;
+    }) => {
+      const filedName = name as keyof typeof formRangeWatchFields;
+      const valueBN = new BigNumber(value ?? 0);
+      if (valueBN.isNaN()) {
+        const formattedValue = parseFloat(value ?? '');
+        formRange.setValue(
+          filedName,
+          isNaN(formattedValue) ? '' : String(formattedValue),
+        );
+        return;
+      }
+
+      if (intRequired) {
+        formRange.setValue(filedName, valueBN.toFixed(0));
+      } else if (!value?.includes('.')) {
+        formRange.setValue(filedName, valueBN.toFixed());
+      }
+    },
+    [formRange],
+  );
 
   const renderBulkCopyByAccounts = useCallback(() => {
     if (isLoadingAccounts) {
@@ -212,18 +334,137 @@ function BulkCopyAddresses({
     );
   }, [copyType, intl, isLoadingAccounts, networkAccountsByDeriveType]);
 
-  const handleExportAddresses = useCallback(() => {
-    navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
-      walletId: selectedWalletId,
-      networkId: selectedNetworkId,
-      networkAccountsByDeriveType,
-    });
+  const renderBulkCopyByRange = useCallback(() => {
+    if (copyType !== EBulkCopyType.Range) {
+      return null;
+    }
+
+    return (
+      <Stack>
+        <Form form={formRange}>
+          <Form.Field
+            name="deriveType"
+            label={intl.formatMessage({
+              id: ETranslations.global_derivation_path,
+            })}
+          >
+            <Select
+              title={intl.formatMessage({
+                id: ETranslations.global_derivation_path,
+              })}
+              items={Object.entries(vaultSettings?.accountDeriveInfo ?? {}).map(
+                ([deriveType, deriveInfo]) => ({
+                  label: deriveInfo.labelKey
+                    ? intl.formatMessage({ id: deriveInfo.labelKey })
+                    : deriveInfo.label ?? '',
+                  value: deriveType as IAccountDeriveTypes,
+                }),
+              )}
+            />
+          </Form.Field>
+          <Form.Field
+            name="startIndex"
+            label={intl.formatMessage({
+              id: ETranslations.global_from,
+            })}
+            rules={{
+              required: true,
+              min: 1,
+              onChange: (e: { target: { name: string; value: string } }) =>
+                handleFormValueOnChange({
+                  name: e.target.name,
+                  value: e.target.value,
+                  intRequired: true,
+                }),
+            }}
+          >
+            <Input />
+          </Form.Field>
+          <Form.Field
+            name="amount"
+            label={intl.formatMessage({
+              id: ETranslations.global_generate_amount,
+            })}
+            rules={{
+              required: true,
+              min: 1,
+              max: 100,
+              onChange: (e: { target: { name: string; value: string } }) =>
+                handleFormValueOnChange({
+                  name: e.target.name,
+                  value: e.target.value,
+                  intRequired: true,
+                }),
+            }}
+          >
+            <Input
+              addOns={[
+                {
+                  label: '1',
+                  onPress: () => {
+                    formRange.setValue('amount', 1);
+                  },
+                },
+                {
+                  label: '10',
+                  onPress: () => {
+                    formRange.setValue('amount', 10);
+                  },
+                },
+                {
+                  label: '100',
+                  onPress: () => {
+                    formRange.setValue('amount', 100);
+                  },
+                },
+              ]}
+            />
+          </Form.Field>
+        </Form>
+      </Stack>
+    );
   }, [
-    navigation,
-    networkAccountsByDeriveType,
-    selectedNetworkId,
-    selectedWalletId,
+    copyType,
+    formRange,
+    intl,
+    vaultSettings?.accountDeriveInfo,
+    handleFormValueOnChange,
   ]);
+
+  const handleExportAddresses = useCallback(async () => {
+    if (copyType === EBulkCopyType.Account) {
+      navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
+        walletId: selectedWalletId,
+        networkId: selectedNetworkId,
+        networkAccountsByDeriveType,
+      });
+    } else if (copyType === EBulkCopyType.Range) {
+      const resp = await handleGenerateAddresses();
+      navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
+        walletId: selectedWalletId,
+        networkId: selectedNetworkId,
+        networkAccountsByDeriveType: resp,
+      });
+    }
+  }, [
+    copyType,
+    navigation,
+    selectedWalletId,
+    selectedNetworkId,
+    networkAccountsByDeriveType,
+    handleGenerateAddresses,
+  ]);
+
+  useEffect(() => {
+    const getDefaultDeriveType = async () => {
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: selectedNetworkId,
+        });
+      formRange.setValue('deriveType', deriveType);
+    };
+    void getDefaultDeriveType();
+  }, [formRange, selectedNetworkId]);
 
   return (
     <Page>
@@ -250,7 +491,7 @@ function BulkCopyAddresses({
                   value: wallet.id,
                   leading: <WalletAvatar wallet={wallet} size="$6" />,
                 }))}
-                renderTrigger={({ value, label }) => {
+                renderTrigger={({ label }) => {
                   return (
                     // eslint-disable-next-line props-checker/validator
                     <Stack
@@ -322,6 +563,7 @@ function BulkCopyAddresses({
               ]}
             />
             {renderBulkCopyByAccounts()}
+            {renderBulkCopyByRange()}
           </YStack>
         </YStack>
       </Page.Body>
@@ -334,6 +576,16 @@ function BulkCopyAddresses({
           confirmButtonProps={{
             size: gtMd ? 'medium' : 'large',
             variant: 'primary',
+            loading:
+              copyType === EBulkCopyType.Account
+                ? false
+                : isGeneratingAddresses,
+            disabled:
+              copyType === EBulkCopyType.Account
+                ? !form.formState.isValid || isLoadingAccounts
+                : !form.formState.isValid ||
+                  !formRange.formState.isValid ||
+                  isGeneratingAddresses,
           }}
         />
       </Page.Footer>

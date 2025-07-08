@@ -10,7 +10,6 @@ import {
   ScrollView,
   SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -22,6 +21,7 @@ import type {
   IModalBulkCopyAddressesParamList,
 } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
+
 import { useAccountData } from '../../../hooks/useAccountData';
 
 function ExportAddresses({

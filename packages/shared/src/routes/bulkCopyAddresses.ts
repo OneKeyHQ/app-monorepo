@@ -13,7 +13,7 @@ export enum EModalBulkCopyAddressesRoutes {
 export type IModalBulkCopyAddressesParamList = {
   [EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal]: {
     walletId?: string;
-    networkId?: string;
+    networkId: string;
   };
   [EModalBulkCopyAddressesRoutes.ExportAddressesModal]: {
     walletId: string;
