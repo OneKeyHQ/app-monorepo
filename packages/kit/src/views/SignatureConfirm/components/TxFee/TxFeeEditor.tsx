@@ -696,7 +696,7 @@ function TxFeeEditor(props: IProps) {
         feeRate.isGreaterThan(DEFAULT_FEE_RATE_MAX)
       ) {
         return intl.formatMessage(
-          { id: ETranslations.form_ree_rate_error_out_of_range },
+          { id: ETranslations.form_fee_rate_error_out_of_range },
           { min: DEFAULT_FEER_ATE_MIN, max: DEFAULT_FEE_RATE_MAX },
         );
       }

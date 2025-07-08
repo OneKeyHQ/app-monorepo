@@ -43,7 +43,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   const renderFirstColumn = useCallback(() => {
     if (!tableLayout && !isTokenSelector) {
       return (
-        <XStack alignItems="center" gap="$3" flex={1}>
+        <XStack alignItems="center" gap="$3" maxWidth="60%">
           <TokenIconView
             networkId={token.networkId}
             icon={token.logoURI}
@@ -66,6 +66,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
                 $key={token.$key ?? ''}
                 size="$bodyMd"
                 color="$textSubdued"
+                numberOfLines={1}
               />
               <TokenPriceChangeView
                 $key={token.$key ?? ''}
@@ -213,6 +214,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       onPress={() => {
         onPress?.(token);
       }}
+      gap={tableLayout ? '$3' : '$1'}
       {...rest}
     >
       {renderFirstColumn()}

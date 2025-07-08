@@ -140,7 +140,7 @@ const PasswordSetup = ({
                 minLength: {
                   value: 8,
                   message: intl.formatMessage(
-                    { id: ETranslations.auth_error_passwcode_too_short },
+                    { id: ETranslations.auth_error_passcode_too_short },
                     {
                       length: 8,
                     },
@@ -150,7 +150,7 @@ const PasswordSetup = ({
                   value: 128,
                   message: intl.formatMessage(
                     {
-                      id: ETranslations.auth_erro_passcode_too_long,
+                      id: ETranslations.auth_error_passcode_too_long,
                     },
                     {
                       length: 128,
@@ -176,7 +176,7 @@ const PasswordSetup = ({
                   size: 'medium',
                 }}
                 placeholder={intl.formatMessage({
-                  id: ETranslations.auth_new_passwcode_form_placeholder,
+                  id: ETranslations.auth_new_passcode_form_placeholder,
                 })}
                 disabled={loading}
                 autoFocus
@@ -265,7 +265,7 @@ const PasswordSetup = ({
                     v.length >= PIN_CELL_COUNT
                       ? undefined
                       : intl.formatMessage(
-                          { id: ETranslations.auth_error_passwcode_too_short },
+                          { id: ETranslations.auth_error_passcode_too_short },
                           {
                             length: PIN_CELL_COUNT,
                           },

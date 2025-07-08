@@ -38,7 +38,10 @@ export function DesktopLayout() {
 
         {/* Right column */}
         <Stack w={320}>
-          <SwapPanel />
+          <SwapPanel
+            networkId={networkId}
+            tokenAddress={tokenDetail?.address}
+          />
 
           <Divider mx="$4" my="$2" />
 

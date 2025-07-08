@@ -126,7 +126,7 @@ function NotificationGallery() {
               </Button>
               <Button
                 onPress={() => {
-                  globalThis.desktopApi.callDevOnlyApi({
+                  void globalThis.desktopApiProxy.dev.callDevOnlyApi({
                     module: 'shell',
                     method: 'openExternal',
                     params: [

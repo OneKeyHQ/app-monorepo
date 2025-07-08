@@ -46,7 +46,7 @@ const WebAuthSwitchContainer = ({
         }
       } catch (e: any) {
         Toast.error({
-          title: intl.formatMessage({ id: ETranslations.Toast_web_auth }),
+          title: intl.formatMessage({ id: ETranslations.toast_web_auth }),
         });
       }
     },

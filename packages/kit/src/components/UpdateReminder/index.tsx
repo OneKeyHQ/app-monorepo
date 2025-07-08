@@ -59,7 +59,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           iconColor: '$iconInfo',
           renderText() {
             return intl.formatMessage({
-              id: ETranslations.update_verify_asc_labe,
+              id: ETranslations.update_verify_asc_label,
             });
           },
         },

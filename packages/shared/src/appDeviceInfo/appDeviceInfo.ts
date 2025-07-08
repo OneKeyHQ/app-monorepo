@@ -22,7 +22,8 @@ const appDeviceInfo: IAppDeviceInfo = {
     const ExpoDevice = getExpoDeviceResult();
     let desktopSystemInfo: IDesktopSystemInfo | undefined;
     if (platformEnv.isDesktop) {
-      desktopSystemInfo = await globalThis.desktopApi?.getSystemInfo();
+      desktopSystemInfo =
+        await globalThis.desktopApiProxy?.system?.getSystemInfo();
     }
 
     let deviceModel: string | undefined =

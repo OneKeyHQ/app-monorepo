@@ -5,6 +5,7 @@ import { XStack } from '@onekeyhq/components';
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 import { TimeRangeSelector } from '../TimeRangeSelector';
+import { WatchlistToggleButton } from '../WatchlistToggleButton';
 
 import type { ILiquidityFilter } from '../../types';
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
@@ -13,9 +14,11 @@ export interface IMarketFilterBarSmallProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
   liquidityFilter?: ILiquidityFilter;
+  showWatchlistOnly?: boolean;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
   onLiquidityFilterChange?: (filter: ILiquidityFilter) => void;
+  onWatchlistToggle?: () => void;
   isLoading?: boolean;
 }
 
@@ -23,9 +26,11 @@ function MarketFilterBarSmall({
   selectedNetworkId,
   timeRange = '5m',
   liquidityFilter,
+  showWatchlistOnly = false,
   onNetworkIdChange,
   onTimeRangeChange,
   onLiquidityFilterChange,
+  onWatchlistToggle,
   isLoading = false,
 }: IMarketFilterBarSmallProps) {
   const [currentTimeRange, setCurrentTimeRange] =
@@ -62,6 +67,13 @@ function MarketFilterBarSmall({
         size="small"
         forceLoading={isLoading}
         placement="bottom-start"
+      />
+
+      {/* Watchlist Toggle Button */}
+      <WatchlistToggleButton
+        isActive={showWatchlistOnly}
+        onToggle={onWatchlistToggle || (() => {})}
+        size="small"
       />
 
       {/* Time Range Selector */}

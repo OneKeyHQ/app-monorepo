@@ -107,9 +107,9 @@ export function LanguageListItem(props: ICustomElementProps) {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
     setTimeout(() => {
       if (platformEnv.isDesktop) {
-        globalThis.desktopApi.changeLanguage(text);
+        void globalThis.desktopApiProxy?.system?.changeLanguage?.(text);
       }
-      backgroundApiProxy.serviceApp.restartApp();
+      void backgroundApiProxy.serviceApp.restartApp();
     }, 0);
   }, []);
   return (
@@ -563,8 +563,9 @@ export function SocialButtonGroup() {
         <SizableText color={textColor} size={textSize} onPress={handlePress}>
           {upperFirst(versionString)}
         </SizableText>
-        {!appUpdateInfo.latestVersion ||
-        appUpdateInfo.latestVersion === platformEnv.version ? (
+        {!isTabNavigator &&
+        (!appUpdateInfo.latestVersion ||
+          appUpdateInfo.latestVersion === platformEnv.version) ? (
           <SizableText
             color={textColor}
             size={textSize}

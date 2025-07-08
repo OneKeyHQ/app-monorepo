@@ -10,6 +10,7 @@ import { ActionButton } from './components/ActionButton';
 import { AntiMEVToggle } from './components/AntiMEVToggle';
 import { ApproveButton } from './components/ApproveButton';
 import { BalanceDisplay } from './components/BalanceDisplay';
+import { RateDisplay } from './components/RateDisplay';
 import { SlippageSetting } from './components/SlippageSetting';
 import {
   type ITokenInputSectionRef,
@@ -32,6 +33,11 @@ export type ISwapPanelContentProps = {
   onApprove: () => void;
   onSwap: () => void;
   swapMevNetConfig: string[];
+  priceRate?: {
+    rate: number;
+    fromTokenSymbol: string;
+    toTokenSymbol: string;
+  };
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -48,6 +54,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     onApprove,
     onSwap,
     swapMevNetConfig,
+    priceRate,
   } = props;
 
   const {
@@ -71,7 +78,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       tokenInputRef.current?.setValue(balance.toFixed());
     }
   }, [balance, setPaymentAmount]);
-
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">
       {/* Trade type selector */}
@@ -90,6 +96,15 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         balance={balance}
       />
 
+      {/* Rate display */}
+      {priceRate ? (
+        <RateDisplay
+          rate={priceRate?.rate}
+          fromTokenSymbol={priceRate?.fromTokenSymbol}
+          toTokenSymbol={priceRate?.toTokenSymbol}
+        />
+      ) : null}
+
       {/* Balance display */}
       <BalanceDisplay
         balance={balance}
@@ -99,7 +114,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* Unsupported swap warning */}
-      {!supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
+      {!isLoading && !supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
 
       {!isApproved ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />

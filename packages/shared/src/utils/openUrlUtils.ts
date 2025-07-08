@@ -89,7 +89,7 @@ export const openSettings = (prefType: IPrefType) => {
     // Notifications.openSettingsAsync();
     void linkingOpenSettings();
   } else {
-    globalThis?.desktopApi?.openPreferences(prefType);
+    void globalThis.desktopApiProxy.system.openPreferences(prefType);
   }
 };
 

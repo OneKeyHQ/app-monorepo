@@ -127,6 +127,7 @@ import simpleDb from '../../dbs/simple/simpleDb';
 import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
+  indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
@@ -201,6 +202,11 @@ class ServiceAccount extends ServiceBase {
   clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
     localDb.clearStoreCachedData();
+  }
+
+  @backgroundMethod()
+  async resetIndexedAccountAddressCreationState() {
+    await indexedAccountAddressCreationStateAtom.set(undefined);
   }
 
   @backgroundMethod()
@@ -740,7 +746,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     account: IBatchCreateAccount;
   }) {
-    const { addressDetail, existsInDb, displayAddress, ...dbAccount } = account;
+    const { ...dbAccount } = account;
     if (isNil(dbAccount.pathIndex)) {
       throw new OneKeyLocalError(
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
@@ -1125,17 +1131,12 @@ class ServiceAccount extends ServiceBase {
           networkId,
           account,
         });
-      const { prepareParams, deviceParams } =
-        await this.getPrepareHDOrHWAccountsParams({
-          walletId,
-          networkId,
-          indexedAccountId,
-          deriveType,
-          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
-        });
-      const vault = await vaultFactory.getWalletOnlyVault({
-        networkId,
+      const { prepareParams } = await this.getPrepareHDOrHWAccountsParams({
         walletId,
+        networkId,
+        indexedAccountId,
+        deriveType,
+        confirmOnDevice: EConfirmOnDeviceType.EveryItem,
       });
 
       // const accounts = await vault.keyring.prepareAccounts(prepareParams);
