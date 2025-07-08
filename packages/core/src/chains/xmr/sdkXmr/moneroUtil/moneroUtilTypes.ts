@@ -1,5 +1,4 @@
-export interface IMoneroUtilInstance
-  extends Record<string, WebAssembly.ExportValue | ArrayBuffer> {
+export interface IMoneroUtilInstance {
   _malloc(size: number): number;
   ccall(
     ident: any,
