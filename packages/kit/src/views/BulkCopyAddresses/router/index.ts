@@ -8,6 +8,11 @@ const BulkCopyAddresses = LazyLoad(
     import('@onekeyhq/kit/src/views/BulkCopyAddresses/pages/BulkCopyAddresses'),
 );
 
+const ExportAddresses = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/BulkCopyAddresses/pages/ExportAddresses'),
+);
+
 export const BulkCopyAddressesModalRouter: IModalFlowNavigatorConfig<
   EModalBulkCopyAddressesRoutes,
   IModalBulkCopyAddressesParamList
@@ -15,5 +20,9 @@ export const BulkCopyAddressesModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
     component: BulkCopyAddresses,
+  },
+  {
+    name: EModalBulkCopyAddressesRoutes.ExportAddresses,
+    component: ExportAddresses,
   },
 ];
