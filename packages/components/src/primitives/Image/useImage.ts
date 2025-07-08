@@ -90,6 +90,9 @@ export function useImage(
 
   const fetchImageTimesLimit = useRef(0);
   const reFetchImage = useCallback(() => {
+    if (!resolvedSource) {
+      return;
+    }
     if (fetchImageTimesLimit.current > 3) {
       return;
     }
@@ -100,9 +103,10 @@ export function useImage(
       fetchImageTimesLimit.current += 1;
       loadImage();
     }
-  }, [loadImage, resolvedSource?.uri]);
+  }, [loadImage, resolvedSource]);
 
   useEffect(() => {
+    isEffectValid.current = true;
     if (cachedImage) {
       return;
     }
@@ -113,11 +117,11 @@ export function useImage(
       image?.release();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedSource?.uri, ...dependencies]);
+  }, [resolvedSource?.uri, cachedImage, loadImage, ...dependencies]);
 
   return useMemo(() => {
     return {
-      image: cachedImage || image,
+      image: fetchImageTimesLimit.current > 0 ? image : cachedImage || image,
       reFetchImage,
     };
   }, [cachedImage, image, reFetchImage]);
