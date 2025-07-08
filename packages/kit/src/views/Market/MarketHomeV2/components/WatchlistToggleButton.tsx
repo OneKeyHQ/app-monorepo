@@ -13,14 +13,12 @@ export interface IWatchlistToggleButtonProps {
 export function WatchlistToggleButton({
   isActive,
   onToggle,
-  size = 'small',
   disabled = false,
 }: IWatchlistToggleButtonProps) {
   const intl = useIntl();
 
   return (
     <Button
-      size={size}
       variant="tertiary"
       onPress={onToggle}
       bg={isActive ? '$bgHover' : '$transparent'}
