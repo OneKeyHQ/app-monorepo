@@ -78,7 +78,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       tokenInputRef.current?.setValue(balance.toFixed());
     }
   }, [balance, setPaymentAmount]);
-  console.log('swap__priceRate', priceRate);
   return (
     <YStack gap="$4" p="$4" maxWidth="$100">
       {/* Trade type selector */}
