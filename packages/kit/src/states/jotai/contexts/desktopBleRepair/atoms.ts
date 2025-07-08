@@ -9,8 +9,13 @@ const {
   Provider: ProviderJotaiContextDesktopBleRepair,
   contextAtom,
   contextAtomMethod,
+  useContextData: useDesktopBleRepairContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextDesktopBleRepair, contextAtomMethod };
+export {
+  ProviderJotaiContextDesktopBleRepair,
+  contextAtomMethod,
+  useDesktopBleRepairContextData,
+};
 
 export type IDesktopBleRepairData =
   IAppEventBusPayload[EAppEventBusNames.DesktopBleRepairRequired];
