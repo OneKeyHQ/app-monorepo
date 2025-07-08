@@ -13,6 +13,7 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EModalBulkCopyAddressesRoutes,
@@ -24,7 +25,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { ControlledNetworkSelectorTrigger } from '../../../components/AccountSelector';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 
 function BulkCopyAddresses({
   route,
