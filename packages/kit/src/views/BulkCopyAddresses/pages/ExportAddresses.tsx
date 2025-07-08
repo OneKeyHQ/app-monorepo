@@ -1,22 +1,28 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Button,
   type IPageScreenProps,
   Page,
   ScrollView,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
+  useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalBulkCopyAddressesRoutes,
   IModalBulkCopyAddressesParamList,
 } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
+import { useAccountData } from '../../../hooks/useAccountData';
 
 function ExportAddresses({
   route,
@@ -25,20 +31,20 @@ function ExportAddresses({
   EModalBulkCopyAddressesRoutes.ExportAddressesModal
 >) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const { copyText } = useClipboard();
+  const [isExporting, setIsExporting] = useState(false);
 
-  const { networkAccountsByDeriveType } = route.params;
+  const { networkAccountsByDeriveType, walletId, networkId } = route.params;
 
-  const handleExportAddresses = useCallback(() => {
-    console.log('handleExportAddresses');
-  }, []);
-  const handleCopyAddresses = useCallback(() => {
-    console.log('handleCopyAddresses');
-  }, []);
+  const { wallet, network } = useAccountData({ walletId, networkId });
 
-  const renderAddresses = useCallback(() => {
+  const addressesData = useMemo(() => {
     const data: {
       type: 'address' | 'title' | 'blankLine';
       address?: string;
+      accountName?: string;
+      deriveType?: string;
       title?: string;
     }[] = [];
 
@@ -51,6 +57,12 @@ function ExportAddresses({
         data.push({
           type: 'address',
           address: item.account?.address ?? '',
+          accountName: item.account?.name ?? '',
+          deriveType: item.deriveInfo.labelKey
+            ? intl.formatMessage({
+                id: item.deriveInfo.labelKey,
+              })
+            : item.deriveInfo.label,
         });
       });
     } else if (deriveTypes.length > 1) {
@@ -69,6 +81,12 @@ function ExportAddresses({
           data.push({
             type: 'address',
             address: item.account?.address ?? '',
+            accountName: item.account?.name ?? '',
+            deriveType: item.deriveInfo.labelKey
+              ? intl.formatMessage({
+                  id: item.deriveInfo.labelKey,
+                })
+              : item.deriveInfo.label,
           });
         });
         data.push({
@@ -77,6 +95,37 @@ function ExportAddresses({
       });
     }
 
+    return data;
+  }, [intl, networkAccountsByDeriveType]);
+
+  const handleExportAddresses = useCallback(async () => {
+    setIsExporting(true);
+
+    const exportData = addressesData
+      .filter((item) => item.type === 'address')
+      .map((item) => ({
+        'Account name': item.accountName,
+        [`${network?.name ?? ''} address`]: item.address,
+        'Derivation path': item.deriveType,
+      }));
+
+    const filename = `${wallet?.name ?? ''}_${
+      network?.name ?? ''
+    }_addresses_${new Date().getTime()}.csv`;
+
+    await csvExporterUtils.exportCSV(exportData, filename);
+    setIsExporting(false);
+  }, [addressesData, network?.name, wallet?.name]);
+  const handleCopyAddresses = useCallback(() => {
+    copyText(
+      addressesData
+        .filter((item) => item.type === 'address')
+        .map((item) => item.address)
+        .join('\n'),
+    );
+  }, [addressesData, copyText]);
+
+  const renderAddresses = useCallback(() => {
     return (
       <ScrollView
         width="100%"
@@ -89,7 +138,7 @@ function ExportAddresses({
         borderColor="$borderStrong"
       >
         <YStack gap="$1">
-          {data.map((item, index) => {
+          {addressesData.map((item, index) => {
             return (
               <XStack key={index} alignItems="flex-start">
                 <Stack width={32} justifyContent="flex-start">
@@ -128,7 +177,7 @@ function ExportAddresses({
         </YStack>
       </ScrollView>
     );
-  }, [intl, networkAccountsByDeriveType]);
+  }, [addressesData]);
 
   return (
     <Page>
@@ -139,22 +188,48 @@ function ExportAddresses({
       />
       <Page.Body p="$5">{renderAddresses()}</Page.Body>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirm={handleExportAddresses}
-          onCancel={handleCopyAddresses}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_bulk_copy_addresses_export_csv,
-          })}
-          onCancelText={intl.formatMessage({
-            id: ETranslations.global_copy,
-          })}
-          confirmButtonProps={{
-            variant: 'primary',
+        <XStack
+          p="$5"
+          gap="$2.5"
+          $gtMd={{
+            ml: 'auto',
           }}
-          cancelButtonProps={{
-            variant: 'secondary',
-          }}
-        />
+        >
+          <Button
+            variant="secondary"
+            onPress={handleCopyAddresses}
+            size={gtMd ? 'medium' : 'large'}
+            $md={
+              {
+                flexGrow: 1,
+                flexBasis: 0,
+                size: 'large',
+              } as any
+            }
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_copy,
+            })}
+          </Button>
+          <Button
+            variant="primary"
+            onPress={handleExportAddresses}
+            size={gtMd ? 'medium' : 'large'}
+            loading={isExporting}
+            disabled={isExporting}
+            $md={
+              {
+                flexGrow: 1,
+                flexBasis: 0,
+                size: 'large',
+              } as any
+            }
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_export,
+            })}
+          </Button>
+        </XStack>
       </Page.Footer>
     </Page>
   );
