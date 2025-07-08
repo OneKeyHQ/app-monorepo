@@ -305,7 +305,6 @@ export function HomePageView({
       <>
         <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
         <Page.Body>
-          <WalletBackupAlert />
           <NetworkAlert />
           {/* {
             // The upgrade reminder does not need to be displayed on the Url Account page
@@ -318,6 +317,7 @@ export function HomePageView({
             ) : null
           } */}
           {content}
+          <WalletBackupAlert />
         </Page.Body>
       </>
     );
