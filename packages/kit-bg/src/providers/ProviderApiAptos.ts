@@ -267,13 +267,13 @@ class ProviderApiAptos extends ProviderApiBase {
   ): IEncodedTxAptos {
     const payload = transaction.rawTransaction.payload;
 
-    if (get(payload, 'entryFunction', null)) {
-      return {
-        bcsTxn: hexBcsTxn,
-      };
-    }
+    // if (get(payload, 'entryFunction', null)) {
+    return {
+      bcsTxn: hexBcsTxn,
+    };
+    // }
 
-    throw new OneKeyLocalError(`not support transaction type`);
+    // throw new OneKeyLocalError(`not support transaction type`);
   }
 
   private async _getAccount(request: IJsBridgeMessagePayload) {
@@ -403,12 +403,18 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
-    if (params.transactionType === 'multi_agent') {
-      throw new OneKeyLocalError('Not implemented MultiAgentTransaction');
-    }
+    // if (params.transactionType === 'multi_agent') {
+    //   throw new OneKeyLocalError('Not implemented MultiAgentTransaction');
+    // }
+
+    console.log('=====>>>>> signTransactionV2', params);
+
     const txnBsc = params.transaction;
 
     const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(txnBsc);
+
+    console.log('=====>>>>> rawTxn', rawTxn);
+    console.log('=====>>>>> hexBcsTxn', hexBcsTxn);
 
     const { account, accountInfo } = await this._getAccountByAddress(
       request,
