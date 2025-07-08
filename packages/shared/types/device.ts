@@ -194,6 +194,13 @@ export type IResourceUpdateInfo = {
   limitVersion?: string;
 };
 
+export type IDeviceHomeScreen = {
+  deviceId: string;
+  imgBase64: string;
+  imgThumbBase64: string;
+  name: string;
+};
+
 export type IQrWalletDevice = {
   name: string; // device name like: 'OneKey Pro'
   // TODO deviceType

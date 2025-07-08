@@ -39,6 +39,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
+  IDeviceHomeScreen,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -988,6 +989,21 @@ class ServiceHardware extends ServiceBase {
   @toastIfError()
   async setDeviceHomeScreen(p: ISetDeviceHomeScreenParams) {
     return this.deviceSettingsManager.setDeviceHomeScreen(p);
+  }
+
+  @backgroundMethod()
+  async getDeviceHomeScreen({ deviceId }: { deviceId: string }) {
+    return localDb.getHardwareHomeScreen({ deviceId });
+  }
+
+  @backgroundMethod()
+  async saveDeviceHomeScreen(homeScreen: IDeviceHomeScreen) {
+    await localDb.addHardwareHomeScreen({ homeScreen });
+  }
+
+  @backgroundMethod()
+  async deleteDeviceHomeScreen(homeScreenId: string) {
+    await localDb.deleteHardwareHomeScreen({ homeScreenId });
   }
 
   @backgroundMethod()

@@ -38,6 +38,10 @@ export type IHardwareHomeScreenData = {
   isUserUpload?: boolean;
 };
 
+export type IHardwareHomeScreenDataWithId = IHardwareHomeScreenData & {
+  id: string;
+};
+
 export type IHardwareHomeScreenDataMap = Record<
   IHardwareHomeScreenName,
   IHardwareHomeScreenData

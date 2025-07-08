@@ -47,6 +47,7 @@ export const INDEXED_DB_BUCKET_PRESET_STORE_NAMES = {
     ELocalDBStoreNames.SignedMessage,
     ELocalDBStoreNames.SignedTransaction,
     ELocalDBStoreNames.ConnectedSite,
+    ELocalDBStoreNames.HardwareHomeScreen,
   ],
 };
 // ---------------------------------------------- enums

@@ -154,7 +154,7 @@ async function resizeImage(params: {
     });
   }
   const imageResult: ImageResult = await manipulateAsync(uri, actions, {
-    compress: 0.9,
+    compress: 0.7,
     format: SaveFormat.JPEG,
     base64: true,
   });
