@@ -87,8 +87,14 @@ export function ActionButton({
 
   // Disable button if insufficient balance
   const shouldDisable = isInsufficientBalance;
+  const displayAmountFormatted = numberFormat(displayAmount, {
+    formatter: 'balance',
+    formatterOptions: {
+      tokenSymbol: token?.symbol || '',
+    },
+  });
 
-  let buttonText = `${actionText} ${displayAmount} ${token?.symbol || ''}`;
+  let buttonText = `${actionText} ${displayAmountFormatted as string} `;
   if (typeof totalValue === 'number') {
     buttonText += `(${
       numberFormat(totalValue.toFixed(2), {
