@@ -10,7 +10,7 @@ import {
 } from 'react';
 import type { ForwardedRef, PropsWithChildren } from 'react';
 
-import useEventEmitter from '@react-navigation/core/src/useEventEmitter';
+import { useEventEmitter } from '@react-navigation/core/src/useEventEmitter';
 
 type IRefreshingFocusedEventMapCore = {
   changeFocused: { data: boolean };

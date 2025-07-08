@@ -75,6 +75,7 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
 
   const themeOptions = useMemo(() => {
     return {
+      fonts: DefaultTheme.fonts,
       dark: themeName === 'dark',
       colors: {
         ...(themeName === 'dark' ? DarkTheme : DefaultTheme).colors,
@@ -84,6 +85,7 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
       },
     };
   }, [theme.bgApp.val, themeName]);
+
   return (
     <RNNavigationContainer
       {...props}
