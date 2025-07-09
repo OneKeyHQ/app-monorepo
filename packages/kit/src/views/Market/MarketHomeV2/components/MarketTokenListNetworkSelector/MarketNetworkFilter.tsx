@@ -101,8 +101,8 @@ const MarketNetworkFilter = forwardRef<
         maxWidth="100%"
         overflow="hidden"
         borderWidth={1}
-        borderColor="$borderSubdued"
-        borderRadius="$2"
+        borderColor="$neutral4"
+        borderRadius="$3"
       >
         <XStack flex={1} position="relative">
           <ScrollView
@@ -115,19 +115,12 @@ const MarketNetworkFilter = forwardRef<
             }}
             scrollEventThrottle={16}
           >
-            <XStack gap="$2" pr="$4">
+            <XStack gap="$0.5" pr="$4">
               {networks.map((network) => (
                 <NetworksFilterItem
                   key={network.networkId}
                   networkName={network.name}
                   networkImageUri={network.logoURI}
-                  tooltipContent={
-                    network.isAllNetworks
-                      ? intl.formatMessage({
-                          id: ETranslations.global_all_networks,
-                        })
-                      : network.name
-                  }
                   isSelected={network?.networkId === selectedNetwork?.networkId}
                   onPress={() => onSelectNetwork(network)}
                 />

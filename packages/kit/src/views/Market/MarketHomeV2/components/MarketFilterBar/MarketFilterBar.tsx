@@ -65,7 +65,19 @@ export function MarketFilterBar({
         forceLoading={isLoading}
       />
 
-      <XStack gap="$3" pl="$5" pr="$5">
+      <XStack gap="$6" pl="$7" pr="$5">
+        <XStack gap="$4">
+          {/* <WatchlistToggleButton
+            isActive={showWatchlistOnly}
+            onToggle={onWatchlistToggle}
+          /> */}
+          {/* Watchlist Toggle Button */}
+          <WatchlistToggleButton
+            isActive={showWatchlistOnly}
+            onToggle={onWatchlistToggle}
+          />
+        </XStack>
+
         {/* Time Range Selector */}
         <TimeRangeSelector
           value={currentTimeRange}
@@ -76,12 +88,6 @@ export function MarketFilterBar({
         <LiquidityFilterControl
           value={liquidityFilter}
           onApply={handleLiquidityFilterApply}
-        />
-
-        {/* Watchlist Toggle Button */}
-        <WatchlistToggleButton
-          isActive={showWatchlistOnly}
-          onToggle={onWatchlistToggle}
         />
       </XStack>
     </YStack>
