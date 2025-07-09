@@ -29,6 +29,7 @@ import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/rout
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '../../../components/AccountSelector';
@@ -37,10 +38,36 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 
 enum EBulkCopyType {
   Account = 'account',
   Range = 'range',
+}
+
+function BulkCopyAddressesProcessingInfo({
+  progressCurrent,
+  progressTotal,
+}: {
+  progressCurrent: number;
+  progressTotal: number;
+}) {
+  const intl = useIntl();
+  return (
+    <Stack justifyContent="center" alignItems="center" flex={1}>
+      <SizableText size="$headingLg">
+        {intl.formatMessage(
+          {
+            id: ETranslations.global_fetching_addresses,
+          },
+          {
+            current: progressCurrent ?? 0,
+            total: progressTotal ?? 0,
+          },
+        )}
+      </SizableText>
+    </Stack>
+  );
 }
 
 function BulkCopyAddresses({
@@ -55,7 +82,6 @@ function BulkCopyAddresses({
 
   const navigation = useAppNavigation();
 
-  const runCancelAtFirst = useRef(false);
   const [copyType, setCopyType] = useState<EBulkCopyType>(
     EBulkCopyType.Account,
   );
@@ -212,54 +238,72 @@ function BulkCopyAddresses({
         .minus(1)
         .toNumber();
 
-      const indexes =
-        await backgroundApiProxy.serviceBatchCreateAccount.buildIndexesByFromAndTo(
-          {
-            fromIndex,
-            toIndex,
-          },
-        );
-
-      if (
-        accountUtils.isHwWallet({ walletId: selectedWalletId }) &&
-        !runCancelAtFirst.current
-      ) {
-        runCancelAtFirst.current = true;
-      }
-
-      const { accountsForCreate } =
-        await backgroundApiProxy.serviceBatchCreateAccount.previewBatchBuildAccounts(
-          {
-            walletId: selectedWalletId,
-            networkId: selectedNetworkId,
-            deriveType: formRangeWatchFields.deriveType as IAccountDeriveTypes,
-            indexes,
-            saveToCache: true,
-          },
-        );
-      return {
-        [formRangeWatchFields.deriveType]: accountsForCreate.map((account) => {
-          return {
-            account,
-            deriveType: formRangeWatchFields.deriveType,
-            deriveInfo:
-              // @ts-ignore
-              vaultSettings.accountDeriveInfo[
-                formRangeWatchFields.deriveType as IAccountDeriveTypes
-              ],
-          };
-        }),
+      const params = {
+        walletId: selectedWalletId,
+        networkId: selectedNetworkId,
+        deriveType: formRangeWatchFields.deriveType as IAccountDeriveTypes,
+        fromIndex,
+        toIndex,
+        saveToDb: false,
+        hideCheckingDeviceLoading: true,
+        showUIProgress: true,
+        excludedIndexes: [],
       };
+
+      showBatchCreateAccountProcessingDialog({
+        navigation,
+        closeAfterDone: true,
+        closeAfterCancel: true,
+        closeAfterError: true,
+        renderProgressContent: ({ progressCurrent }) => (
+          <BulkCopyAddressesProcessingInfo
+            progressCurrent={progressCurrent}
+            progressTotal={formRangeWatchFields.amount}
+          />
+        ),
+      });
+
+      await timerUtils.wait(600);
+
+      try {
+        const { accountsForCreate } =
+          await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+            {
+              mode: 'advanced',
+              saveToCache: true,
+              params,
+            },
+          );
+        return {
+          [formRangeWatchFields.deriveType]: accountsForCreate.map(
+            (account) => {
+              return {
+                account,
+                deriveType: formRangeWatchFields.deriveType,
+                deriveInfo:
+                  // @ts-ignore
+                  vaultSettings.accountDeriveInfo[
+                    formRangeWatchFields.deriveType as IAccountDeriveTypes
+                  ],
+              };
+            },
+          ),
+        };
+      } catch (error) {
+        console.log(error);
+        throw error;
+      }
     } finally {
       setIsGeneratingAddresses(false);
     }
   }, [
     formRangeWatchFields.deriveType,
-    formRangeWatchFields.amount,
     formRangeWatchFields.startIndex,
+    formRangeWatchFields.amount,
     selectedNetworkId,
     selectedWalletId,
     vaultSettings?.accountDeriveInfo,
+    navigation,
   ]);
 
   const handleFormValueOnChange = useCallback(
