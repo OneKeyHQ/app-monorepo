@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
+  NumberSizeableText,
   SizableText,
   XStack,
   YStack,
@@ -105,9 +106,15 @@ function TransactionItemBase({ item }: ITransactionItemProps) {
       </XStack>
 
       {/* Price */}
-      <SizableText size="$bodyMd" color="$text" {...layoutConfig.price}>
-        ${parseFloat(item.from.price).toFixed(2)}
-      </SizableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$text"
+        formatter="price"
+        formatterOptions={{ currency: '$' }}
+        {...layoutConfig.price}
+      >
+        {item.from.price}
+      </NumberSizeableText>
 
       {/* Value */}
       <SizableText size="$bodyMd" color="$text" {...layoutConfig.value}>
