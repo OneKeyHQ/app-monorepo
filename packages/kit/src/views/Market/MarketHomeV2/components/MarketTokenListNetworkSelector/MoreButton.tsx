@@ -69,6 +69,9 @@ const MoreButton: FC<IMoreButtonProps> = ({
       open={isOpen}
       onOpenChange={setIsOpen}
       placement={placement}
+      floatingPanelProps={{
+        maxWidth: 384,
+      }}
       renderContent={
         <NetworksSearchPanel
           networks={networks}
