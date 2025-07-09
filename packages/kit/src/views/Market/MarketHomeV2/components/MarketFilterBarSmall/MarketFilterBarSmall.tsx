@@ -73,7 +73,7 @@ function MarketFilterBarSmall({
         {/* Market View Toggle - Trending and Watchlist buttons */}
         <MarketViewToggle
           showWatchlistOnly={showWatchlistOnly}
-          onToggle={onWatchlistToggle || (() => {})}
+          onToggle={onWatchlistToggle ?? (() => {})}
         />
       </XStack>
 

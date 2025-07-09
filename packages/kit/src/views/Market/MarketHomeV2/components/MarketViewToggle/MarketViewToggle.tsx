@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  type IIconProps,
+  Icon,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export interface IMarketViewToggleProps {
@@ -13,7 +19,7 @@ interface IToggleButtonProps {
   isActive: boolean;
   onPress: (() => void) | undefined;
   disabled: boolean;
-  iconName: string;
+  iconName: IIconProps['name'];
   translationId: ETranslations;
   defaultMessage: string;
 }
@@ -37,7 +43,7 @@ function ToggleButton({
     >
       <XStack alignItems="center" gap="$2">
         <Icon
-          name={iconName as any}
+          name={iconName}
           size="$4.5"
           color={isActive ? '$icon' : '$iconSubdued'}
         />
