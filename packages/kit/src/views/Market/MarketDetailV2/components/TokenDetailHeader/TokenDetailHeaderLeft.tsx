@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import {
   Divider,
-  Icon,
   IconButton,
   SizableText,
   XStack,
@@ -73,6 +72,13 @@ export function TokenDetailHeaderLeft({
     }
   }, [twitter]);
 
+  const handleOpenXSearch = useCallback(() => {
+    if (symbol && address) {
+      const searchUrl = `https://x.com/search?q=(${symbol} OR ${address})&src=typed_query&f=live`;
+      openUrlExternal(searchUrl);
+    }
+  }, [symbol, address]);
+
   return (
     <XStack ai="center" gap="$2">
       <Token
@@ -141,6 +147,15 @@ export function TokenDetailHeaderLeft({
                   <IconButton
                     icon="Xbrand"
                     onPress={handleOpenTwitter}
+                    variant="tertiary"
+                    iconProps={{ width: 16, height: 16 }}
+                  />
+                ) : null}
+
+                {symbol && address ? (
+                  <IconButton
+                    icon="SearchOutline"
+                    onPress={handleOpenXSearch}
                     variant="tertiary"
                     iconProps={{ width: 16, height: 16 }}
                   />
