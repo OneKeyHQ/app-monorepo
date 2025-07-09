@@ -269,7 +269,7 @@ dependencies {
     // implementation("com.google.code.gson:gson:2.13.1")
 
     // add billing sdk, also update AndroidManifest.xml
-    // def billingVersion = 7.0.0
+    // def billingVersion = 7.1.1
     // implementation("com.android.billingclient:billing:$billingVersion")
 }
 
