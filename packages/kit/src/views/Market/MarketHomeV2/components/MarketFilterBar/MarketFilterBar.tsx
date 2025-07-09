@@ -56,7 +56,7 @@ export function MarketFilterBar({
   }
 
   return (
-    <YStack gap="$3">
+    <YStack gap="$1" pb="$3">
       {/* Network Selector */}
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
@@ -71,6 +71,7 @@ export function MarketFilterBar({
             isActive={showWatchlistOnly}
             onToggle={onWatchlistToggle}
           /> */}
+
           {/* Watchlist Toggle Button */}
           <WatchlistToggleButton
             isActive={showWatchlistOnly}
