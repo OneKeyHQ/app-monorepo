@@ -50,6 +50,7 @@ export function TransactionsHistory({
       estimatedItemSize={80}
       showsVerticalScrollIndicator
       ListHeaderComponent={TransactionsHeader}
+      stickyHeaderIndices={[0]}
       contentContainerStyle={{
         paddingBottom: '$4',
       }}

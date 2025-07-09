@@ -20,6 +20,7 @@ function TransactionsHeaderBase() {
       alignItems="center"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
+      backgroundColor="$bgApp"
     >
       <SizableText {...commonTextProps} {...layoutConfig.time}>
         {intl.formatMessage({

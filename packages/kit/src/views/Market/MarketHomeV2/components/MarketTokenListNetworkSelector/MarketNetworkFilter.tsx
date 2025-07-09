@@ -1,10 +1,7 @@
 import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { ScrollView, XStack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { GradientMask } from './GradientMask';
@@ -54,7 +51,6 @@ const MarketNetworkFilter = forwardRef<
     },
     ref,
   ) => {
-    const intl = useIntl();
     const [scrollX, setScrollX] = useState(0);
     const scrollViewRef = useRef<ScrollViewType>(null);
     const shouldShowLeftGradient =
