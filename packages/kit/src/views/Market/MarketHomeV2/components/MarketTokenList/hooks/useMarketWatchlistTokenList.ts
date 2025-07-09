@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import {
@@ -52,6 +53,7 @@ export function useMarketWatchlistTokenList({
     },
     [watchlist],
     {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
       watchLoading: true,
     },
   );
