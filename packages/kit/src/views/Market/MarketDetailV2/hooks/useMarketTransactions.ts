@@ -43,8 +43,6 @@ export function useMarketTransactions({
     setAccumulatedTransactions([]);
   }, [tokenAddress, networkId]);
 
-  console.log('accumulatedTransactions', accumulatedTransactions);
-
   // Merge new and old data, add new data at the front, and deduplicate
   useEffect(() => {
     const newTransactions = transactionsData?.list;
@@ -54,16 +52,22 @@ export function useMarketTransactions({
     }
 
     setAccumulatedTransactions((prev) => {
-      // Get existing transaction hashes
-      const existingHashes = new Set(prev.map((tx) => tx.hash));
-      // Filter out new transactions (not in existing hashes)
-      const uniqueNewTransactions = newTransactions.filter(
-        (tx) => !existingHashes.has(tx.hash),
+      // Merge new data at the front with existing data
+      const mergedTransactions = [...newTransactions, ...prev].sort(
+        (a, b) => b.timestamp - a.timestamp,
       );
-      // Add new data at the front
-      const mergedTransactions = [...uniqueNewTransactions, ...prev];
-      // Sort by timestamp (newest first)
-      return mergedTransactions.sort((a, b) => b.timestamp - a.timestamp);
+
+      // Deduplicate by hash
+      const seenHashes = new Set<string>();
+      const uniqueTransactions = mergedTransactions.filter((tx) => {
+        if (seenHashes.has(tx.hash)) {
+          return false;
+        }
+        seenHashes.add(tx.hash);
+        return true;
+      });
+
+      return uniqueTransactions;
     });
   }, [transactionsData]);
 
