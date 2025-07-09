@@ -1,6 +1,6 @@
 plugins {
     id "com.android.application"
-    id "so.onekey.plugin.security"
+    // id "so.onekey.plugin.security"
 }
 apply plugin: "com.facebook.react"
 
@@ -228,8 +228,8 @@ dependencies {
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
-    def frescoVersion = rootProject.ext.frescoVersion
-    def noFlipper = System.getenv('NO_FLIPPER') == '1'
+    // def frescoVersion = rootProject.ext.frescoVersion
+    // def noFlipper = System.getenv('NO_FLIPPER') == '1'
 
     // If your app supports Android versions before Ice Cream Sandwich (API level 14)
     if (isGifEnabled || isWebpEnabled) {

@@ -7691,7 +7691,7 @@ __metadata:
     expo-linking: "npm:7.1.5"
     expo-local-authentication: "npm:16.0.4"
     expo-localization: "npm:16.1.5"
-    expo-navigation-bar: "npm:2.8.1"
+    expo-navigation-bar: "npm:4.2.7"
     expo-notifications: "npm:0.31.3"
     expo-screen-capture: "npm:7.1.5"
     expo-screen-orientation: "npm:8.1.7"
@@ -10840,7 +10840,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native/normalize-color@npm:^2.0.0, @react-native/normalize-color@npm:^2.1.0":
+"@react-native/normalize-color@npm:^2.1.0":
   version: 2.1.0
   resolution: "@react-native/normalize-color@npm:2.1.0"
   checksum: 10/a72b98538e6b7e265fb0669b8767d5f788777fb1a0ac1df7b0c82d8b3a804c8122aa7b819688c5e36fcf90b5ba93050b0070e29d3f0d70ab9530c2abd2bb9f9e
@@ -24929,15 +24929,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-navigation-bar@npm:2.8.1":
-  version: 2.8.1
-  resolution: "expo-navigation-bar@npm:2.8.1"
+"expo-navigation-bar@npm:4.2.7":
+  version: 4.2.7
+  resolution: "expo-navigation-bar@npm:4.2.7"
   dependencies:
-    "@react-native/normalize-color": "npm:^2.0.0"
+    "@react-native/normalize-colors": "npm:0.79.5"
     debug: "npm:^4.3.2"
+    react-native-edge-to-edge: "npm:1.6.0"
+    react-native-is-edge-to-edge: "npm:^1.1.6"
   peerDependencies:
     expo: "*"
-  checksum: 10/47dbe44f976959f5b0b1cbce030c685d5c86701edd4e308f85802b4f9adaeeabe77d60b2d4a89a09a39d85e182483b8c9fd0f6883e15cc7342a78e45f43e76ad
+    react: "*"
+    react-native: "*"
+  checksum: 10/7cfec767dac1b114ef13b2b6f466ff25a29a6435a825ea85e9fa921766f6e23173eda82e354309080f0b3eb496f9f0f34c0c997a6f3b8a2ccb60c890cb53b2b4
   languageName: node
   linkType: hard
 
