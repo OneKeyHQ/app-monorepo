@@ -1,0 +1,89 @@
+import { useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Button, Divider, SizableText, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+
+import PreSwapInfoItem from '../../components/PreSwapInfoItem';
+import PreSwapTokenItem from '../../components/PreSwapTokenItem';
+
+interface IPreSwapDialogContentProps {
+  onClose: () => void;
+  quoteResult: IFetchQuoteResult;
+}
+
+const PreSwapDialogContent = ({
+  onClose,
+  quoteResult,
+}: IPreSwapDialogContentProps) => {
+  const intl = useIntl();
+
+  // 模拟数据
+  const fromToken = quoteResult.fromTokenInfo;
+  const toToken = quoteResult.toTokenInfo;
+  const fromAmount = quoteResult.fromAmount || '0';
+  const toAmount = quoteResult.toAmount || '0';
+
+  // 模拟 slippage 和 fee 数据
+  const slippage = '0.5%';
+  const fee = useMemo(() => {
+    if (quoteResult.fee?.percentageFee) {
+      return `${quoteResult.fee.percentageFee}%`;
+    }
+    return '0.1%';
+  }, [quoteResult.fee?.percentageFee]);
+
+  const handleConfirm = () => {
+    // 处理确认逻辑
+    console.log('Confirm swap');
+    onClose();
+  };
+
+  return (
+    <YStack gap="$4" padding="$4">
+      {/* You pay */}
+      <SizableText size="$bodyLg" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.swap_page_from })}
+      </SizableText>
+
+      {/* From token item */}
+      <PreSwapTokenItem token={fromToken} amount={fromAmount} />
+
+      {/* You received */}
+      <SizableText size="$bodyLg" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.swap_page_to })}
+      </SizableText>
+
+      {/* To token item */}
+      <PreSwapTokenItem token={toToken} amount={toAmount} />
+
+      {/* Divider */}
+      <Divider />
+
+      {/* Info items */}
+      <YStack gap="$3">
+        <PreSwapInfoItem
+          title={intl.formatMessage({
+            id: ETranslations.swap_page_provider_slippage_tolerance,
+          })}
+          value={slippage}
+        />
+        <PreSwapInfoItem
+          title={intl.formatMessage({
+            id: ETranslations.swap_page_provider_fee_amount,
+          })}
+          value={fee}
+        />
+      </YStack>
+
+      {/* Primary button */}
+      <Button variant="primary" onPress={handleConfirm} size="large">
+        {intl.formatMessage({ id: ETranslations.transaction_confirm })}
+      </Button>
+    </YStack>
+  );
+};
+
+export default PreSwapDialogContent;
