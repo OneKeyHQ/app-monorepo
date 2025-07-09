@@ -87,21 +87,29 @@ function TransactionItemBase({ item, networkId }: ITransactionItemProps) {
       >
         {/* Column 1: amounts */}
         <YStack width="49%" alignItems="flex-end">
-          <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
-            {`${baseSign}${
-              numberFormat(baseToken.amount, {
-                formatter: 'balance',
-              }) as string
-            }`}
-          </SizableText>
+          <XStack>
+            <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
+              {`${baseSign}`}
+            </SizableText>
 
-          <SizableText size="$bodySm" color="$text" numberOfLines={1}>
-            {`${quoteSign}${
-              numberFormat(quoteToken.amount, {
-                formatter: 'balance',
-              }) as string
-            }`}
-          </SizableText>
+            <NumberSizeableText
+              size="$bodySm"
+              formatter="price"
+              color={typeColor}
+            >
+              {baseToken.amount}
+            </NumberSizeableText>
+          </XStack>
+
+          <XStack>
+            <SizableText size="$bodySm" numberOfLines={1}>
+              {`${quoteSign}`}
+            </SizableText>
+
+            <NumberSizeableText size="$bodySm" formatter="price">
+              {quoteToken.amount}
+            </NumberSizeableText>
+          </XStack>
         </YStack>
 
         {/* Column 2: symbols */}
