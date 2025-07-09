@@ -430,61 +430,68 @@ export default class ServiceSwap extends ServiceBase {
     contractAddress: string;
     direction?: ESwapDirectionType;
   }): Promise<ISwapToken[] | undefined> {
-    await this.cancelFetchTokenDetail(direction);
-    const params: IFetchTokenDetailParams = {
-      protocol: EProtocolOfExchange.SWAP,
-      networkId,
-      accountAddress,
-      contractAddress,
-    };
-    if (direction) {
-      if (direction === ESwapDirectionType.FROM) {
-        this._tokenDetailAbortControllerMap.from = new AbortController();
-      } else if (direction === ESwapDirectionType.TO) {
-        this._tokenDetailAbortControllerMap.to = new AbortController();
+    try {
+      await this.cancelFetchTokenDetail(direction);
+      const params: IFetchTokenDetailParams = {
+        protocol: EProtocolOfExchange.SWAP,
+        networkId,
+        accountAddress,
+        contractAddress,
+      };
+      if (direction) {
+        if (direction === ESwapDirectionType.FROM) {
+          this._tokenDetailAbortControllerMap.from = new AbortController();
+        } else if (direction === ESwapDirectionType.TO) {
+          this._tokenDetailAbortControllerMap.to = new AbortController();
+        }
       }
-    }
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    if (accountId && accountAddress && networkId) {
-      const accountAddressForAccountId =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
-      if (accountAddressForAccountId === accountAddress) {
-        params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        });
-      }
-      const inscriptionProtection =
-        await this.backgroundApi.serviceSetting.getInscriptionProtection();
-      const checkInscriptionProtectionEnabled =
-        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
-          {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      if (accountId && accountAddress && networkId) {
+        const accountAddressForAccountId =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
             networkId,
+          });
+        if (accountAddressForAccountId === accountAddress) {
+          params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
             accountId,
-          },
-        );
-      const withCheckInscription =
-        checkInscriptionProtectionEnabled && inscriptionProtection;
-      params.withCheckInscription = withCheckInscription;
+            networkId,
+          });
+        }
+        const inscriptionProtection =
+          await this.backgroundApi.serviceSetting.getInscriptionProtection();
+        const checkInscriptionProtectionEnabled =
+          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+            {
+              networkId,
+              accountId,
+            },
+          );
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && inscriptionProtection;
+        params.withCheckInscription = withCheckInscription;
+      }
+      const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
+        '/swap/v1/token/detail',
+        {
+          params,
+          signal:
+            direction === ESwapDirectionType.FROM
+              ? this._tokenDetailAbortControllerMap.from?.signal
+              : this._tokenDetailAbortControllerMap.to?.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+      return data?.data;
+    } catch (e) {
+      console.error(e);
+      return [];
     }
-    const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
-      '/swap/v1/token/detail',
-      {
-        params,
-        signal:
-          direction === ESwapDirectionType.FROM
-            ? this._tokenDetailAbortControllerMap.from?.signal
-            : this._tokenDetailAbortControllerMap.to?.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-    return data?.data;
   }
 
   @backgroundMethod()

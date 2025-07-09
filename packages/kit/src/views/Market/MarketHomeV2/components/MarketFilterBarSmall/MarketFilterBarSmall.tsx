@@ -59,7 +59,7 @@ function MarketFilterBarSmall({
   }
 
   return (
-    <XStack alignItems="center" gap="$3" px="$5" py="$3">
+    <XStack alignItems="center" gap="$6" pl="$7" pr="$5" py="$3">
       {/* Network Selector */}
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
@@ -69,12 +69,17 @@ function MarketFilterBarSmall({
         placement="bottom-start"
       />
 
-      {/* Watchlist Toggle Button */}
-      <WatchlistToggleButton
-        isActive={showWatchlistOnly}
-        onToggle={onWatchlistToggle || (() => {})}
-        size="small"
-      />
+      <XStack gap="$4">
+        {/* <WatchlistToggleButton
+            isActive={showWatchlistOnly}
+            onToggle={onWatchlistToggle}
+          /> */}
+        {/* Watchlist Toggle Button */}
+        <WatchlistToggleButton
+          isActive={showWatchlistOnly}
+          onToggle={onWatchlistToggle || (() => {})}
+        />
+      </XStack>
 
       {/* Time Range Selector */}
       <TimeRangeSelector
