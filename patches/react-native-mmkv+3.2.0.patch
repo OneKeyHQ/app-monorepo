@@ -1,3 +1,16 @@
+diff --git a/node_modules/react-native-mmkv/lib/commonjs/ModuleNotFoundError.js b/node_modules/react-native-mmkv/lib/commonjs/ModuleNotFoundError.js
+index 74e0366..6244aaa 100644
+--- a/node_modules/react-native-mmkv/lib/commonjs/ModuleNotFoundError.js
++++ b/node_modules/react-native-mmkv/lib/commonjs/ModuleNotFoundError.js
+@@ -26,7 +26,7 @@ function getFrameworkType() {
+ class ModuleNotFoundError extends Error {
+   constructor(cause) {
+     // TurboModule not found, something went wrong!
+-    if (global.__turboModuleProxy == null) {
++    if (typeof global === 'undefined' || global.__turboModuleProxy == null) {
+       // TurboModules are not available/new arch is not enabled.
+       // react-native-mmkv 3.x.x requires new arch (react-native >0.74)
+       // react-native-mmkv 2.x.x works on old arch (react-native <0.74)
 diff --git a/node_modules/react-native-mmkv/lib/commonjs/PlatformChecker.js b/node_modules/react-native-mmkv/lib/commonjs/PlatformChecker.js
 index ec2a23b..0f362e4 100644
 --- a/node_modules/react-native-mmkv/lib/commonjs/PlatformChecker.js
@@ -11,6 +24,45 @@ index ec2a23b..0f362e4 100644
      // In a WebBrowser/Electron the `process` variable does not exist
      return false;
    }
+diff --git a/node_modules/react-native-mmkv/lib/commonjs/createTextEncoder.js b/node_modules/react-native-mmkv/lib/commonjs/createTextEncoder.js
+index 03885f5..8efef54 100644
+--- a/node_modules/react-native-mmkv/lib/commonjs/createTextEncoder.js
++++ b/node_modules/react-native-mmkv/lib/commonjs/createTextEncoder.js
+@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", {
+ exports.createTextEncoder = createTextEncoder;
+ /* global TextEncoder */
+ function createTextEncoder() {
+-  if (global.TextEncoder != null) {
++  if (typeof global !== 'undefined' && global.TextEncoder != null) {
+     return new global.TextEncoder();
+   } else {
+     return {
+diff --git a/node_modules/react-native-mmkv/lib/module/MemoryWarningListener.js b/node_modules/react-native-mmkv/lib/module/MemoryWarningListener.js
+index 02031b9..6bd6d83 100644
+--- a/node_modules/react-native-mmkv/lib/module/MemoryWarningListener.js
++++ b/node_modules/react-native-mmkv/lib/module/MemoryWarningListener.js
+@@ -2,7 +2,7 @@
+ 
+ import { AppState } from 'react-native';
+ export function addMemoryWarningListener(mmkv) {
+-  if (global.WeakRef != null && global.FinalizationRegistry != null) {
++  if (typeof global !== 'undefined' && global.WeakRef != null && global.FinalizationRegistry != null) {
+     // 1. Weakify MMKV so we can safely use it inside the memoryWarning event listener
+     const weakMmkv = new WeakRef(mmkv);
+     const listener = AppState.addEventListener('memoryWarning', () => {
+diff --git a/node_modules/react-native-mmkv/lib/module/ModuleNotFoundError.js b/node_modules/react-native-mmkv/lib/module/ModuleNotFoundError.js
+index f9fdffb..7ff66ab 100644
+--- a/node_modules/react-native-mmkv/lib/module/ModuleNotFoundError.js
++++ b/node_modules/react-native-mmkv/lib/module/ModuleNotFoundError.js
+@@ -22,7 +22,7 @@ function getFrameworkType() {
+ export class ModuleNotFoundError extends Error {
+   constructor(cause) {
+     // TurboModule not found, something went wrong!
+-    if (global.__turboModuleProxy == null) {
++    if (typeof global === 'undefined' || global.__turboModuleProxy == null) {
+       // TurboModules are not available/new arch is not enabled.
+       // react-native-mmkv 3.x.x requires new arch (react-native >0.74)
+       // react-native-mmkv 2.x.x works on old arch (react-native <0.74)
 diff --git a/node_modules/react-native-mmkv/lib/module/PlatformChecker.js b/node_modules/react-native-mmkv/lib/module/PlatformChecker.js
 index d2efd0c..cdf23a2 100644
 --- a/node_modules/react-native-mmkv/lib/module/PlatformChecker.js
@@ -24,6 +76,45 @@ index d2efd0c..cdf23a2 100644
      // In a WebBrowser/Electron the `process` variable does not exist
      return false;
    }
+diff --git a/node_modules/react-native-mmkv/lib/module/createTextEncoder.js b/node_modules/react-native-mmkv/lib/module/createTextEncoder.js
+index 6d6ae5a..9ca4b88 100644
+--- a/node_modules/react-native-mmkv/lib/module/createTextEncoder.js
++++ b/node_modules/react-native-mmkv/lib/module/createTextEncoder.js
+@@ -2,7 +2,7 @@
+ 
+ /* global TextEncoder */
+ export function createTextEncoder() {
+-  if (global.TextEncoder != null) {
++  if (typeof global !== 'undefined' && global.TextEncoder != null) {
+     return new global.TextEncoder();
+   } else {
+     return {
+diff --git a/node_modules/react-native-mmkv/src/MemoryWarningListener.ts b/node_modules/react-native-mmkv/src/MemoryWarningListener.ts
+index 9ac5fbb..70fc7ca 100644
+--- a/node_modules/react-native-mmkv/src/MemoryWarningListener.ts
++++ b/node_modules/react-native-mmkv/src/MemoryWarningListener.ts
+@@ -3,7 +3,7 @@ import type { NativeEventSubscription } from 'react-native';
+ import { MMKVInterface } from './Types';
+ 
+ export function addMemoryWarningListener(mmkv: MMKVInterface): void {
+-  if (global.WeakRef != null && global.FinalizationRegistry != null) {
++  if (typeof global !== 'undefined' && global.WeakRef != null && global.FinalizationRegistry != null) {
+     // 1. Weakify MMKV so we can safely use it inside the memoryWarning event listener
+     const weakMmkv = new WeakRef(mmkv);
+     const listener = AppState.addEventListener('memoryWarning', () => {
+diff --git a/node_modules/react-native-mmkv/src/ModuleNotFoundError.ts b/node_modules/react-native-mmkv/src/ModuleNotFoundError.ts
+index fa8d786..b6023c8 100644
+--- a/node_modules/react-native-mmkv/src/ModuleNotFoundError.ts
++++ b/node_modules/react-native-mmkv/src/ModuleNotFoundError.ts
+@@ -33,7 +33,7 @@ function getFrameworkType(): 'react-native' | 'expo' | 'expo-go' {
+ export class ModuleNotFoundError extends Error {
+   constructor(cause?: unknown) {
+     // TurboModule not found, something went wrong!
+-    if (global.__turboModuleProxy == null) {
++    if (typeof global === 'undefined' || global.__turboModuleProxy == null) {
+       // TurboModules are not available/new arch is not enabled.
+       // react-native-mmkv 3.x.x requires new arch (react-native >0.74)
+       // react-native-mmkv 2.x.x works on old arch (react-native <0.74)
 diff --git a/node_modules/react-native-mmkv/src/PlatformChecker.ts b/node_modules/react-native-mmkv/src/PlatformChecker.ts
 index 4668c07..f36dbe8 100644
 --- a/node_modules/react-native-mmkv/src/PlatformChecker.ts
@@ -35,3 +126,15 @@ index 4668c07..f36dbe8 100644
      // In a WebBrowser/Electron the `process` variable does not exist
      return false;
    }
+diff --git a/node_modules/react-native-mmkv/src/createTextEncoder.ts b/node_modules/react-native-mmkv/src/createTextEncoder.ts
+index 22e8073..b75ba59 100644
+--- a/node_modules/react-native-mmkv/src/createTextEncoder.ts
++++ b/node_modules/react-native-mmkv/src/createTextEncoder.ts
+@@ -1,6 +1,6 @@
+ /* global TextEncoder */
+ export function createTextEncoder(): TextEncoder {
+-  if (global.TextEncoder != null) {
++  if (typeof global !== 'undefined' && global.TextEncoder != null) {
+     return new global.TextEncoder();
+   } else {
+     return {
