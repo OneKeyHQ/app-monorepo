@@ -121,13 +121,6 @@ const MarketNetworkFilter = forwardRef<
                   key={network.id}
                   networkName={network.name}
                   networkImageUri={network.logoURI}
-                  tooltipContent={
-                    network.isAllNetworks
-                      ? intl.formatMessage({
-                          id: ETranslations.global_all_networks,
-                        })
-                      : network.name
-                  }
                   isSelected={network?.id === selectedNetwork?.id}
                   onPress={() => onSelectNetwork(network)}
                 />
