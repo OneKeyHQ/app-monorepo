@@ -1,4 +1,4 @@
-import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
+import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
