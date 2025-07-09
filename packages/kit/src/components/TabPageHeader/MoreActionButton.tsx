@@ -48,6 +48,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -265,6 +266,8 @@ function MoreActionContentGridItem({
   isPrimeFeature,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
+  const { isPrimeAvailable } = usePrimeAvailable();
+
   const handlePress = useCallback(async () => {
     await closePopover?.();
     onPress();
@@ -287,6 +290,11 @@ function MoreActionContentGridItem({
     }
     return 'PrimeOutline';
   }, [isPrimeUser, themeVariant]);
+
+  if (isPrimeFeature && !isPrimeAvailable) {
+    return null;
+  }
+
   return (
     <YStack
       testID={testID}
@@ -416,11 +424,14 @@ function MoreActionContentGridRender({
 function MoreActionContentGrid() {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
+
   const openAddressBook = useShowAddressBook({
     useNewModal: true,
   });
   const { gtMd } = useMedia();
   const toMyOneKeyModal = useToMyOneKeyModal();
+  const { user } = usePrimeAuthV2();
+
   const handleDeviceManagement = useCallback(async () => {
     await toMyOneKeyModal();
   }, [toMyOneKeyModal]);
@@ -435,6 +446,16 @@ function MoreActionContentGrid() {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
+
+  const checkIsPrimeUser = useCallback(() => {
+    if (user?.primeSubscription?.isActive && user?.privyUserId) {
+      return true;
+    }
+    navigation.pushFullModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+    });
+    return false;
+  }, [navigation, user]);
 
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
@@ -454,6 +475,8 @@ function MoreActionContentGrid() {
 
     if (!networkId) return;
 
+    if (!checkIsPrimeUser()) return;
+
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
       params: {
@@ -461,7 +484,7 @@ function MoreActionContentGrid() {
         networkId,
       },
     });
-  }, [navigation, wallet?.id, network?.id]);
+  }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
 
   const { toReferFriendsPage } = useReferFriends();
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { flatten, groupBy, isEmpty, isNaN, map } from 'lodash';
@@ -28,6 +28,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '../../../components/AccountSelector';
@@ -59,7 +60,9 @@ function BulkCopyAddresses({
     EBulkCopyType.Account,
   );
   const [isGeneratingAddresses, setIsGeneratingAddresses] = useState(false);
-  const walletsMap = useRef<Record<string, IDBWallet>>({});
+  const walletsMap = useRef<
+    Record<string, IDBWallet & { parentWalletName?: string }>
+  >({});
   const sharedStyles = getSharedInputStyles({
     size: 'large',
   });
@@ -92,15 +95,32 @@ function BulkCopyAddresses({
       includingAccounts: true,
     });
 
-    const availableWalletsTemp: IDBWallet[] = [];
+    const availableWalletsTemp: (IDBWallet & {
+      parentWalletName?: string;
+    })[] = [];
 
     wallets.forEach((wallet) => {
       if (
         !accountUtils.isQrWallet({ walletId: wallet.id }) &&
-        !accountUtils.isOthersWallet({ walletId: wallet.id })
+        !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
+        !wallet.deprecated
       ) {
         availableWalletsTemp.push(wallet);
         walletsMap.current[wallet.id] = wallet;
+        if (wallet.hiddenWallets?.length) {
+          wallet.hiddenWallets.forEach((hiddenWallet) => {
+            if (!hiddenWallet.deprecated) {
+              availableWalletsTemp.push({
+                ...hiddenWallet,
+                parentWalletName: wallet.name,
+              });
+              walletsMap.current[hiddenWallet.id] = {
+                ...hiddenWallet,
+                parentWalletName: wallet.name,
+              };
+            }
+          });
+        }
       }
     });
 
@@ -131,7 +151,10 @@ function BulkCopyAddresses({
           networkIds,
         },
       );
-    return networkIdsCompatible;
+    // exclude lightning network
+    return networkIdsCompatible.filter(
+      (id) => !networkUtils.isLightningNetworkByNetworkId(id),
+    );
   }, [selectedWalletId]);
 
   const { result: networkAccountsByDeriveType, isLoading: isLoadingAccounts } =
@@ -360,6 +383,9 @@ function BulkCopyAddresses({
                   value: deriveType as IAccountDeriveTypes,
                 }),
               )}
+              floatingPanelProps={{
+                width: '$78',
+              }}
             />
           </Form.Field>
           <Form.Field
@@ -403,18 +429,21 @@ function BulkCopyAddresses({
                   label: '1',
                   onPress: () => {
                     formRange.setValue('amount', 1);
+                    void formRange.trigger('amount');
                   },
                 },
                 {
                   label: '10',
                   onPress: () => {
                     formRange.setValue('amount', 10);
+                    void formRange.trigger('amount');
                   },
                 },
                 {
                   label: '100',
                   onPress: () => {
                     formRange.setValue('amount', 100);
+                    void formRange.trigger('amount');
                   },
                 },
               ]}
@@ -437,6 +466,7 @@ function BulkCopyAddresses({
         walletId: selectedWalletId,
         networkId: selectedNetworkId,
         networkAccountsByDeriveType,
+        parentWalletName: selectedWallet?.parentWalletName,
       });
     } else if (copyType === EBulkCopyType.Range) {
       const resp = await handleGenerateAddresses();
@@ -444,6 +474,7 @@ function BulkCopyAddresses({
         walletId: selectedWalletId,
         networkId: selectedNetworkId,
         networkAccountsByDeriveType: resp,
+        parentWalletName: selectedWallet?.parentWalletName,
       });
     }
   }, [
@@ -453,6 +484,7 @@ function BulkCopyAddresses({
     selectedNetworkId,
     networkAccountsByDeriveType,
     handleGenerateAddresses,
+    selectedWallet?.parentWalletName,
   ]);
 
   useEffect(() => {
@@ -487,7 +519,9 @@ function BulkCopyAddresses({
                   id: ETranslations.global_select_wallet,
                 })}
                 items={availableWallets?.map((wallet) => ({
-                  label: wallet.name,
+                  label: wallet.parentWalletName
+                    ? `${wallet.parentWalletName} - ${wallet.name}`
+                    : wallet.name,
                   value: wallet.id,
                   leading: <WalletAvatar wallet={wallet} size="$6" />,
                 }))}
@@ -526,6 +560,9 @@ function BulkCopyAddresses({
                       />
                     </Stack>
                   );
+                }}
+                floatingPanelProps={{
+                  width: '$78',
                 }}
               />
             </Form.Field>
@@ -582,7 +619,10 @@ function BulkCopyAddresses({
                 : isGeneratingAddresses,
             disabled:
               copyType === EBulkCopyType.Account
-                ? !form.formState.isValid || isLoadingAccounts
+                ? !form.formState.isValid ||
+                  isLoadingAccounts ||
+                  !networkAccountsByDeriveType ||
+                  isEmpty(networkAccountsByDeriveType)
                 : !form.formState.isValid ||
                   !formRange.formState.isValid ||
                   isGeneratingAddresses,

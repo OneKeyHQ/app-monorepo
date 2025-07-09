@@ -35,7 +35,8 @@ function ExportAddresses({
   const { copyText } = useClipboard();
   const [isExporting, setIsExporting] = useState(false);
 
-  const { networkAccountsByDeriveType, walletId, networkId } = route.params;
+  const { networkAccountsByDeriveType, walletId, networkId, parentWalletName } =
+    route.params;
 
   const { wallet, network } = useAccountData({ walletId, networkId });
 
@@ -109,13 +110,17 @@ function ExportAddresses({
         'Derivation path': item.deriveType,
       }));
 
-    const filename = `${wallet?.name ?? ''}_${
-      network?.name ?? ''
-    }_addresses_${new Date().getTime()}.csv`;
+    const filename = parentWalletName
+      ? `${parentWalletName}_${wallet?.name ?? ''}_${
+          network?.name ?? ''
+        }_addresses_${new Date().getTime()}.csv`
+      : `${wallet?.name ?? ''}_${
+          network?.name ?? ''
+        }_addresses_${new Date().getTime()}.csv`;
 
     await csvExporterUtils.exportCSV(exportData, filename);
     setIsExporting(false);
-  }, [addressesData, network?.name, wallet?.name]);
+  }, [addressesData, network?.name, parentWalletName, wallet?.name]);
   const handleCopyAddresses = useCallback(() => {
     copyText(
       addressesData
