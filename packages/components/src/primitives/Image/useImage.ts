@@ -29,7 +29,7 @@ export function useImage(
   image: ImageRef | ImageSource | null;
   reFetchImage: () => void;
 } {
-  const resolvedSource = resolveSource(source) as ImageSource;
+  const resolvedSource = resolveSource(source);
   const cachedImage: ImageSource | null = useMemo(() => {
     const imageUri = resolvedSource?.uri;
     if (imageUri && IMAGE_CACHE_MAP.has(imageUri)) {
