@@ -67,7 +67,6 @@ export function makeHeaderScreenOptions({
 
   return {
     headerTitleAlign: 'left',
-    // @ts-expect-error
     header: ({
       back: headerBack,
       options,
