@@ -104,14 +104,13 @@ export function TokenDetailHeaderLeft({
                 })}
               </SizableText>
 
-              <XStack
-                cursor="pointer"
-                hoverStyle={{ opacity: 0.7 }}
-                pressStyle={{ opacity: 0.5 }}
+              <IconButton
                 onPress={handleCopyAddress}
-              >
-                <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-              </XStack>
+                variant="tertiary"
+                iconProps={{ width: 16, height: 16 }}
+                icon="Copy3Outline"
+                color="$iconSubdued"
+              />
             </XStack>
           ) : null}
 
