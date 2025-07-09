@@ -3,8 +3,6 @@ import { useCallback, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
-import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
-import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 
 import { ActionButton } from './components/ActionButton';
 import { AntiMEVToggle } from './components/AntiMEVToggle';
@@ -18,57 +16,35 @@ import {
 } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
+import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 
 export type ISwapPanelContentProps = {
-  swapPanel: ReturnType<typeof useSwapPanel>;
-  isLoading: boolean;
-  balanceLoading: boolean;
-  slippageAutoValue?: number;
-  supportSpeedSwap: boolean;
-  isApproved: boolean;
-  defaultTokens: IToken[];
-  balance: BigNumber;
-  balanceToken?: IToken;
   onApprove: () => void;
   onSwap: () => void;
-  swapMevNetConfig: string[];
-  priceRate?: {
-    rate: number;
-    fromTokenSymbol: string;
-    toTokenSymbol: string;
-  };
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
-  const {
-    swapPanel,
-    isLoading,
-    balanceLoading,
-    slippageAutoValue,
-    supportSpeedSwap,
-    defaultTokens,
-    isApproved,
-    balance,
-    balanceToken,
-    onApprove,
-    onSwap,
-    swapMevNetConfig,
-    priceRate,
-  } = props;
+  const { onApprove, onSwap } = props;
 
+  // Get all state from atoms via useSwapPanel hook
   const {
-    paymentAmount,
     paymentToken,
     setPaymentAmount,
     setPaymentToken,
     antiMEV,
-    handleAntiMEVToggle,
     tradeType,
     setTradeType,
-    setSlippage,
     networkId,
-  } = swapPanel;
+    balance,
+    balanceToken,
+    defaultTokens,
+    supportSpeedSwap,
+    isLoading,
+    isApproved,
+    swapMevNetConfig,
+    priceRate,
+  } = useSwapPanel();
 
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
 
@@ -89,7 +65,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tradeType={tradeType}
         onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
         selectedToken={
-          tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
+          tradeType === ESwapDirection.SELL
+            ? (balanceToken as any)
+            : paymentToken
         }
         selectableTokens={defaultTokens}
         onTokenChange={(token) => setPaymentToken(token)}
@@ -106,12 +84,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       ) : null}
 
       {/* Balance display */}
-      <BalanceDisplay
-        balance={balance}
-        token={balanceToken}
-        isLoading={balanceLoading}
-        onBalanceClick={handleBalanceClick}
-      />
+      <BalanceDisplay onBalanceClick={handleBalanceClick} />
 
       {/* Unsupported swap warning */}
       {!isLoading && !supportSpeedSwap ? <UnsupportedSwapWarning /> : null}
@@ -122,29 +95,20 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         <ActionButton
           disabled={!supportSpeedSwap}
           loading={isLoading}
-          tradeType={tradeType}
           onPress={onSwap}
-          amount={paymentAmount.toFixed()}
           token={
-            tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
+            tradeType === ESwapDirection.SELL
+              ? (balanceToken as any)
+              : paymentToken
           }
-          balance={balance}
-          paymentToken={paymentToken}
-          networkId={networkId}
         />
       )}
 
       {/* Slippage setting */}
-      <SlippageSetting
-        autoDefaultValue={slippageAutoValue}
-        isMEV={antiMEV}
-        onSlippageChange={(item) => setSlippage(item.value)}
-      />
+      <SlippageSetting autoDefaultValue={0.5} isMEV={antiMEV} />
 
       {/* AntiMEV toggle */}
-      {swapMevNetConfig?.includes(swapPanel.networkId ?? '') ? (
-        <AntiMEVToggle value={antiMEV} onToggle={handleAntiMEVToggle} />
-      ) : null}
+      {swapMevNetConfig?.includes(networkId ?? '') ? <AntiMEVToggle /> : null}
     </YStack>
   );
 }

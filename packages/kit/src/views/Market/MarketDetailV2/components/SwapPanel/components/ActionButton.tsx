@@ -11,35 +11,37 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
-import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
+import { ESwapDirection } from '../hooks/useTradeType';
+import { useSwapPanel } from '../hooks/useSwapPanel';
 
 import type { IToken } from '../types';
 
 export interface IActionButtonProps extends IButtonProps {
-  tradeType: ITradeType;
-  amount: string;
   token?: {
     symbol: string;
   };
-  balance?: BigNumber;
-  paymentToken?: IToken;
-  networkId?: string;
 }
 
 export function ActionButton({
-  tradeType,
-  amount,
   token,
-  balance,
   disabled,
   onPress,
-  paymentToken,
-  networkId,
   ...otherProps
 }: IActionButtonProps) {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
   const [settingsValue] = useSettingsPersistAtom();
+  
+  // Get state from atoms
+  const {
+    tradeType,
+    paymentAmount,
+    paymentToken,
+    networkId,
+    balance,
+  } = useSwapPanel();
+  
+  const amount = paymentAmount.toFixed();
 
   // Get payment token price for buy orders
   const { price: paymentTokenPrice } = usePaymentTokenPrice(

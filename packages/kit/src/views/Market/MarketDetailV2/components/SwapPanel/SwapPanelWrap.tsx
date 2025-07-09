@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, Dialog, useMedia } from '@onekeyhq/components';
@@ -15,8 +14,6 @@ import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection, type ITradeType } from './hooks/useTradeType';
 import { SwapPanelContent } from './SwapPanelContent';
-
-import type { IToken } from './types';
 
 export function SwapPanelWrap() {
   const intl = useIntl();
@@ -38,14 +35,9 @@ export function SwapPanelWrap() {
     slippage,
   } = swapPanel;
 
-  const {
-    isLoading,
-    speedConfig,
-    supportSpeedSwap,
-    defaultTokens,
-    provider,
-    swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '');
+  const { speedConfig, defaultTokens, provider } = useSpeedSwapInit(
+    networkId || '',
+  );
 
   const useSpeedSwapActionsParams = {
     slippage,
@@ -75,18 +67,7 @@ export function SwapPanelWrap() {
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
 
-  const {
-    speedSwapBuildTx,
-    speedSwapBuildTxLoading,
-    checkTokenAllowanceLoading,
-    speedSwapApproveHandler,
-    speedSwapApproveLoading,
-    shouldApprove,
-    balance,
-    balanceToken,
-    fetchBalanceLoading,
-    priceRate,
-  } = speedSwapActions;
+  const { speedSwapBuildTx, speedSwapApproveHandler } = speedSwapActions;
 
   const filterDefaultTokens = useMemo(() => {
     return defaultTokens.filter(
@@ -130,26 +111,7 @@ export function SwapPanelWrap() {
   }, [speedSwapBuildTx]);
 
   const swapPanelContent = (
-    <SwapPanelContent
-      priceRate={priceRate}
-      swapMevNetConfig={swapMevNetConfig}
-      swapPanel={swapPanel}
-      balance={balance ?? new BigNumber(0)}
-      balanceToken={balanceToken as IToken}
-      balanceLoading={fetchBalanceLoading}
-      isLoading={
-        isLoading ||
-        speedSwapApproveLoading ||
-        speedSwapBuildTxLoading ||
-        checkTokenAllowanceLoading
-      }
-      onSwap={handleSwap}
-      isApproved={!shouldApprove}
-      slippageAutoValue={speedConfig?.slippage}
-      supportSpeedSwap={supportSpeedSwap}
-      defaultTokens={filterDefaultTokens}
-      onApprove={handleApprove}
-    />
+    <SwapPanelContent onSwap={handleSwap} onApprove={handleApprove} />
   );
 
   const showSwapDialog = (tradeTypeValue: ITradeType) => {

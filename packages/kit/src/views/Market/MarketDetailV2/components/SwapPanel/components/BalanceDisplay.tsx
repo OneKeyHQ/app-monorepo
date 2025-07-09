@@ -3,25 +3,25 @@ import { useIntl } from 'react-intl';
 import { SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useSwapPanel } from '../hooks/useSwapPanel';
+
 import { InfoItemLabel } from './InfoItemLabel';
 
 import type { IToken } from '../types';
-import type BigNumber from 'bignumber.js';
 
 export interface IBalanceDisplayProps {
-  balance?: BigNumber;
-  token?: IToken;
-  isLoading?: boolean;
   onBalanceClick?: () => void;
 }
 
-export function BalanceDisplay({
-  balance,
-  token,
-  isLoading = false,
-  onBalanceClick,
-}: IBalanceDisplayProps) {
+export function BalanceDisplay({ onBalanceClick }: IBalanceDisplayProps) {
   const intl = useIntl();
+
+  // Get state from atoms
+  const { balance, balanceToken, fetchBalanceLoading } = useSwapPanel();
+
+  const token = balanceToken as IToken;
+  const isLoading = fetchBalanceLoading;
+
   return (
     <XStack justifyContent="space-between" alignItems="center" minHeight="$6">
       <InfoItemLabel

@@ -9,20 +9,23 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapPanel } from '../../hooks/useSwapPanel';
 import { InfoItemLabel } from '../InfoItemLabel/InfoItemLabel';
 
 export interface ISlippageSettingProps {
   autoDefaultValue?: number;
   isMEV?: boolean;
-  onSlippageChange?: (item: ISwapSlippageSegmentItem) => void;
 }
 
 export function SlippageSetting({
   isMEV = false,
   autoDefaultValue = 0.5,
-  onSlippageChange,
 }: ISlippageSettingProps) {
   const intl = useIntl();
+
+  // Get state from atoms
+  const { setSlippage } = useSwapPanel();
+
   const [slippageItem, setSlippageItem] = useState<ISwapSlippageSegmentItem>({
     key: ESwapSlippageSegmentKey.AUTO,
     value: autoDefaultValue,
@@ -32,12 +35,12 @@ export function SlippageSetting({
     (item: ISwapSlippageSegmentItem, closeFn?: IDialogInstance['close']) => {
       console.log('Slippage saved:', item);
       setSlippageItem(item);
-      onSlippageChange?.(item);
+      setSlippage(item.value);
       if (closeFn) {
         void closeFn({ flag: 'save' });
       }
     },
-    [onSlippageChange],
+    [setSlippage],
   );
 
   const onSlippageHandleClick = useCallback(() => {

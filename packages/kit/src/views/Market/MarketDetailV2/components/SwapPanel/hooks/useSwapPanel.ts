@@ -1,22 +1,84 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import BigNumber from 'bignumber.js';
+import { useAtom } from 'jotai';
+
+import {
+  antiMEVAtom,
+  balanceAtom,
+  balanceTokenAtom,
+  baseTokenAtom,
+  checkTokenAllowanceLoadingAtom,
+  defaultTokensAtom,
+  fetchBalanceLoadingAtom,
+  isApprovedAtom,
+  isLoadingAtom,
+  networkIdAtom,
+  paymentAmountAtom,
+  paymentTokenAtom,
+  priceRateAtom,
+  providerAtom,
+  shouldApproveAtom,
+  shouldResetApproveAtom,
+  slippageAtom,
+  speedSwapBuildTxLoadingAtom,
+  speedSwapInitLoadingAtom,
+  spenderAddressAtom,
+  supportSpeedSwapAtom,
+  swapMevNetConfigAtom,
+} from '../atoms/swapPanelAtoms';
 
 import { useTradeType } from './useTradeType';
-
-import type { IToken } from '../types';
 
 export function useSwapPanel({
   networkId: initialNetworkId,
 }: { networkId?: string } = {}) {
   const { tradeType, setTradeType } = useTradeType();
-  const [paymentAmount, setPaymentAmount] = useState<BigNumber>(
-    new BigNumber(0),
+
+  // Core state
+  const [paymentAmount, setPaymentAmount] = useAtom(paymentAmountAtom);
+  const [antiMEV, setAntiMEV] = useAtom(antiMEVAtom);
+  const [paymentToken, setPaymentToken] = useAtom(paymentTokenAtom);
+  const [networkId, setNetworkId] = useAtom(networkIdAtom);
+  const [slippage, setSlippage] = useAtom(slippageAtom);
+
+  // Balance and tokens
+  const [balance, setBalance] = useAtom(balanceAtom);
+  const [balanceToken, setBalanceToken] = useAtom(balanceTokenAtom);
+  const [fetchBalanceLoading, setFetchBalanceLoading] = useAtom(
+    fetchBalanceLoadingAtom,
   );
-  const [antiMEV, setAntiMEV] = useState(false);
-  const [paymentToken, setPaymentToken] = useState<IToken>();
-  const [networkId, setNetworkId] = useState(initialNetworkId);
-  const [slippage, setSlippage] = useState<number>(0.5);
+  const [baseToken, setBaseToken] = useAtom(baseTokenAtom);
+  const [defaultTokens, setDefaultTokens] = useAtom(defaultTokensAtom);
+
+  // Price and rate
+  const [priceRate, setPriceRate] = useAtom(priceRateAtom);
+
+  // Loading states
+  const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useAtom(
+    speedSwapBuildTxLoadingAtom,
+  );
+  const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] = useAtom(
+    checkTokenAllowanceLoadingAtom,
+  );
+  const [speedSwapInitLoading, setSpeedSwapInitLoading] = useAtom(
+    speedSwapInitLoadingAtom,
+  );
+
+  // Approval states
+  const [shouldApprove, setShouldApprove] = useAtom(shouldApproveAtom);
+  const [shouldResetApprove, setShouldResetApprove] = useAtom(
+    shouldResetApproveAtom,
+  );
+
+  // Config
+  const [supportSpeedSwap, setSupportSpeedSwap] = useAtom(supportSpeedSwapAtom);
+  const [provider, setProvider] = useAtom(providerAtom);
+  const [spenderAddress, setSpenderAddress] = useAtom(spenderAddressAtom);
+  const [swapMevNetConfig, setSwapMevNetConfig] = useAtom(swapMevNetConfigAtom);
+
+  // Derived state
+  const [isLoading] = useAtom(isLoadingAtom);
+  const [isApproved] = useAtom(isApprovedAtom);
 
   useEffect(() => {
     if (initialNetworkId) {
@@ -26,30 +88,67 @@ export function useSwapPanel({
 
   const handleAntiMEVToggle = useCallback(() => {
     setAntiMEV((prev) => !prev);
-  }, []);
+  }, [setAntiMEV]);
 
   return {
+    // Core state
     paymentAmount,
     setPaymentAmount,
-
-    // For NetworkSelector
-    networkId,
-    setNetworkId,
-
-    // For AntiMEVToggle
-    handleAntiMEVToggle,
     antiMEV,
-
-    // For TokenInputSection
+    handleAntiMEVToggle,
     paymentToken,
     setPaymentToken,
+    networkId,
+    setNetworkId,
+    slippage,
+    setSlippage,
 
-    // For TradeTypeSelector
+    // Trade type
     tradeType,
     setTradeType,
 
-    // For SlippageSetting
-    slippage,
-    setSlippage,
+    // Balance and tokens
+    balance,
+    setBalance,
+    balanceToken,
+    setBalanceToken,
+    fetchBalanceLoading,
+    setFetchBalanceLoading,
+    baseToken,
+    setBaseToken,
+    defaultTokens,
+    setDefaultTokens,
+
+    // Price and rate
+    priceRate,
+    setPriceRate,
+
+    // Loading states
+    speedSwapBuildTxLoading,
+    setSpeedSwapBuildTxLoading,
+    checkTokenAllowanceLoading,
+    setCheckTokenAllowanceLoading,
+    speedSwapInitLoading,
+    setSpeedSwapInitLoading,
+
+    // Approval states
+    shouldApprove,
+    setShouldApprove,
+    shouldResetApprove,
+    setShouldResetApprove,
+
+    // Config
+    supportSpeedSwap,
+    setSupportSpeedSwap,
+    provider,
+    setProvider,
+    spenderAddress,
+    setSpenderAddress,
+    swapMevNetConfig,
+    setSwapMevNetConfig,
+
+    // Derived state
+    isLoading,
+    isApproved,
   };
 }
