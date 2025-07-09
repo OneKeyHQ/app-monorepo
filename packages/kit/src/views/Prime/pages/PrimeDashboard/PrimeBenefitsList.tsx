@@ -99,7 +99,6 @@ export function PrimeBenefitsList({
         }}
       />
       <PrimeBenefitsItem
-        isComingSoon
         icon="Copy3Outline"
         title={intl.formatMessage({
           id: ETranslations.global_bulk_copy_addresses,
