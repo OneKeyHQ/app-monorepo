@@ -1,2 +1,1 @@
-// export * from 'react-native-zip-archive';
-export {};
+export * from 'react-native-zip-archive';
