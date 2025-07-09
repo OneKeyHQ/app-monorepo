@@ -501,17 +501,6 @@ export function EnterPhase({
       },
       onSubmit: async (form: UseFormReturn<IEnterPhaseFormValues>) => {
         const values = form.getValues();
-        // if (
-        //   !isSingleInput &&
-        //   (values.passphrase || '') !== (values.confirmPassphrase || '')
-        // ) {
-        //   Toast.error({
-        //     title: intl.formatMessage({
-        //       id: ETranslations.feedback_passphrase_not_matched,
-        //     }),
-        //   });
-        //   return;
-        // }
         const passphrase = values.passphrase || '';
         onConfirm({
           passphrase,
@@ -536,7 +525,6 @@ export function EnterPhase({
 
   const media = useMedia();
   const [secureEntry1, setSecureEntry1] = useState(true);
-  // const [secureEntry2, setSecureEntry2] = useState(true);
 
   // Watch passphrase input to control button state
   const passphraseValue = form.watch('passphrase');
@@ -655,32 +643,6 @@ export function EnterPhase({
             })}
           />
         </Form.Field>
-        {/* {!isSingleInput ? (
-          <Form.Field
-            name="confirmPassphrase"
-            label={intl.formatMessage({
-              id: ETranslations.form_confirm_passphrase,
-            })}
-          >
-            <Input
-              secureTextEntry={secureEntry2}
-              placeholder={intl.formatMessage({
-                id: ETranslations.form_confirm_passphrase_placeholder,
-              })}
-              addOns={[
-                {
-                  iconName: secureEntry2 ? 'EyeOutline' : 'EyeOffOutline',
-                  onPress: () => {
-                    setSecureEntry2(!secureEntry2);
-                  },
-                },
-              ]}
-              {...(media.md && {
-                size: 'large',
-              })}
-            />
-          </Form.Field>
-        ) : null} */}
         {!isSingleInput ? (
           <Form.Field
             horizontal
@@ -720,19 +682,6 @@ export function EnterPhase({
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
-      {/* <Button
-        m="$0"
-        mt="$2.5"
-        $md={
-          {
-            size: 'large',
-          } as any
-        }
-        variant="secondary"
-        onPress={handleSwitchOnDevice}
-      >
-        {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
-      </Button> */}
       {allowUseAttachPin ? (
         <Button
           m="$0"

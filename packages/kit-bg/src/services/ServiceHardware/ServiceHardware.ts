@@ -361,6 +361,7 @@ class ServiceHardware extends ServiceBase {
       instance.on(UI_EVENT, async (e) => {
         const originEvent = e as UiEvent;
         const { type: uiRequestType, payload } = e;
+        // console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
         defaultLogger.hardware.sdkLog.uiEvent(uiRequestType, payload);
 
         const { device, type: eventType, passphraseState } = payload || {};
