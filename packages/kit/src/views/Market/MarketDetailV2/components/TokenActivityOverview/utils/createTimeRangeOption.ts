@@ -15,11 +15,21 @@ export function createTimeRangeOption(
   const priceChangePercent = tokenDetail?.[priceChangeKey];
   if (priceChangePercent) {
     const percentage = parseFloat(priceChangePercent);
+    const isZero = percentage === 0;
+    const isPositive = percentage > 0;
+
+    // Format percentage with + sign for positive values
+    let formattedPercentage = `${percentage.toFixed(2)}%`;
+    if (isPositive) {
+      formattedPercentage = `+${formattedPercentage}`;
+    }
+
     return {
       label,
       value,
-      percentageChange: `${percentage.toFixed(2)}%`,
-      isPositive: percentage > 0,
+      percentageChange: formattedPercentage,
+      isPositive,
+      isZero,
     };
   }
   return null;
