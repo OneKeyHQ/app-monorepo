@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
@@ -78,15 +79,17 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnProps: { flex: 1 },
-      render: (text: string) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter={text.length > 6 ? 'marketCap' : 'price'}
-          formatterOptions={{ currency, capAtMaxT: true }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
+      render: (text: string) => {
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
+            formatterOptions={{ currency, capAtMaxT: true }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
       renderSkeleton: () => <Skeleton width={70} height={16} />,
     },
     {
