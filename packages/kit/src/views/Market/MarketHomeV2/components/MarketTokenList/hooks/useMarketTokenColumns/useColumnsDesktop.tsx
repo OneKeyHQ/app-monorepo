@@ -78,11 +78,11 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnProps: { flex: 1 },
-      render: (text: number) => (
+      render: (text: string) => (
         <NumberSizeableText
           size="$bodyMd"
-          formatter="price"
-          formatterOptions={{ currency }}
+          formatter={text.length > 6 ? 'marketCap' : 'price'}
+          formatterOptions={{ currency, capAtMaxT: true }}
         >
           {text}
         </NumberSizeableText>
@@ -113,7 +113,7 @@ export const useColumnsDesktop = (
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency }}
+          formatterOptions={{ currency, capAtMaxT: true }}
         >
           {text}
         </NumberSizeableText>

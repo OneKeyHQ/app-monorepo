@@ -127,8 +127,8 @@ function TransactionItemBase({ item, networkId }: ITransactionItemProps) {
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
-        formatter="price"
-        formatterOptions={{ currency: '$' }}
+        formatter="marketCap"
+        formatterOptions={{ currency: '$', capAtMaxT: true }}
         {...layoutConfig.price}
       >
         {isBuy ? item.to.price : item.from.price}
