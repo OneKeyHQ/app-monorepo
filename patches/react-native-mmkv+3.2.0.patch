@@ -1,0 +1,37 @@
+diff --git a/node_modules/react-native-mmkv/lib/commonjs/PlatformChecker.js b/node_modules/react-native-mmkv/lib/commonjs/PlatformChecker.js
+index ec2a23b..0f362e4 100644
+--- a/node_modules/react-native-mmkv/lib/commonjs/PlatformChecker.js
++++ b/node_modules/react-native-mmkv/lib/commonjs/PlatformChecker.js
+@@ -5,7 +5,7 @@ Object.defineProperty(exports, "__esModule", {
+ });
+ exports.isTest = isTest;
+ function isTest() {
+-  if (global.process == null) {
++  if (typeof global === 'undefined' || global.process == null) {
+     // In a WebBrowser/Electron the `process` variable does not exist
+     return false;
+   }
+diff --git a/node_modules/react-native-mmkv/lib/module/PlatformChecker.js b/node_modules/react-native-mmkv/lib/module/PlatformChecker.js
+index d2efd0c..cdf23a2 100644
+--- a/node_modules/react-native-mmkv/lib/module/PlatformChecker.js
++++ b/node_modules/react-native-mmkv/lib/module/PlatformChecker.js
+@@ -1,7 +1,7 @@
+ "use strict";
+ 
+ export function isTest() {
+-  if (global.process == null) {
++  if (typeof global === 'undefined' || global.process == null) {
+     // In a WebBrowser/Electron the `process` variable does not exist
+     return false;
+   }
+diff --git a/node_modules/react-native-mmkv/src/PlatformChecker.ts b/node_modules/react-native-mmkv/src/PlatformChecker.ts
+index 4668c07..f36dbe8 100644
+--- a/node_modules/react-native-mmkv/src/PlatformChecker.ts
++++ b/node_modules/react-native-mmkv/src/PlatformChecker.ts
+@@ -1,5 +1,5 @@
+ export function isTest(): boolean {
+-  if (global.process == null) {
++  if (typeof global === 'undefined' || global.process == null) {
+     // In a WebBrowser/Electron the `process` variable does not exist
+     return false;
+   }
