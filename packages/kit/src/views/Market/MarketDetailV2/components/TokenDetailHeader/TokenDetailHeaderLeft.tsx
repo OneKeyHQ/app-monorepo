@@ -74,7 +74,8 @@ export function TokenDetailHeaderLeft({
 
   const handleOpenXSearch = useCallback(() => {
     if (symbol && address) {
-      const searchUrl = `https://x.com/search?q=(${symbol} OR ${address})&src=typed_query&f=live`;
+      const q = encodeURIComponent(`(${symbol} OR ${address})`);
+      const searchUrl = `https://x.com/search?q=${q}&src=typed_query&f=live`;
       openUrlExternal(searchUrl);
     }
   }, [symbol, address]);
