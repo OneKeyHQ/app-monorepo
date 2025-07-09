@@ -1,6 +1,7 @@
 import Expo
 import React
 import ReactAppDependencyProvider
+import JPush
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -20,7 +21,7 @@ public class AppDelegate: ExpoAppDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
     bindReactNativeFactory(factory)
-
+    RCTI18nUtil.sharedInstance().allowRTL(true)
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
     factory.startReactNative(
@@ -28,7 +29,6 @@ public class AppDelegate: ExpoAppDelegate {
       in: window,
       launchOptions: launchOptions)
 #endif
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -49,6 +49,21 @@ public class AppDelegate: ExpoAppDelegate {
   ) -> Bool {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
+  }
+  
+  // Register APNS & Upload DeviceToken
+  public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    JPUSHService.registerDeviceToken(deviceToken)
+  }
+  
+  // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
+  public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
+    return super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+  
+  // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
+  public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    return super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
   }
 }
 
