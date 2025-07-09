@@ -58,9 +58,9 @@ allprojects {
     //         url(new File(['node', '--print', "require.resolve('jsc-android/package.json')"].execute(null, rootDir).text.trim(), '../dist'))
     //     }
 
-    //     maven {
-    //         url "$rootDir/../../../node_modules/@notifee/react-native/android/libs"
-    //     }
+        // maven {
+        //     url "$rootDir/../../../node_modules/@notifee/react-native/android/libs"
+        // }
         
     //     google()
     //     mavenCentral()
@@ -71,6 +71,9 @@ allprojects {
         maven {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
             url(reactNativeAndroidDir)
+        }
+        maven {
+            url "$rootDir/../../../node_modules/@notifee/react-native/android/libs"
         }
         google()
         mavenCentral()
