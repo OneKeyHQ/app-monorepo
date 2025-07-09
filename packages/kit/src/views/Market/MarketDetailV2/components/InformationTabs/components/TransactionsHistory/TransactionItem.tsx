@@ -123,7 +123,7 @@ function TransactionItemBase({ item, networkId }: ITransactionItemProps) {
         formatterOptions={{ currency: '$' }}
         {...layoutConfig.price}
       >
-        {item.from.price}
+        {isBuy ? item.to.price : item.from.price}
       </NumberSizeableText>
 
       {/* Value */}
