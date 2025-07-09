@@ -1,3 +1,17 @@
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+index fe5c491..5d95467 100644
+--- a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+@@ -85,6 +85,9 @@ const RCTTextInputViewConfig = {
+     topContentSizeChange: {
+       registrationName: 'onContentSizeChange',
+     },
++    topPaste: {
++      registrationName: 'onPaste',
++    },
+     topChangeSync: {
+       registrationName: 'onChangeSync',
+     },
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 index 565b0f6..1ae845e 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
