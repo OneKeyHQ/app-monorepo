@@ -24,6 +24,8 @@ export enum EHardwareUiStateAction {
   // @onekeyfe/hd-core UI_REQUEST const map ----------------------------------------------
 
   REQUEST_PIN = 'ui-request_pin',
+  REQUEST_PIN_TYPE_PIN_ENTRY = 'ButtonRequest_PinEntry',
+  REQUEST_PIN_TYPE_ATTACH_PIN = 'ButtonRequest_AttachPin',
   INVALID_PIN = 'ui-invalid_pin',
   REQUEST_BUTTON = 'ui-button',
   REQUEST_PASSPHRASE = 'ui-request_passphrase',

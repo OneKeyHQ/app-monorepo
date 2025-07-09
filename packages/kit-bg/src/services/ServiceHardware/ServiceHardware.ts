@@ -307,9 +307,15 @@ class ServiceHardware extends ServiceBase {
         [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
-        if (originEvent.payload.type === 'ButtonRequest_PinEntry') {
+        if (
+          originEvent.payload.type ===
+          EHardwareUiStateAction.REQUEST_PIN_TYPE_PIN_ENTRY
+        ) {
           newPayload.requestPinType = 'PinEntry';
-        } else if (originEvent.payload.type === 'ButtonRequest_AttachPin') {
+        } else if (
+          originEvent.payload.type ===
+          EHardwareUiStateAction.REQUEST_PIN_TYPE_ATTACH_PIN
+        ) {
           newPayload.requestPinType = 'AttachPin';
         }
       } else {
@@ -587,6 +593,20 @@ class ServiceHardware extends ServiceBase {
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUnlock(connectId, {}),
     );
+  }
+
+  @backgroundMethod()
+  async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
+    let features = await this.getFeaturesWithoutCache({
+      connectId,
+    });
+
+    if (!features.unlocked) {
+      // unlock device
+      features = await this.unlockDevice({ connectId });
+    }
+
+    return features;
   }
 
   cancelTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1200,26 +1220,6 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
     await hardwareSDK.switchTransport(
       transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
-    );
-  }
-
-  @backgroundMethod()
-  async existsStandardWallet({ connectId }: { connectId: string }) {
-    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
-    const { devices } = await this.backgroundApi.serviceAccount.getAllDevices();
-
-    const device = devices?.find((item) => item.connectId === connectId);
-    if (!device) {
-      return false;
-    }
-    return (
-      wallets.filter(
-        (item) =>
-          item.type === WALLET_TYPE_HW &&
-          (item.passphraseState == null || item.passphraseState.length === 0) &&
-          item.associatedDevice === device.id &&
-          !item.isMocked,
-      ).length > 0
     );
   }
 }
