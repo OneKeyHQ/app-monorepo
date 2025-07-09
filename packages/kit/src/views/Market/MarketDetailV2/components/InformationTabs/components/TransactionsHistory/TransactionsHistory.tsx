@@ -53,7 +53,7 @@ export function TransactionsHistory({
       data={transactions}
       renderItem={renderItem}
       keyExtractor={(item) => item.hash}
-      estimatedItemSize={80}
+      estimatedItemSize={40}
       showsVerticalScrollIndicator
       ListHeaderComponent={TransactionsHeader}
       stickyHeaderIndices={[0]}
