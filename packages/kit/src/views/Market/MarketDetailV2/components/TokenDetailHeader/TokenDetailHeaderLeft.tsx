@@ -10,6 +10,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -50,6 +51,16 @@ export function TokenDetailHeaderLeft({
     }
   }, [address, copyText]);
 
+  const handleOpenContractAddress = useCallback(() => {
+    if (address && networkId) {
+      void openTokenDetailsUrl({
+        networkId,
+        tokenAddress: address,
+        openInExternal: true,
+      });
+    }
+  }, [address, networkId]);
+
   const handleOpenWebsite = useCallback(() => {
     if (website) {
       openUrlExternal(website);
@@ -77,16 +88,15 @@ export function TokenDetailHeaderLeft({
 
         <XStack gap="$2" ai="center">
           {address ? (
-            <XStack
-              borderRadius="$1"
-              ai="center"
-              gap="$1"
-              onPress={handleCopyAddress}
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-            >
-              <SizableText size="$bodySm" color="$textSubdued">
+            <XStack borderRadius="$1" ai="center" gap="$1">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ color: '$text' }}
+                pressStyle={{ color: '$textActive' }}
+                onPress={handleOpenContractAddress}
+              >
                 {accountUtils.shortenAddress({
                   address,
                   leadingLength: 6,
@@ -94,7 +104,14 @@ export function TokenDetailHeaderLeft({
                 })}
               </SizableText>
 
-              <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+              <XStack
+                cursor="pointer"
+                hoverStyle={{ opacity: 0.7 }}
+                pressStyle={{ opacity: 0.5 }}
+                onPress={handleCopyAddress}
+              >
+                <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+              </XStack>
             </XStack>
           ) : null}
 
