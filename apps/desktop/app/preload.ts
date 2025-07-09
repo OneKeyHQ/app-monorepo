@@ -9,28 +9,12 @@ import { ipcRenderer, nativeImage } from 'electron';
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import type {
-  EDesktopStoreKeys,
   IDesktopAppState,
-  IDesktopMainProcessDevOnlyApiParams,
-  IDesktopStoreMap,
   IDesktopStoreUpdateSettings,
-  IMediaType,
-  IPrefType,
 } from '@onekeyhq/shared/types/desktop';
-import type {
-  INotificationPermissionDetail,
-  INotificationSetBadgeParams,
-  INotificationShowParams,
-} from '@onekeyhq/shared/types/notification';
 
 import { ipcMessageKeys } from './config';
 
-import type {
-  IDesktopIAPGetProductsParams,
-  IDesktopIAPGetProductsResult,
-  IDesktopSystemInfo,
-} from './config';
-import type { IMacBundleInfo } from './libs/utils';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 
 export interface IVerifyUpdateParams {
@@ -105,10 +89,6 @@ type IDesktopAPILegacy = {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: NobleBleAPI;
-  iapGetProducts: (
-    params: IDesktopIAPGetProductsParams,
-  ) => Promise<IDesktopIAPGetProductsResult>;
-  // nobleBle: NobleBleAPI;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
