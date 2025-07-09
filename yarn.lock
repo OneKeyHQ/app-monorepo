@@ -7361,7 +7361,6 @@ __metadata:
     bip174: "npm:3.0.0-rc.1"
     browserify-zlib: "npm:^0.2.0"
     cheerio: "npm:^1.0.0-rc.12"
-    colord: "npm:^2.9.3"
     copy-webpack-plugin: "npm:^6.0.2"
     cross-env: "npm:^7.0.3"
     crypto-browserify: "npm:^3.12.0"
@@ -7698,6 +7697,7 @@ __metadata:
     expo-secure-store: "npm:14.2.3"
     expo-sharing: "npm:13.1.5"
     expo-splash-screen: "npm:0.30.9"
+    expo-system-ui: "npm:5.0.10"
     expo-web-browser: "npm:14.2.0"
     folderslint: "npm:^1.2.0"
     https-browserify: "npm:^1.0.0"
@@ -20478,7 +20478,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"colord@npm:^2.9.1, colord@npm:^2.9.3":
+"colord@npm:^2.9.1":
   version: 2.9.3
   resolution: "colord@npm:2.9.3"
   checksum: 10/907a4506d7307e2f580b471b581e992181ed75ab0c6925ece9ca46d88161d2fc50ed15891cd0556d0d9321237ca75afc9d462e4c050b939ef88428517f047f30
@@ -25036,6 +25036,23 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/6fabb68557b2110b1efa1883c21c56b8cfeb154d811732ff5faa373100ba19e5a9e28807cf8b0d80ad857b980958d3764b4828542ed319e7d0c26d70a6a40720
+  languageName: node
+  linkType: hard
+
+"expo-system-ui@npm:5.0.10":
+  version: 5.0.10
+  resolution: "expo-system-ui@npm:5.0.10"
+  dependencies:
+    "@react-native/normalize-colors": "npm:0.79.5"
+    debug: "npm:^4.3.2"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+    react-native-web: "*"
+  peerDependenciesMeta:
+    react-native-web:
+      optional: true
+  checksum: 10/2a7af17a93d43977b48668eac89a8a54b7621fbe9863caea005e9ae602cc7a0f1de872f8830971b9e16eb02d4ec253300076cee38f9c76912a2726da8c70095d
   languageName: node
   linkType: hard
 
