@@ -11,7 +11,6 @@ import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
-import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
 import { ProviderJotaiContextMarketV2 } from '../../../states/jotai/contexts/marketV2';
@@ -35,11 +34,6 @@ function MarketDetail({
     <XStack gap="$3" ai="center">
       <HeaderLeftCloseButton />
       <AccountSelectorTriggerHome num={0} />
-      <NetworkSelectorTriggerHome
-        num={0}
-        recordNetworkHistoryEnabled
-        hideOnNoAccount
-      />
     </XStack>
   );
 
