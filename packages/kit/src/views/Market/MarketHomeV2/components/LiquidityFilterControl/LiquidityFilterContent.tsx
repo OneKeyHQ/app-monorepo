@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Button, Heading, Input, Stack, XStack } from '@onekeyhq/components';
+import { Button, Input, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ILiquidityFilterContentProps = {
@@ -61,7 +62,11 @@ function LiquidityFilterContent({
         <Button
           flex={1}
           key={preset}
-          variant={selectedPreset === preset ? 'primary' : 'secondary'}
+          variant="secondary"
+          borderColor={
+            selectedPreset === preset ? '$borderNeutralDefault' : '$transparent'
+          }
+          borderWidth={StyleSheet.hairlineWidth}
           onPress={() => handlePresetPress(preset)}
         >
           ≥ {preset}
@@ -71,20 +76,12 @@ function LiquidityFilterContent({
   );
 
   return (
-    <Stack gap="$4" p="$4" minWidth={280} {...rest}>
-      <Stack gap="$3">
+    <Stack gap="$4" p="$4" {...rest}>
+      <Stack gap="$2">
         {renderPresetRow(0, 2)}
         {renderPresetRow(2, 4)}
-      </Stack>
-
-      <Stack gap="$3">
-        <XStack gap="$3">
+        <XStack gap="$2">
           <Stack flex={1} gap="$2">
-            <Heading size="$headingSm">
-              {intl.formatMessage({
-                id: ETranslations.dexmarket_custom_filters_min,
-              })}
-            </Heading>
             <Input
               placeholder={intl.formatMessage({
                 id: ETranslations.dexmarket_custom_filters_min,
@@ -94,11 +91,6 @@ function LiquidityFilterContent({
             />
           </Stack>
           <Stack flex={1} gap="$2">
-            <Heading size="$headingSm">
-              {intl.formatMessage({
-                id: ETranslations.dexmarket_custom_filters_max,
-              })}
-            </Heading>
             <Input
               placeholder={intl.formatMessage({
                 id: ETranslations.dexmarket_custom_filters_max,
@@ -108,8 +100,10 @@ function LiquidityFilterContent({
             />
           </Stack>
         </XStack>
+      </Stack>
 
-        <XStack gap="$3">
+      <Stack gap="$6">
+        <XStack gap="$2">
           <Button variant="secondary" flex={1} onPress={handleClear}>
             {intl.formatMessage({ id: ETranslations.global_clear })}
           </Button>

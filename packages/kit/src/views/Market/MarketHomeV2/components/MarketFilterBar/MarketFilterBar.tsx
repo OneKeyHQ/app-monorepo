@@ -4,8 +4,8 @@ import { XStack, YStack } from '@onekeyhq/components';
 
 import { LiquidityFilterControl } from '../LiquidityFilterControl';
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
+import { MarketViewToggle } from '../MarketViewToggle';
 import { TimeRangeSelector } from '../TimeRangeSelector';
-import { WatchlistToggleButton } from '../WatchlistToggleButton';
 
 import { MarketFilterBarSkeleton } from './MarketFilterBarSkeleton';
 
@@ -56,7 +56,7 @@ export function MarketFilterBar({
   }
 
   return (
-    <YStack gap="$3">
+    <YStack gap="$1" pb="$3">
       {/* Network Selector */}
       <MarketTokenListNetworkSelector
         selectedNetworkId={selectedNetworkId}
@@ -65,7 +65,15 @@ export function MarketFilterBar({
         forceLoading={isLoading}
       />
 
-      <XStack gap="$3" pl="$5" pr="$5">
+      <XStack gap="$6" pl="$7" pr="$5">
+        <XStack gap="$4">
+          {/* Market View Toggle - Trending and Watchlist buttons */}
+          <MarketViewToggle
+            showWatchlistOnly={showWatchlistOnly}
+            onToggle={onWatchlistToggle}
+          />
+        </XStack>
+
         {/* Time Range Selector */}
         <TimeRangeSelector
           value={currentTimeRange}
@@ -76,12 +84,6 @@ export function MarketFilterBar({
         <LiquidityFilterControl
           value={liquidityFilter}
           onApply={handleLiquidityFilterApply}
-        />
-
-        {/* Watchlist Toggle Button */}
-        <WatchlistToggleButton
-          isActive={showWatchlistOnly}
-          onToggle={onWatchlistToggle}
         />
       </XStack>
     </YStack>

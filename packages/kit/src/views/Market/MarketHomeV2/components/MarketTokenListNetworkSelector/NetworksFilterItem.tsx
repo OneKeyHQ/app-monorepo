@@ -1,13 +1,10 @@
-import { StyleSheet } from 'react-native';
-
-import { Image, SizableText, Tooltip, XStack } from '@onekeyhq/components';
+import { Image, SizableText, XStack } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
 export type INetworksFilterItemProps = {
   networkImageUri?: string;
   networkName?: string;
   isSelected?: boolean;
-  tooltipContent?: string;
   disabled?: boolean;
 } & IXStackProps;
 
@@ -15,20 +12,19 @@ export function NetworksFilterItem({
   networkImageUri,
   networkName,
   isSelected,
-  tooltipContent,
   disabled,
   ...rest
 }: INetworksFilterItemProps) {
-  const BaseComponent = (
+  return (
     <XStack
+      alignItems="center"
       justifyContent="center"
-      px="$3"
+      px="$2.5"
       py="$1.5"
       gap="$2"
       borderRadius="$2"
       userSelect="none"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor={isSelected ? '$borderActive' : '$transparent'}
+      backgroundColor={isSelected ? '$bgActive' : '$transparent'}
       {...(!isSelected &&
         !disabled && {
           focusable: true,
@@ -79,15 +75,5 @@ export function NetworksFilterItem({
         </SizableText>
       ) : null}
     </XStack>
-  );
-
-  if (!tooltipContent) return BaseComponent;
-
-  return (
-    <Tooltip
-      renderContent={tooltipContent}
-      placement="top"
-      renderTrigger={BaseComponent}
-    />
   );
 }

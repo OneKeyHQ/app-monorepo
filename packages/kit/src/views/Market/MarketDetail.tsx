@@ -1,3 +1,16 @@
+import type { IPageScreenProps } from '@onekeyhq/components';
+
+import { MarketDetailV1 } from './MarketDetailV1';
 import { MarketDetailV2 } from './MarketDetailV2';
 
-export { MarketDetailV2 as default };
+export type IMarketDetailProps = IPageScreenProps<any, any>;
+
+export default function MarketDetail(props: IMarketDetailProps) {
+  const { route } = props;
+
+  if (route.params?.token) {
+    return <MarketDetailV1 {...(props as any)} />;
+  }
+
+  return <MarketDetailV2 {...(props as any)} />;
+}

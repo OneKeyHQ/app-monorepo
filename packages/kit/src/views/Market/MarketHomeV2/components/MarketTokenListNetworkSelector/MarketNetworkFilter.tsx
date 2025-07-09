@@ -1,11 +1,8 @@
 import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { ScrollView, XStack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { GradientMask } from './GradientMask';
 import { MoreButton } from './MoreButton';
@@ -14,10 +11,10 @@ import { NetworksFilterItem } from './NetworksFilterItem';
 import type { ScrollView as ScrollViewType } from 'react-native';
 
 interface ISwapNetworkToggleGroupProps {
-  networks: ISwapNetwork[];
-  onSelectNetwork: (network: ISwapNetwork) => void;
-  selectedNetwork?: ISwapNetwork;
-  onMoreNetworkSelect: (network: ISwapNetwork) => void;
+  networks: IServerNetwork[];
+  onSelectNetwork: (network: IServerNetwork) => void;
+  selectedNetwork?: IServerNetwork;
+  onMoreNetworkSelect: (network: IServerNetwork) => void;
   placement?: IPopoverProps['placement'];
 }
 
@@ -54,7 +51,6 @@ const MarketNetworkFilter = forwardRef<
     },
     ref,
   ) => {
-    const intl = useIntl();
     const [scrollX, setScrollX] = useState(0);
     const scrollViewRef = useRef<ScrollViewType>(null);
     const shouldShowLeftGradient =
@@ -65,7 +61,7 @@ const MarketNetworkFilter = forwardRef<
       () => ({
         scrollToNetwork: (networkId: string) => {
           const networkIndex = networks.findIndex(
-            (network) => network.networkId === networkId,
+            (network) => network.id === networkId,
           );
           if (networkIndex !== -1 && scrollViewRef.current) {
             const itemWidth =
@@ -101,8 +97,8 @@ const MarketNetworkFilter = forwardRef<
         maxWidth="100%"
         overflow="hidden"
         borderWidth={1}
-        borderColor="$borderSubdued"
-        borderRadius="$2"
+        borderColor="$neutral4"
+        borderRadius="$3"
       >
         <XStack flex={1} position="relative">
           <ScrollView
@@ -115,20 +111,13 @@ const MarketNetworkFilter = forwardRef<
             }}
             scrollEventThrottle={16}
           >
-            <XStack gap="$2" pr="$4">
+            <XStack gap="$0.5" pr="$4">
               {networks.map((network) => (
                 <NetworksFilterItem
-                  key={network.networkId}
+                  key={network.id}
                   networkName={network.name}
                   networkImageUri={network.logoURI}
-                  tooltipContent={
-                    network.isAllNetworks
-                      ? intl.formatMessage({
-                          id: ETranslations.global_all_networks,
-                        })
-                      : network.name
-                  }
-                  isSelected={network?.networkId === selectedNetwork?.networkId}
+                  isSelected={network?.id === selectedNetwork?.id}
                   onPress={() => onSelectNetwork(network)}
                 />
               ))}
@@ -144,7 +133,7 @@ const MarketNetworkFilter = forwardRef<
 
         <MoreButton
           networks={networks}
-          selectedNetworkId={selectedNetwork?.networkId}
+          selectedNetworkId={selectedNetwork?.id}
           onNetworkSelect={onMoreNetworkSelect}
           placement={placement}
         />
