@@ -104,7 +104,7 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
   }, [networkFuseSearch, text, networks]);
   return (
     <Stack flex={1}>
-      <Stack px="$5" pb="$4">
+      <Stack px="$5" pb="$2">
         <SearchBar
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}

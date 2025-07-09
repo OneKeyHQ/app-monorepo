@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
@@ -73,16 +75,21 @@ export function TokenList({
         const networkConfig = Object.values(presetNetworksMap).find(
           (n) => n.id === token.networkId,
         );
-
+        const priceBN = new BigNumber(swapTokenDetail?.price || 0);
+        const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
+        const valueProps =
+          swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
+            ? {
+                value: priceBN.multipliedBy(balanceBN).toFixed(2),
+                currency: currencySymbol,
+              }
+            : undefined;
         return {
           ...token,
           balance: swapTokenDetail?.balanceParsed,
           price: swapTokenDetail?.price,
           networkImageSrc: networkConfig?.logoURI,
-          valueProps:
-            swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
-              ? { value: swapTokenDetail.price, currency: currencySymbol }
-              : undefined,
+          valueProps,
         };
       } catch (error) {
         console.error(`Failed to fetch details for ${token.symbol}:`, error);

@@ -13,27 +13,26 @@ export interface IWatchlistToggleButtonProps {
 export function WatchlistToggleButton({
   isActive,
   onToggle,
-  size = 'small',
   disabled = false,
 }: IWatchlistToggleButtonProps) {
   const intl = useIntl();
 
   return (
     <Button
-      size={size}
       variant="tertiary"
       onPress={onToggle}
+      bg={isActive ? '$bgHover' : '$transparent'}
       disabled={disabled}
     >
       <XStack alignItems="center" gap="$2">
         <Icon
-          name={isActive ? 'StarSolid' : 'StarOutline'}
-          size="$4"
-          color={isActive ? '$iconActive' : '$iconDisabled'}
+          name="StarOutline"
+          size="$4.5"
+          color={isActive ? '$icon' : '$iconSubdued'}
         />
         <SizableText
-          size="$bodyMd"
-          color={isActive ? '$textOnPrimary' : '$textSubdued'}
+          size="$bodyMdMedium"
+          color={isActive ? '$text' : '$textSubdued'}
         >
           {intl.formatMessage({
             id: ETranslations.global_watchlist,

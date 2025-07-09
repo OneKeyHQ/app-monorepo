@@ -548,7 +548,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+  override validateXprvt(_xprvt: string): Promise<IXprvtValidation> {
     return Promise.resolve({
       isValid: false,
     });

@@ -55,16 +55,15 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<IDBAccount[]> {
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const paths: string[] = [];
         const addressesInfo = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
           sdkGetAddressFn: async ({
-            connectId,
-            deviceId,
-            pathPrefix,
+            connectId: _connectId,
+            deviceId: _deviceId,
+            pathPrefix: _pathPrefix,
             template,
-            showOnOnekeyFn,
+            showOnOnekeyFn: _showOnOnekeyFn,
           }) => {
             const buildFullPath = (p: { index: number }) =>
               accountUtils.buildPathFromTemplate({
@@ -77,7 +76,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               usedIndexes,
               hwSdkNetwork: this.hwSdkNetwork,
               buildPath: buildFullPath,
-              buildResultAccount: ({ account, index }) => ({
+              buildResultAccount: ({ account, index: _index }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
                 publicKey: account.payload?.publicKey || '',
