@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 
-export function usePrivyUniversalV2() {
+import type { IUsePrivyUniversalV2 } from './usePrivyUniversalV2Types';
+
+export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
   const { logout, isReady, getAccessToken, user } = usePrivy();
   const authenticated = !!user;
 
