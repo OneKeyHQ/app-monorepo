@@ -6,6 +6,7 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
@@ -86,7 +87,15 @@ export function SlippageSetting({
       />
 
       <XStack onPress={onSlippageHandleClick} alignItems="center" gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size="$bodyMd"
+          color={
+            slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
+            slippageItem.value > swapSlippageWillAheadMinValue
+              ? '$textCaution'
+              : '$textSubdued'
+          }
+        >
           {displaySlippageText}
         </SizableText>
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
