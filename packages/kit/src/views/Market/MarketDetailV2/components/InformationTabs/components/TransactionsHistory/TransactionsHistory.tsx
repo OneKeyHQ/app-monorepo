@@ -28,9 +28,12 @@ export function TransactionsHistory({
   });
 
   const renderItem: IListViewProps<IMarketTokenTransaction>['renderItem'] =
-    useCallback(({ item }: { item: IMarketTokenTransaction }) => {
-      return <TransactionItem item={item} />;
-    }, []);
+    useCallback(
+      ({ item }: { item: IMarketTokenTransaction }) => {
+        return <TransactionItem item={item} networkId={networkId} />;
+      },
+      [networkId],
+    );
 
   if (isRefreshing && transactions.length === 0) {
     return <TransactionsSkeleton />;
