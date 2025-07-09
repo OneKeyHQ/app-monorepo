@@ -20,7 +20,7 @@ import type { Layout } from '@react-navigation/elements';
 import type {
   HeaderBackButtonProps,
   HeaderOptions,
-} from '@react-navigation/elements/src/types';
+} from '@react-navigation/elements';
 
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },

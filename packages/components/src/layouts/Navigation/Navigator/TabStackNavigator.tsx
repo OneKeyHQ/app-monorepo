@@ -12,7 +12,7 @@ import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const Stack = createStackNavigator();
 
