@@ -1,11 +1,6 @@
-import { useEffect, useState } from 'react';
-
-import { useDebouncedCallback } from 'use-debounce';
-
 import { Stack } from '@onekeyhq/components';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketTokenList } from '../components/MarketTokenList';
 import { EMarketHomeTab } from '../types';
 
@@ -34,48 +29,16 @@ export function DesktopLayout({
   liquidityFilter,
   activeTab,
 }: IDesktopLayoutProps) {
-  const [showSmallBar, setShowSmallBar] = useState(false);
-
-  // Use a debounced callback to avoid excessive state updates during fast scroll events
-  const handleScrollOffsetChange = useDebouncedCallback((offsetY: number) => {
-    setShowSmallBar(offsetY > 20);
-  }, 50);
-
-  useEffect(() => {
-    setShowSmallBar(false);
-  }, [selectedNetworkId]);
-
   return (
     <>
       <Stack>
-        {/* Normal (large) filter bar shown when list is at top */}
-        <Stack
-          opacity={showSmallBar ? 0 : 1}
-          height={showSmallBar ? 50 : 120}
-          animation="quick"
-        >
-          <MarketFilterBar {...filterBarProps} />
-        </Stack>
-
-        <Stack
-          position="absolute"
-          top={showSmallBar ? 0 : -50}
-          left={0}
-          right={0}
-          zIndex={100}
-          opacity={showSmallBar ? 1 : 0}
-          pointerEvents={showSmallBar ? 'auto' : 'none'}
-          animation="quick"
-        >
-          <MarketFilterBarSmall {...filterBarProps} />
-        </Stack>
+        <MarketFilterBar {...filterBarProps} />
       </Stack>
 
       <Stack px="$5" flex={1}>
         <MarketTokenList
           networkId={selectedNetworkId}
           liquidityFilter={liquidityFilter}
-          onScrollOffsetChange={handleScrollOffsetChange}
           defaultShowWatchlistOnly={activeTab === EMarketHomeTab.Watchlist}
           externalWatchlistControl={{
             showWatchlistOnly: filterBarProps.showWatchlistOnly,

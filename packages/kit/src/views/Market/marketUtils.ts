@@ -18,6 +18,21 @@ export function buildMarketFullUrl({ coinGeckoId }: { coinGeckoId: string }) {
   return `${origin}${path}`;
 }
 
+export function buildMarketFullUrlV2({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}) {
+  const origin =
+    platformEnv.isWeb && !platformEnv.isDev
+      ? globalThis.location.origin
+      : WEB_APP_URL;
+  const path = `/market/tokens/${networkId}/${address}`;
+  return `${origin}${path}`;
+}
+
 export const marketNavigation = {
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,
