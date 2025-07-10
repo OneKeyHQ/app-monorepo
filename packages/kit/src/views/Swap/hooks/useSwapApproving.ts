@@ -13,7 +13,9 @@ export function useSwapApproving() {
   const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
     useInAppNotificationAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
+  const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>(
+    undefined,
+  );
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
   }

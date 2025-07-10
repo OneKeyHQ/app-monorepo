@@ -71,7 +71,7 @@ export interface ISubSettingConfig {
     badgeText: string;
   };
   onPress?: (navigation?: ReturnType<typeof useAppNavigation>) => void;
-  renderElement?: React.ReactElement;
+  renderElement?: React.ReactElement<any>;
 }
 
 export enum ESettingsTabNames {

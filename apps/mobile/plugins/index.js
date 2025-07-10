@@ -161,14 +161,14 @@ module.exports = (config, projectRoot) => {
             next();
           }
         });
-    config.hooks = {
-      onEnd: () =>
-        new Promise((resolve) => {
-          const { linkAssets } = require('./linkAssets');
-          linkAssets(projectRoot);
-          resolve();
-        }),
-    };
+    // config.hooks = {
+    //   onEnd: () =>
+    //     new Promise((resolve) => {
+    //       const { linkAssets } = require('./linkAssets');
+    //       linkAssets(projectRoot);
+    //       resolve();
+    //     }),
+    // };
   }
   return config;
 };

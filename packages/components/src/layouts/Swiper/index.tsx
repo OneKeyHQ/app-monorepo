@@ -14,6 +14,7 @@ import {
 } from './hooks';
 
 import type { ISwiperProps, ISwiperRef } from './type';
+import type { IYStackProps } from '../../primitives';
 import type { ListRenderItemInfo } from 'react-native';
 
 function BaseSwiperFlatList<T>(
@@ -32,7 +33,7 @@ function BaseSwiperFlatList<T>(
   }: ISwiperProps<T>,
   ref: ForwardedRef<ISwiperRef>,
 ) {
-  const sharedStyle = useSharedStyle(restProps as any);
+  const sharedStyle = useSharedStyle(restProps as any) as IYStackProps;
   const { containerWidth, onContainerLayout } = useSharedContainerWidth();
   const [scrollEnabled, setScrollEnabled] = useScrollEnabled(disableGesture);
   const handleRenderItem = useCallback(
@@ -144,8 +145,8 @@ function BaseSwiperFlatList<T>(
   );
 }
 
-export const Swiper = forwardRef(
-  BaseSwiperFlatList,
-) as typeof BaseSwiperFlatList;
+export const Swiper = forwardRef(BaseSwiperFlatList) as <T>(
+  props: ISwiperProps<T> & { ref?: React.Ref<ISwiperRef> },
+) => React.ReactElement | null;
 
 export * from './type';

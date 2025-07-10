@@ -2,7 +2,11 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -92,7 +96,7 @@ function BasicMarketStarV2({
         color: checked ? '$iconActive' : '$iconDisabled',
       }}
       onPress={onPress}
-      {...props}
+      {...(props as IXStackProps)}
     />
   );
 }

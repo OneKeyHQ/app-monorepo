@@ -48,9 +48,11 @@ let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
 
 type IProps = DefaultNavigatorOptions<
   ParamListBase,
+  string,
   StackNavigationState<ParamListBase>,
   IModalNavigationOptions,
-  IModalNavigationEventMap
+  IModalNavigationEventMap,
+  any
 > &
   StackRouterOptions &
   IModalNavigationConfig;
@@ -270,7 +272,11 @@ function ModalNavigator({
           >
             {currentRouteIndex <= 1 ? (
               <YStack
-                ref={(ref) => (MODAL_ANIMATED_BACKDROP_VIEW_REF = ref)}
+                ref={(ref) => {
+                  if (ref) {
+                    MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
+                  }
+                }}
                 fullscreen
                 style={{
                   opacity: 0,
@@ -328,9 +334,4 @@ function ModalNavigator({
   );
 }
 
-export default createNavigatorFactory<
-  StackNavigationState<ParamListBase>,
-  IModalNavigationOptions,
-  IModalNavigationEventMap,
-  typeof ModalNavigator
->(ModalNavigator);
+export default createNavigatorFactory(ModalNavigator);

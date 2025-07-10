@@ -38,6 +38,22 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>metamask</string>
+		<string>rainbow</string>
+		<string>safe</string>
+		<string>zerion</string>
+		<string>trust</string>
+		<string>tpoutside</string>
+		<string>imtokenv2</string>
+		<string>phantom</string>
+		<string>coinbase</string>
+		<string>fireblocks-wc</string>
+		<string>bitkeep</string>
+		<string>oneinch</string>
+		<string>itms-apps</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
@@ -65,6 +81,8 @@
 	<string>Use Camera to scan QR Code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -95,22 +113,6 @@
 		<string>A000000151000000</string>
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
-	</array>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>metamask</string>
-		<string>rainbow</string>
-		<string>safe</string>
-		<string>zerion</string>
-		<string>trust</string>
-		<string>tpoutside</string>
-		<string>imtokenv2</string>
-		<string>phantom</string>
-		<string>coinbase</string>
-		<string>fireblocks-wc</string>
-		<string>bitkeep</string>
-		<string>oneinch</string>
-		<string>itms-apps</string>
 	</array>
 </dict>
 </plist>

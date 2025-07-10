@@ -27,10 +27,8 @@ import escape from 'escape-string-regexp';
 import * as queryString from 'query-string';
 
 // ---CHANGED Begin----: import from core instead of relative path
-import findFocusedRoute from '@react-navigation/core/src/findFocusedRoute';
-import type { PathConfigMap } from '@react-navigation/core/src/types';
-import validatePathConfig from '@react-navigation/core/src/validatePathConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { type PathConfigMap, findFocusedRoute, validatePathConfig } from '@react-navigation/core';
 // ---CHANGED end----
 
 type Options<ParamList extends {}> = {

@@ -133,7 +133,7 @@ export function useAddToken({
     };
   }, [networkId, token?.networkId]);
 
-  const searchedTokenRef = useRef<IToken>();
+  const searchedTokenRef = useRef<IToken>(undefined);
   const fetchContractList = useDebouncedCallback(
     async (params: { value: string; networkId: string }) => {
       if (!token && !params.value.trim()) {

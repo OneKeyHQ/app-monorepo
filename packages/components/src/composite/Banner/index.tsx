@@ -18,6 +18,7 @@ import type {
   IImageSourceProps,
   ISizableTextProps,
   IStackStyle,
+  IXStackProps,
 } from '../../primitives';
 
 export interface IBannerData {
@@ -108,10 +109,10 @@ export function Banner<T extends IBannerData>({
   showCloseButton = false,
   onBannerClose,
   ...props
-}: {
+}: IStackStyle & {
   data: T[];
   itemContainerStyle?: IStackStyle;
-  indicatorContainerStyle?: IStackStyle;
+  indicatorContainerStyle?: IXStackProps;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
@@ -120,7 +121,7 @@ export function Banner<T extends IBannerData>({
   showCloseButton?: boolean;
   showPaginationButton?: boolean;
   onBannerClose?: (bannerId: string) => void;
-} & IStackStyle) {
+}) {
   const [isHovering, setIsHovering] = useState(false);
   const setIsHoveringThrottled = useDebouncedCallback((value: boolean) => {
     setIsHovering(value);

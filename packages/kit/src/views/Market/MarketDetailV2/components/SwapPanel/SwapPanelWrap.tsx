@@ -113,7 +113,7 @@ export function SwapPanelWrap() {
     }
   }, [speedConfig?.slippage, setSlippage]);
 
-  const dialogRef = useRef<ReturnType<typeof Dialog.show>>();
+  const dialogRef = useRef<ReturnType<typeof Dialog.show>>(undefined);
 
   useEffect(() => {
     if (!media.md) {

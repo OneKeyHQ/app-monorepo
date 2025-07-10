@@ -3,7 +3,6 @@
 // react-native-crypto
 //      react-native-quick-crypto
 // react-native-get-random-values
-//      (react-native-crypto depend on) react-native-randombytes (deprecated)
 console.log('================ cross-crypto (native)');
 
 // delete globalThis.crypto.getRandomValues first

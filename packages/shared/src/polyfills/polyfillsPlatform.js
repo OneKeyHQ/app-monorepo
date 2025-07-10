@@ -24,12 +24,14 @@ if (typeof process === 'undefined') {
 }
 
 // TextEncoder and TextDecoder polyfill for starcoin
-if (typeof TextDecoder === 'undefined') {
+// Expo implements TextDecoder but only supports utf8 encoding
+if (platformEnv.isNative || typeof TextDecoder === 'undefined') {
   shimsInjectedLog('TextDecoder');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   global.TextDecoder = require('text-encoding').TextDecoder;
 }
-if (typeof TextEncoder === 'undefined') {
+// Expo implements TextEncoder but only supports utf8 encoding
+if (platformEnv.isNative || typeof TextEncoder === 'undefined') {
   shimsInjectedLog('TextEncoder');
   global.TextEncoder = require('text-encoding').TextEncoder;
 }

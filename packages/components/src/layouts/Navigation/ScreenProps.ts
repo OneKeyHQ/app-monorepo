@@ -9,10 +9,7 @@ import type {
 } from '@react-navigation/core';
 import type { HeaderOptions } from '@react-navigation/elements';
 import type { ParamListBase, Route, RouteProp } from '@react-navigation/native';
-import type {
-  HeaderButtonProps,
-  NativeStackNavigationOptions,
-} from '@react-navigation/native-stack/src/types';
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import type { StackNavigationEventMap } from '@react-navigation/stack';
 import type {
   NativeSyntheticEvent,
@@ -110,7 +107,7 @@ export type IStackNavigationOptions = Omit<
   // If this property is set, please ensure that `Page.skipLoading` is set to `platformEnv.isNativeIOS`.
   headerSearchBarOptions?: INavSearchBarProps;
   headerRight?: (
-    props: HeaderButtonProps,
+    props: any,
   ) =>
     | ComponentType
     | null

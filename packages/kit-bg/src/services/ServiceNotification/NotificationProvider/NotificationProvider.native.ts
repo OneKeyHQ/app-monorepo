@@ -39,6 +39,7 @@ import NotificationProviderBase from './NotificationProviderBase';
 
 import type { INotificationProviderBaseParams } from './NotificationProviderBase';
 import type {
+  NotificationBehavior,
   NotificationContentInput,
   NotificationPermissionsStatus,
 } from 'expo-notifications';
@@ -108,12 +109,13 @@ export default class NotificationProvider extends NotificationProviderBase {
       }
     });
     setNotificationHandler({
-      handleNotification: async ({ request: _request }) => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        priority: AndroidNotificationPriority.DEFAULT,
-      }),
+      handleNotification: async ({ request: _request }) =>
+        ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          priority: AndroidNotificationPriority.DEFAULT,
+        } as NotificationBehavior),
     });
 
     // Notifications.removeNotificationSubscription(sub1);

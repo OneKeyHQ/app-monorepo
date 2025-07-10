@@ -54,7 +54,7 @@
    android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:allowBackup="false" android:theme="@style/AppTheme" android:largeHeap="true" android:supportsRtl="true">
     <meta-data
         android:name="com.google.android.play.billingclient.version"
-        android:value="7.0.0"/>
+        android:value="7.1.1"/>
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_SDK_VERSION" android:value="49.0.0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
@@ -86,7 +86,7 @@
         <data android:scheme="ethereum" />
       </intent-filter>
     </activity>
-    <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
+    <!-- <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/> -->
     <provider
         android:name="so.onekey.app.wallet.OnekeyFileProvider"
         android:authorities="${applicationId}.onekeyfile"

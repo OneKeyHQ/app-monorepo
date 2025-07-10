@@ -14,7 +14,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
 
-import type { StackStyle, TextStyle } from '@tamagui/web/types/types';
+import type { StackStyle, TextStyle } from '@tamagui/web';
 import type { NativeScrollEvent, View } from 'react-native';
 import type { GetProps } from 'tamagui';
 
@@ -175,7 +175,7 @@ const HeaderComponent = (
   rawCursorStyle.right = reloadWebPxNumber(rawCursorStyle?.right);
   rawCursorStyle.width = reloadWebPxNumber(rawCursorStyle?.width);
 
-  const headerViewRef = useRef<any>();
+  const headerViewRef = useRef<any>(null);
 
   useImperativeHandle(
     ref,

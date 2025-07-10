@@ -7,9 +7,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ImageContext } from './context';
 import { useImageComponent, useSource } from './hooks';
-import { preloadImage } from './ImageNet';
+import { preloadImage } from './preload';
 
 import type { IImageSourceProps } from './type';
+import type { Image as ExpoImage } from 'expo-image';
 import type { ImageStyle, ImageURISource, StyleProp } from 'react-native';
 
 const buildDelayMs = () =>
@@ -35,6 +36,9 @@ const retryFetchImage = async (
   }
 };
 
+/**
+ * @deprecated Use Image.V2 instead. example: packages/kit/src/views/Developer/pages/Gallery/Components/stories/Image.tsx
+ */
 export function ImageSource({
   source,
   src,
@@ -43,14 +47,16 @@ export function ImageSource({
 }: IImageSourceProps) {
   const hasError = useRef(false);
   const startTime = useRef(Date.now());
-  const delayTimer = useRef<ReturnType<typeof setTimeout>>();
+  const delayTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
 
   const imageSource = useSource(source, src);
-  const previousImageSource = useRef<typeof imageSource>();
-  const ImageComponent = useImageComponent(imageSource);
+  const previousImageSource = useRef<typeof imageSource>(undefined);
+  const ImageComponent = useImageComponent(
+    imageSource,
+  ) as unknown as typeof ExpoImage;
 
   const { setLoading, setLoadedSuccessfully } = useContext(ImageContext);
 
@@ -72,7 +78,7 @@ export function ImageSource({
         setLoading?.(false);
         setLoadedSuccessfully?.(!hasError.current);
       },
-      diff > delayMs ? 0 : delayMs - diff,
+      diff > delayMs ? 0 : Math.max(delayMs - diff, 0),
     );
   }, [delayMs, setLoadedSuccessfully, setLoading]);
 
@@ -117,9 +123,6 @@ export function ImageSource({
       loading="lazy"
       source={imageSource}
       {...restProps}
-      borderRadius={style.borderRadius as number}
-      width={undefined}
-      height={undefined}
       onError={handleError}
       onLoadStart={handleLoadStart}
       onLoadEnd={handleLoadEnd}

@@ -21,7 +21,7 @@ export const useSortType = (
   listData: Record<string, unknown>[],
   extraData?: any,
 ) => {
-  const listDataRef = useRef<typeof listData | undefined>();
+  const listDataRef = useRef<typeof listData>(undefined);
   const extraDataRef = useRef<any>(extraData);
   if (listDataRef.current !== listData) {
     listDataRef.current = listData;

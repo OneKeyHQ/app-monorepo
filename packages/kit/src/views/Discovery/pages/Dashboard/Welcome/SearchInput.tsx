@@ -75,7 +75,7 @@ export function SearchInput() {
     selectedIndex,
     setIsPopoverOpen,
   } = useSearchPopover({
-    scrollViewRef,
+    scrollViewRef: scrollViewRef as any,
     totalItems,
     searchValue,
     refreshLocalData,
@@ -209,7 +209,7 @@ export function SearchInput() {
                 displayHistoryList={displayHistoryList}
                 SEARCH_ITEM_ID={SEARCH_ITEM_ID}
                 selectedIndex={selectedIndex}
-                innerRef={searchResultRef}
+                innerRef={searchResultRef as any}
                 onItemClick={() => {
                   setSearchValue('');
                   setIsPopoverOpen(false);
