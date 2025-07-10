@@ -206,7 +206,7 @@ function AccountSelectorPopoverContent({
           <DAppAccountListItem
             key={account.num}
             num={account.num}
-            compressionUiMode
+            // compressionUiMode
             beforeShowTrigger={beforeShowTrigger}
             handleAccountChanged={async (accountChangedParams) => {
               await handleAccountInfoChanged({

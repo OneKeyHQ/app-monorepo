@@ -156,7 +156,7 @@ type IChainSelectorSectionListProps = {
 
 const usePending = () => {
   const [isPending, setIsPending] = useState(false);
-  const timerIdRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerIdRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const clearPendingTimer = useCallback(() => {
     clearTimeout(timerIdRef.current);
     timerIdRef.current = setTimeout(() => {
@@ -297,7 +297,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onPressItem={onPressItem}
           initialScrollIndex={initialScrollIndex}
           recentNetworksEnabled={recentNetworksEnabled}
-          listRef={listRef}
+          listRef={listRef as any}
         />
       ) : (
         <ListEmptyComponent />

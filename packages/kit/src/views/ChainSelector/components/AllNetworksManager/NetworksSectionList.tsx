@@ -88,7 +88,7 @@ function NetworksSectionList() {
       <Stack flex={1}>
         {sections.length > 0 ? (
           <SectionList
-            ref={listRef}
+            ref={listRef as any}
             contentContainerStyle={
               platformEnv.isNative
                 ? undefined
