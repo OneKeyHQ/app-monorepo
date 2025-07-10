@@ -14,7 +14,6 @@ import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { useTransactionsLayout } from './useTransactionsLayout';
