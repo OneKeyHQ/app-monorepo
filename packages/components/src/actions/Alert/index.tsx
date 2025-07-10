@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
 import { cloneElement, useCallback, useContext, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -127,111 +127,113 @@ const AlertIcon = (props: { children: any }) => {
   });
 };
 
-export const Alert = AlertFrame.styleable<IAlertProps, any, any>(
-  (props: IAlertProps, ref: any) => {
-    const {
-      icon,
-      title,
-      renderTitle,
-      description,
-      descriptionComponent,
-      closable,
-      type,
-      fullBleed,
-      titleNumberOfLines,
-      action,
-      onClose: onCloseProp,
-      children,
-      ...rest
-    } = props;
+export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
+  IAlertProps,
+  any,
+  any
+>((props: IAlertProps, ref: any) => {
+  const {
+    icon,
+    title,
+    renderTitle,
+    description,
+    descriptionComponent,
+    closable,
+    type,
+    fullBleed,
+    titleNumberOfLines,
+    action,
+    onClose: onCloseProp,
+    children,
+    ...rest
+  } = props;
 
-    const [show, setShow] = useState(true);
-    const onClose = useCallback(() => {
-      setShow(false);
-      onCloseProp?.();
-    }, [onCloseProp]);
+  const [show, setShow] = useState(true);
+  const onClose = useCallback(() => {
+    setShow(false);
+    onCloseProp?.();
+  }, [onCloseProp]);
 
-    const intl = useIntl();
-    const isDanger = type === 'danger';
-    const themeName = useThemeName() as 'light' | 'dark';
-    const dangerTextColor =
-      themeName === 'light' ? '$textOnBrightColor' : '$textOnColor';
+  const intl = useIntl();
+  const isDanger = type === 'danger';
+  const themeName = useThemeName() as 'light' | 'dark';
+  const dangerTextColor =
+    themeName === 'light' ? '$textOnBrightColor' : '$textOnColor';
 
-    if (!show) return null;
+  if (!show) return null;
 
-    return (
-      <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
-        {icon ? (
-          <Stack>
-            <AlertIcon>
-              <Icon name={icon} size="$5" />
-            </AlertIcon>
-          </Stack>
+  return (
+    <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
+      {icon ? (
+        <Stack>
+          <AlertIcon>
+            <Icon name={icon} size="$5" />
+          </AlertIcon>
+        </Stack>
+      ) : null}
+      <YStack flex={1} gap="$1">
+        {title ? (
+          <SizableText
+            size="$bodyMdMedium"
+            color={isDanger ? dangerTextColor : undefined}
+            {...(titleNumberOfLines
+              ? { numberOfLines: titleNumberOfLines }
+              : {})}
+          >
+            {title}
+          </SizableText>
         ) : null}
-        <YStack flex={1} gap="$1">
-          {title ? (
-            <SizableText
-              size="$bodyMdMedium"
-              color={isDanger ? dangerTextColor : undefined}
-              {...(titleNumberOfLines
+        {renderTitle
+          ? renderTitle({
+              size: '$bodyMdMedium',
+              color: isDanger ? dangerTextColor : undefined,
+              ...(titleNumberOfLines
                 ? { numberOfLines: titleNumberOfLines }
-                : {})}
-            >
-              {title}
-            </SizableText>
-          ) : null}
-          {renderTitle
-            ? renderTitle({
-                size: '$bodyMdMedium',
-                color: isDanger ? dangerTextColor : undefined,
-                ...(titleNumberOfLines
-                  ? { numberOfLines: titleNumberOfLines }
-                  : {}),
-              })
-            : null}
-          {description ? (
-            <SizableText
-              size="$bodyMd"
-              color={isDanger ? dangerTextColor : '$textSubdued'}
-            >
-              {description}
-            </SizableText>
-          ) : null}
-          {descriptionComponent || null}
+                : {}),
+            })
+          : null}
+        {description ? (
+          <SizableText
+            size="$bodyMd"
+            color={isDanger ? dangerTextColor : '$textSubdued'}
+          >
+            {description}
+          </SizableText>
+        ) : null}
+        {descriptionComponent || null}
 
-          {children || null}
-        </YStack>
-        {action ? (
-          <XStack gap="$4" alignItems="center">
+        {children || null}
+      </YStack>
+      {action ? (
+        <XStack gap="$4" alignItems="center">
+          <Button
+            size="small"
+            onPress={action.onPrimaryPress}
+            loading={action.isPrimaryLoading}
+          >
+            {action.primary}
+          </Button>
+          {action.secondary ? (
             <Button
               size="small"
-              onPress={action.onPrimaryPress}
-              loading={action.isPrimaryLoading}
+              variant="tertiary"
+              onPress={action.onSecondaryPress}
+              loading={action.isSecondaryLoading}
             >
-              {action.primary}
+              {action.secondary}
             </Button>
-            {action.secondary ? (
-              <Button
-                size="small"
-                variant="tertiary"
-                onPress={action.onSecondaryPress}
-                loading={action.isSecondaryLoading}
-              >
-                {action.secondary}
-              </Button>
-            ) : null}
-          </XStack>
-        ) : null}
-        {closable ? (
-          <IconButton
-            title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
-            icon="CrossedSmallSolid"
-            size="small"
-            variant="tertiary"
-            onPress={onClose}
-          />
-        ) : null}
-      </AlertFrame>
-    );
-  },
-);
+          ) : null}
+        </XStack>
+      ) : null}
+      {closable ? (
+        <IconButton
+          title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
+          icon="CrossedSmallSolid"
+          size="small"
+          variant="tertiary"
+          onPress={onClose}
+        />
+      ) : null}
+    </AlertFrame>
+  );
+});
