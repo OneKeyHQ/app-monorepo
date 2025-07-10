@@ -1,3 +1,4 @@
+import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { useClipboard } from '@onekeyhq/components';
@@ -53,9 +54,7 @@ export function useTransactionItemData({
       });
 
   const price = isBuy ? item.to.price : item.from.price;
-  const value = (
-    parseFloat(item.from.amount) * parseFloat(item.from.price)
-  ).toFixed(2);
+  const value = BigNumber(item.from.amount).times(item.from.price).toNumber();
 
   return {
     isBuy,

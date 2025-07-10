@@ -18,7 +18,6 @@ export function DesktopLayout() {
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
-    console.log('Left column width:', width);
     setLeftColumnWidth(width);
   };
 

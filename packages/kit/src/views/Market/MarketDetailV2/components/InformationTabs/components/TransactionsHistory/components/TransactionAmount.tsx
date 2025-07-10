@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { type ComponentProps, memo } from 'react';
 
 import {
   NumberSizeableText,
@@ -19,7 +19,7 @@ interface ITransactionAmountProps {
   baseSign: string;
   quoteSign: string;
   typeColor: string;
-  style?: any;
+  style?: ComponentProps<typeof XStack>;
 }
 
 function TransactionAmountBase({

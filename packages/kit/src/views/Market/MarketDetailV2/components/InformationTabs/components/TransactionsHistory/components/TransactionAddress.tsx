@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { type ComponentProps, memo } from 'react';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -7,7 +7,7 @@ interface ITransactionAddressProps {
   address: string;
   handleCopyAddress: () => void;
   handleViewInBrowser: () => void;
-  style?: any;
+  style?: ComponentProps<typeof XStack>;
 }
 
 function TransactionAddressBase({
