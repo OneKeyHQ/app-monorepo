@@ -130,11 +130,13 @@ export function useSwapQuote() {
   }
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
-  >();
+  >(undefined);
   if (activeAccountRef.current !== swapAddressInfo) {
     activeAccountRef.current = swapAddressInfo;
   }
-  const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
+  const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>(
+    undefined,
+  );
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
   }
