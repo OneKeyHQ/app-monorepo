@@ -87,11 +87,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   addIntoWatchListV2 = contextAtomMethod(
-    async (
-      get,
-      set,
-      payload: IMarketWatchListItemV2 | IMarketWatchListItemV2[],
-    ) => {
+    (get, set, payload: IMarketWatchListItemV2 | IMarketWatchListItemV2[]) => {
       const params: IMarketWatchListItemV2[] = !Array.isArray(payload)
         ? [payload]
         : payload;
@@ -99,10 +95,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       if (!prev.isMounted) {
         return;
       }
-      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+
+      // 立即更新本地状态
+      const newData = [...prev.data, ...params];
+      set(marketWatchListV2Atom(), { ...prev, data: newData });
+
+      // 异步调用 API，不等待结果
+      void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
         watchList: params,
       });
-      await this.refreshWatchListV2.call(set);
     },
   );
 

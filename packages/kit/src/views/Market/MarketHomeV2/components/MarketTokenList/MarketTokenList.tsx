@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -107,22 +107,30 @@ function MarketTokenList({
         setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
       } = showWatchlistOnly ? watchlistResult : normalResult;
 
-      if (sortType === undefined) {
-        result.setSortBy(showWatchlistOnly ? undefined : 'v24hUSD');
-        result.setSortType(showWatchlistOnly ? undefined : 'desc');
-      } else {
-        result.setSortBy(sortBy);
-        result.setSortType(sortType);
-      }
+      result.setSortBy(sortBy);
+      result.setSortType(sortType);
     },
+
     [showWatchlistOnly, watchlistResult, normalResult],
   );
+
+  // useEffect(() => {
+  //   if (showWatchlistOnly) {
+  //     watchlistResult.setSortBy(undefined);
+  //     watchlistResult.setSortType(undefined);
+  //   } else {
+  //     normalResult.setSortBy('v24hUSD');
+  //     normalResult.setSortType('desc');
+  //   }
+  // }, [showWatchlistOnly, watchlistResult, normalResult]);
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
       // Sorting logic
       const sortKey =
         SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
+
+      console.log('sortKey', sortKey);
 
       if (sortKey) {
         return {
@@ -169,6 +177,7 @@ function MarketTokenList({
               <Table.Skeleton columns={marketTokenColumns} count={pageSize} />
             ) : (
               <Table<IMarketToken>
+                key={`table-${showWatchlistOnly ? 'watchlist' : 'normal'}`}
                 stickyHeader
                 columns={marketTokenColumns}
                 dataSource={data}
