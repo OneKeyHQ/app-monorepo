@@ -1,5 +1,3 @@
-import { StyleSheet } from 'react-native';
-
 import { Image, SizableText, XStack } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
@@ -19,6 +17,7 @@ export function NetworksFilterItem({
 }: INetworksFilterItemProps) {
   return (
     <XStack
+      alignItems="center"
       justifyContent="center"
       px="$2.5"
       py="$1.5"

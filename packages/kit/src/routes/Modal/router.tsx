@@ -9,6 +9,7 @@ import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
+import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
@@ -179,6 +180,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.ReferFriendsModal,
     children: ReferFriendsRouter,
+  },
+  {
+    name: EModalRoutes.BulkCopyAddressesModal,
+    children: BulkCopyAddressesModalRouter,
   },
 ];
 

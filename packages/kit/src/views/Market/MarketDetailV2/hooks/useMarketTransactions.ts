@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseMarketTransactionsProps {
   tokenAddress: string;
@@ -13,6 +14,10 @@ export function useMarketTransactions({
   tokenAddress,
   networkId,
 }: IUseMarketTransactionsProps) {
+  const [accumulatedTransactions, setAccumulatedTransactions] = useState<
+    IMarketTokenTransaction[]
+  >([]);
+
   const {
     result: transactionsData,
     isLoading: isRefreshing,
@@ -33,27 +38,45 @@ export function useMarketTransactions({
     },
   );
 
+  // Reset accumulated state when token address or network ID changes
+  useEffect(() => {
+    setAccumulatedTransactions([]);
+  }, [tokenAddress, networkId]);
+
+  // Merge new and old data, add new data at the front, and deduplicate
+  useEffect(() => {
+    const newTransactions = transactionsData?.list;
+
+    if (!newTransactions) {
+      return;
+    }
+
+    setAccumulatedTransactions((prev) => {
+      // Merge new data at the front with existing data
+      const mergedTransactions = [...newTransactions, ...prev].sort(
+        (a, b) => b.timestamp - a.timestamp,
+      );
+
+      // Deduplicate by hash
+      const seenHashes = new Set<string>();
+      const uniqueTransactions = mergedTransactions.filter((tx) => {
+        if (seenHashes.has(tx.hash)) {
+          return false;
+        }
+        seenHashes.add(tx.hash);
+        return true;
+      });
+
+      return uniqueTransactions;
+    });
+  }, [transactionsData]);
+
   const onRefresh = useCallback(async () => {
     await fetchTransactions();
   }, [fetchTransactions]);
 
-  const sortedTransactions = useMemo(() => {
-    if (!transactionsData?.list) return [];
-    // Deduplicate transactions by their hash before sorting
-    const seenHashes = new Set<string>();
-    const uniqueTransactions = transactionsData.list.filter((tx) => {
-      if (seenHashes.has(tx.hash)) {
-        return false;
-      }
-      seenHashes.add(tx.hash);
-      return true;
-    });
-    // Sort by timestamp in descending order (newest first)
-    return uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
-  }, [transactionsData]);
-
   return {
-    transactions: sortedTransactions,
+    transactions: accumulatedTransactions,
     transactionsData,
     fetchTransactions,
     isRefreshing,

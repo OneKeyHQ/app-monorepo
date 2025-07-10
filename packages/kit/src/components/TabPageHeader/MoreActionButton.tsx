@@ -46,8 +46,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -103,6 +106,7 @@ function MoreActionContentHeader() {
       toOneKeyIdPageOnLoginSuccess: true,
     });
   }, [closePopover, loginOneKeyId]);
+
   return (
     <XStack
       px="$5"
@@ -246,6 +250,7 @@ interface IMoreActionContentGridItemProps {
   showBadges?: boolean;
   badges?: number;
   lottieSrc?: string;
+  isPrimeFeature?: boolean;
 }
 
 function MoreActionContentGridItem({
@@ -258,8 +263,11 @@ function MoreActionContentGridItem({
   showBadges,
   badges = 0,
   lottieSrc,
+  isPrimeFeature,
 }: IMoreActionContentGridItemProps) {
   const { closePopover } = usePopoverContext();
+  const { isPrimeAvailable } = usePrimeAvailable();
+
   const handlePress = useCallback(async () => {
     await closePopover?.();
     onPress();
@@ -269,6 +277,24 @@ function MoreActionContentGridItem({
       });
     }
   }, [closePopover, onPress, trackID]);
+
+  const themeVariant = useThemeVariant();
+  const { user } = usePrimeAuthV2();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+
+  const primeIcon = useMemo(() => {
+    if (isPrimeUser) {
+      return themeVariant === 'light'
+        ? 'OnekeyPrimeLightColored'
+        : 'OnekeyPrimeDarkColored';
+    }
+    return 'PrimeOutline';
+  }, [isPrimeUser, themeVariant]);
+
+  if (isPrimeFeature && !isPrimeAvailable) {
+    return null;
+  }
+
   return (
     <YStack
       testID={testID}
@@ -293,6 +319,7 @@ function MoreActionContentGridItem({
         $group-press={{
           bg: '$bgActive',
         }}
+        overflow="hidden"
       >
         {icon ? <Icon name={icon} /> : null}
         {lottieSrc ? (
@@ -338,6 +365,25 @@ function MoreActionContentGridItem({
             </Stack>
           </Stack>
         ) : null}
+        {isPrimeFeature ? (
+          <Stack
+            position="absolute"
+            left={-1}
+            top={-1}
+            backgroundColor="$bgStrong"
+            paddingLeft={5}
+            paddingRight={4}
+            py={1.5}
+            borderBottomRightRadius="$2"
+          >
+            <Icon
+              color={isPrimeUser ? '$icon' : '$iconDisabled'}
+              width={10}
+              height={10}
+              name={primeIcon}
+            />
+          </Stack>
+        ) : null}
       </YStack>
       <SizableText size="$bodySm" textAlign="center">
         {title}
@@ -378,21 +424,38 @@ function MoreActionContentGridRender({
 function MoreActionContentGrid() {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
+
   const openAddressBook = useShowAddressBook({
     useNewModal: true,
   });
   const { gtMd } = useMedia();
   const toMyOneKeyModal = useToMyOneKeyModal();
+  const { user } = usePrimeAuthV2();
+
   const handleDeviceManagement = useCallback(async () => {
     await toMyOneKeyModal();
   }, [toMyOneKeyModal]);
 
   const navigation = useAppNavigation();
+  const {
+    activeAccount: { wallet, account, network },
+  } = useActiveAccount({ num: 0 });
+
   const handleSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
+
+  const checkIsPrimeUser = useCallback(() => {
+    if (user?.primeSubscription?.isActive && user?.privyUserId) {
+      return true;
+    }
+    navigation.pushFullModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+    });
+    return false;
+  }, [navigation, user]);
 
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
@@ -404,13 +467,30 @@ function MoreActionContentGrid() {
     });
   }, [navigation]);
 
+  const openBulkCopyAddressesModal = useCallback(async () => {
+    const networkId = networkUtils.toNetworkIdFallback({
+      networkId: network?.id,
+      allNetworkFallbackToBtc: true,
+    });
+
+    if (!networkId) return;
+
+    if (!checkIsPrimeUser()) return;
+
+    navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
+      screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
+      params: {
+        walletId: wallet?.id,
+        networkId,
+      },
+    });
+  }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
+
   const { toReferFriendsPage } = useReferFriends();
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
+
   const scanQrCode = useScanQrCode();
 
   const handleScan = useCallback(async () => {
@@ -491,6 +571,15 @@ function MoreActionContentGrid() {
             badges: badge,
             trackID: 'notification-in-more-action',
           },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_bulk_copy_addresses,
+        }),
+        icon: 'Copy3Outline',
+        onPress: openBulkCopyAddressesModal,
+        trackID: 'bulk-copy-addresses-in-more-action',
+        isPrimeFeature: true,
+      },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
     badge,
@@ -503,6 +592,7 @@ function MoreActionContentGrid() {
     intl,
     openAddressBook,
     openNotificationsModal,
+    openBulkCopyAddressesModal,
     themeVariant,
     toReferFriendsPage,
   ]);

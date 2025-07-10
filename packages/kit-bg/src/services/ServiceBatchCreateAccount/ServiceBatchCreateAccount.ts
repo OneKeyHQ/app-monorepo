@@ -243,13 +243,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
         for (const networkParams of networksParams) {
           try {
-            this.checkIfCancelled({ saveToDb });
+            this.checkIfCancelled({
+              saveToDb,
+              showUIProgress: payload.params.showUIProgress,
+            });
             const resp = await this.batchBuildAccounts({
               ...payload.params,
               ...networkParams,
               indexes,
               excludedIndexes,
-              saveToDb: true,
+              saveToDb,
               saveToCache: payload.saveToCache,
               hwAllNetworkPrepareAccountsResponse,
             });
@@ -261,6 +264,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               error,
               walletId: payload.params.walletId,
               saveToDb,
+              showUIProgress: payload.params.showUIProgress,
             });
           }
         }
@@ -745,7 +749,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
         for (const networkParams of networksParams) {
           try {
-            this.checkIfCancelled({ saveToDb });
+            this.checkIfCancelled({
+              saveToDb,
+            });
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { accountsForCreate } = await this.batchBuildAccounts({
               ...params,
@@ -803,22 +809,22 @@ class ServiceBatchCreateAccount extends ServiceBase {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     saveToDb,
     autoHandleExitError,
+    showUIProgress,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
     autoHandleExitError?: boolean;
+    showUIProgress?: boolean;
   }) {
-    if (saveToDb) {
-      if (this.progressInfo) {
-        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-          totalCount: this.progressInfo.totalCount,
-          createdCount: this.progressInfo.createdCount,
-          progressTotal: this.progressInfo.progressTotal,
-          progressCurrent: this.progressInfo.progressCurrent,
-          error: errorUtils.toPlainErrorObject(error),
-        });
-      }
+    if (this.progressInfo && showUIProgress) {
+      appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+        totalCount: this.progressInfo.totalCount,
+        createdCount: this.progressInfo.createdCount,
+        progressTotal: this.progressInfo.progressTotal,
+        progressCurrent: this.progressInfo.progressCurrent,
+        error: errorUtils.toPlainErrorObject(error),
+      });
     }
 
     if (!autoHandleExitError) {
@@ -882,18 +888,18 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showUIProgress?: boolean;
   } = {}) {
     if (saveToDb) {
-      if (this.progressInfo && showUIProgress) {
-        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-          totalCount: this.progressInfo.totalCount,
-          createdCount: this.progressInfo.createdCount,
-          progressTotal: this.progressInfo.progressTotal,
-          progressCurrent: this.progressInfo.progressTotal,
-        });
-        await timerUtils.wait(600);
-      }
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
       // TODO auto backup execute twice with EAppEventBusNames.AccountUpdate?
       void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+    }
+    if (this.progressInfo && showUIProgress) {
+      appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+        totalCount: this.progressInfo.totalCount,
+        createdCount: this.progressInfo.createdCount,
+        progressTotal: this.progressInfo.progressTotal,
+        progressCurrent: this.progressInfo.progressTotal,
+      });
+      await timerUtils.wait(600);
     }
   }
 
@@ -903,8 +909,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     this.progressInfo = undefined;
   }
 
-  checkIfCancelled({ saveToDb }: { saveToDb: boolean | undefined }) {
-    if (saveToDb && this.isCreateFlowCancelled) {
+  checkIfCancelled({
+    saveToDb,
+    showUIProgress,
+  }: {
+    saveToDb: boolean | undefined;
+    showUIProgress?: boolean;
+  }) {
+    if ((saveToDb || showUIProgress) && this.isCreateFlowCancelled) {
       throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.global_bulk_accounts_loading_error,
@@ -1011,7 +1023,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       key: string;
       accountForCreate: IBatchCreateAccount;
     }) => {
-      this.checkIfCancelled({ saveToDb });
+      this.checkIfCancelled({ saveToDb, showUIProgress });
       await this.updateAccountExistsInDb({ account: accountForCreate });
       if (saveToCache) {
         this.networkAccountsCache[key] = accountForCreate;
@@ -1019,7 +1031,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       accountsForCreate.push(accountForCreate);
       if (saveToDb) {
         if (!accountForCreate.existsInDb) {
-          this.checkIfCancelled({ saveToDb });
+          this.checkIfCancelled({ saveToDb, showUIProgress });
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
             walletId,
             networkId,
@@ -1029,19 +1041,19 @@ class ServiceBatchCreateAccount extends ServiceBase {
             this.progressInfo.createdCount += 1;
           }
         }
-        if (this.progressInfo) {
-          this.progressInfo.progressCurrent += 1;
-          if (showUIProgress) {
-            appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-              totalCount: this.progressInfo.totalCount,
-              createdCount: this.progressInfo.createdCount,
-              progressTotal: this.progressInfo.progressTotal,
-              progressCurrent: this.progressInfo.progressCurrent,
-              networkId,
-              deriveType,
-            });
-            await timerUtils.wait(100); // wait for UI refresh
-          }
+      }
+      if (this.progressInfo) {
+        this.progressInfo.progressCurrent += 1;
+        if (showUIProgress) {
+          appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+            totalCount: this.progressInfo.totalCount,
+            createdCount: this.progressInfo.createdCount,
+            progressTotal: this.progressInfo.progressTotal,
+            progressCurrent: this.progressInfo.progressCurrent,
+            networkId,
+            deriveType,
+          });
+          await timerUtils.wait(100); // wait for UI refresh
         }
       }
     };
@@ -1049,7 +1061,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     // for loop indexes
     for (const index of indexes) {
       try {
-        this.checkIfCancelled({ saveToDb });
+        this.checkIfCancelled({ saveToDb, showUIProgress });
         if (excludedIndexes?.[index] === true) {
           // eslint-disable-next-line no-continue
           continue;
@@ -1062,7 +1074,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         });
         const cacheAccount = this.networkAccountsCache[key];
         if (cacheAccount && saveToCache) {
-          this.checkIfCancelled({ saveToDb });
+          this.checkIfCancelled({ saveToDb, showUIProgress });
           await processAccountForCreateFn({
             key,
             accountForCreate: cacheAccount,
@@ -1075,6 +1087,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           error,
           walletId,
           saveToDb,
+          showUIProgress,
         });
       }
     }
@@ -1085,7 +1098,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       for (let i = 0; i < indexesChunks.length; i += 1) {
         const indexesForRebuildChunk = indexesChunks[i];
         try {
-          this.checkIfCancelled({ saveToDb });
+          this.checkIfCancelled({ saveToDb, showUIProgress });
           defaultLogger.account.batchCreatePerf.prepareHdOrHwAccounts();
 
           const { vault, accounts } =
@@ -1113,7 +1126,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           const networkInfo = await vault.getNetworkInfo();
           for (const account of accounts) {
             try {
-              this.checkIfCancelled({ saveToDb });
+              this.checkIfCancelled({ saveToDb, showUIProgress });
               if (isNil(account.pathIndex)) {
                 throw new OneKeyLocalError(
                   'batchBuildNetworkAccounts ERROR: pathIndex is required',
@@ -1129,7 +1142,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 deriveType,
                 index: account.pathIndex,
               });
-              this.checkIfCancelled({ saveToDb });
+              this.checkIfCancelled({ saveToDb, showUIProgress });
 
               defaultLogger.account.batchCreatePerf.buildAccountAddressDetail();
 
@@ -1149,7 +1162,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   '',
               };
 
-              this.checkIfCancelled({ saveToDb });
+              this.checkIfCancelled({ saveToDb, showUIProgress });
 
               defaultLogger.account.batchCreatePerf.processAccountForCreate();
               await processAccountForCreateFn({
@@ -1162,6 +1175,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 error,
                 walletId,
                 saveToDb,
+                showUIProgress,
               });
             }
           }
@@ -1170,6 +1184,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             error,
             walletId,
             saveToDb,
+            showUIProgress,
           });
         }
       }

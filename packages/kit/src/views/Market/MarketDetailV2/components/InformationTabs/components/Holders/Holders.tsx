@@ -58,6 +58,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       estimatedItemSize={70}
       showsVerticalScrollIndicator
       ListHeaderComponent={HoldersHeader}
+      stickyHeaderIndices={[0]}
       contentContainerStyle={{
         paddingBottom: '$4',
       }}

@@ -65,6 +65,19 @@ export class InvalidPassphrase extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckPassphraseStateError;
 }
 
+export class InvalidAttachPin extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'InvalidAttachPin',
+        defaultKey: ETranslations.hardware_device_pin_state_error,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DeviceCheckUnlockTypeError;
+}
+
 export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

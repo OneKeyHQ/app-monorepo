@@ -2,15 +2,15 @@ import { memo, useCallback } from 'react';
 
 import { Button, Image, SizableText, XStack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
-import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketTokenListNetworkSelectorSmallSkeleton } from './MarketTokenListNetworkSelectorSmallSkeleton';
 import { MoreButton } from './MoreButton';
 
 interface IMarketTokenListNetworkSelectorSmallProps {
-  marketNetworks: ISwapNetwork[];
-  currentSelectNetwork?: ISwapNetwork;
-  onSelectCurrentNetwork: (network: ISwapNetwork) => void;
+  marketNetworks: IServerNetwork[];
+  currentSelectNetwork?: IServerNetwork;
+  onSelectCurrentNetwork: (network: IServerNetwork) => void;
   isLoading?: boolean;
   forceLoading?: boolean;
   placement?: IPopoverProps['placement'];
@@ -19,7 +19,7 @@ interface IMarketTokenListNetworkSelectorSmallProps {
 interface ICustomTriggerProps {
   isOpen: boolean;
   onPress: () => void;
-  currentSelectNetwork?: ISwapNetwork;
+  currentSelectNetwork?: IServerNetwork;
 }
 
 const CustomTrigger = memo(
@@ -77,7 +77,7 @@ function MarketTokenListNetworkSelectorSmall({
   return (
     <MoreButton
       networks={marketNetworks}
-      selectedNetworkId={currentSelectNetwork?.networkId}
+      selectedNetworkId={currentSelectNetwork?.id}
       onNetworkSelect={onSelectCurrentNetwork}
       customTrigger={customTrigger}
       placement={placement}

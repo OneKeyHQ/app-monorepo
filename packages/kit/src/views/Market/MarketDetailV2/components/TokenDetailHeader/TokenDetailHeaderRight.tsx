@@ -10,6 +10,8 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
 
+import { ShareButton } from './ShareButton';
+
 interface IStatItemProps {
   label: string;
   value: string;
@@ -62,8 +64,18 @@ export function TokenDetailHeaderRight({
       />
     ) : null;
 
+  const shareButton =
+    networkId && address ? (
+      <ShareButton networkId={networkId} address={address} />
+    ) : null;
+
   if (!showStats) {
-    return marketStar;
+    return (
+      <XStack gap="$3" ai="center">
+        {shareButton}
+        {marketStar}
+      </XStack>
+    );
   }
 
   return (
@@ -100,6 +112,7 @@ export function TokenDetailHeaderRight({
         )}
       />
 
+      {shareButton}
       {marketStar}
     </XStack>
   );
