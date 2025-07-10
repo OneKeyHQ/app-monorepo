@@ -243,30 +243,32 @@ const ListItemDrillIn = (props: IIconProps) => (
 const ListItemSeparator = () => <Divider mx="$5" />;
 
 /* ListItem */
-export type IListItemProps = PropsWithChildren<{
-  title?: string;
-  titleMatch?: IFuseResultMatch;
-  titleProps?: IListItemTextProps['primaryTextProps'];
-  subtitle?: string | ReactNode;
-  subTitleMatch?: IFuseResultMatch;
-  subtitleProps?: IListItemTextProps['secondaryTextProps'];
-  avatarProps?: IListItemAvatarProps;
-  renderAvatar?: ComponentType | ReactNode;
-  renderIcon?: ComponentType | ReactNode;
-  renderItemText?:
-    | ComponentType<IListItemTextProps>
-    | ReactNode
-    | ((props: IListItemTextProps) => ReactNode);
-  icon?: IIconProps['name'];
-  iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
-  drillIn?: boolean;
-  isLoading?: boolean;
-  checkMark?: boolean;
-  onPress?: () => void | Promise<void>;
-  childrenBefore?: ComponentType | ReactNode;
-  disabled?: boolean;
-  testID?: string;
-}>;
+export type IListItemProps = PropsWithChildren<
+  {
+    title?: string;
+    titleMatch?: IFuseResultMatch;
+    titleProps?: IListItemTextProps['primaryTextProps'];
+    subtitle?: string | ReactNode;
+    subTitleMatch?: IFuseResultMatch;
+    subtitleProps?: IListItemTextProps['secondaryTextProps'];
+    avatarProps?: IListItemAvatarProps;
+    renderAvatar?: ComponentType | ReactNode;
+    renderIcon?: ComponentType | ReactNode;
+    renderItemText?:
+      | ComponentType<IListItemTextProps>
+      | ReactNode
+      | ((props: IListItemTextProps) => ReactNode);
+    icon?: IIconProps['name'];
+    iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
+    drillIn?: boolean;
+    isLoading?: boolean;
+    checkMark?: boolean;
+    onPress?: () => void | Promise<void>;
+    childrenBefore?: ComponentType | ReactNode;
+    disabled?: boolean;
+    testID?: string;
+  } & IStackProps
+>;
 
 const renderWithFallback = (
   Component: ComponentType,
