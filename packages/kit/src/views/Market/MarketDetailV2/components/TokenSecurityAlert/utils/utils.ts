@@ -18,6 +18,7 @@ const COMMON_WARNING_KEYS = [
   'can_take_back_ownership',
   'owner_change_balance',
   'cannot_buy',
+  'transfer_pausable',
 ];
 
 const SOLANA_WARNING_KEYS = [

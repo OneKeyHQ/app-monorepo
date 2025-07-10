@@ -2,7 +2,7 @@ import { forwardRef, memo, useImperativeHandle, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
-import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketNetworkFilter } from './MarketNetworkFilter';
 import { MarketTokenListNetworkSelectorNormalSkeleton } from './MarketTokenListNetworkSelectorNormalSkeleton';
@@ -10,10 +10,10 @@ import { MarketTokenListNetworkSelectorNormalSkeleton } from './MarketTokenListN
 import type { IMarketNetworkFilterRef } from './MarketNetworkFilter';
 
 interface IMarketTokenListNetworkSelectorNormalProps {
-  marketNetworks: ISwapNetwork[];
-  currentSelectNetwork?: ISwapNetwork;
-  onSelectCurrentNetwork: (network: ISwapNetwork) => void;
-  handleMoreNetworkSelect: (network: ISwapNetwork) => void;
+  marketNetworks: IServerNetwork[];
+  currentSelectNetwork?: IServerNetwork;
+  onSelectCurrentNetwork: (network: IServerNetwork) => void;
+  handleMoreNetworkSelect: (network: IServerNetwork) => void;
   isLoading?: boolean;
   forceLoading?: boolean;
   placement?: IPopoverProps['placement'];

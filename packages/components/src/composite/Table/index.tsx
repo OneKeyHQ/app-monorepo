@@ -352,15 +352,24 @@ function HeaderColumn<T>({
     if (!enableSortType) {
       return;
     }
-    setTimeout(() => {
-      onChangeSelectedName(dataIndex);
-    });
     let order: 'asc' | 'desc' | undefined = 'desc';
     if (sortOrder === 'desc') {
       order = 'asc';
     } else if (sortOrder === 'asc') {
       order = undefined;
     }
+
+    // When resetting to undefined, clear the selected column to allow default sorting
+    if (order === undefined) {
+      setTimeout(() => {
+        onChangeSelectedName('');
+      });
+    } else {
+      setTimeout(() => {
+        onChangeSelectedName(dataIndex);
+      });
+    }
+
     setSortOrder(order);
     setTimeout(() => {
       events?.onSortTypeChange?.(order);
