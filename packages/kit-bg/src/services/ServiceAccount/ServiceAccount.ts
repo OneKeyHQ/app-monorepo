@@ -403,22 +403,18 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async existsHwStandardWallet({ connectId }: { connectId: string }) {
-    const { wallets, allDevices } = await this.getAllWallets({
-      refillWalletInfo: true,
+    const device = await this.backgroundApi.localDb.getDeviceByQuery({
+      connectId,
     });
-
-    const device = allDevices?.find((item) => item.connectId === connectId);
     if (!device) {
       return false;
     }
 
-    const standardWallets = wallets.filter(
-      (item) =>
-        accountUtils.isHwWallet({ walletId: item.id }) &&
-        !accountUtils.isHwHiddenWallet({ wallet: item }) &&
-        item.associatedDevice === device.id &&
-        !item.isMocked,
-    );
+    const standardWallets =
+      await this.backgroundApi.localDb.getNormalHwWalletInSameDevice({
+        associatedDevice: device.id,
+        excludeMocked: true,
+      });
 
     return standardWallets.length > 0;
   }
