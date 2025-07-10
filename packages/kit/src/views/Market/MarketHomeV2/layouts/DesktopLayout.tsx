@@ -39,7 +39,6 @@ export function DesktopLayout({
         <MarketTokenList
           networkId={selectedNetworkId}
           liquidityFilter={liquidityFilter}
-          defaultShowWatchlistOnly={activeTab === EMarketHomeTab.Watchlist}
           externalWatchlistControl={{
             showWatchlistOnly: filterBarProps.showWatchlistOnly,
             onToggle: filterBarProps.onWatchlistToggle,
