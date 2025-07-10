@@ -7,9 +7,6 @@ import { useVisible } from './useVisible';
 
 import type { IImageLoadingProps } from './type';
 
-/**
- * @deprecated Use Image instead. example: packages/kit/src/views/Developer/pages/Gallery/Components/stories/Image.tsx
- */
 export function ImageLoading({
   children,
   delayMs = 0,

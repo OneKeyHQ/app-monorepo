@@ -71,16 +71,13 @@ export function DiscoveryItemCard({
         borderCurve="continuous"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
-      >
-        <Image.Source source={{ uri: logo }} />
-        <Image.Fallback>
-          <Icon size="$14" color="$iconSubdued" name="GlobusOutline" />
-        </Image.Fallback>
-        <Image.Loading>
-          <Skeleton width="$14" height="$14" />
-        </Image.Loading>
-      </Image>
-
+        source={{ uri: logo }}
+        fallback={
+          <Image.Fallback>
+            <Icon size="$14" color="$iconSubdued" name="GlobusOutline" />
+          </Image.Fallback>
+        }
+      />
       <SizableText
         px="$2"
         size="$bodyLgMedium"

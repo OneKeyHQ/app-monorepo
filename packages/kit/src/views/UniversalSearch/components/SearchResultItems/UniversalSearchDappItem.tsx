@@ -159,19 +159,17 @@ export function UniversalSearchDappItem({
           borderRadius="$2"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
-        >
-          <Image.Source source={{ uri: logo }} />
-          <Image.Loading>
-            <Skeleton width="100%" height="100%" />
-          </Image.Loading>
-          <Image.Fallback
-            bg="$bgStrong"
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Icon name="GlobusOutline" />
-          </Image.Fallback>
-        </Image>
+          source={{ uri: logo }}
+          fallback={
+            <Image.Fallback
+              bg="$bgStrong"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Icon name="GlobusOutline" size="$10" />
+            </Image.Fallback>
+          }
+        />
       }
       title={name}
       titleProps={{

@@ -31,16 +31,7 @@ function CommonAssetImage(props: IProps) {
 
   return (
     <>
-      <Image
-        width="100%"
-        height="100%"
-        source={{
-          uri: nft.metadata?.image,
-        }}
-        style={{
-          borderRadius: 12,
-        }}
-      >
+      <Stack width="100%" height="100%" borderRadius={12}>
         {isVideo ? (
           <Video
             source={{ uri: nft.metadata?.image }}
@@ -54,16 +45,20 @@ function CommonAssetImage(props: IProps) {
             }}
           />
         ) : (
-          <Image.Source src={nft.metadata?.image} />
+          <Image
+            src={nft.metadata?.image}
+            fallback={
+              <Image.Fallback
+                bg="$bgStrong"
+                justifyContent="center"
+                alignItems="center"
+              >
+                <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
+              </Image.Fallback>
+            }
+          />
         )}
-        <Image.Fallback
-          bg="$bgStrong"
-          justifyContent="center"
-          alignItems="center"
-        >
-          <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
-        </Image.Fallback>
-      </Image>
+      </Stack>
 
       {nft.collectionType === ENFTType.ERC1155 &&
       new BigNumber(nft.amount ?? 1).gt(1) ? (
