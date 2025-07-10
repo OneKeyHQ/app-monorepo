@@ -21,6 +21,7 @@ import type {
   IKeyOfIcons,
   ISizableTextProps,
   IStackProps,
+  IYStackProps,
 } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
@@ -169,7 +170,12 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
   if (!show) return null;
 
   return (
-    <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
+    <AlertFrame
+      ref={ref}
+      type={type}
+      fullBleed={fullBleed}
+      {...(rest as IYStackProps)}
+    >
       {icon ? (
         <Stack>
           <AlertIcon>

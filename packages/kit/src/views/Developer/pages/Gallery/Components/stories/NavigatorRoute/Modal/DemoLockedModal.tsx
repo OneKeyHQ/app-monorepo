@@ -114,7 +114,7 @@ const DemoConfigLockedViewModal = () => {
               variant="primary"
               onPress={() => {
                 navigation.setOptions({
-                  disableClose: false,
+                  // disableClose: false,
                 });
               }}
             >
@@ -188,7 +188,7 @@ const DemoManualLockedViewModal = () => {
               variant="primary"
               onPress={() => {
                 navigation.setOptions({
-                  disableClose: true,
+                  // disableClose: true,
                 });
               }}
             >
@@ -203,7 +203,7 @@ const DemoManualLockedViewModal = () => {
               variant="primary"
               onPress={() => {
                 navigation.setOptions({
-                  disableClose: false,
+                  // disableClose: false,
                 });
               }}
             >
@@ -238,7 +238,7 @@ const DemoRepeatManualLockedViewModal = () => {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: headerRightCall,
-      disableClose: locked,
+      // disableClose: locked,
     });
   }, [navigation, headerRightCall, locked]);
 

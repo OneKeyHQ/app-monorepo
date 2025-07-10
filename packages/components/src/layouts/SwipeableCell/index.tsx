@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
-import type { ForwardedRef } from 'react';
+import type { ComponentType, ForwardedRef } from 'react';
 
 import { usePropsAndStyle } from '@tamagui/core';
 import { Animated } from 'react-native';
@@ -175,4 +175,4 @@ function BaseSwipeableCell(
 
 export const SwipeableCell = forwardRef(
   BaseSwipeableCell,
-) as typeof BaseSwipeableCell;
+) as ComponentType<ISwipeableCellProps>;
