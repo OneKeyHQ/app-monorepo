@@ -108,7 +108,7 @@ export function Banner<T extends IBannerData>({
   showCloseButton = false,
   onBannerClose,
   ...props
-}: {
+}: IStackStyle & {
   data: T[];
   itemContainerStyle?: IStackStyle;
   indicatorContainerStyle?: IStackStyle;
