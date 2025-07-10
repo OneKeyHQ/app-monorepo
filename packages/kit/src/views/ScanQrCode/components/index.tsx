@@ -4,7 +4,7 @@ import { Camera } from 'expo-camera';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { IStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   BlurView,
   Dialog,
@@ -76,7 +76,7 @@ function ScanCorner({
 function Corner(props: IStackProps) {
   return (
     <YStack
-      {...props}
+      {...(props as IYStackProps)}
       w="$5"
       h="$5"
       borderColor="$bg"

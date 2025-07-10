@@ -174,7 +174,7 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
-  const prevPageIndex = useRef<number | undefined>();
+  const prevPageIndex = useRef<number>(undefined);
 
   // OK-38433
   useMemo(() => {

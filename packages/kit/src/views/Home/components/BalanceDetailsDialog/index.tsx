@@ -9,6 +9,7 @@ import {
   Divider,
   ESwitchSize,
   Icon,
+  IYStackProps,
   SizableText,
   Skeleton,
   Stack,
@@ -227,7 +228,7 @@ function BalanceDetailsContent({
       }
     }
     return (
-      <YStack {...detailsBlockStyles}>
+      <YStack {...(detailsBlockStyles as IYStackProps)}>
         <XStack justifyContent="space-between" alignItems="center">
           <XStack>
             <Button
@@ -367,7 +368,7 @@ function BalanceDetailsContent({
         </Dialog.Description>
       </Dialog.Header>
       <YStack gap="$3">
-        <YStack {...detailsBlockStyles}>
+        <YStack {...(detailsBlockStyles as IYStackProps)}>
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyLgMedium" color="$textSubdued">
               {appLocale.intl.formatMessage({

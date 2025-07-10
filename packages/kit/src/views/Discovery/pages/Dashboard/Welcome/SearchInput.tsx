@@ -75,7 +75,7 @@ export function SearchInput() {
     selectedIndex,
     setIsPopoverOpen,
   } = useSearchPopover({
-    scrollViewRef,
+    scrollViewRef: scrollViewRef as any,
     totalItems,
     searchValue,
     refreshLocalData,
