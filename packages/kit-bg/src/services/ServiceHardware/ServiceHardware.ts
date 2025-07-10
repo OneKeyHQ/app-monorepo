@@ -23,6 +23,7 @@ import {
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
+  resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -1263,6 +1264,38 @@ class ServiceHardware extends ServiceBase {
     await hardwareSDK.switchTransport(
       transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
     );
+  }
+
+  @backgroundMethod()
+  async switchHardwareTransportType({
+    transportType,
+  }: {
+    transportType: EHardwareTransportType;
+  }) {
+    try {
+      // 1. Update transport type setting
+      await this.backgroundApi.serviceSetting.setHardwareTransportType(
+        transportType,
+      );
+
+      // Reset event registration flag to allow re-registration
+      this.registeredEvents = false;
+
+      // 3. Reset SDK instance (clears memoizee cache and cleans up SDK instance)
+      await resetHardwareSDKInstance();
+
+      // 4. Get new SDK instance with new transport type
+      const newInstance = await this.getSDKInstance();
+
+      console.log(
+        `Successfully switched hardware transport type to: ${transportType}`,
+      );
+
+      return newInstance;
+    } catch (error) {
+      console.error('Failed to switch hardware transport type:', error);
+      throw error;
+    }
   }
 
   @backgroundMethod()
