@@ -1,4 +1,4 @@
-import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { Layout } from './utils/Layout';
@@ -347,6 +347,80 @@ const NumberSizeableTextGallery = () => (
                 },
               )}
             </SizableText>
+          </YStack>
+        ),
+      },
+      {
+        title: 'marketCap with capAtMaxT',
+        element: (
+          <YStack gap="$3">
+            <SizableText size="$bodyMd">
+              The capAtMaxT option caps very large numbers at 999T maximum for better UI consistency.
+            </SizableText>
+            <XStack space="$6">
+              <YStack gap="$2">
+                <SizableText size="$bodyMd" fontWeight="$semibold">
+                  Without capAtMaxT:
+                </SizableText>
+                <NumberSizeableText
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  1200000000000000
+                </NumberSizeableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Shows actual value: $1,200T
+                </SizableText>
+              </YStack>
+              <YStack gap="$2">
+                <SizableText size="$bodyMd" fontWeight="$semibold">
+                  With capAtMaxT:
+                </SizableText>
+                <NumberSizeableText
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$', capAtMaxT: true }}
+                >
+                  1200000000000000
+                </NumberSizeableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Capped at maximum: $999T
+                </SizableText>
+              </YStack>
+            </XStack>
+            <YStack gap="$2">
+              <SizableText size="$bodyMd" fontWeight="$semibold">
+                More examples with capAtMaxT:
+              </SizableText>
+              <XStack space="$4">
+                <YStack gap="$1">
+                  <SizableText size="$bodySm">500T (not capped):</SizableText>
+                  <NumberSizeableText
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$', capAtMaxT: true }}
+                  >
+                    500000000000000
+                  </NumberSizeableText>
+                </YStack>
+                <YStack gap="$1">
+                  <SizableText size="$bodySm">999T (not capped):</SizableText>
+                  <NumberSizeableText
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$', capAtMaxT: true }}
+                  >
+                    999000000000000
+                  </NumberSizeableText>
+                </YStack>
+                <YStack gap="$1">
+                  <SizableText size="$bodySm">1000T (capped):</SizableText>
+                  <NumberSizeableText
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$', capAtMaxT: true }}
+                  >
+                    1000000000000000
+                  </NumberSizeableText>
+                </YStack>
+              </XStack>
+            </YStack>
           </YStack>
         ),
       },
