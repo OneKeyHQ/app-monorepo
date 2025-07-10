@@ -297,7 +297,7 @@ function TokenListViewCmp(props: IProps) {
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
       estimatedItemSize={tableLayout ? 48 : 60}
-      ref={listViewRef}
+      ref={listViewRef as any}
       onLayout={onLayout}
       data={filteredTokens}
       ListHeaderComponent={
