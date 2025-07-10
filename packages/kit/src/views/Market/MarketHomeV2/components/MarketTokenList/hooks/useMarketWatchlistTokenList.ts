@@ -86,7 +86,17 @@ export function useMarketWatchlistTokenList({
       });
     });
 
-    setTransformedData(transformed);
+    // Filter transformed data based on current watchlist to ensure immediate UI updates
+    const filteredTransformed = transformed.filter((token) => {
+      const key = token.address.toLowerCase();
+      return watchlist.some(
+        (w) =>
+          w.contractAddress.toLowerCase() === key &&
+          w.chainId === token.chainId,
+      );
+    });
+
+    setTransformedData(filteredTransformed);
   }, [apiResult, watchlist]);
 
   // Apply liquidity filter

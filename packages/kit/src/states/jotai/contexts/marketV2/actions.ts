@@ -107,15 +107,25 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   removeFromWatchListV2 = contextAtomMethod(
-    async (get, set, chainId: string, contractAddress: string) => {
+    (get, set, chainId: string, contractAddress: string) => {
       const prev = get(marketWatchListV2Atom());
       if (!prev.isMounted) {
         return;
       }
-      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+
+      // 立即更新本地状态
+      const newData = prev.data.filter(
+        (item) =>
+          !(
+            item.chainId === chainId && item.contractAddress === contractAddress
+          ),
+      );
+      set(marketWatchListV2Atom(), { ...prev, data: newData });
+
+      // 异步调用 API，不等待结果
+      void backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
         items: [{ chainId, contractAddress }],
       });
-      await this.refreshWatchListV2.call(set);
     },
   );
 
