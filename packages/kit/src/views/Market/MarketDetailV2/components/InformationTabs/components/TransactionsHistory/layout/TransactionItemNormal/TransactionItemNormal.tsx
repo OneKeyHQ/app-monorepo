@@ -1,13 +1,12 @@
 import { memo } from 'react';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import BigNumber from 'bignumber.js';
+
+import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionAddress } from '../../components/TransactionAddress';
 import { TransactionAmount } from '../../components/TransactionAmount';
-import { TransactionPrice } from '../../components/TransactionPrice';
-import { TransactionTime } from '../../components/TransactionTime';
-import { TransactionType } from '../../components/TransactionType';
 import { useTransactionItemData } from '../../hooks/useTransactionItemData';
 
 import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
@@ -38,17 +37,13 @@ function TransactionItemNormalBase({
 
   return (
     <XStack py="$1" px="$4" alignItems="center">
-      <TransactionTime
-        timestamp={item.timestamp}
-        formatRelativeTime={formatRelativeTime}
-        style={styles.time}
-      />
+      <SizableText size="$bodyMd" color="$textSubdued" {...styles.time}>
+        {formatRelativeTime(item.timestamp)}
+      </SizableText>
 
-      <TransactionType
-        typeText={typeText}
-        typeColor={typeColor}
-        style={styles.type}
-      />
+      <SizableText size="$bodyMdMedium" color={typeColor} {...styles.type}>
+        {typeText}
+      </SizableText>
 
       <TransactionAmount
         baseToken={baseToken}
@@ -59,7 +54,15 @@ function TransactionItemNormalBase({
         style={styles.amount}
       />
 
-      <TransactionPrice price={price} style={styles.price} />
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$text"
+        formatter={BigNumber(price).gt(1_000_000) ? 'marketCap' : 'price'}
+        formatterOptions={{ currency: '$', capAtMaxT: true }}
+        {...styles.price}
+      >
+        {price}
+      </NumberSizeableText>
 
       <SizableText size="$bodyMd" color="$text" {...styles.value}>
         ${value}

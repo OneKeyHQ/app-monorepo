@@ -1,11 +1,16 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
+import BigNumber from 'bignumber.js';
+
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionAmount } from '../../components/TransactionAmount';
-import { TransactionTime } from '../../components/TransactionTime';
-import { TransactionType } from '../../components/TransactionType';
 import { useTransactionItemData } from '../../hooks/useTransactionItemData';
 
 import { useTransactionsLayoutSmall } from './useTransactionsLayoutSmall';
@@ -35,11 +40,13 @@ function TransactionItemSmallBase({
   return (
     <XStack py="$1" px="$4" alignItems="center">
       <YStack {...styles.time}>
-        <TransactionType typeText={typeText} typeColor={typeColor} />
-        <TransactionTime
-          timestamp={item.timestamp}
-          formatRelativeTime={formatRelativeTime}
-        />
+        <SizableText size="$bodySmMedium" color={typeColor}>
+          {typeText}
+        </SizableText>
+
+        <SizableText size="$bodySm" color="$textSubdued">
+          {formatRelativeTime(item.timestamp)}
+        </SizableText>
       </YStack>
 
       <TransactionAmount
@@ -56,7 +63,7 @@ function TransactionItemSmallBase({
           textAlign="right"
           size="$bodySmMedium"
           color="$text"
-          formatter="marketCap"
+          formatter={BigNumber(value).gt(1_000_000) ? 'marketCap' : 'price'}
           formatterOptions={{ currency: '$', capAtMaxT: true }}
         >
           {value}
@@ -66,7 +73,7 @@ function TransactionItemSmallBase({
           textAlign="right"
           size="$bodySm"
           color="$textSubdued"
-          formatter="marketCap"
+          formatter={BigNumber(value).gt(1_000_000) ? 'marketCap' : 'price'}
           formatterOptions={{ currency: '$', capAtMaxT: true }}
         >
           {price}
