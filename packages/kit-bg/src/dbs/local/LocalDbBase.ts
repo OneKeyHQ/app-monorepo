@@ -2868,20 +2868,75 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  private async _getHwWalletsInSameDevice({
+    associatedDevice,
+    type = 'all',
+    excludeMocked = false,
+    excludeHwHidden = false,
+  }: {
+    associatedDevice: string | undefined;
+    type?: 'all' | 'hw' | 'qr';
+    excludeMocked?: boolean;
+    excludeHwHidden?: boolean;
+  }) {
+    const { wallets } = await this.getAllWallets();
+
+    return wallets.filter((wallet) => {
+      if (
+        !wallet.associatedDevice ||
+        wallet.associatedDevice !== associatedDevice
+      ) {
+        return false;
+      }
+
+      if (excludeHwHidden && accountUtils.isHwHiddenWallet({ wallet })) {
+        return false;
+      }
+
+      if (excludeMocked && wallet.isMocked) {
+        return false;
+      }
+
+      if (type === 'hw') {
+        return accountUtils.isHwWallet({ walletId: wallet.id });
+      }
+      if (type === 'qr') {
+        return accountUtils.isQrWallet({ walletId: wallet.id });
+      }
+
+      // default all: hw or qr wallet
+      return (
+        accountUtils.isHwWallet({ walletId: wallet.id }) ||
+        accountUtils.isQrWallet({ walletId: wallet.id })
+      );
+    });
+  }
+
   async getNormalHwQrWalletInSameDevice({
     associatedDevice,
   }: {
     associatedDevice: string | undefined;
   }) {
-    const { wallets } = await this.getAllWallets();
-    return wallets.filter(
-      (wallet) =>
-        wallet.associatedDevice &&
-        wallet.associatedDevice === associatedDevice &&
-        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
-          accountUtils.isQrWallet({ walletId: wallet.id })) &&
-        !accountUtils.isHwHiddenWallet({ wallet }),
-    );
+    return this._getHwWalletsInSameDevice({
+      associatedDevice,
+      type: 'all',
+      excludeHwHidden: true,
+    });
+  }
+
+  async getNormalHwWalletInSameDevice({
+    associatedDevice,
+    excludeMocked = false,
+  }: {
+    associatedDevice: string | undefined;
+    excludeMocked?: boolean;
+  }) {
+    return this._getHwWalletsInSameDevice({
+      associatedDevice,
+      type: 'hw',
+      excludeMocked,
+      excludeHwHidden: true,
+    });
   }
 
   // TODO clean wallets which associatedDevice is removed
