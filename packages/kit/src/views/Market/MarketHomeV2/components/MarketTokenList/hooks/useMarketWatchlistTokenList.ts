@@ -61,18 +61,24 @@ export function useMarketWatchlistTokenList({
   useEffect(() => {
     if (!apiResult || !apiResult.list) return;
 
-    // Map contractAddress to chainId for quick lookup
+    // Map contractAddress to chainId and sortIndex for quick lookup
     const chainIdMap: Record<string, string> = {};
+    const sortIndexMap: Record<string, number> = {};
     watchlist.forEach((w) => {
-      chainIdMap[w.contractAddress.toLowerCase()] = w.chainId;
+      const key = w.contractAddress.toLowerCase();
+      chainIdMap[key] = w.chainId;
+      sortIndexMap[key] = w.sortIndex ?? 0;
     });
 
     const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      const chainId = chainIdMap[item.address.toLowerCase()] || '';
+      const key = item.address.toLowerCase();
+      const chainId = chainIdMap[key] || '';
       const networkLogoUri = getNetworkLogoUri(chainId);
+      const sortIndex = sortIndexMap[key];
       return transformApiItemToToken(item, {
         chainId,
         networkLogoUri,
+        sortIndex,
       });
     });
 
@@ -93,7 +99,16 @@ export function useMarketWatchlistTokenList({
 
   // Sorting
   const sortedData = useMemo(() => {
-    if (!sortBy || !sortType) return filteredData;
+    if (!sortBy || !sortType) {
+      // Default: use sortIndex for natural watchlist ordering (ascending)
+      return [...filteredData].sort((a, b) => {
+        const av = a.sortIndex ?? 0;
+        const bv = b.sortIndex ?? 0;
+        return av - bv;
+      });
+    }
+
+    // Custom sorting
     const key = SORT_MAP[sortBy] || sortBy;
     return [...filteredData].sort((a, b) => {
       const av = a[key] as number;

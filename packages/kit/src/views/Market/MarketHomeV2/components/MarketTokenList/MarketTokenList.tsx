@@ -41,13 +41,6 @@ type IMarketTokenListProps = {
    */
   toolbar?: ReactNode;
   /**
-   * If provided, the list will initially display only tokens in the user's
-   * watchlist. This prop controls the *initial* state only; users can still
-   * toggle between watchlist-only and full list by tapping the star column
-   * header.
-   */
-  defaultShowWatchlistOnly?: boolean;
-  /**
    * External control for watchlist display state. When provided, the star
    * column header will no longer be clickable and the watchlist toggle
    * is controlled externally.
@@ -66,54 +59,54 @@ function MarketTokenList({
   pageSize = 20,
   liquidityFilter,
   toolbar,
-  defaultShowWatchlistOnly,
   externalWatchlistControl,
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
-  const [currentSortBy, setCurrentSortBy] = useState<string | undefined>(
+  // Separate sorting states for main list and watchlist
+  const [mainListSortBy, setMainListSortBy] = useState<string | undefined>(
     initialSortBy || 'v24hUSD',
   );
-  const [currentSortType, setCurrentSortType] = useState<
+  const [mainListSortType, setMainListSortType] = useState<
     'asc' | 'desc' | undefined
   >(initialSortType || 'desc');
 
-  const handleSortChange = useCallback(
-    (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      // When sortType is undefined, reset to default sorting
-      if (sortType === undefined) {
-        setCurrentSortBy('v24hUSD');
-        setCurrentSortType('desc');
-      } else {
-        setCurrentSortBy(sortBy);
-        setCurrentSortType(sortType);
-      }
-    },
-    [],
-  );
+  const [watchlistSortBy, setWatchlistSortBy] = useState<string | undefined>();
+  const [watchlistSortType, setWatchlistSortType] = useState<
+    'asc' | 'desc' | undefined
+  >();
 
   // ---------------- WATCHLIST ------------------
-  const [internalShowWatchlistOnly, setInternalShowWatchlistOnly] = useState(
-    defaultShowWatchlistOnly ?? false,
-  );
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
 
   // Use external control if provided, otherwise use internal state
-  const showWatchlistOnly =
-    externalWatchlistControl?.showWatchlistOnly ?? internalShowWatchlistOnly;
+  const showWatchlistOnly = externalWatchlistControl?.showWatchlistOnly;
+
+  const handleSortChange = useCallback(
+    (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
+      if (showWatchlistOnly) {
+        // Handle watchlist sorting
+        if (sortType === undefined) {
+          setWatchlistSortBy(undefined);
+          setWatchlistSortType(undefined);
+        } else {
+          setWatchlistSortBy(sortBy);
+          setWatchlistSortType(sortType);
+        }
+      } else if (sortType === undefined) {
+        setMainListSortBy('v24hUSD');
+        setMainListSortType('desc');
+      } else {
+        setMainListSortBy(sortBy);
+        setMainListSortType(sortType);
+      }
+    },
+    [showWatchlistOnly],
+  );
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      // Star column toggle watchlist - only if not externally controlled
-      if (column.dataIndex === 'star' && !externalWatchlistControl) {
-        return {
-          onPress: () => {
-            setInternalShowWatchlistOnly((prev) => !prev);
-          },
-        };
-      }
-
       // Sorting logic
       const sortKey =
         SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
@@ -128,7 +121,7 @@ function MarketTokenList({
 
       return undefined;
     },
-    [handleSortChange, externalWatchlistControl],
+    [handleSortChange],
   );
 
   const marketTokenColumns = useMarketTokenColumns(
@@ -147,8 +140,8 @@ function MarketTokenList({
   // Call hooks unconditionally to follow React rules
   const watchlistResult = useMarketWatchlistTokenList({
     watchlist: watchlistItems || [],
-    sortBy: currentSortBy,
-    sortType: currentSortType,
+    sortBy: watchlistSortBy,
+    sortType: watchlistSortType,
     pageSize,
     minLiquidity,
     maxLiquidity,
@@ -156,8 +149,8 @@ function MarketTokenList({
 
   const normalResult = useMarketTokenList({
     networkId,
-    sortBy: currentSortBy,
-    sortType: currentSortType,
+    sortBy: mainListSortBy,
+    sortType: mainListSortType,
     pageSize,
     minLiquidity,
     maxLiquidity,
