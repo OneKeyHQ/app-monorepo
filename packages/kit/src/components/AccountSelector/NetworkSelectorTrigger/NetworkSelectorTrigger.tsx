@@ -275,18 +275,24 @@ export function ControlledNetworkSelectorIconTrigger({
       p="$1"
       m="$-1"
       borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      hoverStyle={
+        {
+          bg: '$bgHover',
+        } as any
+      }
+      pressStyle={
+        {
+          bg: '$bgActive',
+        } as any
+      }
       focusable
-      focusVisibleStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
+      focusVisibleStyle={
+        {
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        } as any
+      }
       hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
       onPress={onPress}
