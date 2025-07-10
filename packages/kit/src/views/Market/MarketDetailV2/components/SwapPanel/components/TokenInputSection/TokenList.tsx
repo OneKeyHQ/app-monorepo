@@ -100,14 +100,20 @@ export function TokenList({
     return Promise.all(promises);
   }, [tokens, networkAccount.result, currencySymbol]);
 
-  const displayTokens = tokens.map((token) => {
-    const tokenWithDetail = tokensWithDetails.result?.find(
-      (detailToken) =>
-        detailToken.networkId === token.networkId &&
-        detailToken.contractAddress === token.contractAddress,
-    );
-    return { ...token, ...tokenWithDetail };
-  });
+  const displayTokens = tokens
+    .map((token) => {
+      const tokenWithDetail = tokensWithDetails.result?.find(
+        (detailToken) =>
+          detailToken.networkId === token.networkId &&
+          detailToken.contractAddress === token.contractAddress,
+      );
+      return { ...token, ...tokenWithDetail };
+    })
+    .sort((a, b) => {
+      const valueA = parseFloat(a.valueProps?.value || '0');
+      const valueB = parseFloat(b.valueProps?.value || '0');
+      return valueB - valueA;
+    });
 
   return (
     <YStack gap="$1">
