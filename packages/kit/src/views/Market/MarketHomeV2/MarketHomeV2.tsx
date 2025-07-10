@@ -57,7 +57,7 @@ function MarketHome() {
   return (
     <Page>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.market}
+        sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>

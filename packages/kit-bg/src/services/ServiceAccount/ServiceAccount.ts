@@ -402,6 +402,24 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async existsHwStandardWallet({ connectId }: { connectId: string }) {
+    const device = await this.backgroundApi.localDb.getDeviceByQuery({
+      connectId,
+    });
+    if (!device) {
+      return false;
+    }
+
+    const standardWallets =
+      await this.backgroundApi.localDb.getNormalHwWalletInSameDevice({
+        associatedDevice: device.id,
+        excludeMocked: true,
+      });
+
+    return standardWallets.length > 0;
+  }
+
+  @backgroundMethod()
   async isWalletHasIndexedAccounts({ walletId }: { walletId: string }) {
     const { accounts: indexedAccounts } = await this.getIndexedAccountsOfWallet(
       {
@@ -746,7 +764,12 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     account: IBatchCreateAccount;
   }) {
-    const { ...dbAccount } = account;
+    const {
+      addressDetail: _addressDetail,
+      existsInDb: _existsInDb,
+      displayAddress: _displayAddress,
+      ...dbAccount
+    } = account;
     if (isNil(dbAccount.pathIndex)) {
       throw new OneKeyLocalError(
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',

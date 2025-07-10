@@ -21,6 +21,7 @@ function HoldersHeaderBase() {
       gap="$3"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
+      backgroundColor="$bgApp"
     >
       <SizableText {...commonTextProps} {...layoutConfig.rank}>
         {intl.formatMessage({

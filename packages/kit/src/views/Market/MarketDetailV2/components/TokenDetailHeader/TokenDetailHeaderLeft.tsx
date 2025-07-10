@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import {
   Divider,
-  Icon,
   IconButton,
   SizableText,
   XStack,
@@ -10,6 +9,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -50,6 +50,16 @@ export function TokenDetailHeaderLeft({
     }
   }, [address, copyText]);
 
+  const handleOpenContractAddress = useCallback(() => {
+    if (address && networkId) {
+      void openTokenDetailsUrl({
+        networkId,
+        tokenAddress: address,
+        openInExternal: true,
+      });
+    }
+  }, [address, networkId]);
+
   const handleOpenWebsite = useCallback(() => {
     if (website) {
       openUrlExternal(website);
@@ -61,6 +71,14 @@ export function TokenDetailHeaderLeft({
       openUrlExternal(twitter);
     }
   }, [twitter]);
+
+  const handleOpenXSearch = useCallback(() => {
+    if (symbol && address) {
+      const q = encodeURIComponent(`(${symbol} OR ${address})`);
+      const searchUrl = `https://x.com/search?q=${q}&src=typed_query&f=live`;
+      openUrlExternal(searchUrl);
+    }
+  }, [symbol, address]);
 
   return (
     <XStack ai="center" gap="$2">
@@ -77,16 +95,15 @@ export function TokenDetailHeaderLeft({
 
         <XStack gap="$2" ai="center">
           {address ? (
-            <XStack
-              borderRadius="$1"
-              ai="center"
-              gap="$1"
-              onPress={handleCopyAddress}
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-            >
-              <SizableText size="$bodySm" color="$textSubdued">
+            <XStack borderRadius="$1" ai="center" gap="$1">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ color: '$text' }}
+                pressStyle={{ color: '$textActive' }}
+                onPress={handleOpenContractAddress}
+              >
                 {accountUtils.shortenAddress({
                   address,
                   leadingLength: 6,
@@ -94,7 +111,13 @@ export function TokenDetailHeaderLeft({
                 })}
               </SizableText>
 
-              <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+              <IconButton
+                onPress={handleCopyAddress}
+                variant="tertiary"
+                iconProps={{ width: 16, height: 16 }}
+                icon="Copy3Outline"
+                color="$iconSubdued"
+              />
             </XStack>
           ) : null}
 
@@ -125,6 +148,15 @@ export function TokenDetailHeaderLeft({
                   <IconButton
                     icon="Xbrand"
                     onPress={handleOpenTwitter}
+                    variant="tertiary"
+                    iconProps={{ width: 16, height: 16 }}
+                  />
+                ) : null}
+
+                {symbol && address ? (
+                  <IconButton
+                    icon="SearchOutline"
+                    onPress={handleOpenXSearch}
                     variant="tertiary"
                     iconProps={{ width: 16, height: 16 }}
                   />

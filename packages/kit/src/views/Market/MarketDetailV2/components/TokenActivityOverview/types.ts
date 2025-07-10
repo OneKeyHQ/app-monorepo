@@ -3,6 +3,7 @@ export interface ITimeRangeOption {
   value: string;
   percentageChange: string;
   isPositive: boolean;
+  isZero?: boolean;
 }
 
 export interface ITransactionRowProps {
