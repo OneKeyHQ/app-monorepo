@@ -15,7 +15,7 @@ import {
   YStack,
 } from '../../primitives';
 
-import type { IStackStyle } from '../../primitives';
+import type { IStackStyle, IYStackProps } from '../../primitives';
 
 export enum EStepItemStatus {
   Done = 'done',
@@ -86,8 +86,8 @@ export interface IStepItemProps {
   renderDescription?: (props: IStepperItemRenderProps) => ReactElement | null;
   renderAction?: (props: IStepperItemRenderProps) => ReactElement | null;
   badgeText?: string;
-  containerStyle?: IStackStyle;
-  textContainerStyle?: IStackStyle;
+  containerStyle?: IYStackProps;
+  textContainerStyle?: IYStackProps;
 }
 
 export interface IStepperContextProps {
