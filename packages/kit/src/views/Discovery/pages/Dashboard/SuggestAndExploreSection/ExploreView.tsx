@@ -194,13 +194,7 @@ export function ExploreView({
             });
           }}
         >
-          <Image w="$5" h="$5">
-            <ImageSource
-              source={{
-                uri: selectedNetwork?.logoURI ?? '',
-              }}
-            />
-          </Image>
+          <Image size="$5" source={{ uri: selectedNetwork?.logoURI ?? '' }} />
           <XStack maxWidth={119}>
             <SizableText size="$bodyMdMedium" px="$1" numberOfLines={1}>
               {selectedNetwork?.name ?? ''}
