@@ -1,7 +1,5 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
@@ -57,7 +55,7 @@ function TransactionItemNormalBase({
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
-        formatter={BigNumber(price).gt(1_000_000) ? 'marketCap' : 'price'}
+        autoFormatter="price-marketCap"
         formatterOptions={{ currency: '$', capAtMaxT: true }}
         {...styles.price}
       >
@@ -67,7 +65,7 @@ function TransactionItemNormalBase({
       <NumberSizeableText
         size="$bodyMd"
         color="$text"
-        formatter={BigNumber(value).gt(1_000_000) ? 'marketCap' : 'price'}
+        autoFormatter="price-marketCap"
         formatterOptions={{ currency: '$', capAtMaxT: true }}
         {...styles.value}
       >

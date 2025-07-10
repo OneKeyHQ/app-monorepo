@@ -1,7 +1,5 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import {
   NumberSizeableText,
   SizableText,
@@ -63,7 +61,7 @@ function TransactionItemSmallBase({
           textAlign="right"
           size="$bodySmMedium"
           color="$text"
-          formatter={BigNumber(value).gt(1_000_000) ? 'marketCap' : 'price'}
+          autoFormatter="price-marketCap"
           formatterOptions={{ currency: '$', capAtMaxT: true }}
         >
           {value}
@@ -73,7 +71,7 @@ function TransactionItemSmallBase({
           textAlign="right"
           size="$bodySm"
           color="$textSubdued"
-          formatter={BigNumber(value).gt(1_000_000) ? 'marketCap' : 'price'}
+          autoFormatter="price-marketCap"
           formatterOptions={{ currency: '$', capAtMaxT: true }}
         >
           {price}

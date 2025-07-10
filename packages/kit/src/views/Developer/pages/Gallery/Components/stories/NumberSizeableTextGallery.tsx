@@ -427,6 +427,67 @@ const NumberSizeableTextGallery = () => (
           </YStack>
         ),
       },
+      {
+        title: 'autoFormatter',
+        element: (
+          <YStack gap="$3">
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Small value (uses price formatter):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="price-marketCap"
+                formatterOptions={{ currency: '$', capAtMaxT: true }}
+              >
+                123.45
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Large value (uses marketCap formatter):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="price-marketCap"
+                formatterOptions={{ currency: '$', capAtMaxT: true }}
+              >
+                2500000
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Balance autoFormatter (small):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="balance-marketCap"
+                formatterOptions={{ tokenSymbol: 'ETH' }}
+              >
+                0.0045
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">
+                Balance autoFormatter (large):
+              </SizableText>
+              <NumberSizeableText
+                autoFormatter="balance-marketCap"
+                formatterOptions={{ tokenSymbol: 'ETH' }}
+              >
+                5000000
+              </NumberSizeableText>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodySm">Custom threshold (500K):</SizableText>
+              <NumberSizeableText
+                autoFormatter="price-marketCap"
+                autoFormatterThreshold={500_000}
+                formatterOptions={{ currency: '$', capAtMaxT: true }}
+              >
+                750000
+              </NumberSizeableText>
+            </YStack>
+          </YStack>
+        ),
+      },
     ]}
   />
 );
