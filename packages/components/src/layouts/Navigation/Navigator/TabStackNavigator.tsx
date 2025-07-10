@@ -97,8 +97,8 @@ export function TabStackNavigator<RouteName extends string>({
       options={{
         ...options,
         tabBarLabel: intl.formatMessage({ id: options.translationId }),
-        // @ts-expect-error BottomTabBar V7
         tabBarPosition,
+        // @ts-expect-error Custom property for tab bar handling
         tabbarOnPress: options.tabbarOnPress,
       }}
     >
@@ -116,7 +116,6 @@ export function TabStackNavigator<RouteName extends string>({
         name={extraConfig.name}
         options={{
           freezeOnBlur: true,
-          // @ts-expect-error BottomTabBar V7
           tabBarPosition,
         }}
       >
