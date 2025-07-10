@@ -99,11 +99,13 @@ export function TokenDetailHeaderRight({
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
-        value={`$${formatDisplayNumber(
-          formatMarketCap(marketCap, {
-            capAtMaxT: true,
-          }),
-        )}`}
+        value={
+          formatDisplayNumber(
+            formatMarketCap(marketCap, {
+              capAtMaxT: true,
+            }),
+          ) as string
+        }
       />
 
       <StatItem
