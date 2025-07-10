@@ -13,7 +13,7 @@ import {
   type ImageRef,
   type ImageSource,
 } from 'expo-image';
-import { resolveSource } from 'expo-image/src/utils/resolveSources';
+import { resolveSource } from 'expo-image';
 
 const IMAGE_CACHE_MAP = new Map<string, string>();
 
