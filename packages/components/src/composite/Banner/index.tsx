@@ -26,10 +26,10 @@ export interface IBannerData {
   imgUrl?: string;
   theme?: 'dark' | 'light' | string;
   bannerId?: string;
-  // imgSource?: IImageSourceProps['source'];
-  // imgResizeMode?: IImageSourceProps['resizeMode'];
-  // $gtMd?: IBannerData;
-  // $gtLg?: IBannerData;
+  imgSource?: IImageSourceProps['source'];
+  imgResizeMode?: IImageSourceProps['resizeMode'];
+  $gtMd?: IBannerData;
+  $gtLg?: IBannerData;
 }
 
 function BannerItem<T extends IBannerData>({
@@ -130,7 +130,7 @@ export function Banner<T extends IBannerData>({
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
       <BannerItem
-        isFirst={item.bannerId === (data)[0].bannerId}
+        isFirst={item.bannerId === data[0].bannerId}
         isLast={item.bannerId === data[data.length - 1].bannerId}
         onPress={onItemPress}
         item={item}
