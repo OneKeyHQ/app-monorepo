@@ -1,11 +1,6 @@
 import { memo } from 'react';
 
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionAmount } from '../../components/TransactionAmount';

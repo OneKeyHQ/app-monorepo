@@ -83,7 +83,13 @@ export function TransactionsHistory({
 
   if (gtXl) {
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{
+          flexDirection: 'column',
+        }}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+      >
         {list}
       </ScrollView>
     );

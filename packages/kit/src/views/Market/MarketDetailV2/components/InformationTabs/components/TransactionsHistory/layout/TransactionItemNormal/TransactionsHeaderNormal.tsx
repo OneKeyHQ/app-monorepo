@@ -15,6 +15,7 @@ function TransactionsHeaderNormalBase() {
 
   return (
     <XStack
+      width="100%"
       px="$4"
       py="$3"
       alignItems="center"
