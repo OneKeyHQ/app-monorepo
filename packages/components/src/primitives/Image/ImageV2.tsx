@@ -39,7 +39,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   const style = useMemo(() => {
     return defaultStyle
-      ? StyleSheet.flatten([defaultStyle, restStyle])
+      ? (StyleSheet.flatten([defaultStyle, restStyle]) as typeof restStyle)
       : restStyle;
   }, [defaultStyle, restStyle]);
 
