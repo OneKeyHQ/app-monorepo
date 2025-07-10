@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
+import { StyleSheet } from 'react-native';
 import { usePropsAndStyle } from 'tamagui';
 
 import { Skeleton } from '../Skeleton';
@@ -14,7 +15,7 @@ import type {
   ImageStyle,
 } from 'expo-image';
 
-export function ImageV2(props: IImageV2Props) {
+export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -29,12 +30,18 @@ export function ImageV2(props: IImageV2Props) {
     }
     return undefined;
   }, [props?.size, props?.height, props?.h, props?.width, props?.w]);
-  const [restProps, style] = usePropsAndStyle(
+  const [restProps, restStyle] = usePropsAndStyle(
     sizeProps ? { ...props, ...sizeProps } : props,
     {
       resolveValues: 'auto',
     },
   ) as unknown as [IImageV2Props, ImageStyle];
+
+  const style = useMemo(() => {
+    return defaultStyle
+      ? StyleSheet.flatten([defaultStyle, restStyle])
+      : restStyle;
+  }, [defaultStyle, restStyle]);
 
   const {
     source,
@@ -89,7 +96,7 @@ export function ImageV2(props: IImageV2Props) {
   }
 
   return (
-    <YStack width={style.width} height={style.height}>
+    <YStack style={style}>
       <ExpoImage
         source={resolvedSource}
         style={style}
