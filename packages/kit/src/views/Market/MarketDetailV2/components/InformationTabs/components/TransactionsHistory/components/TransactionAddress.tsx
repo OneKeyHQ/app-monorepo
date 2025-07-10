@@ -42,7 +42,7 @@ function TransactionAddressBase({
             trailingLength: 4,
           })}
         </SizableText>
-        <Icon name="Copy2Outline" size="$4" color="$iconSubdued" />
+        <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
       </XStack>
       <XStack
         onPress={handleViewInBrowser}
