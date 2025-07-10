@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ListView, SizableText, Stack } from '@onekeyhq/components';
+import { ListView, ScrollView, SizableText, Stack } from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,17 +52,19 @@ export function TransactionsHistory({
   }
 
   return (
-    <ListView<IMarketTokenTransaction>
-      data={transactions}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.hash}
-      estimatedItemSize={40}
-      showsVerticalScrollIndicator
-      ListHeaderComponent={TransactionsHeader}
-      stickyHeaderIndices={[0]}
-      contentContainerStyle={{
-        paddingBottom: '$4',
-      }}
-    />
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ListView<IMarketTokenTransaction>
+        data={transactions}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.hash}
+        estimatedItemSize={40}
+        showsVerticalScrollIndicator
+        ListHeaderComponent={TransactionsHeader}
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={{
+          paddingBottom: '$4',
+        }}
+      />
+    </ScrollView>
   );
 }
