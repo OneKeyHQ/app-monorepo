@@ -2,15 +2,23 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ListView, ScrollView, SizableText, Stack } from '@onekeyhq/components';
+import {
+  ListView,
+  ScrollView,
+  SizableText,
+  Stack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IListViewProps } from '@onekeyhq/components';
 import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-import { TransactionItem } from './TransactionItem';
-import { TransactionsHeader } from './TransactionsHeader';
-import { TransactionsSkeleton } from './TransactionsSkeleton';
+import { TransactionsSkeleton } from './components/TransactionsSkeleton';
+import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
+import { TransactionsHeaderNormal } from './layout/TransactionItemNormal/TransactionsHeaderNormal';
+import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
+import { TransactionsHeaderSmall } from './layout/TransactionItemSmall/TransactionsHeaderSmall';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -22,6 +30,7 @@ export function TransactionsHistory({
   networkId,
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
+  const { gtXl } = useMedia();
   const { transactions, isRefreshing } = useMarketTransactions({
     tokenAddress,
     networkId,
@@ -30,9 +39,13 @@ export function TransactionsHistory({
   const renderItem: IListViewProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item }: { item: IMarketTokenTransaction }) => {
-        return <TransactionItem item={item} networkId={networkId} />;
+        return gtXl ? (
+          <TransactionItemNormal item={item} networkId={networkId} />
+        ) : (
+          <TransactionItemSmall item={item} networkId={networkId} />
+        );
       },
-      [networkId],
+      [networkId, gtXl],
     );
 
   if (isRefreshing && transactions.length === 0) {
@@ -51,20 +64,30 @@ export function TransactionsHistory({
     );
   }
 
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <ListView<IMarketTokenTransaction>
-        data={transactions}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.hash}
-        estimatedItemSize={40}
-        showsVerticalScrollIndicator
-        ListHeaderComponent={TransactionsHeader}
-        stickyHeaderIndices={[0]}
-        contentContainerStyle={{
-          paddingBottom: '$4',
-        }}
-      />
-    </ScrollView>
+  const list = (
+    <ListView<IMarketTokenTransaction>
+      data={transactions}
+      renderItem={renderItem}
+      keyExtractor={(item) => item.hash}
+      estimatedItemSize={40}
+      showsVerticalScrollIndicator
+      ListHeaderComponent={
+        gtXl ? TransactionsHeaderNormal : TransactionsHeaderSmall
+      }
+      stickyHeaderIndices={[0]}
+      contentContainerStyle={{
+        paddingBottom: '$4',
+      }}
+    />
   );
+
+  if (gtXl) {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {list}
+      </ScrollView>
+    );
+  }
+
+  return list;
 }

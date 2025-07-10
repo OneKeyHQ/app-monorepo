@@ -817,7 +817,10 @@ test('formatMarketCap', () => {
   // Test with currency symbol
   expect(
     formatDisplayNumber(
-      formatMarketCap('21953896250000000000000', { capAtMaxT: true, currency: '$' }),
+      formatMarketCap('21953896250000000000000', {
+        capAtMaxT: true,
+        currency: '$',
+      }),
     ),
   ).toEqual('> $999T');
 

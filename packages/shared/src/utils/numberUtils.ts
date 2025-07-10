@@ -563,12 +563,12 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (leading) {
     strings.push(leading);
   }
-  
+
   // Add ">" prefix for capped values
   if (value.meta.isCapped) {
     strings.push('> ');
   }
-  
+
   if (isNegativeNumber && !isZero) {
     strings.push('-');
   } else if (showPlusMinusSigns) {
