@@ -194,6 +194,66 @@ export function EnterPinOnDevice({
   );
 }
 
+export function EnterHiddenWalletPinOnDevice({
+  deviceType,
+}: {
+  deviceType: IDeviceType | undefined;
+}) {
+  const requireResource = useCallback(() => {
+    switch (deviceType) {
+      // Prevents the device type from being obtained
+      case null:
+      case undefined:
+        return Promise.resolve(null);
+      // Specify unsupported devices
+      case EDeviceType.Unknown:
+        return Promise.resolve(null);
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-classic.json'
+        );
+      case EDeviceType.Mini:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-mini.json'
+        );
+      case EDeviceType.Touch:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-touch.json'
+        );
+      case EDeviceType.Pro:
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-pro-dark.json'
+        );
+      default:
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+        const checkType = deviceType;
+    }
+  }, [deviceType]);
+
+  const [animationData, setAnimationData] = useState<any>(null);
+
+  useEffect(() => {
+    requireResource()
+      ?.then((module) => {
+        setAnimationData(module?.default);
+      })
+      ?.catch(() => {
+        // ignore
+      });
+  }, [requireResource]);
+
+  return (
+    // height must be specified on Sheet View.
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
+      {animationData ? (
+        <LottieView width="100%" height="100%" source={animationData} />
+      ) : null}
+    </Stack>
+  );
+}
+
 export function EnterPin({
   onConfirm,
   switchOnDevice,
@@ -408,16 +468,24 @@ interface IEnterPhaseFormValues {
 
 export function EnterPhase({
   isSingleInput,
+  allowUseAttachPin,
   onConfirm,
   switchOnDevice,
+  switchOnDeviceAttachPin,
 }: {
   isSingleInput?: boolean;
+  allowUseAttachPin?: boolean;
   onConfirm: (p: {
     passphrase: string;
     save: boolean;
     hideImmediately: boolean;
   }) => void;
   switchOnDevice: ({ hideImmediately }: { hideImmediately: boolean }) => void;
+  switchOnDeviceAttachPin: ({
+    hideImmediately,
+  }: {
+    hideImmediately: boolean;
+  }) => void;
 }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -433,17 +501,6 @@ export function EnterPhase({
       },
       onSubmit: async (form: UseFormReturn<IEnterPhaseFormValues>) => {
         const values = form.getValues();
-        if (
-          !isSingleInput &&
-          (values.passphrase || '') !== (values.confirmPassphrase || '')
-        ) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_passphrase_not_matched,
-            }),
-          });
-          return;
-        }
         const passphrase = values.passphrase || '';
         onConfirm({
           passphrase,
@@ -452,16 +509,26 @@ export function EnterPhase({
         });
       },
     }),
-    [intl, isSingleInput, onConfirm, settings.hiddenWalletImmediately],
+    [onConfirm, settings.hiddenWalletImmediately],
   );
   const form = useForm<IEnterPhaseFormValues>(formOption);
 
   const handleSwitchOnDevice = useCallback(() => {
     switchOnDevice({ hideImmediately: form.getValues().hideImmediately });
   }, [form, switchOnDevice]);
+
+  const handleSwitchOnDeviceAttachPin = useCallback(() => {
+    switchOnDeviceAttachPin({
+      hideImmediately: form.getValues().hideImmediately,
+    });
+  }, [form, switchOnDeviceAttachPin]);
+
   const media = useMedia();
   const [secureEntry1, setSecureEntry1] = useState(true);
-  const [secureEntry2, setSecureEntry2] = useState(true);
+
+  // Watch passphrase input to control button state
+  const passphraseValue = form.watch('passphrase');
+  const isButtonDisabled = !passphraseValue || passphraseValue === '';
 
   return (
     <Stack>
@@ -520,6 +587,18 @@ export function EnterPhase({
               />
             </XStack>
           }
+          labelAddon={
+            <Button
+              variant="tertiary"
+              size="small"
+              icon="OnekeyDeviceCustom"
+              onPress={handleSwitchOnDevice}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_enter_on_device,
+              })}
+            </Button>
+          }
           rules={{
             maxLength: {
               value: 50,
@@ -566,32 +645,6 @@ export function EnterPhase({
         </Form.Field>
         {!isSingleInput ? (
           <Form.Field
-            name="confirmPassphrase"
-            label={intl.formatMessage({
-              id: ETranslations.form_confirm_passphrase,
-            })}
-          >
-            <Input
-              secureTextEntry={secureEntry2}
-              placeholder={intl.formatMessage({
-                id: ETranslations.form_confirm_passphrase_placeholder,
-              })}
-              addOns={[
-                {
-                  iconName: secureEntry2 ? 'EyeOutline' : 'EyeOffOutline',
-                  onPress: () => {
-                    setSecureEntry2(!secureEntry2);
-                  },
-                },
-              ]}
-              {...(media.md && {
-                size: 'large',
-              })}
-            />
-          </Form.Field>
-        ) : null}
-        {!isSingleInput ? (
-          <Form.Field
             horizontal
             name="hideImmediately"
             description={
@@ -624,23 +677,28 @@ export function EnterPhase({
           } as any
         }
         variant="primary"
+        disabled={isButtonDisabled}
         onPress={form.submit}
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
-      <Button
-        m="$0"
-        mt="$2.5"
-        $md={
-          {
-            size: 'large',
-          } as any
-        }
-        variant="secondary"
-        onPress={handleSwitchOnDevice}
-      >
-        {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
-      </Button>
+      {allowUseAttachPin ? (
+        <Button
+          m="$0"
+          mt="$2.5"
+          $md={
+            {
+              size: 'large',
+            } as any
+          }
+          variant="secondary"
+          onPress={handleSwitchOnDeviceAttachPin}
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_enter_hidden_wallet_pin,
+          })}
+        </Button>
+      ) : null}
     </Stack>
   );
 }

@@ -24,6 +24,8 @@ export enum EHardwareUiStateAction {
   // @onekeyfe/hd-core UI_REQUEST const map ----------------------------------------------
 
   REQUEST_PIN = 'ui-request_pin',
+  REQUEST_PIN_TYPE_PIN_ENTRY = 'ButtonRequest_PinEntry',
+  REQUEST_PIN_TYPE_ATTACH_PIN = 'ButtonRequest_AttachPin',
   INVALID_PIN = 'ui-invalid_pin',
   REQUEST_BUTTON = 'ui-button',
   REQUEST_PASSPHRASE = 'ui-request_passphrase',
@@ -56,13 +58,19 @@ export type IHardwareUiPayload = {
   connectId: string;
   deviceMode: EOneKeyDeviceMode;
   isBootloaderMode?: boolean;
+  // request passphrase
   passphraseState?: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
+  existsAttachPinUser?: boolean; // use attach pin, REQUEST_PASSPHRASE_ON_DEVICE only
+  // firmware update tip
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;
   };
+  // firmware update progress
   firmwareProgress?: number;
   firmwareProgressType?: 'transferData' | 'installingFirmware';
   rawPayload: any;
+  // request pin type
+  requestPinType?: 'PinEntry' | 'AttachPin';
 };
 export type IHardwareUiState = {
   action: EHardwareUiStateAction;

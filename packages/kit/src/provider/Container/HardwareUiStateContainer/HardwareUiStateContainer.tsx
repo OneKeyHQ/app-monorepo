@@ -44,6 +44,7 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import {
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
+  EnterHiddenWalletPinOnDevice,
   EnterPassphraseOnDevice,
   EnterPhase,
   EnterPin,
@@ -161,10 +162,22 @@ function HardwareSingletonDialogCmp(
 
     // EnterPin on Device
     if (action === EHardwareUiStateAction.EnterPinOnDevice) {
-      title = intl.formatMessage({
-        id: ETranslations.enter_pin_enter_on_device,
-      });
-      content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
+      const requestPinType = state?.payload?.requestPinType;
+      if (requestPinType === 'AttachPin') {
+        title = intl.formatMessage({
+          id: ETranslations.global_enter_hidden_wallet_pin_on_device,
+        });
+        content = (
+          <EnterHiddenWalletPinOnDevice
+            deviceType={state?.payload?.deviceType}
+          />
+        );
+      } else {
+        title = intl.formatMessage({
+          id: ETranslations.enter_pin_enter_on_device,
+        });
+        content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
+      }
     }
 
     // EnterPin on App
@@ -210,11 +223,14 @@ function HardwareSingletonDialogCmp(
         await serviceSetting.setHiddenWalletImmediately(hideImmediately);
       };
       title = intl.formatMessage({
-        id: ETranslations.global_enter_passphrase,
+        id: isSingleInput
+          ? ETranslations.global_enter_passphrase
+          : ETranslations.global_add_hidden_wallet,
       });
       content = (
         <EnterPhase
           isSingleInput={isSingleInput}
+          allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,
@@ -238,6 +254,12 @@ function HardwareSingletonDialogCmp(
               hideImmediately,
             });
             await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
+          }}
+          switchOnDeviceAttachPin={async ({ hideImmediately }) => {
+            await saveCachedHiddenWalletOptions({
+              hideImmediately,
+            });
+            await serviceHardwareUI.showEnterAttachPinOnDeviceDialog();
           }}
         />
       );
