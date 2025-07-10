@@ -9,8 +9,9 @@ import type { LayoutChangeEvent } from 'react-native';
 
 export type ISplashProps = PropsWithChildren;
 
+const noop = () => {};
 export function Splash({ children }: ISplashProps) {
-  const resolveSplash = useRef<() => void>();
+  const resolveSplash = useRef<() => void>(noop);
   const handleExitComplete = useCallback(() => {}, []);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
