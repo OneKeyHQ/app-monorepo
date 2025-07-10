@@ -91,7 +91,10 @@ const BadgeText = styled(SizableText, {
   } as const,
 });
 
-export type IBadgeProps = IXStackProps;
+export type IBadgeProps = IXStackProps & {
+  badgeType?: IBadgeType;
+  badgeSize?: 'lg' | 'sm';
+};
 
 const BadgeComponent = BadgeFrame.styleable<IBadgeProps, any, any>(
   (props: IBadgeProps, ref: any) => {
