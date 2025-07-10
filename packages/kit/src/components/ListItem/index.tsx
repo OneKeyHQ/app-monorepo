@@ -382,14 +382,17 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
   },
 );
 
-export const ListItem = withStaticProperties(ListItemComponent, {
-  Text: ListItemText,
-  Avatar: withStaticProperties(ListItemAvatar, {
-    CornerIcon: ListItemAvatarCornerIcon,
-    CornerImage: ListItemAvatarCornerImage,
-  }),
-  IconButton: ListItemIconButton,
-  CheckMark: ListItemCheckMark,
-  Separator: ListItemSeparator,
-  DrillIn: ListItemDrillIn,
-});
+export const ListItem = withStaticProperties(
+  ListItemComponent as ComponentType<IListItemProps>,
+  {
+    Text: ListItemText,
+    Avatar: withStaticProperties(ListItemAvatar, {
+      CornerIcon: ListItemAvatarCornerIcon,
+      CornerImage: ListItemAvatarCornerImage,
+    }),
+    IconButton: ListItemIconButton,
+    CheckMark: ListItemCheckMark,
+    Separator: ListItemSeparator,
+    DrillIn: ListItemDrillIn,
+  },
+);

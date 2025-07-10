@@ -3,7 +3,7 @@ import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 
 import { YStack } from 'tamagui';
 
-import { IYStackProps, Stack } from '../../primitives';
+import { Stack } from '../../primitives';
 import { ListView } from '../ListView/list';
 
 import {
@@ -14,6 +14,7 @@ import {
 } from './hooks';
 
 import type { ISwiperProps, ISwiperRef } from './type';
+import type { IYStackProps } from '../../primitives';
 import type { ListRenderItemInfo } from 'react-native';
 
 function BaseSwiperFlatList<T>(
