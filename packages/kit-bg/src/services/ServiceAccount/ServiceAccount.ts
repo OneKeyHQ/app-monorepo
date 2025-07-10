@@ -402,6 +402,28 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async existsHwStandardWallet({ connectId }: { connectId: string }) {
+    const { wallets, allDevices } = await this.getAllWallets({
+      refillWalletInfo: true,
+    });
+
+    const device = allDevices?.find((item) => item.connectId === connectId);
+    if (!device) {
+      return false;
+    }
+
+    const standardWallets = wallets.filter(
+      (item) =>
+        accountUtils.isHwWallet({ walletId: item.id }) &&
+        !accountUtils.isHwHiddenWallet({ wallet: item }) &&
+        item.associatedDevice === device.id &&
+        !item.isMocked,
+    );
+
+    return standardWallets.length > 0;
+  }
+
+  @backgroundMethod()
   async isWalletHasIndexedAccounts({ walletId }: { walletId: string }) {
     const { accounts: indexedAccounts } = await this.getIndexedAccountsOfWallet(
       {
