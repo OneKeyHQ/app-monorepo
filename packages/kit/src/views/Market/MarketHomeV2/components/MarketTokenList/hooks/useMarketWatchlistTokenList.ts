@@ -15,8 +15,8 @@ import type { IMarketToken } from '../MarketTokenData';
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
-  sortBy?: string;
-  sortType?: 'asc' | 'desc';
+  initialSortBy?: string;
+  initialSortType?: 'asc' | 'desc';
   pageSize?: number;
   minLiquidity?: number;
   maxLiquidity?: number;
@@ -24,14 +24,18 @@ export interface IUseMarketWatchlistTokenListParams {
 
 export function useMarketWatchlistTokenList({
   watchlist,
-  sortBy,
-  sortType,
+  initialSortBy,
+  initialSortType,
   pageSize = 20,
   minLiquidity,
   maxLiquidity,
 }: IUseMarketWatchlistTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
+  const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
+  const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
+    initialSortType,
+  );
 
   const {
     result: apiResult,
@@ -141,5 +145,9 @@ export function useMarketWatchlistTokenList({
     totalCount,
     setCurrentPage,
     refetch: refetchData,
+    sortBy,
+    sortType,
+    setSortBy,
+    setSortType,
   } as const;
 }

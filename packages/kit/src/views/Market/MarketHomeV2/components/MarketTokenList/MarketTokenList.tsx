@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -63,19 +63,6 @@ function MarketTokenList({
 }: IMarketTokenListProps) {
   const toDetailPage = useToDetailPage();
 
-  // Separate sorting states for main list and watchlist
-  const [mainListSortBy, setMainListSortBy] = useState<string | undefined>(
-    initialSortBy || 'v24hUSD',
-  );
-  const [mainListSortType, setMainListSortType] = useState<
-    'asc' | 'desc' | undefined
-  >(initialSortType || 'desc');
-
-  const [watchlistSortBy, setWatchlistSortBy] = useState<string | undefined>();
-  const [watchlistSortType, setWatchlistSortType] = useState<
-    'asc' | 'desc' | undefined
-  >();
-
   // ---------------- WATCHLIST ------------------
   const [watchlistState] = useMarketWatchListV2Atom();
   const watchlistItems = watchlistState.data;
@@ -83,26 +70,52 @@ function MarketTokenList({
   // Use external control if provided, otherwise use internal state
   const showWatchlistOnly = externalWatchlistControl?.showWatchlistOnly;
 
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    showWatchlistOnly,
+  );
+
+  // Convert string values to numbers for the API
+  const minLiquidity = liquidityFilter?.min
+    ? parseValueToNumber(liquidityFilter.min)
+    : undefined;
+  const maxLiquidity = liquidityFilter?.max
+    ? parseValueToNumber(liquidityFilter.max)
+    : undefined;
+
+  // Call hooks unconditionally to follow React rules
+  const watchlistResult = useMarketWatchlistTokenList({
+    watchlist: watchlistItems || [],
+    pageSize,
+    minLiquidity,
+    maxLiquidity,
+  });
+
+  const normalResult = useMarketTokenList({
+    networkId,
+    initialSortBy,
+    initialSortType,
+    pageSize,
+    minLiquidity,
+    maxLiquidity,
+  });
+
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      if (showWatchlistOnly) {
-        // Handle watchlist sorting
-        if (sortType === undefined) {
-          setWatchlistSortBy(undefined);
-          setWatchlistSortType(undefined);
-        } else {
-          setWatchlistSortBy(sortBy);
-          setWatchlistSortType(sortType);
-        }
-      } else if (sortType === undefined) {
-        setMainListSortBy('v24hUSD');
-        setMainListSortType('desc');
+      const result: {
+        setSortBy: (sortBy: string | undefined) => void;
+        setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
+      } = showWatchlistOnly ? watchlistResult : normalResult;
+
+      if (sortType === undefined) {
+        result.setSortBy(showWatchlistOnly ? undefined : 'v24hUSD');
+        result.setSortType(showWatchlistOnly ? undefined : 'desc');
       } else {
-        setMainListSortBy(sortBy);
-        setMainListSortType(sortType);
+        result.setSortBy(sortBy);
+        result.setSortType(sortType);
       }
     },
-    [showWatchlistOnly],
+    [showWatchlistOnly, watchlistResult, normalResult],
   );
 
   const handleHeaderRow = useCallback(
@@ -123,38 +136,6 @@ function MarketTokenList({
     },
     [handleSortChange],
   );
-
-  const marketTokenColumns = useMarketTokenColumns(
-    networkId,
-    showWatchlistOnly,
-  );
-
-  // Convert string values to numbers for the API
-  const minLiquidity = liquidityFilter?.min
-    ? parseValueToNumber(liquidityFilter.min)
-    : undefined;
-  const maxLiquidity = liquidityFilter?.max
-    ? parseValueToNumber(liquidityFilter.max)
-    : undefined;
-
-  // Call hooks unconditionally to follow React rules
-  const watchlistResult = useMarketWatchlistTokenList({
-    watchlist: watchlistItems || [],
-    sortBy: watchlistSortBy,
-    sortType: watchlistSortType,
-    pageSize,
-    minLiquidity,
-    maxLiquidity,
-  });
-
-  const normalResult = useMarketTokenList({
-    networkId,
-    sortBy: mainListSortBy,
-    sortType: mainListSortType,
-    pageSize,
-    minLiquidity,
-    maxLiquidity,
-  });
 
   const { data, isLoading, currentPage, setCurrentPage, totalPages } =
     showWatchlistOnly ? watchlistResult : normalResult;
