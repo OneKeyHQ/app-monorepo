@@ -144,7 +144,6 @@ function BasicAccountAvatar({
     ),
   );
 
-  console.log('accountSourceUri', accountSourceUri);
   const uriSource = useMemo(() => {
     const emptyAccountAvatar = <DefaultEmptyAccount />;
 
