@@ -144,8 +144,8 @@ function BaseSwiperFlatList<T>(
   );
 }
 
-export const Swiper = forwardRef(
-  BaseSwiperFlatList,
-) as typeof BaseSwiperFlatList;
+export const Swiper = forwardRef(BaseSwiperFlatList) as <T>(
+  props: ISwiperProps<T> & { ref?: React.Ref<ISwiperRef> },
+) => React.ReactElement | null;
 
 export * from './type';

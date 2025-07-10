@@ -18,6 +18,7 @@ import type {
   IImageSourceProps,
   ISizableTextProps,
   IStackStyle,
+  IXStackProps,
 } from '../../primitives';
 
 export interface IBannerData {
@@ -111,7 +112,7 @@ export function Banner<T extends IBannerData>({
 }: IStackStyle & {
   data: T[];
   itemContainerStyle?: IStackStyle;
-  indicatorContainerStyle?: IStackStyle;
+  indicatorContainerStyle?: IXStackProps;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
