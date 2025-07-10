@@ -20,7 +20,7 @@ function MarketHome() {
 
   const [selectedNetworkId, setSelectedNetworkId] =
     useState<string>('sol--101');
-  const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({});
+  const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({ min: '5K' });
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
 
