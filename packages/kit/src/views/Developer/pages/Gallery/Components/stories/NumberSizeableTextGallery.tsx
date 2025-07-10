@@ -1,4 +1,9 @@
-import { NumberSizeableText, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { Layout } from './utils/Layout';
@@ -353,15 +358,15 @@ const NumberSizeableTextGallery = () => (
       {
         title: 'marketCap with capAtMaxT',
         element: (
-          <YStack gap="$3">
+          <YStack gap="$6">
             <SizableText size="$bodyMd">
-              The capAtMaxT option caps very large numbers at 999T maximum for better UI consistency.
+              The capAtMaxT option caps very large numbers at 999T maximum for
+              better UI consistency.
             </SizableText>
-            <XStack space="$6">
+
+            <XStack gap="$2">
               <YStack gap="$2">
-                <SizableText size="$bodyMd" fontWeight="$semibold">
-                  Without capAtMaxT:
-                </SizableText>
+                <SizableText size="$bodyMd">Without capAtMaxT:</SizableText>
                 <NumberSizeableText
                   formatter="marketCap"
                   formatterOptions={{ currency: '$' }}
@@ -373,9 +378,7 @@ const NumberSizeableTextGallery = () => (
                 </SizableText>
               </YStack>
               <YStack gap="$2">
-                <SizableText size="$bodyMd" fontWeight="$semibold">
-                  With capAtMaxT:
-                </SizableText>
+                <SizableText size="$bodyMd">With capAtMaxT:</SizableText>
                 <NumberSizeableText
                   formatter="marketCap"
                   formatterOptions={{ currency: '$', capAtMaxT: true }}
@@ -388,7 +391,7 @@ const NumberSizeableTextGallery = () => (
               </YStack>
             </XStack>
             <YStack gap="$2">
-              <SizableText size="$bodyMd" fontWeight="$semibold">
+              <SizableText size="$bodyMd">
                 More examples with capAtMaxT:
               </SizableText>
               <XStack space="$4">
