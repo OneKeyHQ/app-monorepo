@@ -96,16 +96,18 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.dexmarket_token_change }),
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="priceChange"
-          color={text >= 0 ? '$textSuccess' : '$textCritical'}
-          formatterOptions={{ showPlusMinusSigns: true }}
-        >
-          {text}
-        </NumberSizeableText>
-      ),
+      render: (text: number) => {
+        return (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="priceChange"
+            color={text >= 0 ? '$textSuccess' : '$textCritical'}
+            formatterOptions={{ showPlusMinusSigns: true }}
+          >
+            {text}
+          </NumberSizeableText>
+        );
+      },
       renderSkeleton: () => <Skeleton width={60} height={16} />,
     },
     {
