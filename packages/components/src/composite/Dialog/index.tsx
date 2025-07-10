@@ -188,7 +188,7 @@ function DialogFrame({
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
-        {...contentContainerProps}
+        {...(contentContainerProps as any)}
       >
         {renderContent}
       </Content>

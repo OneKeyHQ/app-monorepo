@@ -3,7 +3,7 @@ import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 
 import { YStack } from 'tamagui';
 
-import { Stack } from '../../primitives';
+import { IYStackProps, Stack } from '../../primitives';
 import { ListView } from '../ListView/list';
 
 import {
@@ -32,7 +32,7 @@ function BaseSwiperFlatList<T>(
   }: ISwiperProps<T>,
   ref: ForwardedRef<ISwiperRef>,
 ) {
-  const sharedStyle = useSharedStyle(restProps as any);
+  const sharedStyle = useSharedStyle(restProps as any) as IYStackProps;
   const { containerWidth, onContainerLayout } = useSharedContainerWidth();
   const [scrollEnabled, setScrollEnabled] = useScrollEnabled(disableGesture);
   const handleRenderItem = useCallback(
