@@ -7538,7 +7538,7 @@ __metadata:
     "@types/bchaddrjs": "npm:^0.4.2"
     "@types/bs58": "npm:^4.0.3"
     "@types/jsrsasign": "npm:^10.5.11"
-    "@zondax/izari-filecoin": "npm:^1.2.0"
+    "@zondax/izari-filecoin": "npm:1.2.1"
     algosdk: "npm:^2.6.0"
     base32-decode: "npm:^1.0.0"
     bchaddrjs: "npm:^0.5.2"
@@ -16765,7 +16765,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@zondax/izari-filecoin@npm:^1.2.0":
+"@zondax/izari-filecoin@npm:1.2.1":
   version: 1.2.1
   resolution: "@zondax/izari-filecoin@npm:1.2.1"
   dependencies:

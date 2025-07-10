@@ -32,7 +32,7 @@
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "1.98.2",
     "@starcoin/starcoin": "^2.3.7",
-    "@zondax/izari-filecoin": "^1.2.0",
+    "@zondax/izari-filecoin": "1.2.1",
     "algosdk": "^2.6.0",
     "base32-decode": "^1.0.0",
     "bchaddrjs": "^0.5.2",
