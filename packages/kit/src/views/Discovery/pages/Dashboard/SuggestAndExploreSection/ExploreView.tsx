@@ -12,7 +12,6 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ImageSource } from '@onekeyhq/components/src/primitives/Image/ImageSource';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
