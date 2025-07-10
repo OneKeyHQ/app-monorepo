@@ -6,7 +6,7 @@
 import { useIntl } from 'react-intl';
 
 import type {
-  IImageV2Props,
+  IImageProps,
   IKeyOfIcons,
   ISizableTextProps,
   IXStackProps,
@@ -38,7 +38,7 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   networkId?: string;
-} & Omit<IImageV2Props, 'size'>;
+} & Omit<IImageProps, 'size'>;
 
 const sizeMap: Record<
   ITokenSize,
@@ -77,7 +77,7 @@ export function Token({
     fallbackIconName = fallbackIcon;
   }
   const tokenImage = (
-    <Image.V2
+    <Image
       size={tokenImageSize}
       borderRadius={isNFT ? '$2' : '$full'}
       bg="$gray5"

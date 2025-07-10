@@ -15,7 +15,7 @@ import CloseButton from './CloseButton';
 import { PaginationButton } from './PaginationButton';
 
 import type {
-  IImageSourceProps,
+  IImageProps,
   ISizableTextProps,
   IStackStyle,
   IXStackProps,
@@ -27,8 +27,8 @@ export interface IBannerData {
   imgUrl?: string;
   theme?: 'dark' | 'light' | string;
   bannerId?: string;
-  imgSource?: IImageSourceProps['source'];
-  imgResizeMode?: IImageSourceProps['resizeMode'];
+  imgSource?: IImageProps['source'];
+  imgResizeMode?: IImageProps['resizeMode'];
   $gtMd?: IBannerData;
   $gtLg?: IBannerData;
 }

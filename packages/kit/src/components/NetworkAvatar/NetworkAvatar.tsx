@@ -50,7 +50,7 @@ export const NetworkAvatarBase = ({
     );
   }
   return (
-    <Image.V2
+    <Image
       size={size}
       src={logoURI}
       borderRadius="$full"

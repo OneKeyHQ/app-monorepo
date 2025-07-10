@@ -10,7 +10,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import type { IImageSourceProps } from '@onekeyhq/components';
+import type { IImageProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { otherWalletFeeData } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
@@ -18,7 +18,7 @@ interface IProtocolFeeInfo {
   name: string;
   fee: number;
   color: string;
-  icon: IImageSourceProps['source'];
+  icon: IImageProps['source'];
   maxFee: number;
 }
 

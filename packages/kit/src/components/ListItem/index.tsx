@@ -82,16 +82,20 @@ const ListItemAvatarCornerImage = ({
     borderRadius="$full"
     zIndex="$1"
   >
-    <Image size="$4" circular {...(rest as any)}>
-      <Image.Source src={src} />
-      <Image.Fallback {...fallbackProps} />
-    </Image>
+    <Image
+      src={src}
+      size="$4"
+      borderRadius="$full"
+      fallback={<Image.Fallback {...fallbackProps} />}
+      {...(rest as any)}
+    />
   </Stack>
 );
 
 /* Avatar */
 export type IListItemAvatarProps = PropsWithChildren<
   {
+    circular?: boolean;
     account?: IDBIndexedAccount | IDBAccount;
     avatar?: ReactElement;
     loading?: ReactElement;

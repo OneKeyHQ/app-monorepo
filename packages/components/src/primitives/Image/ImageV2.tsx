@@ -1,55 +1,18 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Image as ExpoImage } from 'expo-image';
+import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { usePropsAndStyle } from 'tamagui';
 
 import { Skeleton } from '../Skeleton';
-import { type IStackStyle, Stack } from '../Stack';
+import { YStack } from '../Stack';
 
-import { useImage } from './useImage';
-
+import type { IImageV2Props } from './type';
 import type {
   ImageErrorEventData,
   ImageLoadEventData,
-  ImageProgressEventData,
-  ImageProps,
   ImageSource,
   ImageStyle,
 } from 'expo-image';
-import type { ImageSourcePropType } from 'react-native';
-
-export type IImageV2Props = Omit<
-  ImageProps,
-  | 'source'
-  | 'src'
-  | 'pointerEvents'
-  | 'onError'
-  | 'onLoad'
-  | 'resizeMode'
-  | 'tintColor'
-  | 'onProgress'
-> &
-  IStackStyle & {
-    size?: IStackStyle['height'];
-    source?: ImageSourcePropType | string | number;
-    skeleton?: React.ReactNode;
-    fallback?: React.ReactNode;
-    src?: string;
-    /** Retry times when image loading fails, default is 5 */
-    retryTimes?: number;
-    onError?: (event: ImageErrorEventData) => void;
-    onLoad?: (event: ImageLoadEventData) => void;
-    onLoadEnd?: () => void;
-    onLoadStart?: () => void;
-    onDisplay?: () => void;
-    resizeMode?: ImageProps['resizeMode'];
-    tintColor?: ImageProps['tintColor'];
-    onProgress?: (event: ImageProgressEventData) => void;
-  };
-
-const getRandomRetryTimes = () => {
-  return Math.floor(Math.random() * 2) * 1000;
-};
 
 export function ImageV2(props: IImageV2Props) {
   const sizeProps = useMemo(() => {
@@ -72,57 +35,80 @@ export function ImageV2(props: IImageV2Props) {
       resolveValues: 'auto',
     },
   ) as unknown as [IImageV2Props, ImageStyle];
-  const retryTimesLimit = useRef<number>(restProps.retryTimes || 5);
-  const retryTimes = useRef<number>(0);
-
-  const [hasError, setHasError] = useState(false);
-  const { image, reFetchImage } = useImage(restProps.source as ImageSource, {
-    onError(error, retry) {
-      console.error('Loading failed:', error.message);
-      if (retryTimes.current < retryTimesLimit.current) {
-        retryTimes.current += 1;
-        setTimeout(() => {
-          retry();
-        }, getRandomRetryTimes() + retryTimes.current * 1000);
-      } else {
-        setHasError(true);
-      }
-    },
-  });
 
   const {
-    onError,
+    source,
+    src,
     fallback,
     skeleton,
+    onError,
     onLoad,
     onLoadEnd,
-    onLoadStart,
     onDisplay,
+    onLoadStart,
+    ...imageProps
   } = restProps;
-  const handleError = useCallback(
-    (event: ImageErrorEventData) => {
-      reFetchImage();
-      onError?.(event);
+  const [hasError, setHasError] = useState(false);
+  const resolvedSource = resolveSource((source as ImageSource) || src);
+
+  const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLoad = useCallback(
+    (event: ImageLoadEventData) => {
+      setHasError(false);
+      onLoad?.(event);
+      if (!isLoading) {
+        skeletonTimerRef.current = setTimeout(() => {
+          setIsLoading(true);
+        }, 150);
+      }
     },
-    [onError, reFetchImage],
+    [isLoading, onLoad],
   );
 
-  if (!image) {
-    if (hasError) {
-      return fallback;
+  const handleLoadEnd = useCallback(() => {
+    if (skeletonTimerRef.current) {
+      clearTimeout(skeletonTimerRef.current);
+      setIsLoading(false);
     }
-    return skeleton || <Skeleton width={style.width} height={style.height} />;
+    onLoadEnd?.();
+  }, [onLoadEnd]);
+
+  const handleError = useCallback(
+    (event: ImageErrorEventData) => {
+      setHasError(true);
+      onError?.(event);
+    },
+    [onError],
+  );
+
+  if (hasError) {
+    return fallback;
   }
 
   return (
-    <ExpoImage
-      source={image}
-      style={style}
-      onError={handleError}
-      onLoad={onLoad}
-      onLoadEnd={onLoadEnd}
-      onDisplay={onDisplay}
-      onLoadStart={onLoadStart}
-    />
+    <YStack width={style.width} height={style.height}>
+      <ExpoImage
+        source={resolvedSource}
+        style={style}
+        onError={handleError}
+        onLoad={handleLoad}
+        onLoadEnd={handleLoadEnd}
+        onDisplay={onDisplay}
+        onLoadStart={onLoadStart}
+        {...(imageProps as any)}
+      />
+      {isLoading ? (
+        <Skeleton
+          position="absolute"
+          top={0}
+          left={0}
+          width={style.width}
+          height={style.height}
+        />
+      ) : null}
+    </YStack>
   );
 }
