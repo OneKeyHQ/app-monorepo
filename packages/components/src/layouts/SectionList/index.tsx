@@ -327,6 +327,11 @@ function SectionHeader({
   );
 }
 
-export const SectionList = withStaticProperties(forwardRef(BaseSectionList), {
-  SectionHeader,
-});
+export const SectionList = withStaticProperties(
+  forwardRef(BaseSectionList) as <T>(
+    props: ISectionListProps<T> & { ref?: ForwardedRef<ISectionListRef<T>> },
+  ) => ReactNode,
+  {
+    SectionHeader,
+  },
+);
