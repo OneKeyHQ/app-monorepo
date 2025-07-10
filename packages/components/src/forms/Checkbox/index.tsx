@@ -61,6 +61,7 @@ function RawCheckbox({
     >
       <YStack
         // Warning: Received `true` for a non-boolean attribute `unstyled`.
+        // @ts-ignore
         unstyled="true"
         p="$0"
         my="$0.5"
@@ -78,7 +79,7 @@ function RawCheckbox({
         }
         hitSlop={NATIVE_HIT_SLOP}
         maxHeight="$5"
-        {...checkboxProps}
+        {...(checkboxProps as IYStackProps)}
       >
         <Icon
           name={

@@ -112,7 +112,7 @@ const SIZE_MAPPINGS = {
 };
 
 export const useAutoScrollToTop = platformEnv.isNativeAndroid
-  ? (ref: RefObject<TextInput>, waitMs = 250) => {
+  ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
       useEffect(() => {
         setTimeout(() => {
           ref.current?.setSelection(0, 0);
@@ -134,7 +134,7 @@ const useReadOnlyStyle = (readOnly = false) =>
   );
 
 export const useAutoFocus = (
-  inputRef: RefObject<TextInput>,
+  inputRef: RefObject<TextInput | null>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
 ) => {
@@ -253,7 +253,7 @@ function BaseInput(
     size,
   });
   const themeName = useThemeName();
-  const inputRef: RefObject<TextInput> | null = useRef(null);
+  const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
 
@@ -375,7 +375,7 @@ function BaseInput(
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
-            {...leftAddOnProps}
+            {...(leftAddOnProps as any)}
             size={size}
             error={error}
             loading={leftAddOnProps.loading}
@@ -416,7 +416,7 @@ function BaseInput(
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
           value={value}
-          onFocus={handleFocus}
+          onFocus={handleFocus as any}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
           secureTextEntry={usedSecureTextEntry}
@@ -452,7 +452,7 @@ function BaseInput(
             orientation="horizontal"
             disabled={disabled}
             disablePassBorderRadius="start"
-            {...addOnsContainerProps}
+            {...(addOnsContainerProps as any)}
           >
             {addOns.map(
               (
@@ -492,7 +492,7 @@ function BaseInput(
                         error={error}
                         onPress={onPress}
                         tooltipProps={tooltipProps}
-                        {...addOnsItemProps}
+                        {...(addOnsItemProps as any)}
                       />
                     )}
                   </Group.Item>
@@ -514,7 +514,7 @@ function BaseInputUnControlled(
   inputProps: IInputProps,
   ref: ForwardedRef<IInputRef>,
 ) {
-  const inputRef: RefObject<IInputRef> = useRef(null);
+  const inputRef: RefObject<IInputRef | null> = useRef(null);
 
   const [internalValue, setInternalValue] = useState(
     inputProps?.defaultValue || '',

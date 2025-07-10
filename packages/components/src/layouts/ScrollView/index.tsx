@@ -53,7 +53,7 @@ const scrollViewRefContext = createContext<{
 const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
 export const useScrollView = () => useContext(scrollViewRefContext);
 
-export const useScrollToLocation = (inputRef: RefObject<TextInput>) => {
+export const useScrollToLocation = (inputRef: RefObject<TextInput | null>) => {
   const actions = useScrollView();
   const scrollToView = useCallback(() => {
     if (platformEnv.isNative) {
